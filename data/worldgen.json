@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "defaultSize": "medium",
+  "defaultPreset": "continents",
+  "sizes": [
+    {
+      "id": "small",
+      "name": "Malý",
+      "width": 128,
+      "height": 128
+    },
+    {
+      "id": "medium",
+      "name": "Střední",
+      "width": 256,
+      "height": 256
+    },
+    {
+      "id": "large",
+      "name": "Velký",
+      "width": 512,
+      "height": 512
+    }
+  ],
+  "presets": [
+    {
+      "id": "continents",
+      "name": "Kontinenty",
+      "seaLevel": 0.46,
+      "fallbackBiome": "grassland",
+      "elevationNoise": {
+        "frequency": 1.4,
+        "octaves": 5,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      },
+      "moistureNoise": {
+        "frequency": 2.0,
+        "octaves": 3,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      }
+    },
+    {
+      "id": "islands",
+      "name": "Ostrovy",
+      "seaLevel": 0.55,
+      "fallbackBiome": "grassland",
+      "elevationNoise": {
+        "frequency": 3.0,
+        "octaves": 5,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      },
+      "moistureNoise": {
+        "frequency": 2.5,
+        "octaves": 3,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      }
+    },
+    {
+      "id": "pangaea",
+      "name": "Pangea",
+      "seaLevel": 0.42,
+      "fallbackBiome": "grassland",
+      "elevationNoise": {
+        "frequency": 0.9,
+        "octaves": 5,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      },
+      "moistureNoise": {
+        "frequency": 1.8,
+        "octaves": 3,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      }
+    }
+  ]
+}

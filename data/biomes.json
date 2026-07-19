@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "biomes": [
+    {
+      "id": "ocean",
+      "name": "Oceán",
+      "mapColor": "#1C4E7A",
+      "colorVariation": 0.03,
+      "isWater": true,
+      "depthRange": [
+        0.07,
+        1.0
+      ]
+    },
+    {
+      "id": "shallow_water",
+      "name": "Mělčina",
+      "mapColor": "#3E85B8",
+      "colorVariation": 0.03,
+      "isWater": true,
+      "depthRange": [
+        0.0,
+        0.07
+      ]
+    },
+    {
+      "id": "beach",
+      "name": "Pláž",
+      "mapColor": "#E4D6A0",
+      "colorVariation": 0.04,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        0.03
+      ]
+    },
+    {
+      "id": "forest",
+      "name": "Les",
+      "mapColor": "#3E7A33",
+      "colorVariation": 0.07,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        0.28
+      ],
+      "moistureRange": [
+        0.56,
+        1.0
+      ]
+    },
+    {
+      "id": "grassland",
+      "name": "Louka",
+      "mapColor": "#6FA045",
+      "colorVariation": 0.05,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        0.28
+      ],
+      "moistureRange": [
+        0.39,
+        0.56
+      ]
+    },
+    {
+      "id": "steppe",
+      "name": "Suchá step",
+      "mapColor": "#C9C077",
+      "colorVariation": 0.05,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        0.28
+      ],
+      "moistureRange": [
+        0.0,
+        0.39
+      ]
+    },
+    {
+      "id": "mountains",
+      "name": "Hory",
+      "mapColor": "#8A8578",
+      "colorVariation": 0.06,
+      "isWater": false,
+      "elevationRange": [
+        0.28,
+        0.44
+      ]
+    },
+    {
+      "id": "snow_peaks",
+      "name": "Zasněžené vrcholky",
+      "mapColor": "#EDEFF2",
+      "colorVariation": 0.03,
+      "isWater": false,
+      "elevationRange": [
+        0.44,
+        1.0
+      ]
+    }
+  ]
+}
