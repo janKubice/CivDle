@@ -9,6 +9,7 @@ Herní jádro bez závislosti na MonoGame. Drží se pravidla „simulace nezná
 | `WorldGen/` | Deterministický generátor světa: seedovaný Perlinův šum + výběr biomů podle definic. |
 | `World/` | Datově orientovaná reprezentace mapy (plochá pole, žádné stromy objektů). |
 | `Sim/` | Simulace s pevným krokem (10 Hz): budovy jako struktury v plochém poli, výrobní systém, populace jako agregát, příkazy hráče (stavba). |
+| `Save/` | Binární verzovaný save (vlastní writer + gzip): remap definic přes stabilní ID, atomický zápis, poškozený soubor hru neshodí. |
 | `Config/` | Uživatelská nastavení (jazyk, grafika) + jejich ukládání. Na rozdíl od obsahu ne-fail-fast: rozbitý soubor = výchozí hodnoty. |
 
 Tok dat: `data/*.json` → `ContentLoader` → `GameContent` (registry) → `MapGenerator`

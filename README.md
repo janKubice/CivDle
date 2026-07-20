@@ -5,9 +5,10 @@ v design dokumentech v kořeni repozitáře (`tech-stack.md`, `mvp-roadmap.md`, 
 pravidla vývoje v `CLAUDE.md`.
 
 Aktuální stav: **generátor světa + základní herní smyčka** — menu, nová hra
-(seed, velikost, typ světa), mapa biomů, stavění budov (těžba, farma, domy),
-výroba a růst populace s jídlem jako soft pressure, pauza, nastavení
-(jazyk CZ/EN + grafika), vše data-driven.
+(seed, velikost, typ světa), mapa biomů, ruční těžba klikáním (les → dřevo,
+hory → kámen; popupy, částice, zvuk), stavění budov (těžba, farma, domy),
+výroba a růst populace s jídlem jako soft pressure, uložit/pokračovat,
+pauza, nastavení (jazyk CZ/EN + grafika), vše data-driven.
 
 ## Spuštění (vývoj)
 
@@ -42,12 +43,14 @@ dotnet test
 | Posun mapy | WASD / šipky / tažení pravým či prostředním tlačítkem |
 | Zoom | kolečko myši (k pozici kurzoru) |
 | Stavění | vybrat budovu dole → levé tlačítko postaví, pravý klik / Esc zruší |
+| Ruční těžba | levý klik na les (dřevo) nebo hory (kámen) |
 | Pauza / návrat | Esc |
 
 ## Herní smyčka (MVP)
 
-Dřevorubecký tábor (les) a kamenolom (hory) těží suroviny, farma (louka) živí
-populaci, domy zvedají kapacitu bydlení. Výroba jede podle obsazenosti
+Klikáním na les/hory hráč sbírá první suroviny; dřevorubecký tábor (les)
+a kamenolom (hory) pak těží samy, farma (louka) živí populaci, domy zvedají
+kapacitu bydlení. Výroba jede podle obsazenosti
 (populace vs. pracovní místa); došlé jídlo růst jen zastaví, nikdy nic neničí.
 Simulace tiká 10× za sekundu, render 60 FPS a do simulace nikdy nezapisuje.
 
@@ -67,7 +70,8 @@ se při startu fail-fast zvalidují a simulace na ně odkazuje přes indexy.
 
 ## Data-driven obsah
 
-- `data/biomes.json` — biomy: barva, variace jasu, rozsahy hloubky/výšky/vlhkosti.
+- `data/biomes.json` — biomy: barva, variace jasu, rozsahy hloubky/výšky/vlhkosti,
+  volitelný `clickYield` (co dá ruční klik).
 - `data/worldgen.json` — velikosti světa a terénní presety (hladina moře, šum;
   `frequency` = počet vln na 100 dlaždic).
 - `data/resources.json` — suroviny: barva ikony, počáteční zásoba.
@@ -78,5 +82,11 @@ se při startu fail-fast zvalidují a simulace na ně odkazuje přes indexy.
   (`biome.*`, `building.*`, …). Loader hlídá, že jazyky mají shodné klíče a nic nechybí.
 
 Stejný seed + stejná data = vždy stejná mapa (vlastní deterministický šum i hash).
-Uživatelská nastavení se ukládají do `%APPDATA%/CivDle/settings.json`
-(na Linuxu `~/.config/CivDle/settings.json`).
+
+## Ukládání
+
+Uložit hru jde z pauzy (Esc), pokračovat z hlavního menu. Save je binární,
+komprimovaný a verzovaný; definice odkazuje stabilními string ID, takže
+přeuspořádání datových souborů save nerozbije. Vše se ukládá do profilu
+uživatele: `%APPDATA%/CivDle/` (na Linuxu `~/.config/CivDle/`) —
+`settings.json` + `saves/save.civdle`.
