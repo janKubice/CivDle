@@ -39,6 +39,9 @@ public sealed class GameplayScreen : IScreen
     private readonly MapRenderer _mapRenderer;
     private readonly BuildingRenderer _buildingRenderer;
     private readonly RoadRenderer _roadRenderer;
+    private readonly DecorationRenderer _decorationRenderer;
+    private readonly LightsRenderer _lightsRenderer;
+    private readonly FaunaSystem _fauna;
     private readonly InputManager _input = new();
     private readonly FixedStepLoop _simLoop = new(Simulation.TicksPerSecond);
     private readonly ParticleSystem _particles = new();
@@ -52,6 +55,7 @@ public sealed class GameplayScreen : IScreen
     private Label _populationLabel = null!;
     private Label _seedLabel = null!;
     private Label _worldLabel = null!;
+    private Label _dayLabel = null!;
     private Label _cursorLabel = null!;
     private Label _statusLabel = null!;
 
@@ -72,6 +76,9 @@ public sealed class GameplayScreen : IScreen
         _mapRenderer = new MapRenderer(screens.GraphicsDevice, simulation.Map, screens.Content.Biomes, info.Seed);
         _buildingRenderer = new BuildingRenderer(screens.WhitePixel, screens.Content);
         _roadRenderer = new RoadRenderer(screens.WhitePixel, screens.Content);
+        _decorationRenderer = new DecorationRenderer(screens.WhitePixel, screens.Content, info.Seed);
+        _lightsRenderer = new LightsRenderer(screens.WhitePixel, screens.Content);
+        _fauna = new FaunaSystem(screens.Content);
         _popupFont = Stylesheet.Current.LabelStyle.Font;
         _camera.SetWorldBounds(_mapRenderer.WorldPixelWidth, _mapRenderer.WorldPixelHeight);
         var viewport = screens.GraphicsDevice.Viewport;
@@ -122,6 +129,7 @@ public sealed class GameplayScreen : IScreen
         EmitNewBuildingJuice();
         _particles.Update(dt);
         _floatingText.Update(dt);
+        _fauna.Update(dt, _camera, _simulation);
         RefreshHudTexts();
     }
 
@@ -129,9 +137,18 @@ public sealed class GameplayScreen : IScreen
     {
         var spriteBatch = _screens.SpriteBatch;
         _mapRenderer.Draw(spriteBatch, _camera);
+        _decorationRenderer.Draw(spriteBatch, _camera, _simulation.Map);
         _roadRenderer.Draw(spriteBatch, _camera, _simulation);
         _buildingRenderer.Draw(spriteBatch, _camera, _simulation);
+        _fauna.Draw(spriteBatch, _screens.WhitePixel, _camera);
         _particles.Draw(spriteBatch, _screens.WhitePixel, _camera);
+
+        // Den/noc: ztmavení scény a pak aditivní světla, ať září skrz tmu.
+        double timeOfDay = _simulation.TimeOfDay01;
+        DayNightCycle.DrawOverlay(
+            spriteBatch, _screens.WhitePixel, _screens.GraphicsDevice.Viewport,
+            _screens.Content.Gameplay.DayNight, timeOfDay);
+        _lightsRenderer.Draw(spriteBatch, _camera, _simulation, DayNightCycle.NightFactor(timeOfDay));
 
         if (_ghostVisible && _selectedBuilding >= 0)
         {
@@ -356,10 +373,12 @@ public sealed class GameplayScreen : IScreen
         // Pravý horní roh: informace o světě a dlaždici pod kurzorem.
         _seedLabel = new Label();
         _worldLabel = new Label();
+        _dayLabel = new Label();
         _cursorLabel = new Label();
         var worldInfoStack = new VerticalStackPanel { Spacing = 2 };
         worldInfoStack.Widgets.Add(_seedLabel);
         worldInfoStack.Widgets.Add(_worldLabel);
+        worldInfoStack.Widgets.Add(_dayLabel);
         worldInfoStack.Widgets.Add(_cursorLabel);
         var topRight = UiFactory.DarkPanel(worldInfoStack);
         topRight.HorizontalAlignment = HorizontalAlignment.Right;
@@ -442,6 +461,9 @@ public sealed class GameplayScreen : IScreen
         _seedLabel.Text = loc.Format("hud.seed", _info.Seed);
         _worldLabel.Text = loc.Format(
             "hud.world", loc[$"preset.{_info.PresetId}"], loc[$"worldsize.{_info.SizeId}"]);
+
+        double hours = _simulation.TimeOfDay01 * 24.0;
+        _dayLabel.Text = loc.Format("hud.day", _simulation.DayNumber, (int)hours, (int)((hours - (int)hours) * 60));
 
         UpdateCursorLabel();
         UpdateStatusLabel();

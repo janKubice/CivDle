@@ -6,8 +6,8 @@ příkazy hráče přes veřejné metody simulace (stavba budov).
 | Složka | Zodpovědnost |
 |---|---|
 | `Screens/` | Zásobník obrazovek: hlavní menu → nová hra / nastavení → hra (+ pauza jako overlay). Texty přes `Localization`; po změně jazyka se obrazovky přestaví (event). |
-| `Rendering/` | Kamera (pan/zoom, viditelné meze), vykreslení mapy, cest (spojité pěšiny) a budov + ghost náhled stavby; jmenovky osad ve screen-space. |
-| `Rendering/Effects/` | Juice: pooled částice a plovoucí popupy („+2") — čistě vizuální, simulace o nich neví. |
+| `Rendering/` | Kamera, vykreslení mapy, cest, budov a ghost náhledu; jmenovky osad; den/noc overlay + noční světla budov (aditivní zář a okénka); deterministické biomové dekorace s LOD. |
+| `Rendering/Effects/` | Juice a život: pooled částice, plovoucí popupy („+2") a ambientní fauna spawnovaná jen u kamery — čistě vizuální, simulace o nich neví. |
 | `Audio/` | Procedurální placeholder zvuky (sek, žuch) s náhodným pitchem; bez audio zařízení se tiše vypnou. |
 | `Input/` | Snímkový stav klávesnice/myši (stisknuto vs. drženo, delta kolečka, klik vs. tažení). |
 

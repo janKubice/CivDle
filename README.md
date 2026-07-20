@@ -10,8 +10,9 @@ hory → kámen; popupy, částice, zvuk), stavění budov, výrobní řetězec
 (dřevo → prkna) se sklady a viditelným stallem, růst populace s jídlem jako
 soft pressure, auto-stavba domů dle poptávky a auto-silnice — nové budovy
 se samy napojují cestami a shluky se poznají jako pojmenované osady
-(vesnice roste sama), uložit/pokračovat, pauza, nastavení (jazyk CZ/EN
-+ grafika), vše data-driven.
+(vesnice roste sama), živá mapa (den/noc s rozsvíceným městem, biomové
+dekorace, ambientní fauna vč. nočních světlušek), uložit/pokračovat,
+pauza, nastavení (jazyk CZ/EN + grafika), vše data-driven.
 
 ## Spuštění (vývoj)
 
@@ -60,8 +61,10 @@ napojí pěšinou na síť (cesty vedou jen po suché zemi) a shluk od tří bud
 dostane jméno osady, které zůstává, i když osada roste. Výroba jede podle obsazenosti
 (populace vs. pracovní místa); vyschlý vstup výrobu viditelně zastaví
 (červený roh budovy) a plný sklad ji zastropuje — sklad kapacitu zvedá.
-Došlé jídlo růst jen zastaví, nikdy nic neničí. Simulace tiká 10× za sekundu,
-render 60 FPS a do simulace nikdy nezapisuje.
+Došlé jídlo růst jen zastaví, nikdy nic neničí. Světem běží denní cyklus —
+v noci se budovy rozsvítí (okna + teplá zář), za soumraku zlátne obloha;
+u kamery se pasou srnky a v noci létají světlušky (LOD: z dálky mizí).
+Simulace tiká 10× za sekundu, render 60 FPS a do simulace nikdy nezapisuje.
 
 ## Struktura
 
@@ -87,8 +90,11 @@ se při startu fail-fast zvalidují a simulace na ně odkazuje přes indexy.
 - `data/buildings.json` — budovy: půdorys, cena, recept (vstupy → výstupy za N tiků),
   pracovní místa, kapacita bydlení, povolené biomy, bonus skladu, `autoBuild`.
 - `data/gameplay.json` — balanc smyčky: startovní populace, růst, spotřeba jídla,
-  parametry auto-stavby, auto-silnic (barva, dosah) a detekce osad.
+  parametry auto-stavby, auto-silnic, detekce osad a denního cyklu
+  (délka dne, barvy noci/soumraku).
 - `data/settlement-names.json` — jména osad (vlastní jména se nepřekládají).
+- `data/decorations.json` — biomové dekorace (barvy, hustota, velikosti) — anti-repetice.
+- `data/fauna.json` — ambientní fauna (biomy, denní doba, rychlost, `glow` u světlušek).
 - `data/lang/*.json` — jazyky (cs, en): všechny texty hry včetně jmen obsahu
   (`biome.*`, `building.*`, …). Loader hlídá, že jazyky mají shodné klíče a nic nechybí.
 
