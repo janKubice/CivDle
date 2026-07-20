@@ -53,4 +53,18 @@ public sealed class InputManager
     public bool IsLeftDown => _currentMouse.LeftButton == ButtonState.Pressed;
 
     public bool IsMiddleDown => _currentMouse.MiddleButton == ButtonState.Pressed;
+
+    public bool IsRightDown => _currentMouse.RightButton == ButtonState.Pressed;
+
+    /// <summary>Levé tlačítko bylo v tomto snímku nově stisknuto.</summary>
+    public bool WasLeftPressed =>
+        _currentMouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released;
+
+    /// <summary>Pravé tlačítko bylo v tomto snímku nově stisknuto.</summary>
+    public bool WasRightPressed =>
+        _currentMouse.RightButton == ButtonState.Pressed && _previousMouse.RightButton == ButtonState.Released;
+
+    /// <summary>Pravé tlačítko bylo v tomto snímku puštěno.</summary>
+    public bool WasRightReleased =>
+        _currentMouse.RightButton == ButtonState.Released && _previousMouse.RightButton == ButtonState.Pressed;
 }

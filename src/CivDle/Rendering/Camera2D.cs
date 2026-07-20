@@ -62,6 +62,14 @@ public sealed class Camera2D
         return (screen - center) / Zoom + Position;
     }
 
+    /// <summary>Viditelný výřez světa (pro culling — kreslí se jen, co je vidět).</summary>
+    public (Vector2 Min, Vector2 Max) VisibleWorldBounds()
+    {
+        var min = ScreenToWorld(Vector2.Zero);
+        var max = ScreenToWorld(new Vector2(_viewportWidth, _viewportHeight));
+        return (min, max);
+    }
+
     /// <summary>Pan tažením myši: svět se drží pod kurzorem, proto se pozice posouvá proti deltě.</summary>
     public void Pan(Vector2 screenDelta)
     {

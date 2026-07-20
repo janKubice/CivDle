@@ -13,10 +13,11 @@ namespace CivDle.Screens;
 public sealed class NewGameScreen : IScreen
 {
     private readonly ScreenManager _screens;
-    private readonly Desktop _desktop;
-    private readonly TextBox _seedBox;
-    private readonly Label _sizeLabel;
-    private readonly Label _presetLabel;
+    private Desktop _desktop = null!;
+    private TextBox _seedBox = null!;
+    private CycleSelector _size = null!;
+    private CycleSelector _preset = null!;
+    private string _seedText;
     private int _sizeIndex;
     private int _presetIndex;
 
@@ -26,56 +27,10 @@ public sealed class NewGameScreen : IScreen
         var worldGen = screens.Content.WorldGen;
         _sizeIndex = worldGen.DefaultSizeIndex;
         _presetIndex = worldGen.DefaultPresetIndex;
+        _seedText = SeedUtil.NewRandom().ToString();
 
-        _seedBox = new TextBox
-        {
-            Text = SeedUtil.NewRandom().ToString(),
-            Width = 220,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        _sizeLabel = new Label
-        {
-            Width = 220,
-            TextAlign = FontStashSharp.RichText.TextHorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        _presetLabel = new Label
-        {
-            Width = 220,
-            TextAlign = FontStashSharp.RichText.TextHorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        RefreshLabels();
-
-        var layout = new VerticalStackPanel
-        {
-            Spacing = 14,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-
-        layout.Widgets.Add(new Label
-        {
-            Text = "Nová hra",
-            HorizontalAlignment = HorizontalAlignment.Center,
-        });
-        layout.Widgets.Add(new Label { Text = " " });
-        layout.Widgets.Add(Row("Seed:",
-            _seedBox,
-            UiFactory.SmallButton("Náhodný", () => _seedBox.Text = SeedUtil.NewRandom().ToString())));
-        layout.Widgets.Add(Row("Velikost světa:",
-            UiFactory.SmallButton("<", () => CycleSize(-1)),
-            _sizeLabel,
-            UiFactory.SmallButton(">", () => CycleSize(+1))));
-        layout.Widgets.Add(Row("Typ světa:",
-            UiFactory.SmallButton("<", () => CyclePreset(-1)),
-            _presetLabel,
-            UiFactory.SmallButton(">", () => CyclePreset(+1))));
-        layout.Widgets.Add(new Label { Text = " " });
-        layout.Widgets.Add(UiFactory.MenuButton("Vytvořit svět", StartGame));
-        layout.Widgets.Add(UiFactory.MenuButton("Zpět", _screens.Pop));
-
-        _desktop = new Desktop { Root = layout };
+        BuildUi();
+        _screens.Loc.LanguageChanged += BuildUi;
     }
 
     public bool IsOverlay => false;
@@ -88,49 +43,57 @@ public sealed class NewGameScreen : IScreen
 
     public void Dispose()
     {
+        _screens.Loc.LanguageChanged -= BuildUi;
     }
 
-    private static HorizontalStackPanel Row(string labelText, params Widget[] widgets)
+    private void BuildUi()
     {
-        var row = new HorizontalStackPanel
+        var loc = _screens.Loc;
+        var worldGen = _screens.Content.WorldGen;
+
+        _seedBox = new TextBox
         {
-            Spacing = 8,
-            HorizontalAlignment = HorizontalAlignment.Center,
-        };
-        row.Widgets.Add(new Label
-        {
-            Text = labelText,
-            Width = 150,
+            Text = _seedText,
+            Width = 220,
             VerticalAlignment = VerticalAlignment.Center,
-        });
-        foreach (var widget in widgets)
+        };
+        _seedBox.TextChanged += (_, _) => _seedText = _seedBox.Text ?? string.Empty;
+
+        _size = new CycleSelector(
+            worldGen.Sizes.Count,
+            _sizeIndex,
+            i => $"{loc[worldGen.Sizes[i].NameKey]} ({worldGen.Sizes[i].Width}×{worldGen.Sizes[i].Height})");
+        _size.SelectionChanged += i => _sizeIndex = i;
+
+        _preset = new CycleSelector(
+            worldGen.Presets.Count,
+            _presetIndex,
+            i => loc[worldGen.Presets[i].NameKey]);
+        _preset.SelectionChanged += i => _presetIndex = i;
+
+        var layout = new VerticalStackPanel
         {
-            row.Widgets.Add(widget);
-        }
+            Spacing = 14,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
 
-        return row;
-    }
+        layout.Widgets.Add(new Label
+        {
+            Text = loc["newgame.title"],
+            HorizontalAlignment = HorizontalAlignment.Center,
+        });
+        layout.Widgets.Add(new Label { Text = " " });
+        layout.Widgets.Add(UiFactory.Row(loc["newgame.seed"],
+            _seedBox,
+            UiFactory.SmallButton(loc["newgame.seedRandom"], () => _seedBox.Text = SeedUtil.NewRandom().ToString())));
+        layout.Widgets.Add(UiFactory.Row(loc["newgame.worldSize"], _size.Widget));
+        layout.Widgets.Add(UiFactory.Row(loc["newgame.worldType"], _preset.Widget));
+        layout.Widgets.Add(new Label { Text = " " });
+        layout.Widgets.Add(UiFactory.MenuButton(loc["newgame.create"], StartGame));
+        layout.Widgets.Add(UiFactory.MenuButton(loc["newgame.back"], _screens.Pop));
 
-    private void CycleSize(int delta)
-    {
-        int count = _screens.Content.WorldGen.Sizes.Count;
-        _sizeIndex = (_sizeIndex + delta + count) % count;
-        RefreshLabels();
-    }
-
-    private void CyclePreset(int delta)
-    {
-        int count = _screens.Content.WorldGen.Presets.Count;
-        _presetIndex = (_presetIndex + delta + count) % count;
-        RefreshLabels();
-    }
-
-    private void RefreshLabels()
-    {
-        var size = _screens.Content.WorldGen.Sizes[_sizeIndex];
-        var preset = _screens.Content.WorldGen.Presets[_presetIndex];
-        _sizeLabel.Text = $"{size.Name} ({size.Width}×{size.Height})";
-        _presetLabel.Text = preset.Name;
+        _desktop = new Desktop { Root = layout };
     }
 
     private void StartGame()
@@ -138,12 +101,12 @@ public sealed class NewGameScreen : IScreen
         var content = _screens.Content;
         var size = content.WorldGen.Sizes[_sizeIndex];
         var preset = content.WorldGen.Presets[_presetIndex];
-        long seed = SeedUtil.Parse(_seedBox.Text);
+        long seed = SeedUtil.Parse(_seedText);
 
         // Generování je pro velikosti z dat otázka desítek ms — běží synchronně.
         var map = new MapGenerator().Generate(content, new WorldGenRequest(seed, size.Width, size.Height, preset));
-        var simulation = new Simulation(map);
-        var info = new WorldInfo(seed, size.Name, preset.Name);
+        var simulation = new Simulation(content, map);
+        var info = new WorldInfo(seed, size.Id, preset.Id);
 
         _screens.ReplaceAll(new GameplayScreen(_screens, simulation, info));
     }

@@ -1,3 +1,4 @@
+using CivDle.Core.Config;
 using CivDle.Core.Content;
 using CivDle.Screens;
 using Microsoft.Xna.Framework;
@@ -7,24 +8,26 @@ using Myra;
 namespace CivDle;
 
 /// <summary>
-/// Kompoziční kořen hry: okno, herní smyčka MonoGame a start aplikace.
-/// Při startu načte herní obsah (fail-fast) a předá řízení zásobníku obrazovek —
-/// sám žádnou herní logiku nedrží.
+/// Kompoziční kořen hry: okno, herní smyčka MonoGame, uživatelská nastavení
+/// (grafika se aplikuje na GraphicsDeviceManager) a start aplikace. Při startu
+/// načte herní obsah (fail-fast) a předá řízení zásobníku obrazovek — sám
+/// žádnou herní logiku nedrží.
 /// </summary>
 public sealed class CivDleGame : Game
 {
     private static readonly Color BackgroundColor = new(24, 26, 32);
 
     private readonly GraphicsDeviceManager _graphics;
+    private readonly SettingsStore _settingsStore;
     private ScreenManager? _screens;
 
     public CivDleGame()
     {
-        _graphics = new GraphicsDeviceManager(this)
-        {
-            PreferredBackBufferWidth = 1280,
-            PreferredBackBufferHeight = 720,
-        };
+        _settingsStore = new SettingsStore(GetSettingsPath());
+        Settings = _settingsStore.Load();
+
+        _graphics = new GraphicsDeviceManager(this);
+        ApplyGraphicsToManager(Settings);
         Window.Title = "CivDle";
         Window.AllowUserResizing = true;
         IsMouseVisible = true;
@@ -33,16 +36,40 @@ public sealed class CivDleGame : Game
     /// <summary>Sdílený SpriteBatch pro všechny obrazovky.</summary>
     public SpriteBatch SpriteBatch { get; private set; } = null!;
 
+    /// <summary>Sdílená 1×1 bílá textura na kreslení obdélníků (budovy, overlay…).</summary>
+    public Texture2D WhitePixel { get; private set; } = null!;
+
+    /// <summary>Aktuální uživatelská nastavení.</summary>
+    public GameSettings Settings { get; private set; }
+
+    /// <summary>Uloží nová nastavení a hned aplikuje grafiku (jazyk řeší Localization).</summary>
+    public void ApplySettings(GameSettings settings)
+    {
+        Settings = settings;
+        _settingsStore.Save(settings);
+        ApplyGraphicsToManager(settings);
+        _graphics.ApplyChanges();
+    }
+
     protected override void LoadContent()
     {
         SpriteBatch = new SpriteBatch(GraphicsDevice);
+        WhitePixel = new Texture2D(GraphicsDevice, 1, 1);
+        WhitePixel.SetData(new[] { Color.White });
         MyraEnvironment.Game = this;
 
         // Data leží vedle binárky — funguje pro `dotnet run` i pro publish jedním exe.
         var content = new ContentLoader().LoadFrom(Path.Combine(AppContext.BaseDirectory, "data"));
+        var localization = new Localization(content.Languages, Settings.Language);
 
-        _screens = new ScreenManager(this, content);
+        _screens = new ScreenManager(this, content, localization);
         _screens.ReplaceAll(new MainMenuScreen(_screens));
+    }
+
+    protected override void UnloadContent()
+    {
+        WhitePixel.Dispose();
+        base.UnloadContent();
     }
 
     protected override void Update(GameTime gameTime)
@@ -57,4 +84,20 @@ public sealed class CivDleGame : Game
         _screens!.Draw(gameTime);
         base.Draw(gameTime);
     }
+
+    private void ApplyGraphicsToManager(GameSettings settings)
+    {
+        _graphics.PreferredBackBufferWidth = settings.ResolutionWidth;
+        _graphics.PreferredBackBufferHeight = settings.ResolutionHeight;
+        _graphics.SynchronizeWithVerticalRetrace = settings.VSync;
+        // Borderless = fullscreen bez přepnutí režimu monitoru (rychlé Alt-Tab).
+        _graphics.HardwareModeSwitch = settings.WindowMode == WindowMode.Fullscreen;
+        _graphics.IsFullScreen = settings.WindowMode != WindowMode.Windowed;
+    }
+
+    /// <summary>Nastavení patří do profilu uživatele — vedle exe nemusí být právo zápisu.</summary>
+    private static string GetSettingsPath() => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "CivDle",
+        "settings.json");
 }

@@ -54,6 +54,28 @@ internal static class UiFactory
         return panel;
     }
 
+    /// <summary>Řádek formuláře: popisek s pevnou šířkou + widgety (selector, textbox…).</summary>
+    public static HorizontalStackPanel Row(string labelText, params Widget[] widgets)
+    {
+        var row = new HorizontalStackPanel
+        {
+            Spacing = 8,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        row.Widgets.Add(new Label
+        {
+            Text = labelText,
+            Width = 160,
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        foreach (var widget in widgets)
+        {
+            row.Widgets.Add(widget);
+        }
+
+        return row;
+    }
+
     private static Label CenteredLabel(string text) => new()
     {
         Text = text,
