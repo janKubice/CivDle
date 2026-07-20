@@ -1,12 +1,16 @@
+using CivDle.Audio;
 using CivDle.Core.Content;
 using CivDle.Core.Sim;
 using CivDle.Input;
 using CivDle.Rendering;
+using CivDle.Rendering.Effects;
+using FontStashSharp;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Myra.Graphics2D;
 using Myra.Graphics2D.Brushes;
 using Myra.Graphics2D.UI;
+using Myra.Graphics2D.UI.Styles;
 
 namespace CivDle.Screens;
 
@@ -36,6 +40,11 @@ public sealed class GameplayScreen : IScreen
     private readonly BuildingRenderer _buildingRenderer;
     private readonly InputManager _input = new();
     private readonly FixedStepLoop _simLoop = new(Simulation.TicksPerSecond);
+    private readonly ParticleSystem _particles = new();
+    private readonly FloatingTextRenderer _floatingText = new();
+    private readonly GameSounds _sounds = new();
+    private readonly SpriteFontBase _popupFont;
+    private readonly Dictionary<int, string> _popupTextCache = new();
 
     private Desktop _desktop = null!;
     private Label[] _resourceLabels = Array.Empty<Label>();
@@ -60,6 +69,7 @@ public sealed class GameplayScreen : IScreen
 
         _mapRenderer = new MapRenderer(screens.GraphicsDevice, simulation.Map, screens.Content.Biomes, info.Seed);
         _buildingRenderer = new BuildingRenderer(screens.WhitePixel, screens.Content);
+        _popupFont = Stylesheet.Current.LabelStyle.Font;
         _camera.SetWorldBounds(_mapRenderer.WorldPixelWidth, _mapRenderer.WorldPixelHeight);
         var viewport = screens.GraphicsDevice.Viewport;
         _camera.SetViewport(viewport.Width, viewport.Height);
@@ -89,7 +99,7 @@ public sealed class GameplayScreen : IScreen
             }
             else
             {
-                _screens.Push(new PauseScreen(_screens));
+                _screens.Push(new PauseScreen(_screens, _simulation, _info));
                 return;
             }
         }
@@ -97,6 +107,7 @@ public sealed class GameplayScreen : IScreen
         bool mouseOverUi = _desktop.IsMouseOverGUI;
         UpdateCamera(dt, mouseOverUi);
         UpdatePlacement(mouseOverUi);
+        UpdateHarvest(mouseOverUi);
 
         int ticks = _simLoop.Advance(gameTime.ElapsedGameTime.TotalSeconds);
         for (int i = 0; i < ticks; i++)
@@ -104,6 +115,8 @@ public sealed class GameplayScreen : IScreen
             _simulation.Tick();
         }
 
+        _particles.Update(dt);
+        _floatingText.Update(dt);
         RefreshHudTexts();
     }
 
@@ -112,6 +125,7 @@ public sealed class GameplayScreen : IScreen
         var spriteBatch = _screens.SpriteBatch;
         _mapRenderer.Draw(spriteBatch, _camera);
         _buildingRenderer.Draw(spriteBatch, _camera, _simulation);
+        _particles.Draw(spriteBatch, _screens.WhitePixel, _camera);
 
         if (_ghostVisible && _selectedBuilding >= 0)
         {
@@ -121,12 +135,16 @@ public sealed class GameplayScreen : IScreen
         }
 
         _desktop.Render();
+
+        // Popupy až nad UI — hráč je nesmí přehlédnout.
+        _floatingText.Draw(spriteBatch, _camera, _popupFont);
     }
 
     public void Dispose()
     {
         _screens.Loc.LanguageChanged -= BuildUi;
         _mapRenderer.Dispose();
+        _sounds.Dispose();
     }
 
     // ----- vstup -----
@@ -193,11 +211,58 @@ public sealed class GameplayScreen : IScreen
         _ghostResult = _simulation.CanPlace(_selectedBuilding, _ghostX, _ghostY);
         _ghostVisible = true;
 
-        if (_input.WasLeftPressed && _ghostResult == PlacementResult.Ok)
+        if (_input.WasLeftPressed && _ghostResult == PlacementResult.Ok
+            && _simulation.TryPlaceBuilding(_selectedBuilding, _ghostX, _ghostY) == PlacementResult.Ok)
         {
-            _simulation.TryPlaceBuilding(_selectedBuilding, _ghostX, _ghostY);
             // Výběr zůstává — idle hráč typicky staví víc budov za sebou.
+            var center = new Vector2(
+                (_ghostX + def.FootprintWidth * 0.5f) * MapRenderer.TileSize,
+                (_ghostY + def.FootprintHeight * 0.5f) * MapRenderer.TileSize);
+            _particles.SpawnBurst(center, new Color(205, 195, 175), 14, 50f, 170f); // prach dopadu
+            _particles.SpawnBurst(center, def.MapColor.ToXna(), 6, 40f, 120f);
+            _sounds.PlayPlace();
         }
+    }
+
+    /// <summary>Ruční těžba: klik na dlaždici s výnosem (les, hory) — s popupem, třískami a zvukem.</summary>
+    private void UpdateHarvest(bool mouseOverUi)
+    {
+        if (_selectedBuilding >= 0 || mouseOverUi || !_input.WasLeftPressed)
+        {
+            return;
+        }
+
+        var world = _camera.ScreenToWorld(_input.MousePosition.ToVector2());
+        int tileX = (int)MathF.Floor(world.X / MapRenderer.TileSize);
+        int tileY = (int)MathF.Floor(world.Y / MapRenderer.TileSize);
+
+        if (!_simulation.TryHarvest(tileX, tileY, out int resourceIndex, out int amount))
+        {
+            return;
+        }
+
+        var content = _screens.Content;
+        var tileCenter = new Vector2((tileX + 0.5f) * MapRenderer.TileSize, (tileY + 0.5f) * MapRenderer.TileSize);
+        var resourceColor = content.Resources[resourceIndex].MapColor.ToXna();
+        var biomeColor = content.Biomes[_simulation.Map.BiomeAt(tileX, tileY)].MapColor.ToXna();
+
+        _floatingText.Add(tileCenter, PopupText(resourceIndex, amount), resourceColor);
+        _particles.SpawnBurst(tileCenter, biomeColor, 10, 45f, 150f); // „třísky" v barvě biomu
+        _particles.SpawnBurst(tileCenter, resourceColor, 5, 35f, 110f);
+        _sounds.PlayChop();
+    }
+
+    /// <summary>Texty popupů se cachují — žádné skládání stringů při každém kliku.</summary>
+    private string PopupText(int resourceIndex, int amount)
+    {
+        int key = resourceIndex * 100_000 + amount;
+        if (!_popupTextCache.TryGetValue(key, out var text))
+        {
+            text = $"+{amount}";
+            _popupTextCache[key] = text;
+        }
+
+        return text;
     }
 
     // ----- HUD -----

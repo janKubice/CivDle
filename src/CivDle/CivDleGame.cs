@@ -1,5 +1,6 @@
 using CivDle.Core.Config;
 using CivDle.Core.Content;
+using CivDle.Core.Save;
 using CivDle.Screens;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -61,8 +62,9 @@ public sealed class CivDleGame : Game
         // Data leží vedle binárky — funguje pro `dotnet run` i pro publish jedním exe.
         var content = new ContentLoader().LoadFrom(Path.Combine(AppContext.BaseDirectory, "data"));
         var localization = new Localization(content.Languages, Settings.Language);
+        var saves = new SaveStore(Path.Combine(GetProfileDirectory(), "saves", "save.civdle"));
 
-        _screens = new ScreenManager(this, content, localization);
+        _screens = new ScreenManager(this, content, localization, saves);
         _screens.ReplaceAll(new MainMenuScreen(_screens));
     }
 
@@ -96,8 +98,10 @@ public sealed class CivDleGame : Game
     }
 
     /// <summary>Nastavení patří do profilu uživatele — vedle exe nemusí být právo zápisu.</summary>
-    private static string GetSettingsPath() => Path.Combine(
+    private static string GetSettingsPath() => Path.Combine(GetProfileDirectory(), "settings.json");
+
+    /// <summary>Složka profilu hry (nastavení, savy).</summary>
+    private static string GetProfileDirectory() => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "CivDle",
-        "settings.json");
+        "CivDle");
 }

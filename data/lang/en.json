@@ -7,7 +7,6 @@
     "menu.newGame": "New Game",
     "menu.settings": "Settings",
     "menu.quit": "Quit",
-
     "newgame.title": "New Game",
     "newgame.seed": "Seed:",
     "newgame.seedRandom": "Random",
@@ -15,7 +14,6 @@
     "newgame.worldType": "World type:",
     "newgame.create": "Create World",
     "newgame.back": "Back",
-
     "settings.title": "Settings",
     "settings.language": "Language:",
     "settings.resolution": "Resolution:",
@@ -28,27 +26,23 @@
     "settings.back": "Back",
     "common.on": "On",
     "common.off": "Off",
-
     "pause.title": "Paused",
     "pause.resume": "Resume",
     "pause.settings": "Settings",
     "pause.mainMenu": "Main Menu",
     "pause.quit": "Quit Game",
-
     "hud.seed": "Seed: {0}",
     "hud.world": "World: {0} · {1}",
     "hud.cursor": "Tile {0}, {1} · {2}",
     "hud.population": "Population: {0} / {1}",
     "hud.workers": "Worker slots: {0}",
     "hud.help": "Pan: WASD / arrows / right mouse button · Zoom: wheel · Esc: pause",
-
     "build.title": "Construction",
     "build.placing": "Building: {0} — left click to place, right click to cancel",
     "build.error.outOfBounds": "Outside the map",
     "build.error.occupied": "Something is already here",
     "build.error.wrongBiome": "Wrong terrain for this building",
     "build.error.resources": "Not enough resources",
-
     "biome.ocean": "Ocean",
     "biome.shallow_water": "Shallows",
     "biome.beach": "Beach",
@@ -57,22 +51,23 @@
     "biome.steppe": "Dry Steppe",
     "biome.mountains": "Mountains",
     "biome.snow_peaks": "Snowy Peaks",
-
     "resource.wood": "Wood",
     "resource.stone": "Stone",
     "resource.food": "Food",
-
     "building.house": "House",
     "building.lumber_camp": "Lumber Camp",
     "building.quarry": "Quarry",
     "building.farm": "Farm",
-
     "worldsize.small": "Small",
     "worldsize.medium": "Medium",
     "worldsize.large": "Large",
-
     "preset.continents": "Continents",
     "preset.islands": "Islands",
-    "preset.pangaea": "Pangaea"
+    "preset.pangaea": "Pangaea",
+    "menu.continue": "Continue",
+    "menu.loadFailed": "Failed to load the saved game.",
+    "pause.save": "Save Game",
+    "pause.saved": "Game saved.",
+    "pause.saveFailed": "Saving failed."
   }
 }

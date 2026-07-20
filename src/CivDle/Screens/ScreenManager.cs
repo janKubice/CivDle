@@ -1,5 +1,6 @@
 using CivDle.Core.Config;
 using CivDle.Core.Content;
+using CivDle.Core.Save;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -15,12 +16,16 @@ public sealed class ScreenManager
 {
     private readonly List<IScreen> _screens = new();
 
-    public ScreenManager(CivDleGame game, GameContent content, Localization localization)
+    public ScreenManager(CivDleGame game, GameContent content, Localization localization, SaveStore saves)
     {
         Game = game;
         Content = content;
         Loc = localization;
+        Saves = saves;
     }
+
+    /// <summary>Úložiště uložené hry (jeden slot, MVP).</summary>
+    public SaveStore Saves { get; }
 
     /// <summary>Herní aplikace (kvůli ukončení a přístupu ke grafice).</summary>
     public CivDleGame Game { get; }

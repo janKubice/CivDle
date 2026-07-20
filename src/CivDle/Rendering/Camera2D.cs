@@ -62,6 +62,13 @@ public sealed class Camera2D
         return (screen - center) / Zoom + Position;
     }
 
+    /// <summary>Převod world souřadnic na bod obrazovky (screen-space popupy).</summary>
+    public Vector2 WorldToScreen(Vector2 world)
+    {
+        var center = new Vector2(_viewportWidth * 0.5f, _viewportHeight * 0.5f);
+        return (world - Position) * Zoom + center;
+    }
+
     /// <summary>Viditelný výřez světa (pro culling — kreslí se jen, co je vidět).</summary>
     public (Vector2 Min, Vector2 Max) VisibleWorldBounds()
     {

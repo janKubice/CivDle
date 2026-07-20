@@ -7,6 +7,8 @@ příkazy hráče přes veřejné metody simulace (stavba budov).
 |---|---|
 | `Screens/` | Zásobník obrazovek: hlavní menu → nová hra / nastavení → hra (+ pauza jako overlay). Texty přes `Localization`; po změně jazyka se obrazovky přestaví (event). |
 | `Rendering/` | Kamera (pan/zoom, viditelné meze), vykreslení mapy a budov + ghost náhled stavby. |
+| `Rendering/Effects/` | Juice: pooled částice a plovoucí popupy („+2") — čistě vizuální, simulace o nich neví. |
+| `Audio/` | Procedurální placeholder zvuky (sek, žuch) s náhodným pitchem; bez audio zařízení se tiše vypnou. |
 | `Input/` | Snímkový stav klávesnice/myši (stisknuto vs. drženo, delta kolečka, klik vs. tažení). |
 
 MVP vykreslení mapy: 1 texel = 1 dlaždice (barvy biomů z JSON), jeden draw call se
