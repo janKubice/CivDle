@@ -8,8 +8,10 @@ Aktuální stav: **generátor světa + základní herní smyčka** — menu, nov
 (seed, velikost, typ světa), mapa biomů, ruční těžba klikáním (les → dřevo,
 hory → kámen; popupy, částice, zvuk), stavění budov, výrobní řetězec
 (dřevo → prkna) se sklady a viditelným stallem, růst populace s jídlem jako
-soft pressure a auto-stavba domů dle poptávky (vesnice roste sama),
-uložit/pokračovat, pauza, nastavení (jazyk CZ/EN + grafika), vše data-driven.
+soft pressure, auto-stavba domů dle poptávky a auto-silnice — nové budovy
+se samy napojují cestami a shluky se poznají jako pojmenované osady
+(vesnice roste sama), uložit/pokračovat, pauza, nastavení (jazyk CZ/EN
++ grafika), vše data-driven.
 
 ## Spuštění (vývoj)
 
@@ -53,7 +55,9 @@ Klikáním na les/hory hráč sbírá první suroviny; dřevorubecký tábor (le
 a kamenolom (hory) pak těží samy, pila řeže dřevo na prkna, farma (louka)
 živí populaci a domy zvedají kapacitu bydlení. Když se populace blíží
 kapacitě, vesnice si sama staví domy poblíž zástavby — za normální cenu
-(dřevo + prkna), takže růst táhne celý řetězec. Výroba jede podle obsazenosti
+(dřevo + prkna), takže růst táhne celý řetězec. Každá nová budova se sama
+napojí pěšinou na síť (cesty vedou jen po suché zemi) a shluk od tří budov
+dostane jméno osady, které zůstává, i když osada roste. Výroba jede podle obsazenosti
 (populace vs. pracovní místa); vyschlý vstup výrobu viditelně zastaví
 (červený roh budovy) a plný sklad ji zastropuje — sklad kapacitu zvedá.
 Došlé jídlo růst jen zastaví, nikdy nic neničí. Simulace tiká 10× za sekundu,
@@ -83,7 +87,8 @@ se při startu fail-fast zvalidují a simulace na ně odkazuje přes indexy.
 - `data/buildings.json` — budovy: půdorys, cena, recept (vstupy → výstupy za N tiků),
   pracovní místa, kapacita bydlení, povolené biomy, bonus skladu, `autoBuild`.
 - `data/gameplay.json` — balanc smyčky: startovní populace, růst, spotřeba jídla,
-  parametry auto-stavby (interval, rádius, headroom).
+  parametry auto-stavby, auto-silnic (barva, dosah) a detekce osad.
+- `data/settlement-names.json` — jména osad (vlastní jména se nepřekládají).
 - `data/lang/*.json` — jazyky (cs, en): všechny texty hry včetně jmen obsahu
   (`biome.*`, `building.*`, …). Loader hlídá, že jazyky mají shodné klíče a nic nechybí.
 
@@ -92,7 +97,8 @@ Stejný seed + stejná data = vždy stejná mapa (vlastní deterministický šum
 ## Ukládání
 
 Uložit hru jde z pauzy (Esc), pokračovat z hlavního menu. Save je binární,
-komprimovaný a verzovaný; definice odkazuje stabilními string ID, takže
-přeuspořádání datových souborů save nerozbije. Vše se ukládá do profilu
+komprimovaný a verzovaný (aktuálně v2 — přibyla síť cest; starší save
+odmítne se srozumitelnou hláškou); definice odkazuje stabilními string ID,
+takže přeuspořádání datových souborů save nerozbije. Vše se ukládá do profilu
 uživatele: `%APPDATA%/CivDle/` (na Linuxu `~/.config/CivDle/`) —
 `settings.json` + `saves/save.civdle`.

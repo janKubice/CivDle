@@ -38,6 +38,7 @@ public sealed class GameplayScreen : IScreen
     private readonly Camera2D _camera = new();
     private readonly MapRenderer _mapRenderer;
     private readonly BuildingRenderer _buildingRenderer;
+    private readonly RoadRenderer _roadRenderer;
     private readonly InputManager _input = new();
     private readonly FixedStepLoop _simLoop = new(Simulation.TicksPerSecond);
     private readonly ParticleSystem _particles = new();
@@ -70,6 +71,7 @@ public sealed class GameplayScreen : IScreen
 
         _mapRenderer = new MapRenderer(screens.GraphicsDevice, simulation.Map, screens.Content.Biomes, info.Seed);
         _buildingRenderer = new BuildingRenderer(screens.WhitePixel, screens.Content);
+        _roadRenderer = new RoadRenderer(screens.WhitePixel, screens.Content);
         _popupFont = Stylesheet.Current.LabelStyle.Font;
         _camera.SetWorldBounds(_mapRenderer.WorldPixelWidth, _mapRenderer.WorldPixelHeight);
         var viewport = screens.GraphicsDevice.Viewport;
@@ -127,6 +129,7 @@ public sealed class GameplayScreen : IScreen
     {
         var spriteBatch = _screens.SpriteBatch;
         _mapRenderer.Draw(spriteBatch, _camera);
+        _roadRenderer.Draw(spriteBatch, _camera, _simulation);
         _buildingRenderer.Draw(spriteBatch, _camera, _simulation);
         _particles.Draw(spriteBatch, _screens.WhitePixel, _camera);
 
@@ -139,8 +142,36 @@ public sealed class GameplayScreen : IScreen
 
         _desktop.Render();
 
-        // Popupy až nad UI — hráč je nesmí přehlédnout.
+        // Popupy a jmenovky osad až nad UI — hráč je nesmí přehlédnout.
         _floatingText.Draw(spriteBatch, _camera, _popupFont);
+        DrawSettlementLabels(spriteBatch);
+    }
+
+    /// <summary>Jmenovky osad ve screen-space nad těžištěm shluku (orientace na mapě, fáze 4).</summary>
+    private void DrawSettlementLabels(Microsoft.Xna.Framework.Graphics.SpriteBatch spriteBatch)
+    {
+        var settlements = _simulation.Settlements;
+        if (settlements.Count == 0)
+        {
+            return;
+        }
+
+        var names = _screens.Content.SettlementNames;
+        spriteBatch.Begin();
+        for (int i = 0; i < settlements.Count; i++)
+        {
+            var settlement = settlements[i];
+            string name = names[settlement.NameIndex];
+            var world = new Vector2(settlement.CenterX * MapRenderer.TileSize, settlement.CenterY * MapRenderer.TileSize);
+            var screen = _camera.WorldToScreen(world);
+            var size = _popupFont.MeasureString(name);
+            var position = new Vector2(screen.X - size.X * 0.5f, screen.Y - size.Y * 0.5f);
+
+            spriteBatch.DrawString(_popupFont, name, position + new Vector2(1f, 1f), Color.Black * 0.75f);
+            spriteBatch.DrawString(_popupFont, name, position, Color.White * 0.92f);
+        }
+
+        spriteBatch.End();
     }
 
     public void Dispose()
