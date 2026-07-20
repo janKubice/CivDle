@@ -50,6 +50,13 @@ public sealed class BuildingRenderer
                 _pixel,
                 new Rectangle(x + Inset, y + Inset, width - 2 * Inset, height - 2 * Inset),
                 def.MapColor.ToXna());
+
+            // Vyschlý vstup má být VIDĚT (fáze 3): stojící výroba dostane červený roh.
+            // Progress == TimeTicks je přesně stav „cyklus hotový, čeká na vstupy".
+            if (def.Recipe is not null && building.Progress >= def.Recipe.TimeTicks - 0.001f)
+            {
+                spriteBatch.Draw(_pixel, new Rectangle(x + width - 7, y + 3, 4, 4), Color.Red);
+            }
         }
 
         spriteBatch.End();

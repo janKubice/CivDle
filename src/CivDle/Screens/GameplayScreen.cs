@@ -60,6 +60,7 @@ public sealed class GameplayScreen : IScreen
     private PlacementResult _ghostResult;
     private bool _ghostVisible;
     private float _rightDragDistance;
+    private int _knownBuildingCount;
 
     public GameplayScreen(ScreenManager screens, Simulation simulation, WorldInfo info)
     {
@@ -74,6 +75,7 @@ public sealed class GameplayScreen : IScreen
         var viewport = screens.GraphicsDevice.Viewport;
         _camera.SetViewport(viewport.Width, viewport.Height);
         _camera.CenterOnWorld();
+        _knownBuildingCount = simulation.Buildings.Length; // načtená hra: bez juice za staré budovy
 
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
@@ -115,6 +117,7 @@ public sealed class GameplayScreen : IScreen
             _simulation.Tick();
         }
 
+        EmitNewBuildingJuice();
         _particles.Update(dt);
         _floatingText.Update(dt);
         RefreshHudTexts();
@@ -211,17 +214,39 @@ public sealed class GameplayScreen : IScreen
         _ghostResult = _simulation.CanPlace(_selectedBuilding, _ghostX, _ghostY);
         _ghostVisible = true;
 
-        if (_input.WasLeftPressed && _ghostResult == PlacementResult.Ok
-            && _simulation.TryPlaceBuilding(_selectedBuilding, _ghostX, _ghostY) == PlacementResult.Ok)
+        if (_input.WasLeftPressed && _ghostResult == PlacementResult.Ok)
         {
             // Výběr zůstává — idle hráč typicky staví víc budov za sebou.
+            // Juice řeší společně EmitNewBuildingJuice (pokryje i auto-stavbu).
+            _simulation.TryPlaceBuilding(_selectedBuilding, _ghostX, _ghostY);
+        }
+    }
+
+    /// <summary>
+    /// Prach + žuchnutí pro každou nově vzniklou budovu — společné pro ruční stavbu
+    /// i auto-stavbu (nová budova se pozná růstem počtu v simulaci).
+    /// </summary>
+    private void EmitNewBuildingJuice()
+    {
+        var buildings = _simulation.Buildings;
+        if (buildings.Length <= _knownBuildingCount)
+        {
+            return;
+        }
+
+        for (int i = _knownBuildingCount; i < buildings.Length; i++)
+        {
+            ref readonly var building = ref buildings[i];
+            var def = _screens.Content.Buildings[building.DefIndex];
             var center = new Vector2(
-                (_ghostX + def.FootprintWidth * 0.5f) * MapRenderer.TileSize,
-                (_ghostY + def.FootprintHeight * 0.5f) * MapRenderer.TileSize);
+                (building.X + def.FootprintWidth * 0.5f) * MapRenderer.TileSize,
+                (building.Y + def.FootprintHeight * 0.5f) * MapRenderer.TileSize);
             _particles.SpawnBurst(center, new Color(205, 195, 175), 14, 50f, 170f); // prach dopadu
             _particles.SpawnBurst(center, def.MapColor.ToXna(), 6, 40f, 120f);
-            _sounds.PlayPlace();
         }
+
+        _sounds.PlayPlace();
+        _knownBuildingCount = buildings.Length;
     }
 
     /// <summary>Ruční těžba: klik na dlaždici s výnosem (les, hory) — s popupem, třískami a zvukem.</summary>
@@ -379,7 +404,7 @@ public sealed class GameplayScreen : IScreen
 
         for (int i = 0; i < _resourceLabels.Length; i++)
         {
-            _resourceLabels[i].Text = ((long)_simulation.GetResource(i)).ToString();
+            _resourceLabels[i].Text = $"{(long)_simulation.GetResource(i)}/{(long)_simulation.GetStorageCap(i)}";
         }
 
         _populationLabel.Text = loc.Format("hud.population", (long)_simulation.Population, _simulation.HousingCapacity);

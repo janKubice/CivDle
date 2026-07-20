@@ -6,9 +6,10 @@ pravidla vývoje v `CLAUDE.md`.
 
 Aktuální stav: **generátor světa + základní herní smyčka** — menu, nová hra
 (seed, velikost, typ světa), mapa biomů, ruční těžba klikáním (les → dřevo,
-hory → kámen; popupy, částice, zvuk), stavění budov (těžba, farma, domy),
-výroba a růst populace s jídlem jako soft pressure, uložit/pokračovat,
-pauza, nastavení (jazyk CZ/EN + grafika), vše data-driven.
+hory → kámen; popupy, částice, zvuk), stavění budov, výrobní řetězec
+(dřevo → prkna) se sklady a viditelným stallem, růst populace s jídlem jako
+soft pressure a auto-stavba domů dle poptávky (vesnice roste sama),
+uložit/pokračovat, pauza, nastavení (jazyk CZ/EN + grafika), vše data-driven.
 
 ## Spuštění (vývoj)
 
@@ -49,10 +50,14 @@ dotnet test
 ## Herní smyčka (MVP)
 
 Klikáním na les/hory hráč sbírá první suroviny; dřevorubecký tábor (les)
-a kamenolom (hory) pak těží samy, farma (louka) živí populaci, domy zvedají
-kapacitu bydlení. Výroba jede podle obsazenosti
-(populace vs. pracovní místa); došlé jídlo růst jen zastaví, nikdy nic neničí.
-Simulace tiká 10× za sekundu, render 60 FPS a do simulace nikdy nezapisuje.
+a kamenolom (hory) pak těží samy, pila řeže dřevo na prkna, farma (louka)
+živí populaci a domy zvedají kapacitu bydlení. Když se populace blíží
+kapacitě, vesnice si sama staví domy poblíž zástavby — za normální cenu
+(dřevo + prkna), takže růst táhne celý řetězec. Výroba jede podle obsazenosti
+(populace vs. pracovní místa); vyschlý vstup výrobu viditelně zastaví
+(červený roh budovy) a plný sklad ji zastropuje — sklad kapacitu zvedá.
+Došlé jídlo růst jen zastaví, nikdy nic neničí. Simulace tiká 10× za sekundu,
+render 60 FPS a do simulace nikdy nezapisuje.
 
 ## Struktura
 
@@ -74,10 +79,11 @@ se při startu fail-fast zvalidují a simulace na ně odkazuje přes indexy.
   volitelný `clickYield` (co dá ruční klik).
 - `data/worldgen.json` — velikosti světa a terénní presety (hladina moře, šum;
   `frequency` = počet vln na 100 dlaždic).
-- `data/resources.json` — suroviny: barva ikony, počáteční zásoba.
+- `data/resources.json` — suroviny: barva ikony, počáteční zásoba, kapacita skladu.
 - `data/buildings.json` — budovy: půdorys, cena, recept (vstupy → výstupy za N tiků),
-  pracovní místa, kapacita bydlení, povolené biomy.
-- `data/gameplay.json` — balanc smyčky: startovní populace, růst, spotřeba jídla.
+  pracovní místa, kapacita bydlení, povolené biomy, bonus skladu, `autoBuild`.
+- `data/gameplay.json` — balanc smyčky: startovní populace, růst, spotřeba jídla,
+  parametry auto-stavby (interval, rádius, headroom).
 - `data/lang/*.json` — jazyky (cs, en): všechny texty hry včetně jmen obsahu
   (`biome.*`, `building.*`, …). Loader hlídá, že jazyky mají shodné klíče a nic nechybí.
 

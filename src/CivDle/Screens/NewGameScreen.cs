@@ -105,7 +105,7 @@ public sealed class NewGameScreen : IScreen
 
         // Generování je pro velikosti z dat otázka desítek ms — běží synchronně.
         var map = new MapGenerator().Generate(content, new WorldGenRequest(seed, size.Width, size.Height, preset));
-        var simulation = new Simulation(content, map);
+        var simulation = new Simulation(content, map, seed);
         var info = new WorldInfo(seed, size.Id, preset.Id);
 
         _screens.ReplaceAll(new GameplayScreen(_screens, simulation, info));
