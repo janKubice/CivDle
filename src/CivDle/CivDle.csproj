@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Spustitelná hra: MonoGame (render, vstup, okno) + Myra (UI) + CivDle.Core (logika).
+    Publish je nastavený na single-file self-contained exe — viz publish.sh / publish.cmd.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>CivDle</AssemblyName>
+    <RootNamespace>CivDle</RootNamespace>
+    <!-- Nativní knihovny (SDL, OpenAL) se při single-file publish zabalí přímo do exe. -->
+    <IncludeNativeLibrariesForSelfExtraction>true</IncludeNativeLibrariesForSelfExtraction>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5" />
+    <PackageReference Include="Myra" Version="1.5.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CivDle.Core\CivDle.Core.csproj" />
+  </ItemGroup>
+
+  <!-- Data-driven obsah: JSON definice se kopírují vedle binárky do složky data/. -->
+  <ItemGroup>
+    <Content Include="..\..\data\**" LinkBase="data" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

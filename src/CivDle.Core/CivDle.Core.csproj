@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Herní jádro: content loader (JSON definice), generátor světa, simulace.
+    Záměrně BEZ závislosti na MonoGame — simulace nezná render (viz tech-stack.md),
+    díky čemuž jde celé jádro testovat headless unit testy.
+  -->
+  <PropertyGroup>
+    <RootNamespace>CivDle.Core</RootNamespace>
+  </PropertyGroup>
+
+</Project>

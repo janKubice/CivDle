@@ -1,0 +1,12 @@
+## .NET / MonoGame
+bin/
+obj/
+dist/
+*.user
+*.suo
+.vs/
+.idea/
+*.DotSettings.user
+
+## Runtime výstupy
+crash.log

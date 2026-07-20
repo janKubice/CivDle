@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "startingPopulation": 5,
+  "baseHousingCapacity": 6,
+  "populationGrowthPerSecond": 0.12,
+  "foodPerPersonPerSecond": 0.04,
+  "foodResource": "food",
+  "autoBuild": {
+    "intervalTicks": 60,
+    "searchRadius": 6,
+    "populationHeadroom": 2
+  },
+  "roads": {
+    "mapColor": "#9A9284",
+    "maxSearchDistance": 60
+  },
+  "settlements": {
+    "minBuildings": 3,
+    "clusterDistance": 3,
+    "updateIntervalTicks": 50
+  }
+}
