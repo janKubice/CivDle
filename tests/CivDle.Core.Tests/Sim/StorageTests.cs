@@ -12,12 +12,7 @@ namespace CivDle.Core.Tests.Sim;
 /// </summary>
 public class StorageTests
 {
-    private static WorldMap GrassMap(int size = 6)
-    {
-        var map = new WorldMap(size, size);
-        Array.Fill(map.BiomeIndices, (byte)1);
-        return map;
-    }
+    private static ITerrain GrassMap(int size = 6) => new UniformTerrain(1);
 
     private static void RunTicks(Simulation sim, int ticks)
     {

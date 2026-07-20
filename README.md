@@ -4,13 +4,13 @@
 v design dokumentech v kořeni repozitáře (`tech-stack.md`, `mvp-roadmap.md`, …),
 pravidla vývoje v `CLAUDE.md`.
 
-Aktuální stav: **generátor světa + základní herní smyčka** — menu, nová hra
-(seed, velikost, typ světa), mapa biomů, ruční těžba klikáním (les → dřevo,
-hory → kámen; popupy, částice, zvuk), stavění budov, výrobní řetězec
-(dřevo → prkna) se sklady a viditelným stallem, růst populace s jídlem jako
-soft pressure, auto-stavba domů dle poptávky a auto-silnice — nové budovy
-se samy napojují cestami a shluky se poznají jako pojmenované osady
-(vesnice roste sama), uložit/pokračovat, pauza, nastavení (jazyk CZ/EN
+Aktuální stav: **nekonečná mapa + živé město** — menu se živým městem na pozadí
+a rolovacím devlogem, nová hra (seed, typ světa), **nekonečná procedurální mapa**
+(generuje se za běhu, neukládá se), sprity a ikony místo barviček, klikací těžba
+stromů/kamenů s animací kácení (strom se zmenšuje → spadne s efektem), stavění
+budov, výrobní řetězec (dřevo → prkna) se sklady, auto-stavba domů a auto-silnice
+(pojmenované osady), živá mapa (den/noc s rozsvíceným městem, dekorace, fauna) +
+chodci a vozíky ve městě, uložit/pokračovat, pauza, nastavení (jazyk CZ/EN
 + grafika), vše data-driven.
 
 ## Spuštění (vývoj)
@@ -43,10 +43,10 @@ dotnet test
 
 | Akce | Ovládání |
 |---|---|
-| Posun mapy | WASD / šipky / tažení pravým či prostředním tlačítkem |
+| Posun mapy | WASD / šipky / tažení pravým či prostředním tlačítkem (nekonečná mapa) |
 | Zoom | kolečko myši (k pozici kurzoru) |
 | Stavění | vybrat budovu dole → levé tlačítko postaví, pravý klik / Esc zruší |
-| Ruční těžba | levý klik na les (dřevo) nebo hory (kámen) |
+| Ruční těžba | levý klik na strom (les) nebo kámen (hory) — po pár klicích spadne |
 | Pauza / návrat | Esc |
 
 ## Herní smyčka (MVP)
@@ -60,8 +60,10 @@ napojí pěšinou na síť (cesty vedou jen po suché zemi) a shluk od tří bud
 dostane jméno osady, které zůstává, i když osada roste. Výroba jede podle obsazenosti
 (populace vs. pracovní místa); vyschlý vstup výrobu viditelně zastaví
 (červený roh budovy) a plný sklad ji zastropuje — sklad kapacitu zvedá.
-Došlé jídlo růst jen zastaví, nikdy nic neničí. Simulace tiká 10× za sekundu,
-render 60 FPS a do simulace nikdy nezapisuje.
+Došlé jídlo růst jen zastaví, nikdy nic neničí. Světem běží denní cyklus —
+v noci se budovy rozsvítí (okna + teplá zář), za soumraku zlátne obloha;
+u kamery se pasou srnky a v noci létají světlušky (LOD: z dálky mizí).
+Simulace tiká 10× za sekundu, render 60 FPS a do simulace nikdy nezapisuje.
 
 ## Struktura
 
@@ -87,18 +89,25 @@ se při startu fail-fast zvalidují a simulace na ně odkazuje přes indexy.
 - `data/buildings.json` — budovy: půdorys, cena, recept (vstupy → výstupy za N tiků),
   pracovní místa, kapacita bydlení, povolené biomy, bonus skladu, `autoBuild`.
 - `data/gameplay.json` — balanc smyčky: startovní populace, růst, spotřeba jídla,
-  parametry auto-stavby, auto-silnic (barva, dosah) a detekce osad.
+  parametry auto-stavby, auto-silnic, detekce osad a denního cyklu
+  (délka dne, barvy noci/soumraku).
 - `data/settlement-names.json` — jména osad (vlastní jména se nepřekládají).
+- `data/decorations.json` — biomové dekorace (barvy, hustota, velikosti) — anti-repetice.
+- `data/fauna.json` — ambientní fauna (biomy, denní doba, rychlost, `glow` u světlušek).
 - `data/lang/*.json` — jazyky (cs, en): všechny texty hry včetně jmen obsahu
   (`biome.*`, `building.*`, …). Loader hlídá, že jazyky mají shodné klíče a nic nechybí.
 
-Stejný seed + stejná data = vždy stejná mapa (vlastní deterministický šum i hash).
+Stejný seed + stejná data = vždy stejná mapa. Mapa je **nekonečná**: terén je čistá
+funkce šumu, počítá se on-demand pro libovolnou (i zápornou) dlaždici a nikdy se
+neukládá — save drží jen seed, budovy a cesty.
+- `data/decorations.json`, `data/fauna.json` — dekorace a ambientní fauna živé mapy.
+- `data/devlog.json` — vývojový deník do menu (volitelný).
 
 ## Ukládání
 
 Uložit hru jde z pauzy (Esc), pokračovat z hlavního menu. Save je binární,
-komprimovaný a verzovaný (aktuálně v2 — přibyla síť cest; starší save
-odmítne se srozumitelnou hláškou); definice odkazuje stabilními string ID,
-takže přeuspořádání datových souborů save nerozbije. Vše se ukládá do profilu
+komprimovaný a verzovaný (aktuálně v3 — nekonečná mapa, terén se neukládá;
+starší save odmítne se srozumitelnou hláškou); definice odkazuje stabilními
+string ID, takže přeuspořádání datových souborů save nerozbije. Vše se ukládá do profilu
 uživatele: `%APPDATA%/CivDle/` (na Linuxu `~/.config/CivDle/`) —
 `settings.json` + `saves/save.civdle`.

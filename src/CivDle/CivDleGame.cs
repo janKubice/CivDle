@@ -1,6 +1,7 @@
 using CivDle.Core.Config;
 using CivDle.Core.Content;
 using CivDle.Core.Save;
+using CivDle.Rendering.Sprites;
 using CivDle.Screens;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -40,6 +41,9 @@ public sealed class CivDleGame : Game
     /// <summary>Sdílená 1×1 bílá textura na kreslení obdélníků (budovy, overlay…).</summary>
     public Texture2D WhitePixel { get; private set; } = null!;
 
+    /// <summary>Procedurální sprity a ikony (suroviny, budovy, objekty, agenti).</summary>
+    public SpriteLibrary Sprites { get; private set; } = null!;
+
     /// <summary>Aktuální uživatelská nastavení.</summary>
     public GameSettings Settings { get; private set; }
 
@@ -57,6 +61,7 @@ public sealed class CivDleGame : Game
         SpriteBatch = new SpriteBatch(GraphicsDevice);
         WhitePixel = new Texture2D(GraphicsDevice, 1, 1);
         WhitePixel.SetData(new[] { Color.White });
+        Sprites = new SpriteLibrary(GraphicsDevice);
         MyraEnvironment.Game = this;
 
         // Data leží vedle binárky — funguje pro `dotnet run` i pro publish jedním exe.
@@ -71,6 +76,7 @@ public sealed class CivDleGame : Game
     protected override void UnloadContent()
     {
         WhitePixel.Dispose();
+        Sprites.Dispose();
         base.UnloadContent();
     }
 

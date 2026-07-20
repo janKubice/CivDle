@@ -21,9 +21,7 @@ public class SettlementTests
         var biomes = new[] { TestContent.WaterBiome(), TestContent.LandBiome("grass") };
         var resources = new[] { new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 100, BaseStorage: 1000) };
         var content = TestContent.Build(biomes, 1, resources);
-        var map = new WorldMap(32, 32);
-        Array.Fill(map.BiomeIndices, (byte)1);
-        return (content, new Simulation(content, map, seed));
+        return (content, new Simulation(content, new UniformTerrain(1), seed));
     }
 
     private static void RunTicks(Simulation sim, int ticks)

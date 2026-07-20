@@ -1,10 +1,13 @@
+using CivDle.Core.Content;
 using Microsoft.Xna.Framework;
+using Myra.Graphics2D;
 using Myra.Graphics2D.UI;
 
 namespace CivDle.Screens;
 
 /// <summary>
-/// Hlavní menu: pokračování uložené hry, nová hra, nastavení, ukončení.
+/// Hlavní menu nad živým městem na pozadí: velký animovaný titul, tlačítka
+/// (pokračovat / nová hra / nastavení / konec) a rolovací vývojový deník.
 /// Po změně jazyka se přestaví.
 /// </summary>
 public sealed class MainMenuScreen : IScreen
@@ -22,12 +25,13 @@ public sealed class MainMenuScreen : IScreen
 
     public bool IsOverlay => false;
 
-    public void Update(GameTime gameTime)
-    {
-        // Interakci (klik na tlačítka) obsluhuje Myra uvnitř Desktop.Render().
-    }
+    public void Update(GameTime gameTime) => _screens.MenuBackground.Update(gameTime);
 
-    public void Draw(GameTime gameTime) => _desktop.Render();
+    public void Draw(GameTime gameTime)
+    {
+        _screens.MenuBackground.Draw(_screens.SpriteBatch);
+        _desktop.Render();
+    }
 
     public void Dispose()
     {
@@ -37,37 +41,35 @@ public sealed class MainMenuScreen : IScreen
     private void BuildUi()
     {
         var loc = _screens.Loc;
-        var layout = new VerticalStackPanel
-        {
-            Spacing = 10,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
+        var root = new Panel();
 
-        layout.Widgets.Add(new Label
+        // Levý sloupec: titul + tlačítka v panelu.
+        var buttons = new VerticalStackPanel { Spacing = 10 };
+        buttons.Widgets.Add(new Label
         {
-            Text = "CivDle",
+            Text = "C I V D L E",
             HorizontalAlignment = HorizontalAlignment.Center,
+            TextColor = UiFactory.Accent,
         });
-        layout.Widgets.Add(new Label
+        buttons.Widgets.Add(new Label
         {
             Text = loc["menu.subtitle"],
             HorizontalAlignment = HorizontalAlignment.Center,
-            TextColor = Color.Gray,
+            TextColor = Color.LightGray,
         });
-        layout.Widgets.Add(new Label { Text = " " });
+        buttons.Widgets.Add(new Label { Text = " " });
         if (_screens.Saves.HasSave)
         {
-            layout.Widgets.Add(UiFactory.MenuButton(loc["menu.continue"], ContinueGame));
+            buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.continue"], ContinueGame));
         }
 
-        layout.Widgets.Add(UiFactory.MenuButton(loc["menu.newGame"], () => _screens.Push(new NewGameScreen(_screens))));
-        layout.Widgets.Add(UiFactory.MenuButton(loc["menu.settings"], () => _screens.Push(new SettingsScreen(_screens))));
-        layout.Widgets.Add(UiFactory.MenuButton(loc["menu.quit"], _screens.ExitGame));
+        buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.newGame"], () => _screens.Push(new NewGameScreen(_screens))));
+        buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.settings"], () => _screens.Push(new SettingsScreen(_screens))));
+        buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.quit"], _screens.ExitGame));
 
         if (_statusText is not null)
         {
-            layout.Widgets.Add(new Label
+            buttons.Widgets.Add(new Label
             {
                 Text = _statusText,
                 TextColor = new Color(235, 120, 110),
@@ -75,7 +77,59 @@ public sealed class MainMenuScreen : IScreen
             });
         }
 
-        _desktop = new Desktop { Root = layout };
+        var buttonPanel = UiFactory.DarkPanel(buttons);
+        buttonPanel.HorizontalAlignment = HorizontalAlignment.Center;
+        buttonPanel.VerticalAlignment = VerticalAlignment.Center;
+        root.Widgets.Add(buttonPanel);
+
+        // Pravý dolní roh: rolovací devlog.
+        if (_screens.Content.Devlog.Count > 0)
+        {
+            var devlogPanel = BuildDevlog(loc);
+            devlogPanel.HorizontalAlignment = HorizontalAlignment.Right;
+            devlogPanel.VerticalAlignment = VerticalAlignment.Bottom;
+            devlogPanel.Margin = new Thickness(0, 0, 14, 14);
+            root.Widgets.Add(devlogPanel);
+        }
+
+        _desktop = new Desktop { Root = root };
+    }
+
+    private Panel BuildDevlog(Localization loc)
+    {
+        var list = new VerticalStackPanel { Spacing = 8, Width = 300 };
+        list.Widgets.Add(new Label { Text = loc["menu.devlog"], TextColor = UiFactory.Accent });
+
+        foreach (var entry in _screens.Content.Devlog)
+        {
+            var block = new VerticalStackPanel { Spacing = 1 };
+            block.Widgets.Add(new Label
+            {
+                Text = string.IsNullOrEmpty(entry.Date) ? entry.Version : $"{entry.Version}  ·  {entry.Date}",
+                TextColor = new Color(210, 220, 235),
+            });
+            foreach (var line in entry.Lines)
+            {
+                block.Widgets.Add(new Label
+                {
+                    Text = $"• {line}",
+                    TextColor = Color.LightGray,
+                    Wrap = true,
+                    Width = 280,
+                });
+            }
+
+            list.Widgets.Add(block);
+        }
+
+        var scroll = new ScrollViewer
+        {
+            Content = list,
+            Height = 220,
+            Width = 300,
+        };
+
+        return UiFactory.DarkPanel(scroll);
     }
 
     private void ContinueGame()
@@ -83,7 +137,6 @@ public sealed class MainMenuScreen : IScreen
         var loaded = _screens.Saves.TryLoad(_screens.Content, out var error);
         if (loaded is null)
         {
-            // Detail patří do logu, hráči stačí srozumitelná věta.
             if (error is not null)
             {
                 Console.Error.WriteLine($"Načtení savu selhalo: {error}");

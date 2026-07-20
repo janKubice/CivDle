@@ -1,11 +1,11 @@
 using CivDle.Audio;
-using CivDle.Core.Content;
 using CivDle.Core.Sim;
 using CivDle.Input;
 using CivDle.Rendering;
 using CivDle.Rendering.Effects;
 using FontStashSharp;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Myra.Graphics2D;
 using Myra.Graphics2D.Brushes;
@@ -15,11 +15,11 @@ using Myra.Graphics2D.UI.Styles;
 namespace CivDle.Screens;
 
 /// <summary>
-/// Herní obrazovka: mapa s kamerou (pan WASD/šipky/pravé či prostřední tlačítko,
-/// zoom kolečkem ke kurzoru), HUD se surovinami a populací, stavební menu
-/// s ghost náhledem (levé tlačítko staví, pravý klik / Esc ruší výběr).
-/// Simulace tiká pevným krokem přes <see cref="FixedStepLoop"/>; překrytí pauzou
-/// Update zastaví, a tím stojí i simulace.
+/// Herní obrazovka nad NEKONEČNOU mapou: kamera (pan WASD/šipky/pravé či prostřední
+/// tlačítko, zoom kolečkem ke kurzoru), moderní HUD se surovinami (ikony), stavební
+/// menu s ghost náhledem, klikací těžba stromů/kamenů (anticipace + payoff), živý
+/// svět (chodci, vozíky). Simulace tiká pevným krokem; překrytí pauzou Update
+/// zastaví, a tím stojí i simulace.
 /// </summary>
 public sealed class GameplayScreen : IScreen
 {
@@ -36,9 +36,14 @@ public sealed class GameplayScreen : IScreen
     private readonly Simulation _simulation;
     private readonly WorldInfo _info;
     private readonly Camera2D _camera = new();
-    private readonly MapRenderer _mapRenderer;
-    private readonly BuildingRenderer _buildingRenderer;
+    private readonly TerrainRenderer _terrainRenderer;
+    private readonly DecorationRenderer _decorationRenderer;
+    private readonly HarvestableRenderer _harvestables;
     private readonly RoadRenderer _roadRenderer;
+    private readonly BuildingRenderer _buildingRenderer;
+    private readonly LightsRenderer _lightsRenderer;
+    private readonly FaunaSystem _fauna;
+    private readonly AgentSystem _agents;
     private readonly InputManager _input = new();
     private readonly FixedStepLoop _simLoop = new(Simulation.TicksPerSecond);
     private readonly ParticleSystem _particles = new();
@@ -50,8 +55,7 @@ public sealed class GameplayScreen : IScreen
     private Desktop _desktop = null!;
     private Label[] _resourceLabels = Array.Empty<Label>();
     private Label _populationLabel = null!;
-    private Label _seedLabel = null!;
-    private Label _worldLabel = null!;
+    private Label _dayLabel = null!;
     private Label _cursorLabel = null!;
     private Label _statusLabel = null!;
 
@@ -68,15 +72,21 @@ public sealed class GameplayScreen : IScreen
         _screens = screens;
         _simulation = simulation;
         _info = info;
+        screens.DisposeMenuBackground(); // pod hrou už netiká ukázkové město z menu
 
-        _mapRenderer = new MapRenderer(screens.GraphicsDevice, simulation.Map, screens.Content.Biomes, info.Seed);
-        _buildingRenderer = new BuildingRenderer(screens.WhitePixel, screens.Content);
+        _terrainRenderer = new TerrainRenderer(screens.GraphicsDevice, screens.Content.Biomes, info.Seed);
+        _decorationRenderer = new DecorationRenderer(screens.WhitePixel, screens.Content, info.Seed);
+        _harvestables = new HarvestableRenderer(screens.Sprites, screens.Content);
         _roadRenderer = new RoadRenderer(screens.WhitePixel, screens.Content);
+        _buildingRenderer = new BuildingRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
+        _lightsRenderer = new LightsRenderer(screens.WhitePixel, screens.Content);
+        _fauna = new FaunaSystem(screens.Content);
+        _agents = new AgentSystem(screens.Content, screens.Sprites);
         _popupFont = Stylesheet.Current.LabelStyle.Font;
-        _camera.SetWorldBounds(_mapRenderer.WorldPixelWidth, _mapRenderer.WorldPixelHeight);
+
         var viewport = screens.GraphicsDevice.Viewport;
         _camera.SetViewport(viewport.Width, viewport.Height);
-        _camera.CenterOnWorld();
+        _camera.CenterOn(FindStartFocus(), zoom: 2.2f);
         _knownBuildingCount = simulation.Buildings.Length; // načtená hra: bez juice za staré budovy
 
         BuildUi();
@@ -120,18 +130,32 @@ public sealed class GameplayScreen : IScreen
         }
 
         EmitNewBuildingJuice();
+        _harvestables.Update(dt);
         _particles.Update(dt);
         _floatingText.Update(dt);
+        _fauna.Update(dt, _camera, _simulation);
+        _agents.Update(dt, _camera, _simulation);
         RefreshHudTexts();
     }
 
     public void Draw(GameTime gameTime)
     {
         var spriteBatch = _screens.SpriteBatch;
-        _mapRenderer.Draw(spriteBatch, _camera);
+        _terrainRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
+        _decorationRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
+        _harvestables.Draw(spriteBatch, _camera, _simulation);
         _roadRenderer.Draw(spriteBatch, _camera, _simulation);
         _buildingRenderer.Draw(spriteBatch, _camera, _simulation);
+        _agents.Draw(spriteBatch, _camera);
+        _fauna.Draw(spriteBatch, _screens.WhitePixel, _camera);
         _particles.Draw(spriteBatch, _screens.WhitePixel, _camera);
+
+        // Den/noc: ztmavení scény a pak aditivní světla, ať září skrz tmu.
+        double timeOfDay = _simulation.TimeOfDay01;
+        DayNightCycle.DrawOverlay(
+            spriteBatch, _screens.WhitePixel, _screens.GraphicsDevice.Viewport,
+            _screens.Content.Gameplay.DayNight, timeOfDay);
+        _lightsRenderer.Draw(spriteBatch, _camera, _simulation, DayNightCycle.NightFactor(timeOfDay));
 
         if (_ghostVisible && _selectedBuilding >= 0)
         {
@@ -148,7 +172,7 @@ public sealed class GameplayScreen : IScreen
     }
 
     /// <summary>Jmenovky osad ve screen-space nad těžištěm shluku (orientace na mapě, fáze 4).</summary>
-    private void DrawSettlementLabels(Microsoft.Xna.Framework.Graphics.SpriteBatch spriteBatch)
+    private void DrawSettlementLabels(SpriteBatch spriteBatch)
     {
         var settlements = _simulation.Settlements;
         if (settlements.Count == 0)
@@ -162,7 +186,7 @@ public sealed class GameplayScreen : IScreen
         {
             var settlement = settlements[i];
             string name = names[settlement.NameIndex];
-            var world = new Vector2(settlement.CenterX * MapRenderer.TileSize, settlement.CenterY * MapRenderer.TileSize);
+            var world = new Vector2(settlement.CenterX * TerrainRenderer.TileSize, settlement.CenterY * TerrainRenderer.TileSize);
             var screen = _camera.WorldToScreen(world);
             var size = _popupFont.MeasureString(name);
             var position = new Vector2(screen.X - size.X * 0.5f, screen.Y - size.Y * 0.5f);
@@ -177,7 +201,7 @@ public sealed class GameplayScreen : IScreen
     public void Dispose()
     {
         _screens.Loc.LanguageChanged -= BuildUi;
-        _mapRenderer.Dispose();
+        _terrainRenderer.Dispose();
         _sounds.Dispose();
     }
 
@@ -197,7 +221,7 @@ public sealed class GameplayScreen : IScreen
             _camera.PanWorld(move * (PanSpeed * dt / _camera.Zoom));
         }
 
-        // Levé tlačítko je pro stavění; mapou se táhne pravým nebo prostředním.
+        // Levé tlačítko je pro stavění/těžbu; mapou se táhne pravým nebo prostředním.
         if ((_input.IsRightDown || _input.IsMiddleDown) && !mouseOverUi)
         {
             _camera.Pan(_input.MouseDelta);
@@ -236,8 +260,8 @@ public sealed class GameplayScreen : IScreen
 
         var def = _screens.Content.Buildings[_selectedBuilding];
         var world = _camera.ScreenToWorld(_input.MousePosition.ToVector2());
-        int tileX = (int)MathF.Floor(world.X / MapRenderer.TileSize);
-        int tileY = (int)MathF.Floor(world.Y / MapRenderer.TileSize);
+        int tileX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
+        int tileY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
 
         // Kurzor míří na střed půdorysu, ať se velké budovy pokládají přirozeně.
         _ghostX = tileX - (def.FootprintWidth - 1) / 2;
@@ -270,8 +294,8 @@ public sealed class GameplayScreen : IScreen
             ref readonly var building = ref buildings[i];
             var def = _screens.Content.Buildings[building.DefIndex];
             var center = new Vector2(
-                (building.X + def.FootprintWidth * 0.5f) * MapRenderer.TileSize,
-                (building.Y + def.FootprintHeight * 0.5f) * MapRenderer.TileSize);
+                (building.X + def.FootprintWidth * 0.5f) * TerrainRenderer.TileSize,
+                (building.Y + def.FootprintHeight * 0.5f) * TerrainRenderer.TileSize);
             _particles.SpawnBurst(center, new Color(205, 195, 175), 14, 50f, 170f); // prach dopadu
             _particles.SpawnBurst(center, def.MapColor.ToXna(), 6, 40f, 120f);
         }
@@ -280,7 +304,10 @@ public sealed class GameplayScreen : IScreen
         _knownBuildingCount = buildings.Length;
     }
 
-    /// <summary>Ruční těžba: klik na dlaždici s výnosem (les, hory) — s popupem, třískami a zvukem.</summary>
+    /// <summary>
+    /// Ruční těžba: klik na strom/kámen — surovina, popup, třísky, zvuk; strom se
+    /// zmenšuje a po pár klicích spadne s velkým efektem (anticipace + payoff).
+    /// </summary>
     private void UpdateHarvest(bool mouseOverUi)
     {
         if (_selectedBuilding >= 0 || mouseOverUi || !_input.WasLeftPressed)
@@ -289,8 +316,8 @@ public sealed class GameplayScreen : IScreen
         }
 
         var world = _camera.ScreenToWorld(_input.MousePosition.ToVector2());
-        int tileX = (int)MathF.Floor(world.X / MapRenderer.TileSize);
-        int tileY = (int)MathF.Floor(world.Y / MapRenderer.TileSize);
+        int tileX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
+        int tileY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
 
         if (!_simulation.TryHarvest(tileX, tileY, out int resourceIndex, out int amount))
         {
@@ -298,14 +325,26 @@ public sealed class GameplayScreen : IScreen
         }
 
         var content = _screens.Content;
-        var tileCenter = new Vector2((tileX + 0.5f) * MapRenderer.TileSize, (tileY + 0.5f) * MapRenderer.TileSize);
+        var tileCenter = new Vector2((tileX + 0.5f) * TerrainRenderer.TileSize, (tileY + 0.5f) * TerrainRenderer.TileSize);
         var resourceColor = content.Resources[resourceIndex].MapColor.ToXna();
-        var biomeColor = content.Biomes[_simulation.Map.BiomeAt(tileX, tileY)].MapColor.ToXna();
+        var biomeColor = content.Biomes[_simulation.BiomeAt(tileX, tileY)].MapColor.ToXna();
 
         _floatingText.Add(tileCenter, PopupText(resourceIndex, amount), resourceColor);
-        _particles.SpawnBurst(tileCenter, biomeColor, 10, 45f, 150f); // „třísky" v barvě biomu
-        _particles.SpawnBurst(tileCenter, resourceColor, 5, 35f, 110f);
         _sounds.PlayChop();
+
+        bool felled = _harvestables.RegisterChop(tileX, tileY);
+        if (felled)
+        {
+            // Payoff: strom spadl → velký výbuch třísek + žuchnutí.
+            _particles.SpawnBurst(tileCenter, biomeColor, 26, 60f, 240f);
+            _particles.SpawnBurst(tileCenter, resourceColor, 12, 45f, 160f);
+            _sounds.PlayPlace();
+        }
+        else
+        {
+            _particles.SpawnBurst(tileCenter, biomeColor, 8, 45f, 150f);
+            _particles.SpawnBurst(tileCenter, resourceColor, 4, 35f, 110f);
+        }
     }
 
     /// <summary>Texty popupů se cachují — žádné skládání stringů při každém kliku.</summary>
@@ -321,6 +360,39 @@ public sealed class GameplayScreen : IScreen
         return text;
     }
 
+    /// <summary>Najde poblíž počátku první suchou dlaždici, ať kamera nezačíná nad oceánem.</summary>
+    private Vector2 FindStartFocus()
+    {
+        var content = _screens.Content;
+        var buildings = _simulation.Buildings;
+        if (buildings.Length > 0)
+        {
+            var b = buildings[0];
+            return new Vector2((b.X + 0.5f) * TerrainRenderer.TileSize, (b.Y + 0.5f) * TerrainRenderer.TileSize);
+        }
+
+        for (int radius = 0; radius < 300; radius++)
+        {
+            for (int y = -radius; y <= radius; y++)
+            {
+                for (int x = -radius; x <= radius; x++)
+                {
+                    if (Math.Max(Math.Abs(x), Math.Abs(y)) != radius)
+                    {
+                        continue;
+                    }
+
+                    if (!content.Biomes[_simulation.BiomeAt(x, y)].IsWater)
+                    {
+                        return new Vector2((x + 0.5f) * TerrainRenderer.TileSize, (y + 0.5f) * TerrainRenderer.TileSize);
+                    }
+                }
+            }
+        }
+
+        return Vector2.Zero;
+    }
+
     // ----- HUD -----
 
     private void BuildUi()
@@ -328,42 +400,51 @@ public sealed class GameplayScreen : IScreen
         var loc = _screens.Loc;
         var content = _screens.Content;
 
-        // Levý horní roh: suroviny + populace.
-        var resourceBar = new HorizontalStackPanel { Spacing = 14 };
+        // Horní pruh: suroviny (ikony) + populace.
+        var resourceBar = new HorizontalStackPanel { Spacing = 18 };
         _resourceLabels = new Label[content.Resources.Count];
         for (int i = 0; i < content.Resources.Count; i++)
         {
-            var item = new HorizontalStackPanel { Spacing = 5 };
-            item.Widgets.Add(new Panel
+            var chip = new HorizontalStackPanel { Spacing = 6 };
+            var icon = _screens.Sprites.Get($"icon.{content.Resources[i].Id}");
+            if (icon is not null)
             {
-                Width = 12,
-                Height = 12,
-                VerticalAlignment = VerticalAlignment.Center,
-                Background = new SolidBrush(content.Resources[i].MapColor.ToXna()),
-            });
+                chip.Widgets.Add(UiFactory.Icon(icon, 20));
+            }
+            else
+            {
+                chip.Widgets.Add(new Panel
+                {
+                    Width = 14,
+                    Height = 14,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Background = new SolidBrush(content.Resources[i].MapColor.ToXna()),
+                });
+            }
+
             _resourceLabels[i] = new Label { VerticalAlignment = VerticalAlignment.Center };
-            item.Widgets.Add(_resourceLabels[i]);
-            resourceBar.Widgets.Add(item);
+            chip.Widgets.Add(_resourceLabels[i]);
+            resourceBar.Widgets.Add(chip);
         }
 
-        _populationLabel = new Label { VerticalAlignment = VerticalAlignment.Center };
+        _populationLabel = new Label { VerticalAlignment = VerticalAlignment.Center, TextColor = UiFactory.Accent };
         resourceBar.Widgets.Add(_populationLabel);
 
         var topLeft = UiFactory.DarkPanel(resourceBar);
         topLeft.HorizontalAlignment = HorizontalAlignment.Left;
         topLeft.VerticalAlignment = VerticalAlignment.Top;
+        topLeft.Margin = new Thickness(10, 10, 0, 0);
 
-        // Pravý horní roh: informace o světě a dlaždici pod kurzorem.
-        _seedLabel = new Label();
-        _worldLabel = new Label();
-        _cursorLabel = new Label();
-        var worldInfoStack = new VerticalStackPanel { Spacing = 2 };
-        worldInfoStack.Widgets.Add(_seedLabel);
-        worldInfoStack.Widgets.Add(_worldLabel);
+        // Pravý horní roh: den/čas + dlaždice pod kurzorem.
+        _dayLabel = new Label { TextColor = UiFactory.Accent };
+        _cursorLabel = new Label { TextColor = Color.LightGray };
+        var worldInfoStack = new VerticalStackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Right };
+        worldInfoStack.Widgets.Add(_dayLabel);
         worldInfoStack.Widgets.Add(_cursorLabel);
         var topRight = UiFactory.DarkPanel(worldInfoStack);
         topRight.HorizontalAlignment = HorizontalAlignment.Right;
         topRight.VerticalAlignment = VerticalAlignment.Top;
+        topRight.Margin = new Thickness(0, 10, 10, 0);
 
         // Spodek: stavební menu se stavovou hláškou.
         _statusLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
@@ -383,30 +464,31 @@ public sealed class GameplayScreen : IScreen
         var bottomCenter = UiFactory.DarkPanel(buildStack);
         bottomCenter.HorizontalAlignment = HorizontalAlignment.Center;
         bottomCenter.VerticalAlignment = VerticalAlignment.Bottom;
-
-        // Levý dolní roh: nápověda ovládání.
-        var help = UiFactory.DarkPanel(new Label { Text = loc["hud.help"], TextColor = Color.Gray });
-        help.HorizontalAlignment = HorizontalAlignment.Left;
-        help.VerticalAlignment = VerticalAlignment.Bottom;
+        bottomCenter.Margin = new Thickness(0, 0, 0, 12);
 
         var root = new Panel();
         root.Widgets.Add(topLeft);
         root.Widgets.Add(topRight);
         root.Widgets.Add(bottomCenter);
-        root.Widgets.Add(help);
 
         _desktop = new Desktop { Root = root };
         RefreshHudTexts();
     }
 
-    /// <summary>Tlačítko budovy: jméno + cena z definice (žádné texty natvrdo).</summary>
+    /// <summary>Tlačítko budovy: ikona + jméno + cena z definice (žádné texty natvrdo).</summary>
     private Button BuildingButton(int defIndex)
     {
         var loc = _screens.Loc;
         var content = _screens.Content;
         var def = content.Buildings[defIndex];
 
-        var caption = new VerticalStackPanel { Spacing = 2 };
+        var caption = new VerticalStackPanel { Spacing = 2, HorizontalAlignment = HorizontalAlignment.Center };
+        var sprite = _screens.Sprites.Get($"building.{def.Id}");
+        if (sprite is not null)
+        {
+            caption.Widgets.Add(UiFactory.Icon(sprite, 28));
+        }
+
         caption.Widgets.Add(new Label
         {
             Text = loc[def.NameKey],
@@ -423,6 +505,7 @@ public sealed class GameplayScreen : IScreen
         {
             Content = caption,
             Padding = new Thickness(10, 6),
+            Background = new SolidBrush(new Color(38, 48, 64, 235)),
         };
         button.Click += (_, _) => _selectedBuilding = _selectedBuilding == defIndex ? -1 : defIndex;
         return button;
@@ -431,7 +514,6 @@ public sealed class GameplayScreen : IScreen
     private void RefreshHudTexts()
     {
         var loc = _screens.Loc;
-        var content = _screens.Content;
 
         for (int i = 0; i < _resourceLabels.Length; i++)
         {
@@ -439,9 +521,9 @@ public sealed class GameplayScreen : IScreen
         }
 
         _populationLabel.Text = loc.Format("hud.population", (long)_simulation.Population, _simulation.HousingCapacity);
-        _seedLabel.Text = loc.Format("hud.seed", _info.Seed);
-        _worldLabel.Text = loc.Format(
-            "hud.world", loc[$"preset.{_info.PresetId}"], loc[$"worldsize.{_info.SizeId}"]);
+
+        double hours = _simulation.TimeOfDay01 * 24.0;
+        _dayLabel.Text = loc.Format("hud.day", _simulation.DayNumber, (int)hours, (int)((hours - (int)hours) * 60));
 
         UpdateCursorLabel();
         UpdateStatusLabel();
@@ -450,19 +532,12 @@ public sealed class GameplayScreen : IScreen
     private void UpdateCursorLabel()
     {
         var world = _camera.ScreenToWorld(_input.MousePosition.ToVector2());
-        int tileX = (int)MathF.Floor(world.X / MapRenderer.TileSize);
-        int tileY = (int)MathF.Floor(world.Y / MapRenderer.TileSize);
+        int tileX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
+        int tileY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
 
-        var map = _simulation.Map;
-        if (map.InBounds(tileX, tileY))
-        {
-            var biome = _screens.Content.Biomes[map.BiomeAt(tileX, tileY)];
-            _cursorLabel.Text = _screens.Loc.Format("hud.cursor", tileX, tileY, _screens.Loc[biome.NameKey]);
-        }
-        else
-        {
-            _cursorLabel.Text = string.Empty;
-        }
+        // Nekonečná mapa — každá dlaždice má biom.
+        var biome = _screens.Content.Biomes[_simulation.BiomeAt(tileX, tileY)];
+        _cursorLabel.Text = _screens.Loc.Format("hud.cursor", tileX, tileY, _screens.Loc[biome.NameKey]);
     }
 
     private void UpdateStatusLabel()
@@ -490,7 +565,6 @@ public sealed class GameplayScreen : IScreen
 
     private static string ErrorKey(PlacementResult result) => result switch
     {
-        PlacementResult.OutOfBounds => "build.error.outOfBounds",
         PlacementResult.Occupied => "build.error.occupied",
         PlacementResult.WrongBiome => "build.error.wrongBiome",
         PlacementResult.NotEnoughResources => "build.error.resources",

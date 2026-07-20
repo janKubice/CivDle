@@ -10,18 +10,18 @@ namespace CivDle.Core.Save;
 /// Binární (de)serializace uložené hry — vlastní writer dle tech-stack.md
 /// („plná kontrola, žádný balast"), verzovaná hlavička od prvního savu.
 ///
-/// Definice se ukládají přes STABILNÍ STRING ID (tabulky v hlavičce bloků),
-/// ne přes runtime indexy — přeuspořádání datových souborů (modding, patch)
-/// tak save nerozbije; smazané ID je jasná chyba při načtení.
-/// Mapa se ukládá celá (ne jen seed): změna dat generátoru nesmí hráči
-/// posunout terén pod už postavenými budovami.
+/// Definice se ukládají přes STABILNÍ STRING ID, ne přes runtime indexy —
+/// přeuspořádání datových souborů (modding, patch) save nerozbije; smazané ID
+/// je jasná chyba při načtení. Na nekonečné mapě se terén NEUKLÁDÁ: je to čistá
+/// funkce (seed + preset), takže při načtení se přesně zrekonstruuje. Ukládají
+/// se jen řídká data — budovy a síť cest.
 /// </summary>
 public sealed class SaveGameSerializer
 {
     private const string Magic = "CIVD";
 
-    /// <summary>Verze formátu — zvýšit při každé změně struktury (a napsat migraci). v2: + silnice.</summary>
-    public const int FormatVersion = 2;
+    /// <summary>Verze formátu — zvýšit při každé změně struktury. v3: nekonečná mapa (terén se neukládá).</summary>
+    public const int FormatVersion = 3;
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -43,7 +43,6 @@ public sealed class SaveGameSerializer
         writer.Write(simulation.Population);
 
         WriteResources(writer, simulation);
-        WriteMap(writer, simulation);
         WriteBuildings(writer, simulation);
         WriteRoads(writer, simulation);
     }
@@ -79,10 +78,11 @@ public sealed class SaveGameSerializer
             double population = reader.ReadDouble();
 
             double[] resources = ReadResources(reader, content);
-            var map = ReadMap(reader, content);
 
-            // Seed ze savu → deterministická auto-stavba pokračuje i po načtení.
-            var simulation = new Simulation(content, map, seed);
+            // Terén se rekonstruuje z presetu + seedu — bit za bit stejný jako při uložení.
+            var preset = FindPreset(content, presetId);
+            var terrain = new ProceduralTerrain(content.Biomes, preset, seed);
+            var simulation = new Simulation(content, terrain, seed);
             simulation.RestoreState(resources, population, tickCount);
             ReadBuildings(reader, content, simulation);
             ReadRoads(reader, simulation);
@@ -93,6 +93,19 @@ public sealed class SaveGameSerializer
         {
             throw new SaveLoadException("Uložená hra je poškozená nebo neúplná.", ex);
         }
+    }
+
+    private static TerrainPreset FindPreset(GameContent content, string presetId)
+    {
+        foreach (var preset in content.WorldGen.Presets)
+        {
+            if (preset.Id == presetId)
+            {
+                return preset;
+            }
+        }
+
+        throw new SaveLoadException($"Save používá typ světa '{presetId}', který v aktuálních datech neexistuje.");
     }
 
     // ----- zápis -----
@@ -108,33 +121,6 @@ public sealed class SaveGameSerializer
         }
     }
 
-    private static void WriteMap(BinaryWriter writer, Simulation simulation)
-    {
-        var map = simulation.Map;
-        var biomes = SimContent(simulation).Biomes;
-
-        writer.Write(map.Width);
-        writer.Write(map.Height);
-
-        // Tabulka ID biomů: byte v dlaždicích = index do téhle tabulky.
-        writer.Write(biomes.Count);
-        for (int i = 0; i < biomes.Count; i++)
-        {
-            writer.Write(biomes[i].Id);
-        }
-
-        writer.Write(map.BiomeIndices);
-        for (int i = 0; i < map.Elevation.Length; i++)
-        {
-            writer.Write(map.Elevation[i]);
-        }
-
-        for (int i = 0; i < map.Moisture.Length; i++)
-        {
-            writer.Write(map.Moisture[i]);
-        }
-    }
-
     private static void WriteBuildings(BinaryWriter writer, Simulation simulation)
     {
         var buildingDefs = SimContent(simulation).Buildings;
@@ -147,6 +133,17 @@ public sealed class SaveGameSerializer
             writer.Write(building.X);
             writer.Write(building.Y);
             writer.Write(building.Progress);
+        }
+    }
+
+    private static void WriteRoads(BinaryWriter writer, Simulation simulation)
+    {
+        var roadTiles = simulation.RoadTiles;
+        writer.Write(roadTiles.Count);
+        for (int i = 0; i < roadTiles.Count; i++)
+        {
+            writer.Write(roadTiles[i].X);
+            writer.Write(roadTiles[i].Y);
         }
     }
 
@@ -171,60 +168,9 @@ public sealed class SaveGameSerializer
         return amounts;
     }
 
-    private static WorldMap ReadMap(BinaryReader reader, GameContent content)
-    {
-        int width = reader.ReadInt32();
-        int height = reader.ReadInt32();
-        if (width is < 1 or > 8192 || height is < 1 or > 8192)
-        {
-            throw new SaveLoadException($"Save má nesmyslné rozměry mapy {width}×{height}.");
-        }
-
-        // Remap: save-index biomu → ID → aktuální runtime index.
-        int biomeCount = ReadCount(reader, max: BiomeRegistry.MaxBiomes, what: "biomů");
-        var biomeRemap = new byte[biomeCount];
-        for (int i = 0; i < biomeCount; i++)
-        {
-            string id = reader.ReadString();
-            if (!content.Biomes.TryIndexOf(id, out int index))
-            {
-                throw new SaveLoadException($"Save odkazuje na biom '{id}', který v aktuálních datech neexistuje.");
-            }
-
-            biomeRemap[i] = (byte)index;
-        }
-
-        var map = new WorldMap(width, height);
-        int tiles = width * height;
-
-        var savedBiomes = ReadExactly(reader, tiles);
-        for (int i = 0; i < tiles; i++)
-        {
-            byte saved = savedBiomes[i];
-            if (saved >= biomeCount)
-            {
-                throw new SaveLoadException($"Save obsahuje neplatný index biomu {saved}.");
-            }
-
-            map.BiomeIndices[i] = biomeRemap[saved];
-        }
-
-        for (int i = 0; i < tiles; i++)
-        {
-            map.Elevation[i] = reader.ReadSingle();
-        }
-
-        for (int i = 0; i < tiles; i++)
-        {
-            map.Moisture[i] = reader.ReadSingle();
-        }
-
-        return map;
-    }
-
     private static void ReadBuildings(BinaryReader reader, GameContent content, Simulation simulation)
     {
-        int count = ReadCount(reader, max: 1_000_000, what: "budov");
+        int count = ReadCount(reader, max: 5_000_000, what: "budov");
         for (int i = 0; i < count; i++)
         {
             string id = reader.ReadString();
@@ -237,40 +183,18 @@ public sealed class SaveGameSerializer
                 throw new SaveLoadException($"Save odkazuje na budovu '{id}', která v aktuálních datech neexistuje.");
             }
 
-            try
-            {
-                simulation.RestoreBuilding(defIndex, x, y, progress);
-            }
-            catch (ArgumentOutOfRangeException ex)
-            {
-                throw new SaveLoadException(ex.Message, ex);
-            }
-        }
-    }
-
-    private static void WriteRoads(BinaryWriter writer, Simulation simulation)
-    {
-        var roadTiles = simulation.RoadTiles;
-        writer.Write(roadTiles.Count);
-        for (int i = 0; i < roadTiles.Count; i++)
-        {
-            writer.Write(roadTiles[i]);
+            simulation.RestoreBuilding(defIndex, x, y, progress);
         }
     }
 
     private static void ReadRoads(BinaryReader reader, Simulation simulation)
     {
-        int tileCount = simulation.Map.Width * simulation.Map.Height;
-        int count = ReadCount(reader, max: tileCount, what: "silnic");
+        int count = ReadCount(reader, max: 20_000_000, what: "silnic");
         for (int i = 0; i < count; i++)
         {
-            int tileIndex = reader.ReadInt32();
-            if (tileIndex < 0 || tileIndex >= tileCount)
-            {
-                throw new SaveLoadException($"Save obsahuje silnici mimo mapu (index {tileIndex}).");
-            }
-
-            simulation.AddRoadTile(tileIndex);
+            int x = reader.ReadInt32();
+            int y = reader.ReadInt32();
+            simulation.AddRoadTile(x, y);
         }
     }
 
@@ -283,17 +207,6 @@ public sealed class SaveGameSerializer
         }
 
         return count;
-    }
-
-    private static byte[] ReadExactly(BinaryReader reader, int count)
-    {
-        var buffer = reader.ReadBytes(count);
-        if (buffer.Length != count)
-        {
-            throw new SaveLoadException("Uložená hra je poškozená nebo neúplná.");
-        }
-
-        return buffer;
     }
 
     /// <summary>Obsah, nad kterým simulace běží (interní přístup v rámci assembly).</summary>

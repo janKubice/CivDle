@@ -14,7 +14,10 @@ public sealed class GameContent
         WorldGenCatalog worldGen,
         GameplayConfig gameplay,
         DefRegistry<LanguageDef> languages,
-        IReadOnlyList<string> settlementNames)
+        IReadOnlyList<string> settlementNames,
+        IReadOnlyList<DecorationDef> decorations,
+        IReadOnlyList<FaunaDef> fauna,
+        IReadOnlyList<DevlogEntry> devlog)
     {
         Biomes = biomes;
         Resources = resources;
@@ -23,10 +26,22 @@ public sealed class GameContent
         Gameplay = gameplay;
         Languages = languages;
         SettlementNames = settlementNames;
+        Decorations = decorations;
+        Fauna = fauna;
+        Devlog = devlog;
     }
+
+    /// <summary>Vývojový deník z <c>data/devlog.json</c> (smí být prázdný).</summary>
+    public IReadOnlyList<DevlogEntry> Devlog { get; }
 
     /// <summary>Jména osad z <c>data/settlement-names.json</c> (vlastní jména se nepřekládají).</summary>
     public IReadOnlyList<string> SettlementNames { get; }
+
+    /// <summary>Biomové dekorace z <c>data/decorations.json</c> (smí být prázdné).</summary>
+    public IReadOnlyList<DecorationDef> Decorations { get; }
+
+    /// <summary>Ambientní fauna z <c>data/fauna.json</c> (smí být prázdné).</summary>
+    public IReadOnlyList<FaunaDef> Fauna { get; }
 
     /// <summary>Definice biomů z <c>data/biomes.json</c>.</summary>
     public BiomeRegistry Biomes { get; }

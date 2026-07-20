@@ -3,27 +3,23 @@ using Microsoft.Xna.Framework;
 namespace CivDle.Rendering;
 
 /// <summary>
-/// 2D kamera nad mapou: pozice (střed pohledu ve world pixelech) + zoom.
-/// Umí pan, zoom ke kurzoru a drží se v mezích světa. Čistě render vrstva —
-/// simulace o kameře neví.
+/// 2D kamera nad NEKONEČNOU mapou: pozice (střed pohledu ve world pixelech) + zoom.
+/// Pan není nijak omezený (svět nemá hranice), zoom má pevné meze. Čistě render
+/// vrstva — simulace o kameře neví.
 /// </summary>
 public sealed class Camera2D
 {
-    private const float MaxZoom = 8f;
+    private const float MaxZoom = 6f;
+    private const float MinZoom = 0.12f;
 
-    /// <summary>Rezerva pod „zoom na celou mapu", ať jde mapu vidět celou i s okrajem.</summary>
-    private const float MinZoomFitFactor = 0.85f;
-
-    private float _worldWidth = 1f;
-    private float _worldHeight = 1f;
     private int _viewportWidth = 1;
     private int _viewportHeight = 1;
 
     /// <summary>Střed pohledu ve world pixelech.</summary>
-    public Vector2 Position { get; private set; }
+    public Vector2 Position { get; set; }
 
     /// <summary>Měřítko: world pixely × zoom = pixely obrazovky.</summary>
-    public float Zoom { get; private set; } = 1f;
+    public float Zoom { get; private set; } = 1.6f;
 
     /// <summary>Transformace pro SpriteBatch (svět → obrazovka).</summary>
     public Matrix Transform =>
@@ -31,28 +27,18 @@ public sealed class Camera2D
         * Matrix.CreateScale(Zoom, Zoom, 1f)
         * Matrix.CreateTranslation(_viewportWidth * 0.5f, _viewportHeight * 0.5f, 0f);
 
-    /// <summary>Nastaví rozměry světa v pixelech (mez pro pan a minimální zoom).</summary>
-    public void SetWorldBounds(float worldWidth, float worldHeight)
-    {
-        _worldWidth = worldWidth;
-        _worldHeight = worldHeight;
-        ClampZoomAndPosition();
-    }
-
     /// <summary>Aktualizuje rozměry viewportu — volat každý snímek (okno jde zvětšovat).</summary>
     public void SetViewport(int width, int height)
     {
         _viewportWidth = Math.Max(1, width);
         _viewportHeight = Math.Max(1, height);
-        ClampZoomAndPosition();
     }
 
-    /// <summary>Vycentruje pohled na střed světa se zoomem „celá mapa na obrazovce".</summary>
-    public void CenterOnWorld()
+    /// <summary>Vycentruje pohled na daný bod ve world pixelech se zvoleným zoomem.</summary>
+    public void CenterOn(Vector2 worldPosition, float zoom)
     {
-        Position = new Vector2(_worldWidth * 0.5f, _worldHeight * 0.5f);
-        Zoom = FitZoom();
-        ClampZoomAndPosition();
+        Position = worldPosition;
+        Zoom = Math.Clamp(zoom, MinZoom, MaxZoom);
     }
 
     /// <summary>Převod bodu obrazovky na world souřadnice.</summary>
@@ -78,40 +64,18 @@ public sealed class Camera2D
     }
 
     /// <summary>Pan tažením myši: svět se drží pod kurzorem, proto se pozice posouvá proti deltě.</summary>
-    public void Pan(Vector2 screenDelta)
-    {
-        Position -= screenDelta / Zoom;
-        ClampZoomAndPosition();
-    }
+    public void Pan(Vector2 screenDelta) => Position -= screenDelta / Zoom;
 
     /// <summary>Pan o world delta (klávesy).</summary>
-    public void PanWorld(Vector2 worldDelta)
-    {
-        Position += worldDelta;
-        ClampZoomAndPosition();
-    }
+    public void PanWorld(Vector2 worldDelta) => Position += worldDelta;
 
     /// <summary>Přiblíží/oddálí tak, aby bod pod kurzorem zůstal na místě.</summary>
     public void ZoomAt(Vector2 screenPoint, float factor)
     {
         var worldUnderCursor = ScreenToWorld(screenPoint);
-        Zoom = Math.Clamp(Zoom * factor, MinZoom(), MaxZoom);
+        Zoom = Math.Clamp(Zoom * factor, MinZoom, MaxZoom);
 
         var center = new Vector2(_viewportWidth * 0.5f, _viewportHeight * 0.5f);
         Position = worldUnderCursor - (screenPoint - center) / Zoom;
-        ClampZoomAndPosition();
-    }
-
-    private float FitZoom() =>
-        MathF.Min(_viewportWidth / _worldWidth, _viewportHeight / _worldHeight);
-
-    private float MinZoom() => MathF.Min(FitZoom() * MinZoomFitFactor, MaxZoom);
-
-    private void ClampZoomAndPosition()
-    {
-        Zoom = Math.Clamp(Zoom, MinZoom(), MaxZoom);
-        Position = new Vector2(
-            Math.Clamp(Position.X, 0f, _worldWidth),
-            Math.Clamp(Position.Y, 0f, _worldHeight));
     }
 }

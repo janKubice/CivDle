@@ -15,13 +15,8 @@ public class SimulationTests
 {
     // ----- pomůcky -----
 
-    /// <summary>Mapa vyplněná jedním biomem.</summary>
-    private static WorldMap UniformMap(int size, byte biomeIndex)
-    {
-        var map = new WorldMap(size, size);
-        Array.Fill(map.BiomeIndices, biomeIndex);
-        return map;
-    }
+    /// <summary>Nekonečný terén s jediným biomem (velikost je jen historický parametr, ignoruje se).</summary>
+    private static ITerrain UniformMap(int size, byte biomeIndex) => new UniformTerrain(biomeIndex);
 
     private static void RunTicks(Simulation sim, int ticks)
     {
@@ -90,14 +85,15 @@ public class SimulationTests
     }
 
     [Fact]
-    public void PlaceBuilding_FootprintOutOfBounds_IsRejected()
+    public void PlaceBuilding_WorksAnywhereOnInfiniteMap()
     {
-        var (content, sim) = RealGrasslandWorld(size: 8);
+        var (content, sim) = RealGrasslandWorld();
         int farm = content.Buildings.IndexOf("farm"); // 2×2
 
-        Assert.Equal(PlacementResult.OutOfBounds, sim.CanPlace(farm, 7, 7));
-        Assert.Equal(PlacementResult.OutOfBounds, sim.CanPlace(farm, -1, 0));
-        Assert.Equal(PlacementResult.Ok, sim.CanPlace(farm, 6, 6));
+        // Nekonečná mapa — žádné „mimo mapu"; stavět jde i daleko a na záporných souřadnicích.
+        Assert.Equal(PlacementResult.Ok, sim.CanPlace(farm, 9999, 9999));
+        Assert.Equal(PlacementResult.Ok, sim.CanPlace(farm, -500, -500));
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(farm, -500, -500));
     }
 
     [Fact]
@@ -236,7 +232,7 @@ public class SimulationTests
     }
 
     [Fact]
-    public void Harvest_OccupiedOrOutOfBounds_GivesNothing()
+    public void Harvest_OccupiedTile_GivesNothing()
     {
         var content = TestData.LoadRealContent();
         var map = UniformMap(8, (byte)content.Biomes.IndexOf("forest"));
@@ -244,8 +240,8 @@ public class SimulationTests
         Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(content.Buildings.IndexOf("lumber_camp"), 2, 2));
 
         Assert.False(sim.TryHarvest(2, 2, out _, out _), "Zastavěná dlaždice nemá dávat suroviny.");
-        Assert.False(sim.TryHarvest(-1, 0, out _, out _));
-        Assert.False(sim.TryHarvest(0, 99, out _, out _));
+        // Volná lesní dlaždice (i záporná — mapa je nekonečná) sběr dá.
+        Assert.True(sim.TryHarvest(-1, 0, out _, out _));
     }
 
     // ----- populace -----

@@ -1,4 +1,5 @@
 using CivDle.Core.Sim;
+using CivDle.Core.World;
 using CivDle.Core.WorldGen;
 using Microsoft.Xna.Framework;
 using Myra.Graphics2D.UI;
@@ -35,11 +36,13 @@ public sealed class NewGameScreen : IScreen
 
     public bool IsOverlay => false;
 
-    public void Update(GameTime gameTime)
-    {
-    }
+    public void Update(GameTime gameTime) => _screens.MenuBackground.Update(gameTime);
 
-    public void Draw(GameTime gameTime) => _desktop.Render();
+    public void Draw(GameTime gameTime)
+    {
+        _screens.MenuBackground.Draw(_screens.SpriteBatch);
+        _desktop.Render();
+    }
 
     public void Dispose()
     {
@@ -103,9 +106,10 @@ public sealed class NewGameScreen : IScreen
         var preset = content.WorldGen.Presets[_presetIndex];
         long seed = SeedUtil.Parse(_seedText);
 
-        // Generování je pro velikosti z dat otázka desítek ms — běží synchronně.
-        var map = new MapGenerator().Generate(content, new WorldGenRequest(seed, size.Width, size.Height, preset));
-        var simulation = new Simulation(content, map, seed);
+        // Nekonečný terén: žádné generování mapy dopředu — počítá se on-demand.
+        // „Velikost světa" už jen ladí startovní zoom (menší = blíž nastartuje).
+        var terrain = new ProceduralTerrain(content.Biomes, preset, seed);
+        var simulation = new Simulation(content, terrain, seed);
         var info = new WorldInfo(seed, size.Id, preset.Id);
 
         _screens.ReplaceAll(new GameplayScreen(_screens, simulation, info));

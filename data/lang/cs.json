@@ -71,6 +71,8 @@
     "pause.saveFailed": "Uložení se nepovedlo.",
     "resource.planks": "Prkna",
     "building.sawmill": "Pila",
-    "building.warehouse": "Sklad"
+    "building.warehouse": "Sklad",
+    "hud.day": "Den {0} · {1:00}:{2:00}",
+    "menu.devlog": "Novinky"
   }
 }

@@ -12,12 +12,7 @@ namespace CivDle.Core.Tests.Sim;
 /// </summary>
 public class AutoBuildTests
 {
-    private static WorldMap UniformMap(int size, byte biomeIndex)
-    {
-        var map = new WorldMap(size, size);
-        Array.Fill(map.BiomeIndices, biomeIndex);
-        return map;
-    }
+    private static ITerrain UniformMap(int size, byte biomeIndex) => new UniformTerrain(biomeIndex);
 
     private static void RunTicks(Simulation sim, int ticks)
     {

@@ -47,7 +47,10 @@ internal static class TestContent
             catalog,
             gameplay,
             new DefRegistry<LanguageDef>(new[] { language }, l => l.Id, "jazyk"),
-            new[] { "Testov", "Zkouškovice" });
+            new[] { "Testov", "Zkouškovice" },
+            Array.Empty<DecorationDef>(),
+            Array.Empty<FaunaDef>(),
+            Array.Empty<DevlogEntry>());
     }
 
     /// <summary>Výchozí gameplay config testů (auto-stavba na dlouhém intervalu, ať do testů nezasahuje).</summary>
@@ -56,7 +59,11 @@ internal static class TestContent
         PopulationGrowthPerSecond: 0.12, FoodPerPersonPerSecond: 0.04, FoodResourceIndex: 0,
         AutoBuild: new AutoBuildConfig(IntervalTicks: 100_000, SearchRadius: 6, PopulationHeadroom: 2),
         Roads: new RoadConfig(new RgbColor(150, 145, 130), MaxSearchDistance: 60),
-        Settlements: new SettlementConfig(MinBuildings: 3, ClusterDistance: 3, UpdateIntervalTicks: 50));
+        Settlements: new SettlementConfig(MinBuildings: 3, ClusterDistance: 3, UpdateIntervalTicks: 50),
+        DayNight: new DayNightConfig(
+            DayLengthSeconds: 240, StartTimeOfDay: 0.32,
+            NightColor: new RgbColor(10, 20, 48), DuskColor: new RgbColor(232, 134, 47),
+            NightAlpha: 0.45, DuskAlpha: 0.18));
 
     /// <summary>Levná budova bez výroby povolená na všech biomech.</summary>
     public static BuildingDef SimpleBuilding(string id, int biomeCount) => new(

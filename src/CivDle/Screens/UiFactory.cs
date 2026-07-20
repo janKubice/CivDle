@@ -1,6 +1,8 @@
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Myra.Graphics2D;
 using Myra.Graphics2D.Brushes;
+using Myra.Graphics2D.TextureAtlases;
 using Myra.Graphics2D.UI;
 
 namespace CivDle.Screens;
@@ -11,10 +13,16 @@ namespace CivDle.Screens;
 /// </summary>
 internal static class UiFactory
 {
-    public const int MenuButtonWidth = 280;
-    public const int MenuButtonHeight = 44;
+    public const int MenuButtonWidth = 300;
+    public const int MenuButtonHeight = 46;
 
-    /// <summary>Standardní menu tlačítko s akcí.</summary>
+    /// <summary>Akcentní barva UI (jednotný „cool" tón napříč menu i HUD).</summary>
+    public static readonly Color Accent = new(96, 196, 220);
+
+    private static readonly Color PanelFill = new(18, 22, 30, 205);
+    private static readonly Color ButtonFill = new(38, 48, 64, 235);
+
+    /// <summary>Standardní menu tlačítko s akcí a decentním pozadím.</summary>
     public static Button MenuButton(string text, Action onClick)
     {
         var button = new Button
@@ -23,6 +31,7 @@ internal static class UiFactory
             Width = MenuButtonWidth,
             Height = MenuButtonHeight,
             HorizontalAlignment = HorizontalAlignment.Center,
+            Background = new SolidBrush(ButtonFill),
         };
         button.Click += (_, _) => onClick();
         return button;
@@ -37,6 +46,7 @@ internal static class UiFactory
             Height = 36,
             Padding = new Thickness(12, 0),
             VerticalAlignment = VerticalAlignment.Center,
+            Background = new SolidBrush(ButtonFill),
         };
         button.Click += (_, _) => onClick();
         return button;
@@ -47,12 +57,23 @@ internal static class UiFactory
     {
         var panel = new Panel
         {
-            Background = new SolidBrush(new Color(0, 0, 0, 170)),
-            Padding = new Thickness(12),
+            Background = new SolidBrush(PanelFill),
+            Border = new SolidBrush(new Color(90, 120, 150, 120)),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(12, 10),
         };
         panel.Widgets.Add(content);
         return panel;
     }
+
+    /// <summary>Ikonka ze spritu (např. surovina v HUD) jako Myra widget.</summary>
+    public static Image Icon(Texture2D texture, int size) => new()
+    {
+        Renderable = new TextureRegion(texture),
+        Width = size,
+        Height = size,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
 
     /// <summary>Řádek formuláře: popisek s pevnou šířkou + widgety (selector, textbox…).</summary>
     public static HorizontalStackPanel Row(string labelText, params Widget[] widgets)
