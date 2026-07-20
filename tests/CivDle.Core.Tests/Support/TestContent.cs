@@ -49,7 +49,8 @@ internal static class TestContent
             new DefRegistry<LanguageDef>(new[] { language }, l => l.Id, "jazyk"),
             new[] { "Testov", "Zkouškovice" },
             Array.Empty<DecorationDef>(),
-            Array.Empty<FaunaDef>());
+            Array.Empty<FaunaDef>(),
+            Array.Empty<DevlogEntry>());
     }
 
     /// <summary>Výchozí gameplay config testů (auto-stavba na dlouhém intervalu, ať do testů nezasahuje).</summary>

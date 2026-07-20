@@ -16,7 +16,8 @@ public sealed class GameContent
         DefRegistry<LanguageDef> languages,
         IReadOnlyList<string> settlementNames,
         IReadOnlyList<DecorationDef> decorations,
-        IReadOnlyList<FaunaDef> fauna)
+        IReadOnlyList<FaunaDef> fauna,
+        IReadOnlyList<DevlogEntry> devlog)
     {
         Biomes = biomes;
         Resources = resources;
@@ -27,7 +28,11 @@ public sealed class GameContent
         SettlementNames = settlementNames;
         Decorations = decorations;
         Fauna = fauna;
+        Devlog = devlog;
     }
+
+    /// <summary>Vývojový deník z <c>data/devlog.json</c> (smí být prázdný).</summary>
+    public IReadOnlyList<DevlogEntry> Devlog { get; }
 
     /// <summary>Jména osad z <c>data/settlement-names.json</c> (vlastní jména se nepřekládají).</summary>
     public IReadOnlyList<string> SettlementNames { get; }

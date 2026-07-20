@@ -15,9 +15,8 @@ public class DayNightTests
     private static Simulation NewSim(out CivDle.Core.Content.GameContent content)
     {
         content = TestData.LoadRealContent();
-        var map = new WorldMap(8, 8);
-        Array.Fill(map.BiomeIndices, (byte)content.Biomes.IndexOf("grassland"));
-        return new Simulation(content, map);
+        var terrain = new UniformTerrain(content.Biomes.IndexOf("grassland"));
+        return new Simulation(content, terrain);
     }
 
     [Fact]

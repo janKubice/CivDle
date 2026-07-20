@@ -393,6 +393,25 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadFrom_RealGameData_HasDevlog()
+    {
+        var content = TestData.LoadRealContent();
+
+        Assert.NotEmpty(content.Devlog);
+        Assert.All(content.Devlog, e => Assert.False(string.IsNullOrWhiteSpace(e.Version)));
+    }
+
+    [Fact]
+    public void LoadFrom_MissingDevlog_IsOptional()
+    {
+        WriteAllValid();
+        // Devlog je volitelný — bez souboru se hra načte, jen bez záznamů.
+        var content = new ContentLoader().LoadFrom(_tempDir);
+
+        Assert.Empty(content.Devlog);
+    }
+
+    [Fact]
     public void LoadFrom_LanguageMissingContentName_Throws()
     {
         WriteAllValid();

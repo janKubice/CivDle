@@ -108,6 +108,12 @@ public sealed record SettlementsDto(int MinBuildings, int ClusterDistance, int U
 /// <summary>Obsah souboru <c>data/settlement-names.json</c>.</summary>
 public sealed record SettlementNamesFileDto(int SchemaVersion, List<string>? Names);
 
+/// <summary>Obsah souboru <c>data/devlog.json</c>.</summary>
+public sealed record DevlogFileDto(int SchemaVersion, List<DevlogEntryDto>? Entries);
+
+/// <summary>Jeden záznam deníku tak, jak leží v JSON.</summary>
+public sealed record DevlogEntryDto(string? Version, string? Date, List<string>? Lines);
+
 /// <summary>Obsah jednoho jazyka <c>data/lang/*.json</c>.</summary>
 public sealed record LanguageFileDto(
     int SchemaVersion,

@@ -1,4 +1,5 @@
 using CivDle.Core.Content;
+using CivDle.Core.World;
 
 namespace CivDle.Core.Sim;
 
@@ -8,20 +9,18 @@ namespace CivDle.Core.Sim;
 /// jiné budovy a dlaždice cesty označí jako silnici. Cesty jsou zdarma a plně
 /// automatické — relaxační jádro, hráč je neřeší.
 ///
-/// BFS s pevným pořadím sousedů je deterministické; existující síť je cílem
-/// hledání, takže se cesty přirozeně napojují místo duplikování. Voda a budovy
-/// jsou neprůchozí (mosty zatím nejsou). Pomocná pole se recyklují přes
-/// generační razítka — žádné čištění 250k položek při každé stavbě.
+/// Nekonečná mapa: BFS pracuje nad řídkými mapami (Dictionary/HashSet) v okně
+/// omezeném <c>maxSearchDistance</c>, ne nad plochým polem celého světa. Pevné
+/// pořadí sousedů drží determinismus; existující síť je cílem hledání, takže se
+/// cesty napojují místo duplikování. Voda a budovy jsou neprůchozí (mosty zatím ne).
 /// </summary>
 internal sealed class RoadBuilder
 {
     private readonly GameContent _content;
-
-    private int[] _visitedStamp = Array.Empty<int>();
-    private int[] _targetStamp = Array.Empty<int>();
-    private int[] _cameFrom = Array.Empty<int>();
-    private int _stamp;
-    private readonly Queue<int> _queue = new();
+    private readonly HashSet<long> _targets = new();
+    private readonly HashSet<long> _visited = new();
+    private readonly Dictionary<long, long> _cameFrom = new();
+    private readonly Queue<long> _queue = new();
 
     public RoadBuilder(GameContent content)
     {
@@ -37,83 +36,78 @@ internal sealed class RoadBuilder
             return;
         }
 
-        var map = sim.Map;
-        EnsureBuffers(map.Width * map.Height);
-        _stamp++;
+        _targets.Clear();
+        _visited.Clear();
+        _cameFrom.Clear();
         _queue.Clear();
 
         // Cíle: existující silnice + průchozí obvod všech starších budov.
-        var roadTiles = sim.RoadTiles;
-        for (int i = 0; i < roadTiles.Count; i++)
+        foreach (var road in sim.RoadTiles)
         {
-            _targetStamp[roadTiles[i]] = _stamp;
+            _targets.Add(TileKey.Pack(road.X, road.Y));
         }
 
         for (int i = 0; i < buildings.Length - 1; i++)
         {
-            MarkPerimeter(sim, buildings[i], tileIndex => _targetStamp[tileIndex] = _stamp);
+            MarkPerimeter(sim, buildings[i], key => _targets.Add(key));
         }
 
         // Starty: průchozí obvod nové budovy.
-        ref readonly var newBuilding = ref buildings[^1];
-        MarkPerimeter(sim, newBuilding, tileIndex =>
+        MarkPerimeter(sim, buildings[^1], key =>
         {
-            if (_visitedStamp[tileIndex] != _stamp)
+            if (_visited.Add(key))
             {
-                _visitedStamp[tileIndex] = _stamp;
-                _cameFrom[tileIndex] = -1;
-                _queue.Enqueue(tileIndex);
+                _cameFrom[key] = -1;
+                _queue.Enqueue(key);
             }
         });
 
-        int found = Search(sim);
-        if (found < 0)
+        long found = Search(sim);
+        if (found == -1)
         {
             return; // příliš daleko nebo bez suchozemské cesty — nechá se bez napojení
         }
 
-        for (int tileIndex = found; tileIndex >= 0; tileIndex = _cameFrom[tileIndex])
+        for (long key = found; key != -1; key = _cameFrom[key])
         {
-            sim.AddRoadTile(tileIndex);
+            sim.AddRoadTile(TileKey.X(key), TileKey.Y(key));
         }
     }
 
-    /// <summary>BFS s limitem vzdálenosti; vrací index nalezené cílové dlaždice, jinak −1.</summary>
-    private int Search(Simulation sim)
+    /// <summary>BFS s limitem vzdálenosti; vrací klíč nalezené cílové dlaždice, jinak −1.</summary>
+    private long Search(Simulation sim)
     {
-        var map = sim.Map;
         int maxDistance = _content.Gameplay.Roads.MaxSearchDistance;
-        int frontier = _queue.Count;
-        int depth = 0;
 
         // Start může být rovnou cílem (budova u silnice/souseda) → cesta je jedna dlaždice.
-        foreach (int tileIndex in _queue)
+        foreach (long key in _queue)
         {
-            if (_targetStamp[tileIndex] == _stamp)
+            if (_targets.Contains(key))
             {
-                return tileIndex;
+                return key;
             }
         }
 
-        while (_queue.Count > 0 && depth < maxDistance)
+        int frontier = _queue.Count;
+        int depth = 0;
+        while (_queue.Count > 0)
         {
             if (frontier == 0)
             {
                 frontier = _queue.Count;
-                depth++;
-                if (depth >= maxDistance)
+                if (++depth >= maxDistance)
                 {
                     break;
                 }
             }
 
-            int current = _queue.Dequeue();
+            long current = _queue.Dequeue();
             frontier--;
 
-            int x = current % map.Width;
-            int y = current / map.Width;
+            int x = TileKey.X(current);
+            int y = TileKey.Y(current);
             // Pevné pořadí sousedů → deterministický tvar sítě.
-            if (Visit(sim, x + 1, y, current, out int hit)) return hit;
+            if (Visit(sim, x + 1, y, current, out long hit)) return hit;
             if (Visit(sim, x - 1, y, current, out hit)) return hit;
             if (Visit(sim, x, y + 1, current, out hit)) return hit;
             if (Visit(sim, x, y - 1, current, out hit)) return hit;
@@ -122,78 +116,61 @@ internal sealed class RoadBuilder
         return -1;
     }
 
-    private bool Visit(Simulation sim, int x, int y, int from, out int foundTarget)
+    private bool Visit(Simulation sim, int x, int y, long from, out long foundTarget)
     {
         foundTarget = -1;
-        var map = sim.Map;
-        if (!map.InBounds(x, y))
+        long key = TileKey.Pack(x, y);
+        if (_visited.Contains(key) || !IsPassable(sim, x, y))
         {
             return false;
         }
 
-        int tileIndex = map.Index(x, y);
-        if (_visitedStamp[tileIndex] == _stamp || !IsPassable(sim, tileIndex))
-        {
-            return false;
-        }
+        _visited.Add(key);
+        _cameFrom[key] = from;
 
-        _visitedStamp[tileIndex] = _stamp;
-        _cameFrom[tileIndex] = from;
-
-        if (_targetStamp[tileIndex] == _stamp)
+        if (_targets.Contains(key))
         {
-            foundTarget = tileIndex;
+            foundTarget = key;
             return true;
         }
 
-        _queue.Enqueue(tileIndex);
+        _queue.Enqueue(key);
         return false;
     }
 
-    private bool IsPassable(Simulation sim, int tileIndex)
+    private bool IsPassable(Simulation sim, int x, int y)
     {
-        if (sim.OccupancyGrid[tileIndex] != 0)
+        if (sim.IsOccupied(x, y))
         {
             return false;
         }
 
-        return !_content.Biomes[sim.Map.BiomeIndices[tileIndex]].IsWater;
+        return !_content.Biomes[sim.Terrain.BiomeAt(x, y)].IsWater;
     }
 
     /// <summary>Zavolá akci pro každou průchozí dlaždici po obvodu půdorysu budovy.</summary>
-    private void MarkPerimeter(Simulation sim, in BuildingInstance building, Action<int> action)
+    private void MarkPerimeter(Simulation sim, in BuildingInstance building, Action<long> action)
     {
         var def = _content.Buildings[building.DefIndex];
-        var map = sim.Map;
 
         for (int x = building.X; x < building.X + def.FootprintWidth; x++)
         {
-            TryMark(sim, map, x, building.Y - 1, action);
-            TryMark(sim, map, x, building.Y + def.FootprintHeight, action);
+            TryMark(sim, x, building.Y - 1, action);
+            TryMark(sim, x, building.Y + def.FootprintHeight, action);
         }
 
         for (int y = building.Y; y < building.Y + def.FootprintHeight; y++)
         {
-            TryMark(sim, map, building.X - 1, y, action);
-            TryMark(sim, map, building.X + def.FootprintWidth, y, action);
+            TryMark(sim, building.X - 1, y, action);
+            TryMark(sim, building.X + def.FootprintWidth, y, action);
         }
     }
 
-    private void TryMark(Simulation sim, World.WorldMap map, int x, int y, Action<int> action)
+    private void TryMark(Simulation sim, int x, int y, Action<long> action)
     {
-        if (map.InBounds(x, y) && IsPassable(sim, map.Index(x, y)))
+        if (IsPassable(sim, x, y))
         {
-            action(map.Index(x, y));
-        }
-    }
-
-    private void EnsureBuffers(int tileCount)
-    {
-        if (_visitedStamp.Length < tileCount)
-        {
-            _visitedStamp = new int[tileCount];
-            _targetStamp = new int[tileCount];
-            _cameFrom = new int[tileCount];
+            action(TileKey.Pack(x, y));
         }
     }
 }

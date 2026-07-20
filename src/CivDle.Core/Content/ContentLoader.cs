@@ -40,8 +40,9 @@ public sealed class ContentLoader
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
+        var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
 
-        return new GameContent(biomes, resources, buildings, worldGen, gameplay, languages, settlementNames, decorations, fauna);
+        return new GameContent(biomes, resources, buildings, worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog);
     }
 
     // ----- biomy -----
@@ -480,6 +481,33 @@ public sealed class ContentLoader
                 duskColor,
                 file.DayNight.NightAlpha,
                 file.DayNight.DuskAlpha));
+    }
+
+    // ----- devlog (volitelný obsah menu) -----
+
+    private static IReadOnlyList<DevlogEntry> LoadDevlog(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return Array.Empty<DevlogEntry>(); // deník je volitelný — jeho absence hru neblokuje
+        }
+
+        var file = ReadFile<DevlogFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var entries = new List<DevlogEntry>();
+        foreach (var dto in file.Entries ?? new List<DevlogEntryDto>())
+        {
+            if (string.IsNullOrWhiteSpace(dto.Version))
+            {
+                throw new ContentLoadException(path, "Záznam deníku nemá vyplněnou 'version'.");
+            }
+
+            var lines = (dto.Lines ?? new List<string>()).Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
+            entries.Add(new DevlogEntry(dto.Version.Trim(), dto.Date?.Trim() ?? string.Empty, lines));
+        }
+
+        return entries;
     }
 
     // ----- dekorace a fauna (živá mapa) -----

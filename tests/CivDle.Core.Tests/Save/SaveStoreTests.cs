@@ -82,12 +82,8 @@ public class SaveStoreTests : IDisposable
         Assert.NotNull(error);
     }
 
-    private static WorldMap GrassMap(CivDle.Core.Content.GameContent content)
-    {
-        var map = new WorldMap(8, 8);
-        Array.Fill(map.BiomeIndices, (byte)content.Biomes.IndexOf("grassland"));
-        return map;
-    }
+    private static ITerrain GrassMap(CivDle.Core.Content.GameContent content) =>
+        new UniformTerrain(content.Biomes.IndexOf("grassland"));
 
     private static SaveMetadata Meta() => new(
         Seed: 7, SizeId: "small", PresetId: "continents",
