@@ -31,11 +31,9 @@ internal static class TestContent
         GameplayConfig? gameplay = null)
     {
         biomes ??= new[] { WaterBiome(), LandBiome("grass") };
-        resources ??= new[] { new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 10) };
+        resources ??= new[] { new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 10, BaseStorage: 1000) };
         buildings ??= new[] { SimpleBuilding("hut", biomes.Count) };
-        gameplay ??= new GameplayConfig(
-            StartingPopulation: 5, BaseHousingCapacity: 6,
-            PopulationGrowthPerSecond: 0.12, FoodPerPersonPerSecond: 0.04, FoodResourceIndex: 0);
+        gameplay ??= DefaultGameplay;
 
         var preset = new TerrainPreset("test", SeaLevel: 0.5f, fallbackBiomeIndex, Noise, Noise);
         var catalog = new WorldGenCatalog(
@@ -51,11 +49,19 @@ internal static class TestContent
             new DefRegistry<LanguageDef>(new[] { language }, l => l.Id, "jazyk"));
     }
 
+    /// <summary>Výchozí gameplay config testů (auto-stavba na dlouhém intervalu, ať do testů nezasahuje).</summary>
+    public static GameplayConfig DefaultGameplay => new(
+        StartingPopulation: 5, BaseHousingCapacity: 6,
+        PopulationGrowthPerSecond: 0.12, FoodPerPersonPerSecond: 0.04, FoodResourceIndex: 0,
+        AutoBuild: new AutoBuildConfig(IntervalTicks: 100_000, SearchRadius: 6, PopulationHeadroom: 2));
+
     /// <summary>Levná budova bez výroby povolená na všech biomech.</summary>
     public static BuildingDef SimpleBuilding(string id, int biomeCount) => new(
         id, new RgbColor(200, 100, 50), 1, 1,
         WorkerSlots: 0, HousingCapacity: 0,
         BuildCost: new[] { new ResourceAmount(0, 1) },
         Recipe: null,
-        AllowedBiomes: Enumerable.Repeat(true, biomeCount).ToArray());
+        AllowedBiomes: Enumerable.Repeat(true, biomeCount).ToArray(),
+        StorageBonus: Array.Empty<ResourceAmount>(),
+        AutoBuild: false);
 }

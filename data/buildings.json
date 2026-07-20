@@ -7,8 +7,9 @@
       "footprint": [1, 1],
       "workerSlots": 0,
       "housingCapacity": 4,
-      "buildCost": { "wood": 10 },
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "buildCost": { "wood": 5, "planks": 4 },
+      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "autoBuild": true
     },
     {
       "id": "lumber_camp",
@@ -22,6 +23,20 @@
         "timeTicks": 40
       },
       "allowedBiomes": ["forest"]
+    },
+    {
+      "id": "sawmill",
+      "mapColor": "#8A6D3B",
+      "footprint": [1, 1],
+      "workerSlots": 2,
+      "housingCapacity": 0,
+      "buildCost": { "wood": 20, "stone": 5 },
+      "recipe": {
+        "input": { "wood": 3 },
+        "output": { "planks": 1 },
+        "timeTicks": 40
+      },
+      "allowedBiomes": ["grassland", "steppe", "beach"]
     },
     {
       "id": "quarry",
@@ -48,6 +63,16 @@
         "timeTicks": 50
       },
       "allowedBiomes": ["grassland"]
+    },
+    {
+      "id": "warehouse",
+      "mapColor": "#7E5C3F",
+      "footprint": [2, 2],
+      "workerSlots": 0,
+      "housingCapacity": 0,
+      "buildCost": { "wood": 10, "planks": 8, "stone": 6 },
+      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "storage": { "wood": 150, "planks": 100, "stone": 120, "food": 120 }
     }
   ]
 }

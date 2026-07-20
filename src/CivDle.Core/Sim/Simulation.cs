@@ -17,22 +17,27 @@ public sealed class Simulation
 
     private readonly GameContent _content;
     private readonly double[] _resources;
+    private readonly double[] _storageCaps;
     private readonly int[] _occupancy; // 0 = volno, jinak index budovy + 1
     private readonly ProductionSystem _production;
     private readonly PopulationSystem _populationSystem;
+    private readonly AutoBuildSystem _autoBuild;
 
     private BuildingInstance[] _buildings = new BuildingInstance[16];
     private int _buildingCount;
 
-    public Simulation(GameContent content, WorldMap map)
+    /// <param name="seed">Seed světa — řídí deterministickou „náhodu" simulace (auto-stavba).</param>
+    public Simulation(GameContent content, WorldMap map, long seed = 0)
     {
         _content = content;
         Map = map;
 
         _resources = new double[content.Resources.Count];
+        _storageCaps = new double[content.Resources.Count];
         for (int i = 0; i < _resources.Length; i++)
         {
-            _resources[i] = content.Resources[i].StartAmount;
+            _storageCaps[i] = content.Resources[i].BaseStorage;
+            _resources[i] = Math.Min(content.Resources[i].StartAmount, _storageCaps[i]);
         }
 
         _occupancy = new int[map.Width * map.Height];
@@ -41,6 +46,7 @@ public sealed class Simulation
 
         _production = new ProductionSystem(content);
         _populationSystem = new PopulationSystem(content.Gameplay);
+        _autoBuild = new AutoBuildSystem(content, seed);
     }
 
     /// <summary>Mapa světa, nad kterou simulace běží.</summary>
@@ -64,8 +70,14 @@ public sealed class Simulation
     /// <summary>Aktuální zásoba suroviny.</summary>
     public double GetResource(int resourceIndex) => _resources[resourceIndex];
 
+    /// <summary>Kapacita skladu suroviny (základ + skladové budovy).</summary>
+    public double GetStorageCap(int resourceIndex) => _storageCaps[resourceIndex];
+
     /// <summary>Zásoby pro systémy simulace (mutace jen uvnitř assembly).</summary>
     internal double[] Resources => _resources;
+
+    /// <summary>Kapacity skladů pro systémy simulace.</summary>
+    internal double[] StorageCaps => _storageCaps;
 
     /// <summary>Obsah, nad kterým simulace běží — pro serializaci savu (v rámci assembly).</summary>
     internal GameContent ContentRef => _content;
@@ -79,6 +91,7 @@ public sealed class Simulation
         TickCount++;
         _production.Tick(this);
         _populationSystem.Tick(this);
+        _autoBuild.Tick(this);
     }
 
     /// <summary>
@@ -154,14 +167,14 @@ public sealed class Simulation
             }
         }
 
-        HousingCapacity += def.HousingCapacity;
-        TotalWorkerSlots += def.WorkerSlots;
+        ApplyBuildingBonuses(def);
         return PlacementResult.Ok;
     }
 
     /// <summary>
     /// Příkaz hráče: ruční sběr kliknutím na dlaždici („klik na strom → dřevo").
-    /// Výnos určuje biom (<see cref="ClickYield"/> z dat); zastavěná dlaždice nedává nic.
+    /// Výnos určuje biom (<see cref="ClickYield"/> z dat); zastavěná dlaždice
+    /// ani plný sklad nedávají nic.
     /// </summary>
     public bool TryHarvest(int x, int y, out int resourceIndex, out int amount)
     {
@@ -185,6 +198,12 @@ public sealed class Simulation
             return false;
         }
 
+        // Plný sklad = žádný sběr (a žádný lživý „+2" popup v UI).
+        if (_resources[yield.ResourceIndex] + yield.Amount > _storageCaps[yield.ResourceIndex])
+        {
+            return false;
+        }
+
         _resources[yield.ResourceIndex] += yield.Amount;
         resourceIndex = yield.ResourceIndex;
         amount = yield.Amount;
@@ -193,10 +212,14 @@ public sealed class Simulation
 
     // ----- obnova ze savu (jen pro SaveGameSerializer, obchází cenu a validaci biomů) -----
 
-    /// <summary>Nastaví globální stav načtený ze savu.</summary>
+    /// <summary>Nastaví globální stav načtený ze savu (zásoby se přiškrtí na aktuální kapacity).</summary>
     internal void RestoreState(double[] resourceAmounts, double population, long tickCount)
     {
-        Array.Copy(resourceAmounts, _resources, _resources.Length);
+        for (int i = 0; i < _resources.Length; i++)
+        {
+            _resources[i] = Math.Min(resourceAmounts[i], _storageCaps[i]);
+        }
+
         Population = population;
         TickCount = tickCount;
     }
@@ -230,7 +253,17 @@ public sealed class Simulation
             }
         }
 
+        ApplyBuildingBonuses(def);
+    }
+
+    /// <summary>Globální bonusy budovy: bydlení, pracovní místa, kapacita skladů.</summary>
+    private void ApplyBuildingBonuses(BuildingDef def)
+    {
         HousingCapacity += def.HousingCapacity;
         TotalWorkerSlots += def.WorkerSlots;
+        for (int i = 0; i < def.StorageBonus.Count; i++)
+        {
+            _storageCaps[def.StorageBonus[i].ResourceIndex] += def.StorageBonus[i].Amount;
+        }
     }
 }

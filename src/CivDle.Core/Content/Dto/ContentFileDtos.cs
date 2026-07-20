@@ -25,7 +25,7 @@ public sealed record ClickYieldDto(string? Resource, int Amount);
 public sealed record ResourcesFileDto(int SchemaVersion, List<ResourceDto>? Resources);
 
 /// <summary>Jedna surovina tak, jak leží v JSON.</summary>
-public sealed record ResourceDto(string? Id, string? MapColor, double StartAmount);
+public sealed record ResourceDto(string? Id, string? MapColor, double StartAmount, double BaseStorage);
 
 /// <summary>Obsah souboru <c>data/buildings.json</c>.</summary>
 public sealed record BuildingsFileDto(int SchemaVersion, List<BuildingDto>? Buildings);
@@ -39,7 +39,9 @@ public sealed record BuildingDto(
     int HousingCapacity,
     Dictionary<string, int>? BuildCost,
     RecipeDto? Recipe,
-    string[]? AllowedBiomes);
+    string[]? AllowedBiomes,
+    Dictionary<string, int>? Storage,
+    bool AutoBuild);
 
 /// <summary>Výrobní recept budovy tak, jak leží v JSON.</summary>
 public sealed record RecipeDto(
@@ -54,7 +56,11 @@ public sealed record GameplayFileDto(
     int BaseHousingCapacity,
     double PopulationGrowthPerSecond,
     double FoodPerPersonPerSecond,
-    string? FoodResource);
+    string? FoodResource,
+    AutoBuildDto? AutoBuild);
+
+/// <summary>Nastavení auto-stavby tak, jak leží v JSON.</summary>
+public sealed record AutoBuildDto(int IntervalTicks, int SearchRadius, int PopulationHeadroom);
 
 /// <summary>Obsah jednoho jazyka <c>data/lang/*.json</c>.</summary>
 public sealed record LanguageFileDto(

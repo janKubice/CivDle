@@ -105,8 +105,8 @@ public class SaveGameSerializerTests
         var biomes = new[] { TestContent.WaterBiome(), TestContent.LandBiome("grass") };
         var woodFirst = new[]
         {
-            new Resource("wood", new RgbColor(1, 1, 1), 5),
-            new Resource("planks", new RgbColor(2, 2, 2), 0),
+            new Resource("wood", new RgbColor(1, 1, 1), 5, 1000),
+            new Resource("planks", new RgbColor(2, 2, 2), 0, 1000),
         };
         var planksFirst = new[] { woodFirst[1], woodFirst[0] };
         var building = TestContent.SimpleBuilding("hut", biomes.Length);

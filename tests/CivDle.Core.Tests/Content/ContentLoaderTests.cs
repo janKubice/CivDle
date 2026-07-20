@@ -328,8 +328,8 @@ public class ContentLoaderTests : IDisposable
         {
           "schemaVersion": 1,
           "resources": [
-            { "id": "wood", "mapColor": "#8B5A2B", "startAmount": 30 },
-            { "id": "food", "mapColor": "#E0B040", "startAmount": 20 }
+            { "id": "wood", "mapColor": "#8B5A2B", "startAmount": 30, "baseStorage": 200 },
+            { "id": "food", "mapColor": "#E0B040", "startAmount": 20, "baseStorage": 150 }
           ]
         }
         """);
@@ -349,7 +349,8 @@ public class ContentLoaderTests : IDisposable
           "baseHousingCapacity": 6,
           "populationGrowthPerSecond": 0.12,
           "foodPerPersonPerSecond": 0.04,
-          "foodResource": "food"
+          "foodResource": "food",
+          "autoBuild": { "intervalTicks": 60, "searchRadius": 6, "populationHeadroom": 2 }
         }
         """);
         WriteWorldGen();

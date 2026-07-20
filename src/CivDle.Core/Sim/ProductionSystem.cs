@@ -31,6 +31,7 @@ internal sealed class ProductionSystem
 
         var buildings = sim.BuildingsMutable;
         var resources = sim.Resources;
+        var storageCaps = sim.StorageCaps;
 
         for (int i = 0; i < buildings.Length; i++)
         {
@@ -62,7 +63,10 @@ internal sealed class ProductionSystem
 
             for (int j = 0; j < recipe.Outputs.Count; j++)
             {
-                resources[recipe.Outputs[j].ResourceIndex] += recipe.Outputs[j].Amount;
+                int index = recipe.Outputs[j].ResourceIndex;
+                // Plný sklad výrobu nezastaví, přebytek propadá (idle konvence) —
+                // motivace stavět sklady, žádný trest.
+                resources[index] = Math.Min(resources[index] + recipe.Outputs[j].Amount, storageCaps[index]);
             }
 
             building.Progress -= recipe.TimeTicks;

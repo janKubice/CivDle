@@ -1,8 +1,9 @@
 {
   "schemaVersion": 1,
   "resources": [
-    { "id": "wood", "mapColor": "#8B5A2B", "startAmount": 30 },
-    { "id": "stone", "mapColor": "#9AA0A6", "startAmount": 15 },
-    { "id": "food", "mapColor": "#E0B040", "startAmount": 20 }
+    { "id": "wood", "mapColor": "#8B5A2B", "startAmount": 30, "baseStorage": 200 },
+    { "id": "planks", "mapColor": "#C8A96B", "startAmount": 10, "baseStorage": 120 },
+    { "id": "stone", "mapColor": "#9AA0A6", "startAmount": 15, "baseStorage": 150 },
+    { "id": "food", "mapColor": "#E0B040", "startAmount": 20, "baseStorage": 150 }
   ]
 }

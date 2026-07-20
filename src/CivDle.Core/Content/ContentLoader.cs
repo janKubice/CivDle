@@ -205,7 +205,17 @@ public sealed class ContentLoader
                 throw new ContentLoadException(path, $"Surovina '{id}': 'startAmount' nesmí být záporný, je {dto.StartAmount}.");
             }
 
-            resources.Add(new Resource(id, color, dto.StartAmount));
+            if (dto.BaseStorage <= 0)
+            {
+                throw new ContentLoadException(path, $"Surovina '{id}': 'baseStorage' musí být kladný, je {dto.BaseStorage}.");
+            }
+
+            if (dto.StartAmount > dto.BaseStorage)
+            {
+                throw new ContentLoadException(path, $"Surovina '{id}': 'startAmount' ({dto.StartAmount}) se nevejde do 'baseStorage' ({dto.BaseStorage}).");
+            }
+
+            resources.Add(new Resource(id, color, dto.StartAmount, dto.BaseStorage));
         }
 
         return new DefRegistry<Resource>(resources, r => r.Id, "surovina");
@@ -306,9 +316,12 @@ public sealed class ContentLoader
             mask[biomeIndex] = true;
         }
 
+        var storageBonus = ParseResourceAmounts(path, id, "storage", dto.Storage, resources);
+
         return new BuildingDef(
             id, color, dto.Footprint[0], dto.Footprint[1],
-            dto.WorkerSlots, dto.HousingCapacity, buildCost, recipe, mask);
+            dto.WorkerSlots, dto.HousingCapacity, buildCost, recipe, mask,
+            storageBonus, dto.AutoBuild);
     }
 
     private static IReadOnlyList<ResourceAmount> ParseResourceAmounts(
@@ -375,12 +388,33 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"'foodResource' odkazuje na neexistující surovinu '{file.FoodResource}'.");
         }
 
+        if (file.AutoBuild is null)
+        {
+            throw new ContentLoadException(path, "Chybí blok 'autoBuild' (interval, radius, headroom automatického růstu).");
+        }
+
+        if (file.AutoBuild.IntervalTicks is < 1 or > 100_000)
+        {
+            throw new ContentLoadException(path, $"'autoBuild.intervalTicks' musí být 1–100000, je {file.AutoBuild.IntervalTicks}.");
+        }
+
+        if (file.AutoBuild.SearchRadius is < 1 or > 64)
+        {
+            throw new ContentLoadException(path, $"'autoBuild.searchRadius' musí být 1–64, je {file.AutoBuild.SearchRadius}.");
+        }
+
+        if (file.AutoBuild.PopulationHeadroom is < 0 or > 10_000)
+        {
+            throw new ContentLoadException(path, $"'autoBuild.populationHeadroom' musí být 0–10000, je {file.AutoBuild.PopulationHeadroom}.");
+        }
+
         return new GameplayConfig(
             file.StartingPopulation,
             file.BaseHousingCapacity,
             file.PopulationGrowthPerSecond,
             file.FoodPerPersonPerSecond,
-            foodIndex);
+            foodIndex,
+            new AutoBuildConfig(file.AutoBuild.IntervalTicks, file.AutoBuild.SearchRadius, file.AutoBuild.PopulationHeadroom));
     }
 
     // ----- jazyky -----

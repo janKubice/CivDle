@@ -68,6 +68,9 @@
     "menu.loadFailed": "Uloženou hru se nepodařilo načíst.",
     "pause.save": "Uložit hru",
     "pause.saved": "Hra uložena.",
-    "pause.saveFailed": "Uložení se nepovedlo."
+    "pause.saveFailed": "Uložení se nepovedlo.",
+    "resource.planks": "Prkna",
+    "building.sawmill": "Pila",
+    "building.warehouse": "Sklad"
   }
 }

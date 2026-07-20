@@ -26,6 +26,8 @@ public sealed record Recipe(
 /// <param name="BuildCost">Cena stavby.</param>
 /// <param name="Recipe">Výroba; <c>null</c> = budova nevyrábí (dům).</param>
 /// <param name="AllowedBiomes">Maska povolených biomů indexovaná indexem biomu.</param>
+/// <param name="StorageBonus">O kolik budova zvýší kapacitu skladu surovin (sklady).</param>
+/// <param name="AutoBuild">Smí ji stavět civilizace sama (auto-domy dle poptávky, fáze 2)?</param>
 public sealed record BuildingDef(
     string Id,
     RgbColor MapColor,
@@ -35,7 +37,9 @@ public sealed record BuildingDef(
     int HousingCapacity,
     IReadOnlyList<ResourceAmount> BuildCost,
     Recipe? Recipe,
-    bool[] AllowedBiomes)
+    bool[] AllowedBiomes,
+    IReadOnlyList<ResourceAmount> StorageBonus,
+    bool AutoBuild)
 {
     /// <summary>Lokalizační klíč jména budovy.</summary>
     public string NameKey => $"building.{Id}";

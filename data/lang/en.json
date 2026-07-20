@@ -68,6 +68,9 @@
     "menu.loadFailed": "Failed to load the saved game.",
     "pause.save": "Save Game",
     "pause.saved": "Game saved.",
-    "pause.saveFailed": "Saving failed."
+    "pause.saveFailed": "Saving failed.",
+    "resource.planks": "Planks",
+    "building.sawmill": "Sawmill",
+    "building.warehouse": "Warehouse"
   }
 }

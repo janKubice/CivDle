@@ -70,7 +70,7 @@ public class SimulationTests
         var result = sim.TryPlaceBuilding(house, 2, 2);
 
         Assert.Equal(PlacementResult.Ok, result);
-        Assert.Equal(woodBefore - 10, sim.GetResource(wood));
+        Assert.Equal(woodBefore - 5, sim.GetResource(wood));
         Assert.Equal(1, sim.Buildings.Length);
         Assert.Equal(content.Gameplay.BaseHousingCapacity + 4, sim.HousingCapacity);
         Assert.Equal(PlacementResult.Occupied, sim.CanPlace(house, 2, 2));
@@ -117,12 +117,12 @@ public class SimulationTests
     public void PlaceBuilding_WithoutResources_IsRejected()
     {
         var (content, sim) = RealGrasslandWorld();
-        int house = content.Buildings.IndexOf("house"); // 10 dřeva, start 30
+        int house = content.Buildings.IndexOf("house"); // 5 dřeva + 4 prkna; start 10 prken
 
         Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(house, 0, 0));
         Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(house, 2, 0));
-        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(house, 4, 0));
-        Assert.Equal(PlacementResult.NotEnoughResources, sim.TryPlaceBuilding(house, 6, 0));
+        // Na třetí dům už nezbývají prkna (10 − 4 − 4 = 2 < 4).
+        Assert.Equal(PlacementResult.NotEnoughResources, sim.TryPlaceBuilding(house, 4, 0));
     }
 
     // ----- výroba -----
@@ -177,8 +177,8 @@ public class SimulationTests
         var biomes = new[] { TestContent.WaterBiome(), TestContent.LandBiome("grass") };
         var resources = new[]
         {
-            new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 7),
-            new Resource("planks", new RgbColor(200, 170, 110), StartAmount: 0),
+            new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 7, BaseStorage: 1000),
+            new Resource("planks", new RgbColor(200, 170, 110), StartAmount: 0, BaseStorage: 1000),
         };
         var sawmill = new BuildingDef(
             "sawmill", new RgbColor(120, 90, 60), 1, 1,
@@ -188,11 +188,11 @@ public class SimulationTests
                 Inputs: new[] { new ResourceAmount(0, 3) },
                 Outputs: new[] { new ResourceAmount(1, 1) },
                 TimeTicks: 5),
-            AllowedBiomes: new[] { false, true });
+            AllowedBiomes: new[] { false, true },
+            StorageBonus: Array.Empty<ResourceAmount>(),
+            AutoBuild: false);
         // Spotřeba jídla vypnutá — test měří jen výrobu, ne ujídání „dřeva jako jídla".
-        var gameplay = new GameplayConfig(
-            StartingPopulation: 5, BaseHousingCapacity: 6,
-            PopulationGrowthPerSecond: 0.12, FoodPerPersonPerSecond: 0, FoodResourceIndex: 0);
+        var gameplay = TestContent.DefaultGameplay with { FoodPerPersonPerSecond = 0 };
         var content = TestContent.Build(biomes, 1, resources, new[] { sawmill }, gameplay);
         var sim = new Simulation(content, UniformMap(4, 1));
 
@@ -283,7 +283,6 @@ public class SimulationTests
         // Kapacita nahoru, ať růst zastaví jídlo, ne bydlení.
         Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(house, 0, 0));
         Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(house, 2, 0));
-        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(house, 4, 0));
 
         RunTicks(sim, 3000);
         Assert.Equal(0, sim.GetResource(food));
