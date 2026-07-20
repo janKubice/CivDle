@@ -46,14 +46,17 @@ internal static class TestContent
             new DefRegistry<BuildingDef>(buildings, b => b.Id, "budova"),
             catalog,
             gameplay,
-            new DefRegistry<LanguageDef>(new[] { language }, l => l.Id, "jazyk"));
+            new DefRegistry<LanguageDef>(new[] { language }, l => l.Id, "jazyk"),
+            new[] { "Testov", "Zkouškovice" });
     }
 
     /// <summary>Výchozí gameplay config testů (auto-stavba na dlouhém intervalu, ať do testů nezasahuje).</summary>
     public static GameplayConfig DefaultGameplay => new(
         StartingPopulation: 5, BaseHousingCapacity: 6,
         PopulationGrowthPerSecond: 0.12, FoodPerPersonPerSecond: 0.04, FoodResourceIndex: 0,
-        AutoBuild: new AutoBuildConfig(IntervalTicks: 100_000, SearchRadius: 6, PopulationHeadroom: 2));
+        AutoBuild: new AutoBuildConfig(IntervalTicks: 100_000, SearchRadius: 6, PopulationHeadroom: 2),
+        Roads: new RoadConfig(new RgbColor(150, 145, 130), MaxSearchDistance: 60),
+        Settlements: new SettlementConfig(MinBuildings: 3, ClusterDistance: 3, UpdateIntervalTicks: 50));
 
     /// <summary>Levná budova bez výroby povolená na všech biomech.</summary>
     public static BuildingDef SimpleBuilding(string id, int biomeCount) => new(

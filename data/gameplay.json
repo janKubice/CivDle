@@ -9,5 +9,14 @@
     "intervalTicks": 60,
     "searchRadius": 6,
     "populationHeadroom": 2
+  },
+  "roads": {
+    "mapColor": "#9A9284",
+    "maxSearchDistance": 60
+  },
+  "settlements": {
+    "minBuildings": 3,
+    "clusterDistance": 3,
+    "updateIntervalTicks": 50
   }
 }

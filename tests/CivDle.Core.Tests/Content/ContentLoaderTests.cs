@@ -281,6 +281,49 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadFrom_MissingSettlementNames_Throws()
+    {
+        WriteAllValid();
+        File.Delete(Path.Combine(_tempDir, "settlement-names.json"));
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("settlement-names.json", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_EmptySettlementNames_Throws()
+    {
+        WriteAllValid();
+        Write("settlement-names.json", """{ "schemaVersion": 1, "names": [] }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("names", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_GameplayWithoutRoads_Throws()
+    {
+        WriteAllValid();
+        Write("gameplay.json", """
+        {
+          "schemaVersion": 1,
+          "startingPopulation": 5,
+          "baseHousingCapacity": 6,
+          "populationGrowthPerSecond": 0.12,
+          "foodPerPersonPerSecond": 0.04,
+          "foodResource": "food",
+          "autoBuild": { "intervalTicks": 60, "searchRadius": 6, "populationHeadroom": 2 }
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("roads", ex.Message);
+    }
+
+    [Fact]
     public void LoadFrom_LanguageMissingContentName_Throws()
     {
         WriteAllValid();
@@ -350,12 +393,15 @@ public class ContentLoaderTests : IDisposable
           "populationGrowthPerSecond": 0.12,
           "foodPerPersonPerSecond": 0.04,
           "foodResource": "food",
-          "autoBuild": { "intervalTicks": 60, "searchRadius": 6, "populationHeadroom": 2 }
+          "autoBuild": { "intervalTicks": 60, "searchRadius": 6, "populationHeadroom": 2 },
+          "roads": { "mapColor": "#9A9284", "maxSearchDistance": 60 },
+          "settlements": { "minBuildings": 3, "clusterDistance": 3, "updateIntervalTicks": 50 }
         }
         """);
         WriteWorldGen();
         Write(Path.Combine("lang", "cs.json"), LangJson("cs", "Čeština"));
         Write(Path.Combine("lang", "en.json"), LangJson("en", "English"));
+        Write("settlement-names.json", """{ "schemaVersion": 1, "names": ["Testov", "Zkouškovice"] }""");
     }
 
     private void WriteWorldGen(string fallbackBiome = "grass", string? defaultPreset = null)

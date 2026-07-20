@@ -13,7 +13,8 @@ public sealed class GameContent
         DefRegistry<BuildingDef> buildings,
         WorldGenCatalog worldGen,
         GameplayConfig gameplay,
-        DefRegistry<LanguageDef> languages)
+        DefRegistry<LanguageDef> languages,
+        IReadOnlyList<string> settlementNames)
     {
         Biomes = biomes;
         Resources = resources;
@@ -21,7 +22,11 @@ public sealed class GameContent
         WorldGen = worldGen;
         Gameplay = gameplay;
         Languages = languages;
+        SettlementNames = settlementNames;
     }
+
+    /// <summary>Jména osad z <c>data/settlement-names.json</c> (vlastní jména se nepřekládají).</summary>
+    public IReadOnlyList<string> SettlementNames { get; }
 
     /// <summary>Definice biomů z <c>data/biomes.json</c>.</summary>
     public BiomeRegistry Biomes { get; }

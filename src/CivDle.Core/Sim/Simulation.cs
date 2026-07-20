@@ -19,9 +19,14 @@ public sealed class Simulation
     private readonly double[] _resources;
     private readonly double[] _storageCaps;
     private readonly int[] _occupancy; // 0 = volno, jinak index budovy + 1
+    private readonly bool[] _roads;
+    private readonly List<int> _roadTiles = new(); // pořadí vzniku — deterministické, jde do savu
+    private readonly List<Settlement> _settlements = new();
     private readonly ProductionSystem _production;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
+    private readonly RoadBuilder _roadBuilder;
+    private readonly SettlementSystem _settlementSystem;
 
     private BuildingInstance[] _buildings = new BuildingInstance[16];
     private int _buildingCount;
@@ -41,12 +46,15 @@ public sealed class Simulation
         }
 
         _occupancy = new int[map.Width * map.Height];
+        _roads = new bool[map.Width * map.Height];
         Population = content.Gameplay.StartingPopulation;
         HousingCapacity = content.Gameplay.BaseHousingCapacity;
 
         _production = new ProductionSystem(content);
         _populationSystem = new PopulationSystem(content.Gameplay);
         _autoBuild = new AutoBuildSystem(content, seed);
+        _roadBuilder = new RoadBuilder(content);
+        _settlementSystem = new SettlementSystem(content, seed);
     }
 
     /// <summary>Mapa světa, nad kterou simulace běží.</summary>
@@ -67,6 +75,18 @@ public sealed class Simulation
     /// <summary>Postavené budovy (jen ke čtení; render z nich kreslí).</summary>
     public ReadOnlySpan<BuildingInstance> Buildings => _buildings.AsSpan(0, _buildingCount);
 
+    /// <summary>Indexy dlaždic se silnicí v pořadí vzniku (render + save).</summary>
+    public IReadOnlyList<int> RoadTiles => _roadTiles;
+
+    /// <summary>Rozpoznané osady (odvozený stav, přepočítává <c>SettlementSystem</c>).</summary>
+    public IReadOnlyList<Settlement> Settlements => _settlements;
+
+    /// <summary>Je na dlaždici silnice?</summary>
+    public bool IsRoad(int x, int y) => _roads[Map.Index(x, y)];
+
+    /// <summary>Stojí na dlaždici budova?</summary>
+    public bool IsOccupied(int x, int y) => _occupancy[Map.Index(x, y)] != 0;
+
     /// <summary>Aktuální zásoba suroviny.</summary>
     public double GetResource(int resourceIndex) => _resources[resourceIndex];
 
@@ -82,6 +102,25 @@ public sealed class Simulation
     /// <summary>Obsah, nad kterým simulace běží — pro serializaci savu (v rámci assembly).</summary>
     internal GameContent ContentRef => _content;
 
+    /// <summary>Occupancy grid pro systémy (RoadBuilder) — jen čtení.</summary>
+    internal int[] OccupancyGrid => _occupancy;
+
+    /// <summary>Osady k přepsání systémem detekce.</summary>
+    internal List<Settlement> SettlementsMutable => _settlements;
+
+    /// <summary>Zástavba se změnila — osady čekají na přepočet.</summary>
+    internal bool SettlementsDirty { get; set; }
+
+    /// <summary>Označí dlaždici jako silnici (RoadBuilder, načtení savu). Duplicitní volání je no-op.</summary>
+    internal void AddRoadTile(int tileIndex)
+    {
+        if (!_roads[tileIndex])
+        {
+            _roads[tileIndex] = true;
+            _roadTiles.Add(tileIndex);
+        }
+    }
+
     /// <summary>Budovy pro systémy simulace (mutace progressu výroby).</summary>
     internal Span<BuildingInstance> BuildingsMutable => _buildings.AsSpan(0, _buildingCount);
 
@@ -92,6 +131,7 @@ public sealed class Simulation
         _production.Tick(this);
         _populationSystem.Tick(this);
         _autoBuild.Tick(this);
+        _settlementSystem.Tick(this);
     }
 
     /// <summary>
@@ -111,7 +151,7 @@ public sealed class Simulation
             for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
             {
                 int index = Map.Index(tileX, tileY);
-                if (_occupancy[index] != 0)
+                if (_occupancy[index] != 0 || _roads[index])
                 {
                     return PlacementResult.Occupied;
                 }
@@ -168,6 +208,8 @@ public sealed class Simulation
         }
 
         ApplyBuildingBonuses(def);
+        _roadBuilder.ConnectLastBuilding(this);
+        SettlementsDirty = true;
         return PlacementResult.Ok;
     }
 
@@ -254,6 +296,7 @@ public sealed class Simulation
         }
 
         ApplyBuildingBonuses(def);
+        SettlementsDirty = true; // silnice ze savu chodí zvlášť, přepočet osad ale spustit musíme
     }
 
     /// <summary>Globální bonusy budovy: bydlení, pracovní místa, kapacita skladů.</summary>

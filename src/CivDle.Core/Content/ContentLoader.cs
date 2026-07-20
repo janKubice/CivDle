@@ -37,8 +37,9 @@ public sealed class ContentLoader
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
         var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen);
+        var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
 
-        return new GameContent(biomes, resources, buildings, worldGen, gameplay, languages);
+        return new GameContent(biomes, resources, buildings, worldGen, gameplay, languages, settlementNames);
     }
 
     // ----- biomy -----
@@ -408,13 +409,77 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"'autoBuild.populationHeadroom' musí být 0–10000, je {file.AutoBuild.PopulationHeadroom}.");
         }
 
+        if (file.Roads is null)
+        {
+            throw new ContentLoadException(path, "Chybí blok 'roads' (barva a dosah auto-silnic).");
+        }
+
+        var roadColor = ParseColor(path, file.Roads.MapColor, "Blok 'roads'");
+        if (file.Roads.MaxSearchDistance is < 1 or > 1000)
+        {
+            throw new ContentLoadException(path, $"'roads.maxSearchDistance' musí být 1–1000, je {file.Roads.MaxSearchDistance}.");
+        }
+
+        if (file.Settlements is null)
+        {
+            throw new ContentLoadException(path, "Chybí blok 'settlements' (detekce osad).");
+        }
+
+        if (file.Settlements.MinBuildings is < 2 or > 1000)
+        {
+            throw new ContentLoadException(path, $"'settlements.minBuildings' musí být 2–1000, je {file.Settlements.MinBuildings}.");
+        }
+
+        if (file.Settlements.ClusterDistance is < 1 or > 64)
+        {
+            throw new ContentLoadException(path, $"'settlements.clusterDistance' musí být 1–64, je {file.Settlements.ClusterDistance}.");
+        }
+
+        if (file.Settlements.UpdateIntervalTicks is < 1 or > 100_000)
+        {
+            throw new ContentLoadException(path, $"'settlements.updateIntervalTicks' musí být 1–100000, je {file.Settlements.UpdateIntervalTicks}.");
+        }
+
         return new GameplayConfig(
             file.StartingPopulation,
             file.BaseHousingCapacity,
             file.PopulationGrowthPerSecond,
             file.FoodPerPersonPerSecond,
             foodIndex,
-            new AutoBuildConfig(file.AutoBuild.IntervalTicks, file.AutoBuild.SearchRadius, file.AutoBuild.PopulationHeadroom));
+            new AutoBuildConfig(file.AutoBuild.IntervalTicks, file.AutoBuild.SearchRadius, file.AutoBuild.PopulationHeadroom),
+            new RoadConfig(roadColor, file.Roads.MaxSearchDistance),
+            new SettlementConfig(file.Settlements.MinBuildings, file.Settlements.ClusterDistance, file.Settlements.UpdateIntervalTicks));
+    }
+
+    // ----- jména osad -----
+
+    private static IReadOnlyList<string> LoadSettlementNames(string path)
+    {
+        var file = ReadFile<SettlementNamesFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        if (file.Names is not { Count: > 0 })
+        {
+            throw new ContentLoadException(path, "Soubor neobsahuje žádné jméno osady ('names').");
+        }
+
+        if (file.Names.Count > 10_000)
+        {
+            throw new ContentLoadException(path, $"Příliš mnoho jmen osad ({file.Names.Count}), maximum je 10000.");
+        }
+
+        var names = new List<string>(file.Names.Count);
+        for (int i = 0; i < file.Names.Count; i++)
+        {
+            if (string.IsNullOrWhiteSpace(file.Names[i]))
+            {
+                throw new ContentLoadException(path, $"Jméno osady na pozici {i} je prázdné.");
+            }
+
+            names.Add(file.Names[i].Trim());
+        }
+
+        return names;
     }
 
     // ----- jazyky -----

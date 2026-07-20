@@ -75,6 +75,10 @@ public class SaveGameSerializerTests
             Assert.Equal(original.Buildings[i].Y, loaded.Buildings[i].Y);
             Assert.Equal(original.Buildings[i].Progress, loaded.Buildings[i].Progress);
         }
+
+        // Silnice (save v2) se musí zachovat včetně pořadí.
+        Assert.NotEmpty(original.RoadTiles);
+        Assert.Equal(original.RoadTiles, loaded.RoadTiles);
     }
 
     [Fact]

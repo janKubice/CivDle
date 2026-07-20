@@ -20,8 +20,8 @@ public sealed class SaveGameSerializer
 {
     private const string Magic = "CIVD";
 
-    /// <summary>Verze formátu — zvýšit při každé změně struktury (a napsat migraci).</summary>
-    public const int FormatVersion = 1;
+    /// <summary>Verze formátu — zvýšit při každé změně struktury (a napsat migraci). v2: + silnice.</summary>
+    public const int FormatVersion = 2;
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -45,6 +45,7 @@ public sealed class SaveGameSerializer
         WriteResources(writer, simulation);
         WriteMap(writer, simulation);
         WriteBuildings(writer, simulation);
+        WriteRoads(writer, simulation);
     }
 
     /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
@@ -84,6 +85,7 @@ public sealed class SaveGameSerializer
             var simulation = new Simulation(content, map, seed);
             simulation.RestoreState(resources, population, tickCount);
             ReadBuildings(reader, content, simulation);
+            ReadRoads(reader, simulation);
 
             return (simulation, metadata);
         }
@@ -243,6 +245,32 @@ public sealed class SaveGameSerializer
             {
                 throw new SaveLoadException(ex.Message, ex);
             }
+        }
+    }
+
+    private static void WriteRoads(BinaryWriter writer, Simulation simulation)
+    {
+        var roadTiles = simulation.RoadTiles;
+        writer.Write(roadTiles.Count);
+        for (int i = 0; i < roadTiles.Count; i++)
+        {
+            writer.Write(roadTiles[i]);
+        }
+    }
+
+    private static void ReadRoads(BinaryReader reader, Simulation simulation)
+    {
+        int tileCount = simulation.Map.Width * simulation.Map.Height;
+        int count = ReadCount(reader, max: tileCount, what: "silnic");
+        for (int i = 0; i < count; i++)
+        {
+            int tileIndex = reader.ReadInt32();
+            if (tileIndex < 0 || tileIndex >= tileCount)
+            {
+                throw new SaveLoadException($"Save obsahuje silnici mimo mapu (index {tileIndex}).");
+            }
+
+            simulation.AddRoadTile(tileIndex);
         }
     }
 

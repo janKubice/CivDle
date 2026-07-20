@@ -57,10 +57,21 @@ public sealed record GameplayFileDto(
     double PopulationGrowthPerSecond,
     double FoodPerPersonPerSecond,
     string? FoodResource,
-    AutoBuildDto? AutoBuild);
+    AutoBuildDto? AutoBuild,
+    RoadsDto? Roads,
+    SettlementsDto? Settlements);
 
 /// <summary>Nastavení auto-stavby tak, jak leží v JSON.</summary>
 public sealed record AutoBuildDto(int IntervalTicks, int SearchRadius, int PopulationHeadroom);
+
+/// <summary>Nastavení auto-silnic tak, jak leží v JSON.</summary>
+public sealed record RoadsDto(string? MapColor, int MaxSearchDistance);
+
+/// <summary>Nastavení detekce osad tak, jak leží v JSON.</summary>
+public sealed record SettlementsDto(int MinBuildings, int ClusterDistance, int UpdateIntervalTicks);
+
+/// <summary>Obsah souboru <c>data/settlement-names.json</c>.</summary>
+public sealed record SettlementNamesFileDto(int SchemaVersion, List<string>? Names);
 
 /// <summary>Obsah jednoho jazyka <c>data/lang/*.json</c>.</summary>
 public sealed record LanguageFileDto(
