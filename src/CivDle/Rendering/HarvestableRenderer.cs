@@ -164,18 +164,19 @@ public sealed class HarvestableRenderer
             return;
         }
 
+        bool isTree = spriteKey == "node.tree";
         var origin = new Vector2(texture.Width * 0.5f, texture.Height); // kotva dole uprostřed
 
         if (state is { RegrowTimer: > 0f })
         {
-            // Pařez, který postupně dorůstá zpět ve strom.
+            // Zbytek po sběru (pařez u stromu, suť u kamene), který postupně dorůstá.
             float grow = 1f - state.RegrowTimer / RegrowSeconds;
-            var stump = _sprites.Get("node.stump") ?? texture;
-            float scale = (float)drawSize / texture.Width * MathF.Max(0.3f, grow);
-            spriteBatch.Draw(stump, new Vector2(baseX, baseY), null, Color.White, 0f,
-                new Vector2(stump.Width * 0.5f, stump.Height), (float)drawSize / stump.Width * 0.7f, SpriteEffects.None, 0f);
+            var remnant = _sprites.Get(isTree ? "node.stump" : "node.rubble") ?? texture;
+            spriteBatch.Draw(remnant, new Vector2(baseX, baseY), null, Color.White, 0f,
+                new Vector2(remnant.Width * 0.5f, remnant.Height), (float)drawSize / remnant.Width * 0.8f, SpriteEffects.None, 0f);
             if (grow > 0.4f)
             {
+                float scale = (float)drawSize / texture.Width * MathF.Max(0.3f, grow);
                 spriteBatch.Draw(texture, new Vector2(baseX, baseY), null, Color.White * (grow - 0.4f), 0f, origin, scale, SpriteEffects.None, 0f);
             }
 
@@ -186,10 +187,10 @@ public sealed class HarvestableRenderer
         float rotation = 0f;
         if (state is { FallTimer: > 0f })
         {
-            // Padá — rotace kolem paty a doleva k zemi.
             float t = 1f - state.FallTimer / FallSeconds;
-            rotation = -t * 1.4f;
             shrink = 1f - 0.45f;
+            // Strom se kácí (rotace k zemi); kámen se jen drolí (bez rotace).
+            rotation = isTree ? -t * 1.4f : 0f;
         }
 
         float finalScale = (float)drawSize / texture.Width * shrink;

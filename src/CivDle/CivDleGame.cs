@@ -4,6 +4,7 @@ using CivDle.Core.Save;
 using CivDle.Rendering.Sprites;
 using CivDle.Screens;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Graphics;
 using Myra;
 
@@ -101,6 +102,8 @@ public sealed class CivDleGame : Game
         // Borderless = fullscreen bez přepnutí režimu monitoru (rychlé Alt-Tab).
         _graphics.HardwareModeSwitch = settings.WindowMode == WindowMode.Fullscreen;
         _graphics.IsFullScreen = settings.WindowMode != WindowMode.Windowed;
+        // Hlasitost je globální přes MonoGame — jeden zdroj pravdy pro všechny zvuky.
+        SoundEffect.MasterVolume = settings.MasterVolume;
     }
 
     /// <summary>Nastavení patří do profilu uživatele — vedle exe nemusí být právo zápisu.</summary>
