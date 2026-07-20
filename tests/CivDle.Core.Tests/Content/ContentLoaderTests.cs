@@ -69,8 +69,20 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadFrom_EmptyDirectory_ReportsFirstMissingFile()
+    {
+        // Suroviny se načítají první (odkazují na ně biomy i budovy).
+        var ex = Assert.Throws<ContentLoadException>(() => new ContentLoader().LoadFrom(_tempDir));
+
+        Assert.Contains("resources.json", ex.Message);
+    }
+
+    [Fact]
     public void LoadFrom_MissingBiomesFile_Throws()
     {
+        WriteAllValid();
+        File.Delete(Path.Combine(_tempDir, "biomes.json"));
+
         var ex = Assert.Throws<ContentLoadException>(() => new ContentLoader().LoadFrom(_tempDir));
 
         Assert.Contains("biomes.json", ex.Message);

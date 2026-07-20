@@ -1,6 +1,12 @@
 namespace CivDle.Core.Content;
 
 /// <summary>
+/// Výnos ručního kliknutí na dlaždici biomu („klik na strom → dřevo",
+/// mvp-roadmap.md fáze 1). Surovina jako index, ne string (hot path).
+/// </summary>
+public sealed record ClickYield(int ResourceIndex, int Amount);
+
+/// <summary>
 /// Zvalidovaná definice biomu (typ, ne instance — viz data-driven-content.md).
 /// Neměnný record; instance na mapě na něj odkazují přes index v <see cref="BiomeRegistry"/>.
 /// Jméno pro hráče není součástí definice — překlady žijí v jazykových souborech
@@ -13,6 +19,7 @@ namespace CivDle.Core.Content;
 /// <param name="DepthRange">Jen voda: normalizovaná hloubka pod hladinou 0–1.</param>
 /// <param name="ElevationRange">Jen pevnina: normalizovaná výška nad hladinou 0–1.</param>
 /// <param name="MoistureRange">Jen pevnina: vlhkost 0–1 (chybí-li v datech, platí celý rozsah).</param>
+/// <param name="ClickYield">Co dá ruční klik na dlaždici; <c>null</c> = nic.</param>
 public sealed record Biome(
     string Id,
     RgbColor MapColor,
@@ -20,7 +27,8 @@ public sealed record Biome(
     bool IsWater,
     ValueRange DepthRange,
     ValueRange ElevationRange,
-    ValueRange MoistureRange)
+    ValueRange MoistureRange,
+    ClickYield? ClickYield = null)
 {
     /// <summary>Lokalizační klíč jména biomu (existence ve všech jazycích je validovaná při startu).</summary>
     public string NameKey => $"biome.{Id}";

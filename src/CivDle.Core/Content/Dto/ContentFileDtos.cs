@@ -15,7 +15,11 @@ public sealed record BiomeDto(
     bool IsWater,
     double[]? DepthRange,
     double[]? ElevationRange,
-    double[]? MoistureRange);
+    double[]? MoistureRange,
+    ClickYieldDto? ClickYield);
+
+/// <summary>Výnos ručního kliknutí na biom tak, jak leží v JSON.</summary>
+public sealed record ClickYieldDto(string? Resource, int Amount);
 
 /// <summary>Obsah souboru <c>data/resources.json</c>.</summary>
 public sealed record ResourcesFileDto(int SchemaVersion, List<ResourceDto>? Resources);

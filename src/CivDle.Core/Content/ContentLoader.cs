@@ -30,8 +30,9 @@ public sealed class ContentLoader
             throw new ContentLoadException(dataDirectory, $"Složka s herními daty '{dataDirectory}' neexistuje.");
         }
 
-        var biomes = LoadBiomes(Path.Combine(dataDirectory, "biomes.json"));
+        // Suroviny první — odkazují na ně biomy (clickYield) i budovy (ceny, recepty).
         var resources = LoadResources(Path.Combine(dataDirectory, "resources.json"));
+        var biomes = LoadBiomes(Path.Combine(dataDirectory, "biomes.json"), resources);
         var buildings = LoadBuildings(Path.Combine(dataDirectory, "buildings.json"), biomes, resources);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
@@ -42,7 +43,7 @@ public sealed class ContentLoader
 
     // ----- biomy -----
 
-    private static BiomeRegistry LoadBiomes(string path)
+    private static BiomeRegistry LoadBiomes(string path, DefRegistry<Resource> resources)
     {
         var file = ReadFile<BiomesFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -61,7 +62,7 @@ public sealed class ContentLoader
         var biomes = new List<Biome>(file.Biomes.Count);
         for (int i = 0; i < file.Biomes.Count; i++)
         {
-            var biome = ValidateBiome(path, file.Biomes[i], i);
+            var biome = ValidateBiome(path, file.Biomes[i], i, resources);
             if (!seenIds.Add(biome.Id))
             {
                 throw new ContentLoadException(path, $"Duplicitní ID biomu '{biome.Id}'.");
@@ -74,7 +75,7 @@ public sealed class ContentLoader
         return new BiomeRegistry(biomes);
     }
 
-    private static Biome ValidateBiome(string path, BiomeDto dto, int index)
+    private static Biome ValidateBiome(string path, BiomeDto dto, int index, DefRegistry<Resource> resources)
     {
         string id = RequireId(path, dto.Id, $"Biom na pozici {index}");
         var color = ParseColor(path, dto.MapColor, $"Biom '{id}'");
@@ -98,7 +99,23 @@ public sealed class ContentLoader
             moisture = ParseRange(path, id, "moistureRange", dto.MoistureRange, required: false);
         }
 
-        return new Biome(id, color, (float)dto.ColorVariation, dto.IsWater, depth, elevation, moisture);
+        ClickYield? clickYield = null;
+        if (dto.ClickYield is not null)
+        {
+            if (dto.ClickYield.Resource is null || !resources.TryIndexOf(dto.ClickYield.Resource.Trim(), out int resourceIndex))
+            {
+                throw new ContentLoadException(path, $"Biom '{id}': 'clickYield' odkazuje na neexistující surovinu '{dto.ClickYield.Resource}'.");
+            }
+
+            if (dto.ClickYield.Amount is < 1 or > 1000)
+            {
+                throw new ContentLoadException(path, $"Biom '{id}': 'clickYield.amount' musí být 1–1000, je {dto.ClickYield.Amount}.");
+            }
+
+            clickYield = new ClickYield(resourceIndex, dto.ClickYield.Amount);
+        }
+
+        return new Biome(id, color, (float)dto.ColorVariation, dto.IsWater, depth, elevation, moisture, clickYield);
     }
 
     private static ValueRange ParseRange(string path, string biomeId, string field, double[]? values, bool required)

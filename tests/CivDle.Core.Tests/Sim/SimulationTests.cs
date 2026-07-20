@@ -205,6 +205,49 @@ public class SimulationTests
         Assert.Equal(2, sim.GetResource(1));
     }
 
+    // ----- ruční těžba (klik) -----
+
+    [Fact]
+    public void Harvest_ForestTile_GivesWood()
+    {
+        var content = TestData.LoadRealContent();
+        var map = UniformMap(8, (byte)content.Biomes.IndexOf("forest"));
+        var sim = new Simulation(content, map);
+        int wood = content.Resources.IndexOf("wood");
+        double woodBefore = sim.GetResource(wood);
+
+        bool harvested = sim.TryHarvest(3, 3, out int resourceIndex, out int amount);
+
+        Assert.True(harvested);
+        Assert.Equal(wood, resourceIndex);
+        Assert.Equal(2, amount);
+        Assert.Equal(woodBefore + 2, sim.GetResource(wood));
+    }
+
+    [Fact]
+    public void Harvest_BiomeWithoutYield_GivesNothing()
+    {
+        var (content, sim) = RealGrasslandWorld();
+        int wood = content.Resources.IndexOf("wood");
+        double woodBefore = sim.GetResource(wood);
+
+        Assert.False(sim.TryHarvest(3, 3, out _, out _));
+        Assert.Equal(woodBefore, sim.GetResource(wood));
+    }
+
+    [Fact]
+    public void Harvest_OccupiedOrOutOfBounds_GivesNothing()
+    {
+        var content = TestData.LoadRealContent();
+        var map = UniformMap(8, (byte)content.Biomes.IndexOf("forest"));
+        var sim = new Simulation(content, map);
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(content.Buildings.IndexOf("lumber_camp"), 2, 2));
+
+        Assert.False(sim.TryHarvest(2, 2, out _, out _), "Zastavěná dlaždice nemá dávat suroviny.");
+        Assert.False(sim.TryHarvest(-1, 0, out _, out _));
+        Assert.False(sim.TryHarvest(0, 99, out _, out _));
+    }
+
     // ----- populace -----
 
     [Fact]

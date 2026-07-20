@@ -43,7 +43,11 @@
       "moistureRange": [
         0.56,
         1.0
-      ]
+      ],
+      "clickYield": {
+        "resource": "wood",
+        "amount": 2
+      }
     },
     {
       "id": "grassland",
@@ -81,7 +85,11 @@
       "elevationRange": [
         0.28,
         0.44
-      ]
+      ],
+      "clickYield": {
+        "resource": "stone",
+        "amount": 1
+      }
     },
     {
       "id": "snow_peaks",
