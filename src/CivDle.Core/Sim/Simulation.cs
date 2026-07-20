@@ -66,6 +66,31 @@ public sealed class Simulation
     /// <summary>Populace jako agregát (viz tech-stack.md — milion lidí je jen číslo).</summary>
     public double Population { get; internal set; }
 
+    /// <summary>
+    /// Denní čas 0–1 (0 = půlnoc, 0.5 = poledne). Čistě odvozený z tiků —
+    /// deterministický a v savu zadarmo (ukládá se jen TickCount).
+    /// </summary>
+    public double TimeOfDay01
+    {
+        get
+        {
+            var dayNight = _content.Gameplay.DayNight;
+            double elapsedDays = dayNight.StartTimeOfDay + TickCount / (TicksPerSecond * dayNight.DayLengthSeconds);
+            return elapsedDays - Math.Floor(elapsedDays);
+        }
+    }
+
+    /// <summary>Pořadové číslo dne od začátku hry (první den = 1).</summary>
+    public long DayNumber
+    {
+        get
+        {
+            var dayNight = _content.Gameplay.DayNight;
+            double elapsedDays = dayNight.StartTimeOfDay + TickCount / (TicksPerSecond * dayNight.DayLengthSeconds);
+            return (long)Math.Floor(elapsedDays) + 1;
+        }
+    }
+
     /// <summary>Kolik lidí se vejde (základní tábor + domy).</summary>
     public int HousingCapacity { get; private set; }
 

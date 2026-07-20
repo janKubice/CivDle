@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "decorations": [
+    {
+      "id": "meadow_flowers",
+      "biomes": ["grassland"],
+      "colors": ["#E7E26B", "#D96A6A", "#EFEFEF", "#C58BD9"],
+      "density": 0.06,
+      "minSize": 1,
+      "maxSize": 2
+    },
+    {
+      "id": "forest_canopy",
+      "biomes": ["forest"],
+      "colors": ["#2E5C26", "#4C8A3D", "#356B2C"],
+      "density": 0.35,
+      "minSize": 2,
+      "maxSize": 4
+    },
+    {
+      "id": "steppe_shrub",
+      "biomes": ["steppe"],
+      "colors": ["#8F894F", "#A89B5A", "#7A7546"],
+      "density": 0.08,
+      "minSize": 1,
+      "maxSize": 3
+    },
+    {
+      "id": "mountain_rocks",
+      "biomes": ["mountains"],
+      "colors": ["#6F6B60", "#9C978A", "#5B584F"],
+      "density": 0.1,
+      "minSize": 1,
+      "maxSize": 3
+    },
+    {
+      "id": "beach_shells",
+      "biomes": ["beach"],
+      "colors": ["#F2EFE4", "#D8C9A6"],
+      "density": 0.04,
+      "minSize": 1,
+      "maxSize": 1
+    },
+    {
+      "id": "snow_sparkle",
+      "biomes": ["snow_peaks"],
+      "colors": ["#FFFFFF"],
+      "density": 0.05,
+      "minSize": 1,
+      "maxSize": 1
+    },
+    {
+      "id": "wave_glint",
+      "biomes": ["shallow_water"],
+      "colors": ["#7FB4D9", "#9CC8E4"],
+      "density": 0.05,
+      "minSize": 1,
+      "maxSize": 2
+    }
+  ]
+}

@@ -26,6 +26,25 @@ public sealed record RoadConfig(RgbColor MapColor, int MaxSearchDistance);
 public sealed record SettlementConfig(int MinBuildings, int ClusterDistance, int UpdateIntervalTicks);
 
 /// <summary>
+/// Denní/noční cyklus (fáze 5: v noci se město rozsvítí). Čas je čistě odvozený
+/// z tiků simulace — deterministický a zadarmo v savu; efekt je jen vizuální
+/// (living-map.md doporučuje držet den/noc hlavně jako atmosféru).
+/// </summary>
+/// <param name="DayLengthSeconds">Délka celého dne v sekundách reálného času.</param>
+/// <param name="StartTimeOfDay">Čas při startu nové hry (0 = půlnoc, 0.5 = poledne).</param>
+/// <param name="NightColor">Barva nočního ztmavení scény.</param>
+/// <param name="DuskColor">Barva svítání/soumraku.</param>
+/// <param name="NightAlpha">Maximální síla nočního overlaye (0–1).</param>
+/// <param name="DuskAlpha">Maximální síla oranžového nádechu při svítání/soumraku (0–1).</param>
+public sealed record DayNightConfig(
+    double DayLengthSeconds,
+    double StartTimeOfDay,
+    RgbColor NightColor,
+    RgbColor DuskColor,
+    double NightAlpha,
+    double DuskAlpha);
+
+/// <summary>
 /// Globální parametry herní smyčky z <c>data/gameplay.json</c> — čísla balancu
 /// patří do dat, ne do kódu. Hodnoty „za sekundu" si systémy přepočítávají
 /// na tiky přes <c>Simulation.TicksPerSecond</c>.
@@ -38,6 +57,7 @@ public sealed record SettlementConfig(int MinBuildings, int ClusterDistance, int
 /// <param name="AutoBuild">Nastavení automatického růstu zástavby.</param>
 /// <param name="Roads">Nastavení auto-silnic.</param>
 /// <param name="Settlements">Nastavení detekce osad.</param>
+/// <param name="DayNight">Denní/noční cyklus.</param>
 public sealed record GameplayConfig(
     double StartingPopulation,
     int BaseHousingCapacity,
@@ -46,4 +66,5 @@ public sealed record GameplayConfig(
     int FoodResourceIndex,
     AutoBuildConfig AutoBuild,
     RoadConfig Roads,
-    SettlementConfig Settlements);
+    SettlementConfig Settlements,
+    DayNightConfig DayNight);

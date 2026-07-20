@@ -38,8 +38,10 @@ public sealed class ContentLoader
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
         var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
+        var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
+        var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
 
-        return new GameContent(biomes, resources, buildings, worldGen, gameplay, languages, settlementNames);
+        return new GameContent(biomes, resources, buildings, worldGen, gameplay, languages, settlementNames, decorations, fauna);
     }
 
     // ----- biomy -----
@@ -440,6 +442,28 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"'settlements.updateIntervalTicks' musí být 1–100000, je {file.Settlements.UpdateIntervalTicks}.");
         }
 
+        if (file.DayNight is null)
+        {
+            throw new ContentLoadException(path, "Chybí blok 'dayNight' (denní/noční cyklus).");
+        }
+
+        if (file.DayNight.DayLengthSeconds is < 10 or > 86_400)
+        {
+            throw new ContentLoadException(path, $"'dayNight.dayLengthSeconds' musí být 10–86400, je {file.DayNight.DayLengthSeconds}.");
+        }
+
+        if (file.DayNight.StartTimeOfDay is < 0 or >= 1)
+        {
+            throw new ContentLoadException(path, $"'dayNight.startTimeOfDay' musí být v [0, 1), je {file.DayNight.StartTimeOfDay}.");
+        }
+
+        var nightColor = ParseColor(path, file.DayNight.NightColor, "Blok 'dayNight' (nightColor)");
+        var duskColor = ParseColor(path, file.DayNight.DuskColor, "Blok 'dayNight' (duskColor)");
+        if (file.DayNight.NightAlpha is < 0 or > 1 || file.DayNight.DuskAlpha is < 0 or > 1)
+        {
+            throw new ContentLoadException(path, "'dayNight.nightAlpha' i 'duskAlpha' musí být 0–1.");
+        }
+
         return new GameplayConfig(
             file.StartingPopulation,
             file.BaseHousingCapacity,
@@ -448,7 +472,123 @@ public sealed class ContentLoader
             foodIndex,
             new AutoBuildConfig(file.AutoBuild.IntervalTicks, file.AutoBuild.SearchRadius, file.AutoBuild.PopulationHeadroom),
             new RoadConfig(roadColor, file.Roads.MaxSearchDistance),
-            new SettlementConfig(file.Settlements.MinBuildings, file.Settlements.ClusterDistance, file.Settlements.UpdateIntervalTicks));
+            new SettlementConfig(file.Settlements.MinBuildings, file.Settlements.ClusterDistance, file.Settlements.UpdateIntervalTicks),
+            new DayNightConfig(
+                file.DayNight.DayLengthSeconds,
+                file.DayNight.StartTimeOfDay,
+                nightColor,
+                duskColor,
+                file.DayNight.NightAlpha,
+                file.DayNight.DuskAlpha));
+    }
+
+    // ----- dekorace a fauna (živá mapa) -----
+
+    private static IReadOnlyList<DecorationDef> LoadDecorations(string path, BiomeRegistry biomes)
+    {
+        var file = ReadFile<DecorationsFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var result = new List<DecorationDef>();
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var dto in file.Decorations ?? new List<DecorationDto>())
+        {
+            string id = RequireId(path, dto.Id, "Dekorace");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID dekorace '{id}'.");
+            }
+
+            if (dto.Density is <= 0 or > 0.6)
+            {
+                throw new ContentLoadException(path, $"Dekorace '{id}': 'density' musí být v (0, 0.6], je {dto.Density}.");
+            }
+
+            if (dto.MinSize is < 1 or > 8 || dto.MaxSize is < 1 or > 8 || dto.MinSize > dto.MaxSize)
+            {
+                throw new ContentLoadException(path, $"Dekorace '{id}': velikosti musí splňovat 1 ≤ minSize ≤ maxSize ≤ 8.");
+            }
+
+            if (dto.Colors is not { Length: > 0 })
+            {
+                throw new ContentLoadException(path, $"Dekorace '{id}' nemá žádnou barvu ('colors').");
+            }
+
+            var colors = new List<RgbColor>(dto.Colors.Length);
+            foreach (var colorText in dto.Colors)
+            {
+                colors.Add(ParseColor(path, colorText, $"Dekorace '{id}'"));
+            }
+
+            result.Add(new DecorationDef(
+                id, ParseBiomeMask(path, $"Dekorace '{id}'", dto.Biomes, biomes),
+                colors, (float)dto.Density, dto.MinSize, dto.MaxSize));
+        }
+
+        return result;
+    }
+
+    private static IReadOnlyList<FaunaDef> LoadFauna(string path, BiomeRegistry biomes)
+    {
+        var file = ReadFile<FaunaFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var result = new List<FaunaDef>();
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var dto in file.Fauna ?? new List<FaunaDto>())
+        {
+            string id = RequireId(path, dto.Id, "Fauna");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID fauny '{id}'.");
+            }
+
+            var color = ParseColor(path, dto.Color, $"Fauna '{id}'");
+            if (dto.Size is < 1 or > 8)
+            {
+                throw new ContentLoadException(path, $"Fauna '{id}': 'size' musí být 1–8, je {dto.Size}.");
+            }
+
+            if (dto.Speed is <= 0 or > 500)
+            {
+                throw new ContentLoadException(path, $"Fauna '{id}': 'speed' musí být v (0, 500], je {dto.Speed}.");
+            }
+
+            var time = dto.TimeOfDay?.Trim().ToLowerInvariant() switch
+            {
+                null or "any" => FaunaTime.Any,
+                "day" => FaunaTime.Day,
+                "night" => FaunaTime.Night,
+                _ => throw new ContentLoadException(path, $"Fauna '{id}': 'timeOfDay' musí být 'day', 'night' nebo 'any', je '{dto.TimeOfDay}'."),
+            };
+
+            result.Add(new FaunaDef(
+                id, ParseBiomeMask(path, $"Fauna '{id}'", dto.Biomes, biomes),
+                color, dto.Size, (float)dto.Speed, time, dto.Glow));
+        }
+
+        return result;
+    }
+
+    private static bool[] ParseBiomeMask(string path, string owner, string[]? biomeIds, BiomeRegistry biomes)
+    {
+        if (biomeIds is not { Length: > 0 })
+        {
+            throw new ContentLoadException(path, $"{owner} nemá vyplněné 'biomes'.");
+        }
+
+        var mask = new bool[biomes.Count];
+        foreach (var biomeId in biomeIds)
+        {
+            if (biomeId is null || !biomes.TryIndexOf(biomeId.Trim(), out int index))
+            {
+                throw new ContentLoadException(path, $"{owner} odkazuje v 'biomes' na neexistující biom '{biomeId}'.");
+            }
+
+            mask[index] = true;
+        }
+
+        return mask;
     }
 
     // ----- jména osad -----

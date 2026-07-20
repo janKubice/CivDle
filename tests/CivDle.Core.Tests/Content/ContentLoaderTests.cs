@@ -324,6 +324,75 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadFrom_DecorationWithUnknownBiome_ReportsId()
+    {
+        WriteAllValid();
+        Write("decorations.json", """
+        {
+          "schemaVersion": 1,
+          "decorations": [
+            { "id": "flowers", "biomes": ["jungle"], "colors": ["#E7E26B"], "density": 0.05, "minSize": 1, "maxSize": 2 }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("jungle", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_FaunaWithInvalidTimeOfDay_Throws()
+    {
+        WriteAllValid();
+        Write("fauna.json", """
+        {
+          "schemaVersion": 1,
+          "fauna": [
+            { "id": "deer", "biomes": ["grass"], "color": "#8A5A33", "size": 3, "speed": 10, "timeOfDay": "vecer" }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("vecer", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_GameplayWithoutDayNight_Throws()
+    {
+        WriteAllValid();
+        Write("gameplay.json", """
+        {
+          "schemaVersion": 1,
+          "startingPopulation": 5,
+          "baseHousingCapacity": 6,
+          "populationGrowthPerSecond": 0.12,
+          "foodPerPersonPerSecond": 0.04,
+          "foodResource": "food",
+          "autoBuild": { "intervalTicks": 60, "searchRadius": 6, "populationHeadroom": 2 },
+          "roads": { "mapColor": "#9A9284", "maxSearchDistance": 60 },
+          "settlements": { "minBuildings": 3, "clusterDistance": 3, "updateIntervalTicks": 50 }
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("dayNight", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_RealGameData_HasLivingMapContent()
+    {
+        var content = TestData.LoadRealContent();
+
+        Assert.True(content.Decorations.Count >= 5, "Herní data mají mít dekorace pro většinu biomů.");
+        Assert.True(content.Fauna.Count >= 3, "Herní data mají mít aspoň pár druhů fauny.");
+        Assert.Contains(content.Fauna, f => f.Time == FaunaTime.Night && f.Glow);
+    }
+
+    [Fact]
     public void LoadFrom_LanguageMissingContentName_Throws()
     {
         WriteAllValid();
@@ -395,13 +464,31 @@ public class ContentLoaderTests : IDisposable
           "foodResource": "food",
           "autoBuild": { "intervalTicks": 60, "searchRadius": 6, "populationHeadroom": 2 },
           "roads": { "mapColor": "#9A9284", "maxSearchDistance": 60 },
-          "settlements": { "minBuildings": 3, "clusterDistance": 3, "updateIntervalTicks": 50 }
+          "settlements": { "minBuildings": 3, "clusterDistance": 3, "updateIntervalTicks": 50 },
+          "dayNight": { "dayLengthSeconds": 240, "startTimeOfDay": 0.32, "nightColor": "#0A1430",
+                        "duskColor": "#E8862F", "nightAlpha": 0.45, "duskAlpha": 0.18 }
         }
         """);
         WriteWorldGen();
         Write(Path.Combine("lang", "cs.json"), LangJson("cs", "Čeština"));
         Write(Path.Combine("lang", "en.json"), LangJson("en", "English"));
         Write("settlement-names.json", """{ "schemaVersion": 1, "names": ["Testov", "Zkouškovice"] }""");
+        Write("decorations.json", """
+        {
+          "schemaVersion": 1,
+          "decorations": [
+            { "id": "flowers", "biomes": ["grass"], "colors": ["#E7E26B"], "density": 0.05, "minSize": 1, "maxSize": 2 }
+          ]
+        }
+        """);
+        Write("fauna.json", """
+        {
+          "schemaVersion": 1,
+          "fauna": [
+            { "id": "deer", "biomes": ["grass"], "color": "#8A5A33", "size": 3, "speed": 10, "timeOfDay": "day" }
+          ]
+        }
+        """);
     }
 
     private void WriteWorldGen(string fallbackBiome = "grass", string? defaultPreset = null)

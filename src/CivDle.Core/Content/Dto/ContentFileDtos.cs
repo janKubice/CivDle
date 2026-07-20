@@ -59,7 +59,42 @@ public sealed record GameplayFileDto(
     string? FoodResource,
     AutoBuildDto? AutoBuild,
     RoadsDto? Roads,
-    SettlementsDto? Settlements);
+    SettlementsDto? Settlements,
+    DayNightDto? DayNight);
+
+/// <summary>Denní/noční cyklus tak, jak leží v JSON.</summary>
+public sealed record DayNightDto(
+    double DayLengthSeconds,
+    double StartTimeOfDay,
+    string? NightColor,
+    string? DuskColor,
+    double NightAlpha,
+    double DuskAlpha);
+
+/// <summary>Obsah souboru <c>data/decorations.json</c>.</summary>
+public sealed record DecorationsFileDto(int SchemaVersion, List<DecorationDto>? Decorations);
+
+/// <summary>Jedna dekorace tak, jak leží v JSON.</summary>
+public sealed record DecorationDto(
+    string? Id,
+    string[]? Biomes,
+    string[]? Colors,
+    double Density,
+    int MinSize,
+    int MaxSize);
+
+/// <summary>Obsah souboru <c>data/fauna.json</c>.</summary>
+public sealed record FaunaFileDto(int SchemaVersion, List<FaunaDto>? Fauna);
+
+/// <summary>Jeden tvor tak, jak leží v JSON.</summary>
+public sealed record FaunaDto(
+    string? Id,
+    string[]? Biomes,
+    string? Color,
+    int Size,
+    double Speed,
+    string? TimeOfDay,
+    bool Glow);
 
 /// <summary>Nastavení auto-stavby tak, jak leží v JSON.</summary>
 public sealed record AutoBuildDto(int IntervalTicks, int SearchRadius, int PopulationHeadroom);

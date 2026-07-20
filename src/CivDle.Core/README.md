@@ -5,7 +5,7 @@ Herní jádro bez závislosti na MonoGame. Drží se pravidla „simulace nezná
 
 | Složka | Zodpovědnost |
 |---|---|
-| `Content/` | Načtení JSON definic (`data/`) do registrů, fail-fast validace odkazů a hodnot; lokalizace (jazyky, překlady). |
+| `Content/` | Načtení JSON definic (`data/`) do registrů, fail-fast validace odkazů a hodnot; lokalizace; definice živé mapy (dekorace, fauna, denní cyklus). |
 | `WorldGen/` | Deterministický generátor světa: seedovaný Perlinův šum + výběr biomů podle definic. |
 | `World/` | Datově orientovaná reprezentace mapy (plochá pole, žádné stromy objektů). |
 | `Sim/` | Simulace s pevným krokem (10 Hz): budovy jako struktury v plochém poli, výroba se sklady, populace jako agregát, auto-stavba dle poptávky, auto-silnice (BFS napojení nové budovy) a detekce pojmenovaných osad (nízká frekvence, deterministicky ze seedu), příkazy hráče. |

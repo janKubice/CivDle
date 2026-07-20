@@ -18,5 +18,13 @@
     "minBuildings": 3,
     "clusterDistance": 3,
     "updateIntervalTicks": 50
+  },
+  "dayNight": {
+    "dayLengthSeconds": 240,
+    "startTimeOfDay": 0.32,
+    "nightColor": "#0A1430",
+    "duskColor": "#E8862F",
+    "nightAlpha": 0.45,
+    "duskAlpha": 0.18
   }
 }
