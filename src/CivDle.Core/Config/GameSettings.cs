@@ -33,4 +33,7 @@ public sealed record GameSettings
 
     /// <summary>Vertikální synchronizace.</summary>
     public bool VSync { get; init; } = true;
+
+    /// <summary>Hlasitost zvuků 0–1 (0 = ticho).</summary>
+    public float MasterVolume { get; init; } = 0.7f;
 }

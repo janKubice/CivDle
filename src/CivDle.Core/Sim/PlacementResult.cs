@@ -17,4 +17,7 @@ public enum PlacementResult
 
     /// <summary>Nedostatek surovin na cenu stavby.</summary>
     NotEnoughResources,
+
+    /// <summary>Budova není odemčená (chybí technologie) nebo se nedá stavět přímo.</summary>
+    NotUnlocked,
 }

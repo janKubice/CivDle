@@ -3,76 +3,143 @@
   "buildings": [
     {
       "id": "house",
+      "category": "housing",
       "mapColor": "#B5651D",
       "footprint": [1, 1],
-      "workerSlots": 0,
       "housingCapacity": 4,
       "buildCost": { "wood": 5, "planks": 4 },
       "allowedBiomes": ["grassland", "steppe", "beach"],
-      "autoBuild": true
+      "autoBuild": true,
+      "upgradesTo": "cottage",
+      "upgradeCost": { "planks": 8, "stone": 6 }
+    },
+    {
+      "id": "cottage",
+      "category": "housing",
+      "mapColor": "#C57A3A",
+      "footprint": [1, 1],
+      "housingCapacity": 9,
+      "buildCost": { "planks": 10, "stone": 6 },
+      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "buildable": false
     },
     {
       "id": "lumber_camp",
+      "category": "production",
       "mapColor": "#6B4F2A",
       "footprint": [1, 1],
       "workerSlots": 2,
-      "housingCapacity": 0,
       "buildCost": { "wood": 5 },
-      "recipe": {
-        "output": { "wood": 2 },
-        "timeTicks": 40
-      },
-      "allowedBiomes": ["forest"]
+      "recipe": { "output": { "wood": 2 }, "timeTicks": 40 },
+      "allowedBiomes": ["forest"],
+      "upgradesTo": "lumberyard",
+      "upgradeCost": { "planks": 8, "stone": 6 }
+    },
+    {
+      "id": "lumberyard",
+      "category": "production",
+      "mapColor": "#5A4222",
+      "footprint": [1, 1],
+      "workerSlots": 3,
+      "buildCost": { "planks": 12, "stone": 6 },
+      "recipe": { "output": { "wood": 4 }, "timeTicks": 40 },
+      "allowedBiomes": ["forest"],
+      "buildable": false
     },
     {
       "id": "sawmill",
+      "category": "production",
       "mapColor": "#8A6D3B",
       "footprint": [1, 1],
       "workerSlots": 2,
-      "housingCapacity": 0,
       "buildCost": { "wood": 20, "stone": 5 },
-      "recipe": {
-        "input": { "wood": 3 },
-        "output": { "planks": 1 },
-        "timeTicks": 40
-      },
+      "recipe": { "input": { "wood": 3 }, "output": { "planks": 1 }, "timeTicks": 40 },
       "allowedBiomes": ["grassland", "steppe", "beach"]
     },
     {
       "id": "quarry",
+      "category": "production",
       "mapColor": "#5E5E66",
       "footprint": [1, 1],
       "workerSlots": 3,
-      "housingCapacity": 0,
       "buildCost": { "wood": 15 },
-      "recipe": {
-        "output": { "stone": 2 },
-        "timeTicks": 50
-      },
-      "allowedBiomes": ["mountains", "snow_peaks"]
+      "recipe": { "output": { "stone": 2 }, "timeTicks": 50 },
+      "allowedBiomes": ["mountains", "snow_peaks"],
+      "upgradesTo": "mine",
+      "upgradeCost": { "planks": 10, "stone": 12 }
+    },
+    {
+      "id": "mine",
+      "category": "production",
+      "mapColor": "#4A4A52",
+      "footprint": [1, 1],
+      "workerSlots": 4,
+      "buildCost": { "planks": 14, "stone": 12 },
+      "recipe": { "output": { "stone": 4 }, "timeTicks": 50 },
+      "allowedBiomes": ["mountains", "snow_peaks"],
+      "buildable": false
     },
     {
       "id": "farm",
+      "category": "production",
       "mapColor": "#D9A441",
       "footprint": [2, 2],
       "workerSlots": 2,
-      "housingCapacity": 0,
       "buildCost": { "wood": 12, "stone": 4 },
-      "recipe": {
-        "output": { "food": 3 },
-        "timeTicks": 50
-      },
-      "allowedBiomes": ["grassland"]
+      "recipe": { "output": { "food": 3 }, "timeTicks": 50 },
+      "allowedBiomes": ["grassland"],
+      "upgradesTo": "plantation",
+      "upgradeCost": { "planks": 10, "stone": 8 }
+    },
+    {
+      "id": "plantation",
+      "category": "production",
+      "mapColor": "#C79A34",
+      "footprint": [2, 2],
+      "workerSlots": 3,
+      "buildCost": { "planks": 14, "stone": 8 },
+      "recipe": { "output": { "food": 6 }, "timeTicks": 50 },
+      "allowedBiomes": ["grassland"],
+      "buildable": false
     },
     {
       "id": "warehouse",
+      "category": "storage",
       "mapColor": "#7E5C3F",
       "footprint": [2, 2],
-      "workerSlots": 0,
-      "housingCapacity": 0,
       "buildCost": { "wood": 10, "planks": 8, "stone": 6 },
       "allowedBiomes": ["grassland", "steppe", "beach"],
-      "storage": { "wood": 150, "planks": 100, "stone": 120, "food": 120 }
+      "storage": { "wood": 150, "planks": 100, "stone": 120, "food": 120, "tools": 60 }
+    },
+    {
+      "id": "windmill",
+      "category": "production",
+      "mapColor": "#D8C48A",
+      "footprint": [2, 2],
+      "workerSlots": 2,
+      "buildCost": { "wood": 18, "planks": 12, "stone": 6 },
+      "recipe": { "output": { "food": 5 }, "timeTicks": 40 },
+      "allowedBiomes": ["grassland", "steppe"]
+    },
+    {
+      "id": "market",
+      "category": "civic",
+      "mapColor": "#B58A54",
+      "footprint": [2, 2],
+      "housingCapacity": 2,
+      "buildCost": { "wood": 20, "planks": 16, "stone": 10 },
+      "storage": { "food": 150, "tools": 60 },
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "toolmaker",
+      "category": "production",
+      "mapColor": "#9C7A4A",
+      "footprint": [1, 1],
+      "workerSlots": 3,
+      "buildCost": { "wood": 16, "planks": 10, "stone": 8 },
+      "recipe": { "input": { "planks": 2 }, "output": { "tools": 1 }, "timeTicks": 60 },
+      "allowedBiomes": ["grassland", "steppe", "beach"]
     }
   ]
 }

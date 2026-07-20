@@ -31,6 +31,9 @@ public sealed class Simulation
     private readonly RoadBuilder _roadBuilder;
     private readonly SettlementSystem _settlementSystem;
 
+    private readonly bool[] _buildingUnlocked;
+    private readonly bool[] _techResearched;
+
     private BuildingInstance[] _buildings = new BuildingInstance[16];
     private int _buildingCount;
 
@@ -40,6 +43,19 @@ public sealed class Simulation
         _content = content;
         Terrain = terrain;
         Seed = seed;
+
+        // Budova je odemčená od startu, pokud ji žádná technologie nehlídá.
+        _buildingUnlocked = new bool[content.Buildings.Count];
+        Array.Fill(_buildingUnlocked, true);
+        foreach (var tech in content.Techs.All)
+        {
+            foreach (int buildingIndex in tech.UnlockedBuildingIndices)
+            {
+                _buildingUnlocked[buildingIndex] = false; // hlídané technologií → zamčené
+            }
+        }
+
+        _techResearched = new bool[content.Techs.Count];
 
         _resources = new double[content.Resources.Count];
         _storageCaps = new double[content.Resources.Count];
@@ -114,6 +130,15 @@ public sealed class Simulation
     /// <summary>Index biomu na dlaždici.</summary>
     public byte BiomeAt(int x, int y) => Terrain.BiomeAt(x, y);
 
+    /// <summary>Je budova odemčená (technologií)? Neřeší, zda ji lze stavět přímo.</summary>
+    public bool IsBuildingUnlocked(int defIndex) => _buildingUnlocked[defIndex];
+
+    /// <summary>Smí hráč budovu přímo postavit (odemčená a nemarkovaná jako jen-upgrade)?</summary>
+    public bool IsBuildingBuildable(int defIndex) => _buildingUnlocked[defIndex] && _content.Buildings[defIndex].Buildable;
+
+    /// <summary>Je technologie vyzkoumaná?</summary>
+    public bool IsTechResearched(int techIndex) => _techResearched[techIndex];
+
     /// <summary>Je na dlaždici silnice?</summary>
     public bool IsRoad(int x, int y) => _roads.Contains(TileKey.Pack(x, y));
 
@@ -180,6 +205,11 @@ public sealed class Simulation
     public PlacementResult CanPlace(int defIndex, int x, int y)
     {
         var def = _content.Buildings[defIndex];
+
+        if (!IsBuildingBuildable(defIndex))
+        {
+            return PlacementResult.NotUnlocked;
+        }
 
         for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
         {
@@ -266,7 +296,137 @@ public sealed class Simulation
         return true;
     }
 
+    /// <summary>Najde budovu na dlaždici (pro klik → info/upgrade panel). Vrací index do <see cref="Buildings"/>.</summary>
+    public bool TryGetBuildingAt(int x, int y, out int buildingIndex)
+    {
+        buildingIndex = -1;
+        if (_occupancy.TryGetValue(TileKey.Pack(x, y), out int stored))
+        {
+            buildingIndex = stored - 1; // occupancy ukládá index+1
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Lze budovu (podle indexu v <see cref="Buildings"/>) vylepšit na další úroveň?</summary>
+    public PlacementResult CanUpgrade(int buildingIndex)
+    {
+        if (buildingIndex < 0 || buildingIndex >= _buildingCount)
+        {
+            return PlacementResult.Occupied;
+        }
+
+        var def = _content.Buildings[_buildings[buildingIndex].DefIndex];
+        if (!def.HasUpgrade)
+        {
+            return PlacementResult.NotUnlocked;
+        }
+
+        var cost = def.UpgradeCost;
+        for (int i = 0; i < cost.Count; i++)
+        {
+            if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
+            {
+                return PlacementResult.NotEnoughResources;
+            }
+        }
+
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>
+    /// Příkaz hráče: vylepší budovu na další úroveň (mění se na místě — stejný půdorys).
+    /// Odečte cenu vylepšení a přepočítá globální bonusy (bydlení, práce, sklady).
+    /// </summary>
+    public PlacementResult TryUpgradeBuilding(int buildingIndex)
+    {
+        var result = CanUpgrade(buildingIndex);
+        if (result != PlacementResult.Ok)
+        {
+            return result;
+        }
+
+        ref var instance = ref _buildings[buildingIndex];
+        var oldDef = _content.Buildings[instance.DefIndex];
+
+        var cost = oldDef.UpgradeCost;
+        for (int i = 0; i < cost.Count; i++)
+        {
+            _resources[cost[i].ResourceIndex] -= cost[i].Amount;
+        }
+
+        RemoveBuildingBonuses(oldDef);
+        instance.DefIndex = oldDef.UpgradesToIndex;
+        instance.Progress = 0f;
+        ApplyBuildingBonuses(_content.Buildings[instance.DefIndex]);
+        SettlementsDirty = true;
+        return PlacementResult.Ok;
+    }
+
+    // ----- tech tree -----
+
+    /// <summary>Lze technologii vyzkoumat (prerekvizity splněny, dost surovin, není hotová)?</summary>
+    public PlacementResult CanResearch(int techIndex)
+    {
+        if (_techResearched[techIndex])
+        {
+            return PlacementResult.Occupied; // už hotová
+        }
+
+        var tech = _content.Techs[techIndex];
+        foreach (int prereq in tech.PrerequisiteIndices)
+        {
+            if (!_techResearched[prereq])
+            {
+                return PlacementResult.NotUnlocked;
+            }
+        }
+
+        var cost = tech.Cost;
+        for (int i = 0; i < cost.Count; i++)
+        {
+            if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
+            {
+                return PlacementResult.NotEnoughResources;
+            }
+        }
+
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>Příkaz hráče: vyzkoumat technologii — odečte cenu a odemkne její budovy.</summary>
+    public PlacementResult TryResearch(int techIndex)
+    {
+        var result = CanResearch(techIndex);
+        if (result != PlacementResult.Ok)
+        {
+            return result;
+        }
+
+        var tech = _content.Techs[techIndex];
+        for (int i = 0; i < tech.Cost.Count; i++)
+        {
+            _resources[tech.Cost[i].ResourceIndex] -= tech.Cost[i].Amount;
+        }
+
+        UnlockTech(techIndex);
+        return PlacementResult.Ok;
+    }
+
+    private void UnlockTech(int techIndex)
+    {
+        _techResearched[techIndex] = true;
+        foreach (int buildingIndex in _content.Techs[techIndex].UnlockedBuildingIndices)
+        {
+            _buildingUnlocked[buildingIndex] = true;
+        }
+    }
+
     // ----- obnova ze savu (jen pro SaveGameSerializer, obchází cenu a validaci biomů) -----
+
+    /// <summary>Označí technologii jako vyzkoumanou při načtení savu (bez ceny).</summary>
+    internal void RestoreTech(int techIndex) => UnlockTech(techIndex);
 
     /// <summary>Nastaví globální stav načtený ze savu (zásoby se přiškrtí na aktuální kapacity).</summary>
     internal void RestoreState(double[] resourceAmounts, double population, long tickCount)
@@ -319,6 +479,29 @@ public sealed class Simulation
         for (int i = 0; i < def.StorageBonus.Count; i++)
         {
             _storageCaps[def.StorageBonus[i].ResourceIndex] += def.StorageBonus[i].Amount;
+        }
+    }
+
+    /// <summary>Odebere globální bonusy budovy (vylepšení nahrazuje starou úroveň novou).</summary>
+    private void RemoveBuildingBonuses(BuildingDef def)
+    {
+        HousingCapacity -= def.HousingCapacity;
+        TotalWorkerSlots -= def.WorkerSlots;
+        for (int i = 0; i < def.StorageBonus.Count; i++)
+        {
+            _storageCaps[def.StorageBonus[i].ResourceIndex] -= def.StorageBonus[i].Amount;
+        }
+    }
+
+    /// <summary>Indexy vyzkoumaných technologií (pro serializaci savu).</summary>
+    internal IEnumerable<int> ResearchedTechIndices()
+    {
+        for (int i = 0; i < _techResearched.Length; i++)
+        {
+            if (_techResearched[i])
+            {
+                yield return i;
+            }
         }
     }
 }

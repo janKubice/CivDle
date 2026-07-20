@@ -1,0 +1,186 @@
+using CivDle.Core.Content;
+using CivDle.Core.Save;
+using CivDle.Core.Sim;
+using CivDle.Core.Tests.Support;
+using CivDle.Core.World;
+using Xunit;
+
+namespace CivDle.Core.Tests.Sim;
+
+/// <summary>
+/// Tech tree a vylepšení budov. Používá skutečná data: základní budovy jsou od
+/// startu odemčené, technologiemi hlídané (windmill/market/toolmaker) zamčené;
+/// domy jdou vylepšit na chalupu.
+/// </summary>
+public class TechAndUpgradeTests
+{
+    private static Simulation Grass(out GameContent content)
+    {
+        content = TestData.LoadRealContent();
+        return new Simulation(content, new UniformTerrain(content.Biomes.IndexOf("grassland")));
+    }
+
+    private static void TopUp(Simulation sim, GameContent content)
+    {
+        for (int i = 0; i < content.Resources.Count; i++)
+        {
+            sim.AddResource(i, sim.GetStorageCap(i));
+        }
+    }
+
+    // ----- odemykání -----
+
+    [Fact]
+    public void BaseBuildingsUnlocked_TechGatedLocked()
+    {
+        var sim = Grass(out var content);
+
+        Assert.True(sim.IsBuildingBuildable(content.Buildings.IndexOf("house")));
+        Assert.True(sim.IsBuildingBuildable(content.Buildings.IndexOf("farm")));
+        Assert.False(sim.IsBuildingUnlocked(content.Buildings.IndexOf("windmill")));
+        Assert.False(sim.IsBuildingUnlocked(content.Buildings.IndexOf("market")));
+    }
+
+    [Fact]
+    public void UpgradeTargets_AreNotDirectlyBuildable()
+    {
+        var sim = Grass(out var content);
+
+        // Chalupa je jen cíl vylepšení domu, ne přímá stavba.
+        Assert.False(sim.IsBuildingBuildable(content.Buildings.IndexOf("cottage")));
+        Assert.Equal(PlacementResult.NotUnlocked, sim.CanPlace(content.Buildings.IndexOf("cottage"), 0, 0));
+    }
+
+    [Fact]
+    public void LockedBuilding_CannotBePlaced()
+    {
+        var sim = Grass(out var content);
+        TopUp(sim, content);
+
+        Assert.Equal(PlacementResult.NotUnlocked, sim.TryPlaceBuilding(content.Buildings.IndexOf("windmill"), 0, 0));
+    }
+
+    // ----- výzkum -----
+
+    [Fact]
+    public void Research_UnlocksBuilding_AndDeductsCost()
+    {
+        var sim = Grass(out var content);
+        TopUp(sim, content);
+        int milling = content.Techs.IndexOf("milling");
+        int wood = content.Resources.IndexOf("wood");
+        double woodBefore = sim.GetResource(wood);
+
+        Assert.Equal(PlacementResult.Ok, sim.TryResearch(milling));
+
+        Assert.True(sim.IsTechResearched(milling));
+        Assert.True(sim.IsBuildingUnlocked(content.Buildings.IndexOf("windmill")));
+        Assert.Equal(woodBefore - 40, sim.GetResource(wood)); // milling: wood 40
+    }
+
+    [Fact]
+    public void Research_RespectsPrerequisites()
+    {
+        var sim = Grass(out var content);
+        TopUp(sim, content);
+        int tools = content.Techs.IndexOf("tools"); // vyžaduje milling
+
+        Assert.Equal(PlacementResult.NotUnlocked, sim.CanResearch(tools));
+
+        Assert.Equal(PlacementResult.Ok, sim.TryResearch(content.Techs.IndexOf("milling")));
+        Assert.Equal(PlacementResult.Ok, sim.CanResearch(tools));
+    }
+
+    [Fact]
+    public void Research_WithoutResources_Fails()
+    {
+        var sim = Grass(out var content);
+        // Bez topování: start má wood 30 < 40 (milling).
+        Assert.Equal(PlacementResult.NotEnoughResources, sim.CanResearch(content.Techs.IndexOf("milling")));
+    }
+
+    // ----- vylepšení budov -----
+
+    [Fact]
+    public void Upgrade_ReplacesBuilding_AndAdjustsBonuses()
+    {
+        var sim = Grass(out var content);
+        int house = content.Buildings.IndexOf("house");
+        int cottage = content.Buildings.IndexOf("cottage");
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(house, 3, 3));
+        int capAfterHouse = sim.HousingCapacity;
+        TopUp(sim, content);
+
+        Assert.True(sim.TryGetBuildingAt(3, 3, out int idx));
+        Assert.Equal(PlacementResult.Ok, sim.TryUpgradeBuilding(idx));
+
+        Assert.Equal(cottage, sim.Buildings[idx].DefIndex);
+        // Dům +4, chalupa +9 → kapacita se zvedne o rozdíl.
+        Assert.Equal(capAfterHouse - 4 + 9, sim.HousingCapacity);
+    }
+
+    [Fact]
+    public void Upgrade_WithoutResources_Fails()
+    {
+        var sim = Grass(out var content);
+        int house = content.Buildings.IndexOf("house");
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(house, 3, 3));
+        // Po stavbě domu nezbývá dost prken/kamene na upgrade (planks 8 + stone 6).
+        Assert.True(sim.TryGetBuildingAt(3, 3, out int idx));
+
+        Assert.Equal(PlacementResult.NotEnoughResources, sim.CanUpgrade(idx));
+    }
+
+    [Fact]
+    public void Warehouse_HasNoUpgrade()
+    {
+        var sim = Grass(out var content);
+        int warehouse = content.Buildings.IndexOf("warehouse");
+        TopUp(sim, content);
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(warehouse, 5, 5));
+
+        Assert.True(sim.TryGetBuildingAt(5, 5, out int idx));
+        Assert.Equal(PlacementResult.NotUnlocked, sim.CanUpgrade(idx)); // bez další úrovně
+    }
+
+    [Fact]
+    public void GetBuildingAt_FindsBuildingUnderFootprint()
+    {
+        var sim = Grass(out var content);
+        TopUp(sim, content);
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(content.Buildings.IndexOf("farm"), 4, 4)); // 2×2
+
+        Assert.True(sim.TryGetBuildingAt(5, 5, out int idx)); // druhý roh farmy
+        Assert.Equal("farm", content.Buildings[sim.Buildings[idx].DefIndex].Id);
+        Assert.False(sim.TryGetBuildingAt(20, 20, out _));
+    }
+
+    [Fact]
+    public void Save_PersistsResearchedTech()
+    {
+        var sim = Grass(out var content);
+        TopUp(sim, content);
+        int milling = content.Techs.IndexOf("milling");
+        Assert.Equal(PlacementResult.Ok, sim.TryResearch(milling));
+
+        var metadata = new SaveMetadata(1, "medium", "continents", DateTime.UtcNow);
+        using var stream = new MemoryStream();
+        new SaveGameSerializer().Write(stream, sim, metadata);
+        stream.Position = 0;
+        var (loaded, _) = new SaveGameSerializer().Read(stream, content);
+
+        Assert.True(loaded.IsTechResearched(milling));
+        Assert.True(loaded.IsBuildingUnlocked(content.Buildings.IndexOf("windmill")));
+    }
+
+    [Fact]
+    public void RealData_HasTechAndCategories()
+    {
+        var content = TestData.LoadRealContent();
+
+        Assert.True(content.Techs.Count >= 3);
+        Assert.Contains(content.Buildings.All, b => b.Category == "housing");
+        Assert.Contains(content.Buildings.All, b => b.Category == "production");
+        Assert.Contains(content.Buildings.All, b => b.HasUpgrade);
+    }
+}

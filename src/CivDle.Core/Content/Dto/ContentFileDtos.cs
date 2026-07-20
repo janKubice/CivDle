@@ -33,6 +33,7 @@ public sealed record BuildingsFileDto(int SchemaVersion, List<BuildingDto>? Buil
 /// <summary>Jedna budova tak, jak leží v JSON.</summary>
 public sealed record BuildingDto(
     string? Id,
+    string? Category,
     string? MapColor,
     int[]? Footprint,
     int WorkerSlots,
@@ -41,7 +42,10 @@ public sealed record BuildingDto(
     RecipeDto? Recipe,
     string[]? AllowedBiomes,
     Dictionary<string, int>? Storage,
-    bool AutoBuild);
+    bool AutoBuild,
+    bool? Buildable,
+    string? UpgradesTo,
+    Dictionary<string, int>? UpgradeCost);
 
 /// <summary>Výrobní recept budovy tak, jak leží v JSON.</summary>
 public sealed record RecipeDto(
@@ -107,6 +111,16 @@ public sealed record SettlementsDto(int MinBuildings, int ClusterDistance, int U
 
 /// <summary>Obsah souboru <c>data/settlement-names.json</c>.</summary>
 public sealed record SettlementNamesFileDto(int SchemaVersion, List<string>? Names);
+
+/// <summary>Obsah souboru <c>data/tech.json</c>.</summary>
+public sealed record TechFileDto(int SchemaVersion, List<TechDto>? Techs);
+
+/// <summary>Jedna technologie tak, jak leží v JSON.</summary>
+public sealed record TechDto(
+    string? Id,
+    Dictionary<string, int>? Cost,
+    string[]? Prerequisites,
+    string[]? Unlocks);
 
 /// <summary>Obsah souboru <c>data/devlog.json</c>.</summary>
 public sealed record DevlogFileDto(int SchemaVersion, List<DevlogEntryDto>? Entries);

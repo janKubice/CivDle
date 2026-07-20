@@ -20,8 +20,8 @@ public sealed class SaveGameSerializer
 {
     private const string Magic = "CIVD";
 
-    /// <summary>Verze formátu — zvýšit při každé změně struktury. v3: nekonečná mapa (terén se neukládá).</summary>
-    public const int FormatVersion = 3;
+    /// <summary>Verze formátu — zvýšit při každé změně struktury. v4: + vyzkoumané technologie.</summary>
+    public const int FormatVersion = 4;
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -45,6 +45,7 @@ public sealed class SaveGameSerializer
         WriteResources(writer, simulation);
         WriteBuildings(writer, simulation);
         WriteRoads(writer, simulation);
+        WriteTech(writer, simulation);
     }
 
     /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
@@ -86,6 +87,7 @@ public sealed class SaveGameSerializer
             simulation.RestoreState(resources, population, tickCount);
             ReadBuildings(reader, content, simulation);
             ReadRoads(reader, simulation);
+            ReadTech(reader, content, simulation);
 
             return (simulation, metadata);
         }
@@ -195,6 +197,33 @@ public sealed class SaveGameSerializer
             int x = reader.ReadInt32();
             int y = reader.ReadInt32();
             simulation.AddRoadTile(x, y);
+        }
+    }
+
+    private static void WriteTech(BinaryWriter writer, Simulation simulation)
+    {
+        var techDefs = SimContent(simulation).Techs;
+        var researched = simulation.ResearchedTechIndices().ToList();
+        writer.Write(researched.Count);
+        foreach (int index in researched)
+        {
+            writer.Write(techDefs[index].Id);
+        }
+    }
+
+    private static void ReadTech(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        int count = ReadCount(reader, max: 100_000, what: "technologií");
+        for (int i = 0; i < count; i++)
+        {
+            string id = reader.ReadString();
+            if (content.Techs.TryIndexOf(id, out int index))
+            {
+                simulation.RestoreTech(index);
+            }
+
+            // Smazaná technologie v datech se ze savu tiše přeskočí (odemčení
+            // budov by stejně chybělo — nedělá se z toho chyba).
         }
     }
 

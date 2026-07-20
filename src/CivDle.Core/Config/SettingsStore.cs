@@ -83,6 +83,15 @@ public sealed class SettingsStore
             settings = settings with { Language = defaults.Language };
         }
 
+        if (settings.MasterVolume is < 0 or > 1 || float.IsNaN(settings.MasterVolume))
+        {
+            settings = settings with { MasterVolume = Math.Clamp(settings.MasterVolume, 0f, 1f) };
+            if (float.IsNaN(settings.MasterVolume))
+            {
+                settings = settings with { MasterVolume = defaults.MasterVolume };
+            }
+        }
+
         return settings;
     }
 }
