@@ -80,7 +80,8 @@ public sealed class SaveGameSerializer
             double[] resources = ReadResources(reader, content);
             var map = ReadMap(reader, content);
 
-            var simulation = new Simulation(content, map);
+            // Seed ze savu → deterministická auto-stavba pokračuje i po načtení.
+            var simulation = new Simulation(content, map, seed);
             simulation.RestoreState(resources, population, tickCount);
             ReadBuildings(reader, content, simulation);
 
