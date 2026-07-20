@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "buildings": [
+    {
+      "id": "house",
+      "mapColor": "#B5651D",
+      "footprint": [1, 1],
+      "workerSlots": 0,
+      "housingCapacity": 4,
+      "buildCost": { "wood": 10 },
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "lumber_camp",
+      "mapColor": "#6B4F2A",
+      "footprint": [1, 1],
+      "workerSlots": 2,
+      "housingCapacity": 0,
+      "buildCost": { "wood": 5 },
+      "recipe": {
+        "output": { "wood": 2 },
+        "timeTicks": 40
+      },
+      "allowedBiomes": ["forest"]
+    },
+    {
+      "id": "quarry",
+      "mapColor": "#5E5E66",
+      "footprint": [1, 1],
+      "workerSlots": 3,
+      "housingCapacity": 0,
+      "buildCost": { "wood": 15 },
+      "recipe": {
+        "output": { "stone": 2 },
+        "timeTicks": 50
+      },
+      "allowedBiomes": ["mountains", "snow_peaks"]
+    },
+    {
+      "id": "farm",
+      "mapColor": "#D9A441",
+      "footprint": [2, 2],
+      "workerSlots": 2,
+      "housingCapacity": 0,
+      "buildCost": { "wood": 12, "stone": 4 },
+      "recipe": {
+        "output": { "food": 3 },
+        "timeTicks": 50
+      },
+      "allowedBiomes": ["grassland"]
+    }
+  ]
+}

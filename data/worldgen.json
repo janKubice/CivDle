@@ -5,19 +5,16 @@
   "sizes": [
     {
       "id": "small",
-      "name": "Malý",
       "width": 128,
       "height": 128
     },
     {
       "id": "medium",
-      "name": "Střední",
       "width": 256,
       "height": 256
     },
     {
       "id": "large",
-      "name": "Velký",
       "width": 512,
       "height": 512
     }
@@ -25,7 +22,6 @@
   "presets": [
     {
       "id": "continents",
-      "name": "Kontinenty",
       "seaLevel": 0.46,
       "fallbackBiome": "grassland",
       "elevationNoise": {
@@ -43,7 +39,6 @@
     },
     {
       "id": "islands",
-      "name": "Ostrovy",
       "seaLevel": 0.55,
       "fallbackBiome": "grassland",
       "elevationNoise": {
@@ -61,7 +56,6 @@
     },
     {
       "id": "pangaea",
-      "name": "Pangea",
       "seaLevel": 0.42,
       "fallbackBiome": "grassland",
       "elevationNoise": {

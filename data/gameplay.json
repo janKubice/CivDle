@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "startingPopulation": 5,
+  "baseHousingCapacity": 6,
+  "populationGrowthPerSecond": 0.12,
+  "foodPerPersonPerSecond": 0.04,
+  "foodResource": "food"
+}

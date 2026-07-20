@@ -3,20 +3,28 @@ namespace CivDle.Core.Content;
 /// <summary>Parametry fBm šumu jedné terénní vrstvy. Frekvence = počet „vln" na 100 dlaždic.</summary>
 public sealed record NoiseSpec(float Frequency, int Octaves, float Persistence, float Lacunarity);
 
-/// <summary>Volitelná velikost světa (položka v menu nové hry).</summary>
-public sealed record WorldSize(string Id, string Name, int Width, int Height);
+/// <summary>Volitelná velikost světa (položka v menu nové hry). Jméno je v jazycích pod <c>worldsize.&lt;Id&gt;</c>.</summary>
+public sealed record WorldSize(string Id, int Width, int Height)
+{
+    /// <summary>Lokalizační klíč jména velikosti.</summary>
+    public string NameKey => $"worldsize.{Id}";
+}
 
 /// <summary>
 /// Zvalidovaný preset generátoru světa. <paramref name="FallbackBiomeIndex"/> je pevninský biom,
 /// který se použije, když žádná definice nepokryje kombinaci výška × vlhkost.
+/// Jméno je v jazycích pod <c>preset.&lt;Id&gt;</c>.
 /// </summary>
 public sealed record TerrainPreset(
     string Id,
-    string Name,
     float SeaLevel,
     int FallbackBiomeIndex,
     NoiseSpec ElevationNoise,
-    NoiseSpec MoistureNoise);
+    NoiseSpec MoistureNoise)
+{
+    /// <summary>Lokalizační klíč jména presetu.</summary>
+    public string NameKey => $"preset.{Id}";
+}
 
 /// <summary>
 /// Katalog nastavení generátoru z <c>data/worldgen.json</c>: velikosti světa a terénní presety,

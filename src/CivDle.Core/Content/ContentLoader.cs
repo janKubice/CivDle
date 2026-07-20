@@ -7,6 +7,8 @@ namespace CivDle.Core.Content;
 /// Načte JSON definice ze složky <c>data/</c> a fail-fast je zvaliduje:
 /// chybný odkaz nebo hodnota = <see cref="ContentLoadException"/> hned při startu
 /// se jménem souboru a srozumitelnou hláškou (viz data-driven-content.md, sekce 8).
+/// Součástí validace jsou i jazyky: všechny musí mít shodnou sadu klíčů
+/// a pokrývat jména veškerého obsahu (biomy, suroviny, budovy, presety).
 /// </summary>
 public sealed class ContentLoader
 {
@@ -29,9 +31,16 @@ public sealed class ContentLoader
         }
 
         var biomes = LoadBiomes(Path.Combine(dataDirectory, "biomes.json"));
+        var resources = LoadResources(Path.Combine(dataDirectory, "resources.json"));
+        var buildings = LoadBuildings(Path.Combine(dataDirectory, "buildings.json"), biomes, resources);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
-        return new GameContent(biomes, worldGen);
+        var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen);
+
+        return new GameContent(biomes, resources, buildings, worldGen, gameplay, languages);
     }
+
+    // ----- biomy -----
 
     private static BiomeRegistry LoadBiomes(string path)
     {
@@ -67,21 +76,8 @@ public sealed class ContentLoader
 
     private static Biome ValidateBiome(string path, BiomeDto dto, int index)
     {
-        if (string.IsNullOrWhiteSpace(dto.Id))
-        {
-            throw new ContentLoadException(path, $"Biom na pozici {index} nemá vyplněné 'id'.");
-        }
-
-        var id = dto.Id.Trim();
-        if (string.IsNullOrWhiteSpace(dto.Name))
-        {
-            throw new ContentLoadException(path, $"Biom '{id}' nemá vyplněné 'name'.");
-        }
-
-        if (!RgbColor.TryParse(dto.MapColor, out var color))
-        {
-            throw new ContentLoadException(path, $"Biom '{id}' má neplatnou barvu 'mapColor' = '{dto.MapColor}' (očekávám '#RRGGBB').");
-        }
+        string id = RequireId(path, dto.Id, $"Biom na pozici {index}");
+        var color = ParseColor(path, dto.MapColor, $"Biom '{id}'");
 
         if (dto.ColorVariation is < 0 or > 0.5)
         {
@@ -102,7 +98,7 @@ public sealed class ContentLoader
             moisture = ParseRange(path, id, "moistureRange", dto.MoistureRange, required: false);
         }
 
-        return new Biome(id, dto.Name.Trim(), color, (float)dto.ColorVariation, dto.IsWater, depth, elevation, moisture);
+        return new Biome(id, color, (float)dto.ColorVariation, dto.IsWater, depth, elevation, moisture);
     }
 
     private static ValueRange ParseRange(string path, string biomeId, string field, double[]? values, bool required)
@@ -163,6 +159,315 @@ public sealed class ContentLoader
         }
     }
 
+    // ----- suroviny -----
+
+    private static DefRegistry<Resource> LoadResources(string path)
+    {
+        var file = ReadFile<ResourcesFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        if (file.Resources is not { Count: > 0 })
+        {
+            throw new ContentLoadException(path, "Soubor neobsahuje žádnou surovinu.");
+        }
+
+        var resources = new List<Resource>(file.Resources.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < file.Resources.Count; i++)
+        {
+            var dto = file.Resources[i];
+            string id = RequireId(path, dto.Id, $"Surovina na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID suroviny '{id}'.");
+            }
+
+            var color = ParseColor(path, dto.MapColor, $"Surovina '{id}'");
+            if (dto.StartAmount < 0)
+            {
+                throw new ContentLoadException(path, $"Surovina '{id}': 'startAmount' nesmí být záporný, je {dto.StartAmount}.");
+            }
+
+            resources.Add(new Resource(id, color, dto.StartAmount));
+        }
+
+        return new DefRegistry<Resource>(resources, r => r.Id, "surovina");
+    }
+
+    // ----- budovy -----
+
+    private static DefRegistry<BuildingDef> LoadBuildings(string path, BiomeRegistry biomes, DefRegistry<Resource> resources)
+    {
+        var file = ReadFile<BuildingsFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        if (file.Buildings is not { Count: > 0 })
+        {
+            throw new ContentLoadException(path, "Soubor neobsahuje žádnou budovu.");
+        }
+
+        var buildings = new List<BuildingDef>(file.Buildings.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < file.Buildings.Count; i++)
+        {
+            var building = ValidateBuilding(path, file.Buildings[i], i, biomes, resources);
+            if (!seenIds.Add(building.Id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID budovy '{building.Id}'.");
+            }
+
+            buildings.Add(building);
+        }
+
+        return new DefRegistry<BuildingDef>(buildings, b => b.Id, "budova");
+    }
+
+    private static BuildingDef ValidateBuilding(
+        string path, BuildingDto dto, int index, BiomeRegistry biomes, DefRegistry<Resource> resources)
+    {
+        string id = RequireId(path, dto.Id, $"Budova na pozici {index}");
+        var color = ParseColor(path, dto.MapColor, $"Budova '{id}'");
+
+        if (dto.Footprint is not { Length: 2 } || dto.Footprint[0] < 1 || dto.Footprint[1] < 1
+            || dto.Footprint[0] > 8 || dto.Footprint[1] > 8)
+        {
+            throw new ContentLoadException(path, $"Budova '{id}': 'footprint' musí být [šířka, výška] v rozsahu 1–8.");
+        }
+
+        if (dto.WorkerSlots is < 0 or > 100)
+        {
+            throw new ContentLoadException(path, $"Budova '{id}': 'workerSlots' musí být 0–100, je {dto.WorkerSlots}.");
+        }
+
+        if (dto.HousingCapacity is < 0 or > 10_000)
+        {
+            throw new ContentLoadException(path, $"Budova '{id}': 'housingCapacity' musí být 0–10000, je {dto.HousingCapacity}.");
+        }
+
+        var buildCost = ParseResourceAmounts(path, id, "buildCost", dto.BuildCost, resources);
+        if (buildCost.Count == 0)
+        {
+            throw new ContentLoadException(path, $"Budova '{id}' nemá vyplněnou cenu 'buildCost'.");
+        }
+
+        Recipe? recipe = null;
+        if (dto.Recipe is not null)
+        {
+            var inputs = ParseResourceAmounts(path, id, "recipe.input", dto.Recipe.Input, resources);
+            var outputs = ParseResourceAmounts(path, id, "recipe.output", dto.Recipe.Output, resources);
+            if (outputs.Count == 0)
+            {
+                throw new ContentLoadException(path, $"Budova '{id}': recept musí mít aspoň jeden výstup.");
+            }
+
+            if (dto.Recipe.TimeTicks is < 1 or > 100_000)
+            {
+                throw new ContentLoadException(path, $"Budova '{id}': 'recipe.timeTicks' musí být 1–100000, je {dto.Recipe.TimeTicks}.");
+            }
+
+            recipe = new Recipe(inputs, outputs, dto.Recipe.TimeTicks);
+        }
+
+        if (dto.AllowedBiomes is not { Length: > 0 })
+        {
+            throw new ContentLoadException(path, $"Budova '{id}' nemá vyplněné 'allowedBiomes'.");
+        }
+
+        var mask = new bool[biomes.Count];
+        foreach (var biomeId in dto.AllowedBiomes)
+        {
+            if (biomeId is null || !biomes.TryIndexOf(biomeId.Trim(), out int biomeIndex))
+            {
+                throw new ContentLoadException(path, $"Budova '{id}' odkazuje v 'allowedBiomes' na neexistující biom '{biomeId}'.");
+            }
+
+            if (biomes[biomeIndex].IsWater)
+            {
+                throw new ContentLoadException(path, $"Budova '{id}': biom '{biomeId}' v 'allowedBiomes' je vodní — na vodě se zatím stavět nedá.");
+            }
+
+            mask[biomeIndex] = true;
+        }
+
+        return new BuildingDef(
+            id, color, dto.Footprint[0], dto.Footprint[1],
+            dto.WorkerSlots, dto.HousingCapacity, buildCost, recipe, mask);
+    }
+
+    private static IReadOnlyList<ResourceAmount> ParseResourceAmounts(
+        string path, string ownerId, string field, Dictionary<string, int>? amounts, DefRegistry<Resource> resources)
+    {
+        if (amounts is null || amounts.Count == 0)
+        {
+            return Array.Empty<ResourceAmount>();
+        }
+
+        var result = new List<ResourceAmount>(amounts.Count);
+        foreach (var (resourceId, amount) in amounts)
+        {
+            if (!resources.TryIndexOf(resourceId, out int resourceIndex))
+            {
+                throw new ContentLoadException(path, $"Budova '{ownerId}': '{field}' odkazuje na neexistující surovinu '{resourceId}'.");
+            }
+
+            if (amount <= 0)
+            {
+                throw new ContentLoadException(path, $"Budova '{ownerId}': '{field}.{resourceId}' musí být kladné, je {amount}.");
+            }
+
+            result.Add(new ResourceAmount(resourceIndex, amount));
+        }
+
+        return result;
+    }
+
+    // ----- gameplay -----
+
+    private static GameplayConfig LoadGameplay(string path, DefRegistry<Resource> resources)
+    {
+        var file = ReadFile<GameplayFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        if (file.StartingPopulation is < 0 or > 1_000_000)
+        {
+            throw new ContentLoadException(path, $"'startingPopulation' musí být 0–1000000, je {file.StartingPopulation}.");
+        }
+
+        if (file.BaseHousingCapacity is < 0 or > 1_000_000)
+        {
+            throw new ContentLoadException(path, $"'baseHousingCapacity' musí být 0–1000000, je {file.BaseHousingCapacity}.");
+        }
+
+        if (file.PopulationGrowthPerSecond is <= 0 or > 1_000)
+        {
+            throw new ContentLoadException(path, $"'populationGrowthPerSecond' musí být kladný, je {file.PopulationGrowthPerSecond}.");
+        }
+
+        if (file.FoodPerPersonPerSecond is < 0 or > 1_000)
+        {
+            throw new ContentLoadException(path, $"'foodPerPersonPerSecond' nesmí být záporný, je {file.FoodPerPersonPerSecond}.");
+        }
+
+        if (string.IsNullOrWhiteSpace(file.FoodResource))
+        {
+            throw new ContentLoadException(path, "Chybí 'foodResource' — která surovina je jídlo.");
+        }
+
+        if (!resources.TryIndexOf(file.FoodResource.Trim(), out int foodIndex))
+        {
+            throw new ContentLoadException(path, $"'foodResource' odkazuje na neexistující surovinu '{file.FoodResource}'.");
+        }
+
+        return new GameplayConfig(
+            file.StartingPopulation,
+            file.BaseHousingCapacity,
+            file.PopulationGrowthPerSecond,
+            file.FoodPerPersonPerSecond,
+            foodIndex);
+    }
+
+    // ----- jazyky -----
+
+    private static DefRegistry<LanguageDef> LoadLanguages(
+        string langDirectory,
+        BiomeRegistry biomes,
+        DefRegistry<Resource> resources,
+        DefRegistry<BuildingDef> buildings,
+        WorldGenCatalog worldGen)
+    {
+        if (!Directory.Exists(langDirectory))
+        {
+            throw new ContentLoadException(langDirectory, "Složka s jazyky 'data/lang' neexistuje.");
+        }
+
+        // Řazení podle jména souboru → deterministické pořadí jazyků v menu.
+        var files = Directory.GetFiles(langDirectory, "*.json").OrderBy(f => f, StringComparer.Ordinal).ToArray();
+        if (files.Length == 0)
+        {
+            throw new ContentLoadException(langDirectory, "Ve složce 'data/lang' není žádný jazyk (*.json).");
+        }
+
+        var languages = new List<LanguageDef>(files.Length);
+        foreach (var file in files)
+        {
+            var dto = ReadFile<LanguageFileDto>(file);
+            CheckSchemaVersion(file, dto.SchemaVersion);
+
+            string id = RequireId(file, dto.Id, "Jazyk");
+            if (string.IsNullOrWhiteSpace(dto.NativeName))
+            {
+                throw new ContentLoadException(file, $"Jazyk '{id}' nemá vyplněné 'nativeName'.");
+            }
+
+            if (dto.Strings is not { Count: > 0 })
+            {
+                throw new ContentLoadException(file, $"Jazyk '{id}' nemá žádné řetězce ('strings').");
+            }
+
+            languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
+        }
+
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen);
+        ValidateKeySetsMatch(langDirectory, languages);
+        return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
+    }
+
+    /// <summary>Každý kus obsahu musí mít jméno — kontroluje se první jazyk, shodu sad řeší <see cref="ValidateKeySetsMatch"/>.</summary>
+    private static void ValidateContentKeys(
+        string langDirectory,
+        LanguageDef language,
+        BiomeRegistry biomes,
+        DefRegistry<Resource> resources,
+        DefRegistry<BuildingDef> buildings,
+        WorldGenCatalog worldGen)
+    {
+        var required = new List<string>();
+        required.AddRange(biomes.All.Select(b => b.NameKey));
+        required.AddRange(resources.All.Select(r => r.NameKey));
+        required.AddRange(buildings.All.Select(b => b.NameKey));
+        required.AddRange(worldGen.Sizes.Select(s => s.NameKey));
+        required.AddRange(worldGen.Presets.Select(p => p.NameKey));
+
+        var missing = required.Where(key => !language.Strings.ContainsKey(key)).ToList();
+        if (missing.Count > 0)
+        {
+            throw new ContentLoadException(
+                langDirectory,
+                $"Jazyku '{language.Id}' chybí jména obsahu: {string.Join(", ", missing.Take(10))}" +
+                (missing.Count > 10 ? $" (+{missing.Count - 10} dalších)" : string.Empty));
+        }
+    }
+
+    /// <summary>Všechny jazyky musí mít stejnou sadu klíčů — chybějící překlad se pozná při startu, ne ve hře.</summary>
+    private static void ValidateKeySetsMatch(string langDirectory, List<LanguageDef> languages)
+    {
+        var reference = languages[0];
+        foreach (var language in languages.Skip(1))
+        {
+            var missing = reference.Strings.Keys.Where(k => !language.Strings.ContainsKey(k)).ToList();
+            var extra = language.Strings.Keys.Where(k => !reference.Strings.ContainsKey(k)).ToList();
+            if (missing.Count > 0 || extra.Count > 0)
+            {
+                var parts = new List<string>();
+                if (missing.Count > 0)
+                {
+                    parts.Add($"chybí: {string.Join(", ", missing.Take(8))}" + (missing.Count > 8 ? "…" : ""));
+                }
+
+                if (extra.Count > 0)
+                {
+                    parts.Add($"přebývá: {string.Join(", ", extra.Take(8))}" + (extra.Count > 8 ? " …" : ""));
+                }
+
+                throw new ContentLoadException(
+                    langDirectory,
+                    $"Jazyk '{language.Id}' nemá stejné klíče jako '{reference.Id}' — {string.Join("; ", parts)}.");
+            }
+        }
+    }
+
+    // ----- worldgen -----
+
     private static WorldGenCatalog LoadWorldGen(string path, BiomeRegistry biomes)
     {
         var file = ReadFile<WorldGenFileDto>(path);
@@ -199,20 +504,10 @@ public sealed class ContentLoader
 
     private static WorldSize ValidateSize(string path, WorldSizeDto dto, HashSet<string> seenIds)
     {
-        if (string.IsNullOrWhiteSpace(dto.Id))
-        {
-            throw new ContentLoadException(path, "Velikost světa nemá vyplněné 'id'.");
-        }
-
-        var id = dto.Id.Trim();
+        string id = RequireId(path, dto.Id, "Velikost světa");
         if (!seenIds.Add(id))
         {
             throw new ContentLoadException(path, $"Duplicitní ID velikosti světa '{id}'.");
-        }
-
-        if (string.IsNullOrWhiteSpace(dto.Name))
-        {
-            throw new ContentLoadException(path, $"Velikost světa '{id}' nemá vyplněné 'name'.");
         }
 
         if (dto.Width is < 16 or > 4096 || dto.Height is < 16 or > 4096)
@@ -220,25 +515,15 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"Velikost světa '{id}': rozměry {dto.Width}×{dto.Height} musí být v rozsahu 16–4096.");
         }
 
-        return new WorldSize(id, dto.Name.Trim(), dto.Width, dto.Height);
+        return new WorldSize(id, dto.Width, dto.Height);
     }
 
     private static TerrainPreset ValidatePreset(string path, TerrainPresetDto dto, HashSet<string> seenIds, BiomeRegistry biomes)
     {
-        if (string.IsNullOrWhiteSpace(dto.Id))
-        {
-            throw new ContentLoadException(path, "Preset generátoru nemá vyplněné 'id'.");
-        }
-
-        var id = dto.Id.Trim();
+        string id = RequireId(path, dto.Id, "Preset generátoru");
         if (!seenIds.Add(id))
         {
             throw new ContentLoadException(path, $"Duplicitní ID presetu '{id}'.");
-        }
-
-        if (string.IsNullOrWhiteSpace(dto.Name))
-        {
-            throw new ContentLoadException(path, $"Preset '{id}' nemá vyplněné 'name'.");
         }
 
         if (dto.SeaLevel is <= 0 or >= 1)
@@ -263,7 +548,7 @@ public sealed class ContentLoader
 
         var elevation = ValidateNoise(path, id, "elevationNoise", dto.ElevationNoise);
         var moisture = ValidateNoise(path, id, "moistureNoise", dto.MoistureNoise);
-        return new TerrainPreset(id, dto.Name.Trim(), (float)dto.SeaLevel, fallbackIndex, elevation, moisture);
+        return new TerrainPreset(id, (float)dto.SeaLevel, fallbackIndex, elevation, moisture);
     }
 
     private static NoiseSpec ValidateNoise(string path, string presetId, string field, NoiseDto? dto)
@@ -296,6 +581,8 @@ public sealed class ContentLoader
         return new NoiseSpec((float)dto.Frequency, dto.Octaves, (float)dto.Persistence, (float)dto.Lacunarity);
     }
 
+    // ----- společné pomůcky -----
+
     private static int ResolveDefault<T>(string path, string field, string? id, List<T> items, Func<T, string> idSelector)
     {
         if (string.IsNullOrWhiteSpace(id))
@@ -313,6 +600,26 @@ public sealed class ContentLoader
         }
 
         throw new ContentLoadException(path, $"'{field}' odkazuje na neexistující ID '{id}'.");
+    }
+
+    private static string RequireId(string path, string? id, string what)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            throw new ContentLoadException(path, $"{what} nemá vyplněné 'id'.");
+        }
+
+        return id.Trim();
+    }
+
+    private static RgbColor ParseColor(string path, string? value, string owner)
+    {
+        if (!RgbColor.TryParse(value, out var color))
+        {
+            throw new ContentLoadException(path, $"{owner} má neplatnou barvu 'mapColor' = '{value}' (očekávám '#RRGGBB').");
+        }
+
+        return color;
     }
 
     private static void CheckSchemaVersion(string path, int version)
