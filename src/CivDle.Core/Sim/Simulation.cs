@@ -46,8 +46,8 @@ public sealed class Simulation
     /// <summary>Mapa světa, nad kterou simulace běží.</summary>
     public WorldMap Map { get; }
 
-    /// <summary>Počet proběhlých tiků od startu hry.</summary>
-    public long TickCount { get; private set; }
+    /// <summary>Počet proběhlých tiků od startu hry (internal set kvůli načtení uložené hry).</summary>
+    public long TickCount { get; internal set; }
 
     /// <summary>Populace jako agregát (viz tech-stack.md — milion lidí je jen číslo).</summary>
     public double Population { get; internal set; }
@@ -66,6 +66,9 @@ public sealed class Simulation
 
     /// <summary>Zásoby pro systémy simulace (mutace jen uvnitř assembly).</summary>
     internal double[] Resources => _resources;
+
+    /// <summary>Obsah, nad kterým simulace běží — pro serializaci savu (v rámci assembly).</summary>
+    internal GameContent ContentRef => _content;
 
     /// <summary>Budovy pro systémy simulace (mutace progressu výroby).</summary>
     internal Span<BuildingInstance> BuildingsMutable => _buildings.AsSpan(0, _buildingCount);
@@ -154,5 +157,80 @@ public sealed class Simulation
         HousingCapacity += def.HousingCapacity;
         TotalWorkerSlots += def.WorkerSlots;
         return PlacementResult.Ok;
+    }
+
+    /// <summary>
+    /// Příkaz hráče: ruční sběr kliknutím na dlaždici („klik na strom → dřevo").
+    /// Výnos určuje biom (<see cref="ClickYield"/> z dat); zastavěná dlaždice nedává nic.
+    /// </summary>
+    public bool TryHarvest(int x, int y, out int resourceIndex, out int amount)
+    {
+        resourceIndex = 0;
+        amount = 0;
+
+        if (!Map.InBounds(x, y))
+        {
+            return false;
+        }
+
+        int index = Map.Index(x, y);
+        if (_occupancy[index] != 0)
+        {
+            return false;
+        }
+
+        var yield = _content.Biomes[Map.BiomeIndices[index]].ClickYield;
+        if (yield is null)
+        {
+            return false;
+        }
+
+        _resources[yield.ResourceIndex] += yield.Amount;
+        resourceIndex = yield.ResourceIndex;
+        amount = yield.Amount;
+        return true;
+    }
+
+    // ----- obnova ze savu (jen pro SaveGameSerializer, obchází cenu a validaci biomů) -----
+
+    /// <summary>Nastaví globální stav načtený ze savu.</summary>
+    internal void RestoreState(double[] resourceAmounts, double population, long tickCount)
+    {
+        Array.Copy(resourceAmounts, _resources, _resources.Length);
+        Population = population;
+        TickCount = tickCount;
+    }
+
+    /// <summary>
+    /// Přidá budovu ze savu bez ceny a kontroly biomu — data se od uložení mohla
+    /// změnit a už postavené budovy hráči nemažeme. Meze mapy se kontrolují,
+    /// aby poškozený save neshodil hru indexem mimo pole.
+    /// </summary>
+    internal void RestoreBuilding(int defIndex, int x, int y, float progress)
+    {
+        var def = _content.Buildings[defIndex];
+        if (x < 0 || y < 0 || x + def.FootprintWidth > Map.Width || y + def.FootprintHeight > Map.Height)
+        {
+            throw new ArgumentOutOfRangeException(nameof(x), $"Budova '{def.Id}' na [{x}, {y}] leží mimo mapu.");
+        }
+
+        if (_buildingCount == _buildings.Length)
+        {
+            Array.Resize(ref _buildings, _buildings.Length * 2);
+        }
+
+        _buildings[_buildingCount] = new BuildingInstance { DefIndex = defIndex, X = x, Y = y, Progress = progress };
+        _buildingCount++;
+
+        for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
+        {
+            for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
+            {
+                _occupancy[Map.Index(tileX, tileY)] = _buildingCount;
+            }
+        }
+
+        HousingCapacity += def.HousingCapacity;
+        TotalWorkerSlots += def.WorkerSlots;
     }
 }
