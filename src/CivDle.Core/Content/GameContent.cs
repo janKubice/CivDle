@@ -11,6 +11,7 @@ public sealed class GameContent
         BiomeRegistry biomes,
         DefRegistry<Resource> resources,
         DefRegistry<BuildingDef> buildings,
+        DefRegistry<TechDef> techs,
         WorldGenCatalog worldGen,
         GameplayConfig gameplay,
         DefRegistry<LanguageDef> languages,
@@ -22,6 +23,7 @@ public sealed class GameContent
         Biomes = biomes;
         Resources = resources;
         Buildings = buildings;
+        Techs = techs;
         WorldGen = worldGen;
         Gameplay = gameplay;
         Languages = languages;
@@ -30,6 +32,9 @@ public sealed class GameContent
         Fauna = fauna;
         Devlog = devlog;
     }
+
+    /// <summary>Definice technologií z <c>data/tech.json</c> (tech tree).</summary>
+    public DefRegistry<TechDef> Techs { get; }
 
     /// <summary>Vývojový deník z <c>data/devlog.json</c> (smí být prázdný).</summary>
     public IReadOnlyList<DevlogEntry> Devlog { get; }

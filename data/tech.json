@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "techs": [
+    {
+      "id": "milling",
+      "cost": { "wood": 40, "stone": 20 },
+      "unlocks": ["windmill"]
+    },
+    {
+      "id": "trade",
+      "cost": { "wood": 30, "planks": 20 },
+      "unlocks": ["market"]
+    },
+    {
+      "id": "tools",
+      "cost": { "planks": 30, "stone": 20 },
+      "prerequisites": ["milling"],
+      "unlocks": ["toolmaker"]
+    }
+  ]
+}

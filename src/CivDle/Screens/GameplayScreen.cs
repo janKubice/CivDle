@@ -49,6 +49,7 @@ public sealed class GameplayScreen : IScreen
     private readonly ParticleSystem _particles = new();
     private readonly FloatingTextRenderer _floatingText = new();
     private readonly GameSounds _sounds = new();
+    private readonly MinimapRenderer _minimap;
     private readonly SpriteFontBase _popupFont;
     private readonly Dictionary<int, string> _popupTextCache = new();
 
@@ -58,6 +59,9 @@ public sealed class GameplayScreen : IScreen
     private Label _dayLabel = null!;
     private Label _cursorLabel = null!;
     private Label _statusLabel = null!;
+    private HorizontalStackPanel _buildCategoryPanel = null!;
+    private HorizontalStackPanel _buildItemsPanel = null!;
+    private string _selectedCategory = string.Empty;
 
     private int _selectedBuilding = -1;
     private int _ghostX;
@@ -82,6 +86,7 @@ public sealed class GameplayScreen : IScreen
         _lightsRenderer = new LightsRenderer(screens.WhitePixel, screens.Content);
         _fauna = new FaunaSystem(screens.Content);
         _agents = new AgentSystem(screens.Content, screens.Sprites);
+        _minimap = new MinimapRenderer(screens.GraphicsDevice, screens.Content.Biomes, screens.WhitePixel);
         _popupFont = Stylesheet.Current.LabelStyle.Font;
 
         var viewport = screens.GraphicsDevice.Viewport;
@@ -95,7 +100,13 @@ public sealed class GameplayScreen : IScreen
 
     public bool IsOverlay => false;
 
-    public void OnActivated() => _input.Resync();
+    public void OnActivated()
+    {
+        _input.Resync();
+        // Návrat z overlaye (výzkum, detail budovy) mohl odemknout budovy —
+        // stavební menu proto přebuduj podle aktuálního stavu.
+        RefreshBuildMenu();
+    }
 
     public void Update(GameTime gameTime)
     {
@@ -135,6 +146,7 @@ public sealed class GameplayScreen : IScreen
         _floatingText.Update(dt);
         _fauna.Update(dt, _camera, _simulation);
         _agents.Update(dt, _camera, _simulation);
+        _minimap.Update(dt, _camera, _simulation);
         RefreshHudTexts();
     }
 
@@ -166,7 +178,8 @@ public sealed class GameplayScreen : IScreen
 
         _desktop.Render();
 
-        // Popupy a jmenovky osad až nad UI — hráč je nesmí přehlédnout.
+        // Minimapa a popupy až nad UI — hráč je nesmí přehlédnout.
+        _minimap.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, _camera, _simulation);
         _floatingText.Draw(spriteBatch, _camera, _popupFont);
         DrawSettlementLabels(spriteBatch);
     }
@@ -202,6 +215,7 @@ public sealed class GameplayScreen : IScreen
     {
         _screens.Loc.LanguageChanged -= BuildUi;
         _terrainRenderer.Dispose();
+        _minimap.Dispose();
         _sounds.Dispose();
     }
 
@@ -319,6 +333,13 @@ public sealed class GameplayScreen : IScreen
         int tileX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
         int tileY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
 
+        // Klik na budovu ji rozklikne (detail + vylepšení) — až pak řeším těžbu.
+        if (_simulation.TryGetBuildingAt(tileX, tileY, out int buildingIndex))
+        {
+            _screens.Push(new BuildingInfoScreen(_screens, _simulation, buildingIndex));
+            return;
+        }
+
         if (!_simulation.TryHarvest(tileX, tileY, out int resourceIndex, out int amount))
         {
             return;
@@ -397,7 +418,6 @@ public sealed class GameplayScreen : IScreen
 
     private void BuildUi()
     {
-        var loc = _screens.Loc;
         var content = _screens.Content;
 
         // Horní pruh: suroviny (ikony) + populace.
@@ -446,21 +466,15 @@ public sealed class GameplayScreen : IScreen
         topRight.VerticalAlignment = VerticalAlignment.Top;
         topRight.Margin = new Thickness(0, 10, 10, 0);
 
-        // Spodek: stavební menu se stavovou hláškou.
+        // Spodek uprostřed: stavební menu — nahoře záložky kategorií, pod nimi budovy dané kategorie.
         _statusLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
-        var buildButtons = new HorizontalStackPanel
-        {
-            Spacing = 8,
-            HorizontalAlignment = HorizontalAlignment.Center,
-        };
-        for (int i = 0; i < content.Buildings.Count; i++)
-        {
-            buildButtons.Widgets.Add(BuildingButton(i));
-        }
+        _buildCategoryPanel = new HorizontalStackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
+        _buildItemsPanel = new HorizontalStackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
 
-        var buildStack = new VerticalStackPanel { Spacing = 6 };
+        var buildStack = new VerticalStackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
         buildStack.Widgets.Add(_statusLabel);
-        buildStack.Widgets.Add(buildButtons);
+        buildStack.Widgets.Add(_buildCategoryPanel);
+        buildStack.Widgets.Add(_buildItemsPanel);
         var bottomCenter = UiFactory.DarkPanel(buildStack);
         bottomCenter.HorizontalAlignment = HorizontalAlignment.Center;
         bottomCenter.VerticalAlignment = VerticalAlignment.Bottom;
@@ -470,9 +484,137 @@ public sealed class GameplayScreen : IScreen
         root.Widgets.Add(topLeft);
         root.Widgets.Add(topRight);
         root.Widgets.Add(bottomCenter);
+        root.Widgets.Add(BuildToolButtons());
 
         _desktop = new Desktop { Root = root };
+        RefreshBuildMenu();
         RefreshHudTexts();
+    }
+
+    /// <summary>Rychlé akce mapy vlevo dole: zpět na město, seznam osad, tech tree.</summary>
+    private Widget BuildToolButtons()
+    {
+        var loc = _screens.Loc;
+        var stack = new VerticalStackPanel { Spacing = 6 };
+        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.backToCity"], RecenterOnCity));
+        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.settlements"],
+            () => _screens.Push(new SettlementsScreen(_screens, _simulation, _camera))));
+        if (_screens.Content.Techs.Count > 0)
+        {
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.tech"],
+                () => _screens.Push(new TechScreen(_screens, _simulation))));
+        }
+
+        var panel = UiFactory.DarkPanel(stack);
+        panel.HorizontalAlignment = HorizontalAlignment.Left;
+        panel.VerticalAlignment = VerticalAlignment.Bottom;
+        panel.Margin = new Thickness(10, 0, 0, 12);
+        return panel;
+    }
+
+    /// <summary>Přebuduje stavební menu podle aktuálně odemčených/stavitelných budov.</summary>
+    private void RefreshBuildMenu()
+    {
+        var categories = BuildableCategories();
+        if (categories.Count == 0)
+        {
+            _buildCategoryPanel.Widgets.Clear();
+            _buildItemsPanel.Widgets.Clear();
+            return;
+        }
+
+        if (!categories.Contains(_selectedCategory))
+        {
+            _selectedCategory = categories[0];
+        }
+
+        PopulateCategoryTabs(categories);
+        PopulateBuildItems();
+    }
+
+    /// <summary>Kategorie, ve kterých je aspoň jedna stavitelná budova (v pořadí prvního výskytu).</summary>
+    private List<string> BuildableCategories()
+    {
+        var content = _screens.Content;
+        var result = new List<string>();
+        for (int i = 0; i < content.Buildings.Count; i++)
+        {
+            if (!_simulation.IsBuildingBuildable(i))
+            {
+                continue;
+            }
+
+            string category = content.Buildings[i].Category;
+            if (!result.Contains(category))
+            {
+                result.Add(category);
+            }
+        }
+
+        return result;
+    }
+
+    private void PopulateCategoryTabs(IReadOnlyList<string> categories)
+    {
+        var loc = _screens.Loc;
+        _buildCategoryPanel.Widgets.Clear();
+        foreach (string category in categories)
+        {
+            bool active = category == _selectedCategory;
+            var button = new Button
+            {
+                Content = new Label
+                {
+                    Text = loc[$"category.{category}"],
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextColor = active ? Color.White : Color.LightGray,
+                },
+                Padding = new Thickness(12, 4),
+                Background = new SolidBrush(active ? new Color(60, 110, 130, 235) : new Color(38, 48, 64, 235)),
+            };
+            string captured = category;
+            button.Click += (_, _) =>
+            {
+                _selectedCategory = captured;
+                PopulateCategoryTabs(categories);
+                PopulateBuildItems();
+            };
+            _buildCategoryPanel.Widgets.Add(button);
+        }
+    }
+
+    private void PopulateBuildItems()
+    {
+        var content = _screens.Content;
+        _buildItemsPanel.Widgets.Clear();
+        for (int i = 0; i < content.Buildings.Count; i++)
+        {
+            if (_simulation.IsBuildingBuildable(i) && content.Buildings[i].Category == _selectedCategory)
+            {
+                _buildItemsPanel.Widgets.Add(BuildingButton(i));
+            }
+        }
+    }
+
+    /// <summary>„Zpět na město": vycentruje kameru na těžiště zástavby (nebo start, když nic nestojí).</summary>
+    private void RecenterOnCity()
+    {
+        var buildings = _simulation.Buildings;
+        if (buildings.Length == 0)
+        {
+            _camera.CenterOn(FindStartFocus(), MathF.Max(_camera.Zoom, 1.8f));
+            return;
+        }
+
+        var sum = Vector2.Zero;
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            sum += new Vector2(buildings[i].X + 0.5f, buildings[i].Y + 0.5f);
+        }
+
+        var world = sum / buildings.Length * TerrainRenderer.TileSize;
+        _camera.CenterOn(world, MathF.Max(_camera.Zoom, 1.8f));
     }
 
     /// <summary>Tlačítko budovy: ikona + jméno + cena z definice (žádné texty natvrdo).</summary>

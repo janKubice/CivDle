@@ -16,17 +16,14 @@ public sealed class NewGameScreen : IScreen
     private readonly ScreenManager _screens;
     private Desktop _desktop = null!;
     private TextBox _seedBox = null!;
-    private CycleSelector _size = null!;
     private CycleSelector _preset = null!;
     private string _seedText;
-    private int _sizeIndex;
     private int _presetIndex;
 
     public NewGameScreen(ScreenManager screens)
     {
         _screens = screens;
         var worldGen = screens.Content.WorldGen;
-        _sizeIndex = worldGen.DefaultSizeIndex;
         _presetIndex = worldGen.DefaultPresetIndex;
         _seedText = SeedUtil.NewRandom().ToString();
 
@@ -62,12 +59,6 @@ public sealed class NewGameScreen : IScreen
         };
         _seedBox.TextChanged += (_, _) => _seedText = _seedBox.Text ?? string.Empty;
 
-        _size = new CycleSelector(
-            worldGen.Sizes.Count,
-            _sizeIndex,
-            i => $"{loc[worldGen.Sizes[i].NameKey]} ({worldGen.Sizes[i].Width}×{worldGen.Sizes[i].Height})");
-        _size.SelectionChanged += i => _sizeIndex = i;
-
         _preset = new CycleSelector(
             worldGen.Presets.Count,
             _presetIndex,
@@ -90,7 +81,6 @@ public sealed class NewGameScreen : IScreen
         layout.Widgets.Add(UiFactory.Row(loc["newgame.seed"],
             _seedBox,
             UiFactory.SmallButton(loc["newgame.seedRandom"], () => _seedBox.Text = SeedUtil.NewRandom().ToString())));
-        layout.Widgets.Add(UiFactory.Row(loc["newgame.worldSize"], _size.Widget));
         layout.Widgets.Add(UiFactory.Row(loc["newgame.worldType"], _preset.Widget));
         layout.Widgets.Add(new Label { Text = " " });
         layout.Widgets.Add(UiFactory.MenuButton(loc["newgame.create"], StartGame));
@@ -102,15 +92,16 @@ public sealed class NewGameScreen : IScreen
     private void StartGame()
     {
         var content = _screens.Content;
-        var size = content.WorldGen.Sizes[_sizeIndex];
         var preset = content.WorldGen.Presets[_presetIndex];
         long seed = SeedUtil.Parse(_seedText);
 
-        // Nekonečný terén: žádné generování mapy dopředu — počítá se on-demand.
-        // „Velikost světa" už jen ladí startovní zoom (menší = blíž nastartuje).
+        // Nekonečný terén: žádné generování mapy dopředu — počítá se on-demand,
+        // takže „velikost světa" už nemá smysl. Do savu ukládáme jen ID pro
+        // zpětnou kompatibilitu (výchozí velikost z katalogu).
         var terrain = new ProceduralTerrain(content.Biomes, preset, seed);
         var simulation = new Simulation(content, terrain, seed);
-        var info = new WorldInfo(seed, size.Id, preset.Id);
+        string sizeId = content.WorldGen.Sizes[content.WorldGen.DefaultSizeIndex].Id;
+        var info = new WorldInfo(seed, sizeId, preset.Id);
 
         _screens.ReplaceAll(new GameplayScreen(_screens, simulation, info));
     }

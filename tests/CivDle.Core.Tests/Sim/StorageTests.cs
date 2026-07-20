@@ -32,7 +32,7 @@ public class StorageTests
             new Resource("coin", new RgbColor(240, 200, 60), StartAmount: 10, BaseStorage: 1000),
         };
         var producer = new BuildingDef(
-            "producer", new RgbColor(100, 100, 100), 1, 1,
+            "producer", "test", new RgbColor(100, 100, 100), 1, 1,
             WorkerSlots: 1, HousingCapacity: 0,
             BuildCost: new[] { new ResourceAmount(1, 1) },
             Recipe: new Recipe(
@@ -41,15 +41,17 @@ public class StorageTests
                 TimeTicks: 1),
             AllowedBiomes: new[] { false, true },
             StorageBonus: Array.Empty<ResourceAmount>(),
-            AutoBuild: false);
+            AutoBuild: false,
+            Buildable: true, UpgradesToIndex: -1, UpgradeCost: Array.Empty<ResourceAmount>());
         var warehouse = new BuildingDef(
-            "warehouse", new RgbColor(120, 90, 60), 1, 1,
+            "warehouse", "test", new RgbColor(120, 90, 60), 1, 1,
             WorkerSlots: 0, HousingCapacity: 0,
             BuildCost: new[] { new ResourceAmount(1, 1) },
             Recipe: null,
             AllowedBiomes: new[] { false, true },
             StorageBonus: new[] { new ResourceAmount(0, 10) },
-            AutoBuild: false);
+            AutoBuild: false,
+            Buildable: true, UpgradesToIndex: -1, UpgradeCost: Array.Empty<ResourceAmount>());
 
         var gameplay = TestContent.DefaultGameplay with { FoodPerPersonPerSecond = 0, FoodResourceIndex = 1 };
         return TestContent.Build(biomes, 1, resources, new[] { producer, warehouse }, gameplay);

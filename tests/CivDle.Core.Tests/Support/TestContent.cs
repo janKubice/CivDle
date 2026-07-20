@@ -28,12 +28,14 @@ internal static class TestContent
         int fallbackBiomeIndex = 1,
         IReadOnlyList<Resource>? resources = null,
         IReadOnlyList<BuildingDef>? buildings = null,
-        GameplayConfig? gameplay = null)
+        GameplayConfig? gameplay = null,
+        IReadOnlyList<TechDef>? techs = null)
     {
         biomes ??= new[] { WaterBiome(), LandBiome("grass") };
         resources ??= new[] { new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 10, BaseStorage: 1000) };
         buildings ??= new[] { SimpleBuilding("hut", biomes.Count) };
         gameplay ??= DefaultGameplay;
+        techs ??= Array.Empty<TechDef>();
 
         var preset = new TerrainPreset("test", SeaLevel: 0.5f, fallbackBiomeIndex, Noise, Noise);
         var catalog = new WorldGenCatalog(
@@ -44,6 +46,7 @@ internal static class TestContent
             new BiomeRegistry(biomes),
             new DefRegistry<Resource>(resources, r => r.Id, "surovina"),
             new DefRegistry<BuildingDef>(buildings, b => b.Id, "budova"),
+            new DefRegistry<TechDef>(techs, t => t.Id, "technologie", allowEmpty: true),
             catalog,
             gameplay,
             new DefRegistry<LanguageDef>(new[] { language }, l => l.Id, "jazyk"),
@@ -66,12 +69,17 @@ internal static class TestContent
             NightAlpha: 0.45, DuskAlpha: 0.18));
 
     /// <summary>Levná budova bez výroby povolená na všech biomech.</summary>
-    public static BuildingDef SimpleBuilding(string id, int biomeCount) => new(
-        id, new RgbColor(200, 100, 50), 1, 1,
-        WorkerSlots: 0, HousingCapacity: 0,
+    public static BuildingDef SimpleBuilding(
+        string id, int biomeCount, int housing = 0, bool buildable = true,
+        int upgradesToIndex = -1, IReadOnlyList<ResourceAmount>? upgradeCost = null) => new(
+        id, "test", new RgbColor(200, 100, 50), 1, 1,
+        WorkerSlots: 0, HousingCapacity: housing,
         BuildCost: new[] { new ResourceAmount(0, 1) },
         Recipe: null,
         AllowedBiomes: Enumerable.Repeat(true, biomeCount).ToArray(),
         StorageBonus: Array.Empty<ResourceAmount>(),
-        AutoBuild: false);
+        AutoBuild: false,
+        Buildable: buildable,
+        UpgradesToIndex: upgradesToIndex,
+        UpgradeCost: upgradeCost ?? Array.Empty<ResourceAmount>());
 }

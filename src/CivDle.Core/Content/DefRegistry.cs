@@ -13,10 +13,11 @@ public class DefRegistry<T> where T : class
     private readonly string _kind;
 
     /// <param name="kind">Lidský název druhu definice do chybových hlášek („biom", „surovina"…).</param>
-    public DefRegistry(IReadOnlyList<T> items, Func<T, string> idSelector, string kind)
+    /// <param name="allowEmpty">Povolí prázdný registr (volitelný obsah, např. tech tree).</param>
+    public DefRegistry(IReadOnlyList<T> items, Func<T, string> idSelector, string kind, bool allowEmpty = false)
     {
         _kind = kind;
-        if (items.Count == 0)
+        if (items.Count == 0 && !allowEmpty)
         {
             throw new ArgumentException($"Registr ({kind}) nesmí být prázdný.", nameof(items));
         }

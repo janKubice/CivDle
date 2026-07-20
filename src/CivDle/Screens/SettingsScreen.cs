@@ -28,6 +28,7 @@ public sealed class SettingsScreen : IScreen
     private int _resolutionIndex;
     private int _windowModeIndex;
     private bool _vsync;
+    private int _volumeStep;
 
     /// <param name="showBackground">
     /// True v menu (kreslí živé město na pozadí); false z pauzy ve hře, kde by
@@ -50,6 +51,7 @@ public sealed class SettingsScreen : IScreen
         _resolutionIndex = _resolutions.IndexOf((settings.ResolutionWidth, settings.ResolutionHeight));
         _windowModeIndex = (int)settings.WindowMode;
         _vsync = settings.VSync;
+        _volumeStep = Math.Clamp((int)MathF.Round(settings.MasterVolume * 10f), 0, 10);
 
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
@@ -106,6 +108,10 @@ public sealed class SettingsScreen : IScreen
         var vsync = new CycleSelector(2, _vsync ? 0 : 1, i => loc[i == 0 ? "common.on" : "common.off"]);
         vsync.SelectionChanged += i => _vsync = i == 0;
 
+        // Hlasitost v krocích po 10 % (0–100 %).
+        var volume = new CycleSelector(11, _volumeStep, i => i == 0 ? loc["common.off"] : $"{i * 10} %");
+        volume.SelectionChanged += i => _volumeStep = i;
+
         var layout = new VerticalStackPanel
         {
             Spacing = 14,
@@ -123,6 +129,7 @@ public sealed class SettingsScreen : IScreen
         layout.Widgets.Add(UiFactory.Row(loc["settings.resolution"], resolution.Widget));
         layout.Widgets.Add(UiFactory.Row(loc["settings.windowMode"], windowMode.Widget));
         layout.Widgets.Add(UiFactory.Row(loc["settings.vsync"], vsync.Widget));
+        layout.Widgets.Add(UiFactory.Row(loc["settings.sound"], volume.Widget));
         layout.Widgets.Add(new Label { Text = " " });
         layout.Widgets.Add(UiFactory.MenuButton(loc["settings.apply"], Apply));
         layout.Widgets.Add(UiFactory.MenuButton(loc["settings.back"], _screens.Pop));
@@ -140,6 +147,7 @@ public sealed class SettingsScreen : IScreen
             ResolutionHeight = resolution.Height,
             WindowMode = (WindowMode)_windowModeIndex,
             VSync = _vsync,
+            MasterVolume = _volumeStep / 10f,
         };
 
         _screens.ApplySettings(settings);

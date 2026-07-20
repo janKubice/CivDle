@@ -177,7 +177,7 @@ public class SimulationTests
             new Resource("planks", new RgbColor(200, 170, 110), StartAmount: 0, BaseStorage: 1000),
         };
         var sawmill = new BuildingDef(
-            "sawmill", new RgbColor(120, 90, 60), 1, 1,
+            "sawmill", "test", new RgbColor(120, 90, 60), 1, 1,
             WorkerSlots: 1, HousingCapacity: 0,
             BuildCost: new[] { new ResourceAmount(0, 1) },
             Recipe: new Recipe(
@@ -186,7 +186,8 @@ public class SimulationTests
                 TimeTicks: 5),
             AllowedBiomes: new[] { false, true },
             StorageBonus: Array.Empty<ResourceAmount>(),
-            AutoBuild: false);
+            AutoBuild: false,
+            Buildable: true, UpgradesToIndex: -1, UpgradeCost: Array.Empty<ResourceAmount>());
         // Spotřeba jídla vypnutá — test měří jen výrobu, ne ujídání „dřeva jako jídla".
         var gameplay = TestContent.DefaultGameplay with { FoodPerPersonPerSecond = 0 };
         var content = TestContent.Build(biomes, 1, resources, new[] { sawmill }, gameplay);

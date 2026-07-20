@@ -34,15 +34,16 @@ public sealed class ContentLoader
         var resources = LoadResources(Path.Combine(dataDirectory, "resources.json"));
         var biomes = LoadBiomes(Path.Combine(dataDirectory, "biomes.json"), resources);
         var buildings = LoadBuildings(Path.Combine(dataDirectory, "buildings.json"), biomes, resources);
+        var techs = LoadTech(Path.Combine(dataDirectory, "tech.json"), buildings, resources);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
 
-        return new GameContent(biomes, resources, buildings, worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog);
+        return new GameContent(biomes, resources, buildings, techs, worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog);
     }
 
     // ----- biomy -----
@@ -237,27 +238,46 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, "Soubor neobsahuje žádnou budovu.");
         }
 
-        var buildings = new List<BuildingDef>(file.Buildings.Count);
-        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        // Dvouprůchodově: nejdřív ID → index (kvůli 'upgradesTo', které míří na jinou budovu).
+        var idToIndex = new Dictionary<string, int>(StringComparer.Ordinal);
         for (int i = 0; i < file.Buildings.Count; i++)
         {
-            var building = ValidateBuilding(path, file.Buildings[i], i, biomes, resources);
-            if (!seenIds.Add(building.Id))
+            string id = RequireId(path, file.Buildings[i].Id, $"Budova na pozici {i}");
+            if (!idToIndex.TryAdd(id, i))
             {
-                throw new ContentLoadException(path, $"Duplicitní ID budovy '{building.Id}'.");
+                throw new ContentLoadException(path, $"Duplicitní ID budovy '{id}'.");
             }
+        }
 
-            buildings.Add(building);
+        var buildings = new List<BuildingDef>(file.Buildings.Count);
+        for (int i = 0; i < file.Buildings.Count; i++)
+        {
+            buildings.Add(ValidateBuilding(path, file.Buildings[i], i, biomes, resources, idToIndex));
+        }
+
+        // Vylepšení musí mít stejný půdorys (mění se na místě) — kontrola po sestavení.
+        foreach (var building in buildings)
+        {
+            if (building.HasUpgrade)
+            {
+                var target = buildings[building.UpgradesToIndex];
+                if (target.FootprintWidth != building.FootprintWidth || target.FootprintHeight != building.FootprintHeight)
+                {
+                    throw new ContentLoadException(path, $"Budova '{building.Id}': vylepšení '{target.Id}' má jiný půdorys (vylepšuje se na místě).");
+                }
+            }
         }
 
         return new DefRegistry<BuildingDef>(buildings, b => b.Id, "budova");
     }
 
     private static BuildingDef ValidateBuilding(
-        string path, BuildingDto dto, int index, BiomeRegistry biomes, DefRegistry<Resource> resources)
+        string path, BuildingDto dto, int index, BiomeRegistry biomes, DefRegistry<Resource> resources,
+        Dictionary<string, int> idToIndex)
     {
         string id = RequireId(path, dto.Id, $"Budova na pozici {index}");
         var color = ParseColor(path, dto.MapColor, $"Budova '{id}'");
+        string category = string.IsNullOrWhiteSpace(dto.Category) ? "other" : dto.Category.Trim();
 
         if (dto.Footprint is not { Length: 2 } || dto.Footprint[0] < 1 || dto.Footprint[1] < 1
             || dto.Footprint[0] > 8 || dto.Footprint[1] > 8)
@@ -322,10 +342,100 @@ public sealed class ContentLoader
 
         var storageBonus = ParseResourceAmounts(path, id, "storage", dto.Storage, resources);
 
+        int upgradesToIndex = -1;
+        IReadOnlyList<ResourceAmount> upgradeCost = Array.Empty<ResourceAmount>();
+        if (!string.IsNullOrWhiteSpace(dto.UpgradesTo))
+        {
+            if (!idToIndex.TryGetValue(dto.UpgradesTo.Trim(), out upgradesToIndex))
+            {
+                throw new ContentLoadException(path, $"Budova '{id}' odkazuje ve 'upgradesTo' na neexistující budovu '{dto.UpgradesTo}'.");
+            }
+
+            if (upgradesToIndex == index)
+            {
+                throw new ContentLoadException(path, $"Budova '{id}' se nemůže vylepšit sama na sebe.");
+            }
+
+            upgradeCost = ParseResourceAmounts(path, id, "upgradeCost", dto.UpgradeCost, resources);
+            if (upgradeCost.Count == 0)
+            {
+                throw new ContentLoadException(path, $"Budova '{id}' má 'upgradesTo', ale chybí 'upgradeCost'.");
+            }
+        }
+
         return new BuildingDef(
-            id, color, dto.Footprint[0], dto.Footprint[1],
+            id, category, color, dto.Footprint[0], dto.Footprint[1],
             dto.WorkerSlots, dto.HousingCapacity, buildCost, recipe, mask,
-            storageBonus, dto.AutoBuild);
+            storageBonus, dto.AutoBuild, dto.Buildable ?? true, upgradesToIndex, upgradeCost);
+    }
+
+    // ----- tech tree -----
+
+    private static DefRegistry<TechDef> LoadTech(string path, DefRegistry<BuildingDef> buildings, DefRegistry<Resource> resources)
+    {
+        // Tech tree je volitelný — bez souboru je registr prázdný a vše je odemčené.
+        if (!File.Exists(path))
+        {
+            return new DefRegistry<TechDef>(Array.Empty<TechDef>(), t => t.Id, "technologie", allowEmpty: true);
+        }
+
+        var file = ReadFile<TechFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Techs ?? new List<TechDto>();
+        var idToIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            string id = RequireId(path, dtos[i].Id, $"Technologie na pozici {i}");
+            if (!idToIndex.TryAdd(id, i))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID technologie '{id}'.");
+            }
+        }
+
+        var techs = new List<TechDef>(dtos.Count);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = dto.Id!.Trim();
+
+            var cost = ParseResourceAmounts(path, id, "cost", dto.Cost, resources);
+            if (cost.Count == 0)
+            {
+                throw new ContentLoadException(path, $"Technologie '{id}' nemá vyplněnou cenu 'cost'.");
+            }
+
+            var prereqs = new List<int>();
+            foreach (var prereqId in dto.Prerequisites ?? Array.Empty<string>())
+            {
+                if (prereqId is null || !idToIndex.TryGetValue(prereqId.Trim(), out int prereqIndex))
+                {
+                    throw new ContentLoadException(path, $"Technologie '{id}' odkazuje na neexistující prerekvizitu '{prereqId}'.");
+                }
+
+                if (prereqIndex == i)
+                {
+                    throw new ContentLoadException(path, $"Technologie '{id}' nemůže být svou vlastní prerekvizitou.");
+                }
+
+                prereqs.Add(prereqIndex);
+            }
+
+            var unlocks = new List<int>();
+            foreach (var buildingId in dto.Unlocks ?? Array.Empty<string>())
+            {
+                if (buildingId is null || !buildings.TryIndexOf(buildingId.Trim(), out int buildingIndex))
+                {
+                    throw new ContentLoadException(path, $"Technologie '{id}' odemyká neexistující budovu '{buildingId}'.");
+                }
+
+                unlocks.Add(buildingIndex);
+            }
+
+            techs.Add(new TechDef(id, cost, prereqs, unlocks));
+        }
+
+        return new DefRegistry<TechDef>(techs, t => t.Id, "technologie", allowEmpty: true);
     }
 
     private static IReadOnlyList<ResourceAmount> ParseResourceAmounts(
@@ -657,7 +767,8 @@ public sealed class ContentLoader
         BiomeRegistry biomes,
         DefRegistry<Resource> resources,
         DefRegistry<BuildingDef> buildings,
-        WorldGenCatalog worldGen)
+        WorldGenCatalog worldGen,
+        DefRegistry<TechDef> techs)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -691,7 +802,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -703,7 +814,8 @@ public sealed class ContentLoader
         BiomeRegistry biomes,
         DefRegistry<Resource> resources,
         DefRegistry<BuildingDef> buildings,
-        WorldGenCatalog worldGen)
+        WorldGenCatalog worldGen,
+        DefRegistry<TechDef> techs)
     {
         var required = new List<string>();
         required.AddRange(biomes.All.Select(b => b.NameKey));
@@ -711,6 +823,8 @@ public sealed class ContentLoader
         required.AddRange(buildings.All.Select(b => b.NameKey));
         required.AddRange(worldGen.Sizes.Select(s => s.NameKey));
         required.AddRange(worldGen.Presets.Select(p => p.NameKey));
+        required.AddRange(techs.All.Select(t => t.NameKey));
+        required.AddRange(techs.All.Select(t => t.DescriptionKey));
 
         var missing = required.Where(key => !language.Strings.ContainsKey(key)).ToList();
         if (missing.Count > 0)
