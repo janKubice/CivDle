@@ -6,10 +6,11 @@ using Microsoft.Xna.Framework.Graphics;
 namespace CivDle.Rendering;
 
 /// <summary>
-/// Biomové dekorace (living-map.md: anti-repetice) — kytky, keře, kameny…
+/// Biomové dekorace (living-map.md: anti-repetice) — kytky, keře, drobnosti…
 /// Nic se neukládá: výskyt, pozice, barva i velikost se určují deterministickým
 /// hashem dlaždice a seedu, takže stejný svět vypadá vždy stejně.
 /// LOD: při oddálení pod práh se drobnosti nekreslí (z dálky je nikdo nevidí).
+/// Nekonečný terén — kreslí se přes viditelné dlaždice (i záporné).
 /// </summary>
 public sealed class DecorationRenderer
 {
@@ -45,26 +46,26 @@ public sealed class DecorationRenderer
         }
     }
 
-    public void Draw(SpriteBatch spriteBatch, Camera2D camera, WorldMap map)
+    public void Draw(SpriteBatch spriteBatch, Camera2D camera, ITerrain terrain)
     {
         if (camera.Zoom < MinZoom || _content.Decorations.Count == 0)
         {
             return;
         }
 
-        const int tileSize = MapRenderer.TileSize;
+        const int tileSize = TerrainRenderer.TileSize;
         var (min, max) = camera.VisibleWorldBounds();
-        int startX = Math.Max(0, (int)(min.X / tileSize));
-        int startY = Math.Max(0, (int)(min.Y / tileSize));
-        int endX = Math.Min(map.Width - 1, (int)(max.X / tileSize) + 1);
-        int endY = Math.Min(map.Height - 1, (int)(max.Y / tileSize) + 1);
+        int startX = (int)MathF.Floor(min.X / tileSize);
+        int startY = (int)MathF.Floor(min.Y / tileSize);
+        int endX = (int)MathF.Ceiling(max.X / tileSize);
+        int endY = (int)MathF.Ceiling(max.Y / tileSize);
 
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
         for (int y = startY; y <= endY; y++)
         {
             for (int x = startX; x <= endX; x++)
             {
-                var defs = _decorationsByBiome[map.BiomeIndices[map.Index(x, y)]];
+                var defs = _decorationsByBiome[terrain.BiomeAt(x, y)];
                 for (int d = 0; d < defs.Length; d++)
                 {
                     var def = _content.Decorations[defs[d]];

@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "version": "Živý svět",
+      "date": "2026-07-20",
+      "lines": [
+        "Nekonečná mapa — svět už nemá hranice, generuje se za běhu.",
+        "Sprity a ikony: stromy, kameny, budovy i suroviny mají tvář.",
+        "Kácení má říz: strom se s klikáním zmenšuje a nakonec spadne.",
+        "Po městě chodí lidičky a jezdí vozíky.",
+        "V menu roste živé město a nechybí ani tento deník."
+      ]
+    },
+    {
+      "version": "Živá mapa",
+      "date": "2026-07-19",
+      "lines": [
+        "Denní a noční cyklus — v noci se město rozsvítí.",
+        "Biomové dekorace a ambientní fauna (i noční světlušky).",
+        "HUD hodiny a den."
+      ]
+    },
+    {
+      "version": "Rostoucí civilizace",
+      "date": "2026-07-18",
+      "lines": [
+        "Auto-silnice — nové budovy se samy napojí cestou.",
+        "Shluky domů se poznají jako pojmenované osady.",
+        "Výrobní řetězec dřevo → prkna a sklady s kapacitou.",
+        "Vesnice se rozrůstá sama podle poptávky po bydlení."
+      ]
+    },
+    {
+      "version": "Základ hry",
+      "date": "2026-07-17",
+      "lines": [
+        "Generátor světa se seedem a typy světa.",
+        "Stavění budov, výroba, populace s jídlem.",
+        "Ukládání, nastavení (jazyk CZ/EN + grafika)."
+      ]
+    }
+  ]
+}

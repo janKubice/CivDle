@@ -9,7 +9,7 @@ namespace CivDle.Rendering;
 /// Vykreslení auto-silnic: každá silniční dlaždice má středový polštářek
 /// a ramena k sousedním silnicím či budovám — síť tak vypadá jako spojité
 /// pěšiny, ne šachovnice. Barva z gameplay dat, culling podle výřezu.
-/// Čte jen ze simulace.
+/// Čte jen ze simulace (nekonečná mapa — silnice jsou souřadnice).
 /// </summary>
 public sealed class RoadRenderer
 {
@@ -33,16 +33,15 @@ public sealed class RoadRenderer
             return;
         }
 
-        const int tileSize = MapRenderer.TileSize;
+        const int tileSize = TerrainRenderer.TileSize;
         var color = _content.Gameplay.Roads.MapColor.ToXna();
         var (min, max) = camera.VisibleWorldBounds();
-        var map = simulation.Map;
 
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
         for (int i = 0; i < roadTiles.Count; i++)
         {
-            int tileX = roadTiles[i] % map.Width;
-            int tileY = roadTiles[i] / map.Width;
+            int tileX = roadTiles[i].X;
+            int tileY = roadTiles[i].Y;
             int x = tileX * tileSize;
             int y = tileY * tileSize;
             if (x + tileSize < min.X || x > max.X || y + tileSize < min.Y || y > max.Y)
@@ -78,5 +77,5 @@ public sealed class RoadRenderer
 
     /// <summary>Rameno se kreslí k sousední silnici i k budově (vizuální napojení na vchod).</summary>
     private static bool Connects(Simulation simulation, int x, int y) =>
-        simulation.Map.InBounds(x, y) && (simulation.IsRoad(x, y) || simulation.IsOccupied(x, y));
+        simulation.IsRoad(x, y) || simulation.IsOccupied(x, y);
 }

@@ -32,7 +32,7 @@ public sealed class LightsRenderer
             return;
         }
 
-        const int tileSize = MapRenderer.TileSize;
+        const int tileSize = TerrainRenderer.TileSize;
         var (min, max) = camera.VisibleWorldBounds();
         var buildings = simulation.Buildings;
 

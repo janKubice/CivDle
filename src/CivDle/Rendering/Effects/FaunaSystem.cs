@@ -83,7 +83,6 @@ public sealed class FaunaSystem
 
     private void UpdateCritters(float dt, Simulation simulation, bool isNight, Vector2 min, Vector2 max)
     {
-        var map = simulation.Map;
         for (int i = _count - 1; i >= 0; i--)
         {
             ref var critter = ref _critters[i];
@@ -98,13 +97,12 @@ public sealed class FaunaSystem
                 critter.DirectionTimer = 1.5f + Random.Shared.NextSingle() * 3f;
             }
 
-            int tileX = (int)(critter.Position.X / MapRenderer.TileSize);
-            int tileY = (int)(critter.Position.Y / MapRenderer.TileSize);
+            int tileX = (int)MathF.Floor(critter.Position.X / TerrainRenderer.TileSize);
+            int tileY = (int)MathF.Floor(critter.Position.Y / TerrainRenderer.TileSize);
             bool outOfView = critter.Position.X < min.X - DespawnMargin || critter.Position.X > max.X + DespawnMargin
                 || critter.Position.Y < min.Y - DespawnMargin || critter.Position.Y > max.Y + DespawnMargin;
             bool wrongTime = def.Time == FaunaTime.Day && isNight || def.Time == FaunaTime.Night && !isNight;
-            bool badTile = !map.InBounds(tileX, tileY)
-                || !def.BiomeMask[map.BiomeAt(tileX, tileY)]
+            bool badTile = !def.BiomeMask[simulation.BiomeAt(tileX, tileY)]
                 || simulation.IsOccupied(tileX, tileY);
 
             if (outOfView || wrongTime || badTile)
@@ -124,17 +122,16 @@ public sealed class FaunaSystem
 
         _spawnTimer = SpawnCooldownSeconds;
 
-        var map = simulation.Map;
         float x = min.X + Random.Shared.NextSingle() * (max.X - min.X);
         float y = min.Y + Random.Shared.NextSingle() * (max.Y - min.Y);
-        int tileX = (int)(x / MapRenderer.TileSize);
-        int tileY = (int)(y / MapRenderer.TileSize);
-        if (!map.InBounds(tileX, tileY) || simulation.IsOccupied(tileX, tileY))
+        int tileX = (int)MathF.Floor(x / TerrainRenderer.TileSize);
+        int tileY = (int)MathF.Floor(y / TerrainRenderer.TileSize);
+        if (simulation.IsOccupied(tileX, tileY))
         {
             return;
         }
 
-        byte biome = map.BiomeAt(tileX, tileY);
+        byte biome = simulation.BiomeAt(tileX, tileY);
         _eligibleDefs.Clear();
         for (int i = 0; i < _content.Fauna.Count; i++)
         {
