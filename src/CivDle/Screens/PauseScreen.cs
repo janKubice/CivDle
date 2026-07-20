@@ -84,7 +84,7 @@ public sealed class PauseScreen : IScreen
         layout.Widgets.Add(_saveStatusLabel);
         layout.Widgets.Add(UiFactory.MenuButton(loc["pause.resume"], _screens.Pop));
         layout.Widgets.Add(UiFactory.MenuButton(loc["pause.save"], SaveGame));
-        layout.Widgets.Add(UiFactory.MenuButton(loc["pause.settings"], () => _screens.Push(new SettingsScreen(_screens))));
+        layout.Widgets.Add(UiFactory.MenuButton(loc["pause.settings"], () => _screens.Push(new SettingsScreen(_screens, showBackground: false))));
         layout.Widgets.Add(UiFactory.MenuButton(loc["pause.mainMenu"], () => _screens.ReplaceAll(new MainMenuScreen(_screens))));
         layout.Widgets.Add(UiFactory.MenuButton(loc["pause.quit"], _screens.ExitGame));
 

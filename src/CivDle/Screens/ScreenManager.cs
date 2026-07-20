@@ -46,6 +46,21 @@ public sealed class ScreenManager
     /// <summary>Sdílená 1×1 bílá textura na obdélníky (overlay, budovy).</summary>
     public Texture2D WhitePixel => Game.WhitePixel;
 
+    /// <summary>Procedurální sprity a ikony (suroviny, budovy, objekty, agenti).</summary>
+    public Rendering.Sprites.SpriteLibrary Sprites => Game.Sprites;
+
+    private MenuBackground? _menuBackground;
+
+    /// <summary>Sdílené živé město na pozadí menu (líně vytvořené, roste napříč obrazovkami menu).</summary>
+    public MenuBackground MenuBackground => _menuBackground ??= new MenuBackground(this);
+
+    /// <summary>Uvolní pozadí menu (volá herní obrazovka, aby se pod hrou netikala druhá simulace).</summary>
+    public void DisposeMenuBackground()
+    {
+        _menuBackground?.Dispose();
+        _menuBackground = null;
+    }
+
     /// <summary>Uloží a aplikuje nastavení (grafiku hned; jazyk přes <see cref="Loc"/>).</summary>
     public void ApplySettings(GameSettings settings) => Game.ApplySettings(settings);
 

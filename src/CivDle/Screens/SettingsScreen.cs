@@ -21,6 +21,7 @@ public sealed class SettingsScreen : IScreen
     };
 
     private readonly ScreenManager _screens;
+    private readonly bool _showBackground;
     private readonly List<(int Width, int Height)> _resolutions;
     private Desktop _desktop = null!;
     private int _languageIndex;
@@ -28,9 +29,14 @@ public sealed class SettingsScreen : IScreen
     private int _windowModeIndex;
     private bool _vsync;
 
-    public SettingsScreen(ScreenManager screens)
+    /// <param name="showBackground">
+    /// True v menu (kreslí živé město na pozadí); false z pauzy ve hře, kde by
+    /// pod hrou neměla běžet druhá simulace.
+    /// </param>
+    public SettingsScreen(ScreenManager screens, bool showBackground = true)
     {
         _screens = screens;
+        _showBackground = showBackground;
         var settings = screens.Settings;
 
         _resolutions = BaseResolutions.ToList();
@@ -53,9 +59,21 @@ public sealed class SettingsScreen : IScreen
 
     public void Update(GameTime gameTime)
     {
+        if (_showBackground)
+        {
+            _screens.MenuBackground.Update(gameTime);
+        }
     }
 
-    public void Draw(GameTime gameTime) => _desktop.Render();
+    public void Draw(GameTime gameTime)
+    {
+        if (_showBackground)
+        {
+            _screens.MenuBackground.Draw(_screens.SpriteBatch);
+        }
+
+        _desktop.Render();
+    }
 
     public void Dispose()
     {
