@@ -49,6 +49,7 @@ public sealed class GameplayScreen : IScreen
     private readonly ParticleSystem _particles = new();
     private readonly FloatingTextRenderer _floatingText = new();
     private readonly GameSounds _sounds = new();
+    private readonly AmbientMusic _ambient = new();
     private readonly MinimapRenderer _minimap;
     private readonly ToastRenderer _toasts;
     private readonly CityScaleRenderer _cityScale;
@@ -106,6 +107,7 @@ public sealed class GameplayScreen : IScreen
 
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
+        _ambient.Play(); // klidná smyčka pro relaxační jádro
     }
 
     public bool IsOverlay => false;
@@ -250,6 +252,7 @@ public sealed class GameplayScreen : IScreen
         _screens.Loc.LanguageChanged -= BuildUi;
         _terrainRenderer.Dispose();
         _minimap.Dispose();
+        _ambient.Dispose();
         _sounds.Dispose();
     }
 
@@ -456,7 +459,7 @@ public sealed class GameplayScreen : IScreen
         {
             string text = $"{loc[note.TitleKey]}: {loc[note.SubjectKey]}";
             _toasts.Add(text, NotificationColor(note.Kind));
-            _sounds.PlayPlace();
+            _sounds.PlayChime(); // dobrá zpráva → příjemné cinknutí
 
             // Splněný úkol / Vzestup mění seznam aktivních cílů — přestav sledovač.
             if (note.Kind is NotificationKind.QuestCompleted or NotificationKind.Ascended)
