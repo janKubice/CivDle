@@ -40,17 +40,56 @@ public sealed class ContentLoader
         var (quests, questsDynamic) = LoadQuests(Path.Combine(dataDirectory, "quests.json"), resources, buildings, techs);
         var achievements = LoadAchievements(Path.Combine(dataDirectory, "achievements.json"), resources, buildings, techs);
         var events = LoadEvents(Path.Combine(dataDirectory, "events.json"), resources);
+        var eras = LoadEras(Path.Combine(dataDirectory, "eras.json"));
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
 
         return new GameContent(
-            biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events,
+            biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
             worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog);
+    }
+
+    // ----- éry -----
+
+    private static DefRegistry<EraDef> LoadEras(string path)
+    {
+        var file = ReadFile<ErasFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Eras ?? new List<EraDto>();
+        var result = new List<EraDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        var seenOrders = new HashSet<int>();
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Éra na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID éry '{id}'.");
+            }
+
+            if (dto.Order is < 0 or > 100)
+            {
+                throw new ContentLoadException(path, $"Éra '{id}': 'order' musí být 0–100, je {dto.Order}.");
+            }
+
+            if (!seenOrders.Add(dto.Order))
+            {
+                throw new ContentLoadException(path, $"Éra '{id}': pořadí {dto.Order} už má jiná éra.");
+            }
+
+            // UnlockTech se ZÁMĚRNĚ nevaliduje (řeší se za běhu) — jde tak éry
+            // definovat dřív, než jejich technologie vzniknou.
+            result.Add(new EraDef(id, dto.Order, dto.UnlockTech?.Trim() ?? string.Empty));
+        }
+
+        return new DefRegistry<EraDef>(result, e => e.Id, "éra", allowEmpty: true);
     }
 
     // ----- biomy -----
@@ -1078,7 +1117,8 @@ public sealed class ContentLoader
         DefRegistry<PrestigeUpgradeDef> prestigeUpgrades,
         DefRegistry<QuestDef> quests,
         DefRegistry<AchievementDef> achievements,
-        DefRegistry<EventDef> events)
+        DefRegistry<EventDef> events,
+        DefRegistry<EraDef> eras)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -1112,7 +1152,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -1129,7 +1169,8 @@ public sealed class ContentLoader
         DefRegistry<PrestigeUpgradeDef> prestigeUpgrades,
         DefRegistry<QuestDef> quests,
         DefRegistry<AchievementDef> achievements,
-        DefRegistry<EventDef> events)
+        DefRegistry<EventDef> events,
+        DefRegistry<EraDef> eras)
     {
         var required = new List<string>();
         required.AddRange(biomes.All.Select(b => b.NameKey));
@@ -1151,6 +1192,8 @@ public sealed class ContentLoader
             required.Add(gameEvent.DescriptionKey);
             required.AddRange(gameEvent.Choices.Select(c => c.LabelKey));
         }
+
+        required.AddRange(eras.All.Select(e => e.NameKey));
 
         var missing = required.Where(key => !language.Strings.ContainsKey(key)).ToList();
         if (missing.Count > 0)

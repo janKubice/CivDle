@@ -185,6 +185,12 @@ public sealed record DynamicQuestDto(
     Dictionary<string, int>? Reward,
     double RewardGrowth);
 
+/// <summary>Obsah souboru <c>data/eras.json</c> (éry civilizace T0–T6).</summary>
+public sealed record ErasFileDto(int SchemaVersion, List<EraDto>? Eras);
+
+/// <summary>Jedna éra tak, jak leží v JSON.</summary>
+public sealed record EraDto(string? Id, int Order, string? UnlockTech);
+
 /// <summary>Obsah souboru <c>data/events.json</c> (náhodné události s volbami).</summary>
 public sealed record EventFileDto(int SchemaVersion, List<EventDto>? Events);
 

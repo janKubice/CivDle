@@ -67,6 +67,7 @@ public sealed class GameplayScreen : IScreen
     private double[] _perSecond = Array.Empty<double>();
     private float _rateTimer;
     private Label _populationLabel = null!;
+    private Label _eraLabel = null!;
     private Label _dayLabel = null!;
     private Label _cursorLabel = null!;
     private Label _statusLabel = null!;
@@ -833,10 +834,12 @@ public sealed class GameplayScreen : IScreen
         topLeft.VerticalAlignment = VerticalAlignment.Top;
         topLeft.Margin = new Thickness(10, 10, 0, 0);
 
-        // Pravý horní roh: den/čas + dlaždice pod kurzorem.
+        // Pravý horní roh: éra + den/čas + dlaždice pod kurzorem.
+        _eraLabel = new Label { TextColor = new Color(210, 185, 120), HorizontalAlignment = HorizontalAlignment.Right };
         _dayLabel = new Label { TextColor = UiFactory.Accent };
         _cursorLabel = new Label { TextColor = Color.LightGray };
         var worldInfoStack = new VerticalStackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Right };
+        worldInfoStack.Widgets.Add(_eraLabel);
         worldInfoStack.Widgets.Add(_dayLabel);
         worldInfoStack.Widgets.Add(_cursorLabel);
         var topRight = UiFactory.DarkPanel(worldInfoStack);
@@ -1165,6 +1168,10 @@ public sealed class GameplayScreen : IScreen
 
         _populationLabel.Text = loc.Format("hud.population",
             CivDle.Core.Numbers.Format(_simulation.Population), CivDle.Core.Numbers.Format(_simulation.HousingCapacity));
+
+        var eras = _screens.Content.Eras;
+        int eraIndex = _simulation.CurrentEraIndex;
+        _eraLabel.Text = eraIndex >= 0 ? loc.Format("hud.era", loc[eras[eraIndex].NameKey]) : string.Empty;
 
         double hours = _simulation.TimeOfDay01 * 24.0;
         _dayLabel.Text = loc.Format("hud.day", _simulation.DayNumber, (int)hours, (int)((hours - (int)hours) * 60));

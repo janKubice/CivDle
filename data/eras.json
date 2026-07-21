@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "eras": [
+    { "id": "founding",    "order": 0 },
+    { "id": "crafts",      "order": 1 },
+    { "id": "bronze",      "order": 2, "unlockTech": "bronze_working" },
+    { "id": "iron",        "order": 3, "unlockTech": "iron_working" },
+    { "id": "industry",    "order": 4, "unlockTech": "steam_power" },
+    { "id": "information", "order": 5, "unlockTech": "electronics" },
+    { "id": "future",      "order": 6, "unlockTech": "fusion" }
+  ]
+}

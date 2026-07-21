@@ -214,6 +214,32 @@ public sealed class Simulation
     /// <summary>Je technologie vyzkoumaná?</summary>
     public bool IsTechResearched(int techIndex) => _techResearched[techIndex];
 
+    /// <summary>
+    /// Index aktuální éry (nejvyšší dosažené): éra je dosažená, když je vyzkoumaná
+    /// její otevírací technologie (základní éry bez ní jsou od startu). −1 = žádné éry.
+    /// </summary>
+    public int CurrentEraIndex
+    {
+        get
+        {
+            int bestOrder = -1;
+            int bestIndex = -1;
+            for (int i = 0; i < _content.Eras.Count; i++)
+            {
+                var era = _content.Eras[i];
+                bool reached = string.IsNullOrEmpty(era.UnlockTechId)
+                    || (_content.Techs.TryIndexOf(era.UnlockTechId, out int techIndex) && _techResearched[techIndex]);
+                if (reached && era.Order > bestOrder)
+                {
+                    bestOrder = era.Order;
+                    bestIndex = i;
+                }
+            }
+
+            return bestIndex;
+        }
+    }
+
     /// <summary>Je na dlaždici silnice?</summary>
     public bool IsRoad(int x, int y) => _roads.Contains(TileKey.Pack(x, y));
 

@@ -36,7 +36,8 @@ internal static class TestContent
         IReadOnlyList<QuestDef>? quests = null,
         DynamicQuestConfig? questsDynamic = null,
         IReadOnlyList<AchievementDef>? achievements = null,
-        IReadOnlyList<EventDef>? events = null)
+        IReadOnlyList<EventDef>? events = null,
+        IReadOnlyList<EraDef>? eras = null)
     {
         biomes ??= new[] { WaterBiome(), LandBiome("grass") };
         resources ??= new[] { new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 10, BaseStorage: 1000) };
@@ -49,6 +50,7 @@ internal static class TestContent
         questsDynamic ??= DefaultDynamicQuest;
         achievements ??= Array.Empty<AchievementDef>();
         events ??= Array.Empty<EventDef>();
+        eras ??= Array.Empty<EraDef>();
 
         var preset = new TerrainPreset("test", SeaLevel: 0.5f, fallbackBiomeIndex, Noise, Noise);
         var catalog = new WorldGenCatalog(
@@ -66,6 +68,7 @@ internal static class TestContent
             questsDynamic,
             new DefRegistry<AchievementDef>(achievements, a => a.Id, "achievement", allowEmpty: true),
             new DefRegistry<EventDef>(events, e => e.Id, "událost", allowEmpty: true),
+            new DefRegistry<EraDef>(eras, e => e.Id, "éra", allowEmpty: true),
             catalog,
             gameplay,
             new DefRegistry<LanguageDef>(new[] { language }, l => l.Id, "jazyk"),
