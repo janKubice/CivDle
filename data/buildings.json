@@ -111,7 +111,7 @@
       "footprint": [2, 2],
       "buildCost": { "wood": 10, "planks": 8, "stone": 6 },
       "allowedBiomes": ["grassland", "steppe", "beach"],
-      "storage": { "wood": 150, "planks": 100, "stone": 120, "food": 120, "tools": 60, "copper_ore": 80, "bronze": 60 }
+      "storage": { "wood": 150, "planks": 100, "stone": 120, "food": 120, "tools": 60, "copper_ore": 80, "bronze": 60, "iron_ore": 80, "coal": 80, "iron": 60 }
     },
     {
       "id": "windmill",
@@ -151,7 +151,59 @@
       "housingCapacity": 14,
       "buildCost": { "stone": 12, "bronze": 4 },
       "allowedBiomes": ["grassland", "steppe", "beach"],
+      "buildable": false,
+      "upgradesTo": "tenement",
+      "upgradeCost": { "stone": 14, "iron": 6 }
+    },
+    {
+      "id": "tenement",
+      "category": "housing",
+      "mapColor": "#8F5038",
+      "footprint": [1, 1],
+      "housingCapacity": 22,
+      "buildCost": { "stone": 18, "iron": 8 },
+      "allowedBiomes": ["grassland", "steppe", "beach"],
       "buildable": false
+    },
+    {
+      "id": "iron_mine",
+      "category": "production",
+      "mapColor": "#8C8C94",
+      "footprint": [1, 1],
+      "workerSlots": 4,
+      "buildCost": { "planks": 12, "stone": 10 },
+      "recipe": { "output": { "iron_ore": 2 }, "timeTicks": 55 },
+      "allowedBiomes": ["mountains", "snow_peaks"]
+    },
+    {
+      "id": "coal_mine",
+      "category": "production",
+      "mapColor": "#3A3A3A",
+      "footprint": [1, 1],
+      "workerSlots": 4,
+      "buildCost": { "planks": 12, "stone": 8 },
+      "recipe": { "output": { "coal": 2 }, "timeTicks": 50 },
+      "allowedBiomes": ["mountains", "snow_peaks"]
+    },
+    {
+      "id": "blast_furnace",
+      "category": "production",
+      "mapColor": "#6E4A3A",
+      "footprint": [2, 2],
+      "workerSlots": 5,
+      "buildCost": { "stone": 25, "bronze": 8 },
+      "recipe": { "input": { "iron_ore": 2, "coal": 1 }, "output": { "iron": 1 }, "timeTicks": 55 },
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "iron_forge",
+      "category": "production",
+      "mapColor": "#9AA0A6",
+      "footprint": [1, 1],
+      "workerSlots": 3,
+      "buildCost": { "stone": 18, "iron": 6 },
+      "recipe": { "input": { "iron": 1, "planks": 1 }, "output": { "tools": 5 }, "timeTicks": 55 },
+      "allowedBiomes": ["grassland", "steppe", "beach"]
     },
     {
       "id": "copper_mine",

@@ -28,6 +28,18 @@
       "cost": { "stone": 30, "planks": 40 },
       "prerequisites": ["bronze_working"],
       "unlocks": ["bronze_smith"]
+    },
+    {
+      "id": "iron_working",
+      "cost": { "stone": 60, "bronze": 25 },
+      "prerequisites": ["bronze_working"],
+      "unlocks": ["iron_mine", "coal_mine", "blast_furnace"]
+    },
+    {
+      "id": "toolsmithing",
+      "cost": { "bronze": 30, "iron": 20 },
+      "prerequisites": ["iron_working"],
+      "unlocks": ["iron_forge"]
     }
   ]
 }
