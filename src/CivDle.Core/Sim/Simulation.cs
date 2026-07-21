@@ -136,6 +136,24 @@ public sealed class Simulation
     /// <summary>Smí hráč budovu přímo postavit (odemčená a nemarkovaná jako jen-upgrade)?</summary>
     public bool IsBuildingBuildable(int defIndex) => _buildingUnlocked[defIndex] && _content.Buildings[defIndex].Buildable;
 
+    /// <summary>
+    /// Má hráč dost surovin na stavbu (bez ohledu na místo/biom)? Pro HUD — barevné
+    /// zvýraznění tlačítek, ať je na první pohled jasné, co si můžu dovolit.
+    /// </summary>
+    public bool CanAfford(int defIndex)
+    {
+        var cost = _content.Buildings[defIndex].BuildCost;
+        for (int i = 0; i < cost.Count; i++)
+        {
+            if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>Je technologie vyzkoumaná?</summary>
     public bool IsTechResearched(int techIndex) => _techResearched[techIndex];
 

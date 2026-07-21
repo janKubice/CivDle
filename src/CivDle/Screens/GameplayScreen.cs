@@ -62,6 +62,7 @@ public sealed class GameplayScreen : IScreen
     private HorizontalStackPanel _buildCategoryPanel = null!;
     private HorizontalStackPanel _buildItemsPanel = null!;
     private string _selectedCategory = string.Empty;
+    private readonly List<(int DefIndex, Button Button, Label PriceLabel)> _buildButtons = new();
 
     private int _selectedBuilding = -1;
     private int _ghostX;
@@ -588,12 +589,30 @@ public sealed class GameplayScreen : IScreen
     {
         var content = _screens.Content;
         _buildItemsPanel.Widgets.Clear();
+        _buildButtons.Clear();
         for (int i = 0; i < content.Buildings.Count; i++)
         {
             if (_simulation.IsBuildingBuildable(i) && content.Buildings[i].Category == _selectedCategory)
             {
                 _buildItemsPanel.Widgets.Add(BuildingButton(i));
             }
+        }
+
+        RefreshBuildAffordability();
+    }
+
+    /// <summary>
+    /// Zvýrazní stavební tlačítka podle toho, jestli na budovu hráč má — zelená
+    /// cena a plné tlačítko = ano, červená a ztlumené = ne. Volá se každý snímek,
+    /// suroviny se mění.
+    /// </summary>
+    private void RefreshBuildAffordability()
+    {
+        foreach (var (defIndex, button, priceLabel) in _buildButtons)
+        {
+            bool affordable = _simulation.CanAfford(defIndex);
+            priceLabel.TextColor = affordable ? new Color(150, 220, 150) : new Color(232, 120, 110);
+            button.Background = new SolidBrush(affordable ? new Color(38, 48, 64, 235) : new Color(30, 34, 42, 170));
         }
     }
 
@@ -636,12 +655,13 @@ public sealed class GameplayScreen : IScreen
             Text = loc[def.NameKey],
             HorizontalAlignment = HorizontalAlignment.Center,
         });
-        caption.Widgets.Add(new Label
+        var priceLabel = new Label
         {
-            Text = string.Join("  ", def.BuildCost.Select(c => $"{c.Amount} {loc[content.Resources[c.ResourceIndex].NameKey]}")),
+            Text = CostFormat.Line(content, loc, def.BuildCost),
             TextColor = Color.Gray,
             HorizontalAlignment = HorizontalAlignment.Center,
-        });
+        };
+        caption.Widgets.Add(priceLabel);
 
         var button = new Button
         {
@@ -650,6 +670,7 @@ public sealed class GameplayScreen : IScreen
             Background = new SolidBrush(new Color(38, 48, 64, 235)),
         };
         button.Click += (_, _) => _selectedBuilding = _selectedBuilding == defIndex ? -1 : defIndex;
+        _buildButtons.Add((defIndex, button, priceLabel));
         return button;
     }
 
@@ -669,6 +690,7 @@ public sealed class GameplayScreen : IScreen
 
         UpdateCursorLabel();
         UpdateStatusLabel();
+        RefreshBuildAffordability();
     }
 
     private void UpdateCursorLabel()
