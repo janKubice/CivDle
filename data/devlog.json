@@ -2,6 +2,17 @@
   "schemaVersion": 1,
   "entries": [
     {
+      "version": "Vrať se a klikej",
+      "date": "2026-07-21",
+      "lines": [
+        "Offline postup + denní odměna — civilizace roste, i když nehraješ, a návrat se vyplácí.",
+        "Sběrné bubliny, zlaté spawny a kritické sběry — víc důvodů klikat.",
+        "Přesun a bourání budov, sázení hájů, skrýše k objevení — tvaruj svět.",
+        "Slavnost (dočasný boost), náhodné události s volbami a klikatelní obyvatelé.",
+        "HUD ukazuje přírůstek za sekundu a hlásí plný sklad."
+      ]
+    },
+    {
       "version": "Měřítko a atmosféra",
       "date": "2026-07-21",
       "lines": [
