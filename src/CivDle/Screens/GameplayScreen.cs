@@ -54,6 +54,8 @@ public sealed class GameplayScreen : IScreen
     private readonly ToastRenderer _toasts;
     private readonly CityScaleRenderer _cityScale;
     private readonly VignetteRenderer _vignette;
+    private readonly BubbleSystem _bubbles;
+    private readonly GoldenSpawnSystem _golden;
     private readonly SpriteFontBase _popupFont;
     private readonly Dictionary<int, string> _popupTextCache = new();
 
@@ -120,6 +122,8 @@ public sealed class GameplayScreen : IScreen
         _agents = new AgentSystem(screens.Content, screens.Sprites);
         _minimap = new MinimapRenderer(screens.GraphicsDevice, screens.Content.Biomes, screens.WhitePixel);
         _vignette = new VignetteRenderer(screens.GraphicsDevice);
+        _bubbles = new BubbleSystem(screens.Sprites, screens.Content);
+        _golden = new GoldenSpawnSystem(screens.Sprites, screens.Content);
         _popupFont = Stylesheet.Current.LabelStyle.Font;
         _toasts = new ToastRenderer(screens.WhitePixel, _popupFont);
         _cityScale = new CityScaleRenderer(screens.WhitePixel, _popupFont);
@@ -204,6 +208,8 @@ public sealed class GameplayScreen : IScreen
         {
             _fauna.Update(dt, _camera, _simulation);
             _agents.Update(dt, _camera, _simulation);
+            _bubbles.Update(dt, _simulation);
+            _golden.Update(dt, _camera, _simulation);
         }
 
         _minimap.Update(dt, _camera, _simulation);
@@ -227,6 +233,8 @@ public sealed class GameplayScreen : IScreen
             _buildingRenderer.Draw(spriteBatch, _camera, _simulation);
             _agents.Draw(spriteBatch, _camera);
             _fauna.Draw(spriteBatch, _screens.WhitePixel, _camera);
+            _bubbles.Draw(spriteBatch, _camera);
+            _golden.Draw(spriteBatch, _camera);
         }
         else
         {
@@ -466,6 +474,19 @@ public sealed class GameplayScreen : IScreen
         int tileX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
         int tileY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
 
+        // Sběrné bubliny a zlaté spawny mají přednost před budovou i těžbou.
+        if (_bubbles.TryCollect(world, _simulation, out int bubbleRes, out int bubbleAmt, out var bubblePos))
+        {
+            CollectFeedback(bubbleRes, bubbleAmt, bubblePos);
+            return;
+        }
+
+        if (_golden.TryCollect(world, _simulation, out int goldRes, out int goldAmt, out var goldPos))
+        {
+            CollectFeedback(goldRes, goldAmt, goldPos);
+            return;
+        }
+
         // Klik na budovu ji rozklikne (detail + vylepšení + přesun/demolice).
         if (_simulation.TryGetBuildingAt(tileX, tileY, out int buildingIndex))
         {
@@ -510,6 +531,15 @@ public sealed class GameplayScreen : IScreen
             _particles.SpawnBurst(tileCenter, biomeColor, 8, 45f, 150f);
             _particles.SpawnBurst(tileCenter, resourceColor, 4, 35f, 110f);
         }
+    }
+
+    /// <summary>Zpětná vazba na posbíranou bublinu / zlatý spawn: zlatý popup, jiskry, cinknutí.</summary>
+    private void CollectFeedback(int resourceIndex, int amount, Vector2 worldPos)
+    {
+        var color = new Color(255, 224, 130);
+        _floatingText.Add(worldPos, $"+{amount} {_screens.Loc[_screens.Content.Resources[resourceIndex].NameKey]}", color);
+        _particles.SpawnBurst(worldPos, color, 16, 55f, 190f);
+        _sounds.PlayChime();
     }
 
     /// <summary>Texty popupů se cachují — žádné skládání stringů při každém kliku.</summary>
