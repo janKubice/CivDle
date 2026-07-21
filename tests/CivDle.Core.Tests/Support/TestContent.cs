@@ -32,7 +32,9 @@ internal static class TestContent
         GameplayConfig? gameplay = null,
         IReadOnlyList<TechDef>? techs = null,
         PrestigeConfig? prestige = null,
-        IReadOnlyList<PrestigeUpgradeDef>? prestigeUpgrades = null)
+        IReadOnlyList<PrestigeUpgradeDef>? prestigeUpgrades = null,
+        IReadOnlyList<QuestDef>? quests = null,
+        DynamicQuestConfig? questsDynamic = null)
     {
         biomes ??= new[] { WaterBiome(), LandBiome("grass") };
         resources ??= new[] { new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 10, BaseStorage: 1000) };
@@ -41,6 +43,8 @@ internal static class TestContent
         techs ??= Array.Empty<TechDef>();
         prestige ??= DefaultPrestige;
         prestigeUpgrades ??= Array.Empty<PrestigeUpgradeDef>();
+        quests ??= Array.Empty<QuestDef>();
+        questsDynamic ??= DefaultDynamicQuest;
 
         var preset = new TerrainPreset("test", SeaLevel: 0.5f, fallbackBiomeIndex, Noise, Noise);
         var catalog = new WorldGenCatalog(
@@ -54,6 +58,8 @@ internal static class TestContent
             new DefRegistry<TechDef>(techs, t => t.Id, "technologie", allowEmpty: true),
             prestige,
             new DefRegistry<PrestigeUpgradeDef>(prestigeUpgrades, u => u.Id, "upgrade Vzestupu", allowEmpty: true),
+            new DefRegistry<QuestDef>(quests, q => q.Id, "úkol", allowEmpty: true),
+            questsDynamic,
             catalog,
             gameplay,
             new DefRegistry<LanguageDef>(new[] { language }, l => l.Id, "jazyk"),
@@ -66,6 +72,10 @@ internal static class TestContent
     /// <summary>Výchozí prestige config testů (Vzestup od 50 obyvatel, body = populace ÷ 15).</summary>
     public static PrestigeConfig DefaultPrestige => new(
         new GoalCondition(MetricKind.Population, -1, 50), MetricKind.Population, -1, 15);
+
+    /// <summary>Výchozí dynamický úkol testů (populace, práh roste ×1.5; bez odměny).</summary>
+    public static DynamicQuestConfig DefaultDynamicQuest => new(
+        new GoalCondition(MetricKind.Population, -1, 20), 1.5, Array.Empty<ResourceAmount>(), 1.5);
 
     /// <summary>Výchozí gameplay config testů (auto-stavba na dlouhém intervalu, ať do testů nezasahuje).</summary>
     public static GameplayConfig DefaultGameplay => new(

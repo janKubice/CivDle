@@ -20,8 +20,8 @@ public sealed class SaveGameSerializer
 {
     private const string Magic = "CIVD";
 
-    /// <summary>Verze formátu — zvýšit při každé změně struktury. v4: + technologie. v5: + Vzestup (úroveň, body, upgrady).</summary>
-    public const int FormatVersion = 5;
+    /// <summary>Verze formátu — zvýšit při každé změně struktury. v4: + technologie. v5: + Vzestup. v6: + úkoly (splněné, dynamický tier).</summary>
+    public const int FormatVersion = 6;
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -47,6 +47,7 @@ public sealed class SaveGameSerializer
         WriteRoads(writer, simulation);
         WriteTech(writer, simulation);
         WritePrestige(writer, simulation);
+        WriteQuests(writer, simulation);
     }
 
     /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
@@ -90,6 +91,7 @@ public sealed class SaveGameSerializer
             ReadRoads(reader, simulation);
             ReadTech(reader, content, simulation);
             ReadPrestige(reader, content, simulation);
+            ReadQuests(reader, content, simulation);
             simulation.FinalizeLoad(); // bonusy Vzestupu → přepočet bydlení/skladů
 
             return (simulation, metadata);
@@ -265,6 +267,42 @@ public sealed class SaveGameSerializer
             }
 
             // Smazaný upgrade v datech se ze savu tiše přeskočí.
+        }
+    }
+
+    private static void WriteQuests(BinaryWriter writer, Simulation simulation)
+    {
+        writer.Write(simulation.DynamicQuestTier);
+
+        var questDefs = SimContent(simulation).Quests;
+        var completed = simulation.CompletedQuestIndices().ToList();
+        writer.Write(completed.Count);
+        foreach (int index in completed)
+        {
+            writer.Write(questDefs[index].Id);
+        }
+    }
+
+    private static void ReadQuests(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        int dynamicTier = reader.ReadInt32();
+        if (dynamicTier < 0)
+        {
+            throw new SaveLoadException($"Save má nesmyslný tier dynamického úkolu: {dynamicTier}.");
+        }
+
+        simulation.DynamicQuestTier = dynamicTier;
+
+        int count = ReadCount(reader, max: 1_000_000, what: "úkolů");
+        for (int i = 0; i < count; i++)
+        {
+            string id = reader.ReadString();
+            if (content.Quests.TryIndexOf(id, out int index))
+            {
+                simulation.RestoreQuestCompleted(index);
+            }
+
+            // Smazaný úkol v datech se ze savu tiše přeskočí.
         }
     }
 

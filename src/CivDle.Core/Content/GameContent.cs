@@ -14,6 +14,8 @@ public sealed class GameContent
         DefRegistry<TechDef> techs,
         PrestigeConfig prestige,
         DefRegistry<PrestigeUpgradeDef> prestigeUpgrades,
+        DefRegistry<QuestDef> quests,
+        DynamicQuestConfig questsDynamic,
         WorldGenCatalog worldGen,
         GameplayConfig gameplay,
         DefRegistry<LanguageDef> languages,
@@ -28,6 +30,8 @@ public sealed class GameContent
         Techs = techs;
         Prestige = prestige;
         PrestigeUpgrades = prestigeUpgrades;
+        Quests = quests;
+        QuestsDynamic = questsDynamic;
         WorldGen = worldGen;
         Gameplay = gameplay;
         Languages = languages;
@@ -45,6 +49,12 @@ public sealed class GameContent
 
     /// <summary>Trvalé upgrady Vzestupu z <c>data/prestige.json</c> (smí být prázdné).</summary>
     public DefRegistry<PrestigeUpgradeDef> PrestigeUpgrades { get; }
+
+    /// <summary>Pevné úkoly z <c>data/quests.json</c> (smí být prázdné).</summary>
+    public DefRegistry<QuestDef> Quests { get; }
+
+    /// <summary>Nastavení dynamických (opakujících se) úkolů z <c>data/quests.json</c>.</summary>
+    public DynamicQuestConfig QuestsDynamic { get; }
 
     /// <summary>Vývojový deník z <c>data/devlog.json</c> (smí být prázdný).</summary>
     public IReadOnlyList<DevlogEntry> Devlog { get; }

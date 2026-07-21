@@ -37,16 +37,17 @@ public sealed class ContentLoader
         var buildings = LoadBuildings(Path.Combine(dataDirectory, "buildings.json"), biomes, resources);
         var techs = LoadTech(Path.Combine(dataDirectory, "tech.json"), buildings, resources);
         var (prestige, prestigeUpgrades) = LoadPrestige(Path.Combine(dataDirectory, "prestige.json"), resources, buildings, techs);
+        var (quests, questsDynamic) = LoadQuests(Path.Combine(dataDirectory, "quests.json"), resources, buildings, techs);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
 
         return new GameContent(
-            biomes, resources, buildings, techs, prestige, prestigeUpgrades,
+            biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic,
             worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog);
     }
 
@@ -525,6 +526,57 @@ public sealed class ContentLoader
         return (config, new DefRegistry<PrestigeUpgradeDef>(upgrades, u => u.Id, "upgrade Vzestupu", allowEmpty: true));
     }
 
+    // ----- úkoly (quests) -----
+
+    private static (DefRegistry<QuestDef> Quests, DynamicQuestConfig Dynamic) LoadQuests(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        var file = ReadFile<QuestFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Quests ?? new List<QuestDto>();
+        var quests = new List<QuestDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Úkol na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID úkolu '{id}'.");
+            }
+
+            if (dto.Condition is null)
+            {
+                throw new ContentLoadException(path, $"Úkol '{id}' nemá 'condition'.");
+            }
+
+            var condition = ParseCondition(path, $"úkol '{id}'", dto.Condition, resources, buildings, techs);
+            var reward = ParseResourceAmounts(path, id, "reward", dto.Reward, resources);
+            quests.Add(new QuestDef(id, condition, reward));
+        }
+
+        if (file.Dynamic?.Condition is null)
+        {
+            throw new ContentLoadException(path, "Chybí blok 'dynamic' s 'condition' (dynamické úkoly).");
+        }
+
+        var dynCondition = ParseCondition(path, "dynamic", file.Dynamic.Condition, resources, buildings, techs);
+        if (file.Dynamic.TargetGrowth <= 1.0)
+        {
+            throw new ContentLoadException(path, $"'dynamic.targetGrowth' musí být > 1, je {file.Dynamic.TargetGrowth}.");
+        }
+
+        if (file.Dynamic.RewardGrowth < 1.0)
+        {
+            throw new ContentLoadException(path, $"'dynamic.rewardGrowth' musí být ≥ 1, je {file.Dynamic.RewardGrowth}.");
+        }
+
+        var dynReward = ParseResourceAmounts(path, "dynamic", "reward", file.Dynamic.Reward, resources);
+        var dynamic = new DynamicQuestConfig(dynCondition, file.Dynamic.TargetGrowth, dynReward, file.Dynamic.RewardGrowth);
+        return (new DefRegistry<QuestDef>(quests, q => q.Id, "úkol", allowEmpty: true), dynamic);
+    }
+
     /// <summary>
     /// Přeloží podmínku (metrika + práh + odkaz) z JSON na typovaný <see cref="GoalCondition"/>.
     /// Sdílené: Vzestup, úkoly, achievementy. Data říkají „co", kód „jak" — žádná logika v JSON.
@@ -906,7 +958,8 @@ public sealed class ContentLoader
         DefRegistry<BuildingDef> buildings,
         WorldGenCatalog worldGen,
         DefRegistry<TechDef> techs,
-        DefRegistry<PrestigeUpgradeDef> prestigeUpgrades)
+        DefRegistry<PrestigeUpgradeDef> prestigeUpgrades,
+        DefRegistry<QuestDef> quests)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -940,7 +993,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -954,7 +1007,8 @@ public sealed class ContentLoader
         DefRegistry<BuildingDef> buildings,
         WorldGenCatalog worldGen,
         DefRegistry<TechDef> techs,
-        DefRegistry<PrestigeUpgradeDef> prestigeUpgrades)
+        DefRegistry<PrestigeUpgradeDef> prestigeUpgrades,
+        DefRegistry<QuestDef> quests)
     {
         var required = new List<string>();
         required.AddRange(biomes.All.Select(b => b.NameKey));
@@ -966,6 +1020,8 @@ public sealed class ContentLoader
         required.AddRange(techs.All.Select(t => t.DescriptionKey));
         required.AddRange(prestigeUpgrades.All.Select(u => u.NameKey));
         required.AddRange(prestigeUpgrades.All.Select(u => u.DescriptionKey));
+        required.AddRange(quests.All.Select(q => q.NameKey));
+        required.AddRange(quests.All.Select(q => q.DescriptionKey));
 
         var missing = required.Where(key => !language.Strings.ContainsKey(key)).ToList();
         if (missing.Count > 0)

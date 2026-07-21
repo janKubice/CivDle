@@ -153,6 +153,22 @@ public sealed record PrestigeUpgradeDto(
     int Cost,
     string[]? Prerequisites);
 
+/// <summary>Obsah souboru <c>data/quests.json</c> (pevné úkoly + dynamické).</summary>
+public sealed record QuestFileDto(
+    int SchemaVersion,
+    List<QuestDto>? Quests,
+    DynamicQuestDto? Dynamic);
+
+/// <summary>Jeden pevný úkol tak, jak leží v JSON.</summary>
+public sealed record QuestDto(string? Id, GoalConditionDto? Condition, Dictionary<string, int>? Reward);
+
+/// <summary>Nastavení dynamických úkolů tak, jak leží v JSON.</summary>
+public sealed record DynamicQuestDto(
+    GoalConditionDto? Condition,
+    double TargetGrowth,
+    Dictionary<string, int>? Reward,
+    double RewardGrowth);
+
 /// <summary>Obsah souboru <c>data/devlog.json</c>.</summary>
 public sealed record DevlogFileDto(int SchemaVersion, List<DevlogEntryDto>? Entries);
 

@@ -518,6 +518,16 @@ public class ContentLoaderTests : IDisposable
           "upgrades": []
         }
         """);
+        Write("quests.json", """
+        {
+          "schemaVersion": 1,
+          "quests": [],
+          "dynamic": {
+            "condition": { "metric": "population", "target": 20 },
+            "targetGrowth": 1.5, "rewardGrowth": 1.5, "reward": { "food": 10 }
+          }
+        }
+        """);
     }
 
     private void WriteWorldGen(string fallbackBiome = "grass", string? defaultPreset = null)

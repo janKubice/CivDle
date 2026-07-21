@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "quests": [
+    { "id": "chop_wood",   "condition": { "metric": "harvested", "resource": "wood", "target": 15 }, "reward": { "food": 10 } },
+    { "id": "chop_stone",  "condition": { "metric": "harvested", "resource": "stone", "target": 10 }, "reward": { "wood": 10 } },
+    { "id": "first_house", "condition": { "metric": "building", "building": "house", "target": 1 },    "reward": { "planks": 8 } },
+    { "id": "grow_10",     "condition": { "metric": "population", "target": 10 },                       "reward": { "food": 20 } },
+    { "id": "first_lumber", "condition": { "metric": "building", "building": "lumber_camp", "target": 1 }, "reward": { "stone": 10 } },
+    { "id": "first_sawmill", "condition": { "metric": "building", "building": "sawmill", "target": 1 }, "reward": { "stone": 15 } },
+    { "id": "first_farm",  "condition": { "metric": "building", "building": "farm", "target": 1 },      "reward": { "wood": 20 } },
+    { "id": "research_milling", "condition": { "metric": "research", "tech": "milling" },               "reward": { "planks": 20 } },
+    { "id": "grow_25",     "condition": { "metric": "population", "target": 25 },                       "reward": { "food": 40 } },
+    { "id": "first_ascension", "condition": { "metric": "ascension", "target": 1 },                    "reward": { "food": 60 } }
+  ],
+  "dynamic": {
+    "condition": { "metric": "population", "target": 40 },
+    "targetGrowth": 1.5,
+    "reward": { "food": 30 },
+    "rewardGrowth": 1.4
+  }
+}

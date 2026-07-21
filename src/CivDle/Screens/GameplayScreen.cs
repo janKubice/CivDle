@@ -64,6 +64,9 @@ public sealed class GameplayScreen : IScreen
     private HorizontalStackPanel _buildItemsPanel = null!;
     private string _selectedCategory = string.Empty;
     private readonly List<(int DefIndex, Button Button, Label PriceLabel)> _buildButtons = new();
+    private VerticalStackPanel _goalsPanel = null!;
+    private readonly List<(CivDle.Core.Sim.GoalCondition Condition, Label Progress)> _goalSlots = new();
+    private bool _goalsDirty = true;
 
     private int _selectedBuilding = -1;
     private int _ghostX;
@@ -110,6 +113,7 @@ public sealed class GameplayScreen : IScreen
         // nebo zresetovat éru — stavební menu přebuduj a srovnej počítadlo budov,
         // ať po Vzestupu (reset na 0 budov) nevystřelí prach za „nové" budovy.
         RefreshBuildMenu();
+        _goalsDirty = true;
         _knownBuildingCount = _simulation.Buildings.Length;
     }
 
@@ -431,6 +435,12 @@ public sealed class GameplayScreen : IScreen
             string text = $"{loc[note.TitleKey]}: {loc[note.SubjectKey]}";
             _toasts.Add(text, NotificationColor(note.Kind));
             _sounds.PlayPlace();
+
+            // Splněný úkol / Vzestup mění seznam aktivních cílů — přestav sledovač.
+            if (note.Kind is NotificationKind.QuestCompleted or NotificationKind.Ascended)
+            {
+                _goalsDirty = true;
+            }
         }
     }
 
@@ -508,13 +518,22 @@ public sealed class GameplayScreen : IScreen
         bottomCenter.VerticalAlignment = VerticalAlignment.Bottom;
         bottomCenter.Margin = new Thickness(0, 0, 0, 12);
 
+        // Levý střed: sledovač úkolů (aktuální cíle + pokrok) — vede hráče hrou.
+        _goalsPanel = new VerticalStackPanel { Spacing = 5 };
+        var goalsBox = UiFactory.DarkPanel(_goalsPanel);
+        goalsBox.HorizontalAlignment = HorizontalAlignment.Left;
+        goalsBox.VerticalAlignment = VerticalAlignment.Center;
+        goalsBox.Margin = new Thickness(10, 0, 0, 0);
+
         var root = new Panel();
         root.Widgets.Add(topLeft);
         root.Widgets.Add(topRight);
+        root.Widgets.Add(goalsBox);
         root.Widgets.Add(bottomCenter);
         root.Widgets.Add(BuildToolButtons());
 
         _desktop = new Desktop { Root = root };
+        _goalsDirty = true;
         RefreshBuildMenu();
         RefreshHudTexts();
     }
@@ -524,6 +543,8 @@ public sealed class GameplayScreen : IScreen
     {
         var loc = _screens.Loc;
         var stack = new VerticalStackPanel { Spacing = 6 };
+        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.quests"],
+            () => _screens.Push(new QuestsScreen(_screens, _simulation))));
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.backToCity"], RecenterOnCity));
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.settlements"],
             () => _screens.Push(new SettlementsScreen(_screens, _simulation, _camera))));
@@ -646,6 +667,62 @@ public sealed class GameplayScreen : IScreen
         }
     }
 
+    /// <summary>Přestaví sledovač úkolů (aktivní cíle) — volá se, jen když se stav změní.</summary>
+    private void RebuildGoals()
+    {
+        var loc = _screens.Loc;
+        var content = _screens.Content;
+        _goalsPanel.Widgets.Clear();
+        _goalSlots.Clear();
+        _goalsPanel.Widgets.Add(new Label { Text = loc["hud.quests"], TextColor = UiFactory.Accent });
+
+        int shown = 0;
+        for (int i = 0; i < content.Quests.Count && shown < 3; i++)
+        {
+            if (_simulation.IsQuestCompleted(i))
+            {
+                continue;
+            }
+
+            AddGoalSlot(loc[content.Quests[i].NameKey], content.Quests[i].Condition);
+            shown++;
+        }
+
+        if (shown < 3)
+        {
+            long target = _simulation.DynamicQuestTarget;
+            var dyn = content.QuestsDynamic;
+            AddGoalSlot(loc.Format("quest.dynamic", target),
+                new GoalCondition(dyn.BaseCondition.Kind, dyn.BaseCondition.Param, target));
+        }
+    }
+
+    private void AddGoalSlot(string name, GoalCondition condition)
+    {
+        var slot = new VerticalStackPanel { Spacing = 1 };
+        slot.Widgets.Add(new Label { Text = name });
+        var progress = new Label { TextColor = new Color(150, 220, 150) };
+        slot.Widgets.Add(progress);
+        _goalsPanel.Widgets.Add(slot);
+        _goalSlots.Add((condition, progress));
+    }
+
+    /// <summary>Přebuduje sledovač jen při změně; jinak jen aktualizuje čísla pokroku.</summary>
+    private void UpdateGoals()
+    {
+        if (_goalsDirty)
+        {
+            RebuildGoals();
+            _goalsDirty = false;
+        }
+
+        foreach (var (condition, progress) in _goalSlots)
+        {
+            long current = Math.Min(_simulation.EvaluateMetric(condition.Kind, condition.Param), condition.Target);
+            progress.Text = $"{current} / {condition.Target}";
+        }
+    }
+
     /// <summary>„Zpět na město": vycentruje kameru na těžiště zástavby (nebo start, když nic nestojí).</summary>
     private void RecenterOnCity()
     {
@@ -721,6 +798,7 @@ public sealed class GameplayScreen : IScreen
         UpdateCursorLabel();
         UpdateStatusLabel();
         RefreshBuildAffordability();
+        UpdateGoals();
     }
 
     private void UpdateCursorLabel()

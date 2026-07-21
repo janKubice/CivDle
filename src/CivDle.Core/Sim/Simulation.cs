@@ -30,6 +30,8 @@ public sealed class Simulation
     private readonly AutoBuildSystem _autoBuild;
     private readonly RoadBuilder _roadBuilder;
     private readonly SettlementSystem _settlementSystem;
+    private readonly QuestSystem _questSystem;
+    private readonly bool[] _questsCompleted;
 
     private readonly bool[] _buildingUnlocked;
     private readonly bool[] _techResearched;
@@ -79,6 +81,8 @@ public sealed class Simulation
         _autoBuild = new AutoBuildSystem(content, seed);
         _roadBuilder = new RoadBuilder(content);
         _settlementSystem = new SettlementSystem(content, seed);
+        _questSystem = new QuestSystem(content);
+        _questsCompleted = new bool[content.Quests.Count];
     }
 
     /// <summary>Nekonečný terén, nad kterým simulace běží.</summary>
@@ -228,6 +232,7 @@ public sealed class Simulation
         _populationSystem.Tick(this);
         _autoBuild.Tick(this);
         _settlementSystem.Tick(this);
+        _questSystem.Tick(this);
     }
 
     /// <summary>
@@ -385,6 +390,43 @@ public sealed class Simulation
         notification = default;
         return false;
     }
+
+    // ----- úkoly (quests) -----
+
+    /// <summary>Je pevný úkol splněný?</summary>
+    public bool IsQuestCompleted(int questIndex) => _questsCompleted[questIndex];
+
+    /// <summary>Kolikátý dynamický úkol se plní (0 = první). Roste s hrou.</summary>
+    public int DynamicQuestTier { get; internal set; }
+
+    /// <summary>Aktuální práh dynamického úkolu (roste násobičem za každý splněný tier).</summary>
+    public long DynamicQuestTarget
+    {
+        get
+        {
+            var dynamic = _content.QuestsDynamic;
+            double target = dynamic.BaseCondition.Target * Math.Pow(dynamic.TargetGrowth, DynamicQuestTier);
+            return (long)Math.Ceiling(target);
+        }
+    }
+
+    /// <summary>Splněné pevné úkoly pro systém úkolů (mutace jen uvnitř assembly).</summary>
+    internal bool[] QuestsCompleted => _questsCompleted;
+
+    /// <summary>Indexy splněných pevných úkolů (pro serializaci savu).</summary>
+    internal IEnumerable<int> CompletedQuestIndices()
+    {
+        for (int i = 0; i < _questsCompleted.Length; i++)
+        {
+            if (_questsCompleted[i])
+            {
+                yield return i;
+            }
+        }
+    }
+
+    /// <summary>Označí úkol jako splněný při načtení savu (bez odměny).</summary>
+    internal void RestoreQuestCompleted(int questIndex) => _questsCompleted[questIndex] = true;
 
     /// <summary>Najde budovu na dlaždici (pro klik → info/upgrade panel). Vrací index do <see cref="Buildings"/>.</summary>
     public bool TryGetBuildingAt(int x, int y, out int buildingIndex)
