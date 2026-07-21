@@ -51,6 +51,7 @@ public sealed class GameplayScreen : IScreen
     private readonly GameSounds _sounds = new();
     private readonly MinimapRenderer _minimap;
     private readonly ToastRenderer _toasts;
+    private readonly CityScaleRenderer _cityScale;
     private readonly SpriteFontBase _popupFont;
     private readonly Dictionary<int, string> _popupTextCache = new();
 
@@ -96,6 +97,7 @@ public sealed class GameplayScreen : IScreen
         _minimap = new MinimapRenderer(screens.GraphicsDevice, screens.Content.Biomes, screens.WhitePixel);
         _popupFont = Stylesheet.Current.LabelStyle.Font;
         _toasts = new ToastRenderer(screens.WhitePixel, _popupFont);
+        _cityScale = new CityScaleRenderer(screens.WhitePixel, _popupFont);
 
         var viewport = screens.GraphicsDevice.Viewport;
         _camera.SetViewport(viewport.Width, viewport.Height);
@@ -155,8 +157,14 @@ public sealed class GameplayScreen : IScreen
         _harvestables.Update(dt);
         _particles.Update(dt);
         _floatingText.Update(dt);
-        _fauna.Update(dt, _camera, _simulation);
-        _agents.Update(dt, _camera, _simulation);
+        // Při velkém oddálení chodce/faunu neaktualizuj — nespawnovali by se přes
+        // obří viditelnou plochu (a stejně se nekreslí; z výšky vidíš hustotu).
+        if (_camera.Zoom >= CityScaleRenderer.ThresholdZoom)
+        {
+            _fauna.Update(dt, _camera, _simulation);
+            _agents.Update(dt, _camera, _simulation);
+        }
+
         _minimap.Update(dt, _camera, _simulation);
         DrainNotifications();
         _toasts.Update(dt);
@@ -168,11 +176,23 @@ public sealed class GameplayScreen : IScreen
         var spriteBatch = _screens.SpriteBatch;
         _terrainRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
         _decorationRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
-        _harvestables.Draw(spriteBatch, _camera, _simulation);
-        _roadRenderer.Draw(spriteBatch, _camera, _simulation);
-        _buildingRenderer.Draw(spriteBatch, _camera, _simulation);
-        _agents.Draw(spriteBatch, _camera);
-        _fauna.Draw(spriteBatch, _screens.WhitePixel, _camera);
+
+        // Velké oddálení → agregátní pohled na měřítko (hustota + populace) místo
+        // drobných jednotlivců (game-feel-wow: „koukni, jak to vyrostlo").
+        if (_camera.Zoom >= CityScaleRenderer.ThresholdZoom)
+        {
+            _harvestables.Draw(spriteBatch, _camera, _simulation);
+            _roadRenderer.Draw(spriteBatch, _camera, _simulation);
+            _buildingRenderer.Draw(spriteBatch, _camera, _simulation);
+            _agents.Draw(spriteBatch, _camera);
+            _fauna.Draw(spriteBatch, _screens.WhitePixel, _camera);
+        }
+        else
+        {
+            _roadRenderer.Draw(spriteBatch, _camera, _simulation); // cesty dávají kontext i z výšky
+            _cityScale.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, _camera, _simulation);
+        }
+
         _particles.Draw(spriteBatch, _screens.WhitePixel, _camera);
 
         // Den/noc: ztmavení scény a pak aditivní světla, ať září skrz tmu.
