@@ -12,6 +12,9 @@
     { "id": "coal", "mapColor": "#2B2B2B", "startAmount": 0, "baseStorage": 100 },
     { "id": "iron", "mapColor": "#B0B0B8", "startAmount": 0, "baseStorage": 80 },
     { "id": "steel", "mapColor": "#71797E", "startAmount": 0, "baseStorage": 70 },
-    { "id": "machine_parts", "mapColor": "#546E7A", "startAmount": 0, "baseStorage": 60 }
+    { "id": "machine_parts", "mapColor": "#546E7A", "startAmount": 0, "baseStorage": 60 },
+    { "id": "silicon", "mapColor": "#7D8CA3", "startAmount": 0, "baseStorage": 80 },
+    { "id": "electronics", "mapColor": "#2E7D5B", "startAmount": 0, "baseStorage": 60 },
+    { "id": "computer", "mapColor": "#3A506B", "startAmount": 0, "baseStorage": 40 }
   ]
 }
