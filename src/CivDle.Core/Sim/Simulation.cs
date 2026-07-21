@@ -40,6 +40,7 @@ public sealed class Simulation
     private readonly bool[] _upgradesPurchased; // koupené trvalé upgrady Vzestupu
     private readonly long[] _harvestedTotals; // kumulativní sběr surovin klikáním (metriky cílů)
     private readonly HashSet<long> _claimedDiscoveries = new(); // vyzvednuté skrýše na mapě
+    private readonly Dictionary<long, ClickYield> _plantedNodes = new(); // hráčem zasazené obnovitelné zdroje
     private readonly Queue<GameNotification> _notifications = new();
     private PrestigeBonuses _bonuses = PrestigeBonuses.None;
 
@@ -370,12 +371,14 @@ public sealed class Simulation
         amount = 0;
         wasCrit = false;
 
-        if (_occupancy.ContainsKey(TileKey.Pack(x, y)))
+        long tile = TileKey.Pack(x, y);
+        if (_occupancy.ContainsKey(tile))
         {
             return false;
         }
 
-        var yield = _content.Biomes[Terrain.BiomeAt(x, y)].ClickYield;
+        // Zasazený uzel má přednost před přírodním výnosem biomu.
+        var yield = _plantedNodes.TryGetValue(tile, out var planted) ? planted : _content.Biomes[Terrain.BiomeAt(x, y)].ClickYield;
         if (yield is null)
         {
             return false;
@@ -419,6 +422,79 @@ public sealed class Simulation
 
     /// <summary>Kumulativně nasbíráno suroviny klikáním (pro cíle/achievementy).</summary>
     public long GetHarvestedTotal(int resourceIndex) => _harvestedTotals[resourceIndex];
+
+    // ----- sázení (obnovitelné zdroje) -----
+
+    /// <summary>Lze na (x, y) zasadit obnovitelný zdroj (suchá dlaždice, prázdná, dost surovin)?</summary>
+    public PlacementResult CanPlant(int x, int y)
+    {
+        long tile = TileKey.Pack(x, y);
+        if (_content.Biomes[Terrain.BiomeAt(x, y)].IsWater)
+        {
+            return PlacementResult.WrongBiome;
+        }
+
+        if (_occupancy.ContainsKey(tile) || _roads.Contains(tile) || _plantedNodes.ContainsKey(tile))
+        {
+            return PlacementResult.Occupied;
+        }
+
+        var cost = _content.Gameplay.Planting.Cost;
+        for (int i = 0; i < cost.Count; i++)
+        {
+            if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
+            {
+                return PlacementResult.NotEnoughResources;
+            }
+        }
+
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>Příkaz hráče: zasadí obnovitelný zdroj (háj) — pak se dá těžit klikem jako přírodní.</summary>
+    public PlacementResult TryPlant(int x, int y)
+    {
+        var result = CanPlant(x, y);
+        if (result != PlacementResult.Ok)
+        {
+            return result;
+        }
+
+        var planting = _content.Gameplay.Planting;
+        for (int i = 0; i < planting.Cost.Count; i++)
+        {
+            _resources[planting.Cost[i].ResourceIndex] -= planting.Cost[i].Amount;
+        }
+
+        _plantedNodes[TileKey.Pack(x, y)] = new ClickYield(planting.ResourceIndex, planting.Amount);
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>Je na dlaždici zasazený uzel? (pro render.)</summary>
+    public bool TryGetPlantedNode(int x, int y, out int resourceIndex)
+    {
+        if (_plantedNodes.TryGetValue(TileKey.Pack(x, y), out var yield))
+        {
+            resourceIndex = yield.ResourceIndex;
+            return true;
+        }
+
+        resourceIndex = 0;
+        return false;
+    }
+
+    /// <summary>Zasazené uzly pro serializaci savu.</summary>
+    internal IEnumerable<(int X, int Y, int ResourceIndex, int Amount)> PlantedNodes()
+    {
+        foreach (var (key, yield) in _plantedNodes)
+        {
+            yield return (TileKey.X(key), TileKey.Y(key), yield.ResourceIndex, yield.Amount);
+        }
+    }
+
+    /// <summary>Obnoví zasazený uzel při načtení savu.</summary>
+    internal void RestorePlantedNode(int x, int y, int resourceIndex, int amount)
+        => _plantedNodes[TileKey.Pack(x, y)] = new ClickYield(resourceIndex, amount);
 
     // ----- objevování mapy (skrýše) -----
 

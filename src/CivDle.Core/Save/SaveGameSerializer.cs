@@ -20,8 +20,8 @@ public sealed class SaveGameSerializer
 {
     private const string Magic = "CIVD";
 
-    /// <summary>Verze formátu — zvýšit při každé změně struktury. v5: + Vzestup. v6: + úkoly. v7: + objevené skrýše.</summary>
-    public const int FormatVersion = 7;
+    /// <summary>Verze formátu — zvýšit při každé změně struktury. v6: + úkoly. v7: + skrýše. v8: + zasazené uzly.</summary>
+    public const int FormatVersion = 8;
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -49,6 +49,7 @@ public sealed class SaveGameSerializer
         WritePrestige(writer, simulation);
         WriteQuests(writer, simulation);
         WriteDiscoveries(writer, simulation);
+        WritePlanted(writer, simulation);
     }
 
     /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
@@ -94,6 +95,7 @@ public sealed class SaveGameSerializer
             ReadPrestige(reader, content, simulation);
             ReadQuests(reader, content, simulation);
             ReadDiscoveries(reader, simulation);
+            ReadPlanted(reader, content, simulation);
             simulation.FinalizeLoad(); // bonusy Vzestupu → přepočet bydlení/skladů
 
             return (simulation, metadata);
@@ -327,6 +329,38 @@ public sealed class SaveGameSerializer
             int x = reader.ReadInt32();
             int y = reader.ReadInt32();
             simulation.RestoreDiscovery(x, y);
+        }
+    }
+
+    private static void WritePlanted(BinaryWriter writer, Simulation simulation)
+    {
+        var resourceDefs = SimContent(simulation).Resources;
+        var planted = simulation.PlantedNodes().ToList();
+        writer.Write(planted.Count);
+        foreach (var (x, y, resourceIndex, amount) in planted)
+        {
+            writer.Write(x);
+            writer.Write(y);
+            writer.Write(resourceDefs[resourceIndex].Id); // stabilní ID, ne index
+            writer.Write(amount);
+        }
+    }
+
+    private static void ReadPlanted(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        int count = ReadCount(reader, max: 20_000_000, what: "zasazených uzlů");
+        for (int i = 0; i < count; i++)
+        {
+            int x = reader.ReadInt32();
+            int y = reader.ReadInt32();
+            string id = reader.ReadString();
+            int amount = reader.ReadInt32();
+            if (content.Resources.TryIndexOf(id, out int resourceIndex))
+            {
+                simulation.RestorePlantedNode(x, y, resourceIndex, amount);
+            }
+
+            // Smazaná surovina v datech = zasazený uzel se tiše přeskočí.
         }
     }
 

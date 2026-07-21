@@ -864,6 +864,19 @@ public sealed class ContentLoader
             ParseResourceAmounts(path, "gameplay", "dailyReward.reward", file.DailyReward?.Reward, resources),
             file.DailyReward is { StreakCap: > 0 } ? file.DailyReward.StreakCap : 7);
 
+        // Sázení: volitelný blok. Bez něj se vysazuje háj dávající první surovinu.
+        int plantResource = 0;
+        if (file.Planting?.Resource is { } plantResId && !resources.TryIndexOf(plantResId.Trim(), out plantResource))
+        {
+            throw new ContentLoadException(path, $"'planting.resource' odkazuje na neexistující surovinu '{plantResId}'.");
+        }
+
+        int plantAmount = file.Planting is { Amount: > 0 } ? file.Planting.Amount : 2;
+        var planting = new PlantingConfig(
+            ParseResourceAmounts(path, "gameplay", "planting.cost", file.Planting?.Cost, resources),
+            plantResource,
+            plantAmount);
+
         return new GameplayConfig(
             file.StartingPopulation,
             file.BaseHousingCapacity,
@@ -882,7 +895,8 @@ public sealed class ContentLoader
                 file.DayNight.DuskAlpha),
             boost,
             harvest,
-            dailyReward);
+            dailyReward,
+            planting);
     }
 
     // ----- devlog (volitelný obsah menu) -----

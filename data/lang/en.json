@@ -196,6 +196,8 @@
     "building.demolish": "Demolish (refunds half)",
     "building.move": "Move",
     "hud.moving": "Moving — click where to, right-click cancels",
+    "hud.plant": "Plant",
+    "hud.planting": "Planting a grove — click where, right-click cancels",
     "building.maxLevel": "Max level — this is the top tier.",
     "building.level": "Level",
     "tech.research": "Research",

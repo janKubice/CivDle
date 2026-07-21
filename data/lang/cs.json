@@ -196,6 +196,8 @@
     "building.demolish": "Zbourat (vrátí půl ceny)",
     "building.move": "Přesunout",
     "hud.moving": "Přesouvám — klikni kam, pravé tlačítko zruší",
+    "hud.plant": "Zasadit",
+    "hud.planting": "Sázím háj — klikni kam, pravé tlačítko zruší",
     "building.maxLevel": "Nejvyšší úroveň — dál už to nejde.",
     "building.level": "Úroveň",
     "tech.research": "Vyzkoumat",

@@ -97,7 +97,8 @@ internal static class TestContent
         // Krit vypnutý (critChance 0), ať testy sběru zůstanou deterministické.
         Boost: new BoostConfig(30, 120, 2.0),
         Harvest: new HarvestConfig(0.0, 5.0),
-        DailyReward: new DailyRewardConfig(new[] { new ResourceAmount(0, 10) }, StreakCap: 7));
+        DailyReward: new DailyRewardConfig(new[] { new ResourceAmount(0, 10) }, StreakCap: 7),
+        Planting: new PlantingConfig(new[] { new ResourceAmount(0, 5) }, ResourceIndex: 0, Amount: 2));
 
     /// <summary>Levná budova bez výroby povolená na všech biomech.</summary>
     public static BuildingDef SimpleBuilding(

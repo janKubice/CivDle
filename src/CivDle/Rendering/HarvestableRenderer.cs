@@ -134,6 +134,11 @@ public sealed class HarvestableRenderer
             for (int x = startX; x <= endX; x++)
             {
                 var spriteKey = _nodeSpriteByBiome[simulation.BiomeAt(x, y)];
+                if (spriteKey is null && simulation.TryGetPlantedNode(x, y, out int plantedResource))
+                {
+                    spriteKey = ResourceSprite(plantedResource); // zasazený háj se kreslí i těží jako přírodní
+                }
+
                 if (spriteKey is null || simulation.IsOccupied(x, y))
                 {
                     continue;
@@ -206,6 +211,14 @@ public sealed class HarvestableRenderer
         float finalScale = (float)drawSize / texture.Width * shrink;
         spriteBatch.Draw(texture, new Vector2(baseX, baseY), null, Color.White, rotation, origin, finalScale, SpriteEffects.None, 0f);
     }
+
+    /// <summary>Sprite pro zasazený uzel podle suroviny (dřevo → strom, kámen → skála).</summary>
+    private string ResourceSprite(int resourceIndex) => _content.Resources[resourceIndex].Id switch
+    {
+        "wood" => "node.tree",
+        "stone" => "node.rock",
+        _ => "node.tree",
+    };
 
     private static ulong Hash(int x, int y)
     {

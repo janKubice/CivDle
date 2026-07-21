@@ -29,5 +29,6 @@
   },
   "boost": { "durationSeconds": 30, "cooldownSeconds": 120, "multiplier": 2.0 },
   "harvest": { "critChance": 0.12, "critMultiplier": 5 },
-  "dailyReward": { "reward": { "food": 25, "wood": 20 }, "streakCap": 7 }
+  "dailyReward": { "reward": { "food": 25, "wood": 20 }, "streakCap": 7 },
+  "planting": { "cost": { "food": 10 }, "resource": "wood", "amount": 2 }
 }

@@ -75,6 +75,15 @@ public sealed record HarvestConfig(double CritChance, double CritMultiplier);
 /// <param name="StreakCap">Nejvyšší násobek série (odměna neroste donekonečna).</param>
 public sealed record DailyRewardConfig(IReadOnlyList<ResourceAmount> BaseReward, int StreakCap);
 
+/// <summary>
+/// Sázení: hráč za cenu vysadí obnovitelný zdroj (háj), který pak jde těžit klikem
+/// jako přírodní strom/kámen. Agency nad krajinou (behavior „terraform" light).
+/// </summary>
+/// <param name="Cost">Cena zasazení.</param>
+/// <param name="ResourceIndex">Kterou surovinu zasazený uzel dává.</param>
+/// <param name="Amount">Výnos jednoho sběru zasazeného uzlu.</param>
+public sealed record PlantingConfig(IReadOnlyList<ResourceAmount> Cost, int ResourceIndex, int Amount);
+
 /// <param name="Settlements">Nastavení detekce osad.</param>
 /// <param name="DayNight">Denní/noční cyklus.</param>
 /// <param name="Boost">Nastavení slavnosti (dočasný boost).</param>
@@ -91,4 +100,5 @@ public sealed record GameplayConfig(
     DayNightConfig DayNight,
     BoostConfig Boost,
     HarvestConfig Harvest,
-    DailyRewardConfig DailyReward);
+    DailyRewardConfig DailyReward,
+    PlantingConfig Planting);

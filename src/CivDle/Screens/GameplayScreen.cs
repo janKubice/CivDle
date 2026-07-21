@@ -93,6 +93,12 @@ public sealed class GameplayScreen : IScreen
     private int _moveGhostY;
     private PlacementResult _moveGhostResult;
 
+    private bool _plantMode;
+    private bool _plantGhostActive;
+    private int _plantGhostX;
+    private int _plantGhostY;
+    private PlacementResult _plantGhostResult;
+
     /// <param name="savedAtUtc">Čas uložení načtené hry — spustí offline dohon; <c>null</c> = nová hra.</param>
     public GameplayScreen(ScreenManager screens, Simulation simulation, WorldInfo info, DateTime? savedAtUtc = null)
     {
@@ -174,7 +180,11 @@ public sealed class GameplayScreen : IScreen
 
         if (_input.WasPressed(Keys.Escape))
         {
-            if (_movingBuildingIndex >= 0)
+            if (_plantMode)
+            {
+                _plantMode = false;
+            }
+            else if (_movingBuildingIndex >= 0)
             {
                 _movingBuildingIndex = -1;
             }
@@ -191,7 +201,11 @@ public sealed class GameplayScreen : IScreen
 
         bool mouseOverUi = _desktop.IsMouseOverGUI;
         UpdateCamera(dt, mouseOverUi);
-        if (!UpdateMove(mouseOverUi))
+        if (_plantMode)
+        {
+            UpdatePlant(mouseOverUi);
+        }
+        else if (!UpdateMove(mouseOverUi))
         {
             UpdatePlacement(mouseOverUi);
             UpdateHarvest(mouseOverUi);
@@ -271,6 +285,15 @@ public sealed class GameplayScreen : IScreen
             var def = _screens.Content.Buildings[_simulation.Buildings[_movingBuildingIndex].DefIndex];
             _buildingRenderer.DrawGhost(
                 spriteBatch, _camera, def, _moveGhostX, _moveGhostY, _moveGhostResult == PlacementResult.Ok);
+        }
+
+        if (_plantGhostActive && _screens.Sprites.Get("node.tree") is { } plantSprite)
+        {
+            const int ts = TerrainRenderer.TileSize;
+            var tint = (_plantGhostResult == PlacementResult.Ok ? new Color(120, 240, 140) : new Color(240, 110, 100)) * 0.7f;
+            spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.Transform);
+            spriteBatch.Draw(plantSprite, new Rectangle(_plantGhostX * ts, _plantGhostY * ts, ts, ts), tint);
+            spriteBatch.End();
         }
 
         _vignette.Draw(spriteBatch, _screens.GraphicsDevice.Viewport); // decentní sevření pohledu, pod HUD
@@ -389,6 +412,33 @@ public sealed class GameplayScreen : IScreen
             // Výběr zůstává — idle hráč typicky staví víc budov za sebou.
             // Juice řeší společně EmitNewBuildingJuice (pokryje i auto-stavbu).
             _simulation.TryPlaceBuilding(_selectedBuilding, _ghostX, _ghostY);
+        }
+    }
+
+    /// <summary>Režim sázení: ghost háje sleduje kurzor, levý klik zasadí (za cenu), pravý ruší.</summary>
+    private void UpdatePlant(bool mouseOverUi)
+    {
+        _plantGhostActive = false;
+        if (_input.WasRightPressed)
+        {
+            _plantMode = false;
+            return;
+        }
+
+        if (mouseOverUi)
+        {
+            return;
+        }
+
+        var world = _camera.ScreenToWorld(_input.MousePosition.ToVector2());
+        _plantGhostX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
+        _plantGhostY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
+        _plantGhostResult = _simulation.CanPlant(_plantGhostX, _plantGhostY);
+        _plantGhostActive = true;
+
+        if (_input.WasLeftPressed && _plantGhostResult == PlacementResult.Ok)
+        {
+            _simulation.TryPlant(_plantGhostX, _plantGhostY); // zůstáváme v režimu — sázej dál
         }
     }
 
@@ -793,6 +843,12 @@ public sealed class GameplayScreen : IScreen
         var stack = new VerticalStackPanel { Spacing = 6 };
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.quests"],
             () => _screens.Push(new QuestsScreen(_screens, _simulation))));
+        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.plant"], () =>
+        {
+            _plantMode = !_plantMode;
+            _selectedBuilding = -1;
+            _movingBuildingIndex = -1;
+        }));
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.backToCity"], RecenterOnCity));
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.settlements"],
             () => _screens.Push(new SettlementsScreen(_screens, _simulation, _camera))));
@@ -1104,6 +1160,13 @@ public sealed class GameplayScreen : IScreen
     private void UpdateStatusLabel()
     {
         var loc = _screens.Loc;
+        if (_plantMode)
+        {
+            _statusLabel.Text = loc["hud.planting"];
+            _statusLabel.TextColor = UiFactory.Accent;
+            return;
+        }
+
         if (_movingBuildingIndex >= 0)
         {
             _statusLabel.Text = loc["hud.moving"];
