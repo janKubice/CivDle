@@ -81,6 +81,8 @@ public sealed class GameplayScreen : IScreen
         _screens = screens;
         _simulation = simulation;
         _info = info;
+        // Už odemčené achievementy z profilu, ať se v téhle hře nespouštějí znovu.
+        _simulation.SeedUnlockedAchievements(screens.Profile.UnlockedAchievements);
         screens.DisposeMenuBackground(); // pod hrou už netiká ukázkové město z menu
 
         _terrainRenderer = new TerrainRenderer(screens.GraphicsDevice, screens.Content.Biomes, info.Seed);
@@ -441,6 +443,34 @@ public sealed class GameplayScreen : IScreen
             {
                 _goalsDirty = true;
             }
+
+            // Nový achievement → zapiš do účet-wide profilu (přežije i restart).
+            if (note.Kind == NotificationKind.AchievementUnlocked)
+            {
+                SyncAchievements();
+            }
+        }
+    }
+
+    /// <summary>Zapíše nově odemčené achievementy do profilu a uloží ho (účet-wide).</summary>
+    private void SyncAchievements()
+    {
+        var content = _screens.Content;
+        var profile = _screens.Profile;
+        bool changed = false;
+        for (int i = 0; i < content.Achievements.Count; i++)
+        {
+            string id = content.Achievements[i].Id;
+            if (_simulation.IsAchievementUnlocked(i) && !profile.UnlockedAchievements.Contains(id))
+            {
+                profile.UnlockedAchievements.Add(id);
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            _screens.SaveProfile();
         }
     }
 
@@ -556,6 +586,8 @@ public sealed class GameplayScreen : IScreen
 
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.ascend"],
             () => _screens.Push(new AscensionScreen(_screens, _simulation))));
+        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.achievements"],
+            () => _screens.Push(new AchievementsScreen(_screens, _simulation))));
 
         var panel = UiFactory.DarkPanel(stack);
         panel.HorizontalAlignment = HorizontalAlignment.Left;

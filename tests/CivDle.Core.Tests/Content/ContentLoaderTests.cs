@@ -528,6 +528,7 @@ public class ContentLoaderTests : IDisposable
           }
         }
         """);
+        Write("achievements.json", """{ "schemaVersion": 1, "achievements": [] }""");
     }
 
     private void WriteWorldGen(string fallbackBiome = "grass", string? defaultPreset = null)

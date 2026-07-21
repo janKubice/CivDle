@@ -34,7 +34,8 @@ internal static class TestContent
         PrestigeConfig? prestige = null,
         IReadOnlyList<PrestigeUpgradeDef>? prestigeUpgrades = null,
         IReadOnlyList<QuestDef>? quests = null,
-        DynamicQuestConfig? questsDynamic = null)
+        DynamicQuestConfig? questsDynamic = null,
+        IReadOnlyList<AchievementDef>? achievements = null)
     {
         biomes ??= new[] { WaterBiome(), LandBiome("grass") };
         resources ??= new[] { new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 10, BaseStorage: 1000) };
@@ -45,6 +46,7 @@ internal static class TestContent
         prestigeUpgrades ??= Array.Empty<PrestigeUpgradeDef>();
         quests ??= Array.Empty<QuestDef>();
         questsDynamic ??= DefaultDynamicQuest;
+        achievements ??= Array.Empty<AchievementDef>();
 
         var preset = new TerrainPreset("test", SeaLevel: 0.5f, fallbackBiomeIndex, Noise, Noise);
         var catalog = new WorldGenCatalog(
@@ -60,6 +62,7 @@ internal static class TestContent
             new DefRegistry<PrestigeUpgradeDef>(prestigeUpgrades, u => u.Id, "upgrade Vzestupu", allowEmpty: true),
             new DefRegistry<QuestDef>(quests, q => q.Id, "úkol", allowEmpty: true),
             questsDynamic,
+            new DefRegistry<AchievementDef>(achievements, a => a.Id, "achievement", allowEmpty: true),
             catalog,
             gameplay,
             new DefRegistry<LanguageDef>(new[] { language }, l => l.Id, "jazyk"),

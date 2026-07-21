@@ -32,6 +32,8 @@ public sealed class Simulation
     private readonly SettlementSystem _settlementSystem;
     private readonly QuestSystem _questSystem;
     private readonly bool[] _questsCompleted;
+    private readonly AchievementSystem _achievementSystem;
+    private readonly bool[] _achievementsUnlocked;
 
     private readonly bool[] _buildingUnlocked;
     private readonly bool[] _techResearched;
@@ -83,6 +85,8 @@ public sealed class Simulation
         _settlementSystem = new SettlementSystem(content, seed);
         _questSystem = new QuestSystem(content);
         _questsCompleted = new bool[content.Quests.Count];
+        _achievementSystem = new AchievementSystem(content);
+        _achievementsUnlocked = new bool[content.Achievements.Count];
     }
 
     /// <summary>Nekonečný terén, nad kterým simulace běží.</summary>
@@ -233,6 +237,7 @@ public sealed class Simulation
         _autoBuild.Tick(this);
         _settlementSystem.Tick(this);
         _questSystem.Tick(this);
+        _achievementSystem.Tick(this);
     }
 
     /// <summary>
@@ -427,6 +432,29 @@ public sealed class Simulation
 
     /// <summary>Označí úkol jako splněný při načtení savu (bez odměny).</summary>
     internal void RestoreQuestCompleted(int questIndex) => _questsCompleted[questIndex] = true;
+
+    // ----- achievementy (účet-wide) -----
+
+    /// <summary>Je achievement odemčený?</summary>
+    public bool IsAchievementUnlocked(int achievementIndex) => _achievementsUnlocked[achievementIndex];
+
+    /// <summary>
+    /// Naseeduje už odemčené achievementy z profilu (aby se v této hře znovu
+    /// nespouštěly). Volá aplikační vrstva po vytvoření simulace.
+    /// </summary>
+    public void SeedUnlockedAchievements(IEnumerable<string> achievementIds)
+    {
+        foreach (string id in achievementIds)
+        {
+            if (_content.Achievements.TryIndexOf(id, out int index))
+            {
+                _achievementsUnlocked[index] = true;
+            }
+        }
+    }
+
+    /// <summary>Odemčené achievementy pro systém achievementů (mutace jen uvnitř assembly).</summary>
+    internal bool[] AchievementsUnlocked => _achievementsUnlocked;
 
     /// <summary>Najde budovu na dlaždici (pro klik → info/upgrade panel). Vrací index do <see cref="Buildings"/>.</summary>
     public bool TryGetBuildingAt(int x, int y, out int buildingIndex)

@@ -38,16 +38,17 @@ public sealed class ContentLoader
         var techs = LoadTech(Path.Combine(dataDirectory, "tech.json"), buildings, resources);
         var (prestige, prestigeUpgrades) = LoadPrestige(Path.Combine(dataDirectory, "prestige.json"), resources, buildings, techs);
         var (quests, questsDynamic) = LoadQuests(Path.Combine(dataDirectory, "quests.json"), resources, buildings, techs);
+        var achievements = LoadAchievements(Path.Combine(dataDirectory, "achievements.json"), resources, buildings, techs);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
 
         return new GameContent(
-            biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic,
+            biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements,
             worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog);
     }
 
@@ -577,6 +578,38 @@ public sealed class ContentLoader
         return (new DefRegistry<QuestDef>(quests, q => q.Id, "úkol", allowEmpty: true), dynamic);
     }
 
+    // ----- achievementy -----
+
+    private static DefRegistry<AchievementDef> LoadAchievements(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        var file = ReadFile<AchievementFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Achievements ?? new List<AchievementDto>();
+        var result = new List<AchievementDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Achievement na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID achievementu '{id}'.");
+            }
+
+            if (dto.Condition is null)
+            {
+                throw new ContentLoadException(path, $"Achievement '{id}' nemá 'condition'.");
+            }
+
+            var condition = ParseCondition(path, $"achievement '{id}'", dto.Condition, resources, buildings, techs);
+            result.Add(new AchievementDef(id, condition, dto.Hidden));
+        }
+
+        return new DefRegistry<AchievementDef>(result, a => a.Id, "achievement", allowEmpty: true);
+    }
+
     /// <summary>
     /// Přeloží podmínku (metrika + práh + odkaz) z JSON na typovaný <see cref="GoalCondition"/>.
     /// Sdílené: Vzestup, úkoly, achievementy. Data říkají „co", kód „jak" — žádná logika v JSON.
@@ -959,7 +992,8 @@ public sealed class ContentLoader
         WorldGenCatalog worldGen,
         DefRegistry<TechDef> techs,
         DefRegistry<PrestigeUpgradeDef> prestigeUpgrades,
-        DefRegistry<QuestDef> quests)
+        DefRegistry<QuestDef> quests,
+        DefRegistry<AchievementDef> achievements)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -993,7 +1027,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -1008,7 +1042,8 @@ public sealed class ContentLoader
         WorldGenCatalog worldGen,
         DefRegistry<TechDef> techs,
         DefRegistry<PrestigeUpgradeDef> prestigeUpgrades,
-        DefRegistry<QuestDef> quests)
+        DefRegistry<QuestDef> quests,
+        DefRegistry<AchievementDef> achievements)
     {
         var required = new List<string>();
         required.AddRange(biomes.All.Select(b => b.NameKey));
@@ -1022,6 +1057,8 @@ public sealed class ContentLoader
         required.AddRange(prestigeUpgrades.All.Select(u => u.DescriptionKey));
         required.AddRange(quests.All.Select(q => q.NameKey));
         required.AddRange(quests.All.Select(q => q.DescriptionKey));
+        required.AddRange(achievements.All.Select(a => a.NameKey));
+        required.AddRange(achievements.All.Select(a => a.DescriptionKey));
 
         var missing = required.Where(key => !language.Strings.ContainsKey(key)).ToList();
         if (missing.Count > 0)

@@ -169,6 +169,12 @@ public sealed record DynamicQuestDto(
     Dictionary<string, int>? Reward,
     double RewardGrowth);
 
+/// <summary>Obsah souboru <c>data/achievements.json</c>.</summary>
+public sealed record AchievementFileDto(int SchemaVersion, List<AchievementDto>? Achievements);
+
+/// <summary>Jeden achievement tak, jak leží v JSON.</summary>
+public sealed record AchievementDto(string? Id, GoalConditionDto? Condition, bool Hidden);
+
 /// <summary>Obsah souboru <c>data/devlog.json</c>.</summary>
 public sealed record DevlogFileDto(int SchemaVersion, List<DevlogEntryDto>? Entries);
 
