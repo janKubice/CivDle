@@ -201,6 +201,8 @@
     "tech.research": "Research",
     "tech.researched": "Done",
     "tech.locked": "Locked (missing prerequisite)",
+    "daily.title": "Daily reward",
+    "daily.streak": "{0}-day streak!",
     "offline.title": "Welcome back!",
     "offline.away": "You were away {0}.",
     "offline.gains": "Your civilization grew meanwhile:",

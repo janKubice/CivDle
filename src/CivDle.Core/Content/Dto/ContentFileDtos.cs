@@ -66,13 +66,17 @@ public sealed record GameplayFileDto(
     SettlementsDto? Settlements,
     DayNightDto? DayNight,
     BoostDto? Boost,
-    HarvestDto? Harvest);
+    HarvestDto? Harvest,
+    DailyRewardDto? DailyReward);
 
 /// <summary>Nastavení slavnosti (dočasný boost) tak, jak leží v JSON.</summary>
 public sealed record BoostDto(int DurationSeconds, int CooldownSeconds, double Multiplier);
 
 /// <summary>Nastavení kritického sběru tak, jak leží v JSON.</summary>
 public sealed record HarvestDto(double CritChance, double CritMultiplier);
+
+/// <summary>Denní odměna tak, jak leží v JSON.</summary>
+public sealed record DailyRewardDto(Dictionary<string, int>? Reward, int StreakCap);
 
 /// <summary>Denní/noční cyklus tak, jak leží v JSON.</summary>
 public sealed record DayNightDto(

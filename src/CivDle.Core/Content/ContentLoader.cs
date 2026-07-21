@@ -814,6 +814,10 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, "'harvest.critChance' musí být 0–1 a 'critMultiplier' 1–1000.");
         }
 
+        var dailyReward = new DailyRewardConfig(
+            ParseResourceAmounts(path, "gameplay", "dailyReward.reward", file.DailyReward?.Reward, resources),
+            file.DailyReward is { StreakCap: > 0 } ? file.DailyReward.StreakCap : 7);
+
         return new GameplayConfig(
             file.StartingPopulation,
             file.BaseHousingCapacity,
@@ -831,7 +835,8 @@ public sealed class ContentLoader
                 file.DayNight.NightAlpha,
                 file.DayNight.DuskAlpha),
             boost,
-            harvest);
+            harvest,
+            dailyReward);
     }
 
     // ----- devlog (volitelný obsah menu) -----

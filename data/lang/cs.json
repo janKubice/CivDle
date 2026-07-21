@@ -201,6 +201,8 @@
     "tech.research": "Vyzkoumat",
     "tech.researched": "Hotovo",
     "tech.locked": "Zamčeno (chybí prerekvizita)",
+    "daily.title": "Denní odměna",
+    "daily.streak": "Série {0} dní v řadě!",
     "offline.title": "Vítej zpět!",
     "offline.away": "Byl jsi pryč {0}.",
     "offline.gains": "Mezitím civilizace vyrostla:",

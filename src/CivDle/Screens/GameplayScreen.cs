@@ -72,7 +72,7 @@ public sealed class GameplayScreen : IScreen
     private VerticalStackPanel _goalsPanel = null!;
     private readonly List<(CivDle.Core.Sim.GoalCondition Condition, Label Progress)> _goalSlots = new();
     private bool _goalsDirty = true;
-    private OfflineSummary? _pendingOfflineSummary;
+    private readonly Queue<IScreen> _pendingIntros = new(); // uvítací overlaye (offline, denní odměna)
     private Label _festivalLabel = null!;
     private Button _festivalButton = null!;
 
@@ -106,10 +106,11 @@ public sealed class GameplayScreen : IScreen
             SyncAchievements(); // co se odemklo offline, zapiš do profilu
             if (summary.Worthwhile)
             {
-                _pendingOfflineSummary = summary;
+                _pendingIntros.Enqueue(new OfflineSummaryScreen(_screens, summary));
             }
         }
 
+        GrantDailyReward();
         screens.DisposeMenuBackground(); // pod hrou už netiká ukázkové město z menu
 
         _terrainRenderer = new TerrainRenderer(screens.GraphicsDevice, screens.Content.Biomes, info.Seed);
@@ -153,11 +154,10 @@ public sealed class GameplayScreen : IScreen
 
     public void Update(GameTime gameTime)
     {
-        // Uvítací souhrn offline postupu ukaž hned na první snímek (pak už ne).
-        if (_pendingOfflineSummary is { } summary)
+        // Uvítací overlaye (offline souhrn, denní odměna) postupně na první snímky.
+        if (_pendingIntros.Count > 0)
         {
-            _pendingOfflineSummary = null;
-            _screens.Push(new OfflineSummaryScreen(_screens, summary));
+            _screens.Push(_pendingIntros.Dequeue());
             return;
         }
 
@@ -610,6 +610,28 @@ public sealed class GameplayScreen : IScreen
                 SyncAchievements();
             }
         }
+    }
+
+    /// <summary>Vyhodnotí a udělí denní odměnu (účet-wide, roste se sérií dní).</summary>
+    private void GrantDailyReward()
+    {
+        var profile = _screens.Profile;
+        var now = DateTime.UtcNow;
+        var result = DailyReward.Evaluate(_screens.Content.Gameplay.DailyReward, profile.LastDailyRewardDate, profile.DailyStreak, now);
+        if (!result.Due || result.Reward.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var amount in result.Reward)
+        {
+            _simulation.AddResource(amount.ResourceIndex, amount.Amount);
+        }
+
+        profile.LastDailyRewardDate = DailyReward.TodayKey(now);
+        profile.DailyStreak = result.Streak;
+        _screens.SaveProfile();
+        _pendingIntros.Enqueue(new DailyRewardScreen(_screens, result.Streak, result.Reward));
     }
 
     /// <summary>Zapíše nově odemčené achievementy do profilu a uloží ho (účet-wide).</summary>

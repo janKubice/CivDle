@@ -70,6 +70,11 @@ public sealed record BoostConfig(int DurationSeconds, int CooldownSeconds, doubl
 /// <param name="CritMultiplier">Násobič výnosu při kritu.</param>
 public sealed record HarvestConfig(double CritChance, double CritMultiplier);
 
+/// <summary>Denní odměna za návrat: základ × série dní (do stropu). Retenční háček.</summary>
+/// <param name="BaseReward">Základní odměna v surovinách (za 1. den série).</param>
+/// <param name="StreakCap">Nejvyšší násobek série (odměna neroste donekonečna).</param>
+public sealed record DailyRewardConfig(IReadOnlyList<ResourceAmount> BaseReward, int StreakCap);
+
 /// <param name="Settlements">Nastavení detekce osad.</param>
 /// <param name="DayNight">Denní/noční cyklus.</param>
 /// <param name="Boost">Nastavení slavnosti (dočasný boost).</param>
@@ -85,4 +90,5 @@ public sealed record GameplayConfig(
     SettlementConfig Settlements,
     DayNightConfig DayNight,
     BoostConfig Boost,
-    HarvestConfig Harvest);
+    HarvestConfig Harvest,
+    DailyRewardConfig DailyReward);
