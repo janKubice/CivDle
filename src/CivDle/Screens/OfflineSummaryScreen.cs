@@ -79,7 +79,7 @@ public sealed class OfflineSummaryScreen : IScreen
 
         if (_summary.PopulationGain >= 1)
         {
-            layout.Widgets.Add(GainLabel(loc.Format("offline.population", (long)_summary.PopulationGain)));
+            layout.Widgets.Add(GainLabel(loc.Format("offline.population", CivDle.Core.Numbers.Format(_summary.PopulationGain))));
         }
 
         if (_summary.BuildingsGain > 0)
@@ -89,10 +89,10 @@ public sealed class OfflineSummaryScreen : IScreen
 
         for (int i = 0; i < content.Resources.Count && i < _summary.ResourceGains.Length; i++)
         {
-            long gain = (long)_summary.ResourceGains[i];
-            if (gain > 0)
+            double gain = _summary.ResourceGains[i];
+            if (gain >= 1)
             {
-                layout.Widgets.Add(GainLabel($"+{gain} {loc[content.Resources[i].NameKey]}"));
+                layout.Widgets.Add(GainLabel($"+{CivDle.Core.Numbers.Format(gain)} {loc[content.Resources[i].NameKey]}"));
             }
         }
 

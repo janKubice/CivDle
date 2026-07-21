@@ -1154,16 +1154,17 @@ public sealed class GameplayScreen : IScreen
         {
             double amount = _simulation.GetResource(i);
             double cap = _simulation.GetStorageCap(i);
-            _resourceLabels[i].Text = $"{(long)amount}/{(long)cap}";
+            _resourceLabels[i].Text = CivDle.Core.Numbers.FormatRatio(amount, cap);
             // Přeteklý sklad zežloutne (výzva rozšířit), jinak neutrální.
             _resourceLabels[i].TextColor = amount >= cap - 0.5 ? new Color(240, 200, 90) : Color.White;
 
             // Ticker přírůstku za sekundu (jen znatelný nárůst).
             double rate = i < _perSecond.Length ? _perSecond[i] : 0.0;
-            _resourceRateLabels[i].Text = rate >= 0.05 ? $"+{rate:0.#}/s" : string.Empty;
+            _resourceRateLabels[i].Text = rate >= 0.05 ? $"+{CivDle.Core.Numbers.Format(rate)}/s" : string.Empty;
         }
 
-        _populationLabel.Text = loc.Format("hud.population", (long)_simulation.Population, _simulation.HousingCapacity);
+        _populationLabel.Text = loc.Format("hud.population",
+            CivDle.Core.Numbers.Format(_simulation.Population), CivDle.Core.Numbers.Format(_simulation.HousingCapacity));
 
         double hours = _simulation.TimeOfDay01 * 24.0;
         _dayLabel.Text = loc.Format("hud.day", _simulation.DayNumber, (int)hours, (int)((hours - (int)hours) * 60));
