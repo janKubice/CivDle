@@ -14,6 +14,7 @@
     { "id": "bronze_age", "condition": { "metric": "research", "tech": "bronze_working" } },
     { "id": "iron_age", "condition": { "metric": "research", "tech": "iron_working" } },
     { "id": "industrial_age", "condition": { "metric": "research", "tech": "steam_power" } },
-    { "id": "information_age", "condition": { "metric": "research", "tech": "electronics" } }
+    { "id": "information_age", "condition": { "metric": "research", "tech": "electronics" } },
+    { "id": "future_age", "condition": { "metric": "research", "tech": "fusion" } }
   ]
 }

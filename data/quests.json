@@ -14,7 +14,8 @@
     { "id": "enter_bronze", "condition": { "metric": "research", "tech": "bronze_working" },            "reward": { "tools": 20 } },
     { "id": "enter_iron", "condition": { "metric": "research", "tech": "iron_working" },                "reward": { "tools": 40 } },
     { "id": "enter_industry", "condition": { "metric": "research", "tech": "steam_power" },             "reward": { "steel": 15 } },
-    { "id": "enter_information", "condition": { "metric": "research", "tech": "electronics" },           "reward": { "electronics": 12 } }
+    { "id": "enter_information", "condition": { "metric": "research", "tech": "electronics" },           "reward": { "electronics": 12 } },
+    { "id": "enter_future", "condition": { "metric": "research", "tech": "fusion" },                     "reward": { "computer": 10 } }
   ],
   "dynamic": {
     "condition": { "metric": "population", "target": 40 },

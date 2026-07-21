@@ -40,4 +40,22 @@ public class EraTests
 
         Assert.Equal("bronze", content.Eras[sim.CurrentEraIndex].Id);
     }
+
+    [Fact]
+    public void RealContent_EveryEraUnlockTechResolves()
+    {
+        // Éra odkazuje na otevírací technologii přes string ID (řeší se za běhu).
+        // Překlep nebo chybějící tech = éra nikdy nedosažitelná — tady to chytneme hned.
+        var content = TestData.LoadRealContent();
+        foreach (var era in content.Eras.All)
+        {
+            if (string.IsNullOrEmpty(era.UnlockTechId))
+            {
+                continue; // základní éry (bez tech) jsou od startu
+            }
+
+            Assert.True(content.Techs.TryIndexOf(era.UnlockTechId, out _),
+                $"Éra '{era.Id}' odkazuje na neexistující technologii '{era.UnlockTechId}'.");
+        }
+    }
 }

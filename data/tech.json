@@ -64,6 +64,18 @@
       "cost": { "electronics": 30, "machine_parts": 20 },
       "prerequisites": ["electronics"],
       "unlocks": ["computer_plant"]
+    },
+    {
+      "id": "fusion",
+      "cost": { "computer": 30, "electronics": 40 },
+      "prerequisites": ["computing"],
+      "unlocks": ["fusion_plant", "nano_forge"]
+    },
+    {
+      "id": "robotics",
+      "cost": { "nanomaterial": 30, "computer": 25 },
+      "prerequisites": ["fusion"],
+      "unlocks": ["robotics_lab"]
     }
   ]
 }

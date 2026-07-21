@@ -111,7 +111,7 @@
       "footprint": [2, 2],
       "buildCost": { "wood": 10, "planks": 8, "stone": 6 },
       "allowedBiomes": ["grassland", "steppe", "beach"],
-      "storage": { "wood": 150, "planks": 100, "stone": 120, "food": 120, "tools": 60, "copper_ore": 80, "bronze": 60, "iron_ore": 80, "coal": 80, "iron": 60, "steel": 60, "machine_parts": 50, "silicon": 60, "electronics": 50, "computer": 40 }
+      "storage": { "wood": 150, "planks": 100, "stone": 120, "food": 120, "tools": 60, "copper_ore": 80, "bronze": 60, "iron_ore": 80, "coal": 80, "iron": 60, "steel": 60, "machine_parts": 50, "silicon": 60, "electronics": 50, "computer": 40, "nanomaterial": 40, "robot": 30 }
     },
     {
       "id": "windmill",
@@ -287,7 +287,9 @@
       "housingCapacity": 70,
       "buildCost": { "steel": 20, "electronics": 8 },
       "allowedBiomes": ["grassland", "steppe", "beach"],
-      "buildable": false
+      "buildable": false,
+      "upgradesTo": "arcology",
+      "upgradeCost": { "nanomaterial": 10, "computer": 6 }
     },
     {
       "id": "silicon_mine",
@@ -319,6 +321,47 @@
       "buildCost": { "steel": 18, "machine_parts": 8 },
       "recipe": { "input": { "electronics": 2, "machine_parts": 1 }, "output": { "computer": 1 }, "timeTicks": 60 },
       "powerDemand": 15,
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "arcology",
+      "category": "housing",
+      "mapColor": "#4DB6AC",
+      "footprint": [1, 1],
+      "housingCapacity": 150,
+      "buildCost": { "nanomaterial": 14, "computer": 8 },
+      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "buildable": false
+    },
+    {
+      "id": "fusion_plant",
+      "category": "power",
+      "mapColor": "#26C6DA",
+      "footprint": [2, 2],
+      "buildCost": { "steel": 30, "computer": 12 },
+      "powerSupply": 120,
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "nano_forge",
+      "category": "production",
+      "mapColor": "#8E7CC3",
+      "footprint": [2, 2],
+      "workerSlots": 6,
+      "buildCost": { "steel": 20, "computer": 6 },
+      "recipe": { "input": { "steel": 2, "silicon": 2 }, "output": { "nanomaterial": 1 }, "timeTicks": 60 },
+      "powerDemand": 18,
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "robotics_lab",
+      "category": "production",
+      "mapColor": "#4DB6AC",
+      "footprint": [2, 2],
+      "workerSlots": 6,
+      "buildCost": { "computer": 10, "nanomaterial": 6 },
+      "recipe": { "input": { "computer": 1, "machine_parts": 2, "nanomaterial": 1 }, "output": { "robot": 1 }, "timeTicks": 65 },
+      "powerDemand": 20,
       "allowedBiomes": ["grassland", "steppe", "beach"]
     }
   ]
