@@ -50,6 +50,7 @@ public sealed class GameplayScreen : IScreen
     private readonly FloatingTextRenderer _floatingText = new();
     private readonly GameSounds _sounds = new();
     private readonly MinimapRenderer _minimap;
+    private readonly ToastRenderer _toasts;
     private readonly SpriteFontBase _popupFont;
     private readonly Dictionary<int, string> _popupTextCache = new();
 
@@ -89,6 +90,7 @@ public sealed class GameplayScreen : IScreen
         _agents = new AgentSystem(screens.Content, screens.Sprites);
         _minimap = new MinimapRenderer(screens.GraphicsDevice, screens.Content.Biomes, screens.WhitePixel);
         _popupFont = Stylesheet.Current.LabelStyle.Font;
+        _toasts = new ToastRenderer(screens.WhitePixel, _popupFont);
 
         var viewport = screens.GraphicsDevice.Viewport;
         _camera.SetViewport(viewport.Width, viewport.Height);
@@ -148,6 +150,8 @@ public sealed class GameplayScreen : IScreen
         _fauna.Update(dt, _camera, _simulation);
         _agents.Update(dt, _camera, _simulation);
         _minimap.Update(dt, _camera, _simulation);
+        DrainNotifications();
+        _toasts.Update(dt);
         RefreshHudTexts();
     }
 
@@ -179,10 +183,11 @@ public sealed class GameplayScreen : IScreen
 
         _desktop.Render();
 
-        // Minimapa a popupy až nad UI — hráč je nesmí přehlédnout.
+        // Minimapa, popupy a toasty až nad UI — hráč je nesmí přehlédnout.
         _minimap.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, _camera, _simulation);
         _floatingText.Draw(spriteBatch, _camera, _popupFont);
         DrawSettlementLabels(spriteBatch);
+        _toasts.Draw(spriteBatch, _screens.GraphicsDevice.Viewport);
     }
 
     /// <summary>Jmenovky osad ve screen-space nad těžištěm shluku (orientace na mapě, fáze 4).</summary>
@@ -414,6 +419,26 @@ public sealed class GameplayScreen : IScreen
 
         return Vector2.Zero;
     }
+
+    /// <summary>Vyzvedne oznámení ze simulace (splněné úkoly, achievementy, milníky) a udělá z nich toasty.</summary>
+    private void DrainNotifications()
+    {
+        var loc = _screens.Loc;
+        while (_simulation.TryDequeueNotification(out var note))
+        {
+            string text = $"{loc[note.TitleKey]}: {loc[note.SubjectKey]}";
+            _toasts.Add(text, NotificationColor(note.Kind));
+            _sounds.PlayPlace();
+        }
+    }
+
+    private static Color NotificationColor(NotificationKind kind) => kind switch
+    {
+        NotificationKind.QuestCompleted => new Color(120, 200, 140),
+        NotificationKind.AchievementUnlocked => new Color(230, 200, 110),
+        NotificationKind.Ascended => new Color(180, 140, 230),
+        _ => new Color(96, 196, 220),
+    };
 
     // ----- HUD -----
 

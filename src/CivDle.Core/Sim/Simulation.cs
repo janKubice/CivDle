@@ -33,6 +33,8 @@ public sealed class Simulation
 
     private readonly bool[] _buildingUnlocked;
     private readonly bool[] _techResearched;
+    private readonly long[] _harvestedTotals; // kumulativní sběr surovin klikáním (metriky cílů)
+    private readonly Queue<GameNotification> _notifications = new();
 
     private BuildingInstance[] _buildings = new BuildingInstance[16];
     private int _buildingCount;
@@ -56,6 +58,7 @@ public sealed class Simulation
         }
 
         _techResearched = new bool[content.Techs.Count];
+        _harvestedTotals = new long[content.Resources.Count];
 
         _resources = new double[content.Resources.Count];
         _storageCaps = new double[content.Resources.Count];
@@ -111,6 +114,9 @@ public sealed class Simulation
             return (long)Math.Floor(elapsedDays) + 1;
         }
     }
+
+    /// <summary>Počet dosažených Vzestupů (prestige). Řídí prestige systém; metriky ho čtou.</summary>
+    public int AscensionLevel { get; internal set; }
 
     /// <summary>Kolik lidí se vejde (základní tábor + domy).</summary>
     public int HousingCapacity { get; private set; }
@@ -309,9 +315,63 @@ public sealed class Simulation
         }
 
         _resources[yield.ResourceIndex] += yield.Amount;
+        _harvestedTotals[yield.ResourceIndex] += yield.Amount;
         resourceIndex = yield.ResourceIndex;
         amount = yield.Amount;
         return true;
+    }
+
+    /// <summary>Kumulativně nasbíráno suroviny klikáním (pro cíle/achievementy).</summary>
+    public long GetHarvestedTotal(int resourceIndex) => _harvestedTotals[resourceIndex];
+
+    /// <summary>
+    /// Přečte aktuální hodnotu metriky pro cíl/achievement. Data určují „co"
+    /// (metrika + parametr), tahle metoda „jak" se čte ze stavu simulace.
+    /// </summary>
+    public long EvaluateMetric(MetricKind kind, int param) => kind switch
+    {
+        MetricKind.Population => (long)Population,
+        MetricKind.HousingCapacity => HousingCapacity,
+        MetricKind.Harvested => _harvestedTotals[param],
+        MetricKind.ResourceStock => (long)_resources[param],
+        MetricKind.TotalBuildings => _buildingCount,
+        MetricKind.BuildingOfType => CountBuildingsOfType(param),
+        MetricKind.ResearchedTech => _techResearched[param] ? 1 : 0,
+        MetricKind.AscensionLevel => AscensionLevel,
+        MetricKind.DayNumber => DayNumber,
+        _ => 0,
+    };
+
+    private long CountBuildingsOfType(int defIndex)
+    {
+        long count = 0;
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            if (_buildings[i].DefIndex == defIndex)
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    // ----- oznámení (toasty) — sim je jen vyrobí, render je přeloží a vykreslí -----
+
+    /// <summary>Zařadí oznámení k zobrazení (splněný úkol, achievement, milník…).</summary>
+    internal void EnqueueNotification(GameNotification notification) => _notifications.Enqueue(notification);
+
+    /// <summary>Vyzvedne další oznámení pro render vrstvu; false = fronta prázdná.</summary>
+    public bool TryDequeueNotification(out GameNotification notification)
+    {
+        if (_notifications.Count > 0)
+        {
+            notification = _notifications.Dequeue();
+            return true;
+        }
+
+        notification = default;
+        return false;
     }
 
     /// <summary>Najde budovu na dlaždici (pro klik → info/upgrade panel). Vrací index do <see cref="Buildings"/>.</summary>
