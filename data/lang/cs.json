@@ -135,6 +135,8 @@
     "prestige.population_boom.desc": "Růst populace +75 %.",
     "prestige.great_depots": "Velkosklady",
     "prestige.great_depots.desc": "Kapacita skladů +100 %.",
+    "prestige.night_shift": "Noční směna",
+    "prestige.night_shift.desc": "Offline postup +50 % (co běží, když nehraješ).",
     "hud.quests": "Úkoly",
     "quest.done": "Splněno",
     "panel.reward": "Odměna: {0}",
@@ -192,6 +194,11 @@
     "tech.research": "Vyzkoumat",
     "tech.researched": "Hotovo",
     "tech.locked": "Zamčeno (chybí prerekvizita)",
+    "offline.title": "Vítej zpět!",
+    "offline.away": "Byl jsi pryč {0}.",
+    "offline.gains": "Mezitím civilizace vyrostla:",
+    "offline.population": "+{0} obyvatel",
+    "offline.buildings": "+{0} budov",
     "minimap.title": "Mapa"
   }
 }

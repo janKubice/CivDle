@@ -70,6 +70,7 @@ public sealed class GameplayScreen : IScreen
     private VerticalStackPanel _goalsPanel = null!;
     private readonly List<(CivDle.Core.Sim.GoalCondition Condition, Label Progress)> _goalSlots = new();
     private bool _goalsDirty = true;
+    private OfflineSummary? _pendingOfflineSummary;
 
     private int _selectedBuilding = -1;
     private int _ghostX;
@@ -79,13 +80,26 @@ public sealed class GameplayScreen : IScreen
     private float _rightDragDistance;
     private int _knownBuildingCount;
 
-    public GameplayScreen(ScreenManager screens, Simulation simulation, WorldInfo info)
+    /// <param name="savedAtUtc">Čas uložení načtené hry — spustí offline dohon; <c>null</c> = nová hra.</param>
+    public GameplayScreen(ScreenManager screens, Simulation simulation, WorldInfo info, DateTime? savedAtUtc = null)
     {
         _screens = screens;
         _simulation = simulation;
         _info = info;
         // Už odemčené achievementy z profilu, ať se v téhle hře nespouštějí znovu.
         _simulation.SeedUnlockedAchievements(screens.Profile.UnlockedAchievements);
+
+        // Offline postup: dožeň čas od uložení a připrav uvítací souhrn.
+        if (savedAtUtc is { } savedAt)
+        {
+            var summary = OfflineProgress.Apply(_simulation, savedAt, DateTime.UtcNow);
+            SyncAchievements(); // co se odemklo offline, zapiš do profilu
+            if (summary.Worthwhile)
+            {
+                _pendingOfflineSummary = summary;
+            }
+        }
+
         screens.DisposeMenuBackground(); // pod hrou už netiká ukázkové město z menu
 
         _terrainRenderer = new TerrainRenderer(screens.GraphicsDevice, screens.Content.Biomes, info.Seed);
@@ -127,6 +141,14 @@ public sealed class GameplayScreen : IScreen
 
     public void Update(GameTime gameTime)
     {
+        // Uvítací souhrn offline postupu ukaž hned na první snímek (pak už ne).
+        if (_pendingOfflineSummary is { } summary)
+        {
+            _pendingOfflineSummary = null;
+            _screens.Push(new OfflineSummaryScreen(_screens, summary));
+            return;
+        }
+
         float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
         _input.Update();
 

@@ -448,7 +448,7 @@ public sealed class ContentLoader
 
     private static readonly HashSet<string> KnownPrestigeEffects = new(StringComparer.Ordinal)
     {
-        "production_mult", "harvest_mult", "growth_mult", "housing_mult", "storage_mult", "start_resources",
+        "production_mult", "harvest_mult", "growth_mult", "housing_mult", "storage_mult", "start_resources", "offline_mult",
     };
 
     private static (PrestigeConfig Config, DefRegistry<PrestigeUpgradeDef> Upgrades) LoadPrestige(

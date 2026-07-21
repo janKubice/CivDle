@@ -186,6 +186,9 @@ public sealed class Simulation
     /// <summary>Stojí na dlaždici budova?</summary>
     public bool IsOccupied(int x, int y) => _occupancy.ContainsKey(TileKey.Pack(x, y));
 
+    /// <summary>Počet druhů surovin.</summary>
+    public int ResourceCount => _resources.Length;
+
     /// <summary>Aktuální zásoba suroviny.</summary>
     public double GetResource(int resourceIndex) => _resources[resourceIndex];
 
@@ -382,6 +385,9 @@ public sealed class Simulation
 
     /// <summary>Zařadí oznámení k zobrazení (splněný úkol, achievement, milník…).</summary>
     internal void EnqueueNotification(GameNotification notification) => _notifications.Enqueue(notification);
+
+    /// <summary>Zahodí čekající oznámení (po offline dohonu, ať nezaplaví toasty).</summary>
+    internal void ClearNotifications() => _notifications.Clear();
 
     /// <summary>Vyzvedne další oznámení pro render vrstvu; false = fronta prázdná.</summary>
     public bool TryDequeueNotification(out GameNotification notification)
@@ -727,7 +733,7 @@ public sealed class Simulation
 
     private void RecomputeBonuses()
     {
-        double production = 1.0, harvest = 1.0, growth = 1.0, housing = 1.0, storage = 1.0, start = 1.0;
+        double production = 1.0, harvest = 1.0, growth = 1.0, housing = 1.0, storage = 1.0, start = 1.0, offline = 1.0;
         for (int i = 0; i < _upgradesPurchased.Length; i++)
         {
             if (!_upgradesPurchased[i])
@@ -744,10 +750,11 @@ public sealed class Simulation
                 case "housing_mult": housing += upgrade.Magnitude; break;
                 case "storage_mult": storage += upgrade.Magnitude; break;
                 case "start_resources": start += upgrade.Magnitude; break;
+                case "offline_mult": offline += upgrade.Magnitude; break;
             }
         }
 
-        _bonuses = new PrestigeBonuses(production, harvest, growth, housing, storage, start);
+        _bonuses = new PrestigeBonuses(production, harvest, growth, housing, storage, start, offline);
     }
 
     /// <summary>

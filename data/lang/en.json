@@ -135,6 +135,8 @@
     "prestige.population_boom.desc": "Population growth +75%.",
     "prestige.great_depots": "Great Depots",
     "prestige.great_depots.desc": "Storage capacity +100%.",
+    "prestige.night_shift": "Night Shift",
+    "prestige.night_shift.desc": "Offline progress +50% (what runs while you're away).",
     "hud.quests": "Quests",
     "quest.done": "Done",
     "panel.reward": "Reward: {0}",
@@ -192,6 +194,11 @@
     "tech.research": "Research",
     "tech.researched": "Done",
     "tech.locked": "Locked (missing prerequisite)",
+    "offline.title": "Welcome back!",
+    "offline.away": "You were away {0}.",
+    "offline.gains": "Your civilization grew meanwhile:",
+    "offline.population": "+{0} population",
+    "offline.buildings": "+{0} buildings",
     "minimap.title": "Map"
   }
 }

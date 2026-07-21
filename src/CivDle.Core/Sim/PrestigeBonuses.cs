@@ -11,14 +11,16 @@ namespace CivDle.Core.Sim;
 /// <param name="HousingMult">Násobič bydlení přidaného budovami.</param>
 /// <param name="StorageMult">Násobič kapacity skladů (základ i budovy).</param>
 /// <param name="StartResourceMult">Násobič startovních surovin nové éry.</param>
+/// <param name="OfflineMult">Násobič efektivity offline postupu (co běží, když nehraješ).</param>
 public readonly record struct PrestigeBonuses(
     double ProductionMult,
     double HarvestMult,
     double GrowthMult,
     double HousingMult,
     double StorageMult,
-    double StartResourceMult)
+    double StartResourceMult,
+    double OfflineMult)
 {
     /// <summary>Neutrální bonusy (vše 1.0) — žádné upgrady.</summary>
-    public static PrestigeBonuses None { get; } = new(1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
+    public static PrestigeBonuses None { get; } = new(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
 }
