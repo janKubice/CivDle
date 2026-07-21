@@ -17,6 +17,7 @@ public sealed class GameContent
         DefRegistry<QuestDef> quests,
         DynamicQuestConfig questsDynamic,
         DefRegistry<AchievementDef> achievements,
+        DefRegistry<EventDef> events,
         WorldGenCatalog worldGen,
         GameplayConfig gameplay,
         DefRegistry<LanguageDef> languages,
@@ -34,6 +35,7 @@ public sealed class GameContent
         Quests = quests;
         QuestsDynamic = questsDynamic;
         Achievements = achievements;
+        Events = events;
         WorldGen = worldGen;
         Gameplay = gameplay;
         Languages = languages;
@@ -60,6 +62,9 @@ public sealed class GameContent
 
     /// <summary>Achievementy z <c>data/achievements.json</c> (smí být prázdné). Účet-wide.</summary>
     public DefRegistry<AchievementDef> Achievements { get; }
+
+    /// <summary>Náhodné události s volbami z <c>data/events.json</c> (smí být prázdné).</summary>
+    public DefRegistry<EventDef> Events { get; }
 
     /// <summary>Vývojový deník z <c>data/devlog.json</c> (smí být prázdný).</summary>
     public IReadOnlyList<DevlogEntry> Devlog { get; }

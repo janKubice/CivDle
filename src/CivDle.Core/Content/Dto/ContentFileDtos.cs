@@ -181,6 +181,15 @@ public sealed record DynamicQuestDto(
     Dictionary<string, int>? Reward,
     double RewardGrowth);
 
+/// <summary>Obsah souboru <c>data/events.json</c> (náhodné události s volbami).</summary>
+public sealed record EventFileDto(int SchemaVersion, List<EventDto>? Events);
+
+/// <summary>Jedna událost tak, jak leží v JSON.</summary>
+public sealed record EventDto(string? Id, List<EventChoiceDto>? Choices);
+
+/// <summary>Jedna volba události tak, jak leží v JSON.</summary>
+public sealed record EventChoiceDto(string? Id, Dictionary<string, int>? Cost, Dictionary<string, int>? Gain);
+
 /// <summary>Obsah souboru <c>data/achievements.json</c>.</summary>
 public sealed record AchievementFileDto(int SchemaVersion, List<AchievementDto>? Achievements);
 

@@ -73,6 +73,8 @@ public sealed class GameplayScreen : IScreen
     private readonly List<(CivDle.Core.Sim.GoalCondition Condition, Label Progress)> _goalSlots = new();
     private bool _goalsDirty = true;
     private readonly Queue<IScreen> _pendingIntros = new(); // uvítací overlaye (offline, denní odměna)
+    private readonly Random _eventRng = new();
+    private float _eventTimer;
     private Label _festivalLabel = null!;
     private Button _festivalButton = null!;
 
@@ -137,6 +139,7 @@ public sealed class GameplayScreen : IScreen
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
         _ambient.Play(); // klidná smyčka pro relaxační jádro
+        _eventTimer = NextEventGap();
     }
 
     public bool IsOverlay => false;
@@ -197,6 +200,8 @@ public sealed class GameplayScreen : IScreen
         {
             _simulation.Tick();
         }
+
+        UpdateEventScheduler(dt);
 
         EmitNewBuildingJuice();
         _harvestables.Update(dt);
@@ -611,6 +616,25 @@ public sealed class GameplayScreen : IScreen
             }
         }
     }
+
+    /// <summary>Občas spustí náhodnou událost s volbami (mikro-rozhodnutí).</summary>
+    private void UpdateEventScheduler(float dt)
+    {
+        var events = _screens.Content.Events;
+        if (events.Count == 0)
+        {
+            return;
+        }
+
+        _eventTimer -= dt;
+        if (_eventTimer <= 0f)
+        {
+            _eventTimer = NextEventGap();
+            _screens.Push(new EventScreen(_screens, _simulation, events[_eventRng.Next(events.Count)]));
+        }
+    }
+
+    private float NextEventGap() => 70f + (float)_eventRng.NextDouble() * 60f; // 70–130 s
 
     /// <summary>Vyhodnotí a udělí denní odměnu (účet-wide, roste se sérií dní).</summary>
     private void GrantDailyReward()

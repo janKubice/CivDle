@@ -39,16 +39,17 @@ public sealed class ContentLoader
         var (prestige, prestigeUpgrades) = LoadPrestige(Path.Combine(dataDirectory, "prestige.json"), resources, buildings, techs);
         var (quests, questsDynamic) = LoadQuests(Path.Combine(dataDirectory, "quests.json"), resources, buildings, techs);
         var achievements = LoadAchievements(Path.Combine(dataDirectory, "achievements.json"), resources, buildings, techs);
+        var events = LoadEvents(Path.Combine(dataDirectory, "events.json"), resources);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
 
         return new GameContent(
-            biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements,
+            biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events,
             worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog);
     }
 
@@ -610,6 +611,51 @@ public sealed class ContentLoader
         return new DefRegistry<AchievementDef>(result, a => a.Id, "achievement", allowEmpty: true);
     }
 
+    // ----- události -----
+
+    private static DefRegistry<EventDef> LoadEvents(string path, DefRegistry<Resource> resources)
+    {
+        var file = ReadFile<EventFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Events ?? new List<EventDto>();
+        var result = new List<EventDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Událost na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID události '{id}'.");
+            }
+
+            if (dto.Choices is not { Count: >= 1 })
+            {
+                throw new ContentLoadException(path, $"Událost '{id}' musí mít aspoň jednu volbu.");
+            }
+
+            var choices = new List<EventChoiceDef>(dto.Choices.Count);
+            var seenChoiceIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var choiceDto in dto.Choices)
+            {
+                string choiceId = RequireId(path, choiceDto.Id, $"Volba události '{id}'");
+                if (!seenChoiceIds.Add(choiceId))
+                {
+                    throw new ContentLoadException(path, $"Událost '{id}': duplicitní ID volby '{choiceId}'.");
+                }
+
+                var cost = ParseResourceAmounts(path, id, $"{choiceId}.cost", choiceDto.Cost, resources);
+                var gain = ParseResourceAmounts(path, id, $"{choiceId}.gain", choiceDto.Gain, resources);
+                choices.Add(new EventChoiceDef($"event.{id}.{choiceId}", cost, gain));
+            }
+
+            result.Add(new EventDef(id, choices));
+        }
+
+        return new DefRegistry<EventDef>(result, e => e.Id, "událost", allowEmpty: true);
+    }
+
     /// <summary>
     /// Přeloží podmínku (metrika + práh + odkaz) z JSON na typovaný <see cref="GoalCondition"/>.
     /// Sdílené: Vzestup, úkoly, achievementy. Data říkají „co", kód „jak" — žádná logika v JSON.
@@ -1017,7 +1063,8 @@ public sealed class ContentLoader
         DefRegistry<TechDef> techs,
         DefRegistry<PrestigeUpgradeDef> prestigeUpgrades,
         DefRegistry<QuestDef> quests,
-        DefRegistry<AchievementDef> achievements)
+        DefRegistry<AchievementDef> achievements,
+        DefRegistry<EventDef> events)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -1051,7 +1098,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -1067,7 +1114,8 @@ public sealed class ContentLoader
         DefRegistry<TechDef> techs,
         DefRegistry<PrestigeUpgradeDef> prestigeUpgrades,
         DefRegistry<QuestDef> quests,
-        DefRegistry<AchievementDef> achievements)
+        DefRegistry<AchievementDef> achievements,
+        DefRegistry<EventDef> events)
     {
         var required = new List<string>();
         required.AddRange(biomes.All.Select(b => b.NameKey));
@@ -1083,6 +1131,12 @@ public sealed class ContentLoader
         required.AddRange(quests.All.Select(q => q.DescriptionKey));
         required.AddRange(achievements.All.Select(a => a.NameKey));
         required.AddRange(achievements.All.Select(a => a.DescriptionKey));
+        foreach (var gameEvent in events.All)
+        {
+            required.Add(gameEvent.NameKey);
+            required.Add(gameEvent.DescriptionKey);
+            required.AddRange(gameEvent.Choices.Select(c => c.LabelKey));
+        }
 
         var missing = required.Where(key => !language.Strings.ContainsKey(key)).ToList();
         if (missing.Count > 0)
