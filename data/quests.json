@@ -10,7 +10,8 @@
     { "id": "first_farm",  "condition": { "metric": "building", "building": "farm", "target": 1 },      "reward": { "wood": 20 } },
     { "id": "research_milling", "condition": { "metric": "research", "tech": "milling" },               "reward": { "planks": 20 } },
     { "id": "grow_25",     "condition": { "metric": "population", "target": 25 },                       "reward": { "food": 40 } },
-    { "id": "first_ascension", "condition": { "metric": "ascension", "target": 1 },                    "reward": { "food": 60 } }
+    { "id": "first_ascension", "condition": { "metric": "ascension", "target": 1 },                    "reward": { "food": 60 } },
+    { "id": "enter_bronze", "condition": { "metric": "research", "tech": "bronze_working" },            "reward": { "tools": 20 } }
   ],
   "dynamic": {
     "condition": { "metric": "population", "target": 40 },

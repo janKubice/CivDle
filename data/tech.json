@@ -16,6 +16,18 @@
       "cost": { "planks": 30, "stone": 20 },
       "prerequisites": ["milling"],
       "unlocks": ["toolmaker"]
+    },
+    {
+      "id": "bronze_working",
+      "cost": { "stone": 40, "tools": 15 },
+      "prerequisites": ["tools"],
+      "unlocks": ["copper_mine", "smeltery"]
+    },
+    {
+      "id": "alloys",
+      "cost": { "stone": 30, "planks": 40 },
+      "prerequisites": ["bronze_working"],
+      "unlocks": ["bronze_smith"]
     }
   ]
 }

@@ -5,6 +5,8 @@
     { "id": "planks", "mapColor": "#C8A96B", "startAmount": 10, "baseStorage": 120 },
     { "id": "stone", "mapColor": "#9AA0A6", "startAmount": 15, "baseStorage": 150 },
     { "id": "food", "mapColor": "#E0B040", "startAmount": 20, "baseStorage": 150 },
-    { "id": "tools", "mapColor": "#B0BEC5", "startAmount": 0, "baseStorage": 80 }
+    { "id": "tools", "mapColor": "#B0BEC5", "startAmount": 0, "baseStorage": 80 },
+    { "id": "copper_ore", "mapColor": "#B87333", "startAmount": 0, "baseStorage": 100 },
+    { "id": "bronze", "mapColor": "#CD7F32", "startAmount": 0, "baseStorage": 80 }
   ]
 }

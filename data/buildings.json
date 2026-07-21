@@ -21,7 +21,9 @@
       "housingCapacity": 9,
       "buildCost": { "planks": 10, "stone": 6 },
       "allowedBiomes": ["grassland", "steppe", "beach"],
-      "buildable": false
+      "buildable": false,
+      "upgradesTo": "brick_house",
+      "upgradeCost": { "stone": 10, "bronze": 4 }
     },
     {
       "id": "lumber_camp",
@@ -109,7 +111,7 @@
       "footprint": [2, 2],
       "buildCost": { "wood": 10, "planks": 8, "stone": 6 },
       "allowedBiomes": ["grassland", "steppe", "beach"],
-      "storage": { "wood": 150, "planks": 100, "stone": 120, "food": 120, "tools": 60 }
+      "storage": { "wood": 150, "planks": 100, "stone": 120, "food": 120, "tools": 60, "copper_ore": 80, "bronze": 60 }
     },
     {
       "id": "windmill",
@@ -139,6 +141,46 @@
       "workerSlots": 3,
       "buildCost": { "wood": 16, "planks": 10, "stone": 8 },
       "recipe": { "input": { "planks": 2 }, "output": { "tools": 1 }, "timeTicks": 60 },
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "brick_house",
+      "category": "housing",
+      "mapColor": "#A85C3C",
+      "footprint": [1, 1],
+      "housingCapacity": 14,
+      "buildCost": { "stone": 12, "bronze": 4 },
+      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "buildable": false
+    },
+    {
+      "id": "copper_mine",
+      "category": "production",
+      "mapColor": "#B87333",
+      "footprint": [1, 1],
+      "workerSlots": 4,
+      "buildCost": { "wood": 20, "planks": 8 },
+      "recipe": { "output": { "copper_ore": 2 }, "timeTicks": 55 },
+      "allowedBiomes": ["mountains", "snow_peaks"]
+    },
+    {
+      "id": "smeltery",
+      "category": "production",
+      "mapColor": "#A0522D",
+      "footprint": [1, 1],
+      "workerSlots": 3,
+      "buildCost": { "stone": 20, "planks": 12 },
+      "recipe": { "input": { "copper_ore": 2 }, "output": { "bronze": 1 }, "timeTicks": 50 },
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "bronze_smith",
+      "category": "production",
+      "mapColor": "#CD7F32",
+      "footprint": [1, 1],
+      "workerSlots": 3,
+      "buildCost": { "stone": 15, "bronze": 5 },
+      "recipe": { "input": { "bronze": 1, "planks": 1 }, "output": { "tools": 3 }, "timeTicks": 55 },
       "allowedBiomes": ["grassland", "steppe", "beach"]
     }
   ]
