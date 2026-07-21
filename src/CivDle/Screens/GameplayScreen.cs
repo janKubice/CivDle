@@ -56,6 +56,7 @@ public sealed class GameplayScreen : IScreen
     private readonly VignetteRenderer _vignette;
     private readonly BubbleSystem _bubbles;
     private readonly GoldenSpawnSystem _golden;
+    private readonly DiscoveryRenderer _discoveries;
     private readonly SpriteFontBase _popupFont;
     private readonly Dictionary<int, string> _popupTextCache = new();
 
@@ -127,6 +128,7 @@ public sealed class GameplayScreen : IScreen
         _vignette = new VignetteRenderer(screens.GraphicsDevice);
         _bubbles = new BubbleSystem(screens.Sprites, screens.Content);
         _golden = new GoldenSpawnSystem(screens.Sprites, screens.Content);
+        _discoveries = new DiscoveryRenderer(screens.Sprites);
         _popupFont = Stylesheet.Current.LabelStyle.Font;
         _toasts = new ToastRenderer(screens.WhitePixel, _popupFont);
         _cityScale = new CityScaleRenderer(screens.WhitePixel, _popupFont);
@@ -215,6 +217,7 @@ public sealed class GameplayScreen : IScreen
             _agents.Update(dt, _camera, _simulation);
             _bubbles.Update(dt, _simulation);
             _golden.Update(dt, _camera, _simulation);
+            _discoveries.Update(dt);
         }
 
         _minimap.Update(dt, _camera, _simulation);
@@ -234,6 +237,7 @@ public sealed class GameplayScreen : IScreen
         if (_camera.Zoom >= CityScaleRenderer.ThresholdZoom)
         {
             _harvestables.Draw(spriteBatch, _camera, _simulation);
+            _discoveries.Draw(spriteBatch, _camera, _simulation);
             _roadRenderer.Draw(spriteBatch, _camera, _simulation);
             _buildingRenderer.Draw(spriteBatch, _camera, _simulation);
             _agents.Draw(spriteBatch, _camera);
@@ -489,6 +493,14 @@ public sealed class GameplayScreen : IScreen
         if (_golden.TryCollect(world, _simulation, out int goldRes, out int goldAmt, out var goldPos))
         {
             CollectFeedback(goldRes, goldAmt, goldPos);
+            return;
+        }
+
+        // Skrýš na mapě (objevování) — klik ji vyzvedne.
+        if (_simulation.TryClaimDiscovery(tileX, tileY, out int discRes, out int discAmt))
+        {
+            var center = new Vector2((tileX + 0.5f) * TerrainRenderer.TileSize, (tileY + 0.5f) * TerrainRenderer.TileSize);
+            CollectFeedback(discRes, discAmt, center);
             return;
         }
 

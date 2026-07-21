@@ -20,8 +20,8 @@ public sealed class SaveGameSerializer
 {
     private const string Magic = "CIVD";
 
-    /// <summary>Verze formátu — zvýšit při každé změně struktury. v4: + technologie. v5: + Vzestup. v6: + úkoly (splněné, dynamický tier).</summary>
-    public const int FormatVersion = 6;
+    /// <summary>Verze formátu — zvýšit při každé změně struktury. v5: + Vzestup. v6: + úkoly. v7: + objevené skrýše.</summary>
+    public const int FormatVersion = 7;
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -48,6 +48,7 @@ public sealed class SaveGameSerializer
         WriteTech(writer, simulation);
         WritePrestige(writer, simulation);
         WriteQuests(writer, simulation);
+        WriteDiscoveries(writer, simulation);
     }
 
     /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
@@ -92,6 +93,7 @@ public sealed class SaveGameSerializer
             ReadTech(reader, content, simulation);
             ReadPrestige(reader, content, simulation);
             ReadQuests(reader, content, simulation);
+            ReadDiscoveries(reader, simulation);
             simulation.FinalizeLoad(); // bonusy Vzestupu → přepočet bydlení/skladů
 
             return (simulation, metadata);
@@ -303,6 +305,28 @@ public sealed class SaveGameSerializer
             }
 
             // Smazaný úkol v datech se ze savu tiše přeskočí.
+        }
+    }
+
+    private static void WriteDiscoveries(BinaryWriter writer, Simulation simulation)
+    {
+        var claimed = simulation.ClaimedDiscoveries().ToList();
+        writer.Write(claimed.Count);
+        foreach (var (x, y) in claimed)
+        {
+            writer.Write(x);
+            writer.Write(y);
+        }
+    }
+
+    private static void ReadDiscoveries(BinaryReader reader, Simulation simulation)
+    {
+        int count = ReadCount(reader, max: 20_000_000, what: "skrýší");
+        for (int i = 0; i < count; i++)
+        {
+            int x = reader.ReadInt32();
+            int y = reader.ReadInt32();
+            simulation.RestoreDiscovery(x, y);
         }
     }
 

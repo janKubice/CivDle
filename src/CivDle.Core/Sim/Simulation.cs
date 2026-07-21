@@ -39,6 +39,7 @@ public sealed class Simulation
     private readonly bool[] _techResearched;
     private readonly bool[] _upgradesPurchased; // koupené trvalé upgrady Vzestupu
     private readonly long[] _harvestedTotals; // kumulativní sběr surovin klikáním (metriky cílů)
+    private readonly HashSet<long> _claimedDiscoveries = new(); // vyzvednuté skrýše na mapě
     private readonly Queue<GameNotification> _notifications = new();
     private PrestigeBonuses _bonuses = PrestigeBonuses.None;
 
@@ -418,6 +419,65 @@ public sealed class Simulation
 
     /// <summary>Kumulativně nasbíráno suroviny klikáním (pro cíle/achievementy).</summary>
     public long GetHarvestedTotal(int resourceIndex) => _harvestedTotals[resourceIndex];
+
+    // ----- objevování mapy (skrýše) -----
+
+    private const int DiscoveryRate = 500; // zhruba každá N-tá suchá dlaždice skrývá skrýš
+
+    /// <summary>Je na (suché) dlaždici skrýš k objevení? Deterministické z pozice (nekonečná mapa).</summary>
+    public bool IsDiscoveryTile(int x, int y)
+    {
+        if (_content.Biomes[Terrain.BiomeAt(x, y)].IsWater)
+        {
+            return false;
+        }
+
+        return DiscoveryHash(x, y) % DiscoveryRate == 0;
+    }
+
+    /// <summary>Byla skrýš na dlaždici už vyzvednuta?</summary>
+    public bool IsDiscoveryClaimed(int x, int y) => _claimedDiscoveries.Contains(TileKey.Pack(x, y));
+
+    /// <summary>
+    /// Příkaz hráče: vyzvedne skrýš (klik při objevování mapy) — deterministická
+    /// odměna v surovině. Jednou za dlaždici. Vrací false, když tu skrýš není nebo už padla.
+    /// </summary>
+    public bool TryClaimDiscovery(int x, int y, out int resourceIndex, out int amount)
+    {
+        resourceIndex = 0;
+        amount = 0;
+        if (!IsDiscoveryTile(x, y) || !_claimedDiscoveries.Add(TileKey.Pack(x, y)))
+        {
+            return false;
+        }
+
+        ulong roll = DiscoveryHash(x, y);
+        resourceIndex = (int)(roll % (ulong)_resources.Length);
+        amount = 20 + (int)(roll / DiscoveryRate % 40); // 20–59, deterministicky z pozice
+        AddResource(resourceIndex, amount);
+        return true;
+    }
+
+    /// <summary>Deterministický hash dlaždice pro rozmístění a odměnu skrýší (přes seed světa).</summary>
+    private ulong DiscoveryHash(int x, int y)
+    {
+        ulong h = (ulong)Seed * 0xD6E8FEB86659FD93UL ^ (uint)x * 0x9E3779B97F4A7C15UL ^ (uint)y * 0xC2B2AE3D27D4EB4FUL;
+        h ^= h >> 29;
+        h *= 0xBF58476D1CE4E5B9UL;
+        return h ^ (h >> 32);
+    }
+
+    /// <summary>Vyzvednuté skrýše (dlaždice) pro serializaci savu.</summary>
+    internal IEnumerable<(int X, int Y)> ClaimedDiscoveries()
+    {
+        foreach (long key in _claimedDiscoveries)
+        {
+            yield return (TileKey.X(key), TileKey.Y(key));
+        }
+    }
+
+    /// <summary>Označí skrýš jako vyzvednutou při načtení savu.</summary>
+    internal void RestoreDiscovery(int x, int y) => _claimedDiscoveries.Add(TileKey.Pack(x, y));
 
     /// <summary>
     /// Přečte aktuální hodnotu metriky pro cíl/achievement. Data určují „co"
