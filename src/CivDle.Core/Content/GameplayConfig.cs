@@ -56,8 +56,38 @@ public sealed record DayNightConfig(
 /// <param name="FoodResourceIndex">Která surovina je „jídlo" (odkaz z dat, ne natvrdo).</param>
 /// <param name="AutoBuild">Nastavení automatického růstu zástavby.</param>
 /// <param name="Roads">Nastavení auto-silnic.</param>
+/// <summary>
+/// Slavnost: aktivní tlačítko, které na chvíli zrychlí výrobu i sběr (engagement
+/// bez grindu). Přechodný stav — neukládá se.
+/// </summary>
+/// <param name="DurationSeconds">Jak dlouho slavnost trvá.</param>
+/// <param name="CooldownSeconds">Za jak dlouho od spuštění lze zas.</param>
+/// <param name="Multiplier">Násobič výroby a sběru během slavnosti.</param>
+public sealed record BoostConfig(int DurationSeconds, int CooldownSeconds, double Multiplier);
+
+/// <summary>Ruční sběr: šance na „krit" (velký výnos) — aktivní klikání se vyplatí.</summary>
+/// <param name="CritChance">Pravděpodobnost kritu (0–1) na jeden sběr.</param>
+/// <param name="CritMultiplier">Násobič výnosu při kritu.</param>
+public sealed record HarvestConfig(double CritChance, double CritMultiplier);
+
+/// <summary>Denní odměna za návrat: základ × série dní (do stropu). Retenční háček.</summary>
+/// <param name="BaseReward">Základní odměna v surovinách (za 1. den série).</param>
+/// <param name="StreakCap">Nejvyšší násobek série (odměna neroste donekonečna).</param>
+public sealed record DailyRewardConfig(IReadOnlyList<ResourceAmount> BaseReward, int StreakCap);
+
+/// <summary>
+/// Sázení: hráč za cenu vysadí obnovitelný zdroj (háj), který pak jde těžit klikem
+/// jako přírodní strom/kámen. Agency nad krajinou (behavior „terraform" light).
+/// </summary>
+/// <param name="Cost">Cena zasazení.</param>
+/// <param name="ResourceIndex">Kterou surovinu zasazený uzel dává.</param>
+/// <param name="Amount">Výnos jednoho sběru zasazeného uzlu.</param>
+public sealed record PlantingConfig(IReadOnlyList<ResourceAmount> Cost, int ResourceIndex, int Amount);
+
 /// <param name="Settlements">Nastavení detekce osad.</param>
 /// <param name="DayNight">Denní/noční cyklus.</param>
+/// <param name="Boost">Nastavení slavnosti (dočasný boost).</param>
+/// <param name="Harvest">Nastavení kritického sběru.</param>
 public sealed record GameplayConfig(
     double StartingPopulation,
     int BaseHousingCapacity,
@@ -67,4 +97,8 @@ public sealed record GameplayConfig(
     AutoBuildConfig AutoBuild,
     RoadConfig Roads,
     SettlementConfig Settlements,
-    DayNightConfig DayNight);
+    DayNightConfig DayNight,
+    BoostConfig Boost,
+    HarvestConfig Harvest,
+    DailyRewardConfig DailyReward,
+    PlantingConfig Planting);

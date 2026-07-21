@@ -63,6 +63,25 @@ public sealed class AgentSystem
         TrySpawn(dt, camera, simulation, min, max);
     }
 
+    /// <summary>Klik na obyvatele poblíž bodu — vrací jeho pozici (herní obrazovka pak ukáže myšlenku).</summary>
+    public bool TryPokeAgent(Vector2 world, float radius, out Vector2 position)
+    {
+        float radiusSquared = radius * radius;
+        for (int i = 0; i < _count; i++)
+        {
+            float dx = _agents[i].Position.X - world.X;
+            float dy = _agents[i].Position.Y - world.Y;
+            if (dx * dx + dy * dy <= radiusSquared)
+            {
+                position = _agents[i].Position;
+                return true;
+            }
+        }
+
+        position = Vector2.Zero;
+        return false;
+    }
+
     public void Draw(SpriteBatch spriteBatch, Camera2D camera)
     {
         if (_count == 0)

@@ -57,6 +57,11 @@ public sealed class SpriteLibrary : IDisposable
         // Agenti (živý svět).
         Add(device, "agent.person", 12, Person);
         Add(device, "agent.cart", 18, Cart);
+
+        // Efekty: měkký kontaktní stín pod objekty (ať „sedí" na terénu).
+        Add(device, "fx.shadow", SpriteSize, Shadow);
+        Add(device, "fx.bubble", SpriteSize, Bubble);   // sběrná bublina nad budovou
+        Add(device, "fx.golden", SpriteSize, Golden);   // zlatý spawn (klikni!)
     }
 
     /// <summary>Sprite podle ID, nebo <c>null</c>, když neexistuje.</summary>
@@ -77,6 +82,46 @@ public sealed class SpriteLibrary : IDisposable
         var canvas = new PixelCanvas(size, size);
         draw(canvas);
         _sprites[id] = canvas.ToTexture(device);
+    }
+
+    /// <summary>Sběrná bublina: světlý poloprůhledný puchýř s odleskem (nese ikonu suroviny).</summary>
+    private static void Bubble(PixelCanvas canvas)
+    {
+        float cx = canvas.Width * 0.5f, cy = canvas.Height * 0.5f;
+        canvas.FillCircle(cx, cy, canvas.Width * 0.44f, new Color(150, 205, 255, 150));
+        canvas.FillCircle(cx, cy, canvas.Width * 0.36f, new Color(225, 242, 255, 170));
+        canvas.FillCircle(cx - canvas.Width * 0.12f, cy - canvas.Height * 0.12f, canvas.Width * 0.09f, new Color(255, 255, 255, 220));
+    }
+
+    /// <summary>Zlatý spawn: zářivý kosočtverec se třpytem — „klikni na mě".</summary>
+    private static void Golden(PixelCanvas canvas)
+    {
+        float cx = canvas.Width * 0.5f, cy = canvas.Height * 0.5f, r = canvas.Width * 0.4f;
+        var gold = new Color(255, 208, 84);
+        canvas.FillCircle(cx, cy, r * 1.15f, new Color(255, 235, 150, 110)); // záře
+        canvas.FillTriangle(cx, cy - r, cx - r * 0.68f, cy, cx + r * 0.68f, cy, gold);
+        canvas.FillTriangle(cx, cy + r, cx - r * 0.68f, cy, cx + r * 0.68f, cy, gold);
+        canvas.FillCircle(cx - r * 0.18f, cy - r * 0.18f, r * 0.13f, Color.White);
+    }
+
+    /// <summary>Měkký kruhový stín (černá s radiálním doběhem alfy) — kreslí se zploštělý pod objekt.</summary>
+    private static void Shadow(PixelCanvas canvas)
+    {
+        float cx = canvas.Width * 0.5f, cy = canvas.Height * 0.5f;
+        float radius = canvas.Width * 0.5f;
+        for (int y = 0; y < canvas.Height; y++)
+        {
+            for (int x = 0; x < canvas.Width; x++)
+            {
+                float dx = (x + 0.5f - cx) / radius, dy = (y + 0.5f - cy) / radius;
+                float d = MathF.Sqrt(dx * dx + dy * dy);
+                if (d < 1f)
+                {
+                    float a = 1f - d;
+                    canvas.Blend(x, y, new Color(0, 0, 0, (int)(a * a * 150f)));
+                }
+            }
+        }
     }
 
     // ----- ikony surovin (24×24) -----

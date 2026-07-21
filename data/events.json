@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "events": [
+    {
+      "id": "caravan",
+      "choices": [
+        { "id": "accept", "gain": { "food": 40, "wood": 20 } },
+        { "id": "decline" }
+      ]
+    },
+    {
+      "id": "scholar",
+      "choices": [
+        { "id": "pay", "cost": { "food": 30 }, "gain": { "planks": 25 } },
+        { "id": "refuse" }
+      ]
+    },
+    {
+      "id": "harvest_festival",
+      "choices": [
+        { "id": "celebrate", "gain": { "wood": 15, "food": 15 } },
+        { "id": "skip" }
+      ]
+    },
+    {
+      "id": "traveler",
+      "choices": [
+        { "id": "feed", "cost": { "food": 15 }, "gain": { "stone": 25 } },
+        { "id": "refuse" }
+      ]
+    }
+  ]
+}

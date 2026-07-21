@@ -39,6 +39,12 @@ public sealed class ScreenManager
     /// <summary>Aktuální uživatelská nastavení.</summary>
     public GameSettings Settings => Game.Settings;
 
+    /// <summary>Účet-wide profil hráče (odemčené achievementy).</summary>
+    public PlayerProfile Profile => Game.Profile;
+
+    /// <summary>Uloží profil na disk (po odemčení achievementu).</summary>
+    public void SaveProfile() => Game.SaveProfile();
+
     public GraphicsDevice GraphicsDevice => Game.GraphicsDevice;
 
     public SpriteBatch SpriteBatch => Game.SpriteBatch;

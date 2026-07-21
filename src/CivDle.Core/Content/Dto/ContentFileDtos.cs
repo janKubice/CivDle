@@ -64,7 +64,23 @@ public sealed record GameplayFileDto(
     AutoBuildDto? AutoBuild,
     RoadsDto? Roads,
     SettlementsDto? Settlements,
-    DayNightDto? DayNight);
+    DayNightDto? DayNight,
+    BoostDto? Boost,
+    HarvestDto? Harvest,
+    DailyRewardDto? DailyReward,
+    PlantingDto? Planting);
+
+/// <summary>Nastavení slavnosti (dočasný boost) tak, jak leží v JSON.</summary>
+public sealed record BoostDto(int DurationSeconds, int CooldownSeconds, double Multiplier);
+
+/// <summary>Nastavení kritického sběru tak, jak leží v JSON.</summary>
+public sealed record HarvestDto(double CritChance, double CritMultiplier);
+
+/// <summary>Denní odměna tak, jak leží v JSON.</summary>
+public sealed record DailyRewardDto(Dictionary<string, int>? Reward, int StreakCap);
+
+/// <summary>Sázení tak, jak leží v JSON.</summary>
+public sealed record PlantingDto(Dictionary<string, int>? Cost, string? Resource, int Amount);
 
 /// <summary>Denní/noční cyklus tak, jak leží v JSON.</summary>
 public sealed record DayNightDto(
@@ -121,6 +137,68 @@ public sealed record TechDto(
     Dictionary<string, int>? Cost,
     string[]? Prerequisites,
     string[]? Unlocks);
+
+/// <summary>
+/// Podmínka cíle/achievementu/Vzestupu tak, jak leží v JSON: metrika + práh + volitelný
+/// odkaz (surovina/budova/technologie). Sdílené napříč prestige, úkoly a achievementy.
+/// </summary>
+public sealed record GoalConditionDto(
+    string? Metric,
+    string? Resource,
+    string? Building,
+    string? Tech,
+    long Target);
+
+/// <summary>Obsah souboru <c>data/prestige.json</c> (Vzestup + trvalé upgrady).</summary>
+public sealed record PrestigeFileDto(
+    int SchemaVersion,
+    PrestigeAscensionDto? Ascension,
+    List<PrestigeUpgradeDto>? Upgrades);
+
+/// <summary>Nastavení dostupnosti a odměny Vzestupu tak, jak leží v JSON.</summary>
+public sealed record PrestigeAscensionDto(GoalConditionDto? Requirement, PrestigePointsDto? Points);
+
+/// <summary>Jak se z metriky počítají body Vzestupu.</summary>
+public sealed record PrestigePointsDto(string? Metric, string? Resource, long Divisor);
+
+/// <summary>Jeden trvalý upgrade Vzestupu tak, jak leží v JSON.</summary>
+public sealed record PrestigeUpgradeDto(
+    string? Id,
+    string? Effect,
+    double Magnitude,
+    int Cost,
+    string[]? Prerequisites);
+
+/// <summary>Obsah souboru <c>data/quests.json</c> (pevné úkoly + dynamické).</summary>
+public sealed record QuestFileDto(
+    int SchemaVersion,
+    List<QuestDto>? Quests,
+    DynamicQuestDto? Dynamic);
+
+/// <summary>Jeden pevný úkol tak, jak leží v JSON.</summary>
+public sealed record QuestDto(string? Id, GoalConditionDto? Condition, Dictionary<string, int>? Reward);
+
+/// <summary>Nastavení dynamických úkolů tak, jak leží v JSON.</summary>
+public sealed record DynamicQuestDto(
+    GoalConditionDto? Condition,
+    double TargetGrowth,
+    Dictionary<string, int>? Reward,
+    double RewardGrowth);
+
+/// <summary>Obsah souboru <c>data/events.json</c> (náhodné události s volbami).</summary>
+public sealed record EventFileDto(int SchemaVersion, List<EventDto>? Events);
+
+/// <summary>Jedna událost tak, jak leží v JSON.</summary>
+public sealed record EventDto(string? Id, List<EventChoiceDto>? Choices);
+
+/// <summary>Jedna volba události tak, jak leží v JSON.</summary>
+public sealed record EventChoiceDto(string? Id, Dictionary<string, int>? Cost, Dictionary<string, int>? Gain);
+
+/// <summary>Obsah souboru <c>data/achievements.json</c>.</summary>
+public sealed record AchievementFileDto(int SchemaVersion, List<AchievementDto>? Achievements);
+
+/// <summary>Jeden achievement tak, jak leží v JSON.</summary>
+public sealed record AchievementDto(string? Id, GoalConditionDto? Condition, bool Hidden);
 
 /// <summary>Obsah souboru <c>data/devlog.json</c>.</summary>
 public sealed record DevlogFileDto(int SchemaVersion, List<DevlogEntryDto>? Entries);

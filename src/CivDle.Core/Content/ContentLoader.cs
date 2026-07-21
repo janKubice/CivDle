@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CivDle.Core.Content.Dto;
+using CivDle.Core.Sim;
 
 namespace CivDle.Core.Content;
 
@@ -35,15 +36,21 @@ public sealed class ContentLoader
         var biomes = LoadBiomes(Path.Combine(dataDirectory, "biomes.json"), resources);
         var buildings = LoadBuildings(Path.Combine(dataDirectory, "buildings.json"), biomes, resources);
         var techs = LoadTech(Path.Combine(dataDirectory, "tech.json"), buildings, resources);
+        var (prestige, prestigeUpgrades) = LoadPrestige(Path.Combine(dataDirectory, "prestige.json"), resources, buildings, techs);
+        var (quests, questsDynamic) = LoadQuests(Path.Combine(dataDirectory, "quests.json"), resources, buildings, techs);
+        var achievements = LoadAchievements(Path.Combine(dataDirectory, "achievements.json"), resources, buildings, techs);
+        var events = LoadEvents(Path.Combine(dataDirectory, "events.json"), resources);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
 
-        return new GameContent(biomes, resources, buildings, techs, worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog);
+        return new GameContent(
+            biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events,
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog);
     }
 
     // ----- biomy -----
@@ -438,6 +445,267 @@ public sealed class ContentLoader
         return new DefRegistry<TechDef>(techs, t => t.Id, "technologie", allowEmpty: true);
     }
 
+    // ----- Vzestup (prestige) -----
+
+    private static readonly HashSet<string> KnownPrestigeEffects = new(StringComparer.Ordinal)
+    {
+        "production_mult", "harvest_mult", "growth_mult", "housing_mult", "storage_mult", "start_resources", "offline_mult",
+    };
+
+    private static (PrestigeConfig Config, DefRegistry<PrestigeUpgradeDef> Upgrades) LoadPrestige(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        var file = ReadFile<PrestigeFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        if (file.Ascension?.Requirement is null || file.Ascension.Points is null)
+        {
+            throw new ContentLoadException(path, "Chybí blok 'ascension' s 'requirement' a 'points'.");
+        }
+
+        var requirement = ParseCondition(path, "ascension.requirement", file.Ascension.Requirement, resources, buildings, techs);
+        var points = file.Ascension.Points;
+        if (points.Divisor < 1)
+        {
+            throw new ContentLoadException(path, $"'ascension.points.divisor' musí být ≥ 1, je {points.Divisor}.");
+        }
+
+        var (pointsMetric, pointsParam) = ParseMetric(
+            path, "ascension.points", points.Metric, points.Resource, building: null, tech: null, resources, buildings, techs);
+
+        var dtos = file.Upgrades ?? new List<PrestigeUpgradeDto>();
+        var idToIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            string id = RequireId(path, dtos[i].Id, $"Upgrade Vzestupu na pozici {i}");
+            if (!idToIndex.TryAdd(id, i))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID upgradu Vzestupu '{id}'.");
+            }
+        }
+
+        var upgrades = new List<PrestigeUpgradeDef>(dtos.Count);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = dto.Id!.Trim();
+            string effect = (dto.Effect ?? string.Empty).Trim();
+            if (!KnownPrestigeEffects.Contains(effect))
+            {
+                throw new ContentLoadException(path, $"Upgrade '{id}': neznámý efekt '{dto.Effect}' (známé: {string.Join(", ", KnownPrestigeEffects)}).");
+            }
+
+            if (dto.Magnitude is <= 0 or > 100)
+            {
+                throw new ContentLoadException(path, $"Upgrade '{id}': 'magnitude' musí být v (0, 100], je {dto.Magnitude}.");
+            }
+
+            if (dto.Cost is < 1 or > 100_000)
+            {
+                throw new ContentLoadException(path, $"Upgrade '{id}': 'cost' musí být 1–100000, je {dto.Cost}.");
+            }
+
+            var prereqs = new List<int>();
+            foreach (var prereqId in dto.Prerequisites ?? Array.Empty<string>())
+            {
+                if (prereqId is null || !idToIndex.TryGetValue(prereqId.Trim(), out int prereqIndex))
+                {
+                    throw new ContentLoadException(path, $"Upgrade '{id}' odkazuje na neexistující prerekvizitu '{prereqId}'.");
+                }
+
+                if (prereqIndex == i)
+                {
+                    throw new ContentLoadException(path, $"Upgrade '{id}' nemůže být svou vlastní prerekvizitou.");
+                }
+
+                prereqs.Add(prereqIndex);
+            }
+
+            upgrades.Add(new PrestigeUpgradeDef(id, effect, dto.Magnitude, dto.Cost, prereqs));
+        }
+
+        var config = new PrestigeConfig(requirement, pointsMetric, pointsParam, points.Divisor);
+        return (config, new DefRegistry<PrestigeUpgradeDef>(upgrades, u => u.Id, "upgrade Vzestupu", allowEmpty: true));
+    }
+
+    // ----- úkoly (quests) -----
+
+    private static (DefRegistry<QuestDef> Quests, DynamicQuestConfig Dynamic) LoadQuests(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        var file = ReadFile<QuestFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Quests ?? new List<QuestDto>();
+        var quests = new List<QuestDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Úkol na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID úkolu '{id}'.");
+            }
+
+            if (dto.Condition is null)
+            {
+                throw new ContentLoadException(path, $"Úkol '{id}' nemá 'condition'.");
+            }
+
+            var condition = ParseCondition(path, $"úkol '{id}'", dto.Condition, resources, buildings, techs);
+            var reward = ParseResourceAmounts(path, id, "reward", dto.Reward, resources);
+            quests.Add(new QuestDef(id, condition, reward));
+        }
+
+        if (file.Dynamic?.Condition is null)
+        {
+            throw new ContentLoadException(path, "Chybí blok 'dynamic' s 'condition' (dynamické úkoly).");
+        }
+
+        var dynCondition = ParseCondition(path, "dynamic", file.Dynamic.Condition, resources, buildings, techs);
+        if (file.Dynamic.TargetGrowth <= 1.0)
+        {
+            throw new ContentLoadException(path, $"'dynamic.targetGrowth' musí být > 1, je {file.Dynamic.TargetGrowth}.");
+        }
+
+        if (file.Dynamic.RewardGrowth < 1.0)
+        {
+            throw new ContentLoadException(path, $"'dynamic.rewardGrowth' musí být ≥ 1, je {file.Dynamic.RewardGrowth}.");
+        }
+
+        var dynReward = ParseResourceAmounts(path, "dynamic", "reward", file.Dynamic.Reward, resources);
+        var dynamic = new DynamicQuestConfig(dynCondition, file.Dynamic.TargetGrowth, dynReward, file.Dynamic.RewardGrowth);
+        return (new DefRegistry<QuestDef>(quests, q => q.Id, "úkol", allowEmpty: true), dynamic);
+    }
+
+    // ----- achievementy -----
+
+    private static DefRegistry<AchievementDef> LoadAchievements(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        var file = ReadFile<AchievementFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Achievements ?? new List<AchievementDto>();
+        var result = new List<AchievementDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Achievement na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID achievementu '{id}'.");
+            }
+
+            if (dto.Condition is null)
+            {
+                throw new ContentLoadException(path, $"Achievement '{id}' nemá 'condition'.");
+            }
+
+            var condition = ParseCondition(path, $"achievement '{id}'", dto.Condition, resources, buildings, techs);
+            result.Add(new AchievementDef(id, condition, dto.Hidden));
+        }
+
+        return new DefRegistry<AchievementDef>(result, a => a.Id, "achievement", allowEmpty: true);
+    }
+
+    // ----- události -----
+
+    private static DefRegistry<EventDef> LoadEvents(string path, DefRegistry<Resource> resources)
+    {
+        var file = ReadFile<EventFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Events ?? new List<EventDto>();
+        var result = new List<EventDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Událost na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID události '{id}'.");
+            }
+
+            if (dto.Choices is not { Count: >= 1 })
+            {
+                throw new ContentLoadException(path, $"Událost '{id}' musí mít aspoň jednu volbu.");
+            }
+
+            var choices = new List<EventChoiceDef>(dto.Choices.Count);
+            var seenChoiceIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var choiceDto in dto.Choices)
+            {
+                string choiceId = RequireId(path, choiceDto.Id, $"Volba události '{id}'");
+                if (!seenChoiceIds.Add(choiceId))
+                {
+                    throw new ContentLoadException(path, $"Událost '{id}': duplicitní ID volby '{choiceId}'.");
+                }
+
+                var cost = ParseResourceAmounts(path, id, $"{choiceId}.cost", choiceDto.Cost, resources);
+                var gain = ParseResourceAmounts(path, id, $"{choiceId}.gain", choiceDto.Gain, resources);
+                choices.Add(new EventChoiceDef($"event.{id}.{choiceId}", cost, gain));
+            }
+
+            result.Add(new EventDef(id, choices));
+        }
+
+        return new DefRegistry<EventDef>(result, e => e.Id, "událost", allowEmpty: true);
+    }
+
+    /// <summary>
+    /// Přeloží podmínku (metrika + práh + odkaz) z JSON na typovaný <see cref="GoalCondition"/>.
+    /// Sdílené: Vzestup, úkoly, achievementy. Data říkají „co", kód „jak" — žádná logika v JSON.
+    /// </summary>
+    private static GoalCondition ParseCondition(
+        string path, string owner, GoalConditionDto dto,
+        DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        var (kind, param) = ParseMetric(path, owner, dto.Metric, dto.Resource, dto.Building, dto.Tech, resources, buildings, techs);
+
+        // Výzkum je binární (0/1) — bez explicitního prahu se bere 1.
+        long target = kind == MetricKind.ResearchedTech && dto.Target <= 0 ? 1 : dto.Target;
+        if (target < 1)
+        {
+            throw new ContentLoadException(path, $"{owner}: 'target' musí být ≥ 1, je {dto.Target}.");
+        }
+
+        return new GoalCondition(kind, param, target);
+    }
+
+    private static (MetricKind Kind, int Param) ParseMetric(
+        string path, string owner, string? metric, string? resource, string? building, string? tech,
+        DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        switch ((metric ?? string.Empty).Trim().ToLowerInvariant())
+        {
+            case "population": return (MetricKind.Population, -1);
+            case "housing": return (MetricKind.HousingCapacity, -1);
+            case "buildings": return (MetricKind.TotalBuildings, -1);
+            case "ascension": return (MetricKind.AscensionLevel, -1);
+            case "day": return (MetricKind.DayNumber, -1);
+            case "harvested": return (MetricKind.Harvested, ResolveRef(path, owner, "resource", resource, resources));
+            case "resource": return (MetricKind.ResourceStock, ResolveRef(path, owner, "resource", resource, resources));
+            case "building": return (MetricKind.BuildingOfType, ResolveRef(path, owner, "building", building, buildings));
+            case "research": return (MetricKind.ResearchedTech, ResolveRef(path, owner, "tech", tech, techs));
+            default: throw new ContentLoadException(path, $"{owner}: neznámá metrika '{metric}'.");
+        }
+    }
+
+    private static int ResolveRef<T>(string path, string owner, string field, string? id, DefRegistry<T> registry)
+        where T : class
+    {
+        if (id is null || !registry.TryIndexOf(id.Trim(), out int index))
+        {
+            throw new ContentLoadException(path, $"{owner}: metrika vyžaduje platné '{field}', ale '{id}' neexistuje.");
+        }
+
+        return index;
+    }
+
     private static IReadOnlyList<ResourceAmount> ParseResourceAmounts(
         string path, string ownerId, string field, Dictionary<string, int>? amounts, DefRegistry<Resource> resources)
     {
@@ -575,6 +843,40 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, "'dayNight.nightAlpha' i 'duskAlpha' musí být 0–1.");
         }
 
+        // Slavnost a kritický sběr jsou volitelné bloky s rozumnými výchozími hodnotami.
+        var boost = file.Boost is null
+            ? new BoostConfig(30, 120, 2.0)
+            : new BoostConfig(file.Boost.DurationSeconds, file.Boost.CooldownSeconds, file.Boost.Multiplier);
+        if (boost.DurationSeconds is < 1 or > 3600 || boost.CooldownSeconds < boost.DurationSeconds || boost.Multiplier is <= 1 or > 100)
+        {
+            throw new ContentLoadException(path, "'boost' musí mít 1≤duration≤cooldown a multiplier v (1, 100].");
+        }
+
+        var harvest = file.Harvest is null
+            ? new HarvestConfig(0.12, 5.0)
+            : new HarvestConfig(file.Harvest.CritChance, file.Harvest.CritMultiplier);
+        if (harvest.CritChance is < 0 or > 1 || harvest.CritMultiplier is < 1 or > 1000)
+        {
+            throw new ContentLoadException(path, "'harvest.critChance' musí být 0–1 a 'critMultiplier' 1–1000.");
+        }
+
+        var dailyReward = new DailyRewardConfig(
+            ParseResourceAmounts(path, "gameplay", "dailyReward.reward", file.DailyReward?.Reward, resources),
+            file.DailyReward is { StreakCap: > 0 } ? file.DailyReward.StreakCap : 7);
+
+        // Sázení: volitelný blok. Bez něj se vysazuje háj dávající první surovinu.
+        int plantResource = 0;
+        if (file.Planting?.Resource is { } plantResId && !resources.TryIndexOf(plantResId.Trim(), out plantResource))
+        {
+            throw new ContentLoadException(path, $"'planting.resource' odkazuje na neexistující surovinu '{plantResId}'.");
+        }
+
+        int plantAmount = file.Planting is { Amount: > 0 } ? file.Planting.Amount : 2;
+        var planting = new PlantingConfig(
+            ParseResourceAmounts(path, "gameplay", "planting.cost", file.Planting?.Cost, resources),
+            plantResource,
+            plantAmount);
+
         return new GameplayConfig(
             file.StartingPopulation,
             file.BaseHousingCapacity,
@@ -590,7 +892,11 @@ public sealed class ContentLoader
                 nightColor,
                 duskColor,
                 file.DayNight.NightAlpha,
-                file.DayNight.DuskAlpha));
+                file.DayNight.DuskAlpha),
+            boost,
+            harvest,
+            dailyReward,
+            planting);
     }
 
     // ----- devlog (volitelný obsah menu) -----
@@ -768,7 +1074,11 @@ public sealed class ContentLoader
         DefRegistry<Resource> resources,
         DefRegistry<BuildingDef> buildings,
         WorldGenCatalog worldGen,
-        DefRegistry<TechDef> techs)
+        DefRegistry<TechDef> techs,
+        DefRegistry<PrestigeUpgradeDef> prestigeUpgrades,
+        DefRegistry<QuestDef> quests,
+        DefRegistry<AchievementDef> achievements,
+        DefRegistry<EventDef> events)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -802,7 +1112,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -815,7 +1125,11 @@ public sealed class ContentLoader
         DefRegistry<Resource> resources,
         DefRegistry<BuildingDef> buildings,
         WorldGenCatalog worldGen,
-        DefRegistry<TechDef> techs)
+        DefRegistry<TechDef> techs,
+        DefRegistry<PrestigeUpgradeDef> prestigeUpgrades,
+        DefRegistry<QuestDef> quests,
+        DefRegistry<AchievementDef> achievements,
+        DefRegistry<EventDef> events)
     {
         var required = new List<string>();
         required.AddRange(biomes.All.Select(b => b.NameKey));
@@ -825,6 +1139,18 @@ public sealed class ContentLoader
         required.AddRange(worldGen.Presets.Select(p => p.NameKey));
         required.AddRange(techs.All.Select(t => t.NameKey));
         required.AddRange(techs.All.Select(t => t.DescriptionKey));
+        required.AddRange(prestigeUpgrades.All.Select(u => u.NameKey));
+        required.AddRange(prestigeUpgrades.All.Select(u => u.DescriptionKey));
+        required.AddRange(quests.All.Select(q => q.NameKey));
+        required.AddRange(quests.All.Select(q => q.DescriptionKey));
+        required.AddRange(achievements.All.Select(a => a.NameKey));
+        required.AddRange(achievements.All.Select(a => a.DescriptionKey));
+        foreach (var gameEvent in events.All)
+        {
+            required.Add(gameEvent.NameKey);
+            required.Add(gameEvent.DescriptionKey);
+            required.AddRange(gameEvent.Choices.Select(c => c.LabelKey));
+        }
 
         var missing = required.Where(key => !language.Strings.ContainsKey(key)).ToList();
         if (missing.Count > 0)

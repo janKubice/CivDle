@@ -2,6 +2,37 @@
   "schemaVersion": 1,
   "entries": [
     {
+      "version": "Vrať se a klikej",
+      "date": "2026-07-21",
+      "lines": [
+        "Offline postup + denní odměna — civilizace roste, i když nehraješ, a návrat se vyplácí.",
+        "Sběrné bubliny, zlaté spawny a kritické sběry — víc důvodů klikat.",
+        "Přesun a bourání budov, sázení hájů, skrýše k objevení — tvaruj svět.",
+        "Slavnost (dočasný boost), náhodné události s volbami a klikatelní obyvatelé.",
+        "HUD ukazuje přírůstek za sekundu a hlásí plný sklad."
+      ]
+    },
+    {
+      "version": "Měřítko a atmosféra",
+      "date": "2026-07-21",
+      "lines": [
+        "Velké oddálení ukáže hustotu města a číslo populace — koukni, jak vyrostlo.",
+        "Klidná ambientní hudba a zvonivé cinknutí u splněných cílů.",
+        "Měkké stíny pod stromy a kameny a jemná vinětace — svět víc „sedí“."
+      ]
+    },
+    {
+      "version": "Vzestup a cíle",
+      "date": "2026-07-21",
+      "lines": [
+        "Vzestup (prestige): resetuj éru a získej trvalé upgrady — výroba, sběr, růst, bydlení, sklady.",
+        "Úkoly napříč hrou — pevné i nekonečné dynamické, s pokrokem a odměnami.",
+        "Achievementy, které přetrvají napříč hrami (a čekají na Steam).",
+        "Tech tree, vylepšování budov na vyšší úrovně a stavební menu podle kategorií.",
+        "Minimapa, sledovač cílů, toasty a barevné zvýraznění, na co máš."
+      ]
+    },
+    {
       "version": "Živý svět",
       "date": "2026-07-20",
       "lines": [

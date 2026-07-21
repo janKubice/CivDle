@@ -1,4 +1,5 @@
 using CivDle.Core.Content;
+using CivDle.Core.Sim;
 
 namespace CivDle.Core.Tests.Support;
 
@@ -29,13 +30,25 @@ internal static class TestContent
         IReadOnlyList<Resource>? resources = null,
         IReadOnlyList<BuildingDef>? buildings = null,
         GameplayConfig? gameplay = null,
-        IReadOnlyList<TechDef>? techs = null)
+        IReadOnlyList<TechDef>? techs = null,
+        PrestigeConfig? prestige = null,
+        IReadOnlyList<PrestigeUpgradeDef>? prestigeUpgrades = null,
+        IReadOnlyList<QuestDef>? quests = null,
+        DynamicQuestConfig? questsDynamic = null,
+        IReadOnlyList<AchievementDef>? achievements = null,
+        IReadOnlyList<EventDef>? events = null)
     {
         biomes ??= new[] { WaterBiome(), LandBiome("grass") };
         resources ??= new[] { new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 10, BaseStorage: 1000) };
         buildings ??= new[] { SimpleBuilding("hut", biomes.Count) };
         gameplay ??= DefaultGameplay;
         techs ??= Array.Empty<TechDef>();
+        prestige ??= DefaultPrestige;
+        prestigeUpgrades ??= Array.Empty<PrestigeUpgradeDef>();
+        quests ??= Array.Empty<QuestDef>();
+        questsDynamic ??= DefaultDynamicQuest;
+        achievements ??= Array.Empty<AchievementDef>();
+        events ??= Array.Empty<EventDef>();
 
         var preset = new TerrainPreset("test", SeaLevel: 0.5f, fallbackBiomeIndex, Noise, Noise);
         var catalog = new WorldGenCatalog(
@@ -47,6 +60,12 @@ internal static class TestContent
             new DefRegistry<Resource>(resources, r => r.Id, "surovina"),
             new DefRegistry<BuildingDef>(buildings, b => b.Id, "budova"),
             new DefRegistry<TechDef>(techs, t => t.Id, "technologie", allowEmpty: true),
+            prestige,
+            new DefRegistry<PrestigeUpgradeDef>(prestigeUpgrades, u => u.Id, "upgrade Vzestupu", allowEmpty: true),
+            new DefRegistry<QuestDef>(quests, q => q.Id, "úkol", allowEmpty: true),
+            questsDynamic,
+            new DefRegistry<AchievementDef>(achievements, a => a.Id, "achievement", allowEmpty: true),
+            new DefRegistry<EventDef>(events, e => e.Id, "událost", allowEmpty: true),
             catalog,
             gameplay,
             new DefRegistry<LanguageDef>(new[] { language }, l => l.Id, "jazyk"),
@@ -55,6 +74,14 @@ internal static class TestContent
             Array.Empty<FaunaDef>(),
             Array.Empty<DevlogEntry>());
     }
+
+    /// <summary>Výchozí prestige config testů (Vzestup od 50 obyvatel, body = populace ÷ 15).</summary>
+    public static PrestigeConfig DefaultPrestige => new(
+        new GoalCondition(MetricKind.Population, -1, 50), MetricKind.Population, -1, 15);
+
+    /// <summary>Výchozí dynamický úkol testů (populace, práh roste ×1.5; bez odměny).</summary>
+    public static DynamicQuestConfig DefaultDynamicQuest => new(
+        new GoalCondition(MetricKind.Population, -1, 20), 1.5, Array.Empty<ResourceAmount>(), 1.5);
 
     /// <summary>Výchozí gameplay config testů (auto-stavba na dlouhém intervalu, ať do testů nezasahuje).</summary>
     public static GameplayConfig DefaultGameplay => new(
@@ -66,7 +93,12 @@ internal static class TestContent
         DayNight: new DayNightConfig(
             DayLengthSeconds: 240, StartTimeOfDay: 0.32,
             NightColor: new RgbColor(10, 20, 48), DuskColor: new RgbColor(232, 134, 47),
-            NightAlpha: 0.45, DuskAlpha: 0.18));
+            NightAlpha: 0.45, DuskAlpha: 0.18),
+        // Krit vypnutý (critChance 0), ať testy sběru zůstanou deterministické.
+        Boost: new BoostConfig(30, 120, 2.0),
+        Harvest: new HarvestConfig(0.0, 5.0),
+        DailyReward: new DailyRewardConfig(new[] { new ResourceAmount(0, 10) }, StreakCap: 7),
+        Planting: new PlantingConfig(new[] { new ResourceAmount(0, 5) }, ResourceIndex: 0, Amount: 2));
 
     /// <summary>Levná budova bez výroby povolená na všech biomech.</summary>
     public static BuildingDef SimpleBuilding(

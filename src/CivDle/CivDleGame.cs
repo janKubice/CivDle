@@ -22,12 +22,15 @@ public sealed class CivDleGame : Game
 
     private readonly GraphicsDeviceManager _graphics;
     private readonly SettingsStore _settingsStore;
+    private readonly ProfileStore _profileStore;
     private ScreenManager? _screens;
 
     public CivDleGame()
     {
         _settingsStore = new SettingsStore(GetSettingsPath());
         Settings = _settingsStore.Load();
+        _profileStore = new ProfileStore(GetProfilePath());
+        Profile = _profileStore.Load();
 
         _graphics = new GraphicsDeviceManager(this);
         ApplyGraphicsToManager(Settings);
@@ -47,6 +50,12 @@ public sealed class CivDleGame : Game
 
     /// <summary>Aktuální uživatelská nastavení.</summary>
     public GameSettings Settings { get; private set; }
+
+    /// <summary>Účet-wide profil hráče (odemčené achievementy).</summary>
+    public PlayerProfile Profile { get; }
+
+    /// <summary>Uloží profil (odemčené achievementy) na disk.</summary>
+    public void SaveProfile() => _profileStore.Save(Profile);
 
     /// <summary>Uloží nová nastavení a hned aplikuje grafiku (jazyk řeší Localization).</summary>
     public void ApplySettings(GameSettings settings)
@@ -108,6 +117,9 @@ public sealed class CivDleGame : Game
 
     /// <summary>Nastavení patří do profilu uživatele — vedle exe nemusí být právo zápisu.</summary>
     private static string GetSettingsPath() => Path.Combine(GetProfileDirectory(), "settings.json");
+
+    /// <summary>Profil (achievementy) patří do profilu uživatele, mimo per-hra save.</summary>
+    private static string GetProfilePath() => Path.Combine(GetProfileDirectory(), "profile.json");
 
     /// <summary>Složka profilu hry (nastavení, savy).</summary>
     private static string GetProfileDirectory() => Path.Combine(

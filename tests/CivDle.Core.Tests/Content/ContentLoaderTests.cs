@@ -508,6 +508,28 @@ public class ContentLoaderTests : IDisposable
           ]
         }
         """);
+        Write("prestige.json", """
+        {
+          "schemaVersion": 1,
+          "ascension": {
+            "requirement": { "metric": "population", "target": 50 },
+            "points": { "metric": "population", "divisor": 15 }
+          },
+          "upgrades": []
+        }
+        """);
+        Write("quests.json", """
+        {
+          "schemaVersion": 1,
+          "quests": [],
+          "dynamic": {
+            "condition": { "metric": "population", "target": 20 },
+            "targetGrowth": 1.5, "rewardGrowth": 1.5, "reward": { "food": 10 }
+          }
+        }
+        """);
+        Write("achievements.json", """{ "schemaVersion": 1, "achievements": [] }""");
+        Write("events.json", """{ "schemaVersion": 1, "events": [] }""");
     }
 
     private void WriteWorldGen(string fallbackBiome = "grass", string? defaultPreset = null)

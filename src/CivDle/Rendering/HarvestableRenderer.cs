@@ -29,6 +29,7 @@ public sealed class HarvestableRenderer
 
     private readonly SpriteLibrary _sprites;
     private readonly GameContent _content;
+    private readonly Texture2D? _shadow;
     private readonly Dictionary<long, ChopState> _chops = new();
     private readonly List<long> _finished = new();
 
@@ -39,6 +40,7 @@ public sealed class HarvestableRenderer
     {
         _sprites = sprites;
         _content = content;
+        _shadow = sprites.Get("fx.shadow");
 
         _nodeSpriteByBiome = new string?[content.Biomes.Count];
         for (int i = 0; i < content.Biomes.Count; i++)
@@ -132,6 +134,11 @@ public sealed class HarvestableRenderer
             for (int x = startX; x <= endX; x++)
             {
                 var spriteKey = _nodeSpriteByBiome[simulation.BiomeAt(x, y)];
+                if (spriteKey is null && simulation.TryGetPlantedNode(x, y, out int plantedResource))
+                {
+                    spriteKey = ResourceSprite(plantedResource); // zasazený háj se kreslí i těží jako přírodní
+                }
+
                 if (spriteKey is null || simulation.IsOccupied(x, y))
                 {
                     continue;
@@ -167,6 +174,14 @@ public sealed class HarvestableRenderer
         bool isTree = spriteKey == "node.tree";
         var origin = new Vector2(texture.Width * 0.5f, texture.Height); // kotva dole uprostřed
 
+        // Měkký kontaktní stín u paty, ať objekt „sedí" na terénu, ne se vznáší.
+        if (_shadow is not null)
+        {
+            var shadowScale = new Vector2(drawSize * 0.85f / _shadow.Width, drawSize * 0.32f / _shadow.Height);
+            spriteBatch.Draw(_shadow, new Vector2(baseX, baseY - 1f), null, Color.White * 0.7f, 0f,
+                new Vector2(_shadow.Width * 0.5f, _shadow.Height * 0.5f), shadowScale, SpriteEffects.None, 0f);
+        }
+
         if (state is { RegrowTimer: > 0f })
         {
             // Zbytek po sběru (pařez u stromu, suť u kamene), který postupně dorůstá.
@@ -196,6 +211,14 @@ public sealed class HarvestableRenderer
         float finalScale = (float)drawSize / texture.Width * shrink;
         spriteBatch.Draw(texture, new Vector2(baseX, baseY), null, Color.White, rotation, origin, finalScale, SpriteEffects.None, 0f);
     }
+
+    /// <summary>Sprite pro zasazený uzel podle suroviny (dřevo → strom, kámen → skála).</summary>
+    private string ResourceSprite(int resourceIndex) => _content.Resources[resourceIndex].Id switch
+    {
+        "wood" => "node.tree",
+        "stone" => "node.rock",
+        _ => "node.tree",
+    };
 
     private static ulong Hash(int x, int y)
     {

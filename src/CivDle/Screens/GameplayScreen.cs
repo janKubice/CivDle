@@ -49,12 +49,23 @@ public sealed class GameplayScreen : IScreen
     private readonly ParticleSystem _particles = new();
     private readonly FloatingTextRenderer _floatingText = new();
     private readonly GameSounds _sounds = new();
+    private readonly AmbientMusic _ambient = new();
     private readonly MinimapRenderer _minimap;
+    private readonly ToastRenderer _toasts;
+    private readonly CityScaleRenderer _cityScale;
+    private readonly VignetteRenderer _vignette;
+    private readonly BubbleSystem _bubbles;
+    private readonly GoldenSpawnSystem _golden;
+    private readonly DiscoveryRenderer _discoveries;
     private readonly SpriteFontBase _popupFont;
     private readonly Dictionary<int, string> _popupTextCache = new();
 
     private Desktop _desktop = null!;
     private Label[] _resourceLabels = Array.Empty<Label>();
+    private Label[] _resourceRateLabels = Array.Empty<Label>();
+    private double[] _ratePrev = Array.Empty<double>();
+    private double[] _perSecond = Array.Empty<double>();
+    private float _rateTimer;
     private Label _populationLabel = null!;
     private Label _dayLabel = null!;
     private Label _cursorLabel = null!;
@@ -62,6 +73,15 @@ public sealed class GameplayScreen : IScreen
     private HorizontalStackPanel _buildCategoryPanel = null!;
     private HorizontalStackPanel _buildItemsPanel = null!;
     private string _selectedCategory = string.Empty;
+    private readonly List<(int DefIndex, Button Button, Label PriceLabel)> _buildButtons = new();
+    private VerticalStackPanel _goalsPanel = null!;
+    private readonly List<(CivDle.Core.Sim.GoalCondition Condition, Label Progress)> _goalSlots = new();
+    private bool _goalsDirty = true;
+    private readonly Queue<IScreen> _pendingIntros = new(); // uvítací overlaye (offline, denní odměna)
+    private readonly Random _eventRng = new();
+    private float _eventTimer;
+    private Label _festivalLabel = null!;
+    private Button _festivalButton = null!;
 
     private int _selectedBuilding = -1;
     private int _ghostX;
@@ -71,11 +91,39 @@ public sealed class GameplayScreen : IScreen
     private float _rightDragDistance;
     private int _knownBuildingCount;
 
-    public GameplayScreen(ScreenManager screens, Simulation simulation, WorldInfo info)
+    private int _movingBuildingIndex = -1;
+    private bool _moveActive;
+    private int _moveGhostX;
+    private int _moveGhostY;
+    private PlacementResult _moveGhostResult;
+
+    private bool _plantMode;
+    private bool _plantGhostActive;
+    private int _plantGhostX;
+    private int _plantGhostY;
+    private PlacementResult _plantGhostResult;
+
+    /// <param name="savedAtUtc">Čas uložení načtené hry — spustí offline dohon; <c>null</c> = nová hra.</param>
+    public GameplayScreen(ScreenManager screens, Simulation simulation, WorldInfo info, DateTime? savedAtUtc = null)
     {
         _screens = screens;
         _simulation = simulation;
         _info = info;
+        // Už odemčené achievementy z profilu, ať se v téhle hře nespouštějí znovu.
+        _simulation.SeedUnlockedAchievements(screens.Profile.UnlockedAchievements);
+
+        // Offline postup: dožeň čas od uložení a připrav uvítací souhrn.
+        if (savedAtUtc is { } savedAt)
+        {
+            var summary = OfflineProgress.Apply(_simulation, savedAt, DateTime.UtcNow);
+            SyncAchievements(); // co se odemklo offline, zapiš do profilu
+            if (summary.Worthwhile)
+            {
+                _pendingIntros.Enqueue(new OfflineSummaryScreen(_screens, summary));
+            }
+        }
+
+        GrantDailyReward();
         screens.DisposeMenuBackground(); // pod hrou už netiká ukázkové město z menu
 
         _terrainRenderer = new TerrainRenderer(screens.GraphicsDevice, screens.Content.Biomes, info.Seed);
@@ -87,15 +135,30 @@ public sealed class GameplayScreen : IScreen
         _fauna = new FaunaSystem(screens.Content);
         _agents = new AgentSystem(screens.Content, screens.Sprites);
         _minimap = new MinimapRenderer(screens.GraphicsDevice, screens.Content.Biomes, screens.WhitePixel);
+        _vignette = new VignetteRenderer(screens.GraphicsDevice);
+        _bubbles = new BubbleSystem(screens.Sprites, screens.Content);
+        _golden = new GoldenSpawnSystem(screens.Sprites, screens.Content);
+        _discoveries = new DiscoveryRenderer(screens.Sprites);
         _popupFont = Stylesheet.Current.LabelStyle.Font;
+        _toasts = new ToastRenderer(screens.WhitePixel, _popupFont);
+        _cityScale = new CityScaleRenderer(screens.WhitePixel, _popupFont);
 
         var viewport = screens.GraphicsDevice.Viewport;
         _camera.SetViewport(viewport.Width, viewport.Height);
         _camera.CenterOn(FindStartFocus(), zoom: 2.2f);
         _knownBuildingCount = simulation.Buildings.Length; // načtená hra: bez juice za staré budovy
 
+        _ratePrev = new double[_simulation.ResourceCount];
+        _perSecond = new double[_simulation.ResourceCount];
+        for (int i = 0; i < _ratePrev.Length; i++)
+        {
+            _ratePrev[i] = _simulation.GetResource(i);
+        }
+
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
+        _ambient.Play(); // klidná smyčka pro relaxační jádro
+        _eventTimer = NextEventGap();
     }
 
     public bool IsOverlay => false;
@@ -103,13 +166,23 @@ public sealed class GameplayScreen : IScreen
     public void OnActivated()
     {
         _input.Resync();
-        // Návrat z overlaye (výzkum, detail budovy) mohl odemknout budovy —
-        // stavební menu proto přebuduj podle aktuálního stavu.
+        // Návrat z overlaye (výzkum, detail budovy, Vzestup) mohl odemknout budovy
+        // nebo zresetovat éru — stavební menu přebuduj a srovnej počítadlo budov,
+        // ať po Vzestupu (reset na 0 budov) nevystřelí prach za „nové" budovy.
         RefreshBuildMenu();
+        _goalsDirty = true;
+        _knownBuildingCount = _simulation.Buildings.Length;
     }
 
     public void Update(GameTime gameTime)
     {
+        // Uvítací overlaye (offline souhrn, denní odměna) postupně na první snímky.
+        if (_pendingIntros.Count > 0)
+        {
+            _screens.Push(_pendingIntros.Dequeue());
+            return;
+        }
+
         float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
         _input.Update();
 
@@ -118,7 +191,15 @@ public sealed class GameplayScreen : IScreen
 
         if (_input.WasPressed(Keys.Escape))
         {
-            if (_selectedBuilding >= 0)
+            if (_plantMode)
+            {
+                _plantMode = false;
+            }
+            else if (_movingBuildingIndex >= 0)
+            {
+                _movingBuildingIndex = -1;
+            }
+            else if (_selectedBuilding >= 0)
             {
                 _selectedBuilding = -1;
             }
@@ -131,8 +212,15 @@ public sealed class GameplayScreen : IScreen
 
         bool mouseOverUi = _desktop.IsMouseOverGUI;
         UpdateCamera(dt, mouseOverUi);
-        UpdatePlacement(mouseOverUi);
-        UpdateHarvest(mouseOverUi);
+        if (_plantMode)
+        {
+            UpdatePlant(mouseOverUi);
+        }
+        else if (!UpdateMove(mouseOverUi))
+        {
+            UpdatePlacement(mouseOverUi);
+            UpdateHarvest(mouseOverUi);
+        }
 
         int ticks = _simLoop.Advance(gameTime.ElapsedGameTime.TotalSeconds);
         for (int i = 0; i < ticks; i++)
@@ -140,13 +228,27 @@ public sealed class GameplayScreen : IScreen
             _simulation.Tick();
         }
 
+        UpdateEventScheduler(dt);
+        SampleRates(dt);
+
         EmitNewBuildingJuice();
         _harvestables.Update(dt);
         _particles.Update(dt);
         _floatingText.Update(dt);
-        _fauna.Update(dt, _camera, _simulation);
-        _agents.Update(dt, _camera, _simulation);
+        // Při velkém oddálení chodce/faunu neaktualizuj — nespawnovali by se přes
+        // obří viditelnou plochu (a stejně se nekreslí; z výšky vidíš hustotu).
+        if (_camera.Zoom >= CityScaleRenderer.ThresholdZoom)
+        {
+            _fauna.Update(dt, _camera, _simulation);
+            _agents.Update(dt, _camera, _simulation);
+            _bubbles.Update(dt, _simulation);
+            _golden.Update(dt, _camera, _simulation);
+            _discoveries.Update(dt);
+        }
+
         _minimap.Update(dt, _camera, _simulation);
+        DrainNotifications();
+        _toasts.Update(dt);
         RefreshHudTexts();
     }
 
@@ -155,11 +257,26 @@ public sealed class GameplayScreen : IScreen
         var spriteBatch = _screens.SpriteBatch;
         _terrainRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
         _decorationRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
-        _harvestables.Draw(spriteBatch, _camera, _simulation);
-        _roadRenderer.Draw(spriteBatch, _camera, _simulation);
-        _buildingRenderer.Draw(spriteBatch, _camera, _simulation);
-        _agents.Draw(spriteBatch, _camera);
-        _fauna.Draw(spriteBatch, _screens.WhitePixel, _camera);
+
+        // Velké oddálení → agregátní pohled na měřítko (hustota + populace) místo
+        // drobných jednotlivců (game-feel-wow: „koukni, jak to vyrostlo").
+        if (_camera.Zoom >= CityScaleRenderer.ThresholdZoom)
+        {
+            _harvestables.Draw(spriteBatch, _camera, _simulation);
+            _discoveries.Draw(spriteBatch, _camera, _simulation);
+            _roadRenderer.Draw(spriteBatch, _camera, _simulation);
+            _buildingRenderer.Draw(spriteBatch, _camera, _simulation);
+            _agents.Draw(spriteBatch, _camera);
+            _fauna.Draw(spriteBatch, _screens.WhitePixel, _camera);
+            _bubbles.Draw(spriteBatch, _camera);
+            _golden.Draw(spriteBatch, _camera);
+        }
+        else
+        {
+            _roadRenderer.Draw(spriteBatch, _camera, _simulation); // cesty dávají kontext i z výšky
+            _cityScale.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, _camera, _simulation);
+        }
+
         _particles.Draw(spriteBatch, _screens.WhitePixel, _camera);
 
         // Den/noc: ztmavení scény a pak aditivní světla, ať září skrz tmu.
@@ -175,13 +292,30 @@ public sealed class GameplayScreen : IScreen
             _buildingRenderer.DrawGhost(
                 spriteBatch, _camera, def, _ghostX, _ghostY, _ghostResult == PlacementResult.Ok);
         }
+        else if (_moveActive && _movingBuildingIndex >= 0 && _movingBuildingIndex < _simulation.Buildings.Length)
+        {
+            var def = _screens.Content.Buildings[_simulation.Buildings[_movingBuildingIndex].DefIndex];
+            _buildingRenderer.DrawGhost(
+                spriteBatch, _camera, def, _moveGhostX, _moveGhostY, _moveGhostResult == PlacementResult.Ok);
+        }
 
+        if (_plantGhostActive && _screens.Sprites.Get("node.tree") is { } plantSprite)
+        {
+            const int ts = TerrainRenderer.TileSize;
+            var tint = (_plantGhostResult == PlacementResult.Ok ? new Color(120, 240, 140) : new Color(240, 110, 100)) * 0.7f;
+            spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.Transform);
+            spriteBatch.Draw(plantSprite, new Rectangle(_plantGhostX * ts, _plantGhostY * ts, ts, ts), tint);
+            spriteBatch.End();
+        }
+
+        _vignette.Draw(spriteBatch, _screens.GraphicsDevice.Viewport); // decentní sevření pohledu, pod HUD
         _desktop.Render();
 
-        // Minimapa a popupy až nad UI — hráč je nesmí přehlédnout.
+        // Minimapa, popupy a toasty až nad UI — hráč je nesmí přehlédnout.
         _minimap.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, _camera, _simulation);
         _floatingText.Draw(spriteBatch, _camera, _popupFont);
         DrawSettlementLabels(spriteBatch);
+        _toasts.Draw(spriteBatch, _screens.GraphicsDevice.Viewport);
     }
 
     /// <summary>Jmenovky osad ve screen-space nad těžištěm shluku (orientace na mapě, fáze 4).</summary>
@@ -216,6 +350,8 @@ public sealed class GameplayScreen : IScreen
         _screens.Loc.LanguageChanged -= BuildUi;
         _terrainRenderer.Dispose();
         _minimap.Dispose();
+        _vignette.Dispose();
+        _ambient.Dispose();
         _sounds.Dispose();
     }
 
@@ -291,6 +427,82 @@ public sealed class GameplayScreen : IScreen
         }
     }
 
+    /// <summary>Režim sázení: ghost háje sleduje kurzor, levý klik zasadí (za cenu), pravý ruší.</summary>
+    private void UpdatePlant(bool mouseOverUi)
+    {
+        _plantGhostActive = false;
+        if (_input.WasRightPressed)
+        {
+            _plantMode = false;
+            return;
+        }
+
+        if (mouseOverUi)
+        {
+            return;
+        }
+
+        var world = _camera.ScreenToWorld(_input.MousePosition.ToVector2());
+        _plantGhostX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
+        _plantGhostY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
+        _plantGhostResult = _simulation.CanPlant(_plantGhostX, _plantGhostY);
+        _plantGhostActive = true;
+
+        if (_input.WasLeftPressed && _plantGhostResult == PlacementResult.Ok)
+        {
+            _simulation.TryPlant(_plantGhostX, _plantGhostY); // zůstáváme v režimu — sázej dál
+        }
+    }
+
+    /// <summary>
+    /// Režim přesunu budovy: ghost sleduje kurzor, levý klik potvrdí (zdarma),
+    /// pravý ruší. Vrací true, dokud režim běží — potlačí stavbu i těžbu.
+    /// </summary>
+    private bool UpdateMove(bool mouseOverUi)
+    {
+        _moveActive = false;
+        if (_movingBuildingIndex < 0)
+        {
+            return false;
+        }
+
+        // Budova mohla mezitím zmizet (jiný zdroj) — z režimu ven.
+        if (_movingBuildingIndex >= _simulation.Buildings.Length)
+        {
+            _movingBuildingIndex = -1;
+            return false;
+        }
+
+        if (_input.WasRightPressed)
+        {
+            _movingBuildingIndex = -1;
+            return true;
+        }
+
+        if (mouseOverUi)
+        {
+            return true;
+        }
+
+        var def = _screens.Content.Buildings[_simulation.Buildings[_movingBuildingIndex].DefIndex];
+        var world = _camera.ScreenToWorld(_input.MousePosition.ToVector2());
+        int tileX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
+        int tileY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
+        _moveGhostX = tileX - (def.FootprintWidth - 1) / 2;
+        _moveGhostY = tileY - (def.FootprintHeight - 1) / 2;
+        _moveGhostResult = _simulation.CanMoveBuilding(_movingBuildingIndex, _moveGhostX, _moveGhostY);
+        _moveActive = true;
+
+        if (_input.WasLeftPressed && _moveGhostResult == PlacementResult.Ok)
+        {
+            _simulation.TryMoveBuilding(_movingBuildingIndex, _moveGhostX, _moveGhostY);
+            _movingBuildingIndex = -1;
+            _moveActive = false;
+        }
+
+        return true;
+    }
+
     /// <summary>
     /// Prach + žuchnutí pro každou nově vzniklou budovu — společné pro ruční stavbu
     /// i auto-stavbu (nová budova se pozná růstem počtu v simulaci).
@@ -333,14 +545,43 @@ public sealed class GameplayScreen : IScreen
         int tileX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
         int tileY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
 
-        // Klik na budovu ji rozklikne (detail + vylepšení) — až pak řeším těžbu.
-        if (_simulation.TryGetBuildingAt(tileX, tileY, out int buildingIndex))
+        // Sběrné bubliny a zlaté spawny mají přednost před budovou i těžbou.
+        if (_bubbles.TryCollect(world, _simulation, out int bubbleRes, out int bubbleAmt, out var bubblePos))
         {
-            _screens.Push(new BuildingInfoScreen(_screens, _simulation, buildingIndex));
+            CollectFeedback(bubbleRes, bubbleAmt, bubblePos);
             return;
         }
 
-        if (!_simulation.TryHarvest(tileX, tileY, out int resourceIndex, out int amount))
+        if (_golden.TryCollect(world, _simulation, out int goldRes, out int goldAmt, out var goldPos))
+        {
+            CollectFeedback(goldRes, goldAmt, goldPos);
+            return;
+        }
+
+        // Skrýš na mapě (objevování) — klik ji vyzvedne.
+        if (_simulation.TryClaimDiscovery(tileX, tileY, out int discRes, out int discAmt))
+        {
+            var center = new Vector2((tileX + 0.5f) * TerrainRenderer.TileSize, (tileY + 0.5f) * TerrainRenderer.TileSize);
+            CollectFeedback(discRes, discAmt, center);
+            return;
+        }
+
+        // Klik na budovu ji rozklikne (detail + vylepšení + přesun/demolice).
+        if (_simulation.TryGetBuildingAt(tileX, tileY, out int buildingIndex))
+        {
+            _screens.Push(new BuildingInfoScreen(_screens, _simulation, buildingIndex, idx => _movingBuildingIndex = idx));
+            return;
+        }
+
+        // Klik na obyvatele → bublina s myšlenkou (svět reaguje na dotek).
+        if (_agents.TryPokeAgent(world, TerrainRenderer.TileSize * 0.6f, out var agentPos))
+        {
+            string key = $"citizen.thought{1 + _eventRng.Next(5)}";
+            _floatingText.Add(agentPos - new Vector2(0f, TerrainRenderer.TileSize * 0.4f), _screens.Loc[key], Color.White);
+            return;
+        }
+
+        if (!_simulation.TryHarvest(tileX, tileY, out int resourceIndex, out int amount, out bool crit))
         {
             return;
         }
@@ -350,7 +591,18 @@ public sealed class GameplayScreen : IScreen
         var resourceColor = content.Resources[resourceIndex].MapColor.ToXna();
         var biomeColor = content.Biomes[_simulation.BiomeAt(tileX, tileY)].MapColor.ToXna();
 
-        _floatingText.Add(tileCenter, PopupText(resourceIndex, amount), resourceColor);
+        if (crit)
+        {
+            // Krit: zlatý velký popup + extra jiskry + cinknutí — aktivní klikání se vyplatí.
+            _floatingText.Add(tileCenter, _screens.Loc.Format("hud.crit", amount), new Color(255, 215, 80));
+            _particles.SpawnBurst(tileCenter, new Color(255, 215, 80), 20, 60f, 200f);
+            _sounds.PlayChime();
+        }
+        else
+        {
+            _floatingText.Add(tileCenter, PopupText(resourceIndex, amount), resourceColor);
+        }
+
         _sounds.PlayChop();
 
         bool felled = _harvestables.RegisterChop(tileX, tileY);
@@ -366,6 +618,15 @@ public sealed class GameplayScreen : IScreen
             _particles.SpawnBurst(tileCenter, biomeColor, 8, 45f, 150f);
             _particles.SpawnBurst(tileCenter, resourceColor, 4, 35f, 110f);
         }
+    }
+
+    /// <summary>Zpětná vazba na posbíranou bublinu / zlatý spawn: zlatý popup, jiskry, cinknutí.</summary>
+    private void CollectFeedback(int resourceIndex, int amount, Vector2 worldPos)
+    {
+        var color = new Color(255, 224, 130);
+        _floatingText.Add(worldPos, $"+{amount} {_screens.Loc[_screens.Content.Resources[resourceIndex].NameKey]}", color);
+        _particles.SpawnBurst(worldPos, color, 16, 55f, 190f);
+        _sounds.PlayChime();
     }
 
     /// <summary>Texty popupů se cachují — žádné skládání stringů při každém kliku.</summary>
@@ -414,18 +675,133 @@ public sealed class GameplayScreen : IScreen
         return Vector2.Zero;
     }
 
+    /// <summary>Vyzvedne oznámení ze simulace (splněné úkoly, achievementy, milníky) a udělá z nich toasty.</summary>
+    private void DrainNotifications()
+    {
+        var loc = _screens.Loc;
+        while (_simulation.TryDequeueNotification(out var note))
+        {
+            string text = $"{loc[note.TitleKey]}: {loc[note.SubjectKey]}";
+            _toasts.Add(text, NotificationColor(note.Kind));
+            _sounds.PlayChime(); // dobrá zpráva → příjemné cinknutí
+
+            // Splněný úkol / Vzestup mění seznam aktivních cílů — přestav sledovač.
+            if (note.Kind is NotificationKind.QuestCompleted or NotificationKind.Ascended)
+            {
+                _goalsDirty = true;
+            }
+
+            // Nový achievement → zapiš do účet-wide profilu (přežije i restart).
+            if (note.Kind == NotificationKind.AchievementUnlocked)
+            {
+                SyncAchievements();
+            }
+        }
+    }
+
+    /// <summary>Občas spustí náhodnou událost s volbami (mikro-rozhodnutí).</summary>
+    private void UpdateEventScheduler(float dt)
+    {
+        var events = _screens.Content.Events;
+        if (events.Count == 0)
+        {
+            return;
+        }
+
+        _eventTimer -= dt;
+        if (_eventTimer <= 0f)
+        {
+            _eventTimer = NextEventGap();
+            _screens.Push(new EventScreen(_screens, _simulation, events[_eventRng.Next(events.Count)]));
+        }
+    }
+
+    private float NextEventGap() => 70f + (float)_eventRng.NextDouble() * 60f; // 70–130 s
+
+    /// <summary>Jednou za sekundu spočítá čistý přírůstek surovin za sekundu (HUD ticker).</summary>
+    private void SampleRates(float dt)
+    {
+        _rateTimer += dt;
+        if (_rateTimer < 1f)
+        {
+            return;
+        }
+
+        for (int i = 0; i < _perSecond.Length; i++)
+        {
+            double now = _simulation.GetResource(i);
+            _perSecond[i] = (now - _ratePrev[i]) / _rateTimer;
+            _ratePrev[i] = now;
+        }
+
+        _rateTimer = 0f;
+    }
+
+    /// <summary>Vyhodnotí a udělí denní odměnu (účet-wide, roste se sérií dní).</summary>
+    private void GrantDailyReward()
+    {
+        var profile = _screens.Profile;
+        var now = DateTime.UtcNow;
+        var result = DailyReward.Evaluate(_screens.Content.Gameplay.DailyReward, profile.LastDailyRewardDate, profile.DailyStreak, now);
+        if (!result.Due || result.Reward.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var amount in result.Reward)
+        {
+            _simulation.AddResource(amount.ResourceIndex, amount.Amount);
+        }
+
+        profile.LastDailyRewardDate = DailyReward.TodayKey(now);
+        profile.DailyStreak = result.Streak;
+        _screens.SaveProfile();
+        _pendingIntros.Enqueue(new DailyRewardScreen(_screens, result.Streak, result.Reward));
+    }
+
+    /// <summary>Zapíše nově odemčené achievementy do profilu a uloží ho (účet-wide).</summary>
+    private void SyncAchievements()
+    {
+        var content = _screens.Content;
+        var profile = _screens.Profile;
+        bool changed = false;
+        for (int i = 0; i < content.Achievements.Count; i++)
+        {
+            string id = content.Achievements[i].Id;
+            if (_simulation.IsAchievementUnlocked(i) && !profile.UnlockedAchievements.Contains(id))
+            {
+                profile.UnlockedAchievements.Add(id);
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            _screens.SaveProfile();
+        }
+    }
+
+    private static Color NotificationColor(NotificationKind kind) => kind switch
+    {
+        NotificationKind.QuestCompleted => new Color(120, 200, 140),
+        NotificationKind.AchievementUnlocked => new Color(230, 200, 110),
+        NotificationKind.Ascended => new Color(180, 140, 230),
+        _ => new Color(96, 196, 220),
+    };
+
     // ----- HUD -----
 
     private void BuildUi()
     {
         var content = _screens.Content;
 
-        // Horní pruh: suroviny (ikony) + populace.
+        // Horní pruh: suroviny (ikony) + zásoba/kapacita + přírůstek za sekundu.
         var resourceBar = new HorizontalStackPanel { Spacing = 18 };
         _resourceLabels = new Label[content.Resources.Count];
+        _resourceRateLabels = new Label[content.Resources.Count];
         for (int i = 0; i < content.Resources.Count; i++)
         {
-            var chip = new HorizontalStackPanel { Spacing = 6 };
+            var chip = new HorizontalStackPanel { Spacing = 5 };
             var icon = _screens.Sprites.Get($"icon.{content.Resources[i].Id}");
             if (icon is not null)
             {
@@ -444,6 +820,8 @@ public sealed class GameplayScreen : IScreen
 
             _resourceLabels[i] = new Label { VerticalAlignment = VerticalAlignment.Center };
             chip.Widgets.Add(_resourceLabels[i]);
+            _resourceRateLabels[i] = new Label { VerticalAlignment = VerticalAlignment.Center, TextColor = new Color(120, 190, 130) };
+            chip.Widgets.Add(_resourceRateLabels[i]);
             resourceBar.Widgets.Add(chip);
         }
 
@@ -480,13 +858,22 @@ public sealed class GameplayScreen : IScreen
         bottomCenter.VerticalAlignment = VerticalAlignment.Bottom;
         bottomCenter.Margin = new Thickness(0, 0, 0, 12);
 
+        // Levý střed: sledovač úkolů (aktuální cíle + pokrok) — vede hráče hrou.
+        _goalsPanel = new VerticalStackPanel { Spacing = 5 };
+        var goalsBox = UiFactory.DarkPanel(_goalsPanel);
+        goalsBox.HorizontalAlignment = HorizontalAlignment.Left;
+        goalsBox.VerticalAlignment = VerticalAlignment.Center;
+        goalsBox.Margin = new Thickness(10, 0, 0, 0);
+
         var root = new Panel();
         root.Widgets.Add(topLeft);
         root.Widgets.Add(topRight);
+        root.Widgets.Add(goalsBox);
         root.Widgets.Add(bottomCenter);
         root.Widgets.Add(BuildToolButtons());
 
         _desktop = new Desktop { Root = root };
+        _goalsDirty = true;
         RefreshBuildMenu();
         RefreshHudTexts();
     }
@@ -496,6 +883,14 @@ public sealed class GameplayScreen : IScreen
     {
         var loc = _screens.Loc;
         var stack = new VerticalStackPanel { Spacing = 6 };
+        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.quests"],
+            () => _screens.Push(new QuestsScreen(_screens, _simulation))));
+        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.plant"], () =>
+        {
+            _plantMode = !_plantMode;
+            _selectedBuilding = -1;
+            _movingBuildingIndex = -1;
+        }));
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.backToCity"], RecenterOnCity));
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.settlements"],
             () => _screens.Push(new SettlementsScreen(_screens, _simulation, _camera))));
@@ -504,6 +899,28 @@ public sealed class GameplayScreen : IScreen
             stack.Widgets.Add(UiFactory.SmallButton(loc["hud.tech"],
                 () => _screens.Push(new TechScreen(_screens, _simulation))));
         }
+
+        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.ascend"],
+            () => _screens.Push(new AscensionScreen(_screens, _simulation))));
+        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.achievements"],
+            () => _screens.Push(new AchievementsScreen(_screens, _simulation))));
+
+        // Slavnost: aktivní boost na kliknutí (stav se přepisuje v RefreshHudTexts).
+        _festivalLabel = new Label
+        {
+            Text = loc["hud.festival"],
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        _festivalButton = new Button
+        {
+            Content = _festivalLabel,
+            Height = 36,
+            Padding = new Thickness(12, 0),
+            Background = new SolidBrush(new Color(150, 90, 60, 235)),
+        };
+        _festivalButton.Click += (_, _) => _simulation.TryStartBoost();
+        stack.Widgets.Add(_festivalButton);
 
         var panel = UiFactory.DarkPanel(stack);
         panel.HorizontalAlignment = HorizontalAlignment.Left;
@@ -588,12 +1005,86 @@ public sealed class GameplayScreen : IScreen
     {
         var content = _screens.Content;
         _buildItemsPanel.Widgets.Clear();
+        _buildButtons.Clear();
         for (int i = 0; i < content.Buildings.Count; i++)
         {
             if (_simulation.IsBuildingBuildable(i) && content.Buildings[i].Category == _selectedCategory)
             {
                 _buildItemsPanel.Widgets.Add(BuildingButton(i));
             }
+        }
+
+        RefreshBuildAffordability();
+    }
+
+    /// <summary>
+    /// Zvýrazní stavební tlačítka podle toho, jestli na budovu hráč má — zelená
+    /// cena a plné tlačítko = ano, červená a ztlumené = ne. Volá se každý snímek,
+    /// suroviny se mění.
+    /// </summary>
+    private void RefreshBuildAffordability()
+    {
+        foreach (var (defIndex, button, priceLabel) in _buildButtons)
+        {
+            bool affordable = _simulation.CanAfford(defIndex);
+            priceLabel.TextColor = affordable ? new Color(150, 220, 150) : new Color(232, 120, 110);
+            button.Background = new SolidBrush(affordable ? new Color(38, 48, 64, 235) : new Color(30, 34, 42, 170));
+        }
+    }
+
+    /// <summary>Přestaví sledovač úkolů (aktivní cíle) — volá se, jen když se stav změní.</summary>
+    private void RebuildGoals()
+    {
+        var loc = _screens.Loc;
+        var content = _screens.Content;
+        _goalsPanel.Widgets.Clear();
+        _goalSlots.Clear();
+        _goalsPanel.Widgets.Add(new Label { Text = loc["hud.quests"], TextColor = UiFactory.Accent });
+
+        int shown = 0;
+        for (int i = 0; i < content.Quests.Count && shown < 3; i++)
+        {
+            if (_simulation.IsQuestCompleted(i))
+            {
+                continue;
+            }
+
+            AddGoalSlot(loc[content.Quests[i].NameKey], content.Quests[i].Condition);
+            shown++;
+        }
+
+        if (shown < 3)
+        {
+            long target = _simulation.DynamicQuestTarget;
+            var dyn = content.QuestsDynamic;
+            AddGoalSlot(loc.Format("quest.dynamic", target),
+                new GoalCondition(dyn.BaseCondition.Kind, dyn.BaseCondition.Param, target));
+        }
+    }
+
+    private void AddGoalSlot(string name, GoalCondition condition)
+    {
+        var slot = new VerticalStackPanel { Spacing = 1 };
+        slot.Widgets.Add(new Label { Text = name });
+        var progress = new Label { TextColor = new Color(150, 220, 150) };
+        slot.Widgets.Add(progress);
+        _goalsPanel.Widgets.Add(slot);
+        _goalSlots.Add((condition, progress));
+    }
+
+    /// <summary>Přebuduje sledovač jen při změně; jinak jen aktualizuje čísla pokroku.</summary>
+    private void UpdateGoals()
+    {
+        if (_goalsDirty)
+        {
+            RebuildGoals();
+            _goalsDirty = false;
+        }
+
+        foreach (var (condition, progress) in _goalSlots)
+        {
+            long current = Math.Min(_simulation.EvaluateMetric(condition.Kind, condition.Param), condition.Target);
+            progress.Text = $"{current} / {condition.Target}";
         }
     }
 
@@ -636,12 +1127,13 @@ public sealed class GameplayScreen : IScreen
             Text = loc[def.NameKey],
             HorizontalAlignment = HorizontalAlignment.Center,
         });
-        caption.Widgets.Add(new Label
+        var priceLabel = new Label
         {
-            Text = string.Join("  ", def.BuildCost.Select(c => $"{c.Amount} {loc[content.Resources[c.ResourceIndex].NameKey]}")),
+            Text = CostFormat.Line(content, loc, def.BuildCost),
             TextColor = Color.Gray,
             HorizontalAlignment = HorizontalAlignment.Center,
-        });
+        };
+        caption.Widgets.Add(priceLabel);
 
         var button = new Button
         {
@@ -650,6 +1142,7 @@ public sealed class GameplayScreen : IScreen
             Background = new SolidBrush(new Color(38, 48, 64, 235)),
         };
         button.Click += (_, _) => _selectedBuilding = _selectedBuilding == defIndex ? -1 : defIndex;
+        _buildButtons.Add((defIndex, button, priceLabel));
         return button;
     }
 
@@ -659,7 +1152,15 @@ public sealed class GameplayScreen : IScreen
 
         for (int i = 0; i < _resourceLabels.Length; i++)
         {
-            _resourceLabels[i].Text = $"{(long)_simulation.GetResource(i)}/{(long)_simulation.GetStorageCap(i)}";
+            double amount = _simulation.GetResource(i);
+            double cap = _simulation.GetStorageCap(i);
+            _resourceLabels[i].Text = $"{(long)amount}/{(long)cap}";
+            // Přeteklý sklad zežloutne (výzva rozšířit), jinak neutrální.
+            _resourceLabels[i].TextColor = amount >= cap - 0.5 ? new Color(240, 200, 90) : Color.White;
+
+            // Ticker přírůstku za sekundu (jen znatelný nárůst).
+            double rate = i < _perSecond.Length ? _perSecond[i] : 0.0;
+            _resourceRateLabels[i].Text = rate >= 0.05 ? $"+{rate:0.#}/s" : string.Empty;
         }
 
         _populationLabel.Text = loc.Format("hud.population", (long)_simulation.Population, _simulation.HousingCapacity);
@@ -669,6 +1170,30 @@ public sealed class GameplayScreen : IScreen
 
         UpdateCursorLabel();
         UpdateStatusLabel();
+        RefreshBuildAffordability();
+        UpdateGoals();
+        UpdateFestivalButton();
+    }
+
+    /// <summary>Přepíše popisek a dostupnost tlačítka Slavnost podle stavu boostu.</summary>
+    private void UpdateFestivalButton()
+    {
+        var loc = _screens.Loc;
+        if (_simulation.IsBoostActive)
+        {
+            _festivalLabel.Text = loc.Format("hud.festivalActive", (int)MathF.Ceiling((float)_simulation.BoostSecondsRemaining));
+            _festivalButton.Enabled = false;
+        }
+        else if (!_simulation.CanStartBoost)
+        {
+            _festivalLabel.Text = loc.Format("hud.festivalCooldown", (int)MathF.Ceiling((float)_simulation.BoostCooldownSecondsRemaining));
+            _festivalButton.Enabled = false;
+        }
+        else
+        {
+            _festivalLabel.Text = loc["hud.festival"];
+            _festivalButton.Enabled = true;
+        }
     }
 
     private void UpdateCursorLabel()
@@ -685,6 +1210,20 @@ public sealed class GameplayScreen : IScreen
     private void UpdateStatusLabel()
     {
         var loc = _screens.Loc;
+        if (_plantMode)
+        {
+            _statusLabel.Text = loc["hud.planting"];
+            _statusLabel.TextColor = UiFactory.Accent;
+            return;
+        }
+
+        if (_movingBuildingIndex >= 0)
+        {
+            _statusLabel.Text = loc["hud.moving"];
+            _statusLabel.TextColor = UiFactory.Accent;
+            return;
+        }
+
         if (_selectedBuilding < 0)
         {
             _statusLabel.Text = loc["build.title"];

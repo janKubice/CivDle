@@ -19,14 +19,17 @@ public sealed class BuildingInfoScreen : IScreen
     private readonly ScreenManager _screens;
     private readonly Simulation _simulation;
     private readonly int _buildingIndex;
+    private readonly Action<int> _onStartMove;
     private readonly InputManager _input = new();
     private Desktop _desktop = null!;
 
-    public BuildingInfoScreen(ScreenManager screens, Simulation simulation, int buildingIndex)
+    /// <param name="onStartMove">Zavolá se s indexem budovy, když hráč zvolí „Přesunout" (režim řídí herní obrazovka).</param>
+    public BuildingInfoScreen(ScreenManager screens, Simulation simulation, int buildingIndex, Action<int> onStartMove)
     {
         _screens = screens;
         _simulation = simulation;
         _buildingIndex = buildingIndex;
+        _onStartMove = onStartMove;
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
     }
@@ -93,6 +96,21 @@ public sealed class BuildingInfoScreen : IScreen
         });
 
         layout.Widgets.Add(UpgradeSection(instance.DefIndex));
+
+        // Agency: přesunout jinam nebo zbourat (vrátí půl ceny).
+        var actions = new HorizontalStackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
+        actions.Widgets.Add(UiFactory.SmallButton(loc["building.move"], () =>
+        {
+            _onStartMove(_buildingIndex);
+            _screens.Pop();
+        }));
+        actions.Widgets.Add(UiFactory.SmallButton(loc["building.demolish"], () =>
+        {
+            _simulation.TryDemolish(_buildingIndex);
+            _screens.Pop();
+        }));
+        layout.Widgets.Add(actions);
+
         layout.Widgets.Add(UiFactory.MenuButton(loc["panel.close"], _screens.Pop));
 
         var panel = UiFactory.DarkPanel(layout);

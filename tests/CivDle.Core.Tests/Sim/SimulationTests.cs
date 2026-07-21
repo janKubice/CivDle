@@ -217,8 +217,8 @@ public class SimulationTests
 
         Assert.True(harvested);
         Assert.Equal(wood, resourceIndex);
-        Assert.Equal(2, amount);
-        Assert.Equal(woodBefore + 2, sim.GetResource(wood));
+        Assert.True(amount >= 2); // výnos lesa je 2, krit ho může znásobit
+        Assert.Equal(woodBefore + amount, sim.GetResource(wood));
     }
 
     [Fact]
@@ -307,5 +307,18 @@ public class SimulationTests
         {
             Assert.Equal(simA.GetResource(i), simB.GetResource(i));
         }
+    }
+
+    // ----- dostupnost (HUD zvýraznění) -----
+
+    [Fact]
+    public void CanAfford_ReflectsResourcesRegardlessOfLocation()
+    {
+        var (content, sim) = RealGrasslandWorld();
+
+        // Start: dřevo 30, prkna 10 → na dům (dřevo 5, prkna 4) mám, na dřevařský
+        // dvůr (prkna 12) ne — nezávisle na místě/biomu.
+        Assert.True(sim.CanAfford(content.Buildings.IndexOf("house")));
+        Assert.False(sim.CanAfford(content.Buildings.IndexOf("lumberyard")));
     }
 }

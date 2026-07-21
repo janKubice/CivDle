@@ -15,6 +15,7 @@ public sealed class GameSounds : IDisposable
 
     private readonly SoundEffect? _chop;
     private readonly SoundEffect? _place;
+    private readonly SoundEffect? _chime;
 
     public GameSounds()
     {
@@ -22,12 +23,14 @@ public sealed class GameSounds : IDisposable
         {
             _chop = CreateChop();
             _place = CreateThud();
+            _chime = CreateChime();
         }
         catch (Exception)
         {
             // Headless stroj / bez audio ovladače — hra poběží potichu.
             _chop = null;
             _place = null;
+            _chime = null;
         }
     }
 
@@ -37,10 +40,14 @@ public sealed class GameSounds : IDisposable
     /// <summary>Žuchnutí při položení budovy.</summary>
     public void PlayPlace() => Play(_place, volume: 0.5f);
 
+    /// <summary>Příjemné cinknutí — dobrá zpráva (splněný úkol, achievement, Vzestup).</summary>
+    public void PlayChime() => Play(_chime, volume: 0.4f);
+
     public void Dispose()
     {
         _chop?.Dispose();
         _place?.Dispose();
+        _chime?.Dispose();
     }
 
     private static void Play(SoundEffect? sound, float volume)
@@ -85,6 +92,35 @@ public sealed class GameSounds : IDisposable
             float frequency = 150f - 600f * t; // rychlý pokles do hloubky
             frequency = MathF.Max(frequency, 55f);
             data[i] = MathF.Sin(MathF.Tau * frequency * t) * MathF.Exp(-t * 24f);
+        }
+
+        return ToSoundEffect(data);
+    }
+
+    /// <summary>Zvonkohra: základ + dvě vyšší harmonické s dozvukem — jasné „ding".</summary>
+    private static SoundEffect CreateChime()
+    {
+        int samples = (int)(SampleRate * 0.55);
+        var data = new float[samples];
+        // Durový akord (C5 + E5 + G5), postupné rozeznění zdola nahoru.
+        float[] freqs = { 523.25f, 659.25f, 783.99f };
+        float[] delays = { 0f, 0.06f, 0.12f };
+        for (int i = 0; i < samples; i++)
+        {
+            float t = (float)i / SampleRate;
+            float value = 0f;
+            for (int n = 0; n < freqs.Length; n++)
+            {
+                float td = t - delays[n];
+                if (td <= 0f)
+                {
+                    continue;
+                }
+
+                value += MathF.Sin(MathF.Tau * freqs[n] * td) * MathF.Exp(-td * 6.5f);
+            }
+
+            data[i] = value / freqs.Length;
         }
 
         return ToSoundEffect(data);
