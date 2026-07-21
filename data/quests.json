@@ -12,7 +12,8 @@
     { "id": "grow_25",     "condition": { "metric": "population", "target": 25 },                       "reward": { "food": 40 } },
     { "id": "first_ascension", "condition": { "metric": "ascension", "target": 1 },                    "reward": { "food": 60 } },
     { "id": "enter_bronze", "condition": { "metric": "research", "tech": "bronze_working" },            "reward": { "tools": 20 } },
-    { "id": "enter_iron", "condition": { "metric": "research", "tech": "iron_working" },                "reward": { "tools": 40 } }
+    { "id": "enter_iron", "condition": { "metric": "research", "tech": "iron_working" },                "reward": { "tools": 40 } },
+    { "id": "enter_industry", "condition": { "metric": "research", "tech": "steam_power" },             "reward": { "steel": 15 } }
   ],
   "dynamic": {
     "condition": { "metric": "population", "target": 40 },

@@ -32,6 +32,8 @@ public sealed record Recipe(
 /// <param name="Buildable">Smí ji hráč přímo postavit (upgrade cíle = false, jen přes vylepšení)?</param>
 /// <param name="UpgradesToIndex">Index budovy, na kterou lze vylepšit; −1 = konec řady.</param>
 /// <param name="UpgradeCost">Cena vylepšení na další úroveň.</param>
+/// <param name="PowerSupply">Kolik elektřiny budova dodává (elektrárny); 0 = žádnou.</param>
+/// <param name="PowerDemand">Kolik elektřiny budova potřebuje; &gt;0 = její výroba škáluje s pokrytím sítě.</param>
 public sealed record BuildingDef(
     string Id,
     string Category,
@@ -47,8 +49,13 @@ public sealed record BuildingDef(
     bool AutoBuild,
     bool Buildable,
     int UpgradesToIndex,
-    IReadOnlyList<ResourceAmount> UpgradeCost)
+    IReadOnlyList<ResourceAmount> UpgradeCost,
+    int PowerSupply,
+    int PowerDemand)
 {
+    /// <summary>Potřebuje budova ke své výrobě elektřinu?</summary>
+    public bool NeedsPower => PowerDemand > 0;
+
     /// <summary>Lokalizační klíč jména budovy.</summary>
     public string NameKey => $"building.{Id}";
 

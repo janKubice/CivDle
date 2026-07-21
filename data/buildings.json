@@ -111,7 +111,7 @@
       "footprint": [2, 2],
       "buildCost": { "wood": 10, "planks": 8, "stone": 6 },
       "allowedBiomes": ["grassland", "steppe", "beach"],
-      "storage": { "wood": 150, "planks": 100, "stone": 120, "food": 120, "tools": 60, "copper_ore": 80, "bronze": 60, "iron_ore": 80, "coal": 80, "iron": 60 }
+      "storage": { "wood": 150, "planks": 100, "stone": 120, "food": 120, "tools": 60, "copper_ore": 80, "bronze": 60, "iron_ore": 80, "coal": 80, "iron": 60, "steel": 60, "machine_parts": 50 }
     },
     {
       "id": "windmill",
@@ -163,7 +163,9 @@
       "housingCapacity": 22,
       "buildCost": { "stone": 18, "iron": 8 },
       "allowedBiomes": ["grassland", "steppe", "beach"],
-      "buildable": false
+      "buildable": false,
+      "upgradesTo": "apartment",
+      "upgradeCost": { "steel": 10, "machine_parts": 4 }
     },
     {
       "id": "iron_mine",
@@ -233,6 +235,46 @@
       "workerSlots": 3,
       "buildCost": { "stone": 15, "bronze": 5 },
       "recipe": { "input": { "bronze": 1, "planks": 1 }, "output": { "tools": 3 }, "timeTicks": 55 },
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "apartment",
+      "category": "housing",
+      "mapColor": "#7A4632",
+      "footprint": [1, 1],
+      "housingCapacity": 40,
+      "buildCost": { "steel": 14, "machine_parts": 6 },
+      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "buildable": false
+    },
+    {
+      "id": "steel_mill",
+      "category": "production",
+      "mapColor": "#71797E",
+      "footprint": [2, 2],
+      "workerSlots": 6,
+      "buildCost": { "stone": 30, "iron": 12 },
+      "recipe": { "input": { "iron": 2, "coal": 2 }, "output": { "steel": 1 }, "timeTicks": 60 },
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "coal_power_plant",
+      "category": "power",
+      "mapColor": "#4A4A4A",
+      "footprint": [2, 2],
+      "buildCost": { "steel": 12, "iron": 10 },
+      "powerSupply": 25,
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "factory",
+      "category": "production",
+      "mapColor": "#546E7A",
+      "footprint": [2, 2],
+      "workerSlots": 6,
+      "buildCost": { "steel": 16, "machine_parts": 4 },
+      "recipe": { "input": { "steel": 2 }, "output": { "machine_parts": 2 }, "timeTicks": 55 },
+      "powerDemand": 10,
       "allowedBiomes": ["grassland", "steppe", "beach"]
     }
   ]

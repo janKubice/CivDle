@@ -42,7 +42,8 @@ public class StorageTests
             AllowedBiomes: new[] { false, true },
             StorageBonus: Array.Empty<ResourceAmount>(),
             AutoBuild: false,
-            Buildable: true, UpgradesToIndex: -1, UpgradeCost: Array.Empty<ResourceAmount>());
+            Buildable: true, UpgradesToIndex: -1, UpgradeCost: Array.Empty<ResourceAmount>(),
+            PowerSupply: 0, PowerDemand: 0);
         var warehouse = new BuildingDef(
             "warehouse", "test", new RgbColor(120, 90, 60), 1, 1,
             WorkerSlots: 0, HousingCapacity: 0,
@@ -51,7 +52,8 @@ public class StorageTests
             AllowedBiomes: new[] { false, true },
             StorageBonus: new[] { new ResourceAmount(0, 10) },
             AutoBuild: false,
-            Buildable: true, UpgradesToIndex: -1, UpgradeCost: Array.Empty<ResourceAmount>());
+            Buildable: true, UpgradesToIndex: -1, UpgradeCost: Array.Empty<ResourceAmount>(),
+            PowerSupply: 0, PowerDemand: 0);
 
         var gameplay = TestContent.DefaultGameplay with { FoodPerPersonPerSecond = 0, FoodResourceIndex = 1 };
         return TestContent.Build(biomes, 1, resources, new[] { producer, warehouse }, gameplay);

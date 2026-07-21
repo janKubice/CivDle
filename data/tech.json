@@ -40,6 +40,18 @@
       "cost": { "bronze": 30, "iron": 20 },
       "prerequisites": ["iron_working"],
       "unlocks": ["iron_forge"]
+    },
+    {
+      "id": "steam_power",
+      "cost": { "iron": 40, "coal": 40 },
+      "prerequisites": ["iron_working"],
+      "unlocks": ["steel_mill"]
+    },
+    {
+      "id": "electrification",
+      "cost": { "steel": 30, "iron": 30 },
+      "prerequisites": ["steam_power"],
+      "unlocks": ["coal_power_plant", "factory"]
     }
   ]
 }

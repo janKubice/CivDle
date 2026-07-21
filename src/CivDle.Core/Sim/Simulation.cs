@@ -175,6 +175,15 @@ public sealed class Simulation
     /// <summary>Součet pracovních míst výrobních budov — obsazenost škáluje výrobu.</summary>
     public int TotalWorkerSlots { get; private set; }
 
+    /// <summary>Celkový výkon elektráren (jednotky elektřiny).</summary>
+    public int TotalPowerSupply { get; private set; }
+
+    /// <summary>Celková poptávka po elektřině (budovy, co ji potřebují).</summary>
+    public int TotalPowerDemand { get; private set; }
+
+    /// <summary>Pokrytí elektrické sítě (0–1): škáluje výrobu budov závislých na proudu.</summary>
+    public double PowerFactor => TotalPowerDemand == 0 ? 1.0 : Math.Min(1.0, (double)TotalPowerSupply / TotalPowerDemand);
+
     /// <summary>Postavené budovy (jen ke čtení; render z nich kreslí).</summary>
     public ReadOnlySpan<BuildingInstance> Buildings => _buildings.AsSpan(0, _buildingCount);
 
@@ -998,6 +1007,8 @@ public sealed class Simulation
     {
         HousingCapacity += (int)(def.HousingCapacity * _bonuses.HousingMult);
         TotalWorkerSlots += def.WorkerSlots;
+        TotalPowerSupply += def.PowerSupply;
+        TotalPowerDemand += def.PowerDemand;
         for (int i = 0; i < def.StorageBonus.Count; i++)
         {
             _storageCaps[def.StorageBonus[i].ResourceIndex] += def.StorageBonus[i].Amount * _bonuses.StorageMult;
@@ -1009,6 +1020,8 @@ public sealed class Simulation
     {
         HousingCapacity -= (int)(def.HousingCapacity * _bonuses.HousingMult);
         TotalWorkerSlots -= def.WorkerSlots;
+        TotalPowerSupply -= def.PowerSupply;
+        TotalPowerDemand -= def.PowerDemand;
         for (int i = 0; i < def.StorageBonus.Count; i++)
         {
             _storageCaps[def.StorageBonus[i].ResourceIndex] -= def.StorageBonus[i].Amount * _bonuses.StorageMult;
@@ -1122,6 +1135,8 @@ public sealed class Simulation
     {
         HousingCapacity = _content.Gameplay.BaseHousingCapacity;
         TotalWorkerSlots = 0;
+        TotalPowerSupply = 0;
+        TotalPowerDemand = 0;
         for (int i = 0; i < _storageCaps.Length; i++)
         {
             _storageCaps[i] = _content.Resources[i].BaseStorage * _bonuses.StorageMult;

@@ -409,10 +409,16 @@ public sealed class ContentLoader
             }
         }
 
+        if (dto.PowerSupply is < 0 or > 1_000_000 || dto.PowerDemand is < 0 or > 1_000_000)
+        {
+            throw new ContentLoadException(path, $"Budova '{id}': 'powerSupply' i 'powerDemand' musí být 0–1000000.");
+        }
+
         return new BuildingDef(
             id, category, color, dto.Footprint[0], dto.Footprint[1],
             dto.WorkerSlots, dto.HousingCapacity, buildCost, recipe, mask,
-            storageBonus, dto.AutoBuild, dto.Buildable ?? true, upgradesToIndex, upgradeCost);
+            storageBonus, dto.AutoBuild, dto.Buildable ?? true, upgradesToIndex, upgradeCost,
+            dto.PowerSupply, dto.PowerDemand);
     }
 
     // ----- tech tree -----

@@ -45,7 +45,9 @@ public sealed record BuildingDto(
     bool AutoBuild,
     bool? Buildable,
     string? UpgradesTo,
-    Dictionary<string, int>? UpgradeCost);
+    Dictionary<string, int>? UpgradeCost,
+    int PowerSupply,
+    int PowerDemand);
 
 /// <summary>Výrobní recept budovy tak, jak leží v JSON.</summary>
 public sealed record RecipeDto(

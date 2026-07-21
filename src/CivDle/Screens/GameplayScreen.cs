@@ -68,6 +68,7 @@ public sealed class GameplayScreen : IScreen
     private float _rateTimer;
     private Label _populationLabel = null!;
     private Label _eraLabel = null!;
+    private Label _powerLabel = null!;
     private Label _dayLabel = null!;
     private Label _cursorLabel = null!;
     private Label _statusLabel = null!;
@@ -836,10 +837,12 @@ public sealed class GameplayScreen : IScreen
 
         // Pravý horní roh: éra + den/čas + dlaždice pod kurzorem.
         _eraLabel = new Label { TextColor = new Color(210, 185, 120), HorizontalAlignment = HorizontalAlignment.Right };
+        _powerLabel = new Label { TextColor = new Color(120, 200, 240), HorizontalAlignment = HorizontalAlignment.Right };
         _dayLabel = new Label { TextColor = UiFactory.Accent };
         _cursorLabel = new Label { TextColor = Color.LightGray };
         var worldInfoStack = new VerticalStackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Right };
         worldInfoStack.Widgets.Add(_eraLabel);
+        worldInfoStack.Widgets.Add(_powerLabel);
         worldInfoStack.Widgets.Add(_dayLabel);
         worldInfoStack.Widgets.Add(_cursorLabel);
         var topRight = UiFactory.DarkPanel(worldInfoStack);
@@ -1172,6 +1175,19 @@ public sealed class GameplayScreen : IScreen
         var eras = _screens.Content.Eras;
         int eraIndex = _simulation.CurrentEraIndex;
         _eraLabel.Text = eraIndex >= 0 ? loc.Format("hud.era", loc[eras[eraIndex].NameKey]) : string.Empty;
+
+        // Rozvodná síť: zobraz se až když má město spotřebiče; červená = nedostatek.
+        if (_simulation.TotalPowerDemand > 0)
+        {
+            _powerLabel.Text = loc.Format("hud.power", _simulation.TotalPowerSupply, _simulation.TotalPowerDemand);
+            _powerLabel.TextColor = _simulation.TotalPowerSupply < _simulation.TotalPowerDemand
+                ? new Color(235, 120, 90)
+                : new Color(120, 200, 240);
+        }
+        else
+        {
+            _powerLabel.Text = string.Empty;
+        }
 
         double hours = _simulation.TimeOfDay01 * 24.0;
         _dayLabel.Text = loc.Format("hud.day", _simulation.DayNumber, (int)hours, (int)((hours - (int)hours) * 60));

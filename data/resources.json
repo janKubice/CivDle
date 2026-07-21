@@ -10,6 +10,8 @@
     { "id": "bronze", "mapColor": "#CD7F32", "startAmount": 0, "baseStorage": 80 },
     { "id": "iron_ore", "mapColor": "#8C8C94", "startAmount": 0, "baseStorage": 100 },
     { "id": "coal", "mapColor": "#2B2B2B", "startAmount": 0, "baseStorage": 100 },
-    { "id": "iron", "mapColor": "#B0B0B8", "startAmount": 0, "baseStorage": 80 }
+    { "id": "iron", "mapColor": "#B0B0B8", "startAmount": 0, "baseStorage": 80 },
+    { "id": "steel", "mapColor": "#71797E", "startAmount": 0, "baseStorage": 70 },
+    { "id": "machine_parts", "mapColor": "#546E7A", "startAmount": 0, "baseStorage": 60 }
   ]
 }

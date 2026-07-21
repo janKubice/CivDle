@@ -187,7 +187,8 @@ public class SimulationTests
             AllowedBiomes: new[] { false, true },
             StorageBonus: Array.Empty<ResourceAmount>(),
             AutoBuild: false,
-            Buildable: true, UpgradesToIndex: -1, UpgradeCost: Array.Empty<ResourceAmount>());
+            Buildable: true, UpgradesToIndex: -1, UpgradeCost: Array.Empty<ResourceAmount>(),
+            PowerSupply: 0, PowerDemand: 0);
         // Spotřeba jídla vypnutá — test měří jen výrobu, ne ujídání „dřeva jako jídla".
         var gameplay = TestContent.DefaultGameplay with { FoodPerPersonPerSecond = 0 };
         var content = TestContent.Build(biomes, 1, resources, new[] { sawmill }, gameplay);

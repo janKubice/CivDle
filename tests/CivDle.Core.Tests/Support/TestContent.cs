@@ -116,5 +116,7 @@ internal static class TestContent
         AutoBuild: false,
         Buildable: buildable,
         UpgradesToIndex: upgradesToIndex,
-        UpgradeCost: upgradeCost ?? Array.Empty<ResourceAmount>());
+        UpgradeCost: upgradeCost ?? Array.Empty<ResourceAmount>(),
+        PowerSupply: 0,
+        PowerDemand: 0);
 }

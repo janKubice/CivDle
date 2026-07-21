@@ -33,16 +33,20 @@ internal sealed class ProductionSystem
         var resources = sim.Resources;
         var storageCaps = sim.StorageCaps;
 
+        float powerFactor = (float)sim.PowerFactor;
         for (int i = 0; i < buildings.Length; i++)
         {
             ref var building = ref buildings[i];
-            var recipe = _content.Buildings[building.DefIndex].Recipe;
+            var def = _content.Buildings[building.DefIndex];
+            var recipe = def.Recipe;
             if (recipe is null)
             {
                 continue;
             }
 
-            building.Progress += staffing;
+            // Budovy závislé na proudu zpomalí při nedostatečném pokrytí sítě
+            // (spotřebují vstupy pomaleji — žádný tvrdý trest, jen míň výkonu).
+            building.Progress += def.NeedsPower ? staffing * powerFactor : staffing;
             if (building.Progress < recipe.TimeTicks)
             {
                 continue;
