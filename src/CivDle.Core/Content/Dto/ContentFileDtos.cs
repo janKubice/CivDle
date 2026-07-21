@@ -122,6 +122,37 @@ public sealed record TechDto(
     string[]? Prerequisites,
     string[]? Unlocks);
 
+/// <summary>
+/// Podmínka cíle/achievementu/Vzestupu tak, jak leží v JSON: metrika + práh + volitelný
+/// odkaz (surovina/budova/technologie). Sdílené napříč prestige, úkoly a achievementy.
+/// </summary>
+public sealed record GoalConditionDto(
+    string? Metric,
+    string? Resource,
+    string? Building,
+    string? Tech,
+    long Target);
+
+/// <summary>Obsah souboru <c>data/prestige.json</c> (Vzestup + trvalé upgrady).</summary>
+public sealed record PrestigeFileDto(
+    int SchemaVersion,
+    PrestigeAscensionDto? Ascension,
+    List<PrestigeUpgradeDto>? Upgrades);
+
+/// <summary>Nastavení dostupnosti a odměny Vzestupu tak, jak leží v JSON.</summary>
+public sealed record PrestigeAscensionDto(GoalConditionDto? Requirement, PrestigePointsDto? Points);
+
+/// <summary>Jak se z metriky počítají body Vzestupu.</summary>
+public sealed record PrestigePointsDto(string? Metric, string? Resource, long Divisor);
+
+/// <summary>Jeden trvalý upgrade Vzestupu tak, jak leží v JSON.</summary>
+public sealed record PrestigeUpgradeDto(
+    string? Id,
+    string? Effect,
+    double Magnitude,
+    int Cost,
+    string[]? Prerequisites);
+
 /// <summary>Obsah souboru <c>data/devlog.json</c>.</summary>
 public sealed record DevlogFileDto(int SchemaVersion, List<DevlogEntryDto>? Entries);
 

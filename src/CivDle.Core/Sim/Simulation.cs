@@ -33,8 +33,10 @@ public sealed class Simulation
 
     private readonly bool[] _buildingUnlocked;
     private readonly bool[] _techResearched;
+    private readonly bool[] _upgradesPurchased; // koupené trvalé upgrady Vzestupu
     private readonly long[] _harvestedTotals; // kumulativní sběr surovin klikáním (metriky cílů)
     private readonly Queue<GameNotification> _notifications = new();
+    private PrestigeBonuses _bonuses = PrestigeBonuses.None;
 
     private BuildingInstance[] _buildings = new BuildingInstance[16];
     private int _buildingCount;
@@ -58,6 +60,7 @@ public sealed class Simulation
         }
 
         _techResearched = new bool[content.Techs.Count];
+        _upgradesPurchased = new bool[content.PrestigeUpgrades.Count];
         _harvestedTotals = new long[content.Resources.Count];
 
         _resources = new double[content.Resources.Count];
@@ -117,6 +120,12 @@ public sealed class Simulation
 
     /// <summary>Počet dosažených Vzestupů (prestige). Řídí prestige systém; metriky ho čtou.</summary>
     public int AscensionLevel { get; internal set; }
+
+    /// <summary>Nasbírané body Vzestupu (trvalá měna na permanentní upgrady).</summary>
+    public long PrestigePoints { get; internal set; }
+
+    /// <summary>Aktuální trvalé násobiče z koupených upgradů Vzestupu (systémy je čtou).</summary>
+    public PrestigeBonuses Bonuses => _bonuses;
 
     /// <summary>Kolik lidí se vejde (základní tábor + domy).</summary>
     public int HousingCapacity { get; private set; }
@@ -308,16 +317,19 @@ public sealed class Simulation
             return false;
         }
 
-        // Plný sklad = žádný sběr (a žádný lživý „+2" popup v UI).
-        if (_resources[yield.ResourceIndex] + yield.Amount > _storageCaps[yield.ResourceIndex])
+        // Trvalý bonus Vzestupu zvedá výnos kliknutí (nejmíň o původní hodnotu).
+        int gained = Math.Max(yield.Amount, (int)Math.Round(yield.Amount * _bonuses.HarvestMult));
+
+        // Plný sklad = žádný sběr (a žádný lživý popup v UI).
+        if (_resources[yield.ResourceIndex] + gained > _storageCaps[yield.ResourceIndex])
         {
             return false;
         }
 
-        _resources[yield.ResourceIndex] += yield.Amount;
-        _harvestedTotals[yield.ResourceIndex] += yield.Amount;
+        _resources[yield.ResourceIndex] += gained;
+        _harvestedTotals[yield.ResourceIndex] += gained;
         resourceIndex = yield.ResourceIndex;
-        amount = yield.Amount;
+        amount = gained;
         return true;
     }
 
@@ -549,26 +561,178 @@ public sealed class Simulation
         }
     }
 
-    /// <summary>Globální bonusy budovy: bydlení, pracovní místa, kapacita skladů.</summary>
+    /// <summary>Globální bonusy budovy: bydlení, pracovní místa, kapacita skladů (× bonusy Vzestupu).</summary>
     private void ApplyBuildingBonuses(BuildingDef def)
     {
-        HousingCapacity += def.HousingCapacity;
+        HousingCapacity += (int)(def.HousingCapacity * _bonuses.HousingMult);
         TotalWorkerSlots += def.WorkerSlots;
         for (int i = 0; i < def.StorageBonus.Count; i++)
         {
-            _storageCaps[def.StorageBonus[i].ResourceIndex] += def.StorageBonus[i].Amount;
+            _storageCaps[def.StorageBonus[i].ResourceIndex] += def.StorageBonus[i].Amount * _bonuses.StorageMult;
         }
     }
 
     /// <summary>Odebere globální bonusy budovy (vylepšení nahrazuje starou úroveň novou).</summary>
     private void RemoveBuildingBonuses(BuildingDef def)
     {
-        HousingCapacity -= def.HousingCapacity;
+        HousingCapacity -= (int)(def.HousingCapacity * _bonuses.HousingMult);
         TotalWorkerSlots -= def.WorkerSlots;
         for (int i = 0; i < def.StorageBonus.Count; i++)
         {
-            _storageCaps[def.StorageBonus[i].ResourceIndex] -= def.StorageBonus[i].Amount;
+            _storageCaps[def.StorageBonus[i].ResourceIndex] -= def.StorageBonus[i].Amount * _bonuses.StorageMult;
         }
+    }
+
+    // ----- Vzestup (prestige) -----
+
+    /// <summary>Je splněná podmínka pro Vzestup?</summary>
+    public bool CanAscend() =>
+        EvaluateMetric(_content.Prestige.Requirement.Kind, _content.Prestige.Requirement.Param)
+            >= _content.Prestige.Requirement.Target;
+
+    /// <summary>Kolik bodů Vzestupu by teď Vzestup udělil.</summary>
+    public long PendingAscensionPoints()
+    {
+        var prestige = _content.Prestige;
+        long metric = EvaluateMetric(prestige.PointsMetric, prestige.PointsParam);
+        return metric / prestige.PointsDivisor;
+    }
+
+    /// <summary>Je trvalý upgrade Vzestupu koupený?</summary>
+    public bool IsUpgradePurchased(int upgradeIndex) => _upgradesPurchased[upgradeIndex];
+
+    /// <summary>Lze upgrade koupit (splněné prereky, dost bodů, ještě nekoupený)?</summary>
+    public PlacementResult CanBuyUpgrade(int upgradeIndex)
+    {
+        if (_upgradesPurchased[upgradeIndex])
+        {
+            return PlacementResult.Occupied; // už koupený
+        }
+
+        var upgrade = _content.PrestigeUpgrades[upgradeIndex];
+        foreach (int prereq in upgrade.PrerequisiteIndices)
+        {
+            if (!_upgradesPurchased[prereq])
+            {
+                return PlacementResult.NotUnlocked;
+            }
+        }
+
+        return PrestigePoints < upgrade.Cost ? PlacementResult.NotEnoughResources : PlacementResult.Ok;
+    }
+
+    /// <summary>Koupí trvalý upgrade Vzestupu — odečte body a přepočítá bonusy i odvozený stav.</summary>
+    public PlacementResult TryBuyUpgrade(int upgradeIndex)
+    {
+        var result = CanBuyUpgrade(upgradeIndex);
+        if (result != PlacementResult.Ok)
+        {
+            return result;
+        }
+
+        PrestigePoints -= _content.PrestigeUpgrades[upgradeIndex].Cost;
+        _upgradesPurchased[upgradeIndex] = true;
+        RecomputeBonuses();
+        RecomputeDerivedState();
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>
+    /// Vzestup: udělí body podle dosaženého pokroku, zvýší úroveň a začne novou éru
+    /// (resetuje mapu) — trvalé upgrady a body zůstávají. Zdroj háčku dema.
+    /// </summary>
+    public PlacementResult TryAscend()
+    {
+        if (!CanAscend())
+        {
+            return PlacementResult.NotEnoughResources;
+        }
+
+        PrestigePoints += PendingAscensionPoints();
+        AscensionLevel++;
+        ResetEra();
+        EnqueueNotification(new GameNotification(NotificationKind.Ascended, "toast.ascended", "prestige.ascendedSubject"));
+        return PlacementResult.Ok;
+    }
+
+    private void RecomputeBonuses()
+    {
+        double production = 1.0, harvest = 1.0, growth = 1.0, housing = 1.0, storage = 1.0, start = 1.0;
+        for (int i = 0; i < _upgradesPurchased.Length; i++)
+        {
+            if (!_upgradesPurchased[i])
+            {
+                continue;
+            }
+
+            var upgrade = _content.PrestigeUpgrades[i];
+            switch (upgrade.Effect)
+            {
+                case "production_mult": production += upgrade.Magnitude; break;
+                case "harvest_mult": harvest += upgrade.Magnitude; break;
+                case "growth_mult": growth += upgrade.Magnitude; break;
+                case "housing_mult": housing += upgrade.Magnitude; break;
+                case "storage_mult": storage += upgrade.Magnitude; break;
+                case "start_resources": start += upgrade.Magnitude; break;
+            }
+        }
+
+        _bonuses = new PrestigeBonuses(production, harvest, growth, housing, storage, start);
+    }
+
+    /// <summary>
+    /// Přepočítá odvozený stav (bydlení, pracovní místa, kapacity skladů) z nuly
+    /// podle aktuálních budov a bonusů Vzestupu. Volá se po koupi upgradu, po Vzestupu
+    /// a po načtení savu — drží stav konzistentní bez ohledu na pořadí změn.
+    /// </summary>
+    internal void RecomputeDerivedState()
+    {
+        HousingCapacity = _content.Gameplay.BaseHousingCapacity;
+        TotalWorkerSlots = 0;
+        for (int i = 0; i < _storageCaps.Length; i++)
+        {
+            _storageCaps[i] = _content.Resources[i].BaseStorage * _bonuses.StorageMult;
+        }
+
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            ApplyBuildingBonuses(_content.Buildings[_buildings[i].DefIndex]);
+        }
+
+        for (int i = 0; i < _resources.Length; i++)
+        {
+            _resources[i] = Math.Min(_resources[i], _storageCaps[i]);
+        }
+    }
+
+    private void ResetEra()
+    {
+        _occupancy.Clear();
+        _roads.Clear();
+        _roadTiles.Clear();
+        _settlements.Clear();
+        _buildingCount = 0;
+
+        Array.Clear(_techResearched);
+        Array.Fill(_buildingUnlocked, true);
+        foreach (var tech in _content.Techs.All)
+        {
+            foreach (int buildingIndex in tech.UnlockedBuildingIndices)
+            {
+                _buildingUnlocked[buildingIndex] = false;
+            }
+        }
+
+        RecomputeBonuses();
+        RecomputeDerivedState(); // bez budov → základní kapacity × StorageMult
+        for (int i = 0; i < _resources.Length; i++)
+        {
+            _resources[i] = Math.Min(_content.Resources[i].StartAmount * _bonuses.StartResourceMult, _storageCaps[i]);
+        }
+
+        Population = _content.Gameplay.StartingPopulation;
+        TickCount = 0;
+        SettlementsDirty = true;
     }
 
     /// <summary>Indexy vyzkoumaných technologií (pro serializaci savu).</summary>
@@ -581,5 +745,37 @@ public sealed class Simulation
                 yield return i;
             }
         }
+    }
+
+    /// <summary>Nastaví úroveň a body Vzestupu při načtení savu.</summary>
+    internal void RestoreAscension(int ascensionLevel, long prestigePoints)
+    {
+        AscensionLevel = ascensionLevel;
+        PrestigePoints = prestigePoints;
+    }
+
+    /// <summary>Označí koupený upgrade Vzestupu při načtení savu (bonusy dopočítá <see cref="FinalizeLoad"/>).</summary>
+    internal void RestoreUpgrade(int upgradeIndex) => _upgradesPurchased[upgradeIndex] = true;
+
+    /// <summary>Indexy koupených upgradů Vzestupu (pro serializaci savu).</summary>
+    internal IEnumerable<int> PurchasedUpgradeIndices()
+    {
+        for (int i = 0; i < _upgradesPurchased.Length; i++)
+        {
+            if (_upgradesPurchased[i])
+            {
+                yield return i;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Dokončí načtení savu: z koupených upgradů spočítá bonusy a přepočítá odvozený
+    /// stav (bydlení, sklady) — budovy se při načtení přičítaly ještě bez bonusů.
+    /// </summary>
+    internal void FinalizeLoad()
+    {
+        RecomputeBonuses();
+        RecomputeDerivedState();
     }
 }

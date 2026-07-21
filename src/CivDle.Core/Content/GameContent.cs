@@ -12,6 +12,8 @@ public sealed class GameContent
         DefRegistry<Resource> resources,
         DefRegistry<BuildingDef> buildings,
         DefRegistry<TechDef> techs,
+        PrestigeConfig prestige,
+        DefRegistry<PrestigeUpgradeDef> prestigeUpgrades,
         WorldGenCatalog worldGen,
         GameplayConfig gameplay,
         DefRegistry<LanguageDef> languages,
@@ -24,6 +26,8 @@ public sealed class GameContent
         Resources = resources;
         Buildings = buildings;
         Techs = techs;
+        Prestige = prestige;
+        PrestigeUpgrades = prestigeUpgrades;
         WorldGen = worldGen;
         Gameplay = gameplay;
         Languages = languages;
@@ -35,6 +39,12 @@ public sealed class GameContent
 
     /// <summary>Definice technologií z <c>data/tech.json</c> (tech tree).</summary>
     public DefRegistry<TechDef> Techs { get; }
+
+    /// <summary>Nastavení Vzestupu z <c>data/prestige.json</c>.</summary>
+    public PrestigeConfig Prestige { get; }
+
+    /// <summary>Trvalé upgrady Vzestupu z <c>data/prestige.json</c> (smí být prázdné).</summary>
+    public DefRegistry<PrestigeUpgradeDef> PrestigeUpgrades { get; }
 
     /// <summary>Vývojový deník z <c>data/devlog.json</c> (smí být prázdný).</summary>
     public IReadOnlyList<DevlogEntry> Devlog { get; }

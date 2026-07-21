@@ -106,9 +106,11 @@ public sealed class GameplayScreen : IScreen
     public void OnActivated()
     {
         _input.Resync();
-        // Návrat z overlaye (výzkum, detail budovy) mohl odemknout budovy —
-        // stavební menu proto přebuduj podle aktuálního stavu.
+        // Návrat z overlaye (výzkum, detail budovy, Vzestup) mohl odemknout budovy
+        // nebo zresetovat éru — stavební menu přebuduj a srovnej počítadlo budov,
+        // ať po Vzestupu (reset na 0 budov) nevystřelí prach za „nové" budovy.
         RefreshBuildMenu();
+        _knownBuildingCount = _simulation.Buildings.Length;
     }
 
     public void Update(GameTime gameTime)
@@ -530,6 +532,9 @@ public sealed class GameplayScreen : IScreen
             stack.Widgets.Add(UiFactory.SmallButton(loc["hud.tech"],
                 () => _screens.Push(new TechScreen(_screens, _simulation))));
         }
+
+        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.ascend"],
+            () => _screens.Push(new AscensionScreen(_screens, _simulation))));
 
         var panel = UiFactory.DarkPanel(stack);
         panel.HorizontalAlignment = HorizontalAlignment.Left;

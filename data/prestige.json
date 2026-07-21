@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "ascension": {
+    "requirement": { "metric": "population", "target": 50 },
+    "points": { "metric": "population", "divisor": 15 }
+  },
+  "upgrades": [
+    { "id": "industrious",    "effect": "production_mult", "magnitude": 0.30, "cost": 1 },
+    { "id": "sharp_tools",    "effect": "harvest_mult",    "magnitude": 0.50, "cost": 1 },
+    { "id": "fertile",        "effect": "growth_mult",     "magnitude": 0.35, "cost": 1 },
+    { "id": "granaries",      "effect": "storage_mult",    "magnitude": 0.50, "cost": 2 },
+    { "id": "spacious",       "effect": "housing_mult",    "magnitude": 0.40, "cost": 2, "prerequisites": ["fertile"] },
+    { "id": "legacy",         "effect": "start_resources", "magnitude": 1.00, "cost": 2, "prerequisites": ["industrious"] },
+    { "id": "manufactories",  "effect": "production_mult", "magnitude": 0.60, "cost": 3, "prerequisites": ["industrious"] },
+    { "id": "population_boom", "effect": "growth_mult",    "magnitude": 0.75, "cost": 3, "prerequisites": ["fertile"] },
+    { "id": "great_depots",   "effect": "storage_mult",    "magnitude": 1.00, "cost": 4, "prerequisites": ["granaries"] }
+  ]
+}

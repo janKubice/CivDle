@@ -61,12 +61,13 @@ internal sealed class ProductionSystem
                 resources[recipe.Inputs[j].ResourceIndex] -= recipe.Inputs[j].Amount;
             }
 
+            double productionMult = sim.Bonuses.ProductionMult;
             for (int j = 0; j < recipe.Outputs.Count; j++)
             {
                 int index = recipe.Outputs[j].ResourceIndex;
                 // Plný sklad výrobu nezastaví, přebytek propadá (idle konvence) —
-                // motivace stavět sklady, žádný trest.
-                resources[index] = Math.Min(resources[index] + recipe.Outputs[j].Amount, storageCaps[index]);
+                // motivace stavět sklady, žádný trest. Trvalý bonus Vzestupu zvedá výstup.
+                resources[index] = Math.Min(resources[index] + recipe.Outputs[j].Amount * productionMult, storageCaps[index]);
             }
 
             building.Progress -= recipe.TimeTicks;

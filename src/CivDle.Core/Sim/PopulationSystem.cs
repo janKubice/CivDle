@@ -26,12 +26,13 @@ internal sealed class PopulationSystem
         resources[_config.FoodResourceIndex] = food - eaten;
 
         // Roste se jen s plným břichem a volnou kapacitou bydlení.
+        // Trvalý bonus Vzestupu růst zrychluje.
         bool fed = eaten >= demand - 1e-9;
         if (fed && sim.Population < sim.HousingCapacity)
         {
             sim.Population = Math.Min(
                 sim.HousingCapacity,
-                sim.Population + _config.PopulationGrowthPerSecond * dt);
+                sim.Population + _config.PopulationGrowthPerSecond * dt * sim.Bonuses.GrowthMult);
         }
     }
 }

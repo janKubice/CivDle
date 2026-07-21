@@ -508,6 +508,16 @@ public class ContentLoaderTests : IDisposable
           ]
         }
         """);
+        Write("prestige.json", """
+        {
+          "schemaVersion": 1,
+          "ascension": {
+            "requirement": { "metric": "population", "target": 50 },
+            "points": { "metric": "population", "divisor": 15 }
+          },
+          "upgrades": []
+        }
+        """);
     }
 
     private void WriteWorldGen(string fallbackBiome = "grass", string? defaultPreset = null)

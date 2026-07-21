@@ -20,8 +20,8 @@ public sealed class SaveGameSerializer
 {
     private const string Magic = "CIVD";
 
-    /// <summary>Verze formátu — zvýšit při každé změně struktury. v4: + vyzkoumané technologie.</summary>
-    public const int FormatVersion = 4;
+    /// <summary>Verze formátu — zvýšit při každé změně struktury. v4: + technologie. v5: + Vzestup (úroveň, body, upgrady).</summary>
+    public const int FormatVersion = 5;
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -46,6 +46,7 @@ public sealed class SaveGameSerializer
         WriteBuildings(writer, simulation);
         WriteRoads(writer, simulation);
         WriteTech(writer, simulation);
+        WritePrestige(writer, simulation);
     }
 
     /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
@@ -88,6 +89,8 @@ public sealed class SaveGameSerializer
             ReadBuildings(reader, content, simulation);
             ReadRoads(reader, simulation);
             ReadTech(reader, content, simulation);
+            ReadPrestige(reader, content, simulation);
+            simulation.FinalizeLoad(); // bonusy Vzestupu → přepočet bydlení/skladů
 
             return (simulation, metadata);
         }
@@ -224,6 +227,44 @@ public sealed class SaveGameSerializer
 
             // Smazaná technologie v datech se ze savu tiše přeskočí (odemčení
             // budov by stejně chybělo — nedělá se z toho chyba).
+        }
+    }
+
+    private static void WritePrestige(BinaryWriter writer, Simulation simulation)
+    {
+        writer.Write(simulation.AscensionLevel);
+        writer.Write(simulation.PrestigePoints);
+
+        var upgradeDefs = SimContent(simulation).PrestigeUpgrades;
+        var purchased = simulation.PurchasedUpgradeIndices().ToList();
+        writer.Write(purchased.Count);
+        foreach (int index in purchased)
+        {
+            writer.Write(upgradeDefs[index].Id);
+        }
+    }
+
+    private static void ReadPrestige(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        int ascensionLevel = reader.ReadInt32();
+        long points = reader.ReadInt64();
+        if (ascensionLevel < 0 || points < 0)
+        {
+            throw new SaveLoadException($"Save má nesmyslný stav Vzestupu (úroveň {ascensionLevel}, body {points}).");
+        }
+
+        simulation.RestoreAscension(ascensionLevel, points);
+
+        int count = ReadCount(reader, max: 100_000, what: "upgradů Vzestupu");
+        for (int i = 0; i < count; i++)
+        {
+            string id = reader.ReadString();
+            if (content.PrestigeUpgrades.TryIndexOf(id, out int index))
+            {
+                simulation.RestoreUpgrade(index);
+            }
+
+            // Smazaný upgrade v datech se ze savu tiše přeskočí.
         }
     }
 

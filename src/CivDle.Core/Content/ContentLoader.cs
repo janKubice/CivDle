@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CivDle.Core.Content.Dto;
+using CivDle.Core.Sim;
 
 namespace CivDle.Core.Content;
 
@@ -35,15 +36,18 @@ public sealed class ContentLoader
         var biomes = LoadBiomes(Path.Combine(dataDirectory, "biomes.json"), resources);
         var buildings = LoadBuildings(Path.Combine(dataDirectory, "buildings.json"), biomes, resources);
         var techs = LoadTech(Path.Combine(dataDirectory, "tech.json"), buildings, resources);
+        var (prestige, prestigeUpgrades) = LoadPrestige(Path.Combine(dataDirectory, "prestige.json"), resources, buildings, techs);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
 
-        return new GameContent(biomes, resources, buildings, techs, worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog);
+        return new GameContent(
+            biomes, resources, buildings, techs, prestige, prestigeUpgrades,
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog);
     }
 
     // ----- biomy -----
@@ -438,6 +442,139 @@ public sealed class ContentLoader
         return new DefRegistry<TechDef>(techs, t => t.Id, "technologie", allowEmpty: true);
     }
 
+    // ----- Vzestup (prestige) -----
+
+    private static readonly HashSet<string> KnownPrestigeEffects = new(StringComparer.Ordinal)
+    {
+        "production_mult", "harvest_mult", "growth_mult", "housing_mult", "storage_mult", "start_resources",
+    };
+
+    private static (PrestigeConfig Config, DefRegistry<PrestigeUpgradeDef> Upgrades) LoadPrestige(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        var file = ReadFile<PrestigeFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        if (file.Ascension?.Requirement is null || file.Ascension.Points is null)
+        {
+            throw new ContentLoadException(path, "Chybí blok 'ascension' s 'requirement' a 'points'.");
+        }
+
+        var requirement = ParseCondition(path, "ascension.requirement", file.Ascension.Requirement, resources, buildings, techs);
+        var points = file.Ascension.Points;
+        if (points.Divisor < 1)
+        {
+            throw new ContentLoadException(path, $"'ascension.points.divisor' musí být ≥ 1, je {points.Divisor}.");
+        }
+
+        var (pointsMetric, pointsParam) = ParseMetric(
+            path, "ascension.points", points.Metric, points.Resource, building: null, tech: null, resources, buildings, techs);
+
+        var dtos = file.Upgrades ?? new List<PrestigeUpgradeDto>();
+        var idToIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            string id = RequireId(path, dtos[i].Id, $"Upgrade Vzestupu na pozici {i}");
+            if (!idToIndex.TryAdd(id, i))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID upgradu Vzestupu '{id}'.");
+            }
+        }
+
+        var upgrades = new List<PrestigeUpgradeDef>(dtos.Count);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = dto.Id!.Trim();
+            string effect = (dto.Effect ?? string.Empty).Trim();
+            if (!KnownPrestigeEffects.Contains(effect))
+            {
+                throw new ContentLoadException(path, $"Upgrade '{id}': neznámý efekt '{dto.Effect}' (známé: {string.Join(", ", KnownPrestigeEffects)}).");
+            }
+
+            if (dto.Magnitude is <= 0 or > 100)
+            {
+                throw new ContentLoadException(path, $"Upgrade '{id}': 'magnitude' musí být v (0, 100], je {dto.Magnitude}.");
+            }
+
+            if (dto.Cost is < 1 or > 100_000)
+            {
+                throw new ContentLoadException(path, $"Upgrade '{id}': 'cost' musí být 1–100000, je {dto.Cost}.");
+            }
+
+            var prereqs = new List<int>();
+            foreach (var prereqId in dto.Prerequisites ?? Array.Empty<string>())
+            {
+                if (prereqId is null || !idToIndex.TryGetValue(prereqId.Trim(), out int prereqIndex))
+                {
+                    throw new ContentLoadException(path, $"Upgrade '{id}' odkazuje na neexistující prerekvizitu '{prereqId}'.");
+                }
+
+                if (prereqIndex == i)
+                {
+                    throw new ContentLoadException(path, $"Upgrade '{id}' nemůže být svou vlastní prerekvizitou.");
+                }
+
+                prereqs.Add(prereqIndex);
+            }
+
+            upgrades.Add(new PrestigeUpgradeDef(id, effect, dto.Magnitude, dto.Cost, prereqs));
+        }
+
+        var config = new PrestigeConfig(requirement, pointsMetric, pointsParam, points.Divisor);
+        return (config, new DefRegistry<PrestigeUpgradeDef>(upgrades, u => u.Id, "upgrade Vzestupu", allowEmpty: true));
+    }
+
+    /// <summary>
+    /// Přeloží podmínku (metrika + práh + odkaz) z JSON na typovaný <see cref="GoalCondition"/>.
+    /// Sdílené: Vzestup, úkoly, achievementy. Data říkají „co", kód „jak" — žádná logika v JSON.
+    /// </summary>
+    private static GoalCondition ParseCondition(
+        string path, string owner, GoalConditionDto dto,
+        DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        var (kind, param) = ParseMetric(path, owner, dto.Metric, dto.Resource, dto.Building, dto.Tech, resources, buildings, techs);
+
+        // Výzkum je binární (0/1) — bez explicitního prahu se bere 1.
+        long target = kind == MetricKind.ResearchedTech && dto.Target <= 0 ? 1 : dto.Target;
+        if (target < 1)
+        {
+            throw new ContentLoadException(path, $"{owner}: 'target' musí být ≥ 1, je {dto.Target}.");
+        }
+
+        return new GoalCondition(kind, param, target);
+    }
+
+    private static (MetricKind Kind, int Param) ParseMetric(
+        string path, string owner, string? metric, string? resource, string? building, string? tech,
+        DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        switch ((metric ?? string.Empty).Trim().ToLowerInvariant())
+        {
+            case "population": return (MetricKind.Population, -1);
+            case "housing": return (MetricKind.HousingCapacity, -1);
+            case "buildings": return (MetricKind.TotalBuildings, -1);
+            case "ascension": return (MetricKind.AscensionLevel, -1);
+            case "day": return (MetricKind.DayNumber, -1);
+            case "harvested": return (MetricKind.Harvested, ResolveRef(path, owner, "resource", resource, resources));
+            case "resource": return (MetricKind.ResourceStock, ResolveRef(path, owner, "resource", resource, resources));
+            case "building": return (MetricKind.BuildingOfType, ResolveRef(path, owner, "building", building, buildings));
+            case "research": return (MetricKind.ResearchedTech, ResolveRef(path, owner, "tech", tech, techs));
+            default: throw new ContentLoadException(path, $"{owner}: neznámá metrika '{metric}'.");
+        }
+    }
+
+    private static int ResolveRef<T>(string path, string owner, string field, string? id, DefRegistry<T> registry)
+        where T : class
+    {
+        if (id is null || !registry.TryIndexOf(id.Trim(), out int index))
+        {
+            throw new ContentLoadException(path, $"{owner}: metrika vyžaduje platné '{field}', ale '{id}' neexistuje.");
+        }
+
+        return index;
+    }
+
     private static IReadOnlyList<ResourceAmount> ParseResourceAmounts(
         string path, string ownerId, string field, Dictionary<string, int>? amounts, DefRegistry<Resource> resources)
     {
@@ -768,7 +905,8 @@ public sealed class ContentLoader
         DefRegistry<Resource> resources,
         DefRegistry<BuildingDef> buildings,
         WorldGenCatalog worldGen,
-        DefRegistry<TechDef> techs)
+        DefRegistry<TechDef> techs,
+        DefRegistry<PrestigeUpgradeDef> prestigeUpgrades)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -802,7 +940,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -815,7 +953,8 @@ public sealed class ContentLoader
         DefRegistry<Resource> resources,
         DefRegistry<BuildingDef> buildings,
         WorldGenCatalog worldGen,
-        DefRegistry<TechDef> techs)
+        DefRegistry<TechDef> techs,
+        DefRegistry<PrestigeUpgradeDef> prestigeUpgrades)
     {
         var required = new List<string>();
         required.AddRange(biomes.All.Select(b => b.NameKey));
@@ -825,6 +964,8 @@ public sealed class ContentLoader
         required.AddRange(worldGen.Presets.Select(p => p.NameKey));
         required.AddRange(techs.All.Select(t => t.NameKey));
         required.AddRange(techs.All.Select(t => t.DescriptionKey));
+        required.AddRange(prestigeUpgrades.All.Select(u => u.NameKey));
+        required.AddRange(prestigeUpgrades.All.Select(u => u.DescriptionKey));
 
         var missing = required.Where(key => !language.Strings.ContainsKey(key)).ToList();
         if (missing.Count > 0)
