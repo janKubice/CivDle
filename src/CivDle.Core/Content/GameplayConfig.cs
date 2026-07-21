@@ -56,8 +56,24 @@ public sealed record DayNightConfig(
 /// <param name="FoodResourceIndex">Která surovina je „jídlo" (odkaz z dat, ne natvrdo).</param>
 /// <param name="AutoBuild">Nastavení automatického růstu zástavby.</param>
 /// <param name="Roads">Nastavení auto-silnic.</param>
+/// <summary>
+/// Slavnost: aktivní tlačítko, které na chvíli zrychlí výrobu i sběr (engagement
+/// bez grindu). Přechodný stav — neukládá se.
+/// </summary>
+/// <param name="DurationSeconds">Jak dlouho slavnost trvá.</param>
+/// <param name="CooldownSeconds">Za jak dlouho od spuštění lze zas.</param>
+/// <param name="Multiplier">Násobič výroby a sběru během slavnosti.</param>
+public sealed record BoostConfig(int DurationSeconds, int CooldownSeconds, double Multiplier);
+
+/// <summary>Ruční sběr: šance na „krit" (velký výnos) — aktivní klikání se vyplatí.</summary>
+/// <param name="CritChance">Pravděpodobnost kritu (0–1) na jeden sběr.</param>
+/// <param name="CritMultiplier">Násobič výnosu při kritu.</param>
+public sealed record HarvestConfig(double CritChance, double CritMultiplier);
+
 /// <param name="Settlements">Nastavení detekce osad.</param>
 /// <param name="DayNight">Denní/noční cyklus.</param>
+/// <param name="Boost">Nastavení slavnosti (dočasný boost).</param>
+/// <param name="Harvest">Nastavení kritického sběru.</param>
 public sealed record GameplayConfig(
     double StartingPopulation,
     int BaseHousingCapacity,
@@ -67,4 +83,6 @@ public sealed record GameplayConfig(
     AutoBuildConfig AutoBuild,
     RoadConfig Roads,
     SettlementConfig Settlements,
-    DayNightConfig DayNight);
+    DayNightConfig DayNight,
+    BoostConfig Boost,
+    HarvestConfig Harvest);

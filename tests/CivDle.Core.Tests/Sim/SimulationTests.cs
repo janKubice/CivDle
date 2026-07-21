@@ -217,8 +217,8 @@ public class SimulationTests
 
         Assert.True(harvested);
         Assert.Equal(wood, resourceIndex);
-        Assert.Equal(2, amount);
-        Assert.Equal(woodBefore + 2, sim.GetResource(wood));
+        Assert.True(amount >= 2); // výnos lesa je 2, krit ho může znásobit
+        Assert.Equal(woodBefore + amount, sim.GetResource(wood));
     }
 
     [Fact]

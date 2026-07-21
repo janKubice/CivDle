@@ -61,7 +61,7 @@ internal sealed class ProductionSystem
                 resources[recipe.Inputs[j].ResourceIndex] -= recipe.Inputs[j].Amount;
             }
 
-            double productionMult = sim.Bonuses.ProductionMult;
+            double productionMult = sim.Bonuses.ProductionMult * sim.BoostMultiplier;
             for (int j = 0; j < recipe.Outputs.Count; j++)
             {
                 int index = recipe.Outputs[j].ResourceIndex;

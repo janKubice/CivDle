@@ -797,6 +797,23 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, "'dayNight.nightAlpha' i 'duskAlpha' musí být 0–1.");
         }
 
+        // Slavnost a kritický sběr jsou volitelné bloky s rozumnými výchozími hodnotami.
+        var boost = file.Boost is null
+            ? new BoostConfig(30, 120, 2.0)
+            : new BoostConfig(file.Boost.DurationSeconds, file.Boost.CooldownSeconds, file.Boost.Multiplier);
+        if (boost.DurationSeconds is < 1 or > 3600 || boost.CooldownSeconds < boost.DurationSeconds || boost.Multiplier is <= 1 or > 100)
+        {
+            throw new ContentLoadException(path, "'boost' musí mít 1≤duration≤cooldown a multiplier v (1, 100].");
+        }
+
+        var harvest = file.Harvest is null
+            ? new HarvestConfig(0.12, 5.0)
+            : new HarvestConfig(file.Harvest.CritChance, file.Harvest.CritMultiplier);
+        if (harvest.CritChance is < 0 or > 1 || harvest.CritMultiplier is < 1 or > 1000)
+        {
+            throw new ContentLoadException(path, "'harvest.critChance' musí být 0–1 a 'critMultiplier' 1–1000.");
+        }
+
         return new GameplayConfig(
             file.StartingPopulation,
             file.BaseHousingCapacity,
@@ -812,7 +829,9 @@ public sealed class ContentLoader
                 nightColor,
                 duskColor,
                 file.DayNight.NightAlpha,
-                file.DayNight.DuskAlpha));
+                file.DayNight.DuskAlpha),
+            boost,
+            harvest);
     }
 
     // ----- devlog (volitelný obsah menu) -----

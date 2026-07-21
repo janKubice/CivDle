@@ -71,6 +71,8 @@ public sealed class GameplayScreen : IScreen
     private readonly List<(CivDle.Core.Sim.GoalCondition Condition, Label Progress)> _goalSlots = new();
     private bool _goalsDirty = true;
     private OfflineSummary? _pendingOfflineSummary;
+    private Label _festivalLabel = null!;
+    private Button _festivalButton = null!;
 
     private int _selectedBuilding = -1;
     private int _ghostX;
@@ -471,7 +473,7 @@ public sealed class GameplayScreen : IScreen
             return;
         }
 
-        if (!_simulation.TryHarvest(tileX, tileY, out int resourceIndex, out int amount))
+        if (!_simulation.TryHarvest(tileX, tileY, out int resourceIndex, out int amount, out bool crit))
         {
             return;
         }
@@ -481,7 +483,18 @@ public sealed class GameplayScreen : IScreen
         var resourceColor = content.Resources[resourceIndex].MapColor.ToXna();
         var biomeColor = content.Biomes[_simulation.BiomeAt(tileX, tileY)].MapColor.ToXna();
 
-        _floatingText.Add(tileCenter, PopupText(resourceIndex, amount), resourceColor);
+        if (crit)
+        {
+            // Krit: zlatý velký popup + extra jiskry + cinknutí — aktivní klikání se vyplatí.
+            _floatingText.Add(tileCenter, _screens.Loc.Format("hud.crit", amount), new Color(255, 215, 80));
+            _particles.SpawnBurst(tileCenter, new Color(255, 215, 80), 20, 60f, 200f);
+            _sounds.PlayChime();
+        }
+        else
+        {
+            _floatingText.Add(tileCenter, PopupText(resourceIndex, amount), resourceColor);
+        }
+
         _sounds.PlayChop();
 
         bool felled = _harvestables.RegisterChop(tileX, tileY);
@@ -705,6 +718,23 @@ public sealed class GameplayScreen : IScreen
             () => _screens.Push(new AscensionScreen(_screens, _simulation))));
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.achievements"],
             () => _screens.Push(new AchievementsScreen(_screens, _simulation))));
+
+        // Slavnost: aktivní boost na kliknutí (stav se přepisuje v RefreshHudTexts).
+        _festivalLabel = new Label
+        {
+            Text = loc["hud.festival"],
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        _festivalButton = new Button
+        {
+            Content = _festivalLabel,
+            Height = 36,
+            Padding = new Thickness(12, 0),
+            Background = new SolidBrush(new Color(150, 90, 60, 235)),
+        };
+        _festivalButton.Click += (_, _) => _simulation.TryStartBoost();
+        stack.Widgets.Add(_festivalButton);
 
         var panel = UiFactory.DarkPanel(stack);
         panel.HorizontalAlignment = HorizontalAlignment.Left;
@@ -948,6 +978,28 @@ public sealed class GameplayScreen : IScreen
         UpdateStatusLabel();
         RefreshBuildAffordability();
         UpdateGoals();
+        UpdateFestivalButton();
+    }
+
+    /// <summary>Přepíše popisek a dostupnost tlačítka Slavnost podle stavu boostu.</summary>
+    private void UpdateFestivalButton()
+    {
+        var loc = _screens.Loc;
+        if (_simulation.IsBoostActive)
+        {
+            _festivalLabel.Text = loc.Format("hud.festivalActive", (int)MathF.Ceiling((float)_simulation.BoostSecondsRemaining));
+            _festivalButton.Enabled = false;
+        }
+        else if (!_simulation.CanStartBoost)
+        {
+            _festivalLabel.Text = loc.Format("hud.festivalCooldown", (int)MathF.Ceiling((float)_simulation.BoostCooldownSecondsRemaining));
+            _festivalButton.Enabled = false;
+        }
+        else
+        {
+            _festivalLabel.Text = loc["hud.festival"];
+            _festivalButton.Enabled = true;
+        }
     }
 
     private void UpdateCursorLabel()

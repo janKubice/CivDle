@@ -26,5 +26,7 @@
     "duskColor": "#E8862F",
     "nightAlpha": 0.45,
     "duskAlpha": 0.18
-  }
+  },
+  "boost": { "durationSeconds": 30, "cooldownSeconds": 120, "multiplier": 2.0 },
+  "harvest": { "critChance": 0.12, "critMultiplier": 5 }
 }

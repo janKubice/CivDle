@@ -42,6 +42,10 @@ public sealed class Simulation
     private readonly Queue<GameNotification> _notifications = new();
     private PrestigeBonuses _bonuses = PrestigeBonuses.None;
 
+    private int _boostTicksRemaining;    // slavnost aktivní, dokud > 0
+    private int _boostCooldownRemaining;  // dokud > 0, nejde spustit další
+    private long _harvestCounter;         // pořadí sběru — seed deterministického kritu
+
     private BuildingInstance[] _buildings = new BuildingInstance[16];
     private int _buildingCount;
 
@@ -134,6 +138,34 @@ public sealed class Simulation
 
     /// <summary>Aktuální trvalé násobiče z koupených upgradů Vzestupu (systémy je čtou).</summary>
     public PrestigeBonuses Bonuses => _bonuses;
+
+    /// <summary>Násobič od slavnosti (1.0 když neběží) — výroba i sběr.</summary>
+    public double BoostMultiplier => _boostTicksRemaining > 0 ? _content.Gameplay.Boost.Multiplier : 1.0;
+
+    /// <summary>Běží právě slavnost?</summary>
+    public bool IsBoostActive => _boostTicksRemaining > 0;
+
+    /// <summary>Zbývající sekundy slavnosti.</summary>
+    public double BoostSecondsRemaining => _boostTicksRemaining / TicksPerSecond;
+
+    /// <summary>Zbývající sekundy do dalšího spuštění slavnosti.</summary>
+    public double BoostCooldownSecondsRemaining => _boostCooldownRemaining / TicksPerSecond;
+
+    /// <summary>Lze slavnost spustit (neběží a není cooldown)?</summary>
+    public bool CanStartBoost => _boostTicksRemaining == 0 && _boostCooldownRemaining == 0;
+
+    /// <summary>Příkaz hráče: spustí slavnost (dočasný boost výroby i sběru). Vrací false, když nelze.</summary>
+    public bool TryStartBoost()
+    {
+        if (!CanStartBoost)
+        {
+            return false;
+        }
+
+        _boostTicksRemaining = (int)(_content.Gameplay.Boost.DurationSeconds * TicksPerSecond);
+        _boostCooldownRemaining = (int)(_content.Gameplay.Boost.CooldownSeconds * TicksPerSecond);
+        return true;
+    }
 
     /// <summary>Kolik lidí se vejde (základní tábor + domy).</summary>
     public int HousingCapacity { get; private set; }
@@ -235,6 +267,16 @@ public sealed class Simulation
     public void Tick()
     {
         TickCount++;
+        if (_boostTicksRemaining > 0)
+        {
+            _boostTicksRemaining--;
+        }
+
+        if (_boostCooldownRemaining > 0)
+        {
+            _boostCooldownRemaining--;
+        }
+
         _production.Tick(this);
         _populationSystem.Tick(this);
         _autoBuild.Tick(this);
@@ -315,9 +357,17 @@ public sealed class Simulation
     /// ani plný sklad nedávají nic.
     /// </summary>
     public bool TryHarvest(int x, int y, out int resourceIndex, out int amount)
+        => TryHarvest(x, y, out resourceIndex, out amount, out _);
+
+    /// <summary>
+    /// Jako <see cref="TryHarvest(int,int,out int,out int)"/>, ale navíc hlásí „krit"
+    /// (deterministicky ze seedu a pořadí sběru) — velký výnos, který se ukáže efektem.
+    /// </summary>
+    public bool TryHarvest(int x, int y, out int resourceIndex, out int amount, out bool wasCrit)
     {
         resourceIndex = 0;
         amount = 0;
+        wasCrit = false;
 
         if (_occupancy.ContainsKey(TileKey.Pack(x, y)))
         {
@@ -330,20 +380,40 @@ public sealed class Simulation
             return false;
         }
 
-        // Trvalý bonus Vzestupu zvedá výnos kliknutí (nejmíň o původní hodnotu).
-        int gained = Math.Max(yield.Amount, (int)Math.Round(yield.Amount * _bonuses.HarvestMult));
+        // Trvalý bonus Vzestupu + slavnost zvedají výnos (nejmíň původní hodnota).
+        int gained = Math.Max(yield.Amount, (int)Math.Round(yield.Amount * _bonuses.HarvestMult * BoostMultiplier));
+
+        // Deterministický krit (aktivní klikání se vyplatí).
+        var harvestConfig = _content.Gameplay.Harvest;
+        if (harvestConfig.CritChance > 0 && CritRoll(_harvestCounter) < harvestConfig.CritChance)
+        {
+            gained = (int)Math.Round(gained * harvestConfig.CritMultiplier);
+            wasCrit = true;
+        }
 
         // Plný sklad = žádný sběr (a žádný lživý popup v UI).
         if (_resources[yield.ResourceIndex] + gained > _storageCaps[yield.ResourceIndex])
         {
+            wasCrit = false;
             return false;
         }
 
         _resources[yield.ResourceIndex] += gained;
         _harvestedTotals[yield.ResourceIndex] += gained;
+        _harvestCounter++;
         resourceIndex = yield.ResourceIndex;
         amount = gained;
         return true;
+    }
+
+    /// <summary>Deterministické „hození kostkou" pro krit — z seedu a pořadí sběru, výsledek v [0, 1).</summary>
+    private double CritRoll(long counter)
+    {
+        ulong h = (ulong)Seed * 0x9E3779B97F4A7C15UL ^ (ulong)counter * 0xD1B54A32D192ED03UL;
+        h ^= h >> 29;
+        h *= 0xBF58476D1CE4E5B9UL;
+        h ^= h >> 32;
+        return (h >> 11) * (1.0 / (1UL << 53));
     }
 
     /// <summary>Kumulativně nasbíráno suroviny klikáním (pro cíle/achievementy).</summary>

@@ -90,7 +90,10 @@ internal static class TestContent
         DayNight: new DayNightConfig(
             DayLengthSeconds: 240, StartTimeOfDay: 0.32,
             NightColor: new RgbColor(10, 20, 48), DuskColor: new RgbColor(232, 134, 47),
-            NightAlpha: 0.45, DuskAlpha: 0.18));
+            NightAlpha: 0.45, DuskAlpha: 0.18),
+        // Krit vypnutý (critChance 0), ať testy sběru zůstanou deterministické.
+        Boost: new BoostConfig(30, 120, 2.0),
+        Harvest: new HarvestConfig(0.0, 5.0));
 
     /// <summary>Levná budova bez výroby povolená na všech biomech.</summary>
     public static BuildingDef SimpleBuilding(

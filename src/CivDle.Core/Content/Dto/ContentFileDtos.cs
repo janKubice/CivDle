@@ -64,7 +64,15 @@ public sealed record GameplayFileDto(
     AutoBuildDto? AutoBuild,
     RoadsDto? Roads,
     SettlementsDto? Settlements,
-    DayNightDto? DayNight);
+    DayNightDto? DayNight,
+    BoostDto? Boost,
+    HarvestDto? Harvest);
+
+/// <summary>Nastavení slavnosti (dočasný boost) tak, jak leží v JSON.</summary>
+public sealed record BoostDto(int DurationSeconds, int CooldownSeconds, double Multiplier);
+
+/// <summary>Nastavení kritického sběru tak, jak leží v JSON.</summary>
+public sealed record HarvestDto(double CritChance, double CritMultiplier);
 
 /// <summary>Denní/noční cyklus tak, jak leží v JSON.</summary>
 public sealed record DayNightDto(
