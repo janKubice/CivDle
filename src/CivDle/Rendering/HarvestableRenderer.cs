@@ -29,6 +29,7 @@ public sealed class HarvestableRenderer
 
     private readonly SpriteLibrary _sprites;
     private readonly GameContent _content;
+    private readonly Texture2D? _shadow;
     private readonly Dictionary<long, ChopState> _chops = new();
     private readonly List<long> _finished = new();
 
@@ -39,6 +40,7 @@ public sealed class HarvestableRenderer
     {
         _sprites = sprites;
         _content = content;
+        _shadow = sprites.Get("fx.shadow");
 
         _nodeSpriteByBiome = new string?[content.Biomes.Count];
         for (int i = 0; i < content.Biomes.Count; i++)
@@ -166,6 +168,14 @@ public sealed class HarvestableRenderer
 
         bool isTree = spriteKey == "node.tree";
         var origin = new Vector2(texture.Width * 0.5f, texture.Height); // kotva dole uprostřed
+
+        // Měkký kontaktní stín u paty, ať objekt „sedí" na terénu, ne se vznáší.
+        if (_shadow is not null)
+        {
+            var shadowScale = new Vector2(drawSize * 0.85f / _shadow.Width, drawSize * 0.32f / _shadow.Height);
+            spriteBatch.Draw(_shadow, new Vector2(baseX, baseY - 1f), null, Color.White * 0.7f, 0f,
+                new Vector2(_shadow.Width * 0.5f, _shadow.Height * 0.5f), shadowScale, SpriteEffects.None, 0f);
+        }
 
         if (state is { RegrowTimer: > 0f })
         {

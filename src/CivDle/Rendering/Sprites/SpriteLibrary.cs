@@ -57,6 +57,9 @@ public sealed class SpriteLibrary : IDisposable
         // Agenti (živý svět).
         Add(device, "agent.person", 12, Person);
         Add(device, "agent.cart", 18, Cart);
+
+        // Efekty: měkký kontaktní stín pod objekty (ať „sedí" na terénu).
+        Add(device, "fx.shadow", SpriteSize, Shadow);
     }
 
     /// <summary>Sprite podle ID, nebo <c>null</c>, když neexistuje.</summary>
@@ -77,6 +80,26 @@ public sealed class SpriteLibrary : IDisposable
         var canvas = new PixelCanvas(size, size);
         draw(canvas);
         _sprites[id] = canvas.ToTexture(device);
+    }
+
+    /// <summary>Měkký kruhový stín (černá s radiálním doběhem alfy) — kreslí se zploštělý pod objekt.</summary>
+    private static void Shadow(PixelCanvas canvas)
+    {
+        float cx = canvas.Width * 0.5f, cy = canvas.Height * 0.5f;
+        float radius = canvas.Width * 0.5f;
+        for (int y = 0; y < canvas.Height; y++)
+        {
+            for (int x = 0; x < canvas.Width; x++)
+            {
+                float dx = (x + 0.5f - cx) / radius, dy = (y + 0.5f - cy) / radius;
+                float d = MathF.Sqrt(dx * dx + dy * dy);
+                if (d < 1f)
+                {
+                    float a = 1f - d;
+                    canvas.Blend(x, y, new Color(0, 0, 0, (int)(a * a * 150f)));
+                }
+            }
+        }
     }
 
     // ----- ikony surovin (24×24) -----

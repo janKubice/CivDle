@@ -53,6 +53,7 @@ public sealed class GameplayScreen : IScreen
     private readonly MinimapRenderer _minimap;
     private readonly ToastRenderer _toasts;
     private readonly CityScaleRenderer _cityScale;
+    private readonly VignetteRenderer _vignette;
     private readonly SpriteFontBase _popupFont;
     private readonly Dictionary<int, string> _popupTextCache = new();
 
@@ -96,6 +97,7 @@ public sealed class GameplayScreen : IScreen
         _fauna = new FaunaSystem(screens.Content);
         _agents = new AgentSystem(screens.Content, screens.Sprites);
         _minimap = new MinimapRenderer(screens.GraphicsDevice, screens.Content.Biomes, screens.WhitePixel);
+        _vignette = new VignetteRenderer(screens.GraphicsDevice);
         _popupFont = Stylesheet.Current.LabelStyle.Font;
         _toasts = new ToastRenderer(screens.WhitePixel, _popupFont);
         _cityScale = new CityScaleRenderer(screens.WhitePixel, _popupFont);
@@ -211,6 +213,7 @@ public sealed class GameplayScreen : IScreen
                 spriteBatch, _camera, def, _ghostX, _ghostY, _ghostResult == PlacementResult.Ok);
         }
 
+        _vignette.Draw(spriteBatch, _screens.GraphicsDevice.Viewport); // decentní sevření pohledu, pod HUD
         _desktop.Render();
 
         // Minimapa, popupy a toasty až nad UI — hráč je nesmí přehlédnout.
@@ -252,6 +255,7 @@ public sealed class GameplayScreen : IScreen
         _screens.Loc.LanguageChanged -= BuildUi;
         _terrainRenderer.Dispose();
         _minimap.Dispose();
+        _vignette.Dispose();
         _ambient.Dispose();
         _sounds.Dispose();
     }
