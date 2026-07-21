@@ -62,6 +62,10 @@ public sealed class GameplayScreen : IScreen
 
     private Desktop _desktop = null!;
     private Label[] _resourceLabels = Array.Empty<Label>();
+    private Label[] _resourceRateLabels = Array.Empty<Label>();
+    private double[] _ratePrev = Array.Empty<double>();
+    private double[] _perSecond = Array.Empty<double>();
+    private float _rateTimer;
     private Label _populationLabel = null!;
     private Label _dayLabel = null!;
     private Label _cursorLabel = null!;
@@ -144,6 +148,13 @@ public sealed class GameplayScreen : IScreen
         _camera.CenterOn(FindStartFocus(), zoom: 2.2f);
         _knownBuildingCount = simulation.Buildings.Length; // načtená hra: bez juice za staré budovy
 
+        _ratePrev = new double[_simulation.ResourceCount];
+        _perSecond = new double[_simulation.ResourceCount];
+        for (int i = 0; i < _ratePrev.Length; i++)
+        {
+            _ratePrev[i] = _simulation.GetResource(i);
+        }
+
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
         _ambient.Play(); // klidná smyčka pro relaxační jádro
@@ -218,6 +229,7 @@ public sealed class GameplayScreen : IScreen
         }
 
         UpdateEventScheduler(dt);
+        SampleRates(dt);
 
         EmitNewBuildingJuice();
         _harvestables.Update(dt);
@@ -561,6 +573,14 @@ public sealed class GameplayScreen : IScreen
             return;
         }
 
+        // Klik na obyvatele → bublina s myšlenkou (svět reaguje na dotek).
+        if (_agents.TryPokeAgent(world, TerrainRenderer.TileSize * 0.6f, out var agentPos))
+        {
+            string key = $"citizen.thought{1 + _eventRng.Next(5)}";
+            _floatingText.Add(agentPos - new Vector2(0f, TerrainRenderer.TileSize * 0.4f), _screens.Loc[key], Color.White);
+            return;
+        }
+
         if (!_simulation.TryHarvest(tileX, tileY, out int resourceIndex, out int amount, out bool crit))
         {
             return;
@@ -698,6 +718,25 @@ public sealed class GameplayScreen : IScreen
 
     private float NextEventGap() => 70f + (float)_eventRng.NextDouble() * 60f; // 70–130 s
 
+    /// <summary>Jednou za sekundu spočítá čistý přírůstek surovin za sekundu (HUD ticker).</summary>
+    private void SampleRates(float dt)
+    {
+        _rateTimer += dt;
+        if (_rateTimer < 1f)
+        {
+            return;
+        }
+
+        for (int i = 0; i < _perSecond.Length; i++)
+        {
+            double now = _simulation.GetResource(i);
+            _perSecond[i] = (now - _ratePrev[i]) / _rateTimer;
+            _ratePrev[i] = now;
+        }
+
+        _rateTimer = 0f;
+    }
+
     /// <summary>Vyhodnotí a udělí denní odměnu (účet-wide, roste se sérií dní).</summary>
     private void GrantDailyReward()
     {
@@ -756,12 +795,13 @@ public sealed class GameplayScreen : IScreen
     {
         var content = _screens.Content;
 
-        // Horní pruh: suroviny (ikony) + populace.
+        // Horní pruh: suroviny (ikony) + zásoba/kapacita + přírůstek za sekundu.
         var resourceBar = new HorizontalStackPanel { Spacing = 18 };
         _resourceLabels = new Label[content.Resources.Count];
+        _resourceRateLabels = new Label[content.Resources.Count];
         for (int i = 0; i < content.Resources.Count; i++)
         {
-            var chip = new HorizontalStackPanel { Spacing = 6 };
+            var chip = new HorizontalStackPanel { Spacing = 5 };
             var icon = _screens.Sprites.Get($"icon.{content.Resources[i].Id}");
             if (icon is not null)
             {
@@ -780,6 +820,8 @@ public sealed class GameplayScreen : IScreen
 
             _resourceLabels[i] = new Label { VerticalAlignment = VerticalAlignment.Center };
             chip.Widgets.Add(_resourceLabels[i]);
+            _resourceRateLabels[i] = new Label { VerticalAlignment = VerticalAlignment.Center, TextColor = new Color(120, 190, 130) };
+            chip.Widgets.Add(_resourceRateLabels[i]);
             resourceBar.Widgets.Add(chip);
         }
 
@@ -1110,7 +1152,15 @@ public sealed class GameplayScreen : IScreen
 
         for (int i = 0; i < _resourceLabels.Length; i++)
         {
-            _resourceLabels[i].Text = $"{(long)_simulation.GetResource(i)}/{(long)_simulation.GetStorageCap(i)}";
+            double amount = _simulation.GetResource(i);
+            double cap = _simulation.GetStorageCap(i);
+            _resourceLabels[i].Text = $"{(long)amount}/{(long)cap}";
+            // Přeteklý sklad zežloutne (výzva rozšířit), jinak neutrální.
+            _resourceLabels[i].TextColor = amount >= cap - 0.5 ? new Color(240, 200, 90) : Color.White;
+
+            // Ticker přírůstku za sekundu (jen znatelný nárůst).
+            double rate = i < _perSecond.Length ? _perSecond[i] : 0.0;
+            _resourceRateLabels[i].Text = rate >= 0.05 ? $"+{rate:0.#}/s" : string.Empty;
         }
 
         _populationLabel.Text = loc.Format("hud.population", (long)_simulation.Population, _simulation.HousingCapacity);
