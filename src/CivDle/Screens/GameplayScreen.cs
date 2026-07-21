@@ -80,6 +80,12 @@ public sealed class GameplayScreen : IScreen
     private float _rightDragDistance;
     private int _knownBuildingCount;
 
+    private int _movingBuildingIndex = -1;
+    private bool _moveActive;
+    private int _moveGhostX;
+    private int _moveGhostY;
+    private PlacementResult _moveGhostResult;
+
     /// <param name="savedAtUtc">Čas uložení načtené hry — spustí offline dohon; <c>null</c> = nová hra.</param>
     public GameplayScreen(ScreenManager screens, Simulation simulation, WorldInfo info, DateTime? savedAtUtc = null)
     {
@@ -157,7 +163,11 @@ public sealed class GameplayScreen : IScreen
 
         if (_input.WasPressed(Keys.Escape))
         {
-            if (_selectedBuilding >= 0)
+            if (_movingBuildingIndex >= 0)
+            {
+                _movingBuildingIndex = -1;
+            }
+            else if (_selectedBuilding >= 0)
             {
                 _selectedBuilding = -1;
             }
@@ -170,8 +180,11 @@ public sealed class GameplayScreen : IScreen
 
         bool mouseOverUi = _desktop.IsMouseOverGUI;
         UpdateCamera(dt, mouseOverUi);
-        UpdatePlacement(mouseOverUi);
-        UpdateHarvest(mouseOverUi);
+        if (!UpdateMove(mouseOverUi))
+        {
+            UpdatePlacement(mouseOverUi);
+            UpdateHarvest(mouseOverUi);
+        }
 
         int ticks = _simLoop.Advance(gameTime.ElapsedGameTime.TotalSeconds);
         for (int i = 0; i < ticks; i++)
@@ -233,6 +246,12 @@ public sealed class GameplayScreen : IScreen
             var def = _screens.Content.Buildings[_selectedBuilding];
             _buildingRenderer.DrawGhost(
                 spriteBatch, _camera, def, _ghostX, _ghostY, _ghostResult == PlacementResult.Ok);
+        }
+        else if (_moveActive && _movingBuildingIndex >= 0 && _movingBuildingIndex < _simulation.Buildings.Length)
+        {
+            var def = _screens.Content.Buildings[_simulation.Buildings[_movingBuildingIndex].DefIndex];
+            _buildingRenderer.DrawGhost(
+                spriteBatch, _camera, def, _moveGhostX, _moveGhostY, _moveGhostResult == PlacementResult.Ok);
         }
 
         _vignette.Draw(spriteBatch, _screens.GraphicsDevice.Viewport); // decentní sevření pohledu, pod HUD
@@ -355,6 +374,55 @@ public sealed class GameplayScreen : IScreen
     }
 
     /// <summary>
+    /// Režim přesunu budovy: ghost sleduje kurzor, levý klik potvrdí (zdarma),
+    /// pravý ruší. Vrací true, dokud režim běží — potlačí stavbu i těžbu.
+    /// </summary>
+    private bool UpdateMove(bool mouseOverUi)
+    {
+        _moveActive = false;
+        if (_movingBuildingIndex < 0)
+        {
+            return false;
+        }
+
+        // Budova mohla mezitím zmizet (jiný zdroj) — z režimu ven.
+        if (_movingBuildingIndex >= _simulation.Buildings.Length)
+        {
+            _movingBuildingIndex = -1;
+            return false;
+        }
+
+        if (_input.WasRightPressed)
+        {
+            _movingBuildingIndex = -1;
+            return true;
+        }
+
+        if (mouseOverUi)
+        {
+            return true;
+        }
+
+        var def = _screens.Content.Buildings[_simulation.Buildings[_movingBuildingIndex].DefIndex];
+        var world = _camera.ScreenToWorld(_input.MousePosition.ToVector2());
+        int tileX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
+        int tileY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
+        _moveGhostX = tileX - (def.FootprintWidth - 1) / 2;
+        _moveGhostY = tileY - (def.FootprintHeight - 1) / 2;
+        _moveGhostResult = _simulation.CanMoveBuilding(_movingBuildingIndex, _moveGhostX, _moveGhostY);
+        _moveActive = true;
+
+        if (_input.WasLeftPressed && _moveGhostResult == PlacementResult.Ok)
+        {
+            _simulation.TryMoveBuilding(_movingBuildingIndex, _moveGhostX, _moveGhostY);
+            _movingBuildingIndex = -1;
+            _moveActive = false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Prach + žuchnutí pro každou nově vzniklou budovu — společné pro ruční stavbu
     /// i auto-stavbu (nová budova se pozná růstem počtu v simulaci).
     /// </summary>
@@ -396,10 +464,10 @@ public sealed class GameplayScreen : IScreen
         int tileX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
         int tileY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
 
-        // Klik na budovu ji rozklikne (detail + vylepšení) — až pak řeším těžbu.
+        // Klik na budovu ji rozklikne (detail + vylepšení + přesun/demolice).
         if (_simulation.TryGetBuildingAt(tileX, tileY, out int buildingIndex))
         {
-            _screens.Push(new BuildingInfoScreen(_screens, _simulation, buildingIndex));
+            _screens.Push(new BuildingInfoScreen(_screens, _simulation, buildingIndex, idx => _movingBuildingIndex = idx));
             return;
         }
 
@@ -896,6 +964,13 @@ public sealed class GameplayScreen : IScreen
     private void UpdateStatusLabel()
     {
         var loc = _screens.Loc;
+        if (_movingBuildingIndex >= 0)
+        {
+            _statusLabel.Text = loc["hud.moving"];
+            _statusLabel.TextColor = UiFactory.Accent;
+            return;
+        }
+
         if (_selectedBuilding < 0)
         {
             _statusLabel.Text = loc["build.title"];

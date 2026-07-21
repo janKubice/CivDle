@@ -530,6 +530,130 @@ public sealed class Simulation
         return PlacementResult.Ok;
     }
 
+    /// <summary>Podíl ceny stavby, který se vrátí při zbourání (balanční konstanta).</summary>
+    private const double DemolishRefundFraction = 0.5;
+
+    /// <summary>Příkaz hráče: zbourá budovu — uvolní dlaždice, vrátí část ceny, přepočítá bonusy.</summary>
+    public PlacementResult TryDemolish(int buildingIndex)
+    {
+        if (buildingIndex < 0 || buildingIndex >= _buildingCount)
+        {
+            return PlacementResult.Occupied;
+        }
+
+        var def = _content.Buildings[_buildings[buildingIndex].DefIndex];
+        int x = _buildings[buildingIndex].X, y = _buildings[buildingIndex].Y;
+
+        for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
+        {
+            for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
+            {
+                _occupancy.Remove(TileKey.Pack(tileX, tileY));
+            }
+        }
+
+        RemoveBuildingBonuses(def);
+        var cost = def.BuildCost;
+        for (int i = 0; i < cost.Count; i++)
+        {
+            AddResource(cost[i].ResourceIndex, Math.Floor(cost[i].Amount * DemolishRefundFraction));
+        }
+
+        // Swap-remove z plochého pole: poslední budovu přesuň na uvolněné místo
+        // a přemapuj její occupancy na nový index.
+        int last = _buildingCount - 1;
+        if (buildingIndex != last)
+        {
+            _buildings[buildingIndex] = _buildings[last];
+            RemapOccupancy(buildingIndex);
+        }
+
+        _buildingCount--;
+        SettlementsDirty = true;
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>Lze budovu přesunout na (x, y)? Vlastní současné dlaždice se ignorují.</summary>
+    public PlacementResult CanMoveBuilding(int buildingIndex, int x, int y)
+    {
+        if (buildingIndex < 0 || buildingIndex >= _buildingCount)
+        {
+            return PlacementResult.Occupied;
+        }
+
+        var def = _content.Buildings[_buildings[buildingIndex].DefIndex];
+        for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
+        {
+            for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
+            {
+                long key = TileKey.Pack(tileX, tileY);
+                if (_roads.Contains(key))
+                {
+                    return PlacementResult.Occupied;
+                }
+
+                if (_occupancy.TryGetValue(key, out int stored) && stored - 1 != buildingIndex)
+                {
+                    return PlacementResult.Occupied;
+                }
+
+                if (!def.IsBiomeAllowed(Terrain.BiomeAt(tileX, tileY)))
+                {
+                    return PlacementResult.WrongBiome;
+                }
+            }
+        }
+
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>Příkaz hráče: přesune budovu na (x, y) zdarma (stejný typ, jen jinam).</summary>
+    public PlacementResult TryMoveBuilding(int buildingIndex, int x, int y)
+    {
+        var result = CanMoveBuilding(buildingIndex, x, y);
+        if (result != PlacementResult.Ok)
+        {
+            return result;
+        }
+
+        ref var building = ref _buildings[buildingIndex];
+        var def = _content.Buildings[building.DefIndex];
+        for (int tileY = building.Y; tileY < building.Y + def.FootprintHeight; tileY++)
+        {
+            for (int tileX = building.X; tileX < building.X + def.FootprintWidth; tileX++)
+            {
+                _occupancy.Remove(TileKey.Pack(tileX, tileY));
+            }
+        }
+
+        building.X = x;
+        building.Y = y;
+        for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
+        {
+            for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
+            {
+                _occupancy[TileKey.Pack(tileX, tileY)] = buildingIndex + 1;
+            }
+        }
+
+        SettlementsDirty = true;
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>Přemapuje occupancy dlaždic budovy na její (nový) index.</summary>
+    private void RemapOccupancy(int buildingIndex)
+    {
+        var building = _buildings[buildingIndex];
+        var def = _content.Buildings[building.DefIndex];
+        for (int tileY = building.Y; tileY < building.Y + def.FootprintHeight; tileY++)
+        {
+            for (int tileX = building.X; tileX < building.X + def.FootprintWidth; tileX++)
+            {
+                _occupancy[TileKey.Pack(tileX, tileY)] = buildingIndex + 1;
+            }
+        }
+    }
+
     // ----- tech tree -----
 
     /// <summary>Lze technologii vyzkoumat (prerekvizity splněny, dost surovin, není hotová)?</summary>
