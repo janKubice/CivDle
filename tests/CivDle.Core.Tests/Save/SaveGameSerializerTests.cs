@@ -131,6 +131,25 @@ public class SaveGameSerializerTests
     }
 
     [Fact]
+    public void RoundTrip_PreservesZones()
+    {
+        // Zóna (save v9) se ukládá přes stabilní ID typu a musí se vrátit beze změny.
+        var (content, original) = PlayedGame();
+        int residential = content.ZoneTypes.IndexOf("residential");
+        Assert.True(original.AddZone(residential, 3, 4, 5, 6));
+
+        using var stream = Saved(original, Metadata);
+        var (loaded, _) = new SaveGameSerializer().Read(stream, content);
+
+        var zone = Assert.Single(loaded.Zones);
+        Assert.Equal(residential, zone.TypeIndex);
+        Assert.Equal(3, zone.X);
+        Assert.Equal(4, zone.Y);
+        Assert.Equal(5, zone.Width);
+        Assert.Equal(6, zone.Height);
+    }
+
+    [Fact]
     public void Load_RemapsResourceIdsWhenContentIsReordered()
     {
         // Obsah A: [wood, planks]; obsah B má stejná ID v opačném pořadí.

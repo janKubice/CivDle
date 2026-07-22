@@ -28,6 +28,8 @@ public sealed class Simulation
     private readonly ProductionSystem _production;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
+    private readonly ZoneFillSystem _zoneFill;
+    private readonly List<Zone> _zones = new(); // hráčem namalované zóny (automatizace, stupeň 3)
     private readonly RoadBuilder _roadBuilder;
     private readonly SettlementSystem _settlementSystem;
     private readonly QuestSystem _questSystem;
@@ -87,6 +89,7 @@ public sealed class Simulation
         _production = new ProductionSystem(content);
         _populationSystem = new PopulationSystem(content.Gameplay);
         _autoBuild = new AutoBuildSystem(content, seed);
+        _zoneFill = new ZoneFillSystem(content, seed);
         _roadBuilder = new RoadBuilder(content);
         _settlementSystem = new SettlementSystem(content, seed);
         _questSystem = new QuestSystem(content);
@@ -317,6 +320,7 @@ public sealed class Simulation
         _production.Tick(this);
         _populationSystem.Tick(this);
         _autoBuild.Tick(this);
+        _zoneFill.Tick(this);
         _settlementSystem.Tick(this);
         _questSystem.Tick(this);
         _achievementSystem.Tick(this);
@@ -530,6 +534,64 @@ public sealed class Simulation
     /// <summary>Obnoví zasazený uzel při načtení savu.</summary>
     internal void RestorePlantedNode(int x, int y, int resourceIndex, int amount)
         => _plantedNodes[TileKey.Pack(x, y)] = new ClickYield(resourceIndex, amount);
+
+    // ----- zóny (automatizace, stupeň 3) -----
+
+    /// <summary>Horní limit rozměru zóny — brání nesmyslně velkým zónám (výkon, sanity savu).</summary>
+    public const int MaxZoneDimension = 64;
+
+    /// <summary>Horní limit počtu zón (sanity savu).</summary>
+    public const int MaxZones = 4096;
+
+    /// <summary>Namalované zóny (jen pro čtení — render a fill systém).</summary>
+    public IReadOnlyList<Zone> Zones => _zones;
+
+    /// <summary>
+    /// Příkaz hráče: přidat obdélníkovou zónu daného typu. Souřadnice se normalizují
+    /// (rohy v libovolném pořadí), rozměr se ořízne na <see cref="MaxZoneDimension"/>.
+    /// Vrací false, když je typ mimo rozsah nebo je zón už příliš mnoho.
+    /// </summary>
+    public bool AddZone(int typeIndex, int x, int y, int width, int height)
+    {
+        if (typeIndex < 0 || typeIndex >= _content.ZoneTypes.Count)
+        {
+            return false;
+        }
+
+        if (width <= 0 || height <= 0 || _zones.Count >= MaxZones)
+        {
+            return false;
+        }
+
+        width = Math.Min(width, MaxZoneDimension);
+        height = Math.Min(height, MaxZoneDimension);
+        _zones.Add(new Zone(typeIndex, x, y, width, height));
+        return true;
+    }
+
+    /// <summary>Příkaz hráče: smaže zónu obsahující danou dlaždici (poslední namalovaná má přednost). Vrací true, když něco smazal.</summary>
+    public bool RemoveZoneAt(int x, int y)
+    {
+        for (int i = _zones.Count - 1; i >= 0; i--)
+        {
+            if (_zones[i].Contains(x, y))
+            {
+                _zones.RemoveAt(i);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Obnoví zónu při načtení savu (bez normalizace — data už jsou platná).</summary>
+    internal void RestoreZone(int typeIndex, int x, int y, int width, int height)
+    {
+        if (typeIndex >= 0 && typeIndex < _content.ZoneTypes.Count && width > 0 && height > 0)
+        {
+            _zones.Add(new Zone(typeIndex, x, y, width, height));
+        }
+    }
 
     // ----- objevování mapy (skrýše) -----
 
@@ -1159,6 +1221,7 @@ public sealed class Simulation
         _roads.Clear();
         _roadTiles.Clear();
         _settlements.Clear();
+        _zones.Clear(); // zóny řídí přestavbu — po Vzestupu (nové měřítko) začínáš nanovo
         _buildingCount = 0;
 
         Array.Clear(_techResearched);

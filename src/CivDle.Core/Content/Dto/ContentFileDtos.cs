@@ -193,6 +193,12 @@ public sealed record ErasFileDto(int SchemaVersion, List<EraDto>? Eras);
 /// <summary>Jedna éra tak, jak leží v JSON.</summary>
 public sealed record EraDto(string? Id, int Order, string? UnlockTech);
 
+/// <summary>Obsah souboru <c>data/zones.json</c> (typy zón pro automatizaci).</summary>
+public sealed record ZonesFileDto(int SchemaVersion, List<ZoneTypeDto>? Zones);
+
+/// <summary>Jeden typ zóny tak, jak leží v JSON.</summary>
+public sealed record ZoneTypeDto(string? Id, string? MapColor, List<string>? Buildings);
+
 /// <summary>Obsah souboru <c>data/events.json</c> (náhodné události s volbami).</summary>
 public sealed record EventFileDto(int SchemaVersion, List<EventDto>? Events);
 

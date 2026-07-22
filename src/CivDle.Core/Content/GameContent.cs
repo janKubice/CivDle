@@ -25,7 +25,8 @@ public sealed class GameContent
         IReadOnlyList<string> settlementNames,
         IReadOnlyList<DecorationDef> decorations,
         IReadOnlyList<FaunaDef> fauna,
-        IReadOnlyList<DevlogEntry> devlog)
+        IReadOnlyList<DevlogEntry> devlog,
+        DefRegistry<ZoneTypeDef> zoneTypes)
     {
         Biomes = biomes;
         Resources = resources;
@@ -45,6 +46,7 @@ public sealed class GameContent
         Decorations = decorations;
         Fauna = fauna;
         Devlog = devlog;
+        ZoneTypes = zoneTypes;
     }
 
     /// <summary>Definice technologií z <c>data/tech.json</c> (tech tree).</summary>
@@ -70,6 +72,9 @@ public sealed class GameContent
 
     /// <summary>Éry civilizace z <c>data/eras.json</c> (progrese T0–T6; smí být prázdné).</summary>
     public DefRegistry<EraDef> Eras { get; }
+
+    /// <summary>Typy zón pro automatizaci z <c>data/zones.json</c> (smí být prázdné).</summary>
+    public DefRegistry<ZoneTypeDef> ZoneTypes { get; }
 
     /// <summary>Vývojový deník z <c>data/devlog.json</c> (smí být prázdný).</summary>
     public IReadOnlyList<DevlogEntry> Devlog { get; }

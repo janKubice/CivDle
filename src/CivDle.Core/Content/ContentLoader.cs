@@ -41,9 +41,10 @@ public sealed class ContentLoader
         var achievements = LoadAchievements(Path.Combine(dataDirectory, "achievements.json"), resources, buildings, techs);
         var events = LoadEvents(Path.Combine(dataDirectory, "events.json"), resources);
         var eras = LoadEras(Path.Combine(dataDirectory, "eras.json"));
+        var zoneTypes = LoadZoneTypes(Path.Combine(dataDirectory, "zones.json"), buildings);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
@@ -51,7 +52,7 @@ public sealed class ContentLoader
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes);
     }
 
     // ----- éry -----
@@ -90,6 +91,55 @@ public sealed class ContentLoader
         }
 
         return new DefRegistry<EraDef>(result, e => e.Id, "éra", allowEmpty: true);
+    }
+
+    // ----- zóny (automatizace) -----
+
+    private static DefRegistry<ZoneTypeDef> LoadZoneTypes(string path, DefRegistry<BuildingDef> buildings)
+    {
+        // Zóny jsou volitelný obsah — bez souboru je registr prázdný (žádná automatizace zón).
+        if (!File.Exists(path))
+        {
+            return new DefRegistry<ZoneTypeDef>(Array.Empty<ZoneTypeDef>(), z => z.Id, "typ zóny", allowEmpty: true);
+        }
+
+        var file = ReadFile<ZonesFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Zones ?? new List<ZoneTypeDto>();
+        var result = new List<ZoneTypeDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Typ zóny na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID typu zóny '{id}'.");
+            }
+
+            var color = ParseColor(path, dto.MapColor, $"Zóna '{id}'");
+
+            if (dto.Buildings is not { Count: > 0 })
+            {
+                throw new ContentLoadException(path, $"Zóna '{id}' nemá vyplněný seznam 'buildings' (čím se zaplňuje).");
+            }
+
+            var buildingIndices = new List<int>(dto.Buildings.Count);
+            foreach (var buildingId in dto.Buildings)
+            {
+                if (buildingId is null || !buildings.TryIndexOf(buildingId.Trim(), out int buildingIndex))
+                {
+                    throw new ContentLoadException(path, $"Zóna '{id}' odkazuje v 'buildings' na neexistující budovu '{buildingId}'.");
+                }
+
+                buildingIndices.Add(buildingIndex);
+            }
+
+            result.Add(new ZoneTypeDef(id, color, buildingIndices));
+        }
+
+        return new DefRegistry<ZoneTypeDef>(result, z => z.Id, "typ zóny", allowEmpty: true);
     }
 
     // ----- biomy -----
@@ -1124,7 +1174,8 @@ public sealed class ContentLoader
         DefRegistry<QuestDef> quests,
         DefRegistry<AchievementDef> achievements,
         DefRegistry<EventDef> events,
-        DefRegistry<EraDef> eras)
+        DefRegistry<EraDef> eras,
+        DefRegistry<ZoneTypeDef> zoneTypes)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -1158,7 +1209,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -1176,7 +1227,8 @@ public sealed class ContentLoader
         DefRegistry<QuestDef> quests,
         DefRegistry<AchievementDef> achievements,
         DefRegistry<EventDef> events,
-        DefRegistry<EraDef> eras)
+        DefRegistry<EraDef> eras,
+        DefRegistry<ZoneTypeDef> zoneTypes)
     {
         var required = new List<string>();
         required.AddRange(biomes.All.Select(b => b.NameKey));
@@ -1200,6 +1252,7 @@ public sealed class ContentLoader
         }
 
         required.AddRange(eras.All.Select(e => e.NameKey));
+        required.AddRange(zoneTypes.All.Select(z => z.NameKey));
 
         var missing = required.Where(key => !language.Strings.ContainsKey(key)).ToList();
         if (missing.Count > 0)
