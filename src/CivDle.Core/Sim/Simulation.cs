@@ -28,6 +28,8 @@ public sealed class Simulation
     private readonly ProductionSystem _production;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
+    private readonly ZoneFillSystem _zoneFill;
+    private readonly List<Zone> _zones = new(); // hráčem namalované zóny (automatizace, stupeň 3)
     private readonly RoadBuilder _roadBuilder;
     private readonly SettlementSystem _settlementSystem;
     private readonly QuestSystem _questSystem;
@@ -38,6 +40,7 @@ public sealed class Simulation
     private readonly bool[] _buildingUnlocked;
     private readonly bool[] _techResearched;
     private readonly bool[] _upgradesPurchased; // koupené trvalé upgrady Vzestupu
+    private readonly bool[] _policiesActive;    // zapnuté politiky růstu (automatizace, stupeň 4)
     private readonly long[] _harvestedTotals; // kumulativní sběr surovin klikáním (metriky cílů)
     private readonly HashSet<long> _claimedDiscoveries = new(); // vyzvednuté skrýše na mapě
     private readonly Dictionary<long, ClickYield> _plantedNodes = new(); // hráčem zasazené obnovitelné zdroje
@@ -71,6 +74,7 @@ public sealed class Simulation
 
         _techResearched = new bool[content.Techs.Count];
         _upgradesPurchased = new bool[content.PrestigeUpgrades.Count];
+        _policiesActive = new bool[content.Policies.Count];
         _harvestedTotals = new long[content.Resources.Count];
 
         _resources = new double[content.Resources.Count];
@@ -87,6 +91,7 @@ public sealed class Simulation
         _production = new ProductionSystem(content);
         _populationSystem = new PopulationSystem(content.Gameplay);
         _autoBuild = new AutoBuildSystem(content, seed);
+        _zoneFill = new ZoneFillSystem(content, seed);
         _roadBuilder = new RoadBuilder(content);
         _settlementSystem = new SettlementSystem(content, seed);
         _questSystem = new QuestSystem(content);
@@ -175,6 +180,15 @@ public sealed class Simulation
     /// <summary>Součet pracovních míst výrobních budov — obsazenost škáluje výrobu.</summary>
     public int TotalWorkerSlots { get; private set; }
 
+    /// <summary>Celkový výkon elektráren (jednotky elektřiny).</summary>
+    public int TotalPowerSupply { get; private set; }
+
+    /// <summary>Celková poptávka po elektřině (budovy, co ji potřebují).</summary>
+    public int TotalPowerDemand { get; private set; }
+
+    /// <summary>Pokrytí elektrické sítě (0–1): škáluje výrobu budov závislých na proudu.</summary>
+    public double PowerFactor => TotalPowerDemand == 0 ? 1.0 : Math.Min(1.0, (double)TotalPowerSupply / TotalPowerDemand);
+
     /// <summary>Postavené budovy (jen ke čtení; render z nich kreslí).</summary>
     public ReadOnlySpan<BuildingInstance> Buildings => _buildings.AsSpan(0, _buildingCount);
 
@@ -213,6 +227,32 @@ public sealed class Simulation
 
     /// <summary>Je technologie vyzkoumaná?</summary>
     public bool IsTechResearched(int techIndex) => _techResearched[techIndex];
+
+    /// <summary>
+    /// Index aktuální éry (nejvyšší dosažené): éra je dosažená, když je vyzkoumaná
+    /// její otevírací technologie (základní éry bez ní jsou od startu). −1 = žádné éry.
+    /// </summary>
+    public int CurrentEraIndex
+    {
+        get
+        {
+            int bestOrder = -1;
+            int bestIndex = -1;
+            for (int i = 0; i < _content.Eras.Count; i++)
+            {
+                var era = _content.Eras[i];
+                bool reached = string.IsNullOrEmpty(era.UnlockTechId)
+                    || (_content.Techs.TryIndexOf(era.UnlockTechId, out int techIndex) && _techResearched[techIndex]);
+                if (reached && era.Order > bestOrder)
+                {
+                    bestOrder = era.Order;
+                    bestIndex = i;
+                }
+            }
+
+            return bestIndex;
+        }
+    }
 
     /// <summary>Je na dlaždici silnice?</summary>
     public bool IsRoad(int x, int y) => _roads.Contains(TileKey.Pack(x, y));
@@ -282,6 +322,7 @@ public sealed class Simulation
         _production.Tick(this);
         _populationSystem.Tick(this);
         _autoBuild.Tick(this);
+        _zoneFill.Tick(this);
         _settlementSystem.Tick(this);
         _questSystem.Tick(this);
         _achievementSystem.Tick(this);
@@ -495,6 +536,140 @@ public sealed class Simulation
     /// <summary>Obnoví zasazený uzel při načtení savu.</summary>
     internal void RestorePlantedNode(int x, int y, int resourceIndex, int amount)
         => _plantedNodes[TileKey.Pack(x, y)] = new ClickYield(resourceIndex, amount);
+
+    // ----- zóny (automatizace, stupeň 3) -----
+
+    /// <summary>Horní limit rozměru zóny — brání nesmyslně velkým zónám (výkon, sanity savu).</summary>
+    public const int MaxZoneDimension = 64;
+
+    /// <summary>Horní limit počtu zón (sanity savu).</summary>
+    public const int MaxZones = 4096;
+
+    /// <summary>Namalované zóny (jen pro čtení — render a fill systém).</summary>
+    public IReadOnlyList<Zone> Zones => _zones;
+
+    /// <summary>
+    /// Příkaz hráče: přidat obdélníkovou zónu daného typu. Souřadnice se normalizují
+    /// (rohy v libovolném pořadí), rozměr se ořízne na <see cref="MaxZoneDimension"/>.
+    /// Vrací false, když je typ mimo rozsah nebo je zón už příliš mnoho.
+    /// </summary>
+    public bool AddZone(int typeIndex, int x, int y, int width, int height)
+    {
+        if (typeIndex < 0 || typeIndex >= _content.ZoneTypes.Count)
+        {
+            return false;
+        }
+
+        if (width <= 0 || height <= 0 || _zones.Count >= MaxZones)
+        {
+            return false;
+        }
+
+        width = Math.Min(width, MaxZoneDimension);
+        height = Math.Min(height, MaxZoneDimension);
+        _zones.Add(new Zone(typeIndex, x, y, width, height));
+        return true;
+    }
+
+    /// <summary>Příkaz hráče: smaže zónu obsahující danou dlaždici (poslední namalovaná má přednost). Vrací true, když něco smazal.</summary>
+    public bool RemoveZoneAt(int x, int y)
+    {
+        for (int i = _zones.Count - 1; i >= 0; i--)
+        {
+            if (_zones[i].Contains(x, y))
+            {
+                _zones.RemoveAt(i);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Obnoví zónu při načtení savu (bez normalizace — data už jsou platná).</summary>
+    internal void RestoreZone(int typeIndex, int x, int y, int width, int height)
+    {
+        if (typeIndex >= 0 && typeIndex < _content.ZoneTypes.Count && width > 0 && height > 0)
+        {
+            _zones.Add(new Zone(typeIndex, x, y, width, height));
+        }
+    }
+
+    // ----- politiky růstu (automatizace, stupeň 4) -----
+
+    /// <summary>Kolik budov smí auto-stavba i plnění zón položit za interval (výchozí 1; politika „build_pace" zvedá).</summary>
+    public int BuildsPerInterval { get; private set; } = 1;
+
+    /// <summary>Preferovat hustotu: auto-stavba nejdřív povýší existující bydlení, než postaví nové (politika „housing_density").</summary>
+    public bool PreferHousingDensity { get; private set; }
+
+    /// <summary>Je politika zapnutá?</summary>
+    public bool IsPolicyActive(int policyIndex) => _policiesActive[policyIndex];
+
+    /// <summary>Příkaz hráče: přepne politiku a přepočítá její vliv na růst; vrací nový stav.</summary>
+    public bool TogglePolicy(int policyIndex)
+    {
+        if (policyIndex < 0 || policyIndex >= _policiesActive.Length)
+        {
+            return false;
+        }
+
+        _policiesActive[policyIndex] = !_policiesActive[policyIndex];
+        RecomputePolicyEffects();
+        return _policiesActive[policyIndex];
+    }
+
+    /// <summary>Indexy zapnutých politik (pro serializaci savu).</summary>
+    internal IEnumerable<int> ActivePolicyIndices()
+    {
+        for (int i = 0; i < _policiesActive.Length; i++)
+        {
+            if (_policiesActive[i])
+            {
+                yield return i;
+            }
+        }
+    }
+
+    /// <summary>Obnoví zapnutou politiku při načtení savu (efekt se přepočítá ve <see cref="FinalizeLoad"/>).</summary>
+    internal void RestorePolicyActive(int policyIndex)
+    {
+        if (policyIndex >= 0 && policyIndex < _policiesActive.Length)
+        {
+            _policiesActive[policyIndex] = true;
+        }
+    }
+
+    /// <summary>
+    /// Přemapuje zapnuté politiky na odvozené parametry růstu (data = co, kód = jak,
+    /// mapování přes behavior-ID). Neznámý efekt se tiše ignoruje — data smí předběhnout kód.
+    /// </summary>
+    private void RecomputePolicyEffects()
+    {
+        int buildsPerInterval = 1;
+        bool preferDensity = false;
+        for (int i = 0; i < _policiesActive.Length; i++)
+        {
+            if (!_policiesActive[i])
+            {
+                continue;
+            }
+
+            var policy = _content.Policies[i];
+            switch (policy.Effect)
+            {
+                case "build_pace":
+                    buildsPerInterval = Math.Max(buildsPerInterval, Math.Max(1, (int)policy.Magnitude));
+                    break;
+                case "housing_density":
+                    preferDensity = true;
+                    break;
+            }
+        }
+
+        BuildsPerInterval = buildsPerInterval;
+        PreferHousingDensity = preferDensity;
+    }
 
     // ----- objevování mapy (skrýše) -----
 
@@ -972,6 +1147,8 @@ public sealed class Simulation
     {
         HousingCapacity += (int)(def.HousingCapacity * _bonuses.HousingMult);
         TotalWorkerSlots += def.WorkerSlots;
+        TotalPowerSupply += def.PowerSupply;
+        TotalPowerDemand += def.PowerDemand;
         for (int i = 0; i < def.StorageBonus.Count; i++)
         {
             _storageCaps[def.StorageBonus[i].ResourceIndex] += def.StorageBonus[i].Amount * _bonuses.StorageMult;
@@ -983,6 +1160,8 @@ public sealed class Simulation
     {
         HousingCapacity -= (int)(def.HousingCapacity * _bonuses.HousingMult);
         TotalWorkerSlots -= def.WorkerSlots;
+        TotalPowerSupply -= def.PowerSupply;
+        TotalPowerDemand -= def.PowerDemand;
         for (int i = 0; i < def.StorageBonus.Count; i++)
         {
             _storageCaps[def.StorageBonus[i].ResourceIndex] -= def.StorageBonus[i].Amount * _bonuses.StorageMult;
@@ -1096,6 +1275,8 @@ public sealed class Simulation
     {
         HousingCapacity = _content.Gameplay.BaseHousingCapacity;
         TotalWorkerSlots = 0;
+        TotalPowerSupply = 0;
+        TotalPowerDemand = 0;
         for (int i = 0; i < _storageCaps.Length; i++)
         {
             _storageCaps[i] = _content.Resources[i].BaseStorage * _bonuses.StorageMult;
@@ -1118,6 +1299,7 @@ public sealed class Simulation
         _roads.Clear();
         _roadTiles.Clear();
         _settlements.Clear();
+        _zones.Clear(); // zóny řídí přestavbu — po Vzestupu (nové měřítko) začínáš nanovo
         _buildingCount = 0;
 
         Array.Clear(_techResearched);
@@ -1184,5 +1366,6 @@ public sealed class Simulation
     {
         RecomputeBonuses();
         RecomputeDerivedState();
+        RecomputePolicyEffects(); // obnovené politiky → odvozené parametry růstu
     }
 }

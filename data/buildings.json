@@ -21,7 +21,9 @@
       "housingCapacity": 9,
       "buildCost": { "planks": 10, "stone": 6 },
       "allowedBiomes": ["grassland", "steppe", "beach"],
-      "buildable": false
+      "buildable": false,
+      "upgradesTo": "brick_house",
+      "upgradeCost": { "stone": 10, "bronze": 4 }
     },
     {
       "id": "lumber_camp",
@@ -109,7 +111,7 @@
       "footprint": [2, 2],
       "buildCost": { "wood": 10, "planks": 8, "stone": 6 },
       "allowedBiomes": ["grassland", "steppe", "beach"],
-      "storage": { "wood": 150, "planks": 100, "stone": 120, "food": 120, "tools": 60 }
+      "storage": { "wood": 150, "planks": 100, "stone": 120, "food": 120, "tools": 60, "copper_ore": 80, "bronze": 60, "iron_ore": 80, "coal": 80, "iron": 60, "steel": 60, "machine_parts": 50, "silicon": 60, "electronics": 50, "computer": 40, "nanomaterial": 40, "robot": 30 }
     },
     {
       "id": "windmill",
@@ -139,6 +141,227 @@
       "workerSlots": 3,
       "buildCost": { "wood": 16, "planks": 10, "stone": 8 },
       "recipe": { "input": { "planks": 2 }, "output": { "tools": 1 }, "timeTicks": 60 },
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "brick_house",
+      "category": "housing",
+      "mapColor": "#A85C3C",
+      "footprint": [1, 1],
+      "housingCapacity": 14,
+      "buildCost": { "stone": 12, "bronze": 4 },
+      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "buildable": false,
+      "upgradesTo": "tenement",
+      "upgradeCost": { "stone": 14, "iron": 6 }
+    },
+    {
+      "id": "tenement",
+      "category": "housing",
+      "mapColor": "#8F5038",
+      "footprint": [1, 1],
+      "housingCapacity": 22,
+      "buildCost": { "stone": 18, "iron": 8 },
+      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "buildable": false,
+      "upgradesTo": "apartment",
+      "upgradeCost": { "steel": 10, "machine_parts": 4 }
+    },
+    {
+      "id": "iron_mine",
+      "category": "production",
+      "mapColor": "#8C8C94",
+      "footprint": [1, 1],
+      "workerSlots": 4,
+      "buildCost": { "planks": 12, "stone": 10 },
+      "recipe": { "output": { "iron_ore": 2 }, "timeTicks": 55 },
+      "allowedBiomes": ["mountains", "snow_peaks"]
+    },
+    {
+      "id": "coal_mine",
+      "category": "production",
+      "mapColor": "#3A3A3A",
+      "footprint": [1, 1],
+      "workerSlots": 4,
+      "buildCost": { "planks": 12, "stone": 8 },
+      "recipe": { "output": { "coal": 2 }, "timeTicks": 50 },
+      "allowedBiomes": ["mountains", "snow_peaks"]
+    },
+    {
+      "id": "blast_furnace",
+      "category": "production",
+      "mapColor": "#6E4A3A",
+      "footprint": [2, 2],
+      "workerSlots": 5,
+      "buildCost": { "stone": 25, "bronze": 8 },
+      "recipe": { "input": { "iron_ore": 2, "coal": 1 }, "output": { "iron": 1 }, "timeTicks": 55 },
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "iron_forge",
+      "category": "production",
+      "mapColor": "#9AA0A6",
+      "footprint": [1, 1],
+      "workerSlots": 3,
+      "buildCost": { "stone": 18, "iron": 6 },
+      "recipe": { "input": { "iron": 1, "planks": 1 }, "output": { "tools": 5 }, "timeTicks": 55 },
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "copper_mine",
+      "category": "production",
+      "mapColor": "#B87333",
+      "footprint": [1, 1],
+      "workerSlots": 4,
+      "buildCost": { "wood": 20, "planks": 8 },
+      "recipe": { "output": { "copper_ore": 2 }, "timeTicks": 55 },
+      "allowedBiomes": ["mountains", "snow_peaks"]
+    },
+    {
+      "id": "smeltery",
+      "category": "production",
+      "mapColor": "#A0522D",
+      "footprint": [1, 1],
+      "workerSlots": 3,
+      "buildCost": { "stone": 20, "planks": 12 },
+      "recipe": { "input": { "copper_ore": 2 }, "output": { "bronze": 1 }, "timeTicks": 50 },
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "bronze_smith",
+      "category": "production",
+      "mapColor": "#CD7F32",
+      "footprint": [1, 1],
+      "workerSlots": 3,
+      "buildCost": { "stone": 15, "bronze": 5 },
+      "recipe": { "input": { "bronze": 1, "planks": 1 }, "output": { "tools": 3 }, "timeTicks": 55 },
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "apartment",
+      "category": "housing",
+      "mapColor": "#7A4632",
+      "footprint": [1, 1],
+      "housingCapacity": 40,
+      "buildCost": { "steel": 14, "machine_parts": 6 },
+      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "buildable": false,
+      "upgradesTo": "high_rise",
+      "upgradeCost": { "steel": 16, "electronics": 6 }
+    },
+    {
+      "id": "steel_mill",
+      "category": "production",
+      "mapColor": "#71797E",
+      "footprint": [2, 2],
+      "workerSlots": 6,
+      "buildCost": { "stone": 30, "iron": 12 },
+      "recipe": { "input": { "iron": 2, "coal": 2 }, "output": { "steel": 1 }, "timeTicks": 60 },
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "coal_power_plant",
+      "category": "power",
+      "mapColor": "#4A4A4A",
+      "footprint": [2, 2],
+      "buildCost": { "steel": 12, "iron": 10 },
+      "powerSupply": 25,
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "factory",
+      "category": "production",
+      "mapColor": "#546E7A",
+      "footprint": [2, 2],
+      "workerSlots": 6,
+      "buildCost": { "steel": 16, "machine_parts": 4 },
+      "recipe": { "input": { "steel": 2 }, "output": { "machine_parts": 2 }, "timeTicks": 55 },
+      "powerDemand": 10,
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "high_rise",
+      "category": "housing",
+      "mapColor": "#5C6B8A",
+      "footprint": [1, 1],
+      "housingCapacity": 70,
+      "buildCost": { "steel": 20, "electronics": 8 },
+      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "buildable": false,
+      "upgradesTo": "arcology",
+      "upgradeCost": { "nanomaterial": 10, "computer": 6 }
+    },
+    {
+      "id": "silicon_mine",
+      "category": "production",
+      "mapColor": "#7D8CA3",
+      "footprint": [1, 1],
+      "workerSlots": 4,
+      "buildCost": { "stone": 20, "iron": 10 },
+      "recipe": { "output": { "silicon": 2 }, "timeTicks": 55 },
+      "allowedBiomes": ["mountains", "snow_peaks"]
+    },
+    {
+      "id": "electronics_fab",
+      "category": "production",
+      "mapColor": "#2E7D5B",
+      "footprint": [2, 2],
+      "workerSlots": 6,
+      "buildCost": { "steel": 16, "machine_parts": 6 },
+      "recipe": { "input": { "silicon": 2 }, "output": { "electronics": 1 }, "timeTicks": 55 },
+      "powerDemand": 12,
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "computer_plant",
+      "category": "production",
+      "mapColor": "#3A506B",
+      "footprint": [2, 2],
+      "workerSlots": 6,
+      "buildCost": { "steel": 18, "machine_parts": 8 },
+      "recipe": { "input": { "electronics": 2, "machine_parts": 1 }, "output": { "computer": 1 }, "timeTicks": 60 },
+      "powerDemand": 15,
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "arcology",
+      "category": "housing",
+      "mapColor": "#4DB6AC",
+      "footprint": [1, 1],
+      "housingCapacity": 150,
+      "buildCost": { "nanomaterial": 14, "computer": 8 },
+      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "buildable": false
+    },
+    {
+      "id": "fusion_plant",
+      "category": "power",
+      "mapColor": "#26C6DA",
+      "footprint": [2, 2],
+      "buildCost": { "steel": 30, "computer": 12 },
+      "powerSupply": 120,
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "nano_forge",
+      "category": "production",
+      "mapColor": "#8E7CC3",
+      "footprint": [2, 2],
+      "workerSlots": 6,
+      "buildCost": { "steel": 20, "computer": 6 },
+      "recipe": { "input": { "steel": 2, "silicon": 2 }, "output": { "nanomaterial": 1 }, "timeTicks": 60 },
+      "powerDemand": 18,
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "robotics_lab",
+      "category": "production",
+      "mapColor": "#4DB6AC",
+      "footprint": [2, 2],
+      "workerSlots": 6,
+      "buildCost": { "computer": 10, "nanomaterial": 6 },
+      "recipe": { "input": { "computer": 1, "machine_parts": 2, "nanomaterial": 1 }, "output": { "robot": 1 }, "timeTicks": 65 },
+      "powerDemand": 20,
       "allowedBiomes": ["grassland", "steppe", "beach"]
     }
   ]

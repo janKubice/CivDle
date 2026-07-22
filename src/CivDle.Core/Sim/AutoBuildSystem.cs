@@ -61,14 +61,35 @@ internal sealed class AutoBuildSystem
             return;
         }
 
-        // Poptávka po bydlení: populace dorůstá kapacitu.
-        if (sim.Population < sim.HousingCapacity - config.PopulationHeadroom)
+        // Politika „build_pace" zvyšuje počet akcí za interval (jinak 1 — pozvolný růst).
+        int budget = sim.BuildsPerInterval;
+        for (int b = 0; b < budget; b++)
         {
-            return;
-        }
+            // Poptávka po bydlení: populace dorůstá kapacitu (přepočítává se — stavba/povýšení ji zvedly).
+            if (sim.Population < sim.HousingCapacity - config.PopulationHeadroom)
+            {
+                return;
+            }
 
-        // Deterministická volba kotvy: hash (seed, tik), žádný stav k ukládání.
-        var rng = new SplitMix64(unchecked((ulong)_seed ^ ((ulong)sim.TickCount * 0x9E3779B97F4A7C15UL)));
+            // Politika „housing_density": nejdřív povýšit existující bydlení (víc lidí na stejném místě).
+            if (sim.PreferHousingDensity && TryDensify(sim))
+            {
+                continue;
+            }
+
+            if (!TryGrowOnce(sim, b))
+            {
+                return; // nic nejde postavit → konec
+            }
+        }
+    }
+
+    /// <summary>Jeden krok růstu: kotva + první auto-budova, co se u ní vejde. Vrací true při úspěchu.</summary>
+    private bool TryGrowOnce(Simulation sim, int nonce)
+    {
+        // Deterministická volba kotvy: hash (seed, tik, pořadí v dávce) — žádný stav k ukládání.
+        var rng = new SplitMix64(unchecked(
+            (ulong)_seed ^ ((ulong)sim.TickCount * 0x9E3779B97F4A7C15UL) ^ ((ulong)nonce * 0xBF58476D1CE4E5B9UL)));
         var anchor = sim.Buildings[(int)(rng.Next() % (ulong)sim.Buildings.Length)];
 
         for (int defIndex = 0; defIndex < _content.Buildings.Count; defIndex++)
@@ -80,9 +101,27 @@ internal sealed class AutoBuildSystem
 
             if (TryBuildNear(sim, defIndex, anchor.X, anchor.Y))
             {
-                return; // max jedna budova za interval — růst má být pozvolný
+                return true;
             }
         }
+
+        return false;
+    }
+
+    /// <summary>Povýší první bydlení, které má vylepšení a hráč na něj má — hustota bez záboru místa.</summary>
+    private bool TryDensify(Simulation sim)
+    {
+        var buildings = sim.Buildings;
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            if (_content.Buildings[buildings[i].DefIndex].HousingCapacity > 0
+                && sim.CanUpgrade(i) == PlacementResult.Ok)
+            {
+                return sim.TryUpgradeBuilding(i) == PlacementResult.Ok;
+            }
+        }
+
+        return false;
     }
 
     private bool TryBuildNear(Simulation sim, int defIndex, int anchorX, int anchorY)

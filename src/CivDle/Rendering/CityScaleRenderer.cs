@@ -67,7 +67,7 @@ public sealed class CityScaleRenderer
     /// <summary>Velké číslo populace nahoře uprostřed — „koukni, jak je to velké".</summary>
     private void DrawPopulation(SpriteBatch spriteBatch, Viewport viewport, Simulation simulation)
     {
-        string text = ((long)simulation.Population).ToString("N0");
+        string text = CivDle.Core.Numbers.Format(simulation.Population);
         var size = _font.MeasureString(text);
         var position = new Vector2((viewport.Width - size.X) * 0.5f, viewport.Height * 0.16f);
 

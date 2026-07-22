@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "zones": [
+    { "id": "residential", "mapColor": "#4C7BD9", "buildings": ["house"] },
+    { "id": "farmland", "mapColor": "#7FB93E", "buildings": ["farm"] },
+    { "id": "industry", "mapColor": "#8A8A8A", "buildings": ["lumber_camp", "quarry"] }
+  ]
+}

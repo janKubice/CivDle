@@ -16,6 +16,66 @@
       "cost": { "planks": 30, "stone": 20 },
       "prerequisites": ["milling"],
       "unlocks": ["toolmaker"]
+    },
+    {
+      "id": "bronze_working",
+      "cost": { "stone": 40, "tools": 15 },
+      "prerequisites": ["tools"],
+      "unlocks": ["copper_mine", "smeltery"]
+    },
+    {
+      "id": "alloys",
+      "cost": { "stone": 30, "planks": 40 },
+      "prerequisites": ["bronze_working"],
+      "unlocks": ["bronze_smith"]
+    },
+    {
+      "id": "iron_working",
+      "cost": { "stone": 60, "bronze": 25 },
+      "prerequisites": ["bronze_working"],
+      "unlocks": ["iron_mine", "coal_mine", "blast_furnace"]
+    },
+    {
+      "id": "toolsmithing",
+      "cost": { "bronze": 30, "iron": 20 },
+      "prerequisites": ["iron_working"],
+      "unlocks": ["iron_forge"]
+    },
+    {
+      "id": "steam_power",
+      "cost": { "iron": 40, "coal": 40 },
+      "prerequisites": ["iron_working"],
+      "unlocks": ["steel_mill"]
+    },
+    {
+      "id": "electrification",
+      "cost": { "steel": 30, "iron": 30 },
+      "prerequisites": ["steam_power"],
+      "unlocks": ["coal_power_plant", "factory"]
+    },
+    {
+      "id": "electronics",
+      "cost": { "machine_parts": 30, "steel": 30 },
+      "prerequisites": ["electrification"],
+      "unlocks": ["silicon_mine", "electronics_fab"]
+    },
+    {
+      "id": "computing",
+      "cost": { "electronics": 30, "machine_parts": 20 },
+      "prerequisites": ["electronics"],
+      "unlocks": ["computer_plant"]
+    },
+    {
+      "id": "fusion",
+      "cost": { "computer": 30, "electronics": 40 },
+      "prerequisites": ["computing"],
+      "unlocks": ["fusion_plant", "nano_forge"]
+    },
+    {
+      "id": "robotics",
+      "cost": { "nanomaterial": 30, "computer": 25 },
+      "prerequisites": ["fusion"],
+      "unlocks": ["robotics_lab"]
     }
   ]
 }

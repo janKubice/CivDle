@@ -18,13 +18,16 @@ public sealed class GameContent
         DynamicQuestConfig questsDynamic,
         DefRegistry<AchievementDef> achievements,
         DefRegistry<EventDef> events,
+        DefRegistry<EraDef> eras,
         WorldGenCatalog worldGen,
         GameplayConfig gameplay,
         DefRegistry<LanguageDef> languages,
         IReadOnlyList<string> settlementNames,
         IReadOnlyList<DecorationDef> decorations,
         IReadOnlyList<FaunaDef> fauna,
-        IReadOnlyList<DevlogEntry> devlog)
+        IReadOnlyList<DevlogEntry> devlog,
+        DefRegistry<ZoneTypeDef> zoneTypes,
+        DefRegistry<GrowthPolicyDef> policies)
     {
         Biomes = biomes;
         Resources = resources;
@@ -36,6 +39,7 @@ public sealed class GameContent
         QuestsDynamic = questsDynamic;
         Achievements = achievements;
         Events = events;
+        Eras = eras;
         WorldGen = worldGen;
         Gameplay = gameplay;
         Languages = languages;
@@ -43,6 +47,8 @@ public sealed class GameContent
         Decorations = decorations;
         Fauna = fauna;
         Devlog = devlog;
+        ZoneTypes = zoneTypes;
+        Policies = policies;
     }
 
     /// <summary>Definice technologií z <c>data/tech.json</c> (tech tree).</summary>
@@ -65,6 +71,15 @@ public sealed class GameContent
 
     /// <summary>Náhodné události s volbami z <c>data/events.json</c> (smí být prázdné).</summary>
     public DefRegistry<EventDef> Events { get; }
+
+    /// <summary>Éry civilizace z <c>data/eras.json</c> (progrese T0–T6; smí být prázdné).</summary>
+    public DefRegistry<EraDef> Eras { get; }
+
+    /// <summary>Typy zón pro automatizaci z <c>data/zones.json</c> (smí být prázdné).</summary>
+    public DefRegistry<ZoneTypeDef> ZoneTypes { get; }
+
+    /// <summary>Politiky růstu z <c>data/policies.json</c> (automatizace, stupeň 4; smí být prázdné).</summary>
+    public DefRegistry<GrowthPolicyDef> Policies { get; }
 
     /// <summary>Vývojový deník z <c>data/devlog.json</c> (smí být prázdný).</summary>
     public IReadOnlyList<DevlogEntry> Devlog { get; }

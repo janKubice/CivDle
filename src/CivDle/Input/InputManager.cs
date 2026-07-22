@@ -60,6 +60,10 @@ public sealed class InputManager
     public bool WasLeftPressed =>
         _currentMouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released;
 
+    /// <summary>Levé tlačítko bylo v tomto snímku puštěno.</summary>
+    public bool WasLeftReleased =>
+        _currentMouse.LeftButton == ButtonState.Released && _previousMouse.LeftButton == ButtonState.Pressed;
+
     /// <summary>Pravé tlačítko bylo v tomto snímku nově stisknuto.</summary>
     public bool WasRightPressed =>
         _currentMouse.RightButton == ButtonState.Pressed && _previousMouse.RightButton == ButtonState.Released;

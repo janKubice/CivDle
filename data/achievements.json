@@ -10,6 +10,11 @@
     { "id": "scholar",         "condition": { "metric": "research", "tech": "milling" } },
     { "id": "veteran",         "condition": { "metric": "day", "target": 3 } },
     { "id": "ascendant",       "condition": { "metric": "ascension", "target": 1 } },
-    { "id": "prestige_master", "condition": { "metric": "ascension", "target": 2 }, "hidden": true }
+    { "id": "prestige_master", "condition": { "metric": "ascension", "target": 2 }, "hidden": true },
+    { "id": "bronze_age", "condition": { "metric": "research", "tech": "bronze_working" } },
+    { "id": "iron_age", "condition": { "metric": "research", "tech": "iron_working" } },
+    { "id": "industrial_age", "condition": { "metric": "research", "tech": "steam_power" } },
+    { "id": "information_age", "condition": { "metric": "research", "tech": "electronics" } },
+    { "id": "future_age", "condition": { "metric": "research", "tech": "fusion" } }
   ]
 }

@@ -40,6 +40,7 @@ public sealed class GameplayScreen : IScreen
     private readonly DecorationRenderer _decorationRenderer;
     private readonly HarvestableRenderer _harvestables;
     private readonly RoadRenderer _roadRenderer;
+    private readonly ZoneRenderer _zoneRenderer;
     private readonly BuildingRenderer _buildingRenderer;
     private readonly LightsRenderer _lightsRenderer;
     private readonly FaunaSystem _fauna;
@@ -67,6 +68,8 @@ public sealed class GameplayScreen : IScreen
     private double[] _perSecond = Array.Empty<double>();
     private float _rateTimer;
     private Label _populationLabel = null!;
+    private Label _eraLabel = null!;
+    private Label _powerLabel = null!;
     private Label _dayLabel = null!;
     private Label _cursorLabel = null!;
     private Label _statusLabel = null!;
@@ -103,6 +106,13 @@ public sealed class GameplayScreen : IScreen
     private int _plantGhostY;
     private PlacementResult _plantGhostResult;
 
+    private bool _zoneMode;
+    private int _zonePaintTypeIndex;
+    private bool _zoneDragging;      // levé tlačítko drží, maluje se obdélník
+    private bool _zoneDragActive;    // je co ukázat jako náhled tento snímek
+    private int _zoneStartX, _zoneStartY; // první roh tažení
+    private int _zoneCurX, _zoneCurY;     // aktuální roh pod kurzorem
+
     /// <param name="savedAtUtc">Čas uložení načtené hry — spustí offline dohon; <c>null</c> = nová hra.</param>
     public GameplayScreen(ScreenManager screens, Simulation simulation, WorldInfo info, DateTime? savedAtUtc = null)
     {
@@ -130,6 +140,7 @@ public sealed class GameplayScreen : IScreen
         _decorationRenderer = new DecorationRenderer(screens.WhitePixel, screens.Content, info.Seed);
         _harvestables = new HarvestableRenderer(screens.Sprites, screens.Content);
         _roadRenderer = new RoadRenderer(screens.WhitePixel, screens.Content);
+        _zoneRenderer = new ZoneRenderer(screens.WhitePixel, screens.Content);
         _buildingRenderer = new BuildingRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
         _lightsRenderer = new LightsRenderer(screens.WhitePixel, screens.Content);
         _fauna = new FaunaSystem(screens.Content);
@@ -191,7 +202,12 @@ public sealed class GameplayScreen : IScreen
 
         if (_input.WasPressed(Keys.Escape))
         {
-            if (_plantMode)
+            if (_zoneMode)
+            {
+                _zoneMode = false;
+                _zoneDragging = false;
+            }
+            else if (_plantMode)
             {
                 _plantMode = false;
             }
@@ -212,7 +228,11 @@ public sealed class GameplayScreen : IScreen
 
         bool mouseOverUi = _desktop.IsMouseOverGUI;
         UpdateCamera(dt, mouseOverUi);
-        if (_plantMode)
+        if (_zoneMode)
+        {
+            UpdateZone(mouseOverUi);
+        }
+        else if (_plantMode)
         {
             UpdatePlant(mouseOverUi);
         }
@@ -257,6 +277,7 @@ public sealed class GameplayScreen : IScreen
         var spriteBatch = _screens.SpriteBatch;
         _terrainRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
         _decorationRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
+        _zoneRenderer.Draw(spriteBatch, _camera, _simulation); // tint zón na zemi, pod budovami
 
         // Velké oddálení → agregátní pohled na měřítko (hustota + populace) místo
         // drobných jednotlivců (game-feel-wow: „koukni, jak to vyrostlo").
@@ -306,6 +327,15 @@ public sealed class GameplayScreen : IScreen
             spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.Transform);
             spriteBatch.Draw(plantSprite, new Rectangle(_plantGhostX * ts, _plantGhostY * ts, ts, ts), tint);
             spriteBatch.End();
+        }
+
+        if (_zoneMode && _zoneDragActive)
+        {
+            int x = Math.Min(_zoneStartX, _zoneCurX);
+            int y = Math.Min(_zoneStartY, _zoneCurY);
+            int width = Math.Abs(_zoneCurX - _zoneStartX) + 1;
+            int height = Math.Abs(_zoneCurY - _zoneStartY) + 1;
+            _zoneRenderer.DrawPreview(spriteBatch, _camera, _zonePaintTypeIndex, x, y, width, height);
         }
 
         _vignette.Draw(spriteBatch, _screens.GraphicsDevice.Viewport); // decentní sevření pohledu, pod HUD
@@ -452,6 +482,73 @@ public sealed class GameplayScreen : IScreen
         {
             _simulation.TryPlant(_plantGhostX, _plantGhostY); // zůstáváme v režimu — sázej dál
         }
+    }
+
+    /// <summary>
+    /// Režim zón: levým tažením se maluje obdélník (vznikne po puštění), pravý klik
+    /// smaže zónu pod kurzorem (nebo — do prázdna — vyjde z režimu). Escape rovněž ven.
+    /// </summary>
+    private void UpdateZone(bool mouseOverUi)
+    {
+        _zoneDragActive = false;
+
+        var world = _camera.ScreenToWorld(_input.MousePosition.ToVector2());
+        int tileX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
+        int tileY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
+
+        if (_input.WasRightPressed)
+        {
+            if (_zoneDragging)
+            {
+                _zoneDragging = false; // zruší rozdělanou malbu
+            }
+            else if (mouseOverUi || !_simulation.RemoveZoneAt(tileX, tileY))
+            {
+                _zoneMode = false; // klik do prázdna (nebo přes UI) → ven z režimu
+            }
+
+            return;
+        }
+
+        if (mouseOverUi && !_zoneDragging)
+        {
+            return;
+        }
+
+        if (_input.WasLeftPressed && !mouseOverUi)
+        {
+            _zoneDragging = true;
+            _zoneStartX = tileX;
+            _zoneStartY = tileY;
+        }
+
+        if (_zoneDragging)
+        {
+            _zoneCurX = tileX;
+            _zoneCurY = tileY;
+            _zoneDragActive = true;
+
+            if (_input.WasLeftReleased)
+            {
+                int x = Math.Min(_zoneStartX, _zoneCurX);
+                int y = Math.Min(_zoneStartY, _zoneCurY);
+                int width = Math.Abs(_zoneCurX - _zoneStartX) + 1;
+                int height = Math.Abs(_zoneCurY - _zoneStartY) + 1;
+                _simulation.AddZone(_zonePaintTypeIndex, x, y, width, height);
+                _zoneDragging = false; // zůstáváme v režimu — maluj další zónu
+            }
+        }
+    }
+
+    /// <summary>Vstup do režimu malování zón daného typu (vyčistí ostatní režimy).</summary>
+    private void EnterZoneMode(int typeIndex)
+    {
+        _zoneMode = true;
+        _zonePaintTypeIndex = typeIndex;
+        _zoneDragging = false;
+        _plantMode = false;
+        _selectedBuilding = -1;
+        _movingBuildingIndex = -1;
     }
 
     /// <summary>
@@ -833,10 +930,14 @@ public sealed class GameplayScreen : IScreen
         topLeft.VerticalAlignment = VerticalAlignment.Top;
         topLeft.Margin = new Thickness(10, 10, 0, 0);
 
-        // Pravý horní roh: den/čas + dlaždice pod kurzorem.
+        // Pravý horní roh: éra + den/čas + dlaždice pod kurzorem.
+        _eraLabel = new Label { TextColor = new Color(210, 185, 120), HorizontalAlignment = HorizontalAlignment.Right };
+        _powerLabel = new Label { TextColor = new Color(120, 200, 240), HorizontalAlignment = HorizontalAlignment.Right };
         _dayLabel = new Label { TextColor = UiFactory.Accent };
         _cursorLabel = new Label { TextColor = Color.LightGray };
         var worldInfoStack = new VerticalStackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Right };
+        worldInfoStack.Widgets.Add(_eraLabel);
+        worldInfoStack.Widgets.Add(_powerLabel);
         worldInfoStack.Widgets.Add(_dayLabel);
         worldInfoStack.Widgets.Add(_cursorLabel);
         var topRight = UiFactory.DarkPanel(worldInfoStack);
@@ -888,9 +989,28 @@ public sealed class GameplayScreen : IScreen
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.plant"], () =>
         {
             _plantMode = !_plantMode;
+            _zoneMode = false;
             _selectedBuilding = -1;
             _movingBuildingIndex = -1;
         }));
+
+        // Zóny (automatizace): jedno tlačítko na typ; klik = malovat, další klik na stejný = ven.
+        var zoneTypes = _screens.Content.ZoneTypes;
+        for (int z = 0; z < zoneTypes.Count; z++)
+        {
+            int typeIndex = z;
+            stack.Widgets.Add(UiFactory.SmallButton(loc.Format("hud.zone", loc[zoneTypes[z].NameKey]), () =>
+            {
+                if (_zoneMode && _zonePaintTypeIndex == typeIndex)
+                {
+                    _zoneMode = false;
+                }
+                else
+                {
+                    EnterZoneMode(typeIndex);
+                }
+            }));
+        }
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.backToCity"], RecenterOnCity));
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.settlements"],
             () => _screens.Push(new SettlementsScreen(_screens, _simulation, _camera))));
@@ -898,6 +1018,12 @@ public sealed class GameplayScreen : IScreen
         {
             stack.Widgets.Add(UiFactory.SmallButton(loc["hud.tech"],
                 () => _screens.Push(new TechScreen(_screens, _simulation))));
+        }
+
+        if (_screens.Content.Policies.Count > 0)
+        {
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.policies"],
+                () => _screens.Push(new PoliciesScreen(_screens, _simulation))));
         }
 
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.ascend"],
@@ -1141,7 +1267,12 @@ public sealed class GameplayScreen : IScreen
             Padding = new Thickness(10, 6),
             Background = new SolidBrush(new Color(38, 48, 64, 235)),
         };
-        button.Click += (_, _) => _selectedBuilding = _selectedBuilding == defIndex ? -1 : defIndex;
+        button.Click += (_, _) =>
+        {
+            _selectedBuilding = _selectedBuilding == defIndex ? -1 : defIndex;
+            _zoneMode = false; // stavba a malování zón se vylučují
+            _plantMode = false;
+        };
         _buildButtons.Add((defIndex, button, priceLabel));
         return button;
     }
@@ -1154,16 +1285,34 @@ public sealed class GameplayScreen : IScreen
         {
             double amount = _simulation.GetResource(i);
             double cap = _simulation.GetStorageCap(i);
-            _resourceLabels[i].Text = $"{(long)amount}/{(long)cap}";
+            _resourceLabels[i].Text = CivDle.Core.Numbers.FormatRatio(amount, cap);
             // Přeteklý sklad zežloutne (výzva rozšířit), jinak neutrální.
             _resourceLabels[i].TextColor = amount >= cap - 0.5 ? new Color(240, 200, 90) : Color.White;
 
             // Ticker přírůstku za sekundu (jen znatelný nárůst).
             double rate = i < _perSecond.Length ? _perSecond[i] : 0.0;
-            _resourceRateLabels[i].Text = rate >= 0.05 ? $"+{rate:0.#}/s" : string.Empty;
+            _resourceRateLabels[i].Text = rate >= 0.05 ? $"+{CivDle.Core.Numbers.Format(rate)}/s" : string.Empty;
         }
 
-        _populationLabel.Text = loc.Format("hud.population", (long)_simulation.Population, _simulation.HousingCapacity);
+        _populationLabel.Text = loc.Format("hud.population",
+            CivDle.Core.Numbers.Format(_simulation.Population), CivDle.Core.Numbers.Format(_simulation.HousingCapacity));
+
+        var eras = _screens.Content.Eras;
+        int eraIndex = _simulation.CurrentEraIndex;
+        _eraLabel.Text = eraIndex >= 0 ? loc.Format("hud.era", loc[eras[eraIndex].NameKey]) : string.Empty;
+
+        // Rozvodná síť: zobraz se až když má město spotřebiče; červená = nedostatek.
+        if (_simulation.TotalPowerDemand > 0)
+        {
+            _powerLabel.Text = loc.Format("hud.power", _simulation.TotalPowerSupply, _simulation.TotalPowerDemand);
+            _powerLabel.TextColor = _simulation.TotalPowerSupply < _simulation.TotalPowerDemand
+                ? new Color(235, 120, 90)
+                : new Color(120, 200, 240);
+        }
+        else
+        {
+            _powerLabel.Text = string.Empty;
+        }
 
         double hours = _simulation.TimeOfDay01 * 24.0;
         _dayLabel.Text = loc.Format("hud.day", _simulation.DayNumber, (int)hours, (int)((hours - (int)hours) * 60));

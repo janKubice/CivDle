@@ -5,6 +5,18 @@
     { "id": "planks", "mapColor": "#C8A96B", "startAmount": 10, "baseStorage": 120 },
     { "id": "stone", "mapColor": "#9AA0A6", "startAmount": 15, "baseStorage": 150 },
     { "id": "food", "mapColor": "#E0B040", "startAmount": 20, "baseStorage": 150 },
-    { "id": "tools", "mapColor": "#B0BEC5", "startAmount": 0, "baseStorage": 80 }
+    { "id": "tools", "mapColor": "#B0BEC5", "startAmount": 0, "baseStorage": 80 },
+    { "id": "copper_ore", "mapColor": "#B87333", "startAmount": 0, "baseStorage": 100 },
+    { "id": "bronze", "mapColor": "#CD7F32", "startAmount": 0, "baseStorage": 80 },
+    { "id": "iron_ore", "mapColor": "#8C8C94", "startAmount": 0, "baseStorage": 100 },
+    { "id": "coal", "mapColor": "#2B2B2B", "startAmount": 0, "baseStorage": 100 },
+    { "id": "iron", "mapColor": "#B0B0B8", "startAmount": 0, "baseStorage": 80 },
+    { "id": "steel", "mapColor": "#71797E", "startAmount": 0, "baseStorage": 70 },
+    { "id": "machine_parts", "mapColor": "#546E7A", "startAmount": 0, "baseStorage": 60 },
+    { "id": "silicon", "mapColor": "#7D8CA3", "startAmount": 0, "baseStorage": 80 },
+    { "id": "electronics", "mapColor": "#2E7D5B", "startAmount": 0, "baseStorage": 60 },
+    { "id": "computer", "mapColor": "#3A506B", "startAmount": 0, "baseStorage": 40 },
+    { "id": "nanomaterial", "mapColor": "#8E7CC3", "startAmount": 0, "baseStorage": 40 },
+    { "id": "robot", "mapColor": "#4DB6AC", "startAmount": 0, "baseStorage": 30 }
   ]
 }

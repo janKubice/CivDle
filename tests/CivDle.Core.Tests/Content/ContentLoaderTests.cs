@@ -530,6 +530,7 @@ public class ContentLoaderTests : IDisposable
         """);
         Write("achievements.json", """{ "schemaVersion": 1, "achievements": [] }""");
         Write("events.json", """{ "schemaVersion": 1, "events": [] }""");
+        Write("eras.json", """{ "schemaVersion": 1, "eras": [{ "id": "start", "order": 0 }] }""");
     }
 
     private void WriteWorldGen(string fallbackBiome = "grass", string? defaultPreset = null)
@@ -559,6 +560,7 @@ public class ContentLoaderTests : IDisposable
             "\"resource.food\": \"-\"",
             "\"worldsize.s\": \"-\"",
             "\"preset.p\": \"-\"",
+            "\"era.start\": \"-\"",
         };
         if (includeBuildingName)
         {

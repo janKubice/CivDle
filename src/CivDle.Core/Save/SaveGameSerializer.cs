@@ -20,8 +20,8 @@ public sealed class SaveGameSerializer
 {
     private const string Magic = "CIVD";
 
-    /// <summary>Verze formátu — zvýšit při každé změně struktury. v6: + úkoly. v7: + skrýše. v8: + zasazené uzly.</summary>
-    public const int FormatVersion = 8;
+    /// <summary>Verze formátu — zvýšit při každé změně struktury. v6: + úkoly. v7: + skrýše. v8: + zasazené uzly. v9: + zóny. v10: + politiky.</summary>
+    public const int FormatVersion = 10;
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -50,6 +50,8 @@ public sealed class SaveGameSerializer
         WriteQuests(writer, simulation);
         WriteDiscoveries(writer, simulation);
         WritePlanted(writer, simulation);
+        WriteZones(writer, simulation);
+        WritePolicies(writer, simulation);
     }
 
     /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
@@ -96,7 +98,9 @@ public sealed class SaveGameSerializer
             ReadQuests(reader, content, simulation);
             ReadDiscoveries(reader, simulation);
             ReadPlanted(reader, content, simulation);
-            simulation.FinalizeLoad(); // bonusy Vzestupu → přepočet bydlení/skladů
+            ReadZones(reader, content, simulation);
+            ReadPolicies(reader, content, simulation);
+            simulation.FinalizeLoad(); // bonusy Vzestupu → přepočet bydlení/skladů + politik
 
             return (simulation, metadata);
         }
@@ -361,6 +365,67 @@ public sealed class SaveGameSerializer
             }
 
             // Smazaná surovina v datech = zasazený uzel se tiše přeskočí.
+        }
+    }
+
+    private static void WriteZones(BinaryWriter writer, Simulation simulation)
+    {
+        var zoneTypeDefs = SimContent(simulation).ZoneTypes;
+        var zones = simulation.Zones;
+        writer.Write(zones.Count);
+        for (int i = 0; i < zones.Count; i++)
+        {
+            var zone = zones[i];
+            writer.Write(zoneTypeDefs[zone.TypeIndex].Id); // stabilní ID, ne index
+            writer.Write(zone.X);
+            writer.Write(zone.Y);
+            writer.Write(zone.Width);
+            writer.Write(zone.Height);
+        }
+    }
+
+    private static void ReadZones(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        int count = ReadCount(reader, max: Simulation.MaxZones, what: "zón");
+        for (int i = 0; i < count; i++)
+        {
+            string id = reader.ReadString();
+            int x = reader.ReadInt32();
+            int y = reader.ReadInt32();
+            int width = reader.ReadInt32();
+            int height = reader.ReadInt32();
+            if (content.ZoneTypes.TryIndexOf(id, out int typeIndex))
+            {
+                simulation.RestoreZone(typeIndex, x, y, width, height);
+            }
+
+            // Smazaný typ zóny v datech = zóna se tiše přeskočí.
+        }
+    }
+
+    private static void WritePolicies(BinaryWriter writer, Simulation simulation)
+    {
+        var policyDefs = SimContent(simulation).Policies;
+        var active = simulation.ActivePolicyIndices().ToList();
+        writer.Write(active.Count);
+        foreach (int index in active)
+        {
+            writer.Write(policyDefs[index].Id); // stabilní ID, ne index
+        }
+    }
+
+    private static void ReadPolicies(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        int count = ReadCount(reader, max: 100_000, what: "politik");
+        for (int i = 0; i < count; i++)
+        {
+            string id = reader.ReadString();
+            if (content.Policies.TryIndexOf(id, out int index))
+            {
+                simulation.RestorePolicyActive(index);
+            }
+
+            // Smazaná politika v datech se ze savu tiše přeskočí.
         }
     }
 
