@@ -187,6 +187,7 @@
     "zone.residential": "Residential Zone",
     "zone.farmland": "Farmland Zone",
     "zone.industry": "Industrial Zone",
+    "hud.zone": "Zone: {0}",
     "era.founding": "Founding",
     "era.crafts": "Crafts",
     "era.bronze": "Bronze Age",

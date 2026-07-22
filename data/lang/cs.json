@@ -187,6 +187,7 @@
     "zone.residential": "Obytná zóna",
     "zone.farmland": "Zemědělská zóna",
     "zone.industry": "Průmyslová zóna",
+    "hud.zone": "Zóna: {0}",
     "era.founding": "Založení",
     "era.crafts": "Řemesla",
     "era.bronze": "Doba bronzová",
