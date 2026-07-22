@@ -1020,6 +1020,12 @@ public sealed class GameplayScreen : IScreen
                 () => _screens.Push(new TechScreen(_screens, _simulation))));
         }
 
+        if (_screens.Content.Policies.Count > 0)
+        {
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.policies"],
+                () => _screens.Push(new PoliciesScreen(_screens, _simulation))));
+        }
+
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.ascend"],
             () => _screens.Push(new AscensionScreen(_screens, _simulation))));
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.achievements"],
