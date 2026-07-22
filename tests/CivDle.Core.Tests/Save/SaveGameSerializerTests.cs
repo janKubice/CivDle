@@ -150,6 +150,23 @@ public class SaveGameSerializerTests
     }
 
     [Fact]
+    public void RoundTrip_PreservesPolicies()
+    {
+        // Politika (save v10) se ukládá přes stabilní ID a její efekt se po načtení
+        // přepočítá ve FinalizeLoad (proto kontrolujeme i odvozený BuildsPerInterval).
+        var (content, original) = PlayedGame();
+        int rapid = content.Policies.IndexOf("rapid_growth");
+        Assert.True(original.TogglePolicy(rapid));
+        Assert.Equal(3, original.BuildsPerInterval);
+
+        using var stream = Saved(original, Metadata);
+        var (loaded, _) = new SaveGameSerializer().Read(stream, content);
+
+        Assert.True(loaded.IsPolicyActive(rapid));
+        Assert.Equal(3, loaded.BuildsPerInterval);
+    }
+
+    [Fact]
     public void Load_RemapsResourceIdsWhenContentIsReordered()
     {
         // Obsah A: [wood, planks]; obsah B má stejná ID v opačném pořadí.

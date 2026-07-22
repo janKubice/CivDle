@@ -40,6 +40,7 @@ public sealed class Simulation
     private readonly bool[] _buildingUnlocked;
     private readonly bool[] _techResearched;
     private readonly bool[] _upgradesPurchased; // koupené trvalé upgrady Vzestupu
+    private readonly bool[] _policiesActive;    // zapnuté politiky růstu (automatizace, stupeň 4)
     private readonly long[] _harvestedTotals; // kumulativní sběr surovin klikáním (metriky cílů)
     private readonly HashSet<long> _claimedDiscoveries = new(); // vyzvednuté skrýše na mapě
     private readonly Dictionary<long, ClickYield> _plantedNodes = new(); // hráčem zasazené obnovitelné zdroje
@@ -73,6 +74,7 @@ public sealed class Simulation
 
         _techResearched = new bool[content.Techs.Count];
         _upgradesPurchased = new bool[content.PrestigeUpgrades.Count];
+        _policiesActive = new bool[content.Policies.Count];
         _harvestedTotals = new long[content.Resources.Count];
 
         _resources = new double[content.Resources.Count];
@@ -591,6 +593,82 @@ public sealed class Simulation
         {
             _zones.Add(new Zone(typeIndex, x, y, width, height));
         }
+    }
+
+    // ----- politiky růstu (automatizace, stupeň 4) -----
+
+    /// <summary>Kolik budov smí auto-stavba i plnění zón položit za interval (výchozí 1; politika „build_pace" zvedá).</summary>
+    public int BuildsPerInterval { get; private set; } = 1;
+
+    /// <summary>Preferovat hustotu: auto-stavba nejdřív povýší existující bydlení, než postaví nové (politika „housing_density").</summary>
+    public bool PreferHousingDensity { get; private set; }
+
+    /// <summary>Je politika zapnutá?</summary>
+    public bool IsPolicyActive(int policyIndex) => _policiesActive[policyIndex];
+
+    /// <summary>Příkaz hráče: přepne politiku a přepočítá její vliv na růst; vrací nový stav.</summary>
+    public bool TogglePolicy(int policyIndex)
+    {
+        if (policyIndex < 0 || policyIndex >= _policiesActive.Length)
+        {
+            return false;
+        }
+
+        _policiesActive[policyIndex] = !_policiesActive[policyIndex];
+        RecomputePolicyEffects();
+        return _policiesActive[policyIndex];
+    }
+
+    /// <summary>Indexy zapnutých politik (pro serializaci savu).</summary>
+    internal IEnumerable<int> ActivePolicyIndices()
+    {
+        for (int i = 0; i < _policiesActive.Length; i++)
+        {
+            if (_policiesActive[i])
+            {
+                yield return i;
+            }
+        }
+    }
+
+    /// <summary>Obnoví zapnutou politiku při načtení savu (efekt se přepočítá ve <see cref="FinalizeLoad"/>).</summary>
+    internal void RestorePolicyActive(int policyIndex)
+    {
+        if (policyIndex >= 0 && policyIndex < _policiesActive.Length)
+        {
+            _policiesActive[policyIndex] = true;
+        }
+    }
+
+    /// <summary>
+    /// Přemapuje zapnuté politiky na odvozené parametry růstu (data = co, kód = jak,
+    /// mapování přes behavior-ID). Neznámý efekt se tiše ignoruje — data smí předběhnout kód.
+    /// </summary>
+    private void RecomputePolicyEffects()
+    {
+        int buildsPerInterval = 1;
+        bool preferDensity = false;
+        for (int i = 0; i < _policiesActive.Length; i++)
+        {
+            if (!_policiesActive[i])
+            {
+                continue;
+            }
+
+            var policy = _content.Policies[i];
+            switch (policy.Effect)
+            {
+                case "build_pace":
+                    buildsPerInterval = Math.Max(buildsPerInterval, Math.Max(1, (int)policy.Magnitude));
+                    break;
+                case "housing_density":
+                    preferDensity = true;
+                    break;
+            }
+        }
+
+        BuildsPerInterval = buildsPerInterval;
+        PreferHousingDensity = preferDensity;
     }
 
     // ----- objevování mapy (skrýše) -----
@@ -1288,5 +1366,6 @@ public sealed class Simulation
     {
         RecomputeBonuses();
         RecomputeDerivedState();
+        RecomputePolicyEffects(); // obnovené politiky → odvozené parametry růstu
     }
 }

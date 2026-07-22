@@ -42,11 +42,25 @@ internal sealed class ZoneFillSystem
         // Deterministický start → v čase se plní všechny zóny rovnoměrně, ne jen ta první.
         var rng = new SplitMix64(unchecked((ulong)_seed ^ ((ulong)sim.TickCount * 0x2545F4914F6CDD1DUL)));
         int start = (int)(rng.Next() % (ulong)zones.Count);
-        for (int i = 0; i < zones.Count; i++)
+
+        // Politika „build_pace" zvedá počet staveb za interval; rozkládá se po zónách
+        // (jedna na zónu a průchod), ať se plní rovnoměrně, ne jedna zóna napřed.
+        int budget = sim.BuildsPerInterval;
+        while (budget > 0)
         {
-            if (TryFillOne(sim, zones[(start + i) % zones.Count]))
+            bool placedAny = false;
+            for (int i = 0; i < zones.Count && budget > 0; i++)
             {
-                return; // max jedna budova za interval
+                if (TryFillOne(sim, zones[(start + i) % zones.Count]))
+                {
+                    budget--;
+                    placedAny = true;
+                }
+            }
+
+            if (!placedAny)
+            {
+                break; // nic dalšího nejde položit (plno / došly suroviny)
             }
         }
     }
