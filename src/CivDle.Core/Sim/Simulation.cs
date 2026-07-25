@@ -29,6 +29,7 @@ public sealed class Simulation
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
     private readonly ZoneFillSystem _zoneFill;
+    private readonly ColonySystem _colonySystem;
     private readonly List<Zone> _zones = new(); // hráčem namalované zóny (automatizace, stupeň 3)
     private readonly RoadBuilder _roadBuilder;
     private readonly SettlementSystem _settlementSystem;
@@ -92,6 +93,7 @@ public sealed class Simulation
         _populationSystem = new PopulationSystem(content.Gameplay);
         _autoBuild = new AutoBuildSystem(content, seed);
         _zoneFill = new ZoneFillSystem(content, seed);
+        _colonySystem = new ColonySystem(content, seed);
         _roadBuilder = new RoadBuilder(content);
         _settlementSystem = new SettlementSystem(content, seed);
         _questSystem = new QuestSystem(content);
@@ -323,6 +325,7 @@ public sealed class Simulation
         _populationSystem.Tick(this);
         _autoBuild.Tick(this);
         _zoneFill.Tick(this);
+        _colonySystem.Tick(this); // guvernér: expanze do nových kolonií
         _settlementSystem.Tick(this);
         _questSystem.Tick(this);
         _achievementSystem.Tick(this);
@@ -603,6 +606,19 @@ public sealed class Simulation
     /// <summary>Preferovat hustotu: auto-stavba nejdřív povýší existující bydlení, než postaví nové (politika „housing_density").</summary>
     public bool PreferHousingDensity { get; private set; }
 
+    /// <summary>Guvernér: zakládat samostatné kolonie, když je doma plno (politika „auto_expand").</summary>
+    public bool AutoExpandColonies { get; private set; }
+
+    /// <summary>Jak daleko od těžiště zástavby guvernér zakládá kolonii (dlaždice).</summary>
+    public int ColonyDistance { get; private set; } = DefaultColonyDistance;
+
+    /// <summary>Výchozí vzdálenost kolonie, když ji politika neurčí jinak.</summary>
+    private const int DefaultColonyDistance = 18;
+
+    /// <summary>Oznámí založení kolonie (guvernér) — HUD z toho udělá „founder moment".</summary>
+    internal void EnqueueColonyFounded() =>
+        EnqueueNotification(new GameNotification(NotificationKind.Milestone, "toast.milestone", "colony.founded"));
+
     /// <summary>Je politika zapnutá?</summary>
     public bool IsPolicyActive(int policyIndex) => _policiesActive[policyIndex];
 
@@ -648,6 +664,8 @@ public sealed class Simulation
     {
         int buildsPerInterval = 1;
         bool preferDensity = false;
+        bool autoExpand = false;
+        int colonyDistance = DefaultColonyDistance;
         for (int i = 0; i < _policiesActive.Length; i++)
         {
             if (!_policiesActive[i])
@@ -664,11 +682,21 @@ public sealed class Simulation
                 case "housing_density":
                     preferDensity = true;
                     break;
+                case "auto_expand":
+                    autoExpand = true;
+                    if (policy.Magnitude > 0)
+                    {
+                        colonyDistance = (int)policy.Magnitude;
+                    }
+
+                    break;
             }
         }
 
         BuildsPerInterval = buildsPerInterval;
         PreferHousingDensity = preferDensity;
+        AutoExpandColonies = autoExpand;
+        ColonyDistance = colonyDistance;
     }
 
     // ----- objevování mapy (skrýše) -----

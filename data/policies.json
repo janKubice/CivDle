@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "policies": [
     { "id": "rapid_growth", "effect": "build_pace", "magnitude": 3 },
-    { "id": "dense_housing", "effect": "housing_density", "magnitude": 0 }
+    { "id": "dense_housing", "effect": "housing_density", "magnitude": 0 },
+    { "id": "auto_expand", "effect": "auto_expand", "magnitude": 18 }
   ]
 }
