@@ -27,7 +27,8 @@ public sealed class GameContent
         IReadOnlyList<FaunaDef> fauna,
         IReadOnlyList<DevlogEntry> devlog,
         DefRegistry<ZoneTypeDef> zoneTypes,
-        DefRegistry<GrowthPolicyDef> policies)
+        DefRegistry<GrowthPolicyDef> policies,
+        DefRegistry<AscensionTierDef> ascensionTiers)
     {
         Biomes = biomes;
         Resources = resources;
@@ -49,6 +50,7 @@ public sealed class GameContent
         Devlog = devlog;
         ZoneTypes = zoneTypes;
         Policies = policies;
+        AscensionTiers = ascensionTiers;
     }
 
     /// <summary>Definice technologií z <c>data/tech.json</c> (tech tree).</summary>
@@ -80,6 +82,9 @@ public sealed class GameContent
 
     /// <summary>Politiky růstu z <c>data/policies.json</c> (automatizace, stupeň 4; smí být prázdné).</summary>
     public DefRegistry<GrowthPolicyDef> Policies { get; }
+
+    /// <summary>Stupně měřítka z <c>data/ascension-tiers.json</c> (stropy populace, megastruktury; smí být prázdné).</summary>
+    public DefRegistry<AscensionTierDef> AscensionTiers { get; }
 
     /// <summary>Vývojový deník z <c>data/devlog.json</c> (smí být prázdný).</summary>
     public IReadOnlyList<DevlogEntry> Devlog { get; }

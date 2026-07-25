@@ -69,6 +69,7 @@ public sealed class GameplayScreen : IScreen
     private float _rateTimer;
     private Label _populationLabel = null!;
     private Label _eraLabel = null!;
+    private Label _tierLabel = null!;
     private Label _powerLabel = null!;
     private Label _dayLabel = null!;
     private Label _cursorLabel = null!;
@@ -932,11 +933,13 @@ public sealed class GameplayScreen : IScreen
 
         // Pravý horní roh: éra + den/čas + dlaždice pod kurzorem.
         _eraLabel = new Label { TextColor = new Color(210, 185, 120), HorizontalAlignment = HorizontalAlignment.Right };
+        _tierLabel = new Label { TextColor = new Color(190, 160, 230), HorizontalAlignment = HorizontalAlignment.Right };
         _powerLabel = new Label { TextColor = new Color(120, 200, 240), HorizontalAlignment = HorizontalAlignment.Right };
         _dayLabel = new Label { TextColor = UiFactory.Accent };
         _cursorLabel = new Label { TextColor = Color.LightGray };
         var worldInfoStack = new VerticalStackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Right };
         worldInfoStack.Widgets.Add(_eraLabel);
+        worldInfoStack.Widgets.Add(_tierLabel);
         worldInfoStack.Widgets.Add(_powerLabel);
         worldInfoStack.Widgets.Add(_dayLabel);
         worldInfoStack.Widgets.Add(_cursorLabel);
@@ -1300,6 +1303,23 @@ public sealed class GameplayScreen : IScreen
         var eras = _screens.Content.Eras;
         int eraIndex = _simulation.CurrentEraIndex;
         _eraLabel.Text = eraIndex >= 0 ? loc.Format("hud.era", loc[eras[eraIndex].NameKey]) : string.Empty;
+
+        // Měřítko (stupeň Vzestupu): jméno + strop; u stropu zežloutne jako pobídka k Vzestupu.
+        var tiers = _screens.Content.AscensionTiers;
+        int tierIndex = _simulation.CurrentTierIndex;
+        if (tierIndex >= 0)
+        {
+            double cap = _simulation.PopulationCap;
+            _tierLabel.Text = loc.Format("hud.tier", loc[tiers[tierIndex].NameKey])
+                + " · " + loc.Format("hud.populationCap", CivDle.Core.Numbers.Format(cap));
+            _tierLabel.TextColor = _simulation.Population >= cap - 0.5
+                ? new Color(240, 200, 90)
+                : new Color(190, 160, 230);
+        }
+        else
+        {
+            _tierLabel.Text = string.Empty;
+        }
 
         // Rozvodná síť: zobraz se až když má město spotřebiče; červená = nedostatek.
         if (_simulation.TotalPowerDemand > 0)

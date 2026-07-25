@@ -363,6 +363,51 @@
       "recipe": { "input": { "computer": 1, "machine_parts": 2, "nanomaterial": 1 }, "output": { "robot": 1 }, "timeTicks": 65 },
       "powerDemand": 20,
       "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "megacity_spire",
+      "category": "megastructure",
+      "mapColor": "#9C6ADE",
+      "footprint": [3, 3],
+      "housingCapacity": 5000,
+      "buildCost": { "steel": 120, "computer": 60, "machine_parts": 80 },
+      "powerDemand": 60,
+      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "buildable": false
+    },
+    {
+      "id": "grand_exchange",
+      "category": "megastructure",
+      "mapColor": "#D4A54A",
+      "footprint": [3, 3],
+      "workerSlots": 40,
+      "buildCost": { "steel": 100, "electronics": 50, "machine_parts": 60 },
+      "storage": { "wood": 5000, "planks": 5000, "stone": 5000, "food": 5000, "tools": 3000, "iron": 3000, "steel": 3000, "machine_parts": 2000, "electronics": 2000, "computer": 1500 },
+      "powerDemand": 40,
+      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "buildable": false
+    },
+    {
+      "id": "orbital_ring",
+      "category": "megastructure",
+      "mapColor": "#5FD6E8",
+      "footprint": [3, 3],
+      "buildCost": { "nanomaterial": 150, "robot": 60, "computer": 100 },
+      "powerSupply": 2000,
+      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "buildable": false
+    },
+    {
+      "id": "world_forge",
+      "category": "megastructure",
+      "mapColor": "#E8763A",
+      "footprint": [3, 3],
+      "workerSlots": 60,
+      "buildCost": { "nanomaterial": 200, "robot": 100, "steel": 200 },
+      "recipe": { "input": { "silicon": 4, "iron": 4 }, "output": { "nanomaterial": 6, "steel": 6 }, "timeTicks": 40 },
+      "powerDemand": 300,
+      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "buildable": false
     }
   ]
 }

@@ -77,6 +77,7 @@ public sealed class Simulation
         _upgradesPurchased = new bool[content.PrestigeUpgrades.Count];
         _policiesActive = new bool[content.Policies.Count];
         _harvestedTotals = new long[content.Resources.Count];
+        RefreshTierUnlocks(); // megastruktury zamčené, dokud měřítko nedoroste
 
         _resources = new double[content.Resources.Count];
         _storageCaps = new double[content.Resources.Count];
@@ -208,6 +209,65 @@ public sealed class Simulation
 
     /// <summary>Smí hráč budovu přímo postavit (odemčená a nemarkovaná jako jen-upgrade)?</summary>
     public bool IsBuildingBuildable(int defIndex) => _buildingUnlocked[defIndex] && _content.Buildings[defIndex].Buildable;
+
+    // ----- měřítko (stupně Vzestupu) -----
+
+    /// <summary>
+    /// Index aktuálního stupně měřítka: nejvyšší, jehož <see cref="AscensionTierDef.Order"/>
+    /// úroveň Vzestupu dosáhla. −1 = žádné stupně (bez stropu).
+    /// </summary>
+    public int CurrentTierIndex
+    {
+        get
+        {
+            int best = -1, bestOrder = -1;
+            var tiers = _content.AscensionTiers;
+            for (int i = 0; i < tiers.Count; i++)
+            {
+                if (tiers[i].Order <= AscensionLevel && tiers[i].Order > bestOrder)
+                {
+                    bestOrder = tiers[i].Order;
+                    best = i;
+                }
+            }
+
+            return best;
+        }
+    }
+
+    /// <summary>
+    /// Strop populace aktuálního měřítka (progression-prestige.md §3). Je to MĚKKÝ cíl:
+    /// růst se u něj zastaví, ale nic se neboří — láká k dalšímu Vzestupu, netrestá
+    /// („soft-lock, ne hard-lock"). Bez definovaných stupňů je strop nekonečný.
+    /// </summary>
+    public double PopulationCap
+    {
+        get
+        {
+            int tier = CurrentTierIndex;
+            return tier < 0 ? double.PositiveInfinity : _content.AscensionTiers[tier].PopulationCap;
+        }
+    }
+
+    /// <summary>
+    /// Zamkne budovy hlídané stupněm měřítka a hned odemkne ty, na jejichž stupeň
+    /// už úroveň Vzestupu dosáhla. Stejný princip jako u technologií — megastruktura
+    /// je ale odměna za MĚŘÍTKO, ne za výzkum. Volá se při startu, Vzestupu, resetu
+    /// éry a načtení savu.
+    /// </summary>
+    private void RefreshTierUnlocks()
+    {
+        var tiers = _content.AscensionTiers;
+        for (int i = 0; i < tiers.Count; i++)
+        {
+            var unlocks = tiers[i].UnlockedBuildingIndices;
+            bool reached = tiers[i].Order <= AscensionLevel;
+            for (int j = 0; j < unlocks.Count; j++)
+            {
+                _buildingUnlocked[unlocks[j]] = reached;
+            }
+        }
+    }
 
     /// <summary>
     /// Má hráč dost surovin na stavbu (bez ohledu na místo/biom)? Pro HUD — barevné
@@ -1263,7 +1323,7 @@ public sealed class Simulation
 
         PrestigePoints += PendingAscensionPoints();
         AscensionLevel++;
-        ResetEra();
+        ResetEra(); // uvnitř i RefreshTierUnlocks — nové měřítko může odemknout megastruktury
         EnqueueNotification(new GameNotification(NotificationKind.Ascended, "toast.ascended", "prestige.ascendedSubject"));
         return PlacementResult.Ok;
     }
@@ -1340,6 +1400,7 @@ public sealed class Simulation
             }
         }
 
+        RefreshTierUnlocks(); // dosažené měřítko přetrvává i po resetu éry
         RecomputeBonuses();
         RecomputeDerivedState(); // bez budov → základní kapacity × StorageMult
         for (int i = 0; i < _resources.Length; i++)
@@ -1395,5 +1456,6 @@ public sealed class Simulation
         RecomputeBonuses();
         RecomputeDerivedState();
         RecomputePolicyEffects(); // obnovené politiky → odvozené parametry růstu
+        RefreshTierUnlocks();     // obnovená úroveň Vzestupu → odemčené megastruktury
     }
 }

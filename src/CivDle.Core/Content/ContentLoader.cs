@@ -43,9 +43,10 @@ public sealed class ContentLoader
         var eras = LoadEras(Path.Combine(dataDirectory, "eras.json"));
         var zoneTypes = LoadZoneTypes(Path.Combine(dataDirectory, "zones.json"), buildings);
         var policies = LoadPolicies(Path.Combine(dataDirectory, "policies.json"));
+        var tiers = LoadAscensionTiers(Path.Combine(dataDirectory, "ascension-tiers.json"), buildings);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
@@ -53,7 +54,7 @@ public sealed class ContentLoader
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers);
     }
 
     // ----- éry -----
@@ -177,6 +178,64 @@ public sealed class ContentLoader
         }
 
         return new DefRegistry<GrowthPolicyDef>(result, p => p.Id, "politika", allowEmpty: true);
+    }
+
+    // ----- stupně měřítka (Vzestup) -----
+
+    private static DefRegistry<AscensionTierDef> LoadAscensionTiers(string path, DefRegistry<BuildingDef> buildings)
+    {
+        // Stupně měřítka jsou volitelný obsah — bez souboru je registr prázdný (žádný strop).
+        if (!File.Exists(path))
+        {
+            return new DefRegistry<AscensionTierDef>(Array.Empty<AscensionTierDef>(), t => t.Id, "stupeň měřítka", allowEmpty: true);
+        }
+
+        var file = ReadFile<AscensionTiersFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Tiers ?? new List<AscensionTierDto>();
+        var result = new List<AscensionTierDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        var seenOrders = new HashSet<int>();
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Stupeň měřítka na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID stupně měřítka '{id}'.");
+            }
+
+            if (dto.Order is < 0 or > 100)
+            {
+                throw new ContentLoadException(path, $"Stupeň '{id}': 'order' musí být 0–100, je {dto.Order}.");
+            }
+
+            if (!seenOrders.Add(dto.Order))
+            {
+                throw new ContentLoadException(path, $"Stupeň '{id}': pořadí {dto.Order} už má jiný stupeň.");
+            }
+
+            if (dto.PopulationCap <= 0)
+            {
+                throw new ContentLoadException(path, $"Stupeň '{id}': 'populationCap' musí být kladný, je {dto.PopulationCap}.");
+            }
+
+            var unlocked = new List<int>();
+            foreach (var buildingId in dto.Unlocks ?? new List<string>())
+            {
+                if (buildingId is null || !buildings.TryIndexOf(buildingId.Trim(), out int buildingIndex))
+                {
+                    throw new ContentLoadException(path, $"Stupeň '{id}' odkazuje v 'unlocks' na neexistující budovu '{buildingId}'.");
+                }
+
+                unlocked.Add(buildingIndex);
+            }
+
+            result.Add(new AscensionTierDef(id, dto.Order, dto.PopulationCap, unlocked));
+        }
+
+        return new DefRegistry<AscensionTierDef>(result, t => t.Id, "stupeň měřítka", allowEmpty: true);
     }
 
     // ----- biomy -----
@@ -1213,7 +1272,8 @@ public sealed class ContentLoader
         DefRegistry<EventDef> events,
         DefRegistry<EraDef> eras,
         DefRegistry<ZoneTypeDef> zoneTypes,
-        DefRegistry<GrowthPolicyDef> policies)
+        DefRegistry<GrowthPolicyDef> policies,
+        DefRegistry<AscensionTierDef> tiers)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -1247,7 +1307,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -1267,7 +1327,8 @@ public sealed class ContentLoader
         DefRegistry<EventDef> events,
         DefRegistry<EraDef> eras,
         DefRegistry<ZoneTypeDef> zoneTypes,
-        DefRegistry<GrowthPolicyDef> policies)
+        DefRegistry<GrowthPolicyDef> policies,
+        DefRegistry<AscensionTierDef> tiers)
     {
         var required = new List<string>();
         required.AddRange(biomes.All.Select(b => b.NameKey));
@@ -1294,6 +1355,7 @@ public sealed class ContentLoader
         required.AddRange(zoneTypes.All.Select(z => z.NameKey));
         required.AddRange(policies.All.Select(p => p.NameKey));
         required.AddRange(policies.All.Select(p => p.DescriptionKey));
+        required.AddRange(tiers.All.Select(t => t.NameKey));
 
         var missing = required.Where(key => !language.Strings.ContainsKey(key)).ToList();
         if (missing.Count > 0)

@@ -205,6 +205,12 @@ public sealed record PoliciesFileDto(int SchemaVersion, List<PolicyDto>? Policie
 /// <summary>Jedna politika růstu tak, jak leží v JSON.</summary>
 public sealed record PolicyDto(string? Id, string? Effect, double Magnitude);
 
+/// <summary>Obsah souboru <c>data/ascension-tiers.json</c> (stupně měřítka).</summary>
+public sealed record AscensionTiersFileDto(int SchemaVersion, List<AscensionTierDto>? Tiers);
+
+/// <summary>Jeden stupeň měřítka tak, jak leží v JSON.</summary>
+public sealed record AscensionTierDto(string? Id, int Order, double PopulationCap, List<string>? Unlocks);
+
 /// <summary>Obsah souboru <c>data/events.json</c> (náhodné události s volbami).</summary>
 public sealed record EventFileDto(int SchemaVersion, List<EventDto>? Events);
 
