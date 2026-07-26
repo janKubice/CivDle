@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Nástroj na ověření balancu: odsimuluje hru headless a vypíše křivky.
+    Bez MonoGame — sahá jen na jádro, takže běží kdekoli a rychle (bez okna,
+    bez grafiky). Balanc se tím dá MĚŘIT místo hádat.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>CivDle.Balance</RootNamespace>
+    <AssemblyName>civdle-balance</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CivDle.Core\CivDle.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\data\**" LinkBase="data" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
