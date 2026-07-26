@@ -48,6 +48,7 @@ public sealed class ContentLoader
         var landmarks = LoadLandmarks(Path.Combine(dataDirectory, "landmarks.json"), biomes, resources);
         var features = LoadFeatures(Path.Combine(dataDirectory, "features.json"), resources, buildings, techs);
         var ufo = LoadUfo(Path.Combine(dataDirectory, "ufo.json"));
+        var ambience = LoadAmbience(Path.Combine(dataDirectory, "ambience.json"), biomes, weather);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
         var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features);
@@ -58,7 +59,7 @@ public sealed class ContentLoader
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience);
     }
 
     // ----- éry -----
@@ -220,6 +221,75 @@ public sealed class ContentLoader
         }
 
         return new DefRegistry<FeatureDef>(result, f => f.Id, "funkce", allowEmpty: true);
+    }
+
+    // ----- ambientní kulisa -----
+
+    private static IReadOnlyList<AmbienceDef> LoadAmbience(
+        string path, BiomeRegistry biomes, DefRegistry<WeatherDef> weather)
+    {
+        // Volitelný obsah — bez souboru hraje jen hudba, hra běží dál.
+        if (!File.Exists(path))
+        {
+            return Array.Empty<AmbienceDef>();
+        }
+
+        var file = ReadFile<AmbienceFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var result = new List<AmbienceDef>();
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (dto, i) in (file.Ambience ?? new List<AmbienceDto>()).Select((a, i) => (a, i)))
+        {
+            string id = RequireId(path, dto.Id, $"Kulisa na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID kulisy '{id}'.");
+            }
+
+            var biomeIndices = ResolveIndices(path, id, "biomes", dto.Biomes, biomes, "biom");
+            var weatherIndices = ResolveIndices(path, id, "weather", dto.Weather, weather, "počasí");
+
+            if (dto.NoiseLevel is < 0 or > 1 || dto.ToneLevel is < 0 or > 1 || dto.Volume is < 0 or > 1)
+            {
+                throw new ContentLoadException(path, $"Kulisa '{id}': 'noiseLevel', 'toneLevel' i 'volume' musí být 0–1.");
+            }
+
+            if (dto.ToneHz is < 0 or > 20000 || dto.PulseHz is < 0 or > 20)
+            {
+                throw new ContentLoadException(path, $"Kulisa '{id}': 'toneHz' musí být 0–20000 a 'pulseHz' 0–20.");
+            }
+
+            result.Add(new AmbienceDef(
+                id, biomeIndices, weatherIndices,
+                dto.NoiseLevel, dto.ToneHz, dto.ToneLevel, dto.PulseHz, dto.Volume));
+        }
+
+        return result;
+    }
+
+    /// <summary>Přeloží seznam ID na indexy registru; prázdný seznam = bez omezení.</summary>
+    private static IReadOnlyList<int> ResolveIndices<T>(
+        string path, string owner, string field, string[]? ids, DefRegistry<T> registry, string kind)
+        where T : class
+    {
+        if (ids is null || ids.Length == 0)
+        {
+            return Array.Empty<int>();
+        }
+
+        var indices = new List<int>(ids.Length);
+        foreach (string? id in ids)
+        {
+            if (id is null || !registry.TryIndexOf(id.Trim(), out int index))
+            {
+                throw new ContentLoadException(path, $"Kulisa '{owner}' odkazuje v '{field}' na neexistující {kind} '{id}'.");
+            }
+
+            indices.Add(index);
+        }
+
+        return indices;
     }
 
     // ----- UFO (živá mapa) -----

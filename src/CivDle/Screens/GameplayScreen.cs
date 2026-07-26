@@ -55,6 +55,7 @@ public sealed class GameplayScreen : IScreen
     private readonly FloatingTextRenderer _floatingText = new();
     private readonly GameSounds _sounds = new();
     private readonly AmbientMusic _ambient = new();
+    private readonly AmbientSoundscape _soundscape;
     private readonly MinimapRenderer _minimap;
     private readonly ToastRenderer _toasts;
     private readonly CityScaleRenderer _cityScale;
@@ -160,6 +161,7 @@ public sealed class GameplayScreen : IScreen
         _zoneRenderer = new ZoneRenderer(screens.WhitePixel, screens.Content);
         _landmarkRenderer = new LandmarkRenderer(screens.WhitePixel, screens.Content);
         _ufoRenderer = new UfoRenderer(screens.WhitePixel);
+        _soundscape = new AmbientSoundscape(screens.Content);
         _weatherRenderer = new WeatherRenderer(screens.WhitePixel, screens.Content);
         _buildingRenderer = new BuildingRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
         _lightsRenderer = new LightsRenderer(screens.WhitePixel, screens.Content);
@@ -216,6 +218,9 @@ public sealed class GameplayScreen : IScreen
 
         float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
         _input.Update();
+
+        // Kulisa podle biomu a počasí — atmosféra stála skoro jen na obraze.
+        _soundscape.Update(dt, _simulation);
 
         var viewport = _screens.GraphicsDevice.Viewport;
         _camera.SetViewport(viewport.Width, viewport.Height);
@@ -460,6 +465,8 @@ public sealed class GameplayScreen : IScreen
         _minimap.Dispose();
         _vignette.Dispose();
         _ambient.Dispose();
+        _soundscape.Stop();
+        _soundscape.Dispose();
         _sounds.Dispose();
     }
 

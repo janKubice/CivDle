@@ -332,3 +332,17 @@ public sealed record UfoConfigDto(
 
 /// <summary>Jeden zásah UFO tak, jak leží v JSON.</summary>
 public sealed record UfoActionDto(string? Id, string? Behavior, double Weight, double Magnitude);
+
+/// <summary>Obsah souboru <c>data/ambience.json</c> (ambientní kulisa).</summary>
+public sealed record AmbienceFileDto(int SchemaVersion, List<AmbienceDto>? Ambience);
+
+/// <summary>Jedna kulisa tak, jak leží v JSON.</summary>
+public sealed record AmbienceDto(
+    string? Id,
+    string[]? Biomes,
+    string[]? Weather,
+    double NoiseLevel,
+    double ToneHz,
+    double ToneLevel,
+    double PulseHz,
+    double Volume);
