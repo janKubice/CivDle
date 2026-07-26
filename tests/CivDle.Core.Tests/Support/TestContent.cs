@@ -42,7 +42,8 @@ internal static class TestContent
         IReadOnlyList<GrowthPolicyDef>? policies = null,
         IReadOnlyList<AscensionTierDef>? ascensionTiers = null,
         IReadOnlyList<WeatherDef>? weather = null,
-        IReadOnlyList<LandmarkDef>? landmarks = null)
+        IReadOnlyList<LandmarkDef>? landmarks = null,
+        IReadOnlyList<FeatureDef>? features = null)
     {
         biomes ??= new[] { WaterBiome(), LandBiome("grass") };
         resources ??= new[] { new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 10, BaseStorage: 1000) };
@@ -61,6 +62,7 @@ internal static class TestContent
         ascensionTiers ??= Array.Empty<AscensionTierDef>();
         weather ??= Array.Empty<WeatherDef>();
         landmarks ??= Array.Empty<LandmarkDef>();
+        features ??= Array.Empty<FeatureDef>();
 
         var preset = new TerrainPreset("test", SeaLevel: 0.5f, fallbackBiomeIndex, Noise, Noise);
         var catalog = new WorldGenCatalog(
@@ -90,7 +92,8 @@ internal static class TestContent
             new DefRegistry<GrowthPolicyDef>(policies, p => p.Id, "politika", allowEmpty: true),
             new DefRegistry<AscensionTierDef>(ascensionTiers, t => t.Id, "stupeň měřítka", allowEmpty: true),
             new DefRegistry<WeatherDef>(weather, w => w.Id, "počasí", allowEmpty: true),
-            new DefRegistry<LandmarkDef>(landmarks, l => l.Id, "landmark", allowEmpty: true));
+            new DefRegistry<LandmarkDef>(landmarks, l => l.Id, "landmark", allowEmpty: true),
+            new DefRegistry<FeatureDef>(features, f => f.Id, "funkce", allowEmpty: true));
     }
 
     /// <summary>Výchozí prestige config testů (Vzestup od 50 obyvatel, body = populace ÷ 15).</summary>

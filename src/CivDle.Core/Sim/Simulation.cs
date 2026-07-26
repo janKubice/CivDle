@@ -807,6 +807,42 @@ public sealed class Simulation
         }
     }
 
+    // ----- odemykatelné funkce (postupné odhalování UI) -----
+
+    /// <summary>
+    /// Je funkce odemčená? Dokud není, UI ji NEUKAZUJE — hráč tak nedostane na
+    /// začátku patnáct tlačítek, kterým nerozumí. Bez definic (prázdná data) je
+    /// vše dostupné, aby se hra nedala „zamknout" chybějícím obsahem.
+    /// </summary>
+    public bool IsFeatureUnlocked(string featureId)
+    {
+        if (!_content.Features.TryIndexOf(featureId, out int index))
+        {
+            return true; // funkce bez definice = bez omezení
+        }
+
+        var unlock = _content.Features[index].Unlock;
+        return EvaluateMetric(unlock.Kind, unlock.Param) >= unlock.Target;
+    }
+
+    /// <summary>Kolik funkcí je odemčeno — UI podle změny pozná, že má přestavět lištu.</summary>
+    public int UnlockedFeatureCount
+    {
+        get
+        {
+            int count = 0;
+            foreach (var feature in _content.Features.All)
+            {
+                if (EvaluateMetric(feature.Unlock.Kind, feature.Unlock.Param) >= feature.Unlock.Target)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
     // ----- guvernér: automatické vylepšování budov -----
 
     /// <summary>Nejvyšší míra, na kterou jde guvernérovo vylepšování nastavit.</summary>

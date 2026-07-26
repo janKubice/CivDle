@@ -446,6 +446,16 @@
     "tech.aviation": "Aviation",
     "tech.aviation.desc": "Unlocks the airfield — fast transport and big storage.",
     "tech.jet_age": "Jet Age",
-    "tech.jet_age.desc": "Unlocks the international airport."
+    "tech.jet_age.desc": "Unlocks the international airport.",
+    "feature.harvest_bubbles": "Harvest bubbles",
+    "feature.festival": "Festival",
+    "feature.plant": "Planting",
+    "feature.move": "Moving buildings",
+    "feature.demolish": "Demolition",
+    "feature.settlements": "Settlements",
+    "feature.research": "Research",
+    "feature.zones": "Zones",
+    "feature.governor": "Governor",
+    "feature.ascend": "Ascension"
   }
 }

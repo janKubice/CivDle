@@ -446,6 +446,16 @@
     "tech.aviation": "Letectví",
     "tech.aviation.desc": "Odemyká letiště — rychlá přeprava a velké sklady.",
     "tech.jet_age": "Proudový věk",
-    "tech.jet_age.desc": "Odemyká mezinárodní letiště."
+    "tech.jet_age.desc": "Odemyká mezinárodní letiště.",
+    "feature.harvest_bubbles": "Sběrné bubliny",
+    "feature.festival": "Slavnost",
+    "feature.plant": "Sázení",
+    "feature.move": "Přesun budov",
+    "feature.demolish": "Bourání",
+    "feature.settlements": "Osady",
+    "feature.research": "Výzkum",
+    "feature.zones": "Zóny",
+    "feature.governor": "Guvernér",
+    "feature.ascend": "Vzestup"
   }
 }

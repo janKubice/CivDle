@@ -46,9 +46,10 @@ public sealed class ContentLoader
         var tiers = LoadAscensionTiers(Path.Combine(dataDirectory, "ascension-tiers.json"), buildings);
         var weather = LoadWeather(Path.Combine(dataDirectory, "weather.json"), biomes);
         var landmarks = LoadLandmarks(Path.Combine(dataDirectory, "landmarks.json"), biomes, resources);
+        var features = LoadFeatures(Path.Combine(dataDirectory, "features.json"), resources, buildings, techs);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
@@ -56,7 +57,7 @@ public sealed class ContentLoader
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features);
     }
 
     // ----- éry -----
@@ -180,6 +181,44 @@ public sealed class ContentLoader
         }
 
         return new DefRegistry<GrowthPolicyDef>(result, p => p.Id, "politika", allowEmpty: true);
+    }
+
+    // ----- odemykatelné funkce -----
+
+    private static DefRegistry<FeatureDef> LoadFeatures(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        // Volitelný obsah — bez souboru je vše dostupné od začátku (žádné gatování).
+        if (!File.Exists(path))
+        {
+            return new DefRegistry<FeatureDef>(Array.Empty<FeatureDef>(), f => f.Id, "funkce", allowEmpty: true);
+        }
+
+        var file = ReadFile<FeaturesFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Features ?? new List<FeatureDto>();
+        var result = new List<FeatureDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Funkce na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID funkce '{id}'.");
+            }
+
+            if (dto.Unlock is null)
+            {
+                throw new ContentLoadException(path, $"Funkce '{id}' nemá vyplněnou podmínku 'unlock'.");
+            }
+
+            var condition = ParseCondition(path, $"Funkce '{id}'", dto.Unlock, resources, buildings, techs);
+            result.Add(new FeatureDef(id, condition));
+        }
+
+        return new DefRegistry<FeatureDef>(result, f => f.Id, "funkce", allowEmpty: true);
     }
 
     // ----- landmarky (živá mapa) -----
@@ -1439,7 +1478,8 @@ public sealed class ContentLoader
         DefRegistry<GrowthPolicyDef> policies,
         DefRegistry<AscensionTierDef> tiers,
         DefRegistry<WeatherDef> weather,
-        DefRegistry<LandmarkDef> landmarks)
+        DefRegistry<LandmarkDef> landmarks,
+        DefRegistry<FeatureDef> features)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -1473,7 +1513,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -1496,7 +1536,8 @@ public sealed class ContentLoader
         DefRegistry<GrowthPolicyDef> policies,
         DefRegistry<AscensionTierDef> tiers,
         DefRegistry<WeatherDef> weather,
-        DefRegistry<LandmarkDef> landmarks)
+        DefRegistry<LandmarkDef> landmarks,
+        DefRegistry<FeatureDef> features)
     {
         var required = new List<string>();
         required.AddRange(biomes.All.Select(b => b.NameKey));
@@ -1526,6 +1567,7 @@ public sealed class ContentLoader
         required.AddRange(tiers.All.Select(t => t.NameKey));
         required.AddRange(weather.All.Select(w => w.NameKey));
         required.AddRange(landmarks.All.Select(l => l.NameKey));
+        required.AddRange(features.All.Select(f => f.NameKey));
 
         var missing = required.Where(key => !language.Strings.ContainsKey(key)).ToList();
         if (missing.Count > 0)

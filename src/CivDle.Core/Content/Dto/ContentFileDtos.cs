@@ -209,6 +209,12 @@ public sealed record PoliciesFileDto(int SchemaVersion, List<PolicyDto>? Policie
 /// <summary>Jedna politika růstu tak, jak leží v JSON.</summary>
 public sealed record PolicyDto(string? Id, string? Effect, double Magnitude);
 
+/// <summary>Obsah souboru <c>data/features.json</c> (odemykatelné herní funkce).</summary>
+public sealed record FeaturesFileDto(int SchemaVersion, List<FeatureDto>? Features);
+
+/// <summary>Jedna odemykatelná funkce tak, jak leží v JSON.</summary>
+public sealed record FeatureDto(string? Id, GoalConditionDto? Unlock);
+
 /// <summary>Obsah souboru <c>data/landmarks.json</c> (vzácné body zájmu na mapě).</summary>
 public sealed record LandmarksFileDto(int SchemaVersion, List<LandmarkDto>? Landmarks);
 

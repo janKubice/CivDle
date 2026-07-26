@@ -91,6 +91,8 @@ public sealed class GameplayScreen : IScreen
     private float _eventTimer;
     private Label _festivalLabel = null!;
     private Button _festivalButton = null!;
+    private Widget _toolBarHost = null!;
+    private int _unlockedFeatureCount = -1;
 
     private int _selectedBuilding = -1;
     private int _ghostX;
@@ -1028,17 +1030,24 @@ public sealed class GameplayScreen : IScreen
         var stack = new HorizontalStackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.quests"],
             () => _screens.Push(new QuestsScreen(_screens, _simulation))));
-        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.plant"], () =>
+
+        // Každá funkce se objeví, teprve až si ji hráč odemkne (data/features.json).
+        if (_simulation.IsFeatureUnlocked("plant"))
         {
-            _plantMode = !_plantMode;
-            _zoneMode = false;
-            _selectedBuilding = -1;
-            _movingBuildingIndex = -1;
-        }));
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.plant"], () =>
+            {
+                _plantMode = !_plantMode;
+                _zoneMode = false;
+                _selectedBuilding = -1;
+                _movingBuildingIndex = -1;
+            }));
+        }
 
         // Zóny (automatizace): jedno tlačítko na typ; klik = malovat, další klik na stejný = ven.
-        var zoneTypes = _screens.Content.ZoneTypes;
-        for (int z = 0; z < zoneTypes.Count; z++)
+        var zoneTypes = _simulation.IsFeatureUnlocked("zones")
+            ? _screens.Content.ZoneTypes
+            : null;
+        for (int z = 0; zoneTypes is not null && z < zoneTypes.Count; z++)
         {
             int typeIndex = z;
             stack.Widgets.Add(UiFactory.SmallButton(loc[zoneTypes[z].NameKey], () =>
@@ -1054,22 +1063,31 @@ public sealed class GameplayScreen : IScreen
             }));
         }
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.backToCity"], RecenterOnCity));
-        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.settlements"],
-            () => _screens.Push(new SettlementsScreen(_screens, _simulation, _camera))));
-        if (_screens.Content.Techs.Count > 0)
+
+        if (_simulation.IsFeatureUnlocked("settlements"))
+        {
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.settlements"],
+                () => _screens.Push(new SettlementsScreen(_screens, _simulation, _camera))));
+        }
+
+        if (_screens.Content.Techs.Count > 0 && _simulation.IsFeatureUnlocked("research"))
         {
             stack.Widgets.Add(UiFactory.SmallButton(loc["hud.tech"],
                 () => _screens.Push(new TechScreen(_screens, _simulation))));
         }
 
-        if (_screens.Content.Policies.Count > 0)
+        if (_screens.Content.Policies.Count > 0 && _simulation.IsFeatureUnlocked("governor"))
         {
             stack.Widgets.Add(UiFactory.SmallButton(loc["hud.governor"],
                 () => _screens.Push(new PoliciesScreen(_screens, _simulation))));
         }
 
-        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.ascend"],
-            () => _screens.Push(new AscensionScreen(_screens, _simulation))));
+        if (_simulation.IsFeatureUnlocked("ascend"))
+        {
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.ascend"],
+                () => _screens.Push(new AscensionScreen(_screens, _simulation))));
+        }
+
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.achievements"],
             () => _screens.Push(new AchievementsScreen(_screens, _simulation))));
 
@@ -1088,7 +1106,10 @@ public sealed class GameplayScreen : IScreen
             Background = new SolidBrush(new Color(150, 90, 60, 235)),
         };
         _festivalButton.Click += (_, _) => _simulation.TryStartBoost();
-        stack.Widgets.Add(_festivalButton);
+        if (_simulation.IsFeatureUnlocked("festival"))
+        {
+            stack.Widgets.Add(_festivalButton);
+        }
 
         var panel = UiFactory.DarkPanel(stack);
         panel.HorizontalAlignment = HorizontalAlignment.Center;
@@ -1320,6 +1341,20 @@ public sealed class GameplayScreen : IScreen
     private void RefreshHudTexts()
     {
         var loc = _screens.Loc;
+
+        // Odemčená funkce musí být vidět hned, ne až po restartu. Přestavba je drahá,
+        // ale nastane jen ve chvíli odemčení (pár × za hru), ne každý snímek.
+        int unlocked = _simulation.UnlockedFeatureCount;
+        if (unlocked != _unlockedFeatureCount)
+        {
+            bool first = _unlockedFeatureCount < 0;
+            _unlockedFeatureCount = unlocked;
+            if (!first)
+            {
+                BuildUi();
+                return; // UI se právě přestavělo — popisky doplní příští snímek
+            }
+        }
 
         // Nově získaná surovina se v pruhu odhalí (a jen tehdy se sahá na Visible).
         int known = _simulation.KnownResourceCount;
