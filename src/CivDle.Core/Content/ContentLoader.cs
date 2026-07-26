@@ -49,17 +49,18 @@ public sealed class ContentLoader
         var features = LoadFeatures(Path.Combine(dataDirectory, "features.json"), resources, buildings, techs);
         var ufo = LoadUfo(Path.Combine(dataDirectory, "ufo.json"));
         var ambience = LoadAmbience(Path.Combine(dataDirectory, "ambience.json"), biomes, weather);
+        var terraform = LoadTerraform(Path.Combine(dataDirectory, "terraform.json"), biomes, resources, techs);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform);
     }
 
     // ----- éry -----
@@ -221,6 +222,63 @@ public sealed class ContentLoader
         }
 
         return new DefRegistry<FeatureDef>(result, f => f.Id, "funkce", allowEmpty: true);
+    }
+
+    // ----- přetváření krajiny -----
+
+    private static DefRegistry<TerraformDef> LoadTerraform(
+        string path, BiomeRegistry biomes, DefRegistry<Resource> resources, DefRegistry<TechDef> techs)
+    {
+        // Volitelný obsah — bez souboru se krajina prostě přetvářet nedá.
+        if (!File.Exists(path))
+        {
+            return new DefRegistry<TerraformDef>(Array.Empty<TerraformDef>(), t => t.Id, "terraformace", allowEmpty: true);
+        }
+
+        var file = ReadFile<TerraformFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var result = new List<TerraformDef>();
+        foreach (var (dto, i) in (file.Terraform ?? new List<TerraformDto>()).Select((d, i) => (d, i)))
+        {
+            string id = RequireId(path, dto.Id, $"Terraformace na pozici {i}");
+            if (dto.To is null || !biomes.TryIndexOf(dto.To.Trim(), out int target))
+            {
+                throw new ContentLoadException(path, $"Terraformace '{id}' odkazuje na neexistující biom '{dto.To}' v 'to'.");
+            }
+
+            if (biomes[target].IsWater)
+            {
+                throw new ContentLoadException(path, $"Terraformace '{id}': cílem nesmí být vodní biom — utopila by město.");
+            }
+
+            var sources = new List<int>();
+            foreach (string? from in dto.From ?? Array.Empty<string>())
+            {
+                if (from is null || !biomes.TryIndexOf(from.Trim(), out int source))
+                {
+                    throw new ContentLoadException(path, $"Terraformace '{id}' odkazuje na neexistující biom '{from}' ve 'from'.");
+                }
+
+                sources.Add(source);
+            }
+
+            var cost = ParseResourceAmounts(path, id, "cost", dto.Cost, resources);
+            if (cost.Count == 0)
+            {
+                throw new ContentLoadException(path, $"Terraformace '{id}' musí něco stát — zadarmo by přetvořila celý svět.");
+            }
+
+            int unlockTech = -1;
+            if (!string.IsNullOrWhiteSpace(dto.UnlockTech) && !techs.TryIndexOf(dto.UnlockTech.Trim(), out unlockTech))
+            {
+                throw new ContentLoadException(path, $"Terraformace '{id}' odkazuje na neexistující technologii '{dto.UnlockTech}'.");
+            }
+
+            result.Add(new TerraformDef(id, target, sources, cost, unlockTech));
+        }
+
+        return new DefRegistry<TerraformDef>(result, t => t.Id, "terraformace", allowEmpty: true);
     }
 
     // ----- ambientní kulisa -----
@@ -1251,6 +1309,7 @@ public sealed class ContentLoader
             case "ascension": return (MetricKind.AscensionLevel, -1);
             case "day": return (MetricKind.DayNumber, -1);
             case "planted": return (MetricKind.PlantedNodes, -1);
+            case "terraformed": return (MetricKind.TerraformedTiles, -1);
             case "harvested": return (MetricKind.Harvested, ResolveRef(path, owner, "resource", resource, resources));
             case "resource": return (MetricKind.ResourceStock, ResolveRef(path, owner, "resource", resource, resources));
             case "building": return (MetricKind.BuildingOfType, ResolveRef(path, owner, "building", building, buildings));
@@ -1716,7 +1775,8 @@ public sealed class ContentLoader
         DefRegistry<WeatherDef> weather,
         DefRegistry<LandmarkDef> landmarks,
         DefRegistry<FeatureDef> features,
-        IReadOnlyList<DevlogEntry> devlog)
+        IReadOnlyList<DevlogEntry> devlog,
+        DefRegistry<TerraformDef> terraform)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -1750,7 +1810,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -1775,7 +1835,8 @@ public sealed class ContentLoader
         DefRegistry<WeatherDef> weather,
         DefRegistry<LandmarkDef> landmarks,
         DefRegistry<FeatureDef> features,
-        IReadOnlyList<DevlogEntry> devlog)
+        IReadOnlyList<DevlogEntry> devlog,
+        DefRegistry<TerraformDef> terraform)
     {
         var required = new List<string>();
         required.AddRange(biomes.All.Select(b => b.NameKey));
@@ -1802,6 +1863,8 @@ public sealed class ContentLoader
         required.AddRange(zoneTypes.All.Select(z => z.NameKey));
         required.AddRange(policies.All.Select(p => p.NameKey));
         required.AddRange(policies.All.Select(p => p.DescriptionKey));
+        required.AddRange(terraform.All.Select(t => t.NameKey));
+        required.AddRange(terraform.All.Select(t => t.DescriptionKey));
         foreach (var entry in devlog)
         {
             required.Add(entry.TitleKey);

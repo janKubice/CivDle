@@ -51,8 +51,12 @@ public sealed class MapTools
     /// <summary>Index přesouvané budovy, nebo −1.</summary>
     public int MovingBuildingIndex { get; private set; } = -1;
 
+    /// <summary>Index zvoleného terraformačního zásahu, nebo −1.</summary>
+    public int TerraformIndex { get; private set; } = -1;
+
     /// <summary>Je aktivní jakýkoli nástroj? (Jinak klik na mapu znamená těžbu.)</summary>
-    public bool AnyActive => SelectedBuilding >= 0 || PlantMode || ZoneMode || MovingBuildingIndex >= 0;
+    public bool AnyActive =>
+        SelectedBuilding >= 0 || PlantMode || ZoneMode || MovingBuildingIndex >= 0 || TerraformIndex >= 0;
 
     // ----- duch pod kurzorem (čte render) -----
 
@@ -73,6 +77,11 @@ public sealed class MapTools
 
     public bool ZonePreviewActive { get; private set; }
     public Rectangle ZonePreview { get; private set; }
+
+    public bool TerraformGhostActive { get; private set; }
+    public int TerraformGhostX { get; private set; }
+    public int TerraformGhostY { get; private set; }
+    public PlacementResult TerraformGhostResult { get; private set; }
 
     private bool _zoneDragging;
     private int _zoneStartX, _zoneStartY;
@@ -107,6 +116,14 @@ public sealed class MapTools
         }
     }
 
+    /// <summary>Zapne přetváření krajiny daným zásahem; stejný zásah znovu = ven.</summary>
+    public void ToggleTerraform(int actionIndex)
+    {
+        bool same = TerraformIndex == actionIndex;
+        Clear();
+        TerraformIndex = same ? -1 : actionIndex;
+    }
+
     /// <summary>Začne přesouvat budovu.</summary>
     public void StartMove(int buildingIndex)
     {
@@ -121,11 +138,13 @@ public sealed class MapTools
         PlantMode = false;
         ZoneMode = false;
         MovingBuildingIndex = -1;
+        TerraformIndex = -1;
         _zoneDragging = false;
         GhostVisible = false;
         PlantGhostActive = false;
         MoveGhostActive = false;
         ZonePreviewActive = false;
+        TerraformGhostActive = false;
     }
 
     /// <summary>
@@ -134,6 +153,7 @@ public sealed class MapTools
     /// </summary>
     public bool CancelTopmost()
     {
+        if (TerraformIndex >= 0) { TerraformIndex = -1; TerraformGhostActive = false; return true; }
         if (ZoneMode) { ZoneMode = false; _zoneDragging = false; return true; }
         if (PlantMode) { PlantMode = false; return true; }
         if (MovingBuildingIndex >= 0) { MovingBuildingIndex = -1; return true; }
@@ -149,6 +169,12 @@ public sealed class MapTools
     /// </summary>
     public bool Update(bool mouseOverUi)
     {
+        if (TerraformIndex >= 0)
+        {
+            UpdateTerraform(mouseOverUi);
+            return true;
+        }
+
         if (ZoneMode)
         {
             UpdateZone(mouseOverUi);
@@ -207,6 +233,35 @@ public sealed class MapTools
         {
             // Výběr zůstává — idle hráč typicky staví víc budov za sebou.
             _simulation.TryPlaceBuilding(SelectedBuilding, GhostX, GhostY);
+        }
+    }
+
+    /// <summary>
+    /// Přetváření krajiny: náhled sleduje kurzor a barva říká, jestli zásah projde.
+    /// Levý klik přetvoří dlaždici (za cenu), pravý režim opustí. V režimu se
+    /// zůstává — hráč obvykle upravuje víc dlaždic za sebou.
+    /// </summary>
+    private void UpdateTerraform(bool mouseOverUi)
+    {
+        TerraformGhostActive = false;
+        if (_input.WasRightPressed)
+        {
+            TerraformIndex = -1;
+            return;
+        }
+
+        if (mouseOverUi)
+        {
+            return;
+        }
+
+        (TerraformGhostX, TerraformGhostY) = TileUnderCursor();
+        TerraformGhostResult = _simulation.CanTerraform(TerraformIndex, TerraformGhostX, TerraformGhostY);
+        TerraformGhostActive = true;
+
+        if (_input.WasLeftPressed && TerraformGhostResult == PlacementResult.Ok)
+        {
+            _simulation.TryTerraform(TerraformIndex, TerraformGhostX, TerraformGhostY);
         }
     }
 

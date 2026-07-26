@@ -535,6 +535,7 @@ public sealed class SaveGameSerializer
         }
 
         writer.Write(simulation.LastUfoWindow);
+        writer.Write(simulation.TerraformedTiles);
     }
 
     private static void ReadWorldChanges(BinaryReader reader, GameContent content, Simulation simulation)
@@ -553,6 +554,13 @@ public sealed class SaveGameSerializer
         }
 
         simulation.RestoreLastUfoWindow(reader.ReadInt64());
+
+        // Počítadlo terraformace přibylo později — starší sekce ho nemá a to nevadí,
+        // sekční formát čte, co tam je (proto ten pokus o čtení navíc).
+        if (reader.BaseStream.Position < reader.BaseStream.Length)
+        {
+            simulation.RestoreTerraformedTiles(reader.ReadInt64());
+        }
     }
 
     private static void WriteZones(BinaryWriter writer, Simulation simulation)

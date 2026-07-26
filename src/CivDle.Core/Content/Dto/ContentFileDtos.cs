@@ -346,3 +346,14 @@ public sealed record AmbienceDto(
     double ToneLevel,
     double PulseHz,
     double Volume);
+
+/// <summary>Obsah souboru <c>data/terraform.json</c> (ruční přetváření krajiny).</summary>
+public sealed record TerraformFileDto(int SchemaVersion, List<TerraformDto>? Terraform);
+
+/// <summary>Jeden terraformační nástroj tak, jak leží v JSON.</summary>
+public sealed record TerraformDto(
+    string? Id,
+    string? To,
+    string[]? From,
+    Dictionary<string, int>? Cost,
+    string? UnlockTech);

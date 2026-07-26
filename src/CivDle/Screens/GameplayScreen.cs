@@ -348,6 +348,18 @@ public sealed class GameplayScreen : IScreen
             spriteBatch.End();
         }
 
+        if (_tools.TerraformGhostActive)
+        {
+            const int ts = TerrainRenderer.TileSize;
+            var tint = (_tools.TerraformGhostResult == PlacementResult.Ok
+                ? new Color(140, 230, 200)
+                : new Color(240, 110, 100)) * 0.55f;
+            spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.Transform);
+            spriteBatch.Draw(_screens.WhitePixel,
+                new Rectangle(_tools.TerraformGhostX * ts, _tools.TerraformGhostY * ts, ts, ts), tint);
+            spriteBatch.End();
+        }
+
         if (_tools.ZonePreviewActive)
         {
             var preview = _tools.ZonePreview;
@@ -962,6 +974,23 @@ public sealed class GameplayScreen : IScreen
             stack.Widgets.Add(UiFactory.SmallButton(loc[zoneTypes[z].NameKey],
                 () => _tools.ToggleZone(typeIndex), ZoneTooltip(zoneTypes[z])));
         }
+        // Přetváření krajiny: jedno tlačítko na zásah, odemyká se výzkumem.
+        var terraform = _simulation.IsFeatureUnlocked("terraform") ? _screens.Content.Terraform : null;
+        for (int a = 0; terraform is not null && a < terraform.Count; a++)
+        {
+            int actionIndex = a;
+            var action = terraform[a];
+            if (_simulation.CanTerraform(actionIndex, 0, 0) == PlacementResult.NotUnlocked)
+            {
+                continue; // technologie ještě není — nástroj se vůbec neukáže
+            }
+
+            stack.Widgets.Add(UiFactory.SmallButton(loc[action.NameKey],
+                () => _tools.ToggleTerraform(actionIndex),
+                loc[action.DescriptionKey] + '\n' + loc.Format("panel.cost",
+                    CostFormat.Line(_screens.Content, loc, action.Cost))));
+        }
+
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.backToCity"], RecenterOnCity, loc["tip.backToCity"]));
 
         if (_simulation.IsFeatureUnlocked("settlements"))
@@ -1503,6 +1532,13 @@ public sealed class GameplayScreen : IScreen
         _statusPanel.Visible = _tools.AnyActive;
         if (!_statusPanel.Visible)
         {
+            return;
+        }
+
+        if (_tools.TerraformIndex >= 0)
+        {
+            _statusLabel.Text = loc[_screens.Content.Terraform[_tools.TerraformIndex].NameKey];
+            _statusLabel.TextColor = new Color(140, 230, 200);
             return;
         }
 

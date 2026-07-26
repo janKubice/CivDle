@@ -98,7 +98,8 @@ internal static class TestContent
             new DefRegistry<LandmarkDef>(landmarks, l => l.Id, "landmark", allowEmpty: true),
             new DefRegistry<FeatureDef>(features, f => f.Id, "funkce", allowEmpty: true),
             ufo ?? UfoConfig.Disabled,
-            Array.Empty<AmbienceDef>());
+            Array.Empty<AmbienceDef>(),
+            new DefRegistry<TerraformDef>(Array.Empty<TerraformDef>(), t => t.Id, "terraformace", allowEmpty: true));
     }
 
     /// <summary>Výchozí prestige config testů (Vzestup od 50 obyvatel, body = populace ÷ 15).</summary>

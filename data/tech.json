@@ -3,120 +3,575 @@
   "techs": [
     {
       "id": "milling",
-      "cost": { "wood": 40, "stone": 20 },
-      "unlocks": ["windmill"]
+      "cost": {
+        "wood": 40,
+        "stone": 20
+      },
+      "unlocks": [
+        "windmill"
+      ]
     },
     {
       "id": "trade",
-      "cost": { "wood": 30, "planks": 20 },
-      "unlocks": ["market", "harbor", "fishery"]
+      "cost": {
+        "wood": 30,
+        "planks": 20
+      },
+      "unlocks": [
+        "market",
+        "harbor",
+        "fishery"
+      ]
     },
     {
       "id": "tools",
-      "cost": { "planks": 30, "stone": 20 },
-      "prerequisites": ["milling"],
-      "unlocks": ["toolmaker"]
+      "cost": {
+        "planks": 30,
+        "stone": 20
+      },
+      "prerequisites": [
+        "milling"
+      ],
+      "unlocks": [
+        "toolmaker"
+      ]
     },
-
-    { "id": "sharp_axes",   "cost": { "wood": 60, "tools": 5 },    "prerequisites": ["tools"],   "effect": "harvest_mult",    "magnitude": 0.25 },
-    { "id": "crop_rotation", "cost": { "food": 60, "planks": 20 }, "prerequisites": ["milling"], "effect": "growth_mult",     "magnitude": 0.20 },
-    { "id": "joinery",      "cost": { "planks": 60 },              "prerequisites": ["tools"],   "effect": "production_mult", "magnitude": 0.15 },
-    { "id": "granary",      "cost": { "planks": 40, "stone": 40 }, "prerequisites": ["trade"],   "effect": "storage_mult",    "magnitude": 0.25 },
-    { "id": "cartography",  "cost": { "planks": 50, "food": 40 },  "prerequisites": ["trade"],   "effect": "offline_mult",    "magnitude": 0.25 },
-    { "id": "masonry",      "cost": { "stone": 80, "tools": 10 },  "prerequisites": ["tools"],   "effect": "housing_mult",    "magnitude": 0.20 },
-
+    {
+      "id": "sharp_axes",
+      "cost": {
+        "wood": 60,
+        "tools": 5
+      },
+      "prerequisites": [
+        "tools"
+      ],
+      "effect": "harvest_mult",
+      "magnitude": 0.25
+    },
+    {
+      "id": "crop_rotation",
+      "cost": {
+        "food": 60,
+        "planks": 20
+      },
+      "prerequisites": [
+        "milling"
+      ],
+      "effect": "growth_mult",
+      "magnitude": 0.2
+    },
+    {
+      "id": "joinery",
+      "cost": {
+        "planks": 60
+      },
+      "prerequisites": [
+        "tools"
+      ],
+      "effect": "production_mult",
+      "magnitude": 0.15
+    },
+    {
+      "id": "granary",
+      "cost": {
+        "planks": 40,
+        "stone": 40
+      },
+      "prerequisites": [
+        "trade"
+      ],
+      "effect": "storage_mult",
+      "magnitude": 0.25
+    },
+    {
+      "id": "cartography",
+      "cost": {
+        "planks": 50,
+        "food": 40
+      },
+      "prerequisites": [
+        "trade"
+      ],
+      "effect": "offline_mult",
+      "magnitude": 0.25
+    },
+    {
+      "id": "masonry",
+      "cost": {
+        "stone": 80,
+        "tools": 10
+      },
+      "prerequisites": [
+        "tools"
+      ],
+      "effect": "housing_mult",
+      "magnitude": 0.2
+    },
     {
       "id": "bronze_working",
-      "cost": { "stone": 40, "tools": 15 },
-      "prerequisites": ["tools"],
-      "unlocks": ["copper_mine", "smeltery"]
+      "cost": {
+        "stone": 40,
+        "tools": 15
+      },
+      "prerequisites": [
+        "tools"
+      ],
+      "unlocks": [
+        "copper_mine",
+        "smeltery"
+      ]
     },
     {
       "id": "alloys",
-      "cost": { "stone": 30, "planks": 40 },
-      "prerequisites": ["bronze_working"],
-      "unlocks": ["bronze_smith"]
+      "cost": {
+        "stone": 30,
+        "planks": 40
+      },
+      "prerequisites": [
+        "bronze_working"
+      ],
+      "unlocks": [
+        "bronze_smith"
+      ]
     },
-
-    { "id": "bellows",     "cost": { "bronze": 20, "tools": 10 },  "prerequisites": ["alloys"],          "effect": "production_mult", "magnitude": 0.20 },
-    { "id": "aqueducts",   "cost": { "stone": 100, "bronze": 15 }, "prerequisites": ["masonry", "bronze_working"], "effect": "growth_mult", "magnitude": 0.30 },
-    { "id": "warehousing", "cost": { "planks": 80, "bronze": 20 }, "prerequisites": ["granary", "alloys"], "effect": "storage_mult",  "magnitude": 0.40 },
-
+    {
+      "id": "bellows",
+      "cost": {
+        "bronze": 20,
+        "tools": 10
+      },
+      "prerequisites": [
+        "alloys"
+      ],
+      "effect": "production_mult",
+      "magnitude": 0.2
+    },
+    {
+      "id": "aqueducts",
+      "cost": {
+        "stone": 100,
+        "bronze": 15
+      },
+      "prerequisites": [
+        "masonry",
+        "bronze_working"
+      ],
+      "effect": "growth_mult",
+      "magnitude": 0.3
+    },
+    {
+      "id": "warehousing",
+      "cost": {
+        "planks": 80,
+        "bronze": 20
+      },
+      "prerequisites": [
+        "granary",
+        "alloys"
+      ],
+      "effect": "storage_mult",
+      "magnitude": 0.4
+    },
     {
       "id": "iron_working",
-      "cost": { "stone": 60, "bronze": 25 },
-      "prerequisites": ["bronze_working"],
-      "unlocks": ["iron_mine", "coal_mine", "blast_furnace", "charcoal_kiln"]
+      "cost": {
+        "stone": 60,
+        "bronze": 25
+      },
+      "prerequisites": [
+        "bronze_working"
+      ],
+      "unlocks": [
+        "iron_mine",
+        "coal_mine",
+        "blast_furnace",
+        "charcoal_kiln"
+      ]
     },
     {
       "id": "toolsmithing",
-      "cost": { "bronze": 30, "iron": 20 },
-      "prerequisites": ["iron_working"],
-      "unlocks": ["iron_forge"]
+      "cost": {
+        "bronze": 30,
+        "iron": 20
+      },
+      "prerequisites": [
+        "iron_working"
+      ],
+      "unlocks": [
+        "iron_forge"
+      ]
     },
-
-    { "id": "deep_mining",  "cost": { "iron": 30, "tools": 20 },   "prerequisites": ["iron_working"],   "effect": "harvest_mult",    "magnitude": 0.40 },
-    { "id": "guilds",       "cost": { "iron": 25, "food": 80 },    "prerequisites": ["toolsmithing"],   "effect": "production_mult", "magnitude": 0.25 },
-    { "id": "municipal_administration", "cost": { "iron": 20, "planks": 60 }, "prerequisites": ["guilds"] },
-    { "id": "sanitation",   "cost": { "iron": 30, "stone": 80 },   "prerequisites": ["aqueducts", "iron_working"], "effect": "growth_mult", "magnitude": 0.35 },
-    { "id": "brickwork",    "cost": { "stone": 120, "iron": 25 },  "prerequisites": ["masonry", "iron_working"],   "effect": "housing_mult", "magnitude": 0.30 },
-
+    {
+      "id": "deep_mining",
+      "cost": {
+        "iron": 30,
+        "tools": 20
+      },
+      "prerequisites": [
+        "iron_working"
+      ],
+      "effect": "harvest_mult",
+      "magnitude": 0.4
+    },
+    {
+      "id": "guilds",
+      "cost": {
+        "iron": 25,
+        "food": 80
+      },
+      "prerequisites": [
+        "toolsmithing"
+      ],
+      "effect": "production_mult",
+      "magnitude": 0.25
+    },
+    {
+      "id": "municipal_administration",
+      "cost": {
+        "iron": 20,
+        "planks": 60
+      },
+      "prerequisites": [
+        "guilds"
+      ]
+    },
+    {
+      "id": "sanitation",
+      "cost": {
+        "iron": 30,
+        "stone": 80
+      },
+      "prerequisites": [
+        "aqueducts",
+        "iron_working"
+      ],
+      "effect": "growth_mult",
+      "magnitude": 0.35
+    },
+    {
+      "id": "brickwork",
+      "cost": {
+        "stone": 120,
+        "iron": 25
+      },
+      "prerequisites": [
+        "masonry",
+        "iron_working"
+      ],
+      "effect": "housing_mult",
+      "magnitude": 0.3
+    },
     {
       "id": "steam_power",
-      "cost": { "iron": 40, "coal": 40 },
-      "prerequisites": ["iron_working"],
-      "unlocks": ["steel_mill", "machine_shop"]
+      "cost": {
+        "iron": 40,
+        "coal": 40
+      },
+      "prerequisites": [
+        "iron_working"
+      ],
+      "unlocks": [
+        "steel_mill",
+        "machine_shop"
+      ]
     },
     {
       "id": "electrification",
-      "cost": { "steel": 30, "iron": 30 },
-      "prerequisites": ["steam_power"],
-      "unlocks": ["coal_power_plant", "factory"]
+      "cost": {
+        "steel": 30,
+        "iron": 30
+      },
+      "prerequisites": [
+        "steam_power"
+      ],
+      "unlocks": [
+        "coal_power_plant",
+        "factory"
+      ]
     },
-
-    { "id": "assembly_line", "cost": { "steel": 40, "machine_parts": 20 }, "prerequisites": ["electrification"], "effect": "production_mult", "magnitude": 0.50 },
-    { "id": "rail_freight",  "cost": { "steel": 50, "coal": 60 },          "prerequisites": ["steam_power"],     "effect": "storage_mult",    "magnitude": 0.60, "unlocks": ["deep_sea_port"] },
-    { "id": "public_health", "cost": { "steel": 30, "food": 150 },         "prerequisites": ["sanitation", "steam_power"], "effect": "growth_mult", "magnitude": 0.50 },
-    { "id": "steel_frames",  "cost": { "steel": 60, "machine_parts": 15 }, "prerequisites": ["brickwork", "electrification"], "effect": "housing_mult", "magnitude": 0.50 },
-    { "id": "telegraph",     "cost": { "steel": 25, "electronics": 5 },    "prerequisites": ["electrification"], "effect": "offline_mult",    "magnitude": 0.40 },
-    { "id": "aviation",      "cost": { "steel": 60, "machine_parts": 30 },  "prerequisites": ["electrification"], "unlocks": ["airfield"] },
-    { "id": "jet_age",       "cost": { "electronics": 40, "machine_parts": 60 }, "prerequisites": ["aviation", "electronics"], "unlocks": ["airport"] },
-
+    {
+      "id": "assembly_line",
+      "cost": {
+        "steel": 40,
+        "machine_parts": 20
+      },
+      "prerequisites": [
+        "electrification"
+      ],
+      "effect": "production_mult",
+      "magnitude": 0.5
+    },
+    {
+      "id": "rail_freight",
+      "cost": {
+        "steel": 50,
+        "coal": 60
+      },
+      "prerequisites": [
+        "steam_power"
+      ],
+      "effect": "storage_mult",
+      "magnitude": 0.6,
+      "unlocks": [
+        "deep_sea_port"
+      ]
+    },
+    {
+      "id": "public_health",
+      "cost": {
+        "steel": 30,
+        "food": 150
+      },
+      "prerequisites": [
+        "sanitation",
+        "steam_power"
+      ],
+      "effect": "growth_mult",
+      "magnitude": 0.5
+    },
+    {
+      "id": "steel_frames",
+      "cost": {
+        "steel": 60,
+        "machine_parts": 15
+      },
+      "prerequisites": [
+        "brickwork",
+        "electrification"
+      ],
+      "effect": "housing_mult",
+      "magnitude": 0.5
+    },
+    {
+      "id": "telegraph",
+      "cost": {
+        "steel": 25,
+        "electronics": 5
+      },
+      "prerequisites": [
+        "electrification"
+      ],
+      "effect": "offline_mult",
+      "magnitude": 0.4
+    },
+    {
+      "id": "aviation",
+      "cost": {
+        "steel": 60,
+        "machine_parts": 30
+      },
+      "prerequisites": [
+        "electrification"
+      ],
+      "unlocks": [
+        "airfield"
+      ]
+    },
+    {
+      "id": "jet_age",
+      "cost": {
+        "electronics": 40,
+        "machine_parts": 60
+      },
+      "prerequisites": [
+        "aviation",
+        "electronics"
+      ],
+      "unlocks": [
+        "airport"
+      ]
+    },
     {
       "id": "electronics",
-      "cost": { "machine_parts": 30, "steel": 30 },
-      "prerequisites": ["electrification"],
-      "unlocks": ["silicon_mine", "electronics_fab", "solar_array", "hydroponics"]
+      "cost": {
+        "machine_parts": 30,
+        "steel": 30
+      },
+      "prerequisites": [
+        "electrification"
+      ],
+      "unlocks": [
+        "silicon_mine",
+        "electronics_fab",
+        "solar_array",
+        "hydroponics"
+      ]
     },
     {
       "id": "computing",
-      "cost": { "electronics": 30, "machine_parts": 20 },
-      "prerequisites": ["electronics"],
-      "unlocks": ["computer_plant"]
+      "cost": {
+        "electronics": 30,
+        "machine_parts": 20
+      },
+      "prerequisites": [
+        "electronics"
+      ],
+      "unlocks": [
+        "computer_plant"
+      ]
     },
-
-    { "id": "automation_theory", "cost": { "computer": 15, "electronics": 30 }, "prerequisites": ["computing"], "effect": "production_mult", "magnitude": 0.75 },
-    { "id": "logistics_ai",      "cost": { "computer": 20, "machine_parts": 40 }, "prerequisites": ["computing", "rail_freight"], "effect": "storage_mult", "magnitude": 1.00 },
-    { "id": "networks",          "cost": { "computer": 25, "electronics": 40 }, "prerequisites": ["computing", "telegraph"], "effect": "offline_mult", "magnitude": 0.75 },
-    { "id": "genomics",          "cost": { "computer": 20, "food": 300 },      "prerequisites": ["computing", "public_health"], "effect": "growth_mult", "magnitude": 0.80 },
-
+    {
+      "id": "automation_theory",
+      "cost": {
+        "computer": 15,
+        "electronics": 30
+      },
+      "prerequisites": [
+        "computing"
+      ],
+      "effect": "production_mult",
+      "magnitude": 0.75
+    },
+    {
+      "id": "logistics_ai",
+      "cost": {
+        "computer": 20,
+        "machine_parts": 40
+      },
+      "prerequisites": [
+        "computing",
+        "rail_freight"
+      ],
+      "effect": "storage_mult",
+      "magnitude": 1.0
+    },
+    {
+      "id": "networks",
+      "cost": {
+        "computer": 25,
+        "electronics": 40
+      },
+      "prerequisites": [
+        "computing",
+        "telegraph"
+      ],
+      "effect": "offline_mult",
+      "magnitude": 0.75
+    },
+    {
+      "id": "genomics",
+      "cost": {
+        "computer": 20,
+        "food": 300
+      },
+      "prerequisites": [
+        "computing",
+        "public_health"
+      ],
+      "effect": "growth_mult",
+      "magnitude": 0.8
+    },
     {
       "id": "fusion",
-      "cost": { "computer": 30, "electronics": 40 },
-      "prerequisites": ["computing"],
-      "unlocks": ["fusion_plant", "nano_forge"]
+      "cost": {
+        "computer": 30,
+        "electronics": 40
+      },
+      "prerequisites": [
+        "computing"
+      ],
+      "unlocks": [
+        "fusion_plant",
+        "nano_forge"
+      ]
     },
     {
       "id": "robotics",
-      "cost": { "nanomaterial": 30, "computer": 25 },
-      "prerequisites": ["fusion"],
-      "unlocks": ["robotics_lab"]
+      "cost": {
+        "nanomaterial": 30,
+        "computer": 25
+      },
+      "prerequisites": [
+        "fusion"
+      ],
+      "unlocks": [
+        "robotics_lab"
+      ]
     },
-
-    { "id": "self_assembly",  "cost": { "nanomaterial": 40, "robot": 10 }, "prerequisites": ["robotics"], "effect": "production_mult", "magnitude": 1.50 },
-    { "id": "arcology_design", "cost": { "nanomaterial": 50, "computer": 40 }, "prerequisites": ["fusion", "steel_frames"], "effect": "housing_mult", "magnitude": 1.00 },
-    { "id": "orbital_survey",  "cost": { "robot": 20, "computer": 50 },    "prerequisites": ["robotics", "networks"], "effect": "offline_mult", "magnitude": 1.50 },
-    { "id": "matter_synthesis", "cost": { "nanomaterial": 60, "robot": 25 }, "prerequisites": ["self_assembly"], "effect": "harvest_mult", "magnitude": 2.00 },
-    { "id": "longevity",       "cost": { "robot": 30, "nanomaterial": 40 }, "prerequisites": ["robotics", "genomics"], "effect": "growth_mult", "magnitude": 1.50 }
+    {
+      "id": "self_assembly",
+      "cost": {
+        "nanomaterial": 40,
+        "robot": 10
+      },
+      "prerequisites": [
+        "robotics"
+      ],
+      "effect": "production_mult",
+      "magnitude": 1.5
+    },
+    {
+      "id": "arcology_design",
+      "cost": {
+        "nanomaterial": 50,
+        "computer": 40
+      },
+      "prerequisites": [
+        "fusion",
+        "steel_frames"
+      ],
+      "effect": "housing_mult",
+      "magnitude": 1.0
+    },
+    {
+      "id": "orbital_survey",
+      "cost": {
+        "robot": 20,
+        "computer": 50
+      },
+      "prerequisites": [
+        "robotics",
+        "networks"
+      ],
+      "effect": "offline_mult",
+      "magnitude": 1.5
+    },
+    {
+      "id": "matter_synthesis",
+      "cost": {
+        "nanomaterial": 60,
+        "robot": 25
+      },
+      "prerequisites": [
+        "self_assembly"
+      ],
+      "effect": "harvest_mult",
+      "magnitude": 2.0
+    },
+    {
+      "id": "longevity",
+      "cost": {
+        "robot": 30,
+        "nanomaterial": 40
+      },
+      "prerequisites": [
+        "robotics",
+        "genomics"
+      ],
+      "effect": "growth_mult",
+      "magnitude": 1.5
+    },
+    {
+      "id": "terraforming",
+      "cost": {
+        "tools": 60,
+        "planks": 40
+      },
+      "prerequisites": [
+        "crop_rotation",
+        "masonry"
+      ]
+    },
+    {
+      "id": "earthmoving",
+      "cost": {
+        "tools": 120,
+        "steel": 30
+      },
+      "prerequisites": [
+        "terraforming",
+        "steam_power"
+      ]
+    }
   ]
 }

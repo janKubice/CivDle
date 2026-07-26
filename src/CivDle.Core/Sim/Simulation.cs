@@ -235,6 +235,64 @@ public sealed class Simulation
     internal void SetBiomeOverride(int x, int y, byte biomeIndex) =>
         _biomeOverrides[TileKey.Pack(x, y)] = biomeIndex;
 
+    /// <summary>
+    /// Lze tímhle nástrojem přetvořit dlaždici? Kontroluje odemčení technologií,
+    /// vhodný výchozí biom, volnost dlaždice a suroviny.
+    /// </summary>
+    public PlacementResult CanTerraform(int actionIndex, int x, int y)
+    {
+        var action = _content.Terraform[actionIndex];
+        if (action.UnlockTechIndex >= 0 && !_techResearched[action.UnlockTechIndex])
+        {
+            return PlacementResult.NotUnlocked;
+        }
+
+        byte current = BiomeAt(x, y);
+        if (current == action.TargetBiomeIndex || !action.AppliesTo(current))
+        {
+            return PlacementResult.WrongBiome;
+        }
+
+        long tile = TileKey.Pack(x, y);
+        if (_occupancy.ContainsKey(tile) || _roads.Contains(tile))
+        {
+            return PlacementResult.Occupied; // pod budovou ani cestou se nekope
+        }
+
+        for (int i = 0; i < action.Cost.Count; i++)
+        {
+            if (_resources[action.Cost[i].ResourceIndex] < action.Cost[i].Amount)
+            {
+                return PlacementResult.NotEnoughResources;
+            }
+        }
+
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>Příkaz hráče: přetvoř dlaždici (zaplatí cenu a přepíše biom).</summary>
+    public PlacementResult TryTerraform(int actionIndex, int x, int y)
+    {
+        var result = CanTerraform(actionIndex, x, y);
+        if (result != PlacementResult.Ok)
+        {
+            return result;
+        }
+
+        var action = _content.Terraform[actionIndex];
+        for (int i = 0; i < action.Cost.Count; i++)
+        {
+            _resources[action.Cost[i].ResourceIndex] -= action.Cost[i].Amount;
+        }
+
+        SetBiomeOverride(x, y, (byte)action.TargetBiomeIndex);
+        TerraformedTiles++;
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>Kolik dlaždic hráč přetvořil (metrika pro úkoly a achievementy).</summary>
+    public long TerraformedTiles { get; internal set; }
+
     /// <summary>Terraformované dlaždice (pro uložení).</summary>
     internal IEnumerable<KeyValuePair<long, byte>> BiomeOverrides() => _biomeOverrides;
 
@@ -243,6 +301,9 @@ public sealed class Simulation
 
     /// <summary>Poslední okno, jehož zásah UFO už proběhl (pro uložení).</summary>
     internal long LastUfoWindow => _lastUfoWindow;
+
+    /// <summary>Obnoví počet přetvořených dlaždic ze savu.</summary>
+    internal void RestoreTerraformedTiles(long count) => TerraformedTiles = count;
 
     /// <summary>Obnoví poslední vyřízené okno UFO ze savu (jinak by zásah proběhl znovu).</summary>
     internal void RestoreLastUfoWindow(long window) => _lastUfoWindow = window;
@@ -1511,6 +1572,7 @@ public sealed class Simulation
         MetricKind.AscensionLevel => AscensionLevel,
         MetricKind.DayNumber => DayNumber,
         MetricKind.PlantedNodes => _plantedNodes.Count,
+        MetricKind.TerraformedTiles => TerraformedTiles,
         _ => 0,
     };
 
