@@ -1,4 +1,5 @@
 using CivDle.Audio;
+using CivDle.Core.Content;
 using CivDle.Core.Sim;
 using CivDle.Input;
 using CivDle.Rendering;
@@ -84,15 +85,21 @@ public sealed class GameplayScreen : IScreen
     private string _selectedCategory = string.Empty;
     private readonly List<(int DefIndex, Button Button, Label PriceLabel)> _buildButtons = new();
     private VerticalStackPanel _goalsPanel = null!;
-    private readonly List<(CivDle.Core.Sim.GoalCondition Condition, Label Progress)> _goalSlots = new();
+    private readonly List<(GoalCondition Condition, Label Progress, ProgressBar Bar)> _goalSlots = new();
     private bool _goalsDirty = true;
     private readonly Queue<IScreen> _pendingIntros = new(); // uvítací overlaye (offline, denní odměna)
     private readonly Random _eventRng = new();
     private float _eventTimer;
     private Label _festivalLabel = null!;
     private Button _festivalButton = null!;
-    private Widget _toolBarHost = null!;
+    private Button _buildMenuButton = null!;
+    private Widget _buildMenuPanel = null!;
+    private Widget _statusPanel = null!;
+    private bool _buildMenuOpen;
     private int _unlockedFeatureCount = -1;
+
+    /// <summary>Šířka pruhu pokroku ve sledovači úkolů (v pixelech).</summary>
+    private const int GoalBarWidth = 180;
 
     private int _selectedBuilding = -1;
     private int _ghostX;
@@ -225,9 +232,9 @@ public sealed class GameplayScreen : IScreen
             {
                 _movingBuildingIndex = -1;
             }
-            else if (_selectedBuilding >= 0)
+            else if (_selectedBuilding >= 0 || _buildMenuOpen)
             {
-                _selectedBuilding = -1;
+                SetBuildMenuOpen(false);
             }
             else
             {
@@ -942,6 +949,7 @@ public sealed class GameplayScreen : IScreen
             chip.Widgets.Add(_resourceLabels[i]);
             _resourceRateLabels[i] = new Label { VerticalAlignment = VerticalAlignment.Center, TextColor = new Color(120, 190, 130) };
             chip.Widgets.Add(_resourceRateLabels[i]);
+            chip.Tooltip = ResourceTooltip(i);
             // Neznámá surovina se v pruhu vůbec neukáže — hra nesmí prozrazovat
             // obsah, ke kterému se hráč ještě nedostal (odhalí se získáním).
             chip.Visible = _simulation.IsResourceKnown(i);
@@ -958,11 +966,12 @@ public sealed class GameplayScreen : IScreen
         topLeft.Margin = new Thickness(10, 10, 0, 0);
 
         // Pravý horní roh: éra + den/čas + dlaždice pod kurzorem.
-        _eraLabel = new Label { TextColor = new Color(210, 185, 120), HorizontalAlignment = HorizontalAlignment.Right };
-        _tierLabel = new Label { TextColor = new Color(190, 160, 230), HorizontalAlignment = HorizontalAlignment.Right };
-        _powerLabel = new Label { TextColor = new Color(120, 200, 240), HorizontalAlignment = HorizontalAlignment.Right };
-        _weatherLabel = new Label { TextColor = new Color(170, 200, 220), HorizontalAlignment = HorizontalAlignment.Right };
-        _dayLabel = new Label { TextColor = UiFactory.Accent };
+        var loc = _screens.Loc;
+        _eraLabel = new Label { TextColor = new Color(210, 185, 120), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.era"] };
+        _tierLabel = new Label { TextColor = new Color(190, 160, 230), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.tier"] };
+        _powerLabel = new Label { TextColor = new Color(120, 200, 240), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.power"] };
+        _weatherLabel = new Label { TextColor = new Color(170, 200, 220), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.weather"] };
+        _dayLabel = new Label { TextColor = UiFactory.Accent, Tooltip = loc["tip.day"] };
         _cursorLabel = new Label { TextColor = Color.LightGray };
         var worldInfoStack = new VerticalStackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Right };
         worldInfoStack.Widgets.Add(_eraLabel);
@@ -976,17 +985,23 @@ public sealed class GameplayScreen : IScreen
         topRight.VerticalAlignment = VerticalAlignment.Top;
         topRight.Margin = new Thickness(0, 10, 10, 0);
 
-        // Spodek uprostřed: stavební menu — nahoře záložky kategorií, pod nimi budovy dané kategorie.
-        _statusLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
+        // Stavební menu je VYSKAKOVACÍ: spodek obrazovky má zůstat úzký proužek,
+        // katalog budov vyjede nad ním až na kliknutí (a zase se zavře).
         _buildCategoryPanel = new HorizontalStackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
         _buildItemsPanel = new HorizontalStackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
 
         var buildStack = new VerticalStackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
-        buildStack.Widgets.Add(_statusLabel);
         buildStack.Widgets.Add(_buildCategoryPanel);
         buildStack.Widgets.Add(_buildItemsPanel);
-        var bottomCenter = UiFactory.DarkPanel(buildStack);
-        bottomCenter.HorizontalAlignment = HorizontalAlignment.Center;
+        _buildMenuPanel = UiFactory.DarkPanel(buildStack);
+        _buildMenuPanel.HorizontalAlignment = HorizontalAlignment.Center;
+        _buildMenuPanel.Visible = _buildMenuOpen;
+
+        // Stavový řádek zůstává vidět i se zavřeným menu — nese hlášky režimů
+        // („sázíš", „sem to nejde") a bez nich by hráč tápal.
+        _statusLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
+        _statusPanel = UiFactory.DarkPanel(_statusLabel);
+        _statusPanel.HorizontalAlignment = HorizontalAlignment.Center;
 
         // Levý střed: sledovač úkolů (aktuální cíle + pokrok) — vede hráče hrou.
         _goalsPanel = new VerticalStackPanel { Spacing = 5 };
@@ -995,8 +1010,9 @@ public sealed class GameplayScreen : IScreen
         goalsBox.VerticalAlignment = VerticalAlignment.Center;
         goalsBox.Margin = new Thickness(10, 0, 0, 0);
 
-        // Spodní blok: lišta rychlých akcí nad stavebním menu. Nahoře zůstávají
-        // suroviny (vlevo) a stav světa (vpravo) — spodek patří ovládání.
+        // Spodní blok zdola nahoru: proužek tlačítek, nad ním stav, a úplně nahoře
+        // vyskakovací katalog budov. Nahoře na obrazovce zůstávají suroviny (vlevo)
+        // a stav světa (vpravo) — spodek patří ovládání.
         var bottomBar = new VerticalStackPanel
         {
             Spacing = 8,
@@ -1004,8 +1020,9 @@ public sealed class GameplayScreen : IScreen
             VerticalAlignment = VerticalAlignment.Bottom,
             Margin = new Thickness(0, 0, 0, 12),
         };
+        bottomBar.Widgets.Add(_buildMenuPanel);
+        bottomBar.Widgets.Add(_statusPanel);
         bottomBar.Widgets.Add(BuildToolButtons());
-        bottomBar.Widgets.Add(bottomCenter);
 
         var root = new Panel();
         root.Widgets.Add(topLeft);
@@ -1028,8 +1045,14 @@ public sealed class GameplayScreen : IScreen
     {
         var loc = _screens.Loc;
         var stack = new HorizontalStackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
+
+        // „Stavět" vytáhne katalog budov NAD lištu — spodek obrazovky tak zůstává
+        // úzký proužek, ne trvale rozložené menu přes půl mapy.
+        _buildMenuButton = UiFactory.SmallButton(loc["hud.build"], ToggleBuildMenu, loc["tip.build"]);
+        stack.Widgets.Add(_buildMenuButton);
+
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.quests"],
-            () => _screens.Push(new QuestsScreen(_screens, _simulation))));
+            () => _screens.Push(new QuestsScreen(_screens, _simulation)), loc["tip.quests"]));
 
         // Každá funkce se objeví, teprve až si ji hráč odemkne (data/features.json).
         if (_simulation.IsFeatureUnlocked("plant"))
@@ -1040,7 +1063,7 @@ public sealed class GameplayScreen : IScreen
                 _zoneMode = false;
                 _selectedBuilding = -1;
                 _movingBuildingIndex = -1;
-            }));
+            }, loc["tip.plant"]));
         }
 
         // Zóny (automatizace): jedno tlačítko na typ; klik = malovat, další klik na stejný = ven.
@@ -1060,36 +1083,36 @@ public sealed class GameplayScreen : IScreen
                 {
                     EnterZoneMode(typeIndex);
                 }
-            }));
+            }, ZoneTooltip(zoneTypes[z])));
         }
-        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.backToCity"], RecenterOnCity));
+        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.backToCity"], RecenterOnCity, loc["tip.backToCity"]));
 
         if (_simulation.IsFeatureUnlocked("settlements"))
         {
             stack.Widgets.Add(UiFactory.SmallButton(loc["hud.settlements"],
-                () => _screens.Push(new SettlementsScreen(_screens, _simulation, _camera))));
+                () => _screens.Push(new SettlementsScreen(_screens, _simulation, _camera)), loc["tip.settlements"]));
         }
 
         if (_screens.Content.Techs.Count > 0 && _simulation.IsFeatureUnlocked("research"))
         {
             stack.Widgets.Add(UiFactory.SmallButton(loc["hud.tech"],
-                () => _screens.Push(new TechScreen(_screens, _simulation))));
+                () => _screens.Push(new TechScreen(_screens, _simulation)), loc["tip.tech"]));
         }
 
         if (_screens.Content.Policies.Count > 0 && _simulation.IsFeatureUnlocked("governor"))
         {
             stack.Widgets.Add(UiFactory.SmallButton(loc["hud.governor"],
-                () => _screens.Push(new PoliciesScreen(_screens, _simulation))));
+                () => _screens.Push(new PoliciesScreen(_screens, _simulation)), loc["tip.governor"]));
         }
 
         if (_simulation.IsFeatureUnlocked("ascend"))
         {
             stack.Widgets.Add(UiFactory.SmallButton(loc["hud.ascend"],
-                () => _screens.Push(new AscensionScreen(_screens, _simulation))));
+                () => _screens.Push(new AscensionScreen(_screens, _simulation)), loc["tip.ascend"]));
         }
 
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.achievements"],
-            () => _screens.Push(new AchievementsScreen(_screens, _simulation))));
+            () => _screens.Push(new AchievementsScreen(_screens, _simulation)), loc["tip.achievements"]));
 
         // Slavnost: aktivní boost na kliknutí (stav se přepisuje v RefreshHudTexts).
         _festivalLabel = new Label
@@ -1104,6 +1127,11 @@ public sealed class GameplayScreen : IScreen
             Height = 36,
             Padding = new Thickness(12, 0),
             Background = new SolidBrush(new Color(150, 90, 60, 235)),
+            // Slavnost bez vysvětlení byla záhada — tooltip říká násobič i délku z dat.
+            Tooltip = loc.Format("tip.festival",
+                _screens.Content.Gameplay.Boost.Multiplier.ToString("0.#"),
+                _screens.Content.Gameplay.Boost.DurationSeconds,
+                _screens.Content.Gameplay.Boost.CooldownSeconds),
         };
         _festivalButton.Click += (_, _) => _simulation.TryStartBoost();
         if (_simulation.IsFeatureUnlocked("festival"))
@@ -1114,6 +1142,76 @@ public sealed class GameplayScreen : IScreen
         var panel = UiFactory.DarkPanel(stack);
         panel.HorizontalAlignment = HorizontalAlignment.Center;
         return panel;
+    }
+
+    /// <summary>
+    /// Otevře/zavře vyskakovací katalog budov. Zavřením se ruší i rozestavěná
+    /// volba — jinak by hráči zůstal duch budovy pod kurzorem bez menu, ze
+    /// kterého vznikl.
+    /// </summary>
+    private void ToggleBuildMenu()
+    {
+        SetBuildMenuOpen(!_buildMenuOpen);
+    }
+
+    private void SetBuildMenuOpen(bool open)
+    {
+        _buildMenuOpen = open;
+        _buildMenuPanel.Visible = open;
+        if (!open)
+        {
+            _selectedBuilding = -1;
+        }
+        else
+        {
+            _plantMode = false;
+            _zoneMode = false;
+        }
+    }
+
+    /// <summary>
+    /// Popisek suroviny u kurzoru: kdo ji vyrábí a kdo ji spotřebovává. Skládá se
+    /// z definic budov, takže nová surovina v JSON dostane vysvětlení sama.
+    /// </summary>
+    private string ResourceTooltip(int resourceIndex)
+    {
+        var loc = _screens.Loc;
+        var content = _screens.Content;
+        var producers = new List<string>();
+        var consumers = new List<string>();
+        for (int i = 0; i < content.Buildings.Count; i++)
+        {
+            if (content.Buildings[i].Recipe is not { } recipe)
+            {
+                continue;
+            }
+
+            string name = loc[content.Buildings[i].NameKey];
+            if (recipe.Outputs.Any(o => o.ResourceIndex == resourceIndex)) producers.Add(name);
+            if (recipe.Inputs.Any(o => o.ResourceIndex == resourceIndex)) consumers.Add(name);
+        }
+
+        var text = new System.Text.StringBuilder(loc[content.Resources[resourceIndex].NameKey]);
+        if (producers.Count > 0)
+        {
+            text.Append('\n').Append(loc.Format("tip.resource.producedBy", string.Join(", ", producers.Take(6))));
+        }
+
+        if (consumers.Count > 0)
+        {
+            text.Append('\n').Append(loc.Format("tip.resource.usedBy", string.Join(", ", consumers.Take(6))));
+        }
+
+        return text.ToString();
+    }
+
+    /// <summary>Popisek typu zóny: čím ji automat zaplňuje (z priority v datech).</summary>
+    private string ZoneTooltip(ZoneTypeDef zone)
+    {
+        var loc = _screens.Loc;
+        var content = _screens.Content;
+        string buildings = string.Join(", ", zone.BuildingIndices.Select(b => loc[content.Buildings[b].NameKey]));
+        return loc.Format("tip.zone", buildings);
     }
 
     /// <summary>Přebuduje stavební menu podle aktuálně odemčených/stavitelných budov.</summary>
@@ -1226,7 +1324,12 @@ public sealed class GameplayScreen : IScreen
         var content = _screens.Content;
         _goalsPanel.Widgets.Clear();
         _goalSlots.Clear();
-        _goalsPanel.Widgets.Add(new Label { Text = loc["hud.quests"], TextColor = UiFactory.Accent });
+        _goalsPanel.Widgets.Add(new Label
+        {
+            Text = loc["hud.quests"],
+            TextColor = UiFactory.Accent,
+            Tooltip = loc["tip.quests"],
+        });
 
         int shown = 0;
         for (int i = 0; i < content.Quests.Count && shown < 3; i++)
@@ -1236,7 +1339,10 @@ public sealed class GameplayScreen : IScreen
                 continue;
             }
 
-            AddGoalSlot(loc[content.Quests[i].NameKey], content.Quests[i].Condition);
+            var quest = content.Quests[i];
+            AddGoalSlot(loc[quest.NameKey], quest.Condition,
+                loc[quest.DescriptionKey] + '\n' + loc.Format("panel.reward",
+                    CostFormat.Line(content, loc, quest.Reward)));
             shown++;
         }
 
@@ -1245,18 +1351,26 @@ public sealed class GameplayScreen : IScreen
             long target = _simulation.DynamicQuestTarget;
             var dyn = content.QuestsDynamic;
             AddGoalSlot(loc.Format("quest.dynamic", target),
-                new GoalCondition(dyn.BaseCondition.Kind, dyn.BaseCondition.Param, target));
+                new GoalCondition(dyn.BaseCondition.Kind, dyn.BaseCondition.Param, target),
+                loc.Format("quest.dynamic.desc", target) + '\n' + loc.Format("panel.reward",
+                    CostFormat.Line(content, loc, dyn.BaseReward)));
         }
     }
 
-    private void AddGoalSlot(string name, GoalCondition condition)
+    /// <summary>
+    /// Jeden řádek sledovače: jméno, pruh pokroku a čísla. Pruh nese „jak daleko
+    /// jsem", čísla „kolik ještě" — samotné „12 / 40" se v HUD špatně čte.
+    /// </summary>
+    private void AddGoalSlot(string name, GoalCondition condition, string tooltip)
     {
-        var slot = new VerticalStackPanel { Spacing = 1 };
+        var slot = new VerticalStackPanel { Spacing = 2, Tooltip = tooltip };
         slot.Widgets.Add(new Label { Text = name });
+        var bar = new ProgressBar(GoalBarWidth);
+        slot.Widgets.Add(bar.Root);
         var progress = new Label { TextColor = new Color(150, 220, 150) };
         slot.Widgets.Add(progress);
         _goalsPanel.Widgets.Add(slot);
-        _goalSlots.Add((condition, progress));
+        _goalSlots.Add((condition, progress, bar));
     }
 
     /// <summary>Přebuduje sledovač jen při změně; jinak jen aktualizuje čísla pokroku.</summary>
@@ -1268,10 +1382,11 @@ public sealed class GameplayScreen : IScreen
             _goalsDirty = false;
         }
 
-        foreach (var (condition, progress) in _goalSlots)
+        foreach (var (condition, progress, bar) in _goalSlots)
         {
             long current = Math.Min(_simulation.EvaluateMetric(condition.Kind, condition.Param), condition.Target);
             progress.Text = $"{current} / {condition.Target}";
+            bar.SetProgress(condition.Target > 0 ? current / (double)condition.Target : 1.0);
         }
     }
 
@@ -1327,6 +1442,9 @@ public sealed class GameplayScreen : IScreen
             Content = caption,
             Padding = new Thickness(10, 6),
             Background = new SolidBrush(new Color(38, 48, 64, 235)),
+            // Popisek u kurzoru se skládá z definice — nová budova v JSON má
+            // vysvětlení hned, bez ručně psaného textu.
+            Tooltip = BuildingSummary.Describe(content, loc, def),
         };
         button.Click += (_, _) =>
         {
@@ -1341,6 +1459,11 @@ public sealed class GameplayScreen : IScreen
     private void RefreshHudTexts()
     {
         var loc = _screens.Loc;
+
+        // Tlačítko „Stavět" drží stav otevřeného menu, ať je vidět, co je zapnuté.
+        _buildMenuButton.Background = new SolidBrush(_buildMenuOpen
+            ? new Color(60, 110, 130, 235)
+            : new Color(38, 48, 64, 235));
 
         // Odemčená funkce musí být vidět hned, ne až po restartu. Přestavba je drahá,
         // ale nastane jen ve chvíli odemčení (pár × za hru), ne každý snímek.
@@ -1492,9 +1615,25 @@ public sealed class GameplayScreen : IScreen
     private void UpdateStatusLabel()
     {
         var loc = _screens.Loc;
+
+        // Proužek se stavem se ukazuje, jen když má co říct — prázdný panel
+        // uprostřed spodku obrazovky by byl jen šum.
+        _statusPanel.Visible = _plantMode || _zoneMode || _movingBuildingIndex >= 0 || _selectedBuilding >= 0;
+        if (!_statusPanel.Visible)
+        {
+            return;
+        }
+
         if (_plantMode)
         {
             _statusLabel.Text = loc["hud.planting"];
+            _statusLabel.TextColor = UiFactory.Accent;
+            return;
+        }
+
+        if (_zoneMode)
+        {
+            _statusLabel.Text = loc[_screens.Content.ZoneTypes[_zonePaintTypeIndex].NameKey];
             _statusLabel.TextColor = UiFactory.Accent;
             return;
         }
@@ -1503,13 +1642,6 @@ public sealed class GameplayScreen : IScreen
         {
             _statusLabel.Text = loc["hud.moving"];
             _statusLabel.TextColor = UiFactory.Accent;
-            return;
-        }
-
-        if (_selectedBuilding < 0)
-        {
-            _statusLabel.Text = loc["build.title"];
-            _statusLabel.TextColor = Color.LightGray;
             return;
         }
 

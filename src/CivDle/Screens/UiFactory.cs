@@ -23,7 +23,8 @@ internal static class UiFactory
     private static readonly Color ButtonFill = new(38, 48, 64, 235);
 
     /// <summary>Standardní menu tlačítko s akcí a decentním pozadím.</summary>
-    public static Button MenuButton(string text, Action onClick)
+    /// <param name="tooltip">Vysvětlení u kurzoru (Myra ho kreslí u myši); null = bez popisku.</param>
+    public static Button MenuButton(string text, Action onClick, string? tooltip = null)
     {
         var button = new Button
         {
@@ -32,13 +33,15 @@ internal static class UiFactory
             Height = MenuButtonHeight,
             HorizontalAlignment = HorizontalAlignment.Center,
             Background = new SolidBrush(ButtonFill),
+            Tooltip = tooltip,
         };
         button.Click += (_, _) => onClick();
         return button;
     }
 
     /// <summary>Malé tlačítko (šipky přepínačů, „Náhodný"…).</summary>
-    public static Button SmallButton(string text, Action onClick)
+    /// <param name="tooltip">Vysvětlení u kurzoru (Myra ho kreslí u myši); null = bez popisku.</param>
+    public static Button SmallButton(string text, Action onClick, string? tooltip = null)
     {
         var button = new Button
         {
@@ -47,6 +50,7 @@ internal static class UiFactory
             Padding = new Thickness(12, 0),
             VerticalAlignment = VerticalAlignment.Center,
             Background = new SolidBrush(ButtonFill),
+            Tooltip = tooltip,
         };
         button.Click += (_, _) => onClick();
         return button;

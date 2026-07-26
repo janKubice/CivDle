@@ -21,6 +21,11 @@
     <ProjectReference Include="..\CivDle.Core\CivDle.Core.csproj" />
   </ItemGroup>
 
+  <!-- Testy UI vrstvy vidí i interní pomocníky (rozvržení, formátování popisků). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="CivDle.Ui.Tests" />
+  </ItemGroup>
+
   <!-- Data-driven obsah: JSON definice se kopírují vedle binárky do složky data/. -->
   <ItemGroup>
     <Content Include="..\..\data\**" LinkBase="data" CopyToOutputDirectory="PreserveNewest" />
