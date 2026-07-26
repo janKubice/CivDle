@@ -1,75 +1,41 @@
 {
   "schemaVersion": 1,
+  "_comment": "Deník změn: text je v data/lang/*.json pod devlog.<id>.title a devlog.<id>.lineN. Data drží jen pořadí, datum a počet řádků.",
   "entries": [
     {
-      "version": "Vrať se a klikej",
+      "id": "come_back_and_click",
       "date": "2026-07-21",
-      "lines": [
-        "Offline postup + denní odměna — civilizace roste, i když nehraješ, a návrat se vyplácí.",
-        "Sběrné bubliny, zlaté spawny a kritické sběry — víc důvodů klikat.",
-        "Přesun a bourání budov, sázení hájů, skrýše k objevení — tvaruj svět.",
-        "Slavnost (dočasný boost), náhodné události s volbami a klikatelní obyvatelé.",
-        "HUD ukazuje přírůstek za sekundu a hlásí plný sklad."
-      ]
+      "lineCount": 5
     },
     {
-      "version": "Měřítko a atmosféra",
+      "id": "scale_and_mood",
       "date": "2026-07-21",
-      "lines": [
-        "Velké oddálení ukáže hustotu města a číslo populace — koukni, jak vyrostlo.",
-        "Klidná ambientní hudba a zvonivé cinknutí u splněných cílů.",
-        "Měkké stíny pod stromy a kameny a jemná vinětace — svět víc „sedí“."
-      ]
+      "lineCount": 3
     },
     {
-      "version": "Vzestup a cíle",
+      "id": "ascend_and_goals",
       "date": "2026-07-21",
-      "lines": [
-        "Vzestup (prestige): resetuj éru a získej trvalé upgrady — výroba, sběr, růst, bydlení, sklady.",
-        "Úkoly napříč hrou — pevné i nekonečné dynamické, s pokrokem a odměnami.",
-        "Achievementy, které přetrvají napříč hrami (a čekají na Steam).",
-        "Tech tree, vylepšování budov na vyšší úrovně a stavební menu podle kategorií.",
-        "Minimapa, sledovač cílů, toasty a barevné zvýraznění, na co máš."
-      ]
+      "lineCount": 5
     },
     {
-      "version": "Živý svět",
+      "id": "living_world",
       "date": "2026-07-20",
-      "lines": [
-        "Nekonečná mapa — svět už nemá hranice, generuje se za běhu.",
-        "Sprity a ikony: stromy, kameny, budovy i suroviny mají tvář.",
-        "Kácení má říz: strom se s klikáním zmenšuje a nakonec spadne.",
-        "Po městě chodí lidičky a jezdí vozíky.",
-        "V menu roste živé město a nechybí ani tento deník."
-      ]
+      "lineCount": 5
     },
     {
-      "version": "Živá mapa",
+      "id": "living_map",
       "date": "2026-07-19",
-      "lines": [
-        "Denní a noční cyklus — v noci se město rozsvítí.",
-        "Biomové dekorace a ambientní fauna (i noční světlušky).",
-        "HUD hodiny a den."
-      ]
+      "lineCount": 3
     },
     {
-      "version": "Rostoucí civilizace",
+      "id": "growing_civilization",
       "date": "2026-07-18",
-      "lines": [
-        "Auto-silnice — nové budovy se samy napojí cestou.",
-        "Shluky domů se poznají jako pojmenované osady.",
-        "Výrobní řetězec dřevo → prkna a sklady s kapacitou.",
-        "Vesnice se rozrůstá sama podle poptávky po bydlení."
-      ]
+      "lineCount": 4
     },
     {
-      "version": "Základ hry",
+      "id": "foundations",
       "date": "2026-07-17",
-      "lines": [
-        "Generátor světa se seedem a typy světa.",
-        "Stavění budov, výroba, populace s jídlem.",
-        "Ukládání, nastavení (jazyk CZ/EN + grafika)."
-      ]
+      "lineCount": 3
     }
   ]
 }

@@ -105,14 +105,17 @@ public sealed class MainMenuScreen : IScreen
             var block = new VerticalStackPanel { Spacing = 1 };
             block.Widgets.Add(new Label
             {
-                Text = string.IsNullOrEmpty(entry.Date) ? entry.Version : $"{entry.Version}  ·  {entry.Date}",
+                // Nadpis i řádky jdou z jazyků — deník je tak i anglicky.
+                Text = string.IsNullOrEmpty(entry.Date)
+                    ? loc[entry.TitleKey]
+                    : $"{loc[entry.TitleKey]}  ·  {entry.Date}",
                 TextColor = new Color(210, 220, 235),
             });
-            foreach (var line in entry.Lines)
+            for (int i = 0; i < entry.LineCount; i++)
             {
                 block.Widgets.Add(new Label
                 {
-                    Text = $"• {line}",
+                    Text = $"• {loc[entry.LineKey(i)]}",
                     TextColor = Color.LightGray,
                     Wrap = true,
                     Width = 280,

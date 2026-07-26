@@ -281,7 +281,7 @@ public sealed record AchievementDto(string? Id, GoalConditionDto? Condition, boo
 public sealed record DevlogFileDto(int SchemaVersion, List<DevlogEntryDto>? Entries);
 
 /// <summary>Jeden záznam deníku tak, jak leží v JSON.</summary>
-public sealed record DevlogEntryDto(string? Version, string? Date, List<string>? Lines);
+public sealed record DevlogEntryDto(string? Id, string? Date, int LineCount);
 
 /// <summary>Obsah jednoho jazyka <c>data/lang/*.json</c>.</summary>
 public sealed record LanguageFileDto(

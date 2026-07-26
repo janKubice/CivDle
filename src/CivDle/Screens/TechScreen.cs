@@ -177,13 +177,23 @@ public sealed class TechScreen : IScreen
 
             bool hovered = i == _hovered;
             bool beckons = !researched && status == PlacementResult.Ok;
-            float halo = hovered ? 1.35f : beckons ? pulse : 0.8f;
+
+            // Na co mám, to PULZUJE a má prstenec. Na co nemám suroviny, jen tiše
+            // svítí. Zamčené je matný bod. Rozdíl musí být vidět bez čtení textu.
+            bool affordableSoon = !researched && status == PlacementResult.NotEnoughResources;
+            float halo = hovered ? 1.4f : beckons ? pulse : affordableSoon ? 0.9f : 0.7f;
 
             // Hvězda = zář + kosočtvercové jádro (pixel otočený o 45°); zamčené uzly
             // jsou jen matné body, aby souhvězdí vedlo oko k tomu, co jde vyzkoumat.
             DrawDiamond(spriteBatch, pixel, center, star * 2.4f * halo, color * 0.22f);
             DrawDiamond(spriteBatch, pixel, center, star * 1.5f * halo, color * 0.4f);
             DrawDiamond(spriteBatch, pixel, center, star * halo, color);
+            // Prstenec kolem dostupné hvězdy — nejsilnější signál „tohle si můžeš vzít".
+            if (beckons)
+            {
+                DrawRing(spriteBatch, pixel, center, star * 1.9f * pulse, AvailableColor * 0.9f);
+            }
+
             if (hovered)
             {
                 DrawDiamond(spriteBatch, pixel, center, star * 0.45f, Color.White);
@@ -219,17 +229,29 @@ public sealed class TechScreen : IScreen
             var tech = techs[_hovered];
             bool researched = _simulation.IsTechResearched(_hovered);
             var status = _simulation.CanResearch(_hovered);
-            string body = loc[tech.DescriptionKey] + '\n' + (researched
+            // Nejdřív VERDIKT („můžeš / nemáš na to / zamčené"), teprve pak popis.
+            // Dřív musel hráč cenu porovnávat sám a nevěděl, na čem je.
+            string verdict = researched
                 ? loc["tech.researched"]
-                : status == PlacementResult.NotUnlocked
-                    ? loc.Format("tech.needs", PrerequisiteNames(_hovered))
-                    : loc.Format("panel.cost", CostFormat.Line(_screens.Content, loc, tech.Cost)));
+                : status switch
+                {
+                    PlacementResult.Ok => loc["tech.canResearch"],
+                    PlacementResult.NotUnlocked => loc.Format("tech.needs", PrerequisiteNames(_hovered)),
+                    _ => loc["tech.tooExpensive"],
+                };
+
+            string body = verdict + '\n' + loc[tech.DescriptionKey];
+            if (!researched)
+            {
+                body += '\n' + loc.Format("panel.cost", CostFormat.Line(_screens.Content, loc, tech.Cost));
+            }
 
             HoverTooltip.Draw(spriteBatch, pixel, _font, viewport, _input.MousePosition,
                 loc[tech.NameKey], body,
                 researched ? new Color(150, 235, 175)
-                    : status == PlacementResult.Ok ? new Color(240, 215, 130)
-                    : Color.White);
+                    : status == PlacementResult.Ok ? new Color(255, 215, 120)
+                    : status == PlacementResult.NotEnoughResources ? new Color(235, 170, 110)
+                    : new Color(160, 168, 184));
         }
     }
 
@@ -257,6 +279,18 @@ public sealed class TechScreen : IScreen
     {
         spriteBatch.Draw(pixel, center, null, color, MathHelper.PiOver4,
             new Vector2(0.5f, 0.5f), new Vector2(size, size), SpriteEffects.None, 0f);
+    }
+
+    /// <summary>Tenký prstenec kolem hvězdy — vyznačí, co jde vyzkoumat hned teď.</summary>
+    private static void DrawRing(SpriteBatch spriteBatch, Texture2D pixel, Vector2 center, float radius, Color color)
+    {
+        const int Segments = 12;
+        for (int i = 0; i < Segments; i++)
+        {
+            float angle = i * MathHelper.TwoPi / Segments;
+            var point = center + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * radius;
+            DrawDiamond(spriteBatch, pixel, point, radius * 0.22f, color);
+        }
     }
 
     /// <summary>

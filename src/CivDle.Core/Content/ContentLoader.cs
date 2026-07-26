@@ -51,11 +51,11 @@ public sealed class ContentLoader
         var ambience = LoadAmbience(Path.Combine(dataDirectory, "ambience.json"), biomes, weather);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features);
+        var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
-        var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
@@ -1542,13 +1542,15 @@ public sealed class ContentLoader
         var entries = new List<DevlogEntry>();
         foreach (var dto in file.Entries ?? new List<DevlogEntryDto>())
         {
-            if (string.IsNullOrWhiteSpace(dto.Version))
+            // Text deníku žije v jazycích (aby byl i anglicky) — data drží jen ID,
+            // datum a počet řádků.
+            string id = RequireId(path, dto.Id, "Záznam deníku");
+            if (dto.LineCount is < 1 or > 50)
             {
-                throw new ContentLoadException(path, "Záznam deníku nemá vyplněnou 'version'.");
+                throw new ContentLoadException(path, $"Záznam deníku '{id}': 'lineCount' musí být 1–50, je {dto.LineCount}.");
             }
 
-            var lines = (dto.Lines ?? new List<string>()).Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
-            entries.Add(new DevlogEntry(dto.Version.Trim(), dto.Date?.Trim() ?? string.Empty, lines));
+            entries.Add(new DevlogEntry(id, dto.Date?.Trim() ?? string.Empty, dto.LineCount));
         }
 
         return entries;
@@ -1713,7 +1715,8 @@ public sealed class ContentLoader
         DefRegistry<AscensionTierDef> tiers,
         DefRegistry<WeatherDef> weather,
         DefRegistry<LandmarkDef> landmarks,
-        DefRegistry<FeatureDef> features)
+        DefRegistry<FeatureDef> features,
+        IReadOnlyList<DevlogEntry> devlog)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -1747,7 +1750,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -1771,7 +1774,8 @@ public sealed class ContentLoader
         DefRegistry<AscensionTierDef> tiers,
         DefRegistry<WeatherDef> weather,
         DefRegistry<LandmarkDef> landmarks,
-        DefRegistry<FeatureDef> features)
+        DefRegistry<FeatureDef> features,
+        IReadOnlyList<DevlogEntry> devlog)
     {
         var required = new List<string>();
         required.AddRange(biomes.All.Select(b => b.NameKey));
@@ -1798,6 +1802,14 @@ public sealed class ContentLoader
         required.AddRange(zoneTypes.All.Select(z => z.NameKey));
         required.AddRange(policies.All.Select(p => p.NameKey));
         required.AddRange(policies.All.Select(p => p.DescriptionKey));
+        foreach (var entry in devlog)
+        {
+            required.Add(entry.TitleKey);
+            for (int i = 0; i < entry.LineCount; i++)
+            {
+                required.Add(entry.LineKey(i));
+            }
+        }
         required.AddRange(tiers.All.Select(t => t.NameKey));
         required.AddRange(weather.All.Select(w => w.NameKey));
         required.AddRange(landmarks.All.Select(l => l.NameKey));

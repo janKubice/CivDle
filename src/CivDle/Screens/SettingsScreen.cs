@@ -134,7 +134,7 @@ public sealed class SettingsScreen : IScreen
         layout.Widgets.Add(UiFactory.MenuButton(loc["settings.apply"], Apply));
         layout.Widgets.Add(UiFactory.MenuButton(loc["settings.back"], _screens.Pop));
 
-        _desktop = new Desktop { Root = layout };
+        _desktop = new Desktop { Root = UiFactory.MenuBackdrop(layout) };
     }
 
     private void Apply()

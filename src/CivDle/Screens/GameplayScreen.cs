@@ -1,5 +1,6 @@
 using CivDle.Audio;
 using CivDle.Core.Content;
+using CivDle.Core.Save;
 using CivDle.Core.Sim;
 using CivDle.Input;
 using CivDle.Rendering;
@@ -101,6 +102,16 @@ public sealed class GameplayScreen : IScreen
     private bool _buildMenuOpen;
     private int _unlockedFeatureCount = -1;
 
+    /// <summary>Jak dlouho musí kurzor stát nad dlaždicí, než vyskočí bublina.</summary>
+    private const float TileTooltipDelaySeconds = 0.45f;
+    private int _hoverTileX = int.MinValue;
+    private int _hoverTileY = int.MinValue;
+    private float _hoverSeconds;
+
+    /// <summary>Jak často se hra uloží sama (sekundy). Idle hru nesmí sežrat pád.</summary>
+    private const float AutosaveIntervalSeconds = 120f;
+    private float _autosaveTimer = AutosaveIntervalSeconds;
+
     /// <summary>Šířka pruhu pokroku ve sledovači úkolů (v pixelech).</summary>
     private const int GoalBarWidth = 180;
 
@@ -199,6 +210,16 @@ public sealed class GameplayScreen : IScreen
 
         // Kulisa podle biomu a počasí — atmosféra stála skoro jen na obraze.
         _soundscape.Update(dt, _simulation);
+        _hoverSeconds += dt;
+
+        // Pravidelný autosave: idle hra běží hodiny, ztratit ji kvůli pádu
+        // nebo zavření okna je to nejhorší, co se může stát.
+        _autosaveTimer -= dt;
+        if (_autosaveTimer <= 0f)
+        {
+            _autosaveTimer = AutosaveIntervalSeconds;
+            SaveGame();
+        }
 
         var viewport = _screens.GraphicsDevice.Viewport;
         _camera.SetViewport(viewport.Width, viewport.Height);
@@ -361,6 +382,22 @@ public sealed class GameplayScreen : IScreen
         var world = _camera.ScreenToWorld(_input.MousePosition.ToVector2());
         int tileX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
         int tileY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
+
+        // Bublina vyskočí, teprve když kurzor chvíli stojí nad TOUŽ dlaždicí.
+        // Bez prodlevy poskakovala po celé mapě při každém pohnutí myší a byla
+        // spíš na obtíž než k užitku.
+        if (tileX != _hoverTileX || tileY != _hoverTileY)
+        {
+            _hoverTileX = tileX;
+            _hoverTileY = tileY;
+            _hoverSeconds = 0f;
+            return;
+        }
+
+        if (_hoverSeconds < TileTooltipDelaySeconds)
+        {
+            return;
+        }
 
         var loc = _screens.Loc;
         var content = _screens.Content;
@@ -1204,6 +1241,14 @@ public sealed class GameplayScreen : IScreen
         _goalsPanel.Widgets.Add(slot);
         _goalSlots.Add((condition, progress, bar));
     }
+
+    /// <summary>
+    /// Uloží hru na pozadí (autosave). Selhání se schválně nehlásí vyskakovacím
+    /// oknem — je to tichá pojistka, ne akce hráče; ruční uložení v pauze dál
+    /// výsledek hlásí.
+    /// </summary>
+    private void SaveGame() =>
+        _screens.Saves.TrySave(_simulation, new SaveMetadata(_info.Seed, _info.SizeId, _info.PresetId, DateTime.UtcNow));
 
     /// <summary>Přebuduje sledovač jen při změně; jinak jen aktualizuje čísla pokroku.</summary>
     private void UpdateGoals()

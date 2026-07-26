@@ -398,7 +398,8 @@ public class ContentLoaderTests : IDisposable
         var content = TestData.LoadRealContent();
 
         Assert.NotEmpty(content.Devlog);
-        Assert.All(content.Devlog, e => Assert.False(string.IsNullOrWhiteSpace(e.Version)));
+        Assert.All(content.Devlog, e => Assert.False(string.IsNullOrWhiteSpace(e.Id)));
+        Assert.All(content.Devlog, e => Assert.True(e.LineCount > 0));
     }
 
     [Fact]

@@ -86,7 +86,7 @@ public sealed class NewGameScreen : IScreen
         layout.Widgets.Add(UiFactory.MenuButton(loc["newgame.create"], StartGame));
         layout.Widgets.Add(UiFactory.MenuButton(loc["newgame.back"], _screens.Pop));
 
-        _desktop = new Desktop { Root = layout };
+        _desktop = new Desktop { Root = UiFactory.MenuBackdrop(layout) };
     }
 
     private void StartGame()
