@@ -45,9 +45,10 @@ public sealed class ContentLoader
         var policies = LoadPolicies(Path.Combine(dataDirectory, "policies.json"));
         var tiers = LoadAscensionTiers(Path.Combine(dataDirectory, "ascension-tiers.json"), buildings);
         var weather = LoadWeather(Path.Combine(dataDirectory, "weather.json"), biomes);
+        var landmarks = LoadLandmarks(Path.Combine(dataDirectory, "landmarks.json"), biomes, resources);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
@@ -55,7 +56,7 @@ public sealed class ContentLoader
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks);
     }
 
     // ----- éry -----
@@ -179,6 +180,80 @@ public sealed class ContentLoader
         }
 
         return new DefRegistry<GrowthPolicyDef>(result, p => p.Id, "politika", allowEmpty: true);
+    }
+
+    // ----- landmarky (živá mapa) -----
+
+    private static DefRegistry<LandmarkDef> LoadLandmarks(string path, BiomeRegistry biomes, DefRegistry<Resource> resources)
+    {
+        // Landmarky jsou volitelný obsah — bez souboru je mapa jen bez bodů zájmu.
+        if (!File.Exists(path))
+        {
+            return new DefRegistry<LandmarkDef>(Array.Empty<LandmarkDef>(), l => l.Id, "landmark", allowEmpty: true);
+        }
+
+        var file = ReadFile<LandmarksFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Landmarks ?? new List<LandmarkDto>();
+        var result = new List<LandmarkDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Landmark na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID landmarku '{id}'.");
+            }
+
+            if (dto.Biomes is not { Length: > 0 })
+            {
+                throw new ContentLoadException(path, $"Landmark '{id}' nemá vyplněné 'biomes'.");
+            }
+
+            var mask = new bool[biomes.Count];
+            foreach (var biomeId in dto.Biomes)
+            {
+                if (biomeId is null || !biomes.TryIndexOf(biomeId.Trim(), out int biomeIndex))
+                {
+                    throw new ContentLoadException(path, $"Landmark '{id}' odkazuje na neexistující biom '{biomeId}'.");
+                }
+
+                mask[biomeIndex] = true;
+            }
+
+            if (dto.Rarity is < 1 or > 1_000_000)
+            {
+                throw new ContentLoadException(path, $"Landmark '{id}': 'rarity' musí být 1–1000000, je {dto.Rarity}.");
+            }
+
+            if (dto.Size is < 1 or > 64)
+            {
+                throw new ContentLoadException(path, $"Landmark '{id}': 'size' musí být 1–64, je {dto.Size}.");
+            }
+
+            var color = ParseColor(path, dto.MapColor, $"Landmark '{id}'");
+            ClickYield? yield = null;
+            if (dto.ClickYield is { } cy)
+            {
+                if (cy.Resource is null || !resources.TryIndexOf(cy.Resource.Trim(), out int resourceIndex))
+                {
+                    throw new ContentLoadException(path, $"Landmark '{id}' odkazuje na neexistující surovinu '{cy.Resource}'.");
+                }
+
+                if (cy.Amount < 1)
+                {
+                    throw new ContentLoadException(path, $"Landmark '{id}': 'clickYield.amount' musí být kladný.");
+                }
+
+                yield = new ClickYield(resourceIndex, cy.Amount);
+            }
+
+            result.Add(new LandmarkDef(id, mask, color, dto.Size, dto.Rarity, yield));
+        }
+
+        return new DefRegistry<LandmarkDef>(result, l => l.Id, "landmark", allowEmpty: true);
     }
 
     // ----- počasí (živá mapa) -----
@@ -1355,7 +1430,8 @@ public sealed class ContentLoader
         DefRegistry<ZoneTypeDef> zoneTypes,
         DefRegistry<GrowthPolicyDef> policies,
         DefRegistry<AscensionTierDef> tiers,
-        DefRegistry<WeatherDef> weather)
+        DefRegistry<WeatherDef> weather,
+        DefRegistry<LandmarkDef> landmarks)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -1389,7 +1465,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -1411,7 +1487,8 @@ public sealed class ContentLoader
         DefRegistry<ZoneTypeDef> zoneTypes,
         DefRegistry<GrowthPolicyDef> policies,
         DefRegistry<AscensionTierDef> tiers,
-        DefRegistry<WeatherDef> weather)
+        DefRegistry<WeatherDef> weather,
+        DefRegistry<LandmarkDef> landmarks)
     {
         var required = new List<string>();
         required.AddRange(biomes.All.Select(b => b.NameKey));
@@ -1440,6 +1517,7 @@ public sealed class ContentLoader
         required.AddRange(policies.All.Select(p => p.DescriptionKey));
         required.AddRange(tiers.All.Select(t => t.NameKey));
         required.AddRange(weather.All.Select(w => w.NameKey));
+        required.AddRange(landmarks.All.Select(l => l.NameKey));
 
         var missing = required.Where(key => !language.Strings.ContainsKey(key)).ToList();
         if (missing.Count > 0)

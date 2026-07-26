@@ -520,8 +520,19 @@ public sealed class Simulation
             return false;
         }
 
-        // Zasazený uzel má přednost před přírodním výnosem biomu.
-        var yield = _plantedNodes.TryGetValue(tile, out var planted) ? planted : _content.Biomes[Terrain.BiomeAt(x, y)].ClickYield;
+        // Přednost: zasazený uzel → landmark (stádo, háj, žíla) → přírodní výnos biomu.
+        ClickYield? yield;
+        if (_plantedNodes.TryGetValue(tile, out var planted))
+        {
+            yield = planted;
+        }
+        else
+        {
+            int landmark = LandmarkAt(x, y);
+            yield = landmark >= 0 && _content.Landmarks[landmark].IsHarvestable
+                ? _content.Landmarks[landmark].ClickYield
+                : _content.Biomes[Terrain.BiomeAt(x, y)].ClickYield;
+        }
         if (yield is null)
         {
             return false;
@@ -842,6 +853,49 @@ public sealed class Simulation
         PreferHousingDensity = preferDensity;
         AutoExpandColonies = autoExpand;
         ColonyDistance = colonyDistance;
+    }
+
+    // ----- landmarky (živá mapa) -----
+
+    /// <summary>
+    /// Který landmark stojí na dlaždici (−1 = žádný)? Výskyt je ČISTÁ FUNKCE pozice
+    /// a seedu — nic se negeneruje dopředu ani neukládá, takže po načtení savu je
+    /// mapa bodů zájmu stejná. Zastavěná dlaždice landmark překryje.
+    /// </summary>
+    public int LandmarkAt(int x, int y)
+    {
+        var landmarks = _content.Landmarks;
+        if (landmarks.Count == 0 || _occupancy.ContainsKey(TileKey.Pack(x, y)))
+        {
+            return -1;
+        }
+
+        int biome = Terrain.BiomeAt(x, y);
+        for (int i = 0; i < landmarks.Count; i++)
+        {
+            if (!landmarks[i].AppliesTo(biome))
+            {
+                continue;
+            }
+
+            // Sůl z indexu → každý typ má vlastní rozmístění, ne všechny na stejných místech.
+            if (LandmarkHash(x, y, i) % (ulong)landmarks[i].Rarity == 0)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private ulong LandmarkHash(int x, int y, int landmarkIndex)
+    {
+        var rng = new WorldGen.SplitMix64(unchecked(
+            (ulong)Seed
+            ^ ((ulong)(uint)x * 0x9E3779B97F4A7C15UL)
+            ^ ((ulong)(uint)y * 0xC2B2AE3D27D4EB4FUL)
+            ^ ((ulong)(uint)landmarkIndex * 0x165667B19E3779F9UL)));
+        return rng.Next();
     }
 
     // ----- objevování mapy (skrýše) -----

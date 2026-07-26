@@ -420,6 +420,14 @@
     "building.harbor": "Přístav",
     "building.fishery": "Rybářský přístav",
     "building.deep_sea_port": "Hlubinný přístav",
-    "build.error.waterAccess": "Musí stát u vody (břeh, jezero či řeka)"
+    "build.error.waterAccess": "Musí stát u vody (břeh, jezero či řeka)",
+    "landmark.ancient_tree": "Prastarý strom",
+    "landmark.berry_grove": "Bobulový háj",
+    "landmark.deer_herd": "Stádo jelenů",
+    "landmark.fish_shoal": "Hejno ryb",
+    "landmark.ore_vein": "Rudná žíla",
+    "landmark.geyser": "Gejzír",
+    "landmark.canyon": "Kaňon",
+    "landmark.stone_circle": "Kamenný kruh"
   }
 }

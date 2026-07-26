@@ -41,6 +41,7 @@ public sealed class GameplayScreen : IScreen
     private readonly HarvestableRenderer _harvestables;
     private readonly RoadRenderer _roadRenderer;
     private readonly ZoneRenderer _zoneRenderer;
+    private readonly LandmarkRenderer _landmarkRenderer;
     private readonly WeatherRenderer _weatherRenderer;
     private readonly BuildingRenderer _buildingRenderer;
     private readonly LightsRenderer _lightsRenderer;
@@ -144,6 +145,7 @@ public sealed class GameplayScreen : IScreen
         _harvestables = new HarvestableRenderer(screens.Sprites, screens.Content);
         _roadRenderer = new RoadRenderer(screens.WhitePixel, screens.Content);
         _zoneRenderer = new ZoneRenderer(screens.WhitePixel, screens.Content);
+        _landmarkRenderer = new LandmarkRenderer(screens.WhitePixel, screens.Content);
         _weatherRenderer = new WeatherRenderer(screens.WhitePixel, screens.Content);
         _buildingRenderer = new BuildingRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
         _lightsRenderer = new LightsRenderer(screens.WhitePixel, screens.Content);
@@ -283,6 +285,7 @@ public sealed class GameplayScreen : IScreen
         _terrainRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
         _decorationRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
         _zoneRenderer.Draw(spriteBatch, _camera, _simulation); // tint zón na zemi, pod budovami
+        _landmarkRenderer.Draw(spriteBatch, _camera, _simulation); // body zájmu (gejzíry, stáda, žíly)
 
         // Velké oddálení → agregátní pohled na měřítko (hustota + populace) místo
         // drobných jednotlivců (game-feel-wow: „koukni, jak to vyrostlo").

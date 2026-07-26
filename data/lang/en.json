@@ -420,6 +420,14 @@
     "building.harbor": "Harbor",
     "building.fishery": "Fishery",
     "building.deep_sea_port": "Deep-Sea Port",
-    "build.error.waterAccess": "Must be built next to water (shore, lake or river)"
+    "build.error.waterAccess": "Must be built next to water (shore, lake or river)",
+    "landmark.ancient_tree": "Ancient Tree",
+    "landmark.berry_grove": "Berry Grove",
+    "landmark.deer_herd": "Deer Herd",
+    "landmark.fish_shoal": "Fish Shoal",
+    "landmark.ore_vein": "Ore Vein",
+    "landmark.geyser": "Geyser",
+    "landmark.canyon": "Canyon",
+    "landmark.stone_circle": "Stone Circle"
   }
 }

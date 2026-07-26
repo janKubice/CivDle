@@ -208,6 +208,18 @@ public sealed record PoliciesFileDto(int SchemaVersion, List<PolicyDto>? Policie
 /// <summary>Jedna politika růstu tak, jak leží v JSON.</summary>
 public sealed record PolicyDto(string? Id, string? Effect, double Magnitude);
 
+/// <summary>Obsah souboru <c>data/landmarks.json</c> (vzácné body zájmu na mapě).</summary>
+public sealed record LandmarksFileDto(int SchemaVersion, List<LandmarkDto>? Landmarks);
+
+/// <summary>Jeden landmark tak, jak leží v JSON.</summary>
+public sealed record LandmarkDto(
+    string? Id,
+    string[]? Biomes,
+    string? MapColor,
+    int Size,
+    int Rarity,
+    ClickYieldDto? ClickYield);
+
 /// <summary>Obsah souboru <c>data/weather.json</c> (počasí vázané na biom).</summary>
 public sealed record WeatherFileDto(int SchemaVersion, List<WeatherDto>? Weather);
 
