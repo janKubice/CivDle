@@ -358,6 +358,13 @@ public sealed class Simulation
     internal bool SettlementsDirty { get; set; }
 
     /// <summary>Označí dlaždici jako silnici (RoadBuilder, načtení savu). Duplicitní volání je no-op.</summary>
+    /// <summary>
+    /// Je na dlaždici most? Most je silnice vedoucí po vodě — odvozuje se z terénu,
+    /// takže se nikde neukládá a po načtení savu vyjde stejně. Pro render (jiný vzhled).
+    /// </summary>
+    public bool IsBridge(int x, int y) =>
+        IsRoad(x, y) && _content.Biomes[Terrain.BiomeAt(x, y)].IsWater;
+
     internal void AddRoadTile(int x, int y)
     {
         if (_roads.Add(TileKey.Pack(x, y)))

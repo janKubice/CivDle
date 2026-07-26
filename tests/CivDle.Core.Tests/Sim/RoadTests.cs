@@ -62,34 +62,81 @@ public class RoadTests
         Assert.InRange(sim.RoadTiles.Count - roadsAfterTwo, 0, 4);
     }
 
-    [Fact]
-    public void Roads_AvoidWater()
+    /// <summary>Mapa 16×16 louky se svislým vodním pásem dané šířky (suchý průchod dole).</summary>
+    private static Simulation WaterStripWorld(GameContent content, int stripWidth)
     {
-        var content = TestData.LoadRealContent();
         var map = new WorldMap(16, 16);
         Array.Fill(map.BiomeIndices, (byte)content.Biomes.IndexOf("grassland"));
         byte ocean = (byte)content.Biomes.IndexOf("ocean");
 
-        // Svislý vodní pás s jediným suchým průchodem dole.
         for (int y = 0; y < 15; y++)
         {
-            map.BiomeIndices[map.Index(6, y)] = ocean;
-            map.BiomeIndices[map.Index(7, y)] = ocean;
+            for (int x = 6; x < 6 + stripWidth; x++)
+            {
+                map.BiomeIndices[map.Index(x, y)] = ocean;
+            }
         }
 
-        var sim = new Simulation(content, new GridTerrain(map), seed: 7);
+        return new Simulation(content, new GridTerrain(map), seed: 7);
+    }
+
+    [Fact]
+    public void Roads_BridgeNarrowWater()
+    {
+        // Úzký tok se přemostí (jinak by řeky trvale odřízly části města).
+        var content = TestData.LoadRealContent();
+        var sim = WaterStripWorld(content, stripWidth: 2);
         int house = content.Buildings.IndexOf("house");
         Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(house, 2, 2));
         Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(house, 11, 2));
 
         Assert.NotEmpty(sim.RoadTiles);
-        foreach (var t in sim.RoadTiles)
+        Assert.Contains(sim.RoadTiles, t => sim.IsBridge(t.X, t.Y));
+    }
+
+    [Fact]
+    public void Roads_NeverBuildBridgeLongerThanSpan()
+    {
+        // Skutečný invariant mostů: souvislý úsek cesty po vodě nesmí být delší než
+        // maxBridgeSpan. (Že most vůbec nevznikne, platí jen když je voda široká na
+        // VŠECHNY strany — to ověřuje BridgeTests; tady jde o dodržení stropu.)
+        var content = TestData.LoadRealContent();
+        int span = content.Gameplay.Roads.MaxBridgeSpan;
+        var sim = WaterStripWorld(content, stripWidth: span + 2);
+        int house = content.Buildings.IndexOf("house");
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(house, 2, 2));
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(house, 6 + span + 3, 2));
+
+        Assert.NotEmpty(sim.RoadTiles);
+
+        var bridgeTiles = sim.RoadTiles.Where(t => sim.IsBridge(t.X, t.Y))
+            .Select(t => (t.X, t.Y)).ToHashSet();
+        foreach (var start in bridgeTiles)
         {
-            Assert.False(content.Biomes[sim.BiomeAt(t.X, t.Y)].IsWater, "Silnice nesmí vést po vodě.");
+            Assert.True(ComponentSize(bridgeTiles, start) <= span,
+                $"Most u {start} je delší než povolené rozpětí {span}.");
+        }
+    }
+
+    /// <summary>Velikost souvislé (4-sousední) skupiny mostních dlaždic obsahující daný bod.</summary>
+    private static int ComponentSize(HashSet<(int X, int Y)> tiles, (int X, int Y) start)
+    {
+        var seen = new HashSet<(int X, int Y)> { start };
+        var stack = new Stack<(int X, int Y)>();
+        stack.Push(start);
+        while (stack.Count > 0)
+        {
+            var (x, y) = stack.Pop();
+            foreach (var next in new[] { (x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1) })
+            {
+                if (tiles.Contains(next) && seen.Add(next))
+                {
+                    stack.Push(next);
+                }
+            }
         }
 
-        // Objížďka průchodem u y=15 → cesta je výrazně delší než vzdušná čára.
-        Assert.True(sim.RoadTiles.Count > 12, $"Čekám objížďku, cesta má jen {sim.RoadTiles.Count} dlaždic.");
+        return seen.Count;
     }
 
     [Fact]

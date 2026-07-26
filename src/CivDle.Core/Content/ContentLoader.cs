@@ -1068,6 +1068,11 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"'roads.maxSearchDistance' musí být 1–1000, je {file.Roads.MaxSearchDistance}.");
         }
 
+        if (file.Roads.MaxBridgeSpan is < 0 or > 64)
+        {
+            throw new ContentLoadException(path, $"'roads.maxBridgeSpan' musí být 0–64, je {file.Roads.MaxBridgeSpan}.");
+        }
+
         if (file.Settlements is null)
         {
             throw new ContentLoadException(path, "Chybí blok 'settlements' (detekce osad).");
@@ -1151,7 +1156,7 @@ public sealed class ContentLoader
             file.FoodPerPersonPerSecond,
             foodIndex,
             new AutoBuildConfig(file.AutoBuild.IntervalTicks, file.AutoBuild.SearchRadius, file.AutoBuild.PopulationHeadroom),
-            new RoadConfig(roadColor, file.Roads.MaxSearchDistance),
+            new RoadConfig(roadColor, file.Roads.MaxSearchDistance, file.Roads.MaxBridgeSpan),
             new SettlementConfig(file.Settlements.MinBuildings, file.Settlements.ClusterDistance, file.Settlements.UpdateIntervalTicks),
             new DayNightConfig(
                 file.DayNight.DayLengthSeconds,
