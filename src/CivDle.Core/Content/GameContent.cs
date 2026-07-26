@@ -32,7 +32,8 @@ public sealed class GameContent
         DefRegistry<WeatherDef> weather,
         DefRegistry<LandmarkDef> landmarks,
         DefRegistry<FeatureDef> features,
-        UfoConfig ufo)
+        UfoConfig ufo,
+        IReadOnlyList<AmbienceDef> ambience)
     {
         Biomes = biomes;
         Resources = resources;
@@ -59,6 +60,7 @@ public sealed class GameContent
         Landmarks = landmarks;
         Features = features;
         Ufo = ufo;
+        Ambience = ambience;
     }
 
     /// <summary>Definice technologií z <c>data/tech.json</c> (tech tree).</summary>
@@ -105,6 +107,9 @@ public sealed class GameContent
 
     /// <summary>Návštěvy UFO z <c>data/ufo.json</c> (living-map; smí být vypnuté).</summary>
     public UfoConfig Ufo { get; }
+
+    /// <summary>Ambientní kulisy z <c>data/ambience.json</c> (smí být prázdné).</summary>
+    public IReadOnlyList<AmbienceDef> Ambience { get; }
 
     /// <summary>Vývojový deník z <c>data/devlog.json</c> (smí být prázdný).</summary>
     public IReadOnlyList<DevlogEntry> Devlog { get; }

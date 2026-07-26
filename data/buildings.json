@@ -121,7 +121,8 @@
       "workerSlots": 2,
       "buildCost": { "wood": 18, "planks": 12, "stone": 6 },
       "recipe": { "output": { "food": 5 }, "timeTicks": 40 },
-      "allowedBiomes": ["grassland", "steppe", "savanna", "tundra"]
+      "allowedBiomes": ["grassland", "steppe", "savanna", "tundra"],
+      "serviceValue": 3
     },
     {
       "id": "market",
@@ -131,7 +132,9 @@
       "housingCapacity": 2,
       "buildCost": { "wood": 20, "planks": 16, "stone": 10 },
       "storage": { "food": 150, "tools": 60 },
-      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
+      "serviceValue": 6,
+      "upkeep": { "food": 1 }
     },
     {
       "id": "toolmaker",
@@ -391,7 +394,9 @@
       "footprint": [1, 1],
       "buildCost": { "wood": 20, "planks": 8 },
       "storage": { "food": 150 },
-      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
+      "serviceValue": 4,
+      "upkeep": { "wood": 1 }
     },
     {
       "id": "depot",
@@ -400,7 +405,9 @@
       "footprint": [1, 1],
       "buildCost": { "planks": 15, "stone": 15 },
       "storage": { "wood": 120, "planks": 80, "stone": 100 },
-      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
+      "serviceValue": 4,
+      "upkeep": { "planks": 1 }
     },
     {
       "id": "workshop",
@@ -410,7 +417,9 @@
       "workerSlots": 2,
       "buildCost": { "planks": 12, "stone": 10 },
       "recipe": { "input": { "planks": 1, "stone": 1 }, "output": { "tools": 1 }, "timeTicks": 70 },
-      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
+      "serviceValue": 3,
+      "upkeep": { "planks": 1 }
     },
     {
       "id": "charcoal_kiln",
@@ -534,6 +543,8 @@
       "buildCost": { "steel": 120, "computer": 60, "machine_parts": 80 },
       "powerDemand": 60,
       "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
+      "serviceValue": 40,
+      "upkeep": { "electronics": 1 },
       "buildable": false
     },
     {
@@ -546,6 +557,8 @@
       "storage": { "wood": 5000, "planks": 5000, "stone": 5000, "food": 5000, "tools": 3000, "iron": 3000, "steel": 3000, "machine_parts": 2000, "electronics": 2000, "computer": 1500 },
       "powerDemand": 40,
       "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
+      "serviceValue": 60,
+      "upkeep": { "steel": 2 },
       "buildable": false
     },
     {

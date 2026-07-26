@@ -23,6 +23,8 @@ public sealed class Simulation
     private readonly double[] _storageCaps;
     private readonly Dictionary<long, int> _occupancy = new(); // klíč dlaždice → index budovy + 1
     private readonly HashSet<long> _roads = new();
+    private bool[] _roadLinked = Array.Empty<bool>(); // budova ↔ napojení na síť (cache)
+    private bool _roadLinksDirty = true;
     private readonly List<RoadTile> _roadTiles = new(); // pořadí vzniku — deterministické, jde do savu
     private readonly List<Settlement> _settlements = new();
     private readonly ProductionSystem _production;
@@ -31,6 +33,7 @@ public sealed class Simulation
     private readonly ZoneFillSystem _zoneFill;
     private readonly ColonySystem _colonySystem;
     private readonly WeatherSystem _weatherSystem;
+    private readonly HappinessSystem _happinessSystem;
     private readonly UfoSystem _ufoSystem;
     private long _lastUfoWindow = -1; // poslední okno, jehož zásah UFO už proběhl
     private readonly List<Zone> _zones = new(); // hráčem namalované zóny (automatizace, stupeň 3)
@@ -109,6 +112,7 @@ public sealed class Simulation
         _zoneFill = new ZoneFillSystem(content, seed);
         _colonySystem = new ColonySystem(content, seed);
         _weatherSystem = new WeatherSystem(content, seed);
+        _happinessSystem = new HappinessSystem(content);
         _ufoSystem = new UfoSystem(content, seed);
         _roadBuilder = new RoadBuilder(content);
         _settlementSystem = new SettlementSystem(content, seed);
@@ -438,6 +442,114 @@ public sealed class Simulation
     /// <summary>Zástavba se změnila — osady čekají na přepočet.</summary>
     internal bool SettlementsDirty { get; set; }
 
+    /// <summary>
+    /// Je budova napojená na silniční síť? Bez cesty se zboží odváží hůř a výroba
+    /// klesne na <see cref="RoadConfig.DisconnectedProductionMult"/> — díky tomu
+    /// silnice nejsou jen čára na mapě. Auto-stavba je staví sama, takže jde
+    /// o odměnu za fungující síť, ne o past.
+    ///
+    /// <para>Dokud ve městě není ANI JEDNA cesta, platí všechny budovy za napojené.
+    /// První chalupa nemá k čemu se připojit a trestat ji za to by hráče jen mátlo —
+    /// mechanika se zapne, teprve až síť vznikne.</para>
+    /// </summary>
+    public bool IsBuildingConnected(int buildingIndex)
+    {
+        if (_roads.Count == 0)
+        {
+            return true;
+        }
+
+        EnsureRoadLinkFresh();
+        return buildingIndex >= 0 && buildingIndex < _buildingCount && _roadLinked[buildingIndex];
+    }
+
+    /// <summary>Kolik postavených budov má napojení na síť (HUD, balanc).</summary>
+    public int ConnectedBuildingCount
+    {
+        get
+        {
+            EnsureRoadLinkFresh();
+            int count = 0;
+            for (int i = 0; i < _buildingCount; i++)
+            {
+                if (_roadLinked[i]) count++;
+            }
+
+            return count;
+        }
+    }
+
+    /// <summary>Napojení se mění jen se stavbou nebo novou cestou — jinak se nepřepočítává.</summary>
+    internal void InvalidateRoadLinks() => _roadLinksDirty = true;
+
+    private void EnsureRoadLinkFresh()
+    {
+        if (!_roadLinksDirty)
+        {
+            return;
+        }
+
+        _roadLinksDirty = false;
+        if (_roadLinked.Length < _buildings.Length)
+        {
+            Array.Resize(ref _roadLinked, _buildings.Length);
+        }
+
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            _roadLinked[i] = TouchesRoad(_buildings[i]);
+        }
+    }
+
+    /// <summary>
+    /// Sousedí půdorys budovy s nějakou silnicí? Jen ORTOGONÁLNĚ — roh se nepočítá,
+    /// po úhlopříčce se zboží nevozí. Proto řádky nad a pod jdou jen přes šířku
+    /// půdorysu a sloupce vlevo a vpravo jen přes jeho výšku.
+    /// </summary>
+    private bool TouchesRoad(in BuildingInstance building)
+    {
+        var def = _content.Buildings[building.DefIndex];
+        for (int x = building.X; x < building.X + def.FootprintWidth; x++)
+        {
+            if (IsRoad(x, building.Y - 1) || IsRoad(x, building.Y + def.FootprintHeight))
+            {
+                return true;
+            }
+        }
+
+        for (int y = building.Y; y < building.Y + def.FootprintHeight; y++)
+        {
+            if (IsRoad(building.X - 1, y) || IsRoad(building.X + def.FootprintWidth, y))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Postaví budovu bez zaplacení ceny (testy a nástroje na balanc, kde jde
+    /// o chování systému, ne o ekonomiku stavby).
+    /// </summary>
+    public PlacementResult TryPlaceBuildingFree(int defIndex, int x, int y)
+    {
+        var result = CanPlace(defIndex, x, y);
+        if (result != PlacementResult.Ok && result != PlacementResult.NotEnoughResources)
+        {
+            return result;
+        }
+
+        RestoreBuilding(defIndex, x, y, progress: 0f);
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>
+    /// Položí silnici na dlaždici. Veřejné kvůli testům a nástrojům — ve hře cesty
+    /// staví <see cref="RoadBuilder"/> sám, hráč je nekreslí.
+    /// </summary>
+    public void AddRoadTileForTest(int x, int y) => AddRoadTile(x, y);
+
     /// <summary>Označí dlaždici jako silnici (RoadBuilder, načtení savu). Duplicitní volání je no-op.</summary>
     /// <summary>
     /// Je na dlaždici most? Most je silnice vedoucí po vodě — odvozuje se z terénu,
@@ -451,6 +563,7 @@ public sealed class Simulation
         if (_roads.Add(TileKey.Pack(x, y)))
         {
             _roadTiles.Add(new RoadTile(x, y));
+            _roadLinksDirty = true;
         }
     }
 
@@ -477,6 +590,7 @@ public sealed class Simulation
         _zoneFill.Tick(this);
         _colonySystem.Tick(this); // guvernér: expanze do nových kolonií
         _settlementSystem.Tick(this);
+        _happinessSystem.Tick(this);
         _questSystem.Tick(this);
         _achievementSystem.Tick(this);
 
@@ -585,6 +699,7 @@ public sealed class Simulation
         ApplyBuildingBonuses(def);
         _roadBuilder.ConnectLastBuilding(this);
         SettlementsDirty = true;
+        _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
 
@@ -843,6 +958,15 @@ public sealed class Simulation
             return index < 0 ? 1.0 : _content.Weather[index].ProductionMult;
         }
     }
+
+    /// <summary>
+    /// Spokojenost města 0–1 (1 = ideál). Nízká brzdí růst populace, nikdy nikoho
+    /// nezabíjí. Počítá <see cref="HappinessSystem"/> na nízké frekvenci.
+    /// </summary>
+    public double Happiness { get; internal set; } = 1.0;
+
+    /// <summary>Násobič růstu populace daný spokojeností (pro populaci i pro HUD).</summary>
+    public double HappinessGrowthFactor => _content.Gameplay.Happiness.GrowthFactor(Happiness);
 
     /// <summary>Probíhá právě extrémní jev (katastrofa)? Pro HUD a varování.</summary>
     public bool IsExtremeWeather
@@ -1550,6 +1674,7 @@ public sealed class Simulation
         instance.Progress = 0f;
         ApplyBuildingBonuses(_content.Buildings[instance.DefIndex]);
         SettlementsDirty = true;
+        _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
 
@@ -1593,6 +1718,7 @@ public sealed class Simulation
 
         _buildingCount--;
         SettlementsDirty = true;
+        _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
 
@@ -1662,6 +1788,7 @@ public sealed class Simulation
         }
 
         SettlementsDirty = true;
+        _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
 
@@ -1761,11 +1888,30 @@ public sealed class Simulation
     /// <summary>Nastaví globální stav načtený ze savu (zásoby se přiškrtí na aktuální kapacity).</summary>
     internal void RestoreState(double[] resourceAmounts, double population, long tickCount)
     {
+        RestoreResources(resourceAmounts);
+        RestoreCore(population, tickCount);
+    }
+
+    /// <summary>
+    /// Obnoví jen zásoby surovin. Sekční save načítá části nezávisle na pořadí,
+    /// takže potřebuje obnovu po částech, ne jedno velké „nastav všechno".
+    ///
+    /// <para>Zásoby se schválně NEOŘEZÁVAJÍ na kapacitu: sklady zvedají až budovy
+    /// a bonusy Vzestupu, které přijdou v jiné sekci. Ořez proběhne jednou na konci
+    /// ve <see cref="FinalizeLoad"/> — jinak by hráč s plným skladem o zásoby přišel
+    /// jen kvůli pořadí sekcí.</para>
+    /// </summary>
+    internal void RestoreResources(double[] resourceAmounts)
+    {
         for (int i = 0; i < _resources.Length; i++)
         {
-            _resources[i] = Math.Min(resourceAmounts[i], _storageCaps[i]);
+            _resources[i] = resourceAmounts[i];
         }
+    }
 
+    /// <summary>Obnoví populaci a odtikaný čas (zbytek stavu nesou další sekce).</summary>
+    internal void RestoreCore(double population, long tickCount)
+    {
         Population = population;
         TickCount = tickCount;
     }
@@ -1778,7 +1924,8 @@ public sealed class Simulation
     {
         AddBuilding(defIndex, x, y, progress);
         ApplyBuildingBonuses(_content.Buildings[defIndex]);
-        SettlementsDirty = true; // silnice ze savu chodí zvlášť, přepočet osad ale spustit musíme
+        SettlementsDirty = true;
+        _roadLinksDirty = true; // silnice ze savu chodí zvlášť, přepočet osad ale spustit musíme
     }
 
     private void AddBuilding(int defIndex, int x, int y, float progress)
@@ -2027,6 +2174,7 @@ public sealed class Simulation
         Population = _content.Gameplay.StartingPopulation;
         TickCount = 0;
         SettlementsDirty = true;
+        _roadLinksDirty = true;
     }
 
     /// <summary>Indexy vyzkoumaných technologií (pro serializaci savu).</summary>

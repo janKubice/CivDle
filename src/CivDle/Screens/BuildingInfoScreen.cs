@@ -95,6 +95,22 @@ public sealed class BuildingInfoScreen : IScreen
             HorizontalAlignment = HorizontalAlignment.Center,
         });
 
+        // Napojení na síť: bez cesty vyrábí budova pomaleji, a hráč musí mít
+        // šanci to zjistit jinak než z tabulky v hlavě.
+        if (def.Recipe is not null && content.Gameplay.Roads.DisconnectedProductionMult < 1.0)
+        {
+            bool connected = _simulation.IsBuildingConnected(_buildingIndex);
+            layout.Widgets.Add(new Label
+            {
+                Text = connected
+                    ? loc["building.roadConnected"]
+                    : loc.Format("building.roadMissing",
+                        (int)Math.Round(content.Gameplay.Roads.DisconnectedProductionMult * 100)),
+                TextColor = connected ? new Color(150, 220, 150) : new Color(235, 170, 110),
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+        }
+
         layout.Widgets.Add(UpgradeSection(instance.DefIndex));
 
         // Agency: přesunout jinam nebo zbourat (vrátí půl ceny). Obojí se ODEMYKÁ —

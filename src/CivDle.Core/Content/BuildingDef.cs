@@ -52,8 +52,22 @@ public sealed record BuildingDef(
     IReadOnlyList<ResourceAmount> UpgradeCost,
     int PowerSupply,
     int PowerDemand,
-    bool RequiresAdjacentWater = false)
+    bool RequiresAdjacentWater = false,
+    int ServiceValue = 0,
+    IReadOnlyList<ResourceAmount>? UpkeepOrNull = null)
 {
+    /// <summary>
+    /// Kolik „bodů služby" budova poskytuje (trh, sýpka, lázně…). 0 = budova
+    /// obyvatele neobsluhuje. Přepočet na lidi řídí gameplay.json.
+    /// </summary>
+    public int Services => ServiceValue;
+
+    /// <summary>
+    /// Opakovaná cena za provoz. Bez zaplacení budova přestane sloužit (nic se
+    /// neboří) — díky tomu jsou služby rozhodnutí, ne jednorázový nákup.
+    /// </summary>
+    public IReadOnlyList<ResourceAmount> Upkeep => UpkeepOrNull ?? Array.Empty<ResourceAmount>();
+
     /// <summary>
     /// Musí budova sousedit s vodou? Přístavy a rybolov dávají smysl jen na břehu —
     /// tím dostává pobřeží ekonomickou identitu (living-map.md §5).

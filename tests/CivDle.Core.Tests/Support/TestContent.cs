@@ -97,7 +97,8 @@ internal static class TestContent
             new DefRegistry<WeatherDef>(weather, w => w.Id, "počasí", allowEmpty: true),
             new DefRegistry<LandmarkDef>(landmarks, l => l.Id, "landmark", allowEmpty: true),
             new DefRegistry<FeatureDef>(features, f => f.Id, "funkce", allowEmpty: true),
-            ufo ?? UfoConfig.Disabled);
+            ufo ?? UfoConfig.Disabled,
+            Array.Empty<AmbienceDef>());
     }
 
     /// <summary>Výchozí prestige config testů (Vzestup od 50 obyvatel, body = populace ÷ 15).</summary>
@@ -139,6 +140,44 @@ internal static class TestContent
         Buildable: buildable,
         UpgradesToIndex: upgradesToIndex,
         UpgradeCost: upgradeCost ?? Array.Empty<ResourceAmount>(),
+        PowerSupply: 0,
+        PowerDemand: 0);
+
+    /// <summary>Budova poskytující službu za pravidelnou údržbu — pro testy spokojenosti.</summary>
+    public static BuildingDef Service(
+        string id, int serviceValue, int upkeepResource, int upkeepAmount, int biomeCount = 2) => new(
+        id, "civic", new RgbColor(180, 160, 220), 1, 1,
+        WorkerSlots: 0, HousingCapacity: 0,
+        BuildCost: Array.Empty<ResourceAmount>(),
+        Recipe: null,
+        AllowedBiomes: Enumerable.Repeat(true, biomeCount).ToArray(),
+        StorageBonus: Array.Empty<ResourceAmount>(),
+        AutoBuild: false,
+        Buildable: true,
+        UpgradesToIndex: -1,
+        UpgradeCost: Array.Empty<ResourceAmount>(),
+        PowerSupply: 0,
+        PowerDemand: 0,
+        RequiresAdjacentWater: false,
+        ServiceValue: serviceValue,
+        UpkeepOrNull: new[] { new ResourceAmount(upkeepResource, upkeepAmount) });
+
+    /// <summary>Budova, která z ničeho vyrábí zadanou surovinu — pro testy výroby.</summary>
+    public static BuildingDef Producer(
+        string id, int outputResource, int amount, int timeTicks, int biomeCount = 2, int workerSlots = 1) => new(
+        id, "test", new RgbColor(120, 160, 90), 1, 1,
+        WorkerSlots: workerSlots, HousingCapacity: 0,
+        BuildCost: Array.Empty<ResourceAmount>(),
+        Recipe: new Recipe(
+            Array.Empty<ResourceAmount>(),
+            new[] { new ResourceAmount(outputResource, amount) },
+            timeTicks),
+        AllowedBiomes: Enumerable.Repeat(true, biomeCount).ToArray(),
+        StorageBonus: Array.Empty<ResourceAmount>(),
+        AutoBuild: false,
+        Buildable: true,
+        UpgradesToIndex: -1,
+        UpgradeCost: Array.Empty<ResourceAmount>(),
         PowerSupply: 0,
         PowerDemand: 0);
 }

@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Ambientní kulisa se SYNTETIZUJE ze čtyř čísel (šum, tón, vlnobití, hlasitost) — žádné audio soubory. Kulisy vázané na počasí mají přednost před biomovými. Pořadí uvnitř skupiny rozhoduje: platí první shoda.",
+  "ambience": [
+    {
+      "id": "thunderstorm",
+      "weather": ["thunderstorm", "tornado"],
+      "noiseLevel": 0.85,
+      "toneHz": 55,
+      "toneLevel": 0.25,
+      "pulseHz": 0.5,
+      "volume": 0.5
+    },
+    {
+      "id": "blizzard",
+      "weather": ["blizzard", "sandstorm"],
+      "noiseLevel": 0.75,
+      "toneHz": 0,
+      "toneLevel": 0,
+      "pulseHz": 0.375,
+      "volume": 0.42
+    },
+    {
+      "id": "rain",
+      "weather": ["rain"],
+      "noiseLevel": 0.6,
+      "toneHz": 0,
+      "toneLevel": 0,
+      "pulseHz": 0.25,
+      "volume": 0.4
+    },
+    {
+      "id": "snowfall",
+      "weather": ["snowfall", "fog"],
+      "noiseLevel": 0.18,
+      "toneHz": 98,
+      "toneLevel": 0.14,
+      "pulseHz": 0.125,
+      "volume": 0.28
+    },
+    {
+      "id": "surf",
+      "biomes": ["ocean", "deep_ocean", "shallow_water", "coral_reef", "beach", "pack_ice"],
+      "noiseLevel": 0.45,
+      "toneHz": 73.5,
+      "toneLevel": 0.12,
+      "pulseHz": 0.125,
+      "volume": 0.35
+    },
+    {
+      "id": "forest",
+      "biomes": ["forest", "taiga", "jungle", "mangrove", "highlands", "swamp"],
+      "noiseLevel": 0.22,
+      "toneHz": 110,
+      "toneLevel": 0.2,
+      "pulseHz": 0.25,
+      "volume": 0.32
+    },
+    {
+      "id": "plains",
+      "biomes": ["grassland", "steppe", "savanna"],
+      "noiseLevel": 0.16,
+      "toneHz": 146.5,
+      "toneLevel": 0.18,
+      "pulseHz": 0.125,
+      "volume": 0.28
+    },
+    {
+      "id": "desert",
+      "biomes": ["desert", "badlands"],
+      "noiseLevel": 0.3,
+      "toneHz": 82.5,
+      "toneLevel": 0.1,
+      "pulseHz": 0.125,
+      "volume": 0.3
+    },
+    {
+      "id": "highlands_wind",
+      "biomes": ["mountains", "snow_peaks", "volcanic", "glacier", "ice_shelf", "tundra"],
+      "noiseLevel": 0.4,
+      "toneHz": 65.5,
+      "toneLevel": 0.16,
+      "pulseHz": 0.25,
+      "volume": 0.33
+    }
+  ]
+}

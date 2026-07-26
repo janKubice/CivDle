@@ -55,6 +55,7 @@ public sealed class GameplayScreen : IScreen
     private readonly FloatingTextRenderer _floatingText = new();
     private readonly GameSounds _sounds = new();
     private readonly AmbientMusic _ambient = new();
+    private readonly AmbientSoundscape _soundscape;
     private readonly MinimapRenderer _minimap;
     private readonly ToastRenderer _toasts;
     private readonly CityScaleRenderer _cityScale;
@@ -80,6 +81,7 @@ public sealed class GameplayScreen : IScreen
     private Label _weatherLabel = null!;
     private Label _dayLabel = null!;
     private Label _cursorLabel = null!;
+    private Label _happinessLabel = null!;
     private Label _statusLabel = null!;
     private HorizontalStackPanel _buildCategoryPanel = null!;
     private HorizontalStackPanel _buildItemsPanel = null!;
@@ -102,32 +104,9 @@ public sealed class GameplayScreen : IScreen
     /// <summary>Šířka pruhu pokroku ve sledovači úkolů (v pixelech).</summary>
     private const int GoalBarWidth = 180;
 
-    private int _selectedBuilding = -1;
-    private int _ghostX;
-    private int _ghostY;
-    private PlacementResult _ghostResult;
-    private bool _ghostVisible;
-    private float _rightDragDistance;
+    /// <summary>Nástroje mapy (stavba, sázení, zóny, přesun) i s jejich stavem.</summary>
+    private readonly MapTools _tools;
     private int _knownBuildingCount;
-
-    private int _movingBuildingIndex = -1;
-    private bool _moveActive;
-    private int _moveGhostX;
-    private int _moveGhostY;
-    private PlacementResult _moveGhostResult;
-
-    private bool _plantMode;
-    private bool _plantGhostActive;
-    private int _plantGhostX;
-    private int _plantGhostY;
-    private PlacementResult _plantGhostResult;
-
-    private bool _zoneMode;
-    private int _zonePaintTypeIndex;
-    private bool _zoneDragging;      // levé tlačítko drží, maluje se obdélník
-    private bool _zoneDragActive;    // je co ukázat jako náhled tento snímek
-    private int _zoneStartX, _zoneStartY; // první roh tažení
-    private int _zoneCurX, _zoneCurY;     // aktuální roh pod kurzorem
 
     /// <param name="savedAtUtc">Čas uložení načtené hry — spustí offline dohon; <c>null</c> = nová hra.</param>
     public GameplayScreen(ScreenManager screens, Simulation simulation, WorldInfo info, DateTime? savedAtUtc = null)
@@ -159,6 +138,8 @@ public sealed class GameplayScreen : IScreen
         _zoneRenderer = new ZoneRenderer(screens.WhitePixel, screens.Content);
         _landmarkRenderer = new LandmarkRenderer(screens.WhitePixel, screens.Content);
         _ufoRenderer = new UfoRenderer(screens.WhitePixel);
+        _soundscape = new AmbientSoundscape(screens.Content);
+        _tools = new MapTools(simulation, _camera, _input, screens.Content);
         _weatherRenderer = new WeatherRenderer(screens.WhitePixel, screens.Content);
         _buildingRenderer = new BuildingRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
         _lightsRenderer = new LightsRenderer(screens.WhitePixel, screens.Content);
@@ -216,25 +197,15 @@ public sealed class GameplayScreen : IScreen
         float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
         _input.Update();
 
+        // Kulisa podle biomu a počasí — atmosféra stála skoro jen na obraze.
+        _soundscape.Update(dt, _simulation);
+
         var viewport = _screens.GraphicsDevice.Viewport;
         _camera.SetViewport(viewport.Width, viewport.Height);
 
-        if (_input.WasPressed(Keys.Escape))
+        if (_input.WasPressed(Keys.Escape) && !_tools.CancelTopmost())
         {
-            if (_zoneMode)
-            {
-                _zoneMode = false;
-                _zoneDragging = false;
-            }
-            else if (_plantMode)
-            {
-                _plantMode = false;
-            }
-            else if (_movingBuildingIndex >= 0)
-            {
-                _movingBuildingIndex = -1;
-            }
-            else if (_selectedBuilding >= 0 || _buildMenuOpen)
+            if (_buildMenuOpen)
             {
                 SetBuildMenuOpen(false);
             }
@@ -247,17 +218,11 @@ public sealed class GameplayScreen : IScreen
 
         bool mouseOverUi = _desktop.IsMouseOverGUI;
         UpdateCamera(dt, mouseOverUi);
-        if (_zoneMode)
+
+        // Nástroj si vstup buď vezme (staví, maluje, přesouvá), nebo ho pustí dál
+        // na ruční těžbu — jediné místo, kde se to rozhoduje.
+        if (!_tools.Update(mouseOverUi))
         {
-            UpdateZone(mouseOverUi);
-        }
-        else if (_plantMode)
-        {
-            UpdatePlant(mouseOverUi);
-        }
-        else if (!UpdateMove(mouseOverUi))
-        {
-            UpdatePlacement(mouseOverUi);
             UpdateHarvest(mouseOverUi);
         }
 
@@ -336,35 +301,37 @@ public sealed class GameplayScreen : IScreen
             _screens.Content.Gameplay.DayNight, timeOfDay);
         _lightsRenderer.Draw(spriteBatch, _camera, _simulation, DayNightCycle.NightFactor(timeOfDay));
 
-        if (_ghostVisible && _selectedBuilding >= 0)
+        // Duch pod kurzorem — co přesně se kreslí, ví MapTools; obrazovka to jen zobrazí.
+        if (_tools.GhostVisible && _tools.SelectedBuilding >= 0)
         {
-            var def = _screens.Content.Buildings[_selectedBuilding];
+            var def = _screens.Content.Buildings[_tools.SelectedBuilding];
             _buildingRenderer.DrawGhost(
-                spriteBatch, _camera, def, _ghostX, _ghostY, _ghostResult == PlacementResult.Ok);
+                spriteBatch, _camera, def, _tools.GhostX, _tools.GhostY, _tools.GhostResult == PlacementResult.Ok);
         }
-        else if (_moveActive && _movingBuildingIndex >= 0 && _movingBuildingIndex < _simulation.Buildings.Length)
+        else if (_tools.MoveGhostActive && _tools.MovingBuildingIndex < _simulation.Buildings.Length)
         {
-            var def = _screens.Content.Buildings[_simulation.Buildings[_movingBuildingIndex].DefIndex];
+            var def = _screens.Content.Buildings[_simulation.Buildings[_tools.MovingBuildingIndex].DefIndex];
             _buildingRenderer.DrawGhost(
-                spriteBatch, _camera, def, _moveGhostX, _moveGhostY, _moveGhostResult == PlacementResult.Ok);
+                spriteBatch, _camera, def, _tools.MoveGhostX, _tools.MoveGhostY,
+                _tools.MoveGhostResult == PlacementResult.Ok);
         }
 
-        if (_plantGhostActive && _screens.Sprites.Get("node.tree") is { } plantSprite)
+        if (_tools.PlantGhostActive && _screens.Sprites.Get("node.tree") is { } plantSprite)
         {
             const int ts = TerrainRenderer.TileSize;
-            var tint = (_plantGhostResult == PlacementResult.Ok ? new Color(120, 240, 140) : new Color(240, 110, 100)) * 0.7f;
+            var tint = (_tools.PlantGhostResult == PlacementResult.Ok
+                ? new Color(120, 240, 140)
+                : new Color(240, 110, 100)) * 0.7f;
             spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.Transform);
-            spriteBatch.Draw(plantSprite, new Rectangle(_plantGhostX * ts, _plantGhostY * ts, ts, ts), tint);
+            spriteBatch.Draw(plantSprite, new Rectangle(_tools.PlantGhostX * ts, _tools.PlantGhostY * ts, ts, ts), tint);
             spriteBatch.End();
         }
 
-        if (_zoneMode && _zoneDragActive)
+        if (_tools.ZonePreviewActive)
         {
-            int x = Math.Min(_zoneStartX, _zoneCurX);
-            int y = Math.Min(_zoneStartY, _zoneCurY);
-            int width = Math.Abs(_zoneCurX - _zoneStartX) + 1;
-            int height = Math.Abs(_zoneCurY - _zoneStartY) + 1;
-            _zoneRenderer.DrawPreview(spriteBatch, _camera, _zonePaintTypeIndex, x, y, width, height);
+            var preview = _tools.ZonePreview;
+            _zoneRenderer.DrawPreview(spriteBatch, _camera, _tools.ZonePaintTypeIndex,
+                preview.X, preview.Y, preview.Width, preview.Height);
         }
 
         _weatherRenderer.Draw(spriteBatch, _screens.GraphicsDevice.Viewport); // závoj + srážky nad scénou
@@ -459,6 +426,8 @@ public sealed class GameplayScreen : IScreen
         _minimap.Dispose();
         _vignette.Dispose();
         _ambient.Dispose();
+        _soundscape.Stop();
+        _soundscape.Dispose();
         _sounds.Dispose();
     }
 
@@ -489,192 +458,6 @@ public sealed class GameplayScreen : IScreen
             float factor = MathF.Pow(ZoomStep, _input.ScrollDelta / 120f);
             _camera.ZoomAt(_input.MousePosition.ToVector2(), factor);
         }
-    }
-
-    private void UpdatePlacement(bool mouseOverUi)
-    {
-        // Pravé tlačítko: krátký klik ruší výběr budovy, tažení je pan kamery.
-        if (_input.WasRightPressed)
-        {
-            _rightDragDistance = 0f;
-        }
-
-        if (_input.IsRightDown)
-        {
-            _rightDragDistance += _input.MouseDelta.Length();
-        }
-
-        if (_input.WasRightReleased && _rightDragDistance < RightClickDragTolerance && _selectedBuilding >= 0)
-        {
-            _selectedBuilding = -1;
-        }
-
-        _ghostVisible = false;
-        if (_selectedBuilding < 0 || mouseOverUi)
-        {
-            return;
-        }
-
-        var def = _screens.Content.Buildings[_selectedBuilding];
-        var world = _camera.ScreenToWorld(_input.MousePosition.ToVector2());
-        int tileX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
-        int tileY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
-
-        // Kurzor míří na střed půdorysu, ať se velké budovy pokládají přirozeně.
-        _ghostX = tileX - (def.FootprintWidth - 1) / 2;
-        _ghostY = tileY - (def.FootprintHeight - 1) / 2;
-        _ghostResult = _simulation.CanPlace(_selectedBuilding, _ghostX, _ghostY);
-        _ghostVisible = true;
-
-        if (_input.WasLeftPressed && _ghostResult == PlacementResult.Ok)
-        {
-            // Výběr zůstává — idle hráč typicky staví víc budov za sebou.
-            // Juice řeší společně EmitNewBuildingJuice (pokryje i auto-stavbu).
-            _simulation.TryPlaceBuilding(_selectedBuilding, _ghostX, _ghostY);
-        }
-    }
-
-    /// <summary>Režim sázení: ghost háje sleduje kurzor, levý klik zasadí (za cenu), pravý ruší.</summary>
-    private void UpdatePlant(bool mouseOverUi)
-    {
-        _plantGhostActive = false;
-        if (_input.WasRightPressed)
-        {
-            _plantMode = false;
-            return;
-        }
-
-        if (mouseOverUi)
-        {
-            return;
-        }
-
-        var world = _camera.ScreenToWorld(_input.MousePosition.ToVector2());
-        _plantGhostX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
-        _plantGhostY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
-        _plantGhostResult = _simulation.CanPlant(_plantGhostX, _plantGhostY);
-        _plantGhostActive = true;
-
-        if (_input.WasLeftPressed && _plantGhostResult == PlacementResult.Ok)
-        {
-            _simulation.TryPlant(_plantGhostX, _plantGhostY); // zůstáváme v režimu — sázej dál
-        }
-    }
-
-    /// <summary>
-    /// Režim zón: levým tažením se maluje obdélník (vznikne po puštění), pravý klik
-    /// smaže zónu pod kurzorem (nebo — do prázdna — vyjde z režimu). Escape rovněž ven.
-    /// </summary>
-    private void UpdateZone(bool mouseOverUi)
-    {
-        _zoneDragActive = false;
-
-        var world = _camera.ScreenToWorld(_input.MousePosition.ToVector2());
-        int tileX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
-        int tileY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
-
-        if (_input.WasRightPressed)
-        {
-            if (_zoneDragging)
-            {
-                _zoneDragging = false; // zruší rozdělanou malbu
-            }
-            else if (mouseOverUi || !_simulation.RemoveZoneAt(tileX, tileY))
-            {
-                _zoneMode = false; // klik do prázdna (nebo přes UI) → ven z režimu
-            }
-
-            return;
-        }
-
-        if (mouseOverUi && !_zoneDragging)
-        {
-            return;
-        }
-
-        if (_input.WasLeftPressed && !mouseOverUi)
-        {
-            _zoneDragging = true;
-            _zoneStartX = tileX;
-            _zoneStartY = tileY;
-        }
-
-        if (_zoneDragging)
-        {
-            _zoneCurX = tileX;
-            _zoneCurY = tileY;
-            _zoneDragActive = true;
-
-            if (_input.WasLeftReleased)
-            {
-                int x = Math.Min(_zoneStartX, _zoneCurX);
-                int y = Math.Min(_zoneStartY, _zoneCurY);
-                int width = Math.Abs(_zoneCurX - _zoneStartX) + 1;
-                int height = Math.Abs(_zoneCurY - _zoneStartY) + 1;
-                _simulation.AddZone(_zonePaintTypeIndex, x, y, width, height);
-                _zoneDragging = false; // zůstáváme v režimu — maluj další zónu
-            }
-        }
-    }
-
-    /// <summary>Vstup do režimu malování zón daného typu (vyčistí ostatní režimy).</summary>
-    private void EnterZoneMode(int typeIndex)
-    {
-        _zoneMode = true;
-        _zonePaintTypeIndex = typeIndex;
-        _zoneDragging = false;
-        _plantMode = false;
-        _selectedBuilding = -1;
-        _movingBuildingIndex = -1;
-    }
-
-    /// <summary>
-    /// Režim přesunu budovy: ghost sleduje kurzor, levý klik potvrdí (zdarma),
-    /// pravý ruší. Vrací true, dokud režim běží — potlačí stavbu i těžbu.
-    /// </summary>
-    private bool UpdateMove(bool mouseOverUi)
-    {
-        _moveActive = false;
-        if (_movingBuildingIndex < 0)
-        {
-            return false;
-        }
-
-        // Budova mohla mezitím zmizet (jiný zdroj) — z režimu ven.
-        if (_movingBuildingIndex >= _simulation.Buildings.Length)
-        {
-            _movingBuildingIndex = -1;
-            return false;
-        }
-
-        if (_input.WasRightPressed)
-        {
-            _movingBuildingIndex = -1;
-            return true;
-        }
-
-        if (mouseOverUi)
-        {
-            return true;
-        }
-
-        var def = _screens.Content.Buildings[_simulation.Buildings[_movingBuildingIndex].DefIndex];
-        var world = _camera.ScreenToWorld(_input.MousePosition.ToVector2());
-        int tileX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
-        int tileY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
-        _moveGhostX = tileX - (def.FootprintWidth - 1) / 2;
-        _moveGhostY = tileY - (def.FootprintHeight - 1) / 2;
-        _moveGhostResult = _simulation.CanMoveBuilding(_movingBuildingIndex, _moveGhostX, _moveGhostY);
-        _moveActive = true;
-
-        if (_input.WasLeftPressed && _moveGhostResult == PlacementResult.Ok)
-        {
-            _simulation.TryMoveBuilding(_movingBuildingIndex, _moveGhostX, _moveGhostY);
-            _movingBuildingIndex = -1;
-            _moveActive = false;
-        }
-
-        return true;
     }
 
     /// <summary>
@@ -710,7 +493,7 @@ public sealed class GameplayScreen : IScreen
     /// </summary>
     private void UpdateHarvest(bool mouseOverUi)
     {
-        if (_selectedBuilding >= 0 || mouseOverUi || !_input.WasLeftPressed)
+        if (_tools.SelectedBuilding >= 0 || mouseOverUi || !_input.WasLeftPressed)
         {
             return;
         }
@@ -743,7 +526,7 @@ public sealed class GameplayScreen : IScreen
         // Klik na budovu ji rozklikne (detail + vylepšení + přesun/demolice).
         if (_simulation.TryGetBuildingAt(tileX, tileY, out int buildingIndex))
         {
-            _screens.Push(new BuildingInfoScreen(_screens, _simulation, buildingIndex, idx => _movingBuildingIndex = idx));
+            _screens.Push(new BuildingInfoScreen(_screens, _simulation, buildingIndex, _tools.StartMove));
             return;
         }
 
@@ -1038,6 +821,7 @@ public sealed class GameplayScreen : IScreen
         _tierLabel = new Label { TextColor = new Color(190, 160, 230), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.tier"] };
         _powerLabel = new Label { TextColor = new Color(120, 200, 240), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.power"] };
         _weatherLabel = new Label { TextColor = new Color(170, 200, 220), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.weather"] };
+        _happinessLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.happiness"] };
         _dayLabel = new Label { TextColor = UiFactory.Accent, Tooltip = loc["tip.day"] };
         _cursorLabel = new Label { TextColor = Color.LightGray };
         var worldInfoStack = new VerticalStackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Right };
@@ -1045,6 +829,10 @@ public sealed class GameplayScreen : IScreen
         worldInfoStack.Widgets.Add(_tierLabel);
         worldInfoStack.Widgets.Add(_powerLabel);
         worldInfoStack.Widgets.Add(_weatherLabel);
+        if (_screens.Content.Gameplay.Happiness.IsEnabled)
+        {
+            worldInfoStack.Widgets.Add(_happinessLabel);
+        }
         worldInfoStack.Widgets.Add(_dayLabel);
         worldInfoStack.Widgets.Add(_cursorLabel);
         var topRight = UiFactory.DarkPanel(worldInfoStack);
@@ -1124,13 +912,7 @@ public sealed class GameplayScreen : IScreen
         // Každá funkce se objeví, teprve až si ji hráč odemkne (data/features.json).
         if (_simulation.IsFeatureUnlocked("plant"))
         {
-            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.plant"], () =>
-            {
-                _plantMode = !_plantMode;
-                _zoneMode = false;
-                _selectedBuilding = -1;
-                _movingBuildingIndex = -1;
-            }, loc["tip.plant"]));
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.plant"], _tools.TogglePlant, loc["tip.plant"]));
         }
 
         // Zóny (automatizace): jedno tlačítko na typ; klik = malovat, další klik na stejný = ven.
@@ -1140,17 +922,8 @@ public sealed class GameplayScreen : IScreen
         for (int z = 0; zoneTypes is not null && z < zoneTypes.Count; z++)
         {
             int typeIndex = z;
-            stack.Widgets.Add(UiFactory.SmallButton(loc[zoneTypes[z].NameKey], () =>
-            {
-                if (_zoneMode && _zonePaintTypeIndex == typeIndex)
-                {
-                    _zoneMode = false;
-                }
-                else
-                {
-                    EnterZoneMode(typeIndex);
-                }
-            }, ZoneTooltip(zoneTypes[z])));
+            stack.Widgets.Add(UiFactory.SmallButton(loc[zoneTypes[z].NameKey],
+                () => _tools.ToggleZone(typeIndex), ZoneTooltip(zoneTypes[z])));
         }
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.backToCity"], RecenterOnCity, loc["tip.backToCity"]));
 
@@ -1225,15 +998,7 @@ public sealed class GameplayScreen : IScreen
     {
         _buildMenuOpen = open;
         _buildMenuPanel.Visible = open;
-        if (!open)
-        {
-            _selectedBuilding = -1;
-        }
-        else
-        {
-            _plantMode = false;
-            _zoneMode = false;
-        }
+        _tools.Clear(); // otevření i zavření menu vždy začíná s čistým stolem
     }
 
     /// <summary>
@@ -1513,12 +1278,7 @@ public sealed class GameplayScreen : IScreen
             // vysvětlení hned, bez ručně psaného textu.
             Tooltip = BuildingSummary.Describe(content, loc, def),
         };
-        button.Click += (_, _) =>
-        {
-            _selectedBuilding = _selectedBuilding == defIndex ? -1 : defIndex;
-            _zoneMode = false; // stavba a malování zón se vylučují
-            _plantMode = false;
-        };
+        button.Click += (_, _) => _tools.ToggleBuilding(defIndex);
         _buildButtons.Add((defIndex, button, priceLabel));
         return button;
     }
@@ -1623,6 +1383,16 @@ public sealed class GameplayScreen : IScreen
             _weatherLabel.Text = string.Empty;
         }
 
+        // Spokojenost: barva nese stav, ať se to dá číst koutkem oka.
+        if (_screens.Content.Gameplay.Happiness.IsEnabled)
+        {
+            double happiness = _simulation.Happiness;
+            _happinessLabel.Text = loc.Format("hud.happiness", (int)Math.Round(happiness * 100));
+            _happinessLabel.TextColor = happiness >= 0.75 ? new Color(150, 220, 150)
+                : happiness >= 0.45 ? new Color(230, 210, 130)
+                : new Color(235, 140, 120);
+        }
+
         // Rozvodná síť: zobraz se až když má město spotřebiče; červená = nedostatek.
         if (_simulation.TotalPowerDemand > 0)
         {
@@ -1685,37 +1455,37 @@ public sealed class GameplayScreen : IScreen
 
         // Proužek se stavem se ukazuje, jen když má co říct — prázdný panel
         // uprostřed spodku obrazovky by byl jen šum.
-        _statusPanel.Visible = _plantMode || _zoneMode || _movingBuildingIndex >= 0 || _selectedBuilding >= 0;
+        _statusPanel.Visible = _tools.AnyActive;
         if (!_statusPanel.Visible)
         {
             return;
         }
 
-        if (_plantMode)
+        if (_tools.PlantMode)
         {
             _statusLabel.Text = loc["hud.planting"];
             _statusLabel.TextColor = UiFactory.Accent;
             return;
         }
 
-        if (_zoneMode)
+        if (_tools.ZoneMode)
         {
-            _statusLabel.Text = loc[_screens.Content.ZoneTypes[_zonePaintTypeIndex].NameKey];
+            _statusLabel.Text = loc[_screens.Content.ZoneTypes[_tools.ZonePaintTypeIndex].NameKey];
             _statusLabel.TextColor = UiFactory.Accent;
             return;
         }
 
-        if (_movingBuildingIndex >= 0)
+        if (_tools.MovingBuildingIndex >= 0)
         {
             _statusLabel.Text = loc["hud.moving"];
             _statusLabel.TextColor = UiFactory.Accent;
             return;
         }
 
-        var def = _screens.Content.Buildings[_selectedBuilding];
-        if (_ghostVisible && _ghostResult != PlacementResult.Ok)
+        var def = _screens.Content.Buildings[_tools.SelectedBuilding];
+        if (_tools.GhostVisible && _tools.GhostResult != PlacementResult.Ok)
         {
-            _statusLabel.Text = loc[ErrorKey(_ghostResult)];
+            _statusLabel.Text = loc[ErrorKey(_tools.GhostResult)];
             _statusLabel.TextColor = new Color(235, 120, 110);
         }
         else

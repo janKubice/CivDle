@@ -50,7 +50,9 @@ public sealed record BuildingDto(
     Dictionary<string, int>? UpgradeCost,
     int PowerSupply,
     int PowerDemand,
-    bool RequiresAdjacentWater);
+    bool RequiresAdjacentWater,
+    int ServiceValue,
+    Dictionary<string, int>? Upkeep);
 
 /// <summary>Výrobní recept budovy tak, jak leží v JSON.</summary>
 public sealed record RecipeDto(
@@ -73,7 +75,18 @@ public sealed record GameplayFileDto(
     BoostDto? Boost,
     HarvestDto? Harvest,
     DailyRewardDto? DailyReward,
-    PlantingDto? Planting);
+    PlantingDto? Planting,
+    HappinessDto? Happiness);
+
+/// <summary>Nastavení spokojenosti tak, jak leží v JSON.</summary>
+public sealed record HappinessDto(
+    int IntervalTicks,
+    double BaseHappiness,
+    double ServiceWeight,
+    double OvercrowdingPenalty,
+    double PeoplePerServicePoint,
+    double GrowthFloor,
+    double FreePopulation);
 
 /// <summary>Nastavení slavnosti (dočasný boost) tak, jak leží v JSON.</summary>
 public sealed record BoostDto(int DurationSeconds, int CooldownSeconds, double Multiplier);
@@ -125,7 +138,7 @@ public sealed record FaunaDto(
 public sealed record AutoBuildDto(int IntervalTicks, int SearchRadius, int PopulationHeadroom);
 
 /// <summary>Nastavení auto-silnic tak, jak leží v JSON.</summary>
-public sealed record RoadsDto(string? MapColor, int MaxSearchDistance, int MaxBridgeSpan);
+public sealed record RoadsDto(string? MapColor, int MaxSearchDistance, int MaxBridgeSpan, double DisconnectedProductionMult);
 
 /// <summary>Nastavení detekce osad tak, jak leží v JSON.</summary>
 public sealed record SettlementsDto(int MinBuildings, int ClusterDistance, int UpdateIntervalTicks);
@@ -319,3 +332,17 @@ public sealed record UfoConfigDto(
 
 /// <summary>Jeden zásah UFO tak, jak leží v JSON.</summary>
 public sealed record UfoActionDto(string? Id, string? Behavior, double Weight, double Magnitude);
+
+/// <summary>Obsah souboru <c>data/ambience.json</c> (ambientní kulisa).</summary>
+public sealed record AmbienceFileDto(int SchemaVersion, List<AmbienceDto>? Ambience);
+
+/// <summary>Jedna kulisa tak, jak leží v JSON.</summary>
+public sealed record AmbienceDto(
+    string? Id,
+    string[]? Biomes,
+    string[]? Weather,
+    double NoiseLevel,
+    double ToneHz,
+    double ToneLevel,
+    double PulseHz,
+    double Volume);

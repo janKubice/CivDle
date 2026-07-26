@@ -613,6 +613,12 @@
     "achievement.forester": "Lesník",
     "achievement.forester.desc": "Zasaď padesát stromů.",
     "achievement.arborist": "Arborista",
-    "achievement.arborist.desc": "Zasaď dvě stě padesát stromů."
+    "achievement.arborist.desc": "Zasaď dvě stě padesát stromů.",
+    "building.roadConnected": "Napojeno na silniční síť",
+    "building.roadMissing": "Bez napojení na silnici — vyrábí jen na {0} %. Cesta se natáhne sama, až poblíž vyroste další budova.",
+    "hud.happiness": "Spokojenost {0} %",
+    "tip.happiness": "Jak se ve městě žije. Zvedají ji služby (trh, sýpka, dílna), sráží přelidnění. Nízká spokojenost brzdí růst — nikdy ale nikoho nepřipraví o život.",
+    "tip.build.services": "Obslouží {0} obyvatel",
+    "tip.build.upkeep": "Údržba: {0}"
   }
 }

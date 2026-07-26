@@ -48,16 +48,20 @@ public class AutoBuildTests
         var sim = new Simulation(content, UniformMap(16, (byte)content.Biomes.IndexOf("grassland")), seed: 7);
         Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(content.Buildings.IndexOf("house"), 8, 8));
 
-        // Bez výrobní budovy (pila) dojdou prkna a auto-stavba se zastaví. Odměny
-        // za úkoly růst chvíli prodlouží, ale jsou jednorázové — invariant platí.
+        // Bez výroby se řetěz přetrhne: dojde jídlo → populace zamrzne pod stropem
+        // bydlení → není poptávka po domech → auto-stavba se zastaví. Odměny za
+        // úkoly to chvíli oddálí, ale jsou jednorázové.
         RunTicks(sim, 1000);
         int stabilized = sim.Buildings.Length;
         RunTicks(sim, 600);
 
         Assert.Equal(stabilized, sim.Buildings.Length); // růst se zastavil
-        int planks = content.Resources.IndexOf("planks");
-        int wood = content.Resources.IndexOf("wood");
-        Assert.True(sim.GetResource(planks) < 4 || sim.GetResource(wood) < 5); // na další dům nemá
+
+        // A ověř i PROČ: město nemá z čeho růst.
+        int food = content.Resources.IndexOf("food");
+        Assert.Equal(0, sim.GetResource(food), precision: 6);
+        Assert.True(sim.Population < sim.HousingCapacity,
+            "Populace měla zamrznout pod stropem bydlení, ne o něj zavadit.");
     }
 
     [Fact]

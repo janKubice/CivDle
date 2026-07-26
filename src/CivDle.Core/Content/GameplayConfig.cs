@@ -15,7 +15,17 @@ public sealed record AutoBuildConfig(int IntervalTicks, int SearchRadius, int Po
 /// <param name="MapColor">Barva cesty na mapě (MVP vizuál).</param>
 /// <param name="MaxSearchDistance">Strop délky hledané cesty v dlaždicích — dál se nespojuje.</param>
 /// <param name="MaxBridgeSpan">Kolik vodních dlaždic v řadě umí cesta přemostit (0 = bez mostů).</param>
-public sealed record RoadConfig(RgbColor MapColor, int MaxSearchDistance, int MaxBridgeSpan = 0);
+/// <param name="DisconnectedProductionMult">
+/// Násobič výroby budovy, která nesousedí se silniční sítí. 1.0 = silnice jsou
+/// jen dekorace (původní stav), nižší hodnota z nich dělá skutečnou infrastrukturu:
+/// odvézt zboží bez cesty je dražší. Auto-stavba silnice buduje sama, takže je to
+/// odměna za fungující síť, ne trest za nepozornost.
+/// </param>
+public sealed record RoadConfig(
+    RgbColor MapColor,
+    int MaxSearchDistance,
+    int MaxBridgeSpan = 0,
+    double DisconnectedProductionMult = 1.0);
 
 /// <summary>
 /// Nastavení detekce osad (fáze 4: shluk budov se pozná jako sídlo se jménem).
@@ -66,6 +76,44 @@ public sealed record DayNightConfig(
 /// <param name="Multiplier">Násobič výroby a sběru během slavnosti.</param>
 public sealed record BoostConfig(int DurationSeconds, int CooldownSeconds, double Multiplier);
 
+/// <summary>
+/// Spokojenost města: jediná vrstva, kde stavění není zadarmo. Prázdná (vypnutá)
+/// konfigurace nechá hru chovat se jako dřív — spokojenost pořád 1.0.
+/// </summary>
+/// <param name="IntervalTicks">Jak často se přepočítává (pomalý systém, ne hot path).</param>
+/// <param name="BaseHappiness">Základ bez služeb i bez přelidnění.</param>
+/// <param name="ServiceWeight">Kolik k spokojenosti přidá plné pokrytí službami.</param>
+/// <param name="OvercrowdingPenalty">Kolik ubere populace natlačená na strop bydlení.</param>
+/// <param name="PeoplePerServicePoint">Kolik lidí obslouží jeden bod služby budovy.</param>
+/// <param name="GrowthFloor">Násobič růstu při nulové spokojenosti (0 = růst se zastaví).</param>
+/// <param name="FreePopulation">
+/// Do téhle velikosti si obyvatelé vystačí sami — vesnice o dvaceti lidech trh
+/// nepotřebuje. Bez toho by hra trestala hráče od první minuty za to, že ještě
+/// nemá budovy, které se odemykají mnohem později.
+/// </param>
+public sealed record HappinessConfig(
+    int IntervalTicks,
+    double BaseHappiness,
+    double ServiceWeight,
+    double OvercrowdingPenalty,
+    double PeoplePerServicePoint,
+    double GrowthFloor,
+    double FreePopulation = 0)
+{
+    /// <summary>Vypnutá spokojenost — hra bez téhle vrstvy (výchozí pro starší data).</summary>
+    public static HappinessConfig Disabled { get; } = new(0, 1.0, 0.0, 0.0, 0.0, 1.0);
+
+    /// <summary>Má smysl spokojenost počítat?</summary>
+    public bool IsEnabled => IntervalTicks > 0;
+
+    /// <summary>
+    /// Násobič růstu populace při dané spokojenosti. Nikdy nejde pod
+    /// <see cref="GrowthFloor"/> — nespokojené město stagnuje, ale neumírá.
+    /// </summary>
+    public double GrowthFactor(double happiness) =>
+        GrowthFloor + (1.0 - GrowthFloor) * Math.Clamp(happiness, 0.0, 1.0);
+}
+
 /// <summary>Ruční sběr: šance na „krit" (velký výnos) — aktivní klikání se vyplatí.</summary>
 /// <param name="CritChance">Pravděpodobnost kritu (0–1) na jeden sběr.</param>
 /// <param name="CritMultiplier">Násobič výnosu při kritu.</param>
@@ -106,4 +154,9 @@ public sealed record GameplayConfig(
     BoostConfig Boost,
     HarvestConfig Harvest,
     DailyRewardConfig DailyReward,
-    PlantingConfig Planting);
+    PlantingConfig Planting,
+    HappinessConfig? HappinessOrNull = null)
+{
+    /// <summary>Nastavení spokojenosti; chybí-li v datech, je vrstva vypnutá.</summary>
+    public HappinessConfig Happiness => HappinessOrNull ?? HappinessConfig.Disabled;
+}

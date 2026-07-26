@@ -15,15 +15,49 @@ namespace CivDle.Core.Save;
 /// je jasná chyba při načtení. Na nekonečné mapě se terén NEUKLÁDÁ: je to čistá
 /// funkce (seed + preset), takže při načtení se přesně zrekonstruuje. Ukládají
 /// se jen řídká data — budovy a síť cest.
+///
+/// <para><b>Od verze 14 je tělo savu SEKČNÍ.</b> Každá část nese svůj název a délku,
+/// takže čtečka umí přeskočit sekci, kterou nezná, a chybějící sekci nechat na
+/// výchozí hodnotě. Do verze 13 byl formát lineární — každá nová mechanika tak
+/// znehodnotila rozehranou hru, což je u idle hry hraté týdny to nejhorší, co
+/// se může stát. Starší savy (v12, v13) proto pořád umíme přečíst starou cestou;
+/// nové už nikdy „nevyprší".</para>
 /// </summary>
 public sealed class SaveGameSerializer
 {
     private const string Magic = "CIVD";
 
-    /// <summary>Verze formátu — zvýšit při každé změně struktury. v6: + úkoly. v7: + skrýše. v8: + zasazené uzly. v9: + zóny. v10: + politiky. v11: + guvernér. v12: + známé suroviny.</summary>
-    public const int FormatVersion = 13;
+    /// <summary>
+    /// Verze formátu. v6: + úkoly. v7: + skrýše. v8: + zasazené uzly. v9: + zóny.
+    /// v10: + politiky. v11: + guvernér. v12: + známé suroviny. v13: + zásahy do světa.
+    /// <b>v14: sekční formát</b> — od téhle verze se čísluje jen kvůli přehledu,
+    /// přidání sekce už kompatibilitu neruší.
+    /// </summary>
+    public const int FormatVersion = 14;
 
-    /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip).</summary>
+    /// <summary>První verze se sekčním tělem (starší se čtou lineárně).</summary>
+    private const int FirstSectionedVersion = 14;
+
+    /// <summary>Nejstarší verze, jejíž rozvržení ještě umíme přečíst.</summary>
+    private const int OldestReadableVersion = 12;
+
+    // Názvy sekcí. Jsou součástí formátu — nikdy nepřejmenovávat, jen přidávat.
+    private const string SectionCore = "core";
+    private const string SectionResources = "resources";
+    private const string SectionBuildings = "buildings";
+    private const string SectionRoads = "roads";
+    private const string SectionTech = "tech";
+    private const string SectionPrestige = "prestige";
+    private const string SectionQuests = "quests";
+    private const string SectionDiscoveries = "discoveries";
+    private const string SectionPlanted = "planted";
+    private const string SectionZones = "zones";
+    private const string SectionPolicies = "policies";
+    private const string SectionGovernor = "governor";
+    private const string SectionKnownResources = "known";
+    private const string SectionWorldChanges = "world";
+
+    /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
     {
         using var header = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
@@ -34,27 +68,31 @@ public sealed class SaveGameSerializer
         using var gzip = new GZipStream(stream, CompressionLevel.Fastest, leaveOpen: true);
         using var writer = new BinaryWriter(gzip, Encoding.UTF8);
 
+        // Metadata leží před sekcemi: bez seedu a presetu nejde postavit terén,
+        // takže je čtečka potřebuje dřív, než začne sekce vůbec procházet.
         writer.Write(metadata.SavedAtUtc.Ticks);
         writer.Write(metadata.Seed);
         writer.Write(metadata.SizeId);
         writer.Write(metadata.PresetId);
 
-        writer.Write(simulation.TickCount);
-        writer.Write(simulation.Population);
-
-        WriteResources(writer, simulation);
-        WriteBuildings(writer, simulation);
-        WriteRoads(writer, simulation);
-        WriteTech(writer, simulation);
-        WritePrestige(writer, simulation);
-        WriteQuests(writer, simulation);
-        WriteDiscoveries(writer, simulation);
-        WritePlanted(writer, simulation);
-        WriteZones(writer, simulation);
-        WritePolicies(writer, simulation);
-        writer.Write(simulation.AutoUpgradeLevelRaw);
-        WriteKnownResources(writer, simulation);
-        WriteWorldChanges(writer, simulation);
+        WriteSection(writer, SectionCore, w =>
+        {
+            w.Write(simulation.TickCount);
+            w.Write(simulation.Population);
+        });
+        WriteSection(writer, SectionResources, w => WriteResources(w, simulation));
+        WriteSection(writer, SectionBuildings, w => WriteBuildings(w, simulation));
+        WriteSection(writer, SectionRoads, w => WriteRoads(w, simulation));
+        WriteSection(writer, SectionTech, w => WriteTech(w, simulation));
+        WriteSection(writer, SectionPrestige, w => WritePrestige(w, simulation));
+        WriteSection(writer, SectionQuests, w => WriteQuests(w, simulation));
+        WriteSection(writer, SectionDiscoveries, w => WriteDiscoveries(w, simulation));
+        WriteSection(writer, SectionPlanted, w => WritePlanted(w, simulation));
+        WriteSection(writer, SectionZones, w => WriteZones(w, simulation));
+        WriteSection(writer, SectionPolicies, w => WritePolicies(w, simulation));
+        WriteSection(writer, SectionGovernor, w => w.Write(simulation.AutoUpgradeLevelRaw));
+        WriteSection(writer, SectionKnownResources, w => WriteKnownResources(w, simulation));
+        WriteSection(writer, SectionWorldChanges, w => WriteWorldChanges(w, simulation));
     }
 
     /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
@@ -70,9 +108,16 @@ public sealed class SaveGameSerializer
             }
 
             int version = header.ReadInt32();
-            if (version != FormatVersion)
+            if (version > FormatVersion)
             {
-                throw new SaveLoadException($"Nepodporovaná verze savu {version} — tahle verze hry umí verzi {FormatVersion}.");
+                throw new SaveLoadException(
+                    $"Save je z novější verze hry (formát {version}, tahle hra umí {FormatVersion}). Aktualizuj hru.");
+            }
+
+            if (version < OldestReadableVersion)
+            {
+                throw new SaveLoadException(
+                    $"Save je z příliš staré verze hry (formát {version}, nejstarší čitelný je {OldestReadableVersion}).");
             }
 
             using var gzip = new GZipStream(stream, CompressionMode.Decompress, leaveOpen: true);
@@ -84,35 +129,134 @@ public sealed class SaveGameSerializer
             string presetId = reader.ReadString();
             var metadata = new SaveMetadata(seed, sizeId, presetId, savedAt);
 
-            long tickCount = reader.ReadInt64();
-            double population = reader.ReadDouble();
-
-            double[] resources = ReadResources(reader, content);
-
             // Terén se rekonstruuje z presetu + seedu — bit za bit stejný jako při uložení.
             var preset = FindPreset(content, presetId);
             var terrain = new ProceduralTerrain(content.Biomes, preset, seed);
             var simulation = new Simulation(content, terrain, seed);
-            simulation.RestoreState(resources, population, tickCount);
-            ReadBuildings(reader, content, simulation);
-            ReadRoads(reader, simulation);
-            ReadTech(reader, content, simulation);
-            ReadPrestige(reader, content, simulation);
-            ReadQuests(reader, content, simulation);
-            ReadDiscoveries(reader, simulation);
-            ReadPlanted(reader, content, simulation);
-            ReadZones(reader, content, simulation);
-            ReadPolicies(reader, content, simulation);
-            simulation.RestoreAutoUpgradeLevel(reader.ReadInt32());
-            ReadKnownResources(reader, content, simulation);
-            ReadWorldChanges(reader, content, simulation);
-            simulation.FinalizeLoad(); // bonusy Vzestupu → přepočet bydlení/skladů + politik
 
+            if (version >= FirstSectionedVersion)
+            {
+                ReadSections(reader, content, simulation);
+            }
+            else
+            {
+                ReadLegacyBody(reader, content, simulation, version);
+            }
+
+            simulation.FinalizeLoad(); // bonusy Vzestupu → přepočet bydlení/skladů + politik
             return (simulation, metadata);
         }
         catch (Exception ex) when (ex is EndOfStreamException or InvalidDataException or IOException)
         {
             throw new SaveLoadException("Uložená hra je poškozená nebo neúplná.", ex);
+        }
+    }
+
+    /// <summary>
+    /// Zapíše jednu sekci: název, délka v bajtech, obsah. Obsah se nejdřív složí
+    /// do paměti, protože gzip stream neumí zpětně doplnit délku — a bez délky by
+    /// čtečka neznámou sekci nedokázala přeskočit.
+    /// </summary>
+    private static void WriteSection(BinaryWriter writer, string name, Action<BinaryWriter> body)
+    {
+        var buffer = new MemoryStream();
+        using (var sectionWriter = new BinaryWriter(buffer, Encoding.UTF8, leaveOpen: true))
+        {
+            body(sectionWriter);
+        }
+
+        writer.Write(name);
+        writer.Write((int)buffer.Length);
+        writer.Write(buffer.GetBuffer(), 0, (int)buffer.Length);
+    }
+
+    /// <summary>
+    /// Projde sekce až do konce streamu. Neznámou sekci přeskočí (save z novější
+    /// hry se stejným hlavním formátem), chybějící sekce prostě zůstane výchozí.
+    /// </summary>
+    private static void ReadSections(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        while (true)
+        {
+            string name;
+            int length;
+            try
+            {
+                name = reader.ReadString();
+                length = reader.ReadInt32();
+            }
+            catch (EndOfStreamException)
+            {
+                return; // konec těla — všechny sekce přečtené
+            }
+
+            if (length < 0)
+            {
+                throw new SaveLoadException($"Poškozená sekce '{name}' (záporná délka).");
+            }
+
+            var payload = reader.ReadBytes(length);
+            if (payload.Length != length)
+            {
+                throw new SaveLoadException($"Poškozená sekce '{name}' (neúplná data).");
+            }
+
+            using var section = new BinaryReader(new MemoryStream(payload), Encoding.UTF8);
+            ApplySection(name, section, content, simulation);
+        }
+    }
+
+    private static void ApplySection(string name, BinaryReader section, GameContent content, Simulation simulation)
+    {
+        switch (name)
+        {
+            case SectionCore:
+                long tickCount = section.ReadInt64();       // pořadí musí sedět se zápisem
+                simulation.RestoreCore(section.ReadDouble(), tickCount);
+                break;
+            case SectionResources: simulation.RestoreResources(ReadResources(section, content)); break;
+            case SectionBuildings: ReadBuildings(section, content, simulation); break;
+            case SectionRoads: ReadRoads(section, simulation); break;
+            case SectionTech: ReadTech(section, content, simulation); break;
+            case SectionPrestige: ReadPrestige(section, content, simulation); break;
+            case SectionQuests: ReadQuests(section, content, simulation); break;
+            case SectionDiscoveries: ReadDiscoveries(section, simulation); break;
+            case SectionPlanted: ReadPlanted(section, content, simulation); break;
+            case SectionZones: ReadZones(section, content, simulation); break;
+            case SectionPolicies: ReadPolicies(section, content, simulation); break;
+            case SectionGovernor: simulation.RestoreAutoUpgradeLevel(section.ReadInt32()); break;
+            case SectionKnownResources: ReadKnownResources(section, content, simulation); break;
+            case SectionWorldChanges: ReadWorldChanges(section, content, simulation); break;
+            default: break; // neznámá sekce z novější hry — přeskočit, ne spadnout
+        }
+    }
+
+    /// <summary>
+    /// Čtení starého LINEÁRNÍHO těla (v12, v13). Sekce se musí brát v přesném pořadí,
+    /// v jakém je tehdejší writer zapsal — proto zůstává jako oddělená cesta, aby
+    /// sekční čtečku nezaplevelila výjimkami z minulosti.
+    /// </summary>
+    private static void ReadLegacyBody(BinaryReader reader, GameContent content, Simulation simulation, int version)
+    {
+        long tickCount = reader.ReadInt64();
+        double population = reader.ReadDouble();
+        simulation.RestoreState(ReadResources(reader, content), population, tickCount);
+
+        ReadBuildings(reader, content, simulation);
+        ReadRoads(reader, simulation);
+        ReadTech(reader, content, simulation);
+        ReadPrestige(reader, content, simulation);
+        ReadQuests(reader, content, simulation);
+        ReadDiscoveries(reader, simulation);
+        ReadPlanted(reader, content, simulation);
+        ReadZones(reader, content, simulation);
+        ReadPolicies(reader, content, simulation);
+        simulation.RestoreAutoUpgradeLevel(reader.ReadInt32());
+        ReadKnownResources(reader, content, simulation);
+
+        if (version >= 13)
+        {
+            ReadWorldChanges(reader, content, simulation);
         }
     }
 

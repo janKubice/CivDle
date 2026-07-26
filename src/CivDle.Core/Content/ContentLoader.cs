@@ -48,6 +48,7 @@ public sealed class ContentLoader
         var landmarks = LoadLandmarks(Path.Combine(dataDirectory, "landmarks.json"), biomes, resources);
         var features = LoadFeatures(Path.Combine(dataDirectory, "features.json"), resources, buildings, techs);
         var ufo = LoadUfo(Path.Combine(dataDirectory, "ufo.json"));
+        var ambience = LoadAmbience(Path.Combine(dataDirectory, "ambience.json"), biomes, weather);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
         var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features);
@@ -58,7 +59,7 @@ public sealed class ContentLoader
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience);
     }
 
     // ----- éry -----
@@ -220,6 +221,75 @@ public sealed class ContentLoader
         }
 
         return new DefRegistry<FeatureDef>(result, f => f.Id, "funkce", allowEmpty: true);
+    }
+
+    // ----- ambientní kulisa -----
+
+    private static IReadOnlyList<AmbienceDef> LoadAmbience(
+        string path, BiomeRegistry biomes, DefRegistry<WeatherDef> weather)
+    {
+        // Volitelný obsah — bez souboru hraje jen hudba, hra běží dál.
+        if (!File.Exists(path))
+        {
+            return Array.Empty<AmbienceDef>();
+        }
+
+        var file = ReadFile<AmbienceFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var result = new List<AmbienceDef>();
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (dto, i) in (file.Ambience ?? new List<AmbienceDto>()).Select((a, i) => (a, i)))
+        {
+            string id = RequireId(path, dto.Id, $"Kulisa na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID kulisy '{id}'.");
+            }
+
+            var biomeIndices = ResolveIndices(path, id, "biomes", dto.Biomes, biomes, "biom");
+            var weatherIndices = ResolveIndices(path, id, "weather", dto.Weather, weather, "počasí");
+
+            if (dto.NoiseLevel is < 0 or > 1 || dto.ToneLevel is < 0 or > 1 || dto.Volume is < 0 or > 1)
+            {
+                throw new ContentLoadException(path, $"Kulisa '{id}': 'noiseLevel', 'toneLevel' i 'volume' musí být 0–1.");
+            }
+
+            if (dto.ToneHz is < 0 or > 20000 || dto.PulseHz is < 0 or > 20)
+            {
+                throw new ContentLoadException(path, $"Kulisa '{id}': 'toneHz' musí být 0–20000 a 'pulseHz' 0–20.");
+            }
+
+            result.Add(new AmbienceDef(
+                id, biomeIndices, weatherIndices,
+                dto.NoiseLevel, dto.ToneHz, dto.ToneLevel, dto.PulseHz, dto.Volume));
+        }
+
+        return result;
+    }
+
+    /// <summary>Přeloží seznam ID na indexy registru; prázdný seznam = bez omezení.</summary>
+    private static IReadOnlyList<int> ResolveIndices<T>(
+        string path, string owner, string field, string[]? ids, DefRegistry<T> registry, string kind)
+        where T : class
+    {
+        if (ids is null || ids.Length == 0)
+        {
+            return Array.Empty<int>();
+        }
+
+        var indices = new List<int>(ids.Length);
+        foreach (string? id in ids)
+        {
+            if (id is null || !registry.TryIndexOf(id.Trim(), out int index))
+            {
+                throw new ContentLoadException(path, $"Kulisa '{owner}' odkazuje v '{field}' na neexistující {kind} '{id}'.");
+            }
+
+            indices.Add(index);
+        }
+
+        return indices;
     }
 
     // ----- UFO (živá mapa) -----
@@ -833,11 +903,24 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"Budova '{id}': 'powerSupply' i 'powerDemand' musí být 0–1000000.");
         }
 
+        if (dto.ServiceValue is < 0 or > 1_000_000)
+        {
+            throw new ContentLoadException(path, $"Budova '{id}': 'serviceValue' musí být 0–1000000, je {dto.ServiceValue}.");
+        }
+
+        var upkeep = ParseResourceAmounts(path, id, "upkeep", dto.Upkeep, resources);
+        if (upkeep.Count > 0 && dto.ServiceValue <= 0)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}' má 'upkeep', ale nulový 'serviceValue' — platila by se údržba za nic.");
+        }
+
         return new BuildingDef(
             id, category, color, dto.Footprint[0], dto.Footprint[1],
             dto.WorkerSlots, dto.HousingCapacity, buildCost, recipe, mask,
             storageBonus, dto.AutoBuild, dto.Buildable ?? true, upgradesToIndex, upgradeCost,
-            dto.PowerSupply, dto.PowerDemand, dto.RequiresAdjacentWater);
+            dto.PowerSupply, dto.PowerDemand, dto.RequiresAdjacentWater,
+            dto.ServiceValue, upkeep);
     }
 
     // ----- tech tree -----
@@ -1287,6 +1370,16 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"'roads.maxBridgeSpan' musí být 0–64, je {file.Roads.MaxBridgeSpan}.");
         }
 
+        // Nezadaná hodnota = silnice bez mechanického dopadu (zpětně kompatibilní).
+        double disconnectedMult = file.Roads.DisconnectedProductionMult <= 0
+            ? 1.0
+            : file.Roads.DisconnectedProductionMult;
+        if (disconnectedMult > 1.0)
+        {
+            throw new ContentLoadException(path,
+                $"'roads.disconnectedProductionMult' musí být 0–1 (napojení nesmí výrobu snižovat), je {disconnectedMult}.");
+        }
+
         if (file.Settlements is null)
         {
             throw new ContentLoadException(path, "Chybí blok 'settlements' (detekce osad).");
@@ -1376,7 +1469,7 @@ public sealed class ContentLoader
             file.FoodPerPersonPerSecond,
             foodIndex,
             new AutoBuildConfig(file.AutoBuild.IntervalTicks, file.AutoBuild.SearchRadius, file.AutoBuild.PopulationHeadroom),
-            new RoadConfig(roadColor, file.Roads.MaxSearchDistance, file.Roads.MaxBridgeSpan),
+            new RoadConfig(roadColor, file.Roads.MaxSearchDistance, file.Roads.MaxBridgeSpan, disconnectedMult),
             new SettlementConfig(file.Settlements.MinBuildings, file.Settlements.ClusterDistance, file.Settlements.UpdateIntervalTicks),
             new DayNightConfig(
                 file.DayNight.DayLengthSeconds,
@@ -1388,7 +1481,50 @@ public sealed class ContentLoader
             boost,
             harvest,
             dailyReward,
-            planting);
+            planting,
+            ParseHappiness(path, file.Happiness));
+    }
+
+    /// <summary>
+    /// Nastavení spokojenosti. Chybí-li blok v datech, je vrstva vypnutá — starší
+    /// obsah (a testy) se tak chová jako dřív.
+    /// </summary>
+    private static HappinessConfig? ParseHappiness(string path, HappinessDto? dto)
+    {
+        if (dto is null || dto.IntervalTicks <= 0)
+        {
+            return null;
+        }
+
+        if (dto.BaseHappiness is < 0 or > 1)
+        {
+            throw new ContentLoadException(path, $"'happiness.baseHappiness' musí být 0–1, je {dto.BaseHappiness}.");
+        }
+
+        if (dto.ServiceWeight is < 0 or > 1 || dto.OvercrowdingPenalty is < 0 or > 1)
+        {
+            throw new ContentLoadException(path, "'happiness.serviceWeight' i 'overcrowdingPenalty' musí být 0–1.");
+        }
+
+        if (dto.PeoplePerServicePoint <= 0)
+        {
+            throw new ContentLoadException(path,
+                $"'happiness.peoplePerServicePoint' musí být kladné, je {dto.PeoplePerServicePoint}.");
+        }
+
+        if (dto.GrowthFloor is < 0 or > 1)
+        {
+            throw new ContentLoadException(path, $"'happiness.growthFloor' musí být 0–1, je {dto.GrowthFloor}.");
+        }
+
+        if (dto.FreePopulation < 0)
+        {
+            throw new ContentLoadException(path, $"'happiness.freePopulation' nesmí být záporné, je {dto.FreePopulation}.");
+        }
+
+        return new HappinessConfig(
+            dto.IntervalTicks, dto.BaseHappiness, dto.ServiceWeight,
+            dto.OvercrowdingPenalty, dto.PeoplePerServicePoint, dto.GrowthFloor, dto.FreePopulation);
     }
 
     // ----- devlog (volitelný obsah menu) -----
