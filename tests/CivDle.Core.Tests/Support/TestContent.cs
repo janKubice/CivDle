@@ -40,7 +40,8 @@ internal static class TestContent
         IReadOnlyList<EraDef>? eras = null,
         IReadOnlyList<ZoneTypeDef>? zoneTypes = null,
         IReadOnlyList<GrowthPolicyDef>? policies = null,
-        IReadOnlyList<AscensionTierDef>? ascensionTiers = null)
+        IReadOnlyList<AscensionTierDef>? ascensionTiers = null,
+        IReadOnlyList<WeatherDef>? weather = null)
     {
         biomes ??= new[] { WaterBiome(), LandBiome("grass") };
         resources ??= new[] { new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 10, BaseStorage: 1000) };
@@ -57,6 +58,7 @@ internal static class TestContent
         zoneTypes ??= Array.Empty<ZoneTypeDef>();
         policies ??= Array.Empty<GrowthPolicyDef>();
         ascensionTiers ??= Array.Empty<AscensionTierDef>();
+        weather ??= Array.Empty<WeatherDef>();
 
         var preset = new TerrainPreset("test", SeaLevel: 0.5f, fallbackBiomeIndex, Noise, Noise);
         var catalog = new WorldGenCatalog(
@@ -84,7 +86,8 @@ internal static class TestContent
             Array.Empty<DevlogEntry>(),
             new DefRegistry<ZoneTypeDef>(zoneTypes, z => z.Id, "typ zóny", allowEmpty: true),
             new DefRegistry<GrowthPolicyDef>(policies, p => p.Id, "politika", allowEmpty: true),
-            new DefRegistry<AscensionTierDef>(ascensionTiers, t => t.Id, "stupeň měřítka", allowEmpty: true));
+            new DefRegistry<AscensionTierDef>(ascensionTiers, t => t.Id, "stupeň měřítka", allowEmpty: true),
+            new DefRegistry<WeatherDef>(weather, w => w.Id, "počasí", allowEmpty: true));
     }
 
     /// <summary>Výchozí prestige config testů (Vzestup od 50 obyvatel, body = populace ÷ 15).</summary>

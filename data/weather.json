@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "weather": [
+    {
+      "id": "clear",
+      "biomes": ["grassland", "steppe", "beach", "forest", "mountains", "snow_peaks"],
+      "weight": 10,
+      "durationSeconds": 180,
+      "tint": "#FFFFFF",
+      "tintAlpha": 0.0,
+      "particle": "none"
+    },
+    {
+      "id": "rain",
+      "biomes": ["grassland", "forest", "beach"],
+      "weight": 4,
+      "durationSeconds": 90,
+      "tint": "#3E5A7A",
+      "tintAlpha": 0.22,
+      "particle": "rain"
+    },
+    {
+      "id": "fog",
+      "biomes": ["forest", "grassland"],
+      "weight": 2,
+      "durationSeconds": 70,
+      "tint": "#B9C3CC",
+      "tintAlpha": 0.25,
+      "particle": "none"
+    },
+    {
+      "id": "snowfall",
+      "biomes": ["mountains", "snow_peaks"],
+      "weight": 5,
+      "durationSeconds": 110,
+      "tint": "#C9D9EA",
+      "tintAlpha": 0.20,
+      "particle": "snow"
+    },
+    {
+      "id": "heat_haze",
+      "biomes": ["steppe"],
+      "weight": 4,
+      "durationSeconds": 100,
+      "tint": "#E8B45A",
+      "tintAlpha": 0.16,
+      "particle": "none"
+    },
+
+    {
+      "id": "thunderstorm",
+      "biomes": ["grassland", "forest", "beach"],
+      "extreme": true,
+      "productionMult": 0.6,
+      "weight": 1,
+      "durationSeconds": 45,
+      "tint": "#1E2A3E",
+      "tintAlpha": 0.42,
+      "particle": "rain"
+    },
+    {
+      "id": "tornado",
+      "biomes": ["grassland", "steppe"],
+      "extreme": true,
+      "productionMult": 0.4,
+      "weight": 1,
+      "durationSeconds": 35,
+      "tint": "#4A4438",
+      "tintAlpha": 0.45,
+      "particle": "sand"
+    },
+    {
+      "id": "blizzard",
+      "biomes": ["mountains", "snow_peaks"],
+      "extreme": true,
+      "productionMult": 0.45,
+      "weight": 1,
+      "durationSeconds": 50,
+      "tint": "#DCE8F5",
+      "tintAlpha": 0.5,
+      "particle": "snow"
+    },
+    {
+      "id": "sandstorm",
+      "biomes": ["steppe", "beach"],
+      "extreme": true,
+      "productionMult": 0.5,
+      "weight": 1,
+      "durationSeconds": 45,
+      "tint": "#C2954A",
+      "tintAlpha": 0.5,
+      "particle": "sand"
+    }
+  ]
+}

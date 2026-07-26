@@ -28,7 +28,8 @@ public sealed class GameContent
         IReadOnlyList<DevlogEntry> devlog,
         DefRegistry<ZoneTypeDef> zoneTypes,
         DefRegistry<GrowthPolicyDef> policies,
-        DefRegistry<AscensionTierDef> ascensionTiers)
+        DefRegistry<AscensionTierDef> ascensionTiers,
+        DefRegistry<WeatherDef> weather)
     {
         Biomes = biomes;
         Resources = resources;
@@ -51,6 +52,7 @@ public sealed class GameContent
         ZoneTypes = zoneTypes;
         Policies = policies;
         AscensionTiers = ascensionTiers;
+        Weather = weather;
     }
 
     /// <summary>Definice technologií z <c>data/tech.json</c> (tech tree).</summary>
@@ -85,6 +87,9 @@ public sealed class GameContent
 
     /// <summary>Stupně měřítka z <c>data/ascension-tiers.json</c> (stropy populace, megastruktury; smí být prázdné).</summary>
     public DefRegistry<AscensionTierDef> AscensionTiers { get; }
+
+    /// <summary>Počasí z <c>data/weather.json</c> (živá mapa; smí být prázdné).</summary>
+    public DefRegistry<WeatherDef> Weather { get; }
 
     /// <summary>Vývojový deník z <c>data/devlog.json</c> (smí být prázdný).</summary>
     public IReadOnlyList<DevlogEntry> Devlog { get; }

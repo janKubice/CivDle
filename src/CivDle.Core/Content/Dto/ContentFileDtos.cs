@@ -207,6 +207,21 @@ public sealed record PoliciesFileDto(int SchemaVersion, List<PolicyDto>? Policie
 /// <summary>Jedna politika růstu tak, jak leží v JSON.</summary>
 public sealed record PolicyDto(string? Id, string? Effect, double Magnitude);
 
+/// <summary>Obsah souboru <c>data/weather.json</c> (počasí vázané na biom).</summary>
+public sealed record WeatherFileDto(int SchemaVersion, List<WeatherDto>? Weather);
+
+/// <summary>Jeden jev počasí tak, jak leží v JSON.</summary>
+public sealed record WeatherDto(
+    string? Id,
+    string[]? Biomes,
+    bool Extreme,
+    double ProductionMult,
+    double DurationSeconds,
+    double Weight,
+    string? Tint,
+    double TintAlpha,
+    string? Particle);
+
 /// <summary>Obsah souboru <c>data/ascension-tiers.json</c> (stupně měřítka).</summary>
 public sealed record AscensionTiersFileDto(int SchemaVersion, List<AscensionTierDto>? Tiers);
 
@@ -261,4 +276,7 @@ public sealed record TerrainPresetDto(
     double SeaLevel,
     string? FallbackBiome,
     NoiseDto? ElevationNoise,
-    NoiseDto? MoistureNoise);
+    NoiseDto? MoistureNoise,
+    NoiseDto? RiverNoise,
+    double RiverWidth,
+    double RiverMaxElevation);

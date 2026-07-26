@@ -20,10 +20,15 @@ public sealed class ProceduralTerrain : ITerrain
     // Sůl pro odvození seedu vlhkosti, aby výška a vlhkost nebyly korelované.
     private const ulong MoistureSeedSalt = 0x9E3779B97F4A7C15UL;
 
+    // Sůl pro seed řek — nezávislý na výšce i vlhkosti.
+    private const ulong RiverSeedSalt = 0xD1B54A32D192ED03UL;
+
     private readonly BiomeRegistry _biomes;
     private readonly TerrainPreset _preset;
     private readonly FractalNoise _elevationNoise;
     private readonly FractalNoise _moistureNoise;
+    private readonly FractalNoise? _riverNoise;
+    private readonly int _riverBiome;
     private readonly int[] _waterBiomes;
     private readonly int[] _landBiomes;
 
@@ -34,6 +39,9 @@ public sealed class ProceduralTerrain : ITerrain
         Seed = seed;
         _elevationNoise = new FractalNoise(seed, preset.ElevationNoise);
         _moistureNoise = new FractalNoise(DeriveMoistureSeed(seed), preset.MoistureNoise);
+        _riverNoise = preset.RiverNoise is null || preset.RiverWidth <= 0f
+            ? null
+            : new FractalNoise(DeriveSeed(seed, RiverSeedSalt), preset.RiverNoise);
 
         var water = new List<int>();
         var land = new List<int>();
@@ -44,6 +52,17 @@ public sealed class ProceduralTerrain : ITerrain
 
         _waterBiomes = water.ToArray();
         _landBiomes = land.ToArray();
+
+        // Řeka je mělká voda — najdi vodní biom pokrývající nulovou hloubku (pobřeží).
+        _riverBiome = _waterBiomes.Length > 0 ? _waterBiomes[^1] : 0;
+        foreach (int index in _waterBiomes)
+        {
+            if (biomes[index].DepthRange.Contains(0f))
+            {
+                _riverBiome = index;
+                break;
+            }
+        }
     }
 
     /// <summary>Seed, ze kterého terén vznikl (pro serializaci savu).</summary>
@@ -58,10 +77,45 @@ public sealed class ProceduralTerrain : ITerrain
     /// <summary>Vlhkost 0–1 (řídí vegetaci, suroviny a dekorace).</summary>
     public float MoistureAt(int x, int y) => _moistureNoise.Sample01(x * FrequencyScale, y * FrequencyScale);
 
+    /// <summary>
+    /// Je na dlaždici řeka? Řeka vzniká z „hřebene" šumu: hodnoty blízko 0.5 tvoří
+    /// souvislé vinoucí se linie (ridged noise), takže řeka je spojitá a přitom
+    /// pořád jen čistá funkce souřadnic — nemusí se generovat dopředu ani ukládat.
+    /// Nad zadanou výškou (hory) řeky nevedou, ať krajina působí přirozeně.
+    /// </summary>
+    public bool IsRiver(int x, int y)
+    {
+        if (_riverNoise is null)
+        {
+            return false;
+        }
+
+        float elevation = ElevationAt(x, y);
+        if (elevation < _preset.SeaLevel)
+        {
+            return false; // v moři nemá řeka smysl
+        }
+
+        float landElevation = (elevation - _preset.SeaLevel) / (1f - _preset.SeaLevel);
+        if (landElevation > _preset.RiverMaxElevation)
+        {
+            return false;
+        }
+
+        float ridge = Math.Abs(_riverNoise.Sample01(x * FrequencyScale, y * FrequencyScale) - 0.5f);
+        return ridge < _preset.RiverWidth;
+    }
+
     public byte BiomeAt(int x, int y)
     {
         float elevation = ElevationAt(x, y);
         float moisture = MoistureAt(x, y);
+
+        // Řeka přebíjí pevninský biom — je to voda uprostřed souše.
+        if (elevation >= _preset.SeaLevel && IsRiver(x, y))
+        {
+            return (byte)_riverBiome;
+        }
 
         if (elevation < _preset.SeaLevel)
         {
@@ -92,9 +146,12 @@ public sealed class ProceduralTerrain : ITerrain
         return (byte)_preset.FallbackBiomeIndex;
     }
 
-    private static long DeriveMoistureSeed(long seed)
+    private static long DeriveMoistureSeed(long seed) => DeriveSeed(seed, MoistureSeedSalt);
+
+    /// <summary>Odvodí nezávislý seed pro další vrstvu šumu, ať spolu vrstvy nekorelují.</summary>
+    private static long DeriveSeed(long seed, ulong salt)
     {
-        var rng = new SplitMix64(unchecked((ulong)seed ^ MoistureSeedSalt));
+        var rng = new SplitMix64(unchecked((ulong)seed ^ salt));
         return unchecked((long)rng.Next());
     }
 }

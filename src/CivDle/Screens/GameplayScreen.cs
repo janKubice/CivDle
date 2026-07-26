@@ -41,6 +41,7 @@ public sealed class GameplayScreen : IScreen
     private readonly HarvestableRenderer _harvestables;
     private readonly RoadRenderer _roadRenderer;
     private readonly ZoneRenderer _zoneRenderer;
+    private readonly WeatherRenderer _weatherRenderer;
     private readonly BuildingRenderer _buildingRenderer;
     private readonly LightsRenderer _lightsRenderer;
     private readonly FaunaSystem _fauna;
@@ -71,6 +72,7 @@ public sealed class GameplayScreen : IScreen
     private Label _eraLabel = null!;
     private Label _tierLabel = null!;
     private Label _powerLabel = null!;
+    private Label _weatherLabel = null!;
     private Label _dayLabel = null!;
     private Label _cursorLabel = null!;
     private Label _statusLabel = null!;
@@ -142,6 +144,7 @@ public sealed class GameplayScreen : IScreen
         _harvestables = new HarvestableRenderer(screens.Sprites, screens.Content);
         _roadRenderer = new RoadRenderer(screens.WhitePixel, screens.Content);
         _zoneRenderer = new ZoneRenderer(screens.WhitePixel, screens.Content);
+        _weatherRenderer = new WeatherRenderer(screens.WhitePixel, screens.Content);
         _buildingRenderer = new BuildingRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
         _lightsRenderer = new LightsRenderer(screens.WhitePixel, screens.Content);
         _fauna = new FaunaSystem(screens.Content);
@@ -267,6 +270,7 @@ public sealed class GameplayScreen : IScreen
             _discoveries.Update(dt);
         }
 
+        _weatherRenderer.Update(dt, _simulation, _screens.GraphicsDevice.Viewport);
         _minimap.Update(dt, _camera, _simulation);
         DrainNotifications();
         _toasts.Update(dt);
@@ -339,6 +343,7 @@ public sealed class GameplayScreen : IScreen
             _zoneRenderer.DrawPreview(spriteBatch, _camera, _zonePaintTypeIndex, x, y, width, height);
         }
 
+        _weatherRenderer.Draw(spriteBatch, _screens.GraphicsDevice.Viewport); // závoj + srážky nad scénou
         _vignette.Draw(spriteBatch, _screens.GraphicsDevice.Viewport); // decentní sevření pohledu, pod HUD
         _desktop.Render();
 
@@ -935,12 +940,14 @@ public sealed class GameplayScreen : IScreen
         _eraLabel = new Label { TextColor = new Color(210, 185, 120), HorizontalAlignment = HorizontalAlignment.Right };
         _tierLabel = new Label { TextColor = new Color(190, 160, 230), HorizontalAlignment = HorizontalAlignment.Right };
         _powerLabel = new Label { TextColor = new Color(120, 200, 240), HorizontalAlignment = HorizontalAlignment.Right };
+        _weatherLabel = new Label { TextColor = new Color(170, 200, 220), HorizontalAlignment = HorizontalAlignment.Right };
         _dayLabel = new Label { TextColor = UiFactory.Accent };
         _cursorLabel = new Label { TextColor = Color.LightGray };
         var worldInfoStack = new VerticalStackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Right };
         worldInfoStack.Widgets.Add(_eraLabel);
         worldInfoStack.Widgets.Add(_tierLabel);
         worldInfoStack.Widgets.Add(_powerLabel);
+        worldInfoStack.Widgets.Add(_weatherLabel);
         worldInfoStack.Widgets.Add(_dayLabel);
         worldInfoStack.Widgets.Add(_cursorLabel);
         var topRight = UiFactory.DarkPanel(worldInfoStack);
@@ -1319,6 +1326,29 @@ public sealed class GameplayScreen : IScreen
         else
         {
             _tierLabel.Text = string.Empty;
+        }
+
+        // Počasí: ambientní jen informuje, extrémní varuje (oranžově) i s odpočtem —
+        // hráč má vědět, proč mu zrovna teď klesla výroba.
+        int weatherIndex = _simulation.CurrentWeatherIndex;
+        if (weatherIndex >= 0)
+        {
+            string weatherName = loc[_screens.Content.Weather[weatherIndex].NameKey];
+            if (_simulation.IsExtremeWeather)
+            {
+                _weatherLabel.Text = loc.Format("hud.weatherExtreme", weatherName,
+                    (int)MathF.Ceiling((float)_simulation.WeatherSecondsRemaining));
+                _weatherLabel.TextColor = new Color(240, 170, 80);
+            }
+            else
+            {
+                _weatherLabel.Text = loc.Format("hud.weather", weatherName);
+                _weatherLabel.TextColor = new Color(170, 200, 220);
+            }
+        }
+        else
+        {
+            _weatherLabel.Text = string.Empty;
         }
 
         // Rozvodná síť: zobraz se až když má město spotřebiče; červená = nedostatek.

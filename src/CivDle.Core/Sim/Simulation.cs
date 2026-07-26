@@ -30,6 +30,7 @@ public sealed class Simulation
     private readonly AutoBuildSystem _autoBuild;
     private readonly ZoneFillSystem _zoneFill;
     private readonly ColonySystem _colonySystem;
+    private readonly WeatherSystem _weatherSystem;
     private readonly List<Zone> _zones = new(); // hráčem namalované zóny (automatizace, stupeň 3)
     private readonly RoadBuilder _roadBuilder;
     private readonly SettlementSystem _settlementSystem;
@@ -95,6 +96,7 @@ public sealed class Simulation
         _autoBuild = new AutoBuildSystem(content, seed);
         _zoneFill = new ZoneFillSystem(content, seed);
         _colonySystem = new ColonySystem(content, seed);
+        _weatherSystem = new WeatherSystem(content, seed);
         _roadBuilder = new RoadBuilder(content);
         _settlementSystem = new SettlementSystem(content, seed);
         _questSystem = new QuestSystem(content);
@@ -655,6 +657,52 @@ public sealed class Simulation
         if (typeIndex >= 0 && typeIndex < _content.ZoneTypes.Count && width > 0 && height > 0)
         {
             _zones.Add(new Zone(typeIndex, x, y, width, height));
+        }
+    }
+
+    // ----- počasí (živá mapa) -----
+
+    /// <summary>
+    /// Biom, ve kterém město stojí (podle první budovy) — počasí je vázané na něj.
+    /// Bez budov padne na biom v počátku souřadnic.
+    /// </summary>
+    public int CityBiome => _buildingCount > 0
+        ? Terrain.BiomeAt(_buildings[0].X, _buildings[0].Y)
+        : Terrain.BiomeAt(0, 0);
+
+    /// <summary>Index aktuálního jevu počasí, nebo −1 (žádné počasí v datech / pro biom).</summary>
+    public int CurrentWeatherIndex
+    {
+        get
+        {
+            int index = _weatherSystem.CurrentWeather(CityBiome, TickCount);
+            return _weatherSystem.IsActive(index, TickCount) ? index : -1;
+        }
+    }
+
+    /// <summary>Kolik sekund zbývá do konce aktuálního jevu (0 = žádný neběží).</summary>
+    public double WeatherSecondsRemaining => _weatherSystem.SecondsRemaining(CurrentWeatherIndex, TickCount);
+
+    /// <summary>
+    /// Násobič výroby od počasí. Extrémní jev (tornádo, vánice…) flow dočasně sníží,
+    /// ambientní počasí ho nechá být. Nikdy nic neničí — jen zpomalí (soft pressure).
+    /// </summary>
+    public double WeatherProductionMult
+    {
+        get
+        {
+            int index = CurrentWeatherIndex;
+            return index < 0 ? 1.0 : _content.Weather[index].ProductionMult;
+        }
+    }
+
+    /// <summary>Probíhá právě extrémní jev (katastrofa)? Pro HUD a varování.</summary>
+    public bool IsExtremeWeather
+    {
+        get
+        {
+            int index = CurrentWeatherIndex;
+            return index >= 0 && _content.Weather[index].Extreme;
         }
     }
 

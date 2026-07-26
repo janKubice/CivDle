@@ -405,6 +405,17 @@
     "building.charcoal_kiln": "Milíř",
     "building.machine_shop": "Strojírna",
     "building.solar_array": "Solární pole",
-    "building.hydroponics": "Hydroponie"
+    "building.hydroponics": "Hydroponie",
+    "weather.clear": "Jasno",
+    "weather.rain": "Déšť",
+    "weather.fog": "Mlha",
+    "weather.snowfall": "Sněžení",
+    "weather.heat_haze": "Vedro",
+    "weather.thunderstorm": "Bouřka",
+    "weather.tornado": "Tornádo",
+    "weather.blizzard": "Vánice",
+    "weather.sandstorm": "Písečná bouře",
+    "hud.weather": "Počasí: {0}",
+    "hud.weatherExtreme": "{0}! Výroba zpomalena ({1} s)"
   }
 }
