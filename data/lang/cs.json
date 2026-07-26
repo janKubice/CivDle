@@ -746,6 +746,13 @@
     "howto.5": "5 · Vzestup. Až bude město dost velké, restartuješ ho ve větším měřítku a trvalé bonusy si necháš.",
     "howto.6": "6 · Cíl: udělat z jedné osady aglomeraci o milionech. Sledovač vlevo ti vždycky řekne další krok.",
     "hud.idleBuildings": "{0} bez dělníků",
-    "tip.idleBuildings": "Tyhle budovy nemá kdo obsadit, takže nevyrábějí. Dělníci jdou nejdřív do nejstarších budov — nech vyrůst populaci, nebo zbourej, co nepotřebuješ."
+    "tip.idleBuildings": "Tyhle budovy nemá kdo obsadit, takže nevyrábějí. Dělníci jdou nejdřív do nejstarších budov — nech vyrůst populaci, nebo zbourej, co nepotřebuješ.",
+    "devlog.know_what_to_do.title": "Vědět, co dělat",
+    "devlog.know_what_to_do.line1": "Průvodce prvními kroky: vždycky jeden zvýrazněný další krok, věta o tom, jak na to, a tlačítko, které rovnou otevře, co je potřeba.",
+    "devlog.know_what_to_do.line2": "Dělníci jdou tam, kde je nedostatek, budovu po budově. Stavět víc už nikdy nezpomalí to, co už stojí.",
+    "devlog.know_what_to_do.line3": "Z terraformace je plnohodnotný nástroj — zavlažit, vysušit, srovnat, zalesnit, roztát — odemykaný výzkumem.",
+    "devlog.know_what_to_do.line4": "Každá budova má svůj model a každá surovina ikonu. Žádné barevné čtverečky.",
+    "devlog.know_what_to_do.line5": "Strom technologií je poskládaný do hvězdice, popisky hned říkají, jestli na to máš, a vozy jezdí po silnicích.",
+    "devlog.know_what_to_do.line6": "Autosave každé dvě minuty i při odchodu, stránka „Jak se to hraje“, 65 achievementů a historické názvy měst."
   }
 }

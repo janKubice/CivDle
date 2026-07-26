@@ -746,6 +746,13 @@
     "howto.5": "5 · Ascend. Once your city is big enough you can restart at a larger scale, keeping permanent bonuses.",
     "howto.6": "6 · The goal: turn one settlement into an agglomeration of millions. The tracker on the left always names your next step.",
     "hud.idleBuildings": "{0} idle (no workers)",
-    "tip.idleBuildings": "These buildings have nobody to staff them, so they produce nothing. Workers go to the oldest buildings first — grow the population, or demolish what you do not need."
+    "tip.idleBuildings": "These buildings have nobody to staff them, so they produce nothing. Workers go to the oldest buildings first — grow the population, or demolish what you do not need.",
+    "devlog.know_what_to_do.title": "Knowing what to do",
+    "devlog.know_what_to_do.line1": "A guided opening: one highlighted next step at a time, with a sentence on how to do it and a button that opens whatever it needs.",
+    "devlog.know_what_to_do.line2": "Workers now go where the city is short, building by building. Building more never slows down what you already have.",
+    "devlog.know_what_to_do.line3": "Terraforming grew into a real tool — irrigate, drain, level, afforest, thaw — unlocked by research.",
+    "devlog.know_what_to_do.line4": "Every building has its own model, and every resource its own icon. No more coloured squares.",
+    "devlog.know_what_to_do.line5": "The tech tree is laid out as a star, tooltips say at a glance whether you can afford something, and carts follow the roads.",
+    "devlog.know_what_to_do.line6": "Autosave every two minutes and on the way out, a How to Play page, 65 achievements, and historical city names."
   }
 }

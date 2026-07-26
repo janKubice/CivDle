@@ -3,6 +3,11 @@
   "_comment": "Deník změn: text je v data/lang/*.json pod devlog.<id>.title a devlog.<id>.lineN. Data drží jen pořadí, datum a počet řádků.",
   "entries": [
     {
+      "id": "know_what_to_do",
+      "date": "2026-07-26",
+      "lineCount": 6
+    },
+    {
       "id": "come_back_and_click",
       "date": "2026-07-21",
       "lineCount": 5
