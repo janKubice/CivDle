@@ -51,8 +51,15 @@ public sealed record BuildingDef(
     int UpgradesToIndex,
     IReadOnlyList<ResourceAmount> UpgradeCost,
     int PowerSupply,
-    int PowerDemand)
+    int PowerDemand,
+    bool RequiresAdjacentWater = false)
 {
+    /// <summary>
+    /// Musí budova sousedit s vodou? Přístavy a rybolov dávají smysl jen na břehu —
+    /// tím dostává pobřeží ekonomickou identitu (living-map.md §5).
+    /// </summary>
+    public bool NeedsWaterAccess => RequiresAdjacentWater;
+
     /// <summary>Potřebuje budova ke své výrobě elektřinu?</summary>
     public bool NeedsPower => PowerDemand > 0;
 

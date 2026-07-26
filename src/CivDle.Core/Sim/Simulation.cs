@@ -431,6 +431,12 @@ public sealed class Simulation
             }
         }
 
+        // Přístav a rybolov musí stát na břehu — jinak by „pobřežní" budovy ztratily smysl.
+        if (def.NeedsWaterAccess && !HasAdjacentWater(def, x, y))
+        {
+            return PlacementResult.NeedsWaterAccess;
+        }
+
         var cost = def.BuildCost;
         for (int i = 0; i < cost.Count; i++)
         {
@@ -442,6 +448,30 @@ public sealed class Simulation
 
         return PlacementResult.Ok;
     }
+
+    /// <summary>Dotýká se půdorys budovy aspoň jednou stranou vody (moře, jezera či řeky)?</summary>
+    private bool HasAdjacentWater(BuildingDef def, int x, int y)
+    {
+        for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
+        {
+            if (IsWaterTile(tileX, y - 1) || IsWaterTile(tileX, y + def.FootprintHeight))
+            {
+                return true;
+            }
+        }
+
+        for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
+        {
+            if (IsWaterTile(x - 1, tileY) || IsWaterTile(x + def.FootprintWidth, tileY))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool IsWaterTile(int x, int y) => _content.Biomes[Terrain.BiomeAt(x, y)].IsWater;
 
     /// <summary>Příkaz hráče: postavit budovu. Odečte cenu a obsadí dlaždice.</summary>
     public PlacementResult TryPlaceBuilding(int defIndex, int x, int y)

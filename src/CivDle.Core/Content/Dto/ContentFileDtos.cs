@@ -47,7 +47,8 @@ public sealed record BuildingDto(
     string? UpgradesTo,
     Dictionary<string, int>? UpgradeCost,
     int PowerSupply,
-    int PowerDemand);
+    int PowerDemand,
+    bool RequiresAdjacentWater);
 
 /// <summary>Výrobní recept budovy tak, jak leží v JSON.</summary>
 public sealed record RecipeDto(

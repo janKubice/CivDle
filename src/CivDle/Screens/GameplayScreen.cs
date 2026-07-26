@@ -1448,6 +1448,7 @@ public sealed class GameplayScreen : IScreen
         PlacementResult.Occupied => "build.error.occupied",
         PlacementResult.WrongBiome => "build.error.wrongBiome",
         PlacementResult.NotEnoughResources => "build.error.resources",
+        PlacementResult.NeedsWaterAccess => "build.error.waterAccess",
         _ => "build.title",
     };
 }

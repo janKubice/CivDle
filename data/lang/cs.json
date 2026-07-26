@@ -416,6 +416,10 @@
     "weather.blizzard": "Vánice",
     "weather.sandstorm": "Písečná bouře",
     "hud.weather": "Počasí: {0}",
-    "hud.weatherExtreme": "{0}! Výroba zpomalena ({1} s)"
+    "hud.weatherExtreme": "{0}! Výroba zpomalena ({1} s)",
+    "building.harbor": "Přístav",
+    "building.fishery": "Rybářský přístav",
+    "building.deep_sea_port": "Hlubinný přístav",
+    "build.error.waterAccess": "Musí stát u vody (břeh, jezero či řeka)"
   }
 }

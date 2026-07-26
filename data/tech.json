@@ -9,7 +9,7 @@
     {
       "id": "trade",
       "cost": { "wood": 30, "planks": 20 },
-      "unlocks": ["market"]
+      "unlocks": ["market", "harbor", "fishery"]
     },
     {
       "id": "tools",
@@ -74,7 +74,7 @@
     },
 
     { "id": "assembly_line", "cost": { "steel": 40, "machine_parts": 20 }, "prerequisites": ["electrification"], "effect": "production_mult", "magnitude": 0.50 },
-    { "id": "rail_freight",  "cost": { "steel": 50, "coal": 60 },          "prerequisites": ["steam_power"],     "effect": "storage_mult",    "magnitude": 0.60 },
+    { "id": "rail_freight",  "cost": { "steel": 50, "coal": 60 },          "prerequisites": ["steam_power"],     "effect": "storage_mult",    "magnitude": 0.60, "unlocks": ["deep_sea_port"] },
     { "id": "public_health", "cost": { "steel": 30, "food": 150 },         "prerequisites": ["sanitation", "steam_power"], "effect": "growth_mult", "magnitude": 0.50 },
     { "id": "steel_frames",  "cost": { "steel": 60, "machine_parts": 15 }, "prerequisites": ["brickwork", "electrification"], "effect": "housing_mult", "magnitude": 0.50 },
     { "id": "telegraph",     "cost": { "steel": 25, "electronics": 5 },    "prerequisites": ["electrification"], "effect": "offline_mult",    "magnitude": 0.40 },

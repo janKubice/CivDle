@@ -416,6 +416,10 @@
     "weather.blizzard": "Blizzard",
     "weather.sandstorm": "Sandstorm",
     "hud.weather": "Weather: {0}",
-    "hud.weatherExtreme": "{0}! Production slowed ({1}s)"
+    "hud.weatherExtreme": "{0}! Production slowed ({1}s)",
+    "building.harbor": "Harbor",
+    "building.fishery": "Fishery",
+    "building.deep_sea_port": "Deep-Sea Port",
+    "build.error.waterAccess": "Must be built next to water (shore, lake or river)"
   }
 }

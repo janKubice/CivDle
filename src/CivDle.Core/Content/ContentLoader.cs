@@ -638,7 +638,7 @@ public sealed class ContentLoader
             id, category, color, dto.Footprint[0], dto.Footprint[1],
             dto.WorkerSlots, dto.HousingCapacity, buildCost, recipe, mask,
             storageBonus, dto.AutoBuild, dto.Buildable ?? true, upgradesToIndex, upgradeCost,
-            dto.PowerSupply, dto.PowerDemand);
+            dto.PowerSupply, dto.PowerDemand, dto.RequiresAdjacentWater);
     }
 
     // ----- tech tree -----

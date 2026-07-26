@@ -453,6 +453,44 @@
       "allowedBiomes": ["grassland", "steppe", "beach", "mountains", "snow_peaks"]
     },
     {
+      "id": "harbor",
+      "category": "civic",
+      "mapColor": "#3E7CA8",
+      "footprint": [2, 2],
+      "workerSlots": 4,
+      "housingCapacity": 3,
+      "buildCost": { "planks": 25, "stone": 15 },
+      "storage": { "food": 250, "wood": 200, "planks": 150, "stone": 150 },
+      "requiresAdjacentWater": true,
+      "allowedBiomes": ["beach", "grassland", "steppe"],
+      "buildable": false
+    },
+    {
+      "id": "fishery",
+      "category": "production",
+      "mapColor": "#2E8B9E",
+      "footprint": [2, 2],
+      "workerSlots": 5,
+      "buildCost": { "planks": 20, "tools": 6 },
+      "recipe": { "output": { "food": 9 }, "timeTicks": 45 },
+      "requiresAdjacentWater": true,
+      "allowedBiomes": ["beach", "grassland", "steppe"],
+      "buildable": false
+    },
+    {
+      "id": "deep_sea_port",
+      "category": "civic",
+      "mapColor": "#2B5F80",
+      "footprint": [3, 3],
+      "workerSlots": 20,
+      "housingCapacity": 10,
+      "buildCost": { "steel": 60, "machine_parts": 25 },
+      "storage": { "food": 2000, "wood": 1500, "planks": 1200, "stone": 1200, "iron": 800, "steel": 800, "coal": 800 },
+      "requiresAdjacentWater": true,
+      "allowedBiomes": ["beach", "grassland", "steppe"],
+      "buildable": false
+    },
+    {
       "id": "megacity_spire",
       "category": "megastructure",
       "mapColor": "#9C6ADE",
