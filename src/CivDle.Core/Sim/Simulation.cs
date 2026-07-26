@@ -40,6 +40,7 @@ public sealed class Simulation
     private readonly RoadBuilder _roadBuilder;
     private readonly SettlementSystem _settlementSystem;
     private readonly QuestSystem _questSystem;
+    private readonly TutorialSystem _tutorialSystem;
     private readonly bool[] _questsCompleted;
     private readonly AchievementSystem _achievementSystem;
     private readonly bool[] _achievementsUnlocked;
@@ -117,6 +118,7 @@ public sealed class Simulation
         _roadBuilder = new RoadBuilder(content);
         _settlementSystem = new SettlementSystem(content, seed);
         _questSystem = new QuestSystem(content);
+        _tutorialSystem = new TutorialSystem(content);
         _questsCompleted = new bool[content.Quests.Count];
         _achievementSystem = new AchievementSystem(content);
         _achievementsUnlocked = new bool[content.Achievements.Count];
@@ -653,6 +655,7 @@ public sealed class Simulation
         _settlementSystem.Tick(this);
         _happinessSystem.Tick(this);
         _questSystem.Tick(this);
+        _tutorialSystem.Tick(this);
         _achievementSystem.Tick(this);
 
         // Těžiště města a UFO nejsou hot path — stačí je řešit jednou za čas.
@@ -1647,6 +1650,30 @@ public sealed class Simulation
 
     /// <summary>Označí úkol jako splněný při načtení savu (bez odměny).</summary>
     internal void RestoreQuestCompleted(int questIndex) => _questsCompleted[questIndex] = true;
+
+    // ----- průvodce prvními kroky -----
+
+    /// <summary>
+    /// Kolikátý krok průvodce je na řadě (0 = první). Rovná se počtu kroků,
+    /// když je průvodce dokončený; větší hodnota znamená ručně přeskočený.
+    /// </summary>
+    public int TutorialStep { get; internal set; }
+
+    /// <summary>Nemá už průvodce co říct (dokončený nebo přeskočený)?</summary>
+    public bool IsTutorialFinished => TutorialStep >= _content.Tutorial.Count;
+
+    /// <summary>Aktivní krok průvodce, nebo <c>null</c>, když je hotovo.</summary>
+    public TutorialStepDef? CurrentTutorialStep =>
+        IsTutorialFinished ? null : _content.Tutorial[TutorialStep];
+
+    /// <summary>
+    /// Vypne průvodce natrvalo (tlačítko „Přeskočit"). Hráč, který ví, co dělá,
+    /// nemá být nucen odklikat devět kroků.
+    /// </summary>
+    public void SkipTutorial() => TutorialStep = _content.Tutorial.Count;
+
+    /// <summary>Obnoví postup průvodce ze savu (bez oznámení).</summary>
+    internal void RestoreTutorialStep(int step) => TutorialStep = Math.Max(0, step);
 
     // ----- achievementy (účet-wide) -----
 

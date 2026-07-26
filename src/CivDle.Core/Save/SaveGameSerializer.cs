@@ -56,6 +56,7 @@ public sealed class SaveGameSerializer
     private const string SectionGovernor = "governor";
     private const string SectionKnownResources = "known";
     private const string SectionWorldChanges = "world";
+    private const string SectionTutorial = "tutorial";
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -93,6 +94,7 @@ public sealed class SaveGameSerializer
         WriteSection(writer, SectionGovernor, w => w.Write(simulation.AutoUpgradeLevelRaw));
         WriteSection(writer, SectionKnownResources, w => WriteKnownResources(w, simulation));
         WriteSection(writer, SectionWorldChanges, w => WriteWorldChanges(w, simulation));
+        WriteSection(writer, SectionTutorial, w => w.Write(simulation.TutorialStep));
     }
 
     /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
@@ -227,6 +229,7 @@ public sealed class SaveGameSerializer
             case SectionGovernor: simulation.RestoreAutoUpgradeLevel(section.ReadInt32()); break;
             case SectionKnownResources: ReadKnownResources(section, content, simulation); break;
             case SectionWorldChanges: ReadWorldChanges(section, content, simulation); break;
+            case SectionTutorial: simulation.RestoreTutorialStep(section.ReadInt32()); break;
             default: break; // neznámá sekce z novější hry — přeskočit, ne spadnout
         }
     }

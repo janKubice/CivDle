@@ -34,7 +34,8 @@ public sealed class GameContent
         DefRegistry<FeatureDef> features,
         UfoConfig ufo,
         IReadOnlyList<AmbienceDef> ambience,
-        DefRegistry<TerraformDef> terraform)
+        DefRegistry<TerraformDef> terraform,
+        IReadOnlyList<TutorialStepDef> tutorial)
     {
         Biomes = biomes;
         Resources = resources;
@@ -63,6 +64,7 @@ public sealed class GameContent
         Ufo = ufo;
         Ambience = ambience;
         Terraform = terraform;
+        Tutorial = tutorial;
     }
 
     /// <summary>Definice technologií z <c>data/tech.json</c> (tech tree).</summary>
@@ -115,6 +117,9 @@ public sealed class GameContent
 
     /// <summary>Nástroje na přetváření krajiny z <c>data/terraform.json</c> (smí být prázdné).</summary>
     public DefRegistry<TerraformDef> Terraform { get; }
+
+    /// <summary>Kroky průvodce prvními kroky z <c>data/tutorial.json</c> (v pořadí; smí být prázdné).</summary>
+    public IReadOnlyList<TutorialStepDef> Tutorial { get; }
 
     /// <summary>Vývojový deník z <c>data/devlog.json</c> (smí být prázdný).</summary>
     public IReadOnlyList<DevlogEntry> Devlog { get; }

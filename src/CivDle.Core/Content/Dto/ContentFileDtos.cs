@@ -205,6 +205,15 @@ public sealed record DynamicQuestDto(
     Dictionary<string, int>? Reward,
     double RewardGrowth);
 
+/// <summary>Obsah souboru <c>data/tutorial.json</c> (průvodce prvními kroky).</summary>
+public sealed record TutorialFileDto(int SchemaVersion, List<TutorialStepDto>? Steps);
+
+/// <summary>Jeden krok průvodce tak, jak leží v JSON.</summary>
+public sealed record TutorialStepDto(string? Id, GoalConditionDto? Condition, FocusHintDto? Focus);
+
+/// <summary>Ukazatel „kam se podívat" tak, jak leží v JSON.</summary>
+public sealed record FocusHintDto(string? Kind, string? Building, string? Target);
+
 /// <summary>Obsah souboru <c>data/eras.json</c> (éry civilizace T0–T6).</summary>
 public sealed record ErasFileDto(int SchemaVersion, List<EraDto>? Eras);
 

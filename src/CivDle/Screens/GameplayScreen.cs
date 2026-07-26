@@ -77,6 +77,7 @@ public sealed class GameplayScreen : IScreen
     private float _rateTimer;
     private Label _populationLabel = null!;
     private Label _eraLabel = null!;
+    private Label _eraNextLabel = null!;
     private Label _tierLabel = null!;
     private Label _powerLabel = null!;
     private Label _weatherLabel = null!;
@@ -88,9 +89,7 @@ public sealed class GameplayScreen : IScreen
     private HorizontalStackPanel _buildItemsPanel = null!;
     private string _selectedCategory = string.Empty;
     private readonly List<(int DefIndex, Button Button, Label PriceLabel)> _buildButtons = new();
-    private VerticalStackPanel _goalsPanel = null!;
-    private readonly List<(GoalCondition Condition, Label Progress, ProgressBar Bar)> _goalSlots = new();
-    private bool _goalsDirty = true;
+    private ObjectiveTracker _objectives = null!;
     private readonly Queue<IScreen> _pendingIntros = new(); // uvítací overlaye (offline, denní odměna)
     private readonly Random _eventRng = new();
     private float _eventTimer;
@@ -113,7 +112,6 @@ public sealed class GameplayScreen : IScreen
     private float _autosaveTimer = AutosaveIntervalSeconds;
 
     /// <summary>Šířka pruhu pokroku ve sledovači úkolů (v pixelech).</summary>
-    private const int GoalBarWidth = 180;
 
     /// <summary>Nástroje mapy (stavba, sázení, zóny, přesun) i s jejich stavem.</summary>
     private readonly MapTools _tools;
@@ -192,7 +190,7 @@ public sealed class GameplayScreen : IScreen
         // nebo zresetovat éru — stavební menu přebuduj a srovnej počítadlo budov,
         // ať po Vzestupu (reset na 0 budov) nevystřelí prach za „nové" budovy.
         RefreshBuildMenu();
-        _goalsDirty = true;
+        _objectives.MarkDirty();
         _knownBuildingCount = _simulation.Buildings.Length;
     }
 
@@ -705,7 +703,7 @@ public sealed class GameplayScreen : IScreen
             // Splněný úkol / Vzestup mění seznam aktivních cílů — přestav sledovač.
             if (note.Kind is NotificationKind.QuestCompleted or NotificationKind.Ascended)
             {
-                _goalsDirty = true;
+                _objectives.MarkDirty();
             }
 
             // Nový achievement → zapiš do účet-wide profilu (přežije i restart).
@@ -867,6 +865,7 @@ public sealed class GameplayScreen : IScreen
         // Pravý horní roh: éra + den/čas + dlaždice pod kurzorem.
         var loc = _screens.Loc;
         _eraLabel = new Label { TextColor = new Color(210, 185, 120), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.era"] };
+        _eraNextLabel = new Label { TextColor = new Color(160, 150, 120), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.eraNext"] };
         _tierLabel = new Label { TextColor = new Color(190, 160, 230), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.tier"] };
         _powerLabel = new Label { TextColor = new Color(120, 200, 240), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.power"] };
         _weatherLabel = new Label { TextColor = new Color(170, 200, 220), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.weather"] };
@@ -875,6 +874,7 @@ public sealed class GameplayScreen : IScreen
         _cursorLabel = new Label { TextColor = Color.LightGray };
         var worldInfoStack = new VerticalStackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Right };
         worldInfoStack.Widgets.Add(_eraLabel);
+        worldInfoStack.Widgets.Add(_eraNextLabel);
         worldInfoStack.Widgets.Add(_tierLabel);
         worldInfoStack.Widgets.Add(_powerLabel);
         worldInfoStack.Widgets.Add(_weatherLabel);
@@ -907,12 +907,8 @@ public sealed class GameplayScreen : IScreen
         _statusPanel = UiFactory.DarkPanel(_statusLabel);
         _statusPanel.HorizontalAlignment = HorizontalAlignment.Center;
 
-        // Levý střed: sledovač úkolů (aktuální cíle + pokrok) — vede hráče hrou.
-        _goalsPanel = new VerticalStackPanel { Spacing = 5 };
-        var goalsBox = UiFactory.DarkPanel(_goalsPanel);
-        goalsBox.HorizontalAlignment = HorizontalAlignment.Left;
-        goalsBox.VerticalAlignment = VerticalAlignment.Center;
-        goalsBox.Margin = new Thickness(10, 0, 0, 0);
+        // Levý střed: „co teď" — hlavní cíl s návodem, pod ním ostatní úkoly.
+        _objectives = new ObjectiveTracker(_screens, _simulation, FocusOn, SkipGuide);
 
         // Spodní blok zdola nahoru: proužek tlačítek, nad ním stav, a úplně nahoře
         // vyskakovací katalog budov. Nahoře na obrazovce zůstávají suroviny (vlevo)
@@ -931,11 +927,10 @@ public sealed class GameplayScreen : IScreen
         var root = new Panel();
         root.Widgets.Add(topLeft);
         root.Widgets.Add(topRight);
-        root.Widgets.Add(goalsBox);
+        root.Widgets.Add(_objectives.Root);
         root.Widgets.Add(bottomBar);
 
         _desktop = new Desktop { Root = root };
-        _goalsDirty = true;
         RefreshBuildMenu();
         RefreshHudTexts();
     }
@@ -1215,62 +1210,6 @@ public sealed class GameplayScreen : IScreen
         }
     }
 
-    /// <summary>Přestaví sledovač úkolů (aktivní cíle) — volá se, jen když se stav změní.</summary>
-    private void RebuildGoals()
-    {
-        var loc = _screens.Loc;
-        var content = _screens.Content;
-        _goalsPanel.Widgets.Clear();
-        _goalSlots.Clear();
-        _goalsPanel.Widgets.Add(new Label
-        {
-            Text = loc["hud.quests"],
-            TextColor = UiFactory.Accent,
-            Tooltip = loc["tip.quests"],
-        });
-
-        int shown = 0;
-        for (int i = 0; i < content.Quests.Count && shown < 3; i++)
-        {
-            if (_simulation.IsQuestCompleted(i))
-            {
-                continue;
-            }
-
-            var quest = content.Quests[i];
-            AddGoalSlot(loc[quest.NameKey], quest.Condition,
-                loc[quest.DescriptionKey] + '\n' + loc.Format("panel.reward",
-                    CostFormat.Line(content, loc, quest.Reward)));
-            shown++;
-        }
-
-        if (shown < 3)
-        {
-            long target = _simulation.DynamicQuestTarget;
-            var dyn = content.QuestsDynamic;
-            AddGoalSlot(loc.Format("quest.dynamic", target),
-                new GoalCondition(dyn.BaseCondition.Kind, dyn.BaseCondition.Param, target),
-                loc.Format("quest.dynamic.desc", target) + '\n' + loc.Format("panel.reward",
-                    CostFormat.Line(content, loc, dyn.BaseReward)));
-        }
-    }
-
-    /// <summary>
-    /// Jeden řádek sledovače: jméno, pruh pokroku a čísla. Pruh nese „jak daleko
-    /// jsem", čísla „kolik ještě" — samotné „12 / 40" se v HUD špatně čte.
-    /// </summary>
-    private void AddGoalSlot(string name, GoalCondition condition, string tooltip)
-    {
-        var slot = new VerticalStackPanel { Spacing = 2, Tooltip = tooltip };
-        slot.Widgets.Add(new Label { Text = name });
-        var bar = new ProgressBar(GoalBarWidth);
-        slot.Widgets.Add(bar.Root);
-        var progress = new Label { TextColor = new Color(150, 220, 150) };
-        slot.Widgets.Add(progress);
-        _goalsPanel.Widgets.Add(slot);
-        _goalSlots.Add((condition, progress, bar));
-    }
-
     /// <summary>
     /// Uloží hru na pozadí (autosave). Selhání se schválně nehlásí vyskakovacím
     /// oknem — je to tichá pojistka, ne akce hráče; ruční uložení v pauze dál
@@ -1279,21 +1218,85 @@ public sealed class GameplayScreen : IScreen
     private void SaveGame() =>
         _screens.Saves.TrySave(_simulation, new SaveMetadata(_info.Seed, _info.SizeId, _info.PresetId, DateTime.UtcNow));
 
-    /// <summary>Přebuduje sledovač jen při změně; jinak jen aktualizuje čísla pokroku.</summary>
-    private void UpdateGoals()
+    /// <summary>
+    /// Řádek „kam to celé směřuje": příští éra a technologie, která ji otevře.
+    /// Samotné jméno aktuální éry je jen údaj — tohle z něj dělá směr, aby hráč
+    /// věděl, že hra někam vede (zpětná vazba „nemám jasný cíl").
+    /// </summary>
+    private string NextEraLine(int currentEraIndex)
     {
-        if (_goalsDirty)
+        var eras = _screens.Content.Eras;
+        int currentOrder = currentEraIndex >= 0 ? eras[currentEraIndex].Order : int.MinValue;
+
+        EraDef? next = null;
+        foreach (var era in eras.All)
         {
-            RebuildGoals();
-            _goalsDirty = false;
+            if (era.Order > currentOrder && (next is null || era.Order < next.Order))
+            {
+                next = era;
+            }
         }
 
-        foreach (var (condition, progress, bar) in _goalSlots)
+        // Poslední éra (nebo éra bez technologie) už nikam neukazuje — pak radši nic.
+        if (next is null || next.UnlockTechId.Length == 0
+            || !_screens.Content.Techs.TryIndexOf(next.UnlockTechId, out int techIndex))
         {
-            long current = Math.Min(_simulation.EvaluateMetric(condition.Kind, condition.Param), condition.Target);
-            progress.Text = $"{current} / {condition.Target}";
-            bar.SetProgress(condition.Target > 0 ? current / (double)condition.Target : 1.0);
+            return string.Empty;
         }
+
+        var loc = _screens.Loc;
+        return loc.Format("hud.eraNext", loc[next.NameKey], loc[_screens.Content.Techs[techIndex].NameKey]);
+    }
+
+    /// <summary>
+    /// Tlačítko „Ukaž mi" u hlavního cíle: otevře to, co krok potřebuje. Data
+    /// říkají jen „tohle je cíl", překlad na obrazovku/nástroj patří sem —
+    /// obsah tak nemusí vědět nic o UI.
+    /// </summary>
+    private void FocusOn(FocusHint focus)
+    {
+        switch (focus.Kind)
+        {
+            case FocusKind.Map:
+                RecenterOnCity();
+                break;
+
+            case FocusKind.Build:
+                SetBuildMenuOpen(true);
+                _selectedCategory = _screens.Content.Buildings[focus.BuildingIndex].Category;
+                RefreshBuildMenu();
+                // Rovnou i vybrat: hráč tak jen klikne do mapy a je hotovo.
+                if (_simulation.IsBuildingBuildable(focus.BuildingIndex))
+                {
+                    _tools.ToggleBuilding(focus.BuildingIndex);
+                }
+
+                break;
+
+            case FocusKind.Tool when focus.Target == "plant":
+                SetBuildMenuOpen(false);
+                _tools.TogglePlant();
+                break;
+
+            case FocusKind.Screen when focus.Target == "tech":
+                _screens.Push(new TechScreen(_screens, _simulation));
+                break;
+
+            case FocusKind.Screen when focus.Target == "quests":
+                _screens.Push(new QuestsScreen(_screens, _simulation));
+                break;
+
+            case FocusKind.Screen when focus.Target == "ascend":
+                _screens.Push(new AscensionScreen(_screens, _simulation));
+                break;
+        }
+    }
+
+    /// <summary>Vypne průvodce natrvalo; hlavním cílem se stane první nesplněný úkol.</summary>
+    private void SkipGuide()
+    {
+        _simulation.SkipTutorial();
+        _objectives.MarkDirty();
     }
 
     /// <summary>„Zpět na město": vycentruje kameru na těžiště zástavby (nebo start, když nic nestojí).</summary>
@@ -1415,6 +1418,7 @@ public sealed class GameplayScreen : IScreen
         var eras = _screens.Content.Eras;
         int eraIndex = _simulation.CurrentEraIndex;
         _eraLabel.Text = eraIndex >= 0 ? loc.Format("hud.era", loc[eras[eraIndex].NameKey]) : string.Empty;
+        _eraNextLabel.Text = NextEraLine(eraIndex);
 
         // Měřítko (stupeň Vzestupu): jméno + strop; u stropu zežloutne jako pobídka k Vzestupu.
         var tiers = _screens.Content.AscensionTiers;
@@ -1486,7 +1490,7 @@ public sealed class GameplayScreen : IScreen
         UpdateCursorLabel();
         UpdateStatusLabel();
         RefreshBuildAffordability();
-        UpdateGoals();
+        _objectives.Update();
         UpdateFestivalButton();
     }
 

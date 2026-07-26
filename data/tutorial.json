@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "steps": [
+    { "id": "gather",    "condition": { "metric": "harvested", "resource": "wood", "target": 12 }, "focus": { "kind": "map" } },
+    { "id": "shelter",   "condition": { "metric": "building", "building": "house", "target": 1 },  "focus": { "kind": "build", "building": "house" } },
+    { "id": "feed",      "condition": { "metric": "building", "building": "farm", "target": 1 },   "focus": { "kind": "build", "building": "farm" } },
+    { "id": "automate",  "condition": { "metric": "building", "building": "lumber_camp", "target": 1 }, "focus": { "kind": "build", "building": "lumber_camp" } },
+    { "id": "grow",      "condition": { "metric": "population", "target": 12 },                    "focus": { "kind": "map" } },
+    { "id": "research",  "condition": { "metric": "research", "tech": "milling" },                 "focus": { "kind": "screen", "target": "tech" } },
+    { "id": "replant",   "condition": { "metric": "planted", "target": 3 },                        "focus": { "kind": "tool", "target": "plant" } },
+    { "id": "refine",    "condition": { "metric": "building", "building": "sawmill", "target": 1 },"focus": { "kind": "build", "building": "sawmill" } },
+    { "id": "goal",      "condition": { "metric": "population", "target": 40 },                    "focus": { "kind": "screen", "target": "quests" } }
+  ]
+}

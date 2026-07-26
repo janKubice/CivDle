@@ -84,6 +84,7 @@ public sealed class PauseScreen : IScreen
         layout.Widgets.Add(_saveStatusLabel);
         layout.Widgets.Add(UiFactory.MenuButton(loc["pause.resume"], _screens.Pop));
         layout.Widgets.Add(UiFactory.MenuButton(loc["pause.save"], SaveGame));
+        layout.Widgets.Add(UiFactory.MenuButton(loc["menu.howto"], () => _screens.Push(new HowToPlayScreen(_screens))));
         layout.Widgets.Add(UiFactory.MenuButton(loc["pause.settings"], () => _screens.Push(new SettingsScreen(_screens, showBackground: false))));
         // Odchod z rozehrané hry vždycky uloží — hráč nemá o postup přijít proto,
         // že zapomněl kliknout na „Uložit".
