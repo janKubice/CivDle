@@ -50,7 +50,9 @@ public sealed record BuildingDto(
     Dictionary<string, int>? UpgradeCost,
     int PowerSupply,
     int PowerDemand,
-    bool RequiresAdjacentWater);
+    bool RequiresAdjacentWater,
+    int ServiceValue,
+    Dictionary<string, int>? Upkeep);
 
 /// <summary>Výrobní recept budovy tak, jak leží v JSON.</summary>
 public sealed record RecipeDto(
@@ -73,7 +75,18 @@ public sealed record GameplayFileDto(
     BoostDto? Boost,
     HarvestDto? Harvest,
     DailyRewardDto? DailyReward,
-    PlantingDto? Planting);
+    PlantingDto? Planting,
+    HappinessDto? Happiness);
+
+/// <summary>Nastavení spokojenosti tak, jak leží v JSON.</summary>
+public sealed record HappinessDto(
+    int IntervalTicks,
+    double BaseHappiness,
+    double ServiceWeight,
+    double OvercrowdingPenalty,
+    double PeoplePerServicePoint,
+    double GrowthFloor,
+    double FreePopulation);
 
 /// <summary>Nastavení slavnosti (dočasný boost) tak, jak leží v JSON.</summary>
 public sealed record BoostDto(int DurationSeconds, int CooldownSeconds, double Multiplier);

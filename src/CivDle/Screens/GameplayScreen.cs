@@ -80,6 +80,7 @@ public sealed class GameplayScreen : IScreen
     private Label _weatherLabel = null!;
     private Label _dayLabel = null!;
     private Label _cursorLabel = null!;
+    private Label _happinessLabel = null!;
     private Label _statusLabel = null!;
     private HorizontalStackPanel _buildCategoryPanel = null!;
     private HorizontalStackPanel _buildItemsPanel = null!;
@@ -1038,6 +1039,7 @@ public sealed class GameplayScreen : IScreen
         _tierLabel = new Label { TextColor = new Color(190, 160, 230), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.tier"] };
         _powerLabel = new Label { TextColor = new Color(120, 200, 240), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.power"] };
         _weatherLabel = new Label { TextColor = new Color(170, 200, 220), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.weather"] };
+        _happinessLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.happiness"] };
         _dayLabel = new Label { TextColor = UiFactory.Accent, Tooltip = loc["tip.day"] };
         _cursorLabel = new Label { TextColor = Color.LightGray };
         var worldInfoStack = new VerticalStackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Right };
@@ -1045,6 +1047,10 @@ public sealed class GameplayScreen : IScreen
         worldInfoStack.Widgets.Add(_tierLabel);
         worldInfoStack.Widgets.Add(_powerLabel);
         worldInfoStack.Widgets.Add(_weatherLabel);
+        if (_screens.Content.Gameplay.Happiness.IsEnabled)
+        {
+            worldInfoStack.Widgets.Add(_happinessLabel);
+        }
         worldInfoStack.Widgets.Add(_dayLabel);
         worldInfoStack.Widgets.Add(_cursorLabel);
         var topRight = UiFactory.DarkPanel(worldInfoStack);
@@ -1621,6 +1627,16 @@ public sealed class GameplayScreen : IScreen
         else
         {
             _weatherLabel.Text = string.Empty;
+        }
+
+        // Spokojenost: barva nese stav, ať se to dá číst koutkem oka.
+        if (_screens.Content.Gameplay.Happiness.IsEnabled)
+        {
+            double happiness = _simulation.Happiness;
+            _happinessLabel.Text = loc.Format("hud.happiness", (int)Math.Round(happiness * 100));
+            _happinessLabel.TextColor = happiness >= 0.75 ? new Color(150, 220, 150)
+                : happiness >= 0.45 ? new Color(230, 210, 130)
+                : new Color(235, 140, 120);
         }
 
         // Rozvodná síť: zobraz se až když má město spotřebiče; červená = nedostatek.

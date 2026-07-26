@@ -615,6 +615,10 @@
     "achievement.arborist": "Arborist",
     "achievement.arborist.desc": "Plant two hundred and fifty trees.",
     "building.roadConnected": "Connected to the road network",
-    "building.roadMissing": "No road connection — running at {0}%. A road appears on its own once another building goes up nearby."
+    "building.roadMissing": "No road connection — running at {0}%. A road appears on its own once another building goes up nearby.",
+    "hud.happiness": "Happiness {0}%",
+    "tip.happiness": "How good life in the city is. Services (market, granary, workshop) raise it, overcrowding lowers it. Low happiness slows growth — it never costs anyone their life.",
+    "tip.build.services": "Serves {0} residents",
+    "tip.build.upkeep": "Upkeep: {0}"
   }
 }

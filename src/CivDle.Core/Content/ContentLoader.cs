@@ -833,11 +833,24 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"Budova '{id}': 'powerSupply' i 'powerDemand' musí být 0–1000000.");
         }
 
+        if (dto.ServiceValue is < 0 or > 1_000_000)
+        {
+            throw new ContentLoadException(path, $"Budova '{id}': 'serviceValue' musí být 0–1000000, je {dto.ServiceValue}.");
+        }
+
+        var upkeep = ParseResourceAmounts(path, id, "upkeep", dto.Upkeep, resources);
+        if (upkeep.Count > 0 && dto.ServiceValue <= 0)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}' má 'upkeep', ale nulový 'serviceValue' — platila by se údržba za nic.");
+        }
+
         return new BuildingDef(
             id, category, color, dto.Footprint[0], dto.Footprint[1],
             dto.WorkerSlots, dto.HousingCapacity, buildCost, recipe, mask,
             storageBonus, dto.AutoBuild, dto.Buildable ?? true, upgradesToIndex, upgradeCost,
-            dto.PowerSupply, dto.PowerDemand, dto.RequiresAdjacentWater);
+            dto.PowerSupply, dto.PowerDemand, dto.RequiresAdjacentWater,
+            dto.ServiceValue, upkeep);
     }
 
     // ----- tech tree -----
@@ -1398,7 +1411,50 @@ public sealed class ContentLoader
             boost,
             harvest,
             dailyReward,
-            planting);
+            planting,
+            ParseHappiness(path, file.Happiness));
+    }
+
+    /// <summary>
+    /// Nastavení spokojenosti. Chybí-li blok v datech, je vrstva vypnutá — starší
+    /// obsah (a testy) se tak chová jako dřív.
+    /// </summary>
+    private static HappinessConfig? ParseHappiness(string path, HappinessDto? dto)
+    {
+        if (dto is null || dto.IntervalTicks <= 0)
+        {
+            return null;
+        }
+
+        if (dto.BaseHappiness is < 0 or > 1)
+        {
+            throw new ContentLoadException(path, $"'happiness.baseHappiness' musí být 0–1, je {dto.BaseHappiness}.");
+        }
+
+        if (dto.ServiceWeight is < 0 or > 1 || dto.OvercrowdingPenalty is < 0 or > 1)
+        {
+            throw new ContentLoadException(path, "'happiness.serviceWeight' i 'overcrowdingPenalty' musí být 0–1.");
+        }
+
+        if (dto.PeoplePerServicePoint <= 0)
+        {
+            throw new ContentLoadException(path,
+                $"'happiness.peoplePerServicePoint' musí být kladné, je {dto.PeoplePerServicePoint}.");
+        }
+
+        if (dto.GrowthFloor is < 0 or > 1)
+        {
+            throw new ContentLoadException(path, $"'happiness.growthFloor' musí být 0–1, je {dto.GrowthFloor}.");
+        }
+
+        if (dto.FreePopulation < 0)
+        {
+            throw new ContentLoadException(path, $"'happiness.freePopulation' nesmí být záporné, je {dto.FreePopulation}.");
+        }
+
+        return new HappinessConfig(
+            dto.IntervalTicks, dto.BaseHappiness, dto.ServiceWeight,
+            dto.OvercrowdingPenalty, dto.PeoplePerServicePoint, dto.GrowthFloor, dto.FreePopulation);
     }
 
     // ----- devlog (volitelný obsah menu) -----

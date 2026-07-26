@@ -45,6 +45,17 @@ internal static class BuildingSummary
             text.Append('\n').Append(loc.Format("tip.build.workers", def.WorkerSlots));
         }
 
+        if (def.Services > 0)
+        {
+            text.Append('\n').Append(loc.Format("tip.build.services",
+                (int)Math.Round(def.Services * content.Gameplay.Happiness.PeoplePerServicePoint)));
+        }
+
+        if (def.Upkeep.Count > 0)
+        {
+            text.Append('\n').Append(loc.Format("tip.build.upkeep", CostFormat.Line(content, loc, def.Upkeep)));
+        }
+
         if (def.StorageBonus.Count > 0)
         {
             text.Append('\n').Append(loc.Format("tip.build.storage", CostFormat.Line(content, loc, def.StorageBonus)));

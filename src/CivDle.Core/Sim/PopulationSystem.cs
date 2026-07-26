@@ -35,9 +35,12 @@ internal sealed class PopulationSystem
         bool fed = eaten >= demand - 1e-9;
         if (fed && sim.Population < ceiling)
         {
+            // Spokojenost je třetí brzda: nespokojené město roste pomalu (a při
+            // nule stagnuje), ale nikdo neumírá — pořád soft pressure.
             sim.Population = Math.Min(
                 ceiling,
-                sim.Population + _config.PopulationGrowthPerSecond * dt * sim.Bonuses.GrowthMult);
+                sim.Population + _config.PopulationGrowthPerSecond * dt
+                    * sim.Bonuses.GrowthMult * sim.HappinessGrowthFactor);
         }
     }
 }

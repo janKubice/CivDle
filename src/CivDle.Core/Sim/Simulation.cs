@@ -33,6 +33,7 @@ public sealed class Simulation
     private readonly ZoneFillSystem _zoneFill;
     private readonly ColonySystem _colonySystem;
     private readonly WeatherSystem _weatherSystem;
+    private readonly HappinessSystem _happinessSystem;
     private readonly UfoSystem _ufoSystem;
     private long _lastUfoWindow = -1; // poslední okno, jehož zásah UFO už proběhl
     private readonly List<Zone> _zones = new(); // hráčem namalované zóny (automatizace, stupeň 3)
@@ -111,6 +112,7 @@ public sealed class Simulation
         _zoneFill = new ZoneFillSystem(content, seed);
         _colonySystem = new ColonySystem(content, seed);
         _weatherSystem = new WeatherSystem(content, seed);
+        _happinessSystem = new HappinessSystem(content);
         _ufoSystem = new UfoSystem(content, seed);
         _roadBuilder = new RoadBuilder(content);
         _settlementSystem = new SettlementSystem(content, seed);
@@ -527,6 +529,22 @@ public sealed class Simulation
     }
 
     /// <summary>
+    /// Postaví budovu bez zaplacení ceny (testy a nástroje na balanc, kde jde
+    /// o chování systému, ne o ekonomiku stavby).
+    /// </summary>
+    public PlacementResult TryPlaceBuildingFree(int defIndex, int x, int y)
+    {
+        var result = CanPlace(defIndex, x, y);
+        if (result != PlacementResult.Ok && result != PlacementResult.NotEnoughResources)
+        {
+            return result;
+        }
+
+        RestoreBuilding(defIndex, x, y, progress: 0f);
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>
     /// Položí silnici na dlaždici. Veřejné kvůli testům a nástrojům — ve hře cesty
     /// staví <see cref="RoadBuilder"/> sám, hráč je nekreslí.
     /// </summary>
@@ -572,6 +590,7 @@ public sealed class Simulation
         _zoneFill.Tick(this);
         _colonySystem.Tick(this); // guvernér: expanze do nových kolonií
         _settlementSystem.Tick(this);
+        _happinessSystem.Tick(this);
         _questSystem.Tick(this);
         _achievementSystem.Tick(this);
 
@@ -939,6 +958,15 @@ public sealed class Simulation
             return index < 0 ? 1.0 : _content.Weather[index].ProductionMult;
         }
     }
+
+    /// <summary>
+    /// Spokojenost města 0–1 (1 = ideál). Nízká brzdí růst populace, nikdy nikoho
+    /// nezabíjí. Počítá <see cref="HappinessSystem"/> na nízké frekvenci.
+    /// </summary>
+    public double Happiness { get; internal set; } = 1.0;
+
+    /// <summary>Násobič růstu populace daný spokojeností (pro populaci i pro HUD).</summary>
+    public double HappinessGrowthFactor => _content.Gameplay.Happiness.GrowthFactor(Happiness);
 
     /// <summary>Probíhá právě extrémní jev (katastrofa)? Pro HUD a varování.</summary>
     public bool IsExtremeWeather
