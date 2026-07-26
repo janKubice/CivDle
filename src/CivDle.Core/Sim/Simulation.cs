@@ -1386,6 +1386,7 @@ public sealed class Simulation
         MetricKind.ResearchedTech => _techResearched[param] ? 1 : 0,
         MetricKind.AscensionLevel => AscensionLevel,
         MetricKind.DayNumber => DayNumber,
+        MetricKind.PlantedNodes => _plantedNodes.Count,
         _ => 0,
     };
 

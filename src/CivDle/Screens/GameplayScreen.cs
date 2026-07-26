@@ -905,7 +905,11 @@ public sealed class GameplayScreen : IScreen
     /// Rozestup náhodných událostí. Záměrně řídký: událost má být milé vyrušení,
     /// ne přerušování každou minutu — vyskakovací okno bere hráči kontrolu.
     /// </summary>
-    private float NextEventGap() => 260f + (float)_eventRng.NextDouble() * 200f; // ~4–7,5 min
+    /// <summary>
+    /// Rozestup náhodných událostí. Původní ~4–7 min bylo na relaxační hru moc —
+    /// vyskakovací okno každou chvíli ruší, místo aby bylo zpestřením.
+    /// </summary>
+    private float NextEventGap() => 540f + (float)_eventRng.NextDouble() * 420f; // ~9–16 min
 
     /// <summary>Jednou za sekundu spočítá čistý přírůstek surovin za sekundu (HUD ticker).</summary>
     private void SampleRates(float dt)

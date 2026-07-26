@@ -17,6 +17,9 @@
     { "id": "information_age", "condition": { "metric": "research", "tech": "electronics" } },
     { "id": "future_age", "condition": { "metric": "research", "tech": "fusion" } },
 
+    { "id": "gardener",        "condition": { "metric": "planted", "target": 5 } },
+    { "id": "forester",        "condition": { "metric": "planted", "target": 50 } },
+    { "id": "arborist",        "condition": { "metric": "planted", "target": 250 }, "hidden": true },
     { "id": "lumberjack",      "condition": { "metric": "harvested", "resource": "wood", "target": 1000 } },
     { "id": "stonecutter",     "condition": { "metric": "harvested", "resource": "stone", "target": 500 } },
     { "id": "city",            "condition": { "metric": "population", "target": 250 } },

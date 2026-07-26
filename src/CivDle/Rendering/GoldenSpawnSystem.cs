@@ -14,8 +14,10 @@ namespace CivDle.Rendering;
 /// </summary>
 public sealed class GoldenSpawnSystem
 {
-    private const float MinSpawnGap = 28f;
-    private const float MaxSpawnGap = 55f;
+    // Vzácnost je celý smysl zlatého úlovku — původní rozestup byl tak krátký,
+    // že přestal být událostí.
+    private const float MinSpawnGap = 65f;
+    private const float MaxSpawnGap = 120f;
     private const float LifeSeconds = 7f;
     private const float CollectRadiusTiles = 1.1f;
     private const float MinZoom = 0.5f;

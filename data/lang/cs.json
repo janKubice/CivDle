@@ -603,6 +603,16 @@
     "tip.landmark": "Zvláštní místo na mapě. Klikni a sklidí se líp než okolí.",
     "tip.discovery": "Skrýš",
     "tip.discovery.desc": "Něco tu leží zakopané. Klikni a vyzvedni to — jednou za místo.",
-    "tip.planted": "Zasazený porost. Klikáním se sklízí a nikam nezmizí."
+    "tip.planted": "Zasazený porost. Klikáním se sklízí a nikam nezmizí.",
+    "quest.plant_first": "Zasaď strom",
+    "quest.plant_first.desc": "Zasaď svůj první strom — les si pak sám doroste a dřevo se obnovuje.",
+    "quest.plant_grove": "Založ háj",
+    "quest.plant_grove.desc": "Zasaď deset stromů. Vlastní háj u města je pohodlnější než chodit pro dřevo daleko.",
+    "achievement.gardener": "Zahradník",
+    "achievement.gardener.desc": "Zasaď pět stromů.",
+    "achievement.forester": "Lesník",
+    "achievement.forester.desc": "Zasaď padesát stromů.",
+    "achievement.arborist": "Arborista",
+    "achievement.arborist.desc": "Zasaď dvě stě padesát stromů."
   }
 }

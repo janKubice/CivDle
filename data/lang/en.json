@@ -603,6 +603,16 @@
     "tip.landmark": "A special spot on the map. Click it — it yields more than the ground around it.",
     "tip.discovery": "Cache",
     "tip.discovery.desc": "Something is buried here. Click to dig it up — once per spot.",
-    "tip.planted": "Planted growth. Click to harvest; it stays put."
+    "tip.planted": "Planted growth. Click to harvest; it stays put.",
+    "quest.plant_first": "Plant a tree",
+    "quest.plant_first.desc": "Plant your first tree — planted growth regrows, so the wood keeps coming.",
+    "quest.plant_grove": "Start a grove",
+    "quest.plant_grove.desc": "Plant ten trees. A grove next door beats hiking for timber.",
+    "achievement.gardener": "Gardener",
+    "achievement.gardener.desc": "Plant five trees.",
+    "achievement.forester": "Forester",
+    "achievement.forester.desc": "Plant fifty trees.",
+    "achievement.arborist": "Arborist",
+    "achievement.arborist.desc": "Plant two hundred and fifty trees."
   }
 }

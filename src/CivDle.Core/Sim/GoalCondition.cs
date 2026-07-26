@@ -33,6 +33,9 @@ public enum MetricKind
 
     /// <summary>Pořadové číslo herního dne.</summary>
     DayNumber,
+
+    /// <summary>Počet zasazených (obnovitelných) uzlů na mapě — sázení jako sledovaná činnost.</summary>
+    PlantedNodes,
 }
 
 /// <summary>

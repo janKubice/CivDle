@@ -1167,6 +1167,7 @@ public sealed class ContentLoader
             case "buildings": return (MetricKind.TotalBuildings, -1);
             case "ascension": return (MetricKind.AscensionLevel, -1);
             case "day": return (MetricKind.DayNumber, -1);
+            case "planted": return (MetricKind.PlantedNodes, -1);
             case "harvested": return (MetricKind.Harvested, ResolveRef(path, owner, "resource", resource, resources));
             case "resource": return (MetricKind.ResourceStock, ResolveRef(path, owner, "resource", resource, resources));
             case "building": return (MetricKind.BuildingOfType, ResolveRef(path, owner, "building", building, buildings));
