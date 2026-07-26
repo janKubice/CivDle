@@ -20,8 +20,8 @@ public sealed class SaveGameSerializer
 {
     private const string Magic = "CIVD";
 
-    /// <summary>Verze formátu — zvýšit při každé změně struktury. v6: + úkoly. v7: + skrýše. v8: + zasazené uzly. v9: + zóny. v10: + politiky. v11: + guvernér.</summary>
-    public const int FormatVersion = 11;
+    /// <summary>Verze formátu — zvýšit při každé změně struktury. v6: + úkoly. v7: + skrýše. v8: + zasazené uzly. v9: + zóny. v10: + politiky. v11: + guvernér. v12: + známé suroviny.</summary>
+    public const int FormatVersion = 12;
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -53,6 +53,7 @@ public sealed class SaveGameSerializer
         WriteZones(writer, simulation);
         WritePolicies(writer, simulation);
         writer.Write(simulation.AutoUpgradeLevelRaw);
+        WriteKnownResources(writer, simulation);
     }
 
     /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
@@ -102,6 +103,7 @@ public sealed class SaveGameSerializer
             ReadZones(reader, content, simulation);
             ReadPolicies(reader, content, simulation);
             simulation.RestoreAutoUpgradeLevel(reader.ReadInt32());
+            ReadKnownResources(reader, content, simulation);
             simulation.FinalizeLoad(); // bonusy Vzestupu → přepočet bydlení/skladů + politik
 
             return (simulation, metadata);
@@ -428,6 +430,32 @@ public sealed class SaveGameSerializer
             }
 
             // Smazaná politika v datech se ze savu tiše přeskočí.
+        }
+    }
+
+    private static void WriteKnownResources(BinaryWriter writer, Simulation simulation)
+    {
+        var defs = SimContent(simulation).Resources;
+        var known = simulation.KnownResourceIndices().ToList();
+        writer.Write(known.Count);
+        foreach (int index in known)
+        {
+            writer.Write(defs[index].Id); // stabilní ID, ne index
+        }
+    }
+
+    private static void ReadKnownResources(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        int count = ReadCount(reader, max: 10_000, what: "známých surovin");
+        for (int i = 0; i < count; i++)
+        {
+            string id = reader.ReadString();
+            if (content.Resources.TryIndexOf(id, out int index))
+            {
+                simulation.MarkResourceKnown(index);
+            }
+
+            // Smazaná surovina v datech se tiše přeskočí.
         }
     }
 

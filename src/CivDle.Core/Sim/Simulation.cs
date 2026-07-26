@@ -44,6 +44,7 @@ public sealed class Simulation
     private readonly bool[] _upgradesPurchased; // koupené trvalé upgrady Vzestupu
     private readonly bool[] _policiesActive;    // zapnuté politiky růstu (automatizace, stupeň 4)
     private readonly long[] _harvestedTotals; // kumulativní sběr surovin klikáním (metriky cílů)
+    private readonly bool[] _resourceKnown;   // surovina, kterou hráč už někdy získal (UI ji do té doby neukazuje)
     private readonly HashSet<long> _claimedDiscoveries = new(); // vyzvednuté skrýše na mapě
     private readonly Dictionary<long, ClickYield> _plantedNodes = new(); // hráčem zasazené obnovitelné zdroje
     private readonly Queue<GameNotification> _notifications = new();
@@ -78,6 +79,14 @@ public sealed class Simulation
         _upgradesPurchased = new bool[content.PrestigeUpgrades.Count];
         _policiesActive = new bool[content.Policies.Count];
         _harvestedTotals = new long[content.Resources.Count];
+
+        // Známé suroviny: co má hráč na startu, zná; zbytek se odemyká získáním.
+        // UI ani odměny nesmí prozrazovat suroviny, ke kterým se ještě nedostal.
+        _resourceKnown = new bool[content.Resources.Count];
+        for (int i = 0; i < _resourceKnown.Length; i++)
+        {
+            _resourceKnown[i] = content.Resources[i].StartAmount > 0;
+        }
         RefreshTierUnlocks(); // megastruktury zamčené, dokud měřítko nedoroste
 
         _resources = new double[content.Resources.Count];
@@ -289,6 +298,46 @@ public sealed class Simulation
         return true;
     }
 
+    /// <summary>
+    /// Zná už hráč tuhle surovinu (někdy ji získal)? HUD neznámé suroviny NEUKAZUJE
+    /// a náhodné odměny je nerozdávají — jinak by hra prozrazovala obsah, ke kterému
+    /// se hráč ještě nedostal.
+    /// </summary>
+    public bool IsResourceKnown(int resourceIndex) => _resourceKnown[resourceIndex];
+
+    /// <summary>Kolik surovin hráč zná (pro UI, které se překresluje při odemčení nové).</summary>
+    public int KnownResourceCount
+    {
+        get
+        {
+            int count = 0;
+            for (int i = 0; i < _resourceKnown.Length; i++)
+            {
+                if (_resourceKnown[i])
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
+    /// <summary>Označí surovinu za známou (hráč ji získal). Idempotentní.</summary>
+    internal void MarkResourceKnown(int resourceIndex) => _resourceKnown[resourceIndex] = true;
+
+    /// <summary>Známé suroviny pro serializaci savu.</summary>
+    internal IEnumerable<int> KnownResourceIndices()
+    {
+        for (int i = 0; i < _resourceKnown.Length; i++)
+        {
+            if (_resourceKnown[i])
+            {
+                yield return i;
+            }
+        }
+    }
+
     /// <summary>Je technologie vyzkoumaná?</summary>
     public bool IsTechResearched(int techIndex) => _techResearched[techIndex];
 
@@ -337,6 +386,10 @@ public sealed class Simulation
     public void AddResource(int resourceIndex, double amount)
     {
         _resources[resourceIndex] = Math.Clamp(_resources[resourceIndex] + amount, 0, _storageCaps[resourceIndex]);
+        if (amount > 0)
+        {
+            _resourceKnown[resourceIndex] = true; // získáním se surovina odemyká v UI
+        }
     }
 
     /// <summary>Kapacita skladu suroviny (základ + skladové budovy).</summary>
@@ -908,21 +961,36 @@ public sealed class Simulation
     public int LandmarkAt(int x, int y)
     {
         var landmarks = _content.Landmarks;
-        if (landmarks.Count == 0 || _occupancy.ContainsKey(TileKey.Pack(x, y)))
+        if (landmarks.Count == 0)
         {
             return -1;
         }
 
-        int biome = Terrain.BiomeAt(x, y);
+        // POŘADÍ TESTŮ JE VÝKONNOSTNÍ ROZHODNUTÍ: hash je pár násobení, kdežto
+        // BiomeAt vzorkuje fBm šum. Landmarky jsou vzácné (rarity ve stovkách),
+        // takže levný hash odmítne drtivou většinu dlaždic dřív, než se sáhne
+        // na terén. Render se ptá na desítky tisíc dlaždic za snímek — obrácené
+        // pořadí sráželo FPS.
+        int biome = -1;
         for (int i = 0; i < landmarks.Count; i++)
         {
-            if (!landmarks[i].AppliesTo(biome))
+            // Sůl z indexu → každý typ má vlastní rozmístění, ne všechny na stejných místech.
+            if (LandmarkHash(x, y, i) % (ulong)landmarks[i].Rarity != 0)
             {
                 continue;
             }
 
-            // Sůl z indexu → každý typ má vlastní rozmístění, ne všechny na stejných místech.
-            if (LandmarkHash(x, y, i) % (ulong)landmarks[i].Rarity == 0)
+            if (biome < 0)
+            {
+                if (_occupancy.ContainsKey(TileKey.Pack(x, y)))
+                {
+                    return -1; // zástavba landmark překryje
+                }
+
+                biome = Terrain.BiomeAt(x, y);
+            }
+
+            if (landmarks[i].AppliesTo(biome))
             {
                 return i;
             }
@@ -973,7 +1041,31 @@ public sealed class Simulation
         }
 
         ulong roll = DiscoveryHash(x, y);
-        resourceIndex = (int)(roll % (ulong)_resources.Length);
+
+        // Losuje se JEN ze surovin, které hráč zná — skrýš nesmí vysypat nanomateriál
+        // dřív, než se k němu hráč vůbec dostal.
+        int known = KnownResourceCount;
+        if (known == 0)
+        {
+            return false;
+        }
+
+        int pick = (int)(roll % (ulong)known);
+        resourceIndex = 0;
+        for (int i = 0, seen = 0; i < _resourceKnown.Length; i++)
+        {
+            if (!_resourceKnown[i])
+            {
+                continue;
+            }
+
+            if (seen++ == pick)
+            {
+                resourceIndex = i;
+                break;
+            }
+        }
+
         amount = 20 + (int)(roll / DiscoveryRate % 40); // 20–59, deterministicky z pozice
         AddResource(resourceIndex, amount);
         return true;

@@ -66,6 +66,8 @@ public sealed class GameplayScreen : IScreen
     private Desktop _desktop = null!;
     private Label[] _resourceLabels = Array.Empty<Label>();
     private Label[] _resourceRateLabels = Array.Empty<Label>();
+    private Widget[] _resourceChips = Array.Empty<Widget>();
+    private int _knownResourceCount;
     private double[] _ratePrev = Array.Empty<double>();
     private double[] _perSecond = Array.Empty<double>();
     private float _rateTimer;
@@ -285,7 +287,12 @@ public sealed class GameplayScreen : IScreen
         _terrainRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
         _decorationRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
         _zoneRenderer.Draw(spriteBatch, _camera, _simulation); // tint zón na zemi, pod budovami
-        _landmarkRenderer.Draw(spriteBatch, _camera, _simulation); // body zájmu (gejzíry, stáda, žíly)
+        // Landmarky jen zblízka (LOD): z výšky jsou stejně pod rozlišením a dotaz
+        // na desítky tisíc dlaždic by zbytečně žral snímky.
+        if (_camera.Zoom >= LandmarkRenderer.MinZoom)
+        {
+            _landmarkRenderer.Draw(spriteBatch, _camera, _simulation);
+        }
 
         // Velké oddálení → agregátní pohled na měřítko (hustota + populace) místo
         // drobných jednotlivců (game-feel-wow: „koukni, jak to vyrostlo").
@@ -822,7 +829,11 @@ public sealed class GameplayScreen : IScreen
         }
     }
 
-    private float NextEventGap() => 70f + (float)_eventRng.NextDouble() * 60f; // 70–130 s
+    /// <summary>
+    /// Rozestup náhodných událostí. Záměrně řídký: událost má být milé vyrušení,
+    /// ne přerušování každou minutu — vyskakovací okno bere hráči kontrolu.
+    /// </summary>
+    private float NextEventGap() => 260f + (float)_eventRng.NextDouble() * 200f; // ~4–7,5 min
 
     /// <summary>Jednou za sekundu spočítá čistý přírůstek surovin za sekundu (HUD ticker).</summary>
     private void SampleRates(float dt)
@@ -905,6 +916,7 @@ public sealed class GameplayScreen : IScreen
         var resourceBar = new HorizontalStackPanel { Spacing = 18 };
         _resourceLabels = new Label[content.Resources.Count];
         _resourceRateLabels = new Label[content.Resources.Count];
+        _resourceChips = new Widget[content.Resources.Count];
         for (int i = 0; i < content.Resources.Count; i++)
         {
             var chip = new HorizontalStackPanel { Spacing = 5 };
@@ -928,6 +940,10 @@ public sealed class GameplayScreen : IScreen
             chip.Widgets.Add(_resourceLabels[i]);
             _resourceRateLabels[i] = new Label { VerticalAlignment = VerticalAlignment.Center, TextColor = new Color(120, 190, 130) };
             chip.Widgets.Add(_resourceRateLabels[i]);
+            // Neznámá surovina se v pruhu vůbec neukáže — hra nesmí prozrazovat
+            // obsah, ke kterému se hráč ještě nedostal (odhalí se získáním).
+            chip.Visible = _simulation.IsResourceKnown(i);
+            _resourceChips[i] = chip;
             resourceBar.Widgets.Add(chip);
         }
 
@@ -1305,8 +1321,24 @@ public sealed class GameplayScreen : IScreen
     {
         var loc = _screens.Loc;
 
+        // Nově získaná surovina se v pruhu odhalí (a jen tehdy se sahá na Visible).
+        int known = _simulation.KnownResourceCount;
+        if (known != _knownResourceCount)
+        {
+            _knownResourceCount = known;
+            for (int i = 0; i < _resourceChips.Length; i++)
+            {
+                _resourceChips[i].Visible = _simulation.IsResourceKnown(i);
+            }
+        }
+
         for (int i = 0; i < _resourceLabels.Length; i++)
         {
+            if (!_simulation.IsResourceKnown(i))
+            {
+                continue; // neznámou surovinu není co počítat ani kreslit
+            }
+
             double amount = _simulation.GetResource(i);
             double cap = _simulation.GetStorageCap(i);
             _resourceLabels[i].Text = CivDle.Core.Numbers.FormatRatio(amount, cap);
@@ -1331,8 +1363,9 @@ public sealed class GameplayScreen : IScreen
         if (tierIndex >= 0)
         {
             double cap = _simulation.PopulationCap;
-            _tierLabel.Text = loc.Format("hud.tier", loc[tiers[tierIndex].NameKey])
-                + " · " + loc.Format("hud.populationCap", CivDle.Core.Numbers.Format(cap));
+            // Jen jméno měřítka. Strop je vnitřní balanční číslo — hráči nic neříká,
+            // a když se blíží, pozná to tak, že populace přestane růst.
+            _tierLabel.Text = loc.Format("hud.tier", loc[tiers[tierIndex].NameKey]);
             _tierLabel.TextColor = _simulation.Population >= cap - 0.5
                 ? new Color(240, 200, 90)
                 : new Color(190, 160, 230);
@@ -1415,9 +1448,10 @@ public sealed class GameplayScreen : IScreen
         int tileX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
         int tileY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
 
-        // Nekonečná mapa — každá dlaždice má biom.
+        // Jen jméno terénu pod kurzorem — souřadnice dlaždice jsou ladicí údaj,
+        // hráči nic neříkají a jen zabírají místo v HUD.
         var biome = _screens.Content.Biomes[_simulation.BiomeAt(tileX, tileY)];
-        _cursorLabel.Text = _screens.Loc.Format("hud.cursor", tileX, tileY, _screens.Loc[biome.NameKey]);
+        _cursorLabel.Text = _screens.Loc[biome.NameKey];
     }
 
     private void UpdateStatusLabel()
