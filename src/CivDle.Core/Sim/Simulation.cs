@@ -1180,6 +1180,14 @@ public sealed class Simulation
         {
             _buildingUnlocked[buildingIndex] = true;
         }
+
+        // Pasivní bonus technologie se musí hned promítnout do násobičů i do
+        // odvozeného stavu (bydlení/sklady se počítají z bonusů).
+        if (_content.Techs[techIndex].HasPassiveEffect)
+        {
+            RecomputeBonuses();
+            RecomputeDerivedState();
+        }
     }
 
     // ----- obnova ze savu (jen pro SaveGameSerializer, obchází cenu a validaci biomů) -----
@@ -1339,19 +1347,35 @@ public sealed class Simulation
             }
 
             var upgrade = _content.PrestigeUpgrades[i];
-            switch (upgrade.Effect)
+            Apply(upgrade.Effect, upgrade.Magnitude);
+        }
+
+        // Vyzkoumané technologie dávají trvalé pasivní bonusy stejnými behavior-ID
+        // jako upgrady Vzestupu — jen platí v rámci běhu (Vzestup výzkum resetuje).
+        for (int i = 0; i < _techResearched.Length; i++)
+        {
+            if (_techResearched[i])
             {
-                case "production_mult": production += upgrade.Magnitude; break;
-                case "harvest_mult": harvest += upgrade.Magnitude; break;
-                case "growth_mult": growth += upgrade.Magnitude; break;
-                case "housing_mult": housing += upgrade.Magnitude; break;
-                case "storage_mult": storage += upgrade.Magnitude; break;
-                case "start_resources": start += upgrade.Magnitude; break;
-                case "offline_mult": offline += upgrade.Magnitude; break;
+                var tech = _content.Techs[i];
+                Apply(tech.Effect, tech.Magnitude);
             }
         }
 
         _bonuses = new PrestigeBonuses(production, harvest, growth, housing, storage, start, offline);
+
+        void Apply(string effect, double magnitude)
+        {
+            switch (effect)
+            {
+                case "production_mult": production += magnitude; break;
+                case "harvest_mult": harvest += magnitude; break;
+                case "growth_mult": growth += magnitude; break;
+                case "housing_mult": housing += magnitude; break;
+                case "storage_mult": storage += magnitude; break;
+                case "start_resources": start += magnitude; break;
+                case "offline_mult": offline += magnitude; break;
+            }
+        }
     }
 
     /// <summary>

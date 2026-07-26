@@ -138,7 +138,9 @@ public sealed record TechDto(
     string? Id,
     Dictionary<string, int>? Cost,
     string[]? Prerequisites,
-    string[]? Unlocks);
+    string[]? Unlocks,
+    string? Effect,
+    double Magnitude);
 
 /// <summary>
 /// Podmínka cíle/achievementu/Vzestupu tak, jak leží v JSON: metrika + práh + volitelný

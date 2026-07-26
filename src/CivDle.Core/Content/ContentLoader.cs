@@ -630,7 +630,9 @@ public sealed class ContentLoader
                 unlocks.Add(buildingIndex);
             }
 
-            techs.Add(new TechDef(id, cost, prereqs, unlocks));
+            // Efekt se NEvaliduje proti seznamu — neznámý se za běhu tiše ignoruje
+            // (behavior-ID hook, data smí předběhnout kód).
+            techs.Add(new TechDef(id, cost, prereqs, unlocks, dto.Effect?.Trim() ?? string.Empty, dto.Magnitude));
         }
 
         return new DefRegistry<TechDef>(techs, t => t.Id, "technologie", allowEmpty: true);
