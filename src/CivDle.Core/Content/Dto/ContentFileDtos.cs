@@ -16,6 +16,7 @@ public sealed record BiomeDto(
     double[]? DepthRange,
     double[]? ElevationRange,
     double[]? MoistureRange,
+    double[]? TemperatureRange,
     ClickYieldDto? ClickYield,
     double ProductionMult);
 
@@ -299,4 +300,8 @@ public sealed record TerrainPresetDto(
     NoiseDto? MoistureNoise,
     NoiseDto? RiverNoise,
     double RiverWidth,
-    double RiverMaxElevation);
+    double RiverMaxElevation,
+    NoiseDto? TemperatureNoise,
+    double TemperatureBandTiles,
+    double TemperatureLapse,
+    string? RiverBiome);

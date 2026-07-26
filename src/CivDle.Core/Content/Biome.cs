@@ -19,6 +19,11 @@ public sealed record ClickYield(int ResourceIndex, int Amount);
 /// <param name="DepthRange">Jen voda: normalizovaná hloubka pod hladinou 0–1.</param>
 /// <param name="ElevationRange">Jen pevnina: normalizovaná výška nad hladinou 0–1.</param>
 /// <param name="MoistureRange">Jen pevnina: vlhkost 0–1 (chybí-li v datech, platí celý rozsah).</param>
+/// <param name="TemperatureRange">
+/// Teplota 0–1 (0 = polární, 1 = rovníková). Chybí-li v datech, platí celý rozsah —
+/// biom je pak klimaticky univerzální. Díky téhle vrstvě má mapa pásma: sever mrzne,
+/// rovník je horký, a stejná výška × vlhkost dá jinou krajinu podle zeměpisné šířky.
+/// </param>
 /// <param name="ClickYield">Co dá ruční klik na dlaždici; <c>null</c> = nic.</param>
 public sealed record Biome(
     string Id,
@@ -28,6 +33,7 @@ public sealed record Biome(
     ValueRange DepthRange,
     ValueRange ElevationRange,
     ValueRange MoistureRange,
+    ValueRange TemperatureRange,
     ClickYield? ClickYield = null,
     double ProductionMult = 1.0)
 {

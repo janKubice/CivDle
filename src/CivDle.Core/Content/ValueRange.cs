@@ -8,4 +8,7 @@ public readonly record struct ValueRange(float Min, float Max)
 
     /// <summary>Vrací true, když hodnota leží v intervalu (včetně krajů).</summary>
     public bool Contains(float value) => value >= Min && value <= Max;
+
+    /// <summary>Neomezuje interval vůbec nic? (Definice, která rozsah neuvedla.)</summary>
+    public bool IsFull => Min <= 0f && Max >= 1f;
 }

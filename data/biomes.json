@@ -1,15 +1,36 @@
 {
   "schemaVersion": 1,
+  "_comment": "Pořadí ROZHODUJE: platí první biom, jehož rozsahy sedí. Klimaticky vyhraněné biomy proto stojí před obecnými. Teplota 0 = polární, 1 = rovníková.",
   "biomes": [
     {
-      "id": "ocean",
-      "mapColor": "#1C4E7A",
+      "id": "coral_reef",
+      "mapColor": "#39A99B",
+      "colorVariation": 0.05,
+      "isWater": true,
+      "depthRange": [
+        0.0,
+        0.05
+      ],
+      "temperatureRange": [
+        0.68,
+        1.0
+      ],
+      "productionMult": 1.25
+    },
+    {
+      "id": "pack_ice",
+      "mapColor": "#CBDDE8",
       "colorVariation": 0.03,
       "isWater": true,
       "depthRange": [
-        0.07,
-        1.0
-      ]
+        0.0,
+        0.12
+      ],
+      "temperatureRange": [
+        0.0,
+        0.16
+      ],
+      "productionMult": 0.7
     },
     {
       "id": "shallow_water",
@@ -22,6 +43,42 @@
       ]
     },
     {
+      "id": "ocean",
+      "mapColor": "#1C4E7A",
+      "colorVariation": 0.03,
+      "isWater": true,
+      "depthRange": [
+        0.07,
+        0.35
+      ]
+    },
+    {
+      "id": "deep_ocean",
+      "mapColor": "#123354",
+      "colorVariation": 0.03,
+      "isWater": true,
+      "depthRange": [
+        0.35,
+        1.0
+      ],
+      "productionMult": 0.9
+    },
+    {
+      "id": "ice_shelf",
+      "mapColor": "#DDE9F0",
+      "colorVariation": 0.03,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        0.05
+      ],
+      "temperatureRange": [
+        0.0,
+        0.14
+      ],
+      "productionMult": 0.6
+    },
+    {
       "id": "beach",
       "mapColor": "#E4D6A0",
       "colorVariation": 0.04,
@@ -30,7 +87,160 @@
         0.0,
         0.03
       ],
+      "temperatureRange": [
+        0.14,
+        1.0
+      ],
       "productionMult": 1.0
+    },
+    {
+      "id": "mangrove",
+      "mapColor": "#2F6B4F",
+      "colorVariation": 0.06,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        0.14
+      ],
+      "moistureRange": [
+        0.68,
+        1.0
+      ],
+      "temperatureRange": [
+        0.62,
+        1.0
+      ],
+      "clickYield": {
+        "resource": "wood",
+        "amount": 2
+      },
+      "productionMult": 1.1
+    },
+    {
+      "id": "swamp",
+      "mapColor": "#4A5F38",
+      "colorVariation": 0.06,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        0.14
+      ],
+      "moistureRange": [
+        0.68,
+        1.0
+      ],
+      "temperatureRange": [
+        0.3,
+        0.62
+      ],
+      "clickYield": {
+        "resource": "wood",
+        "amount": 1
+      },
+      "productionMult": 0.8
+    },
+    {
+      "id": "jungle",
+      "mapColor": "#1F7A3D",
+      "colorVariation": 0.08,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        0.3
+      ],
+      "moistureRange": [
+        0.6,
+        1.0
+      ],
+      "temperatureRange": [
+        0.7,
+        1.0
+      ],
+      "clickYield": {
+        "resource": "wood",
+        "amount": 3
+      },
+      "productionMult": 1.25
+    },
+    {
+      "id": "savanna",
+      "mapColor": "#CBA95C",
+      "colorVariation": 0.05,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        0.3
+      ],
+      "moistureRange": [
+        0.36,
+        0.62
+      ],
+      "temperatureRange": [
+        0.7,
+        1.0
+      ],
+      "productionMult": 0.95
+    },
+    {
+      "id": "desert",
+      "mapColor": "#E8CE8B",
+      "colorVariation": 0.04,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        0.3
+      ],
+      "moistureRange": [
+        0.0,
+        0.36
+      ],
+      "temperatureRange": [
+        0.55,
+        1.0
+      ],
+      "productionMult": 0.75
+    },
+    {
+      "id": "taiga",
+      "mapColor": "#2E5644",
+      "colorVariation": 0.06,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        0.3
+      ],
+      "moistureRange": [
+        0.42,
+        1.0
+      ],
+      "temperatureRange": [
+        0.0,
+        0.34
+      ],
+      "clickYield": {
+        "resource": "wood",
+        "amount": 2
+      },
+      "productionMult": 1.1
+    },
+    {
+      "id": "tundra",
+      "mapColor": "#9AA88E",
+      "colorVariation": 0.05,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        0.3
+      ],
+      "moistureRange": [
+        0.0,
+        0.42
+      ],
+      "temperatureRange": [
+        0.0,
+        0.34
+      ],
+      "productionMult": 0.75
     },
     {
       "id": "forest",
@@ -39,7 +249,7 @@
       "isWater": false,
       "elevationRange": [
         0.0,
-        0.28
+        0.3
       ],
       "moistureRange": [
         0.56,
@@ -58,7 +268,7 @@
       "isWater": false,
       "elevationRange": [
         0.0,
-        0.28
+        0.3
       ],
       "moistureRange": [
         0.39,
@@ -73,7 +283,7 @@
       "isWater": false,
       "elevationRange": [
         0.0,
-        0.28
+        0.3
       ],
       "moistureRange": [
         0.0,
@@ -82,13 +292,59 @@
       "productionMult": 0.85
     },
     {
+      "id": "badlands",
+      "mapColor": "#A8623C",
+      "colorVariation": 0.07,
+      "isWater": false,
+      "elevationRange": [
+        0.3,
+        0.46
+      ],
+      "moistureRange": [
+        0.0,
+        0.34
+      ],
+      "temperatureRange": [
+        0.58,
+        1.0
+      ],
+      "clickYield": {
+        "resource": "stone",
+        "amount": 2
+      },
+      "productionMult": 0.9
+    },
+    {
+      "id": "highlands",
+      "mapColor": "#5F7F52",
+      "colorVariation": 0.06,
+      "isWater": false,
+      "elevationRange": [
+        0.3,
+        0.46
+      ],
+      "moistureRange": [
+        0.55,
+        1.0
+      ],
+      "temperatureRange": [
+        0.3,
+        0.75
+      ],
+      "clickYield": {
+        "resource": "wood",
+        "amount": 1
+      },
+      "productionMult": 1.05
+    },
+    {
       "id": "mountains",
       "mapColor": "#8A8578",
       "colorVariation": 0.06,
       "isWater": false,
       "elevationRange": [
-        0.28,
-        0.44
+        0.3,
+        0.46
       ],
       "clickYield": {
         "resource": "stone",
@@ -97,12 +353,46 @@
       "productionMult": 1.2
     },
     {
+      "id": "volcanic",
+      "mapColor": "#4A3B3B",
+      "colorVariation": 0.08,
+      "isWater": false,
+      "elevationRange": [
+        0.46,
+        1.0
+      ],
+      "temperatureRange": [
+        0.45,
+        1.0
+      ],
+      "clickYield": {
+        "resource": "stone",
+        "amount": 3
+      },
+      "productionMult": 1.35
+    },
+    {
+      "id": "glacier",
+      "mapColor": "#BFD8E8",
+      "colorVariation": 0.03,
+      "isWater": false,
+      "elevationRange": [
+        0.46,
+        1.0
+      ],
+      "temperatureRange": [
+        0.0,
+        0.2
+      ],
+      "productionMult": 0.6
+    },
+    {
       "id": "snow_peaks",
       "mapColor": "#EDEFF2",
       "colorVariation": 0.03,
       "isWater": false,
       "elevationRange": [
-        0.44,
+        0.46,
         1.0
       ],
       "productionMult": 0.8

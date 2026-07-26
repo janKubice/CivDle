@@ -56,6 +56,94 @@
       "density": 0.05,
       "minSize": 1,
       "maxSize": 2
+    },
+    {
+      "id": "jungle_canopy",
+      "biomes": ["jungle", "mangrove"],
+      "colors": ["#14612F", "#2B9450", "#0E4A24", "#57B36A"],
+      "density": 0.42,
+      "minSize": 2,
+      "maxSize": 5
+    },
+    {
+      "id": "taiga_conifers",
+      "biomes": ["taiga", "highlands"],
+      "colors": ["#22453A", "#2F6350", "#1A362D"],
+      "density": 0.3,
+      "minSize": 2,
+      "maxSize": 4
+    },
+    {
+      "id": "acacia",
+      "biomes": ["savanna"],
+      "colors": ["#6E7A3A", "#8A9247", "#5A6330"],
+      "density": 0.07,
+      "minSize": 2,
+      "maxSize": 3
+    },
+    {
+      "id": "dune_ripples",
+      "biomes": ["desert"],
+      "colors": ["#D6B673", "#F0DCA6"],
+      "density": 0.09,
+      "minSize": 1,
+      "maxSize": 3
+    },
+    {
+      "id": "tundra_lichen",
+      "biomes": ["tundra"],
+      "colors": ["#8B9A7E", "#A8B39B", "#6F7D64"],
+      "density": 0.08,
+      "minSize": 1,
+      "maxSize": 2
+    },
+    {
+      "id": "reeds",
+      "biomes": ["swamp"],
+      "colors": ["#5D7040", "#3F5230", "#7C8B4C"],
+      "density": 0.22,
+      "minSize": 1,
+      "maxSize": 3
+    },
+    {
+      "id": "canyon_strata",
+      "biomes": ["badlands"],
+      "colors": ["#8E4C2E", "#C07A4A", "#6B3722"],
+      "density": 0.14,
+      "minSize": 1,
+      "maxSize": 4
+    },
+    {
+      "id": "lava_cracks",
+      "biomes": ["volcanic"],
+      "colors": ["#E2542A", "#F09B3C", "#8A2E16"],
+      "density": 0.12,
+      "minSize": 1,
+      "maxSize": 2
+    },
+    {
+      "id": "crevasse",
+      "biomes": ["glacier", "ice_shelf"],
+      "colors": ["#8FBBD6", "#CFE6F2"],
+      "density": 0.07,
+      "minSize": 1,
+      "maxSize": 3
+    },
+    {
+      "id": "reef_coral",
+      "biomes": ["coral_reef"],
+      "colors": ["#E4746A", "#F0B65C", "#7FD6C4", "#C77BD0"],
+      "density": 0.2,
+      "minSize": 1,
+      "maxSize": 2
+    },
+    {
+      "id": "ice_floes",
+      "biomes": ["pack_ice"],
+      "colors": ["#FFFFFF", "#D9E9F2"],
+      "density": 0.16,
+      "minSize": 1,
+      "maxSize": 3
     }
   ]
 }

@@ -486,6 +486,21 @@
     "tip.build.biomes": "Jen na: {0}",
     "tech.needs": "Chybí: {0}",
     "hud.build": "Stavět",
-    "tip.build": "Otevře katalog budov. Vyber budovu a klikni na mapu — duch ukáže, kam se vejde."
+    "tip.build": "Otevře katalog budov. Vyber budovu a klikni na mapu — duch ukáže, kam se vejde.",
+    "biome.coral_reef": "Korálový útes",
+    "biome.pack_ice": "Mořský led",
+    "biome.deep_ocean": "Hlubina",
+    "biome.ice_shelf": "Ledový šelf",
+    "biome.mangrove": "Mangrove",
+    "biome.swamp": "Bažina",
+    "biome.jungle": "Džungle",
+    "biome.savanna": "Savana",
+    "biome.desert": "Poušť",
+    "biome.taiga": "Tajga",
+    "biome.tundra": "Tundra",
+    "biome.badlands": "Rokle",
+    "biome.highlands": "Vysočina",
+    "biome.volcanic": "Sopečná pustina",
+    "biome.glacier": "Ledovec"
   }
 }

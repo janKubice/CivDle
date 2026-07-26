@@ -16,7 +16,7 @@ public class BoostCritTests
     {
         TestContent.WaterBiome(),
         new Biome("forest", new RgbColor(20, 80, 20), 0f, IsWater: false,
-            DepthRange: ValueRange.Full, ElevationRange: ValueRange.Full, MoistureRange: ValueRange.Full,
+            DepthRange: ValueRange.Full, ElevationRange: ValueRange.Full, MoistureRange: ValueRange.Full, TemperatureRange: ValueRange.Full,
             ClickYield: new ClickYield(0, 2)),
     };
 

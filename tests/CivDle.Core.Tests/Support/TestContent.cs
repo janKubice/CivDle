@@ -14,14 +14,16 @@ internal static class TestContent
     /// <summary>Vodní biom pokrývající všechny hloubky.</summary>
     public static Biome WaterBiome(string id = "water") => new(
         id, new RgbColor(0, 0, 128), 0f, IsWater: true,
-        DepthRange: ValueRange.Full, ElevationRange: ValueRange.Full, MoistureRange: ValueRange.Full);
+        DepthRange: ValueRange.Full, ElevationRange: ValueRange.Full, MoistureRange: ValueRange.Full,
+        TemperatureRange: ValueRange.Full);
 
     /// <summary>Pevninský biom s daným pokrytím výšek.</summary>
     public static Biome LandBiome(string id, ValueRange? elevation = null) => new(
         id, new RgbColor(0, 128, 0), 0f, IsWater: false,
         DepthRange: ValueRange.Full,
         ElevationRange: elevation ?? ValueRange.Full,
-        MoistureRange: ValueRange.Full);
+        MoistureRange: ValueRange.Full,
+        TemperatureRange: ValueRange.Full);
 
     /// <summary>Složí kompletní <see cref="GameContent"/> z dodaných či výchozích částí.</summary>
     public static GameContent Build(

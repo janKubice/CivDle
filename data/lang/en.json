@@ -486,6 +486,21 @@
     "tip.build.biomes": "Only on: {0}",
     "tech.needs": "Requires: {0}",
     "hud.build": "Build",
-    "tip.build": "Opens the building catalogue. Pick a building and click the map — the ghost shows where it fits."
+    "tip.build": "Opens the building catalogue. Pick a building and click the map — the ghost shows where it fits.",
+    "biome.coral_reef": "Coral reef",
+    "biome.pack_ice": "Pack ice",
+    "biome.deep_ocean": "Deep ocean",
+    "biome.ice_shelf": "Ice shelf",
+    "biome.mangrove": "Mangrove",
+    "biome.swamp": "Swamp",
+    "biome.jungle": "Jungle",
+    "biome.savanna": "Savanna",
+    "biome.desert": "Desert",
+    "biome.taiga": "Taiga",
+    "biome.tundra": "Tundra",
+    "biome.badlands": "Badlands",
+    "biome.highlands": "Highlands",
+    "biome.volcanic": "Volcanic wastes",
+    "biome.glacier": "Glacier"
   }
 }

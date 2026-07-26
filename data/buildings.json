@@ -8,7 +8,7 @@
       "footprint": [1, 1],
       "housingCapacity": 4,
       "buildCost": { "wood": 5, "planks": 4 },
-      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
       "autoBuild": true,
       "upgradesTo": "cottage",
       "upgradeCost": { "planks": 8, "stone": 6 }
@@ -20,7 +20,7 @@
       "footprint": [1, 1],
       "housingCapacity": 9,
       "buildCost": { "planks": 10, "stone": 6 },
-      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
       "buildable": false,
       "upgradesTo": "brick_house",
       "upgradeCost": { "stone": 10, "bronze": 4 }
@@ -33,7 +33,7 @@
       "workerSlots": 2,
       "buildCost": { "wood": 5 },
       "recipe": { "output": { "wood": 2 }, "timeTicks": 40 },
-      "allowedBiomes": ["forest"],
+      "allowedBiomes": ["forest", "taiga", "jungle", "mangrove", "highlands"],
       "upgradesTo": "lumberyard",
       "upgradeCost": { "planks": 8, "stone": 6 }
     },
@@ -45,7 +45,7 @@
       "workerSlots": 3,
       "buildCost": { "planks": 12, "stone": 6 },
       "recipe": { "output": { "wood": 4 }, "timeTicks": 40 },
-      "allowedBiomes": ["forest"],
+      "allowedBiomes": ["forest", "taiga", "jungle", "mangrove", "highlands"],
       "buildable": false
     },
     {
@@ -56,7 +56,7 @@
       "workerSlots": 2,
       "buildCost": { "wood": 20, "stone": 5 },
       "recipe": { "input": { "wood": 3 }, "output": { "planks": 1 }, "timeTicks": 40 },
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "quarry",
@@ -66,7 +66,7 @@
       "workerSlots": 3,
       "buildCost": { "wood": 15 },
       "recipe": { "output": { "stone": 2 }, "timeTicks": 50 },
-      "allowedBiomes": ["mountains", "snow_peaks"],
+      "allowedBiomes": ["mountains", "snow_peaks", "badlands", "volcanic"],
       "upgradesTo": "mine",
       "upgradeCost": { "planks": 10, "stone": 12 }
     },
@@ -78,7 +78,7 @@
       "workerSlots": 4,
       "buildCost": { "planks": 14, "stone": 12 },
       "recipe": { "output": { "stone": 4 }, "timeTicks": 50 },
-      "allowedBiomes": ["mountains", "snow_peaks"],
+      "allowedBiomes": ["mountains", "snow_peaks", "badlands", "volcanic"],
       "buildable": false
     },
     {
@@ -89,7 +89,7 @@
       "workerSlots": 2,
       "buildCost": { "wood": 12, "stone": 4 },
       "recipe": { "output": { "food": 3 }, "timeTicks": 50 },
-      "allowedBiomes": ["grassland"],
+      "allowedBiomes": ["grassland", "savanna"],
       "upgradesTo": "plantation",
       "upgradeCost": { "planks": 10, "stone": 8 }
     },
@@ -101,7 +101,7 @@
       "workerSlots": 3,
       "buildCost": { "planks": 14, "stone": 8 },
       "recipe": { "output": { "food": 6 }, "timeTicks": 50 },
-      "allowedBiomes": ["grassland"],
+      "allowedBiomes": ["grassland", "savanna"],
       "buildable": false
     },
     {
@@ -110,7 +110,7 @@
       "mapColor": "#7E5C3F",
       "footprint": [2, 2],
       "buildCost": { "wood": 10, "planks": 8, "stone": 6 },
-      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
       "storage": { "wood": 150, "planks": 100, "stone": 120, "food": 120, "tools": 60, "copper_ore": 80, "bronze": 60, "iron_ore": 80, "coal": 80, "iron": 60, "steel": 60, "machine_parts": 50, "silicon": 60, "electronics": 50, "computer": 40, "nanomaterial": 40, "robot": 30 }
     },
     {
@@ -121,7 +121,7 @@
       "workerSlots": 2,
       "buildCost": { "wood": 18, "planks": 12, "stone": 6 },
       "recipe": { "output": { "food": 5 }, "timeTicks": 40 },
-      "allowedBiomes": ["grassland", "steppe"]
+      "allowedBiomes": ["grassland", "steppe", "savanna", "tundra"]
     },
     {
       "id": "market",
@@ -131,7 +131,7 @@
       "housingCapacity": 2,
       "buildCost": { "wood": 20, "planks": 16, "stone": 10 },
       "storage": { "food": 150, "tools": 60 },
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "toolmaker",
@@ -141,7 +141,7 @@
       "workerSlots": 3,
       "buildCost": { "wood": 16, "planks": 10, "stone": 8 },
       "recipe": { "input": { "planks": 2 }, "output": { "tools": 1 }, "timeTicks": 60 },
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "brick_house",
@@ -150,7 +150,7 @@
       "footprint": [1, 1],
       "housingCapacity": 14,
       "buildCost": { "stone": 12, "bronze": 4 },
-      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
       "buildable": false,
       "upgradesTo": "tenement",
       "upgradeCost": { "stone": 14, "iron": 6 }
@@ -162,7 +162,7 @@
       "footprint": [1, 1],
       "housingCapacity": 22,
       "buildCost": { "stone": 18, "iron": 8 },
-      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
       "buildable": false,
       "upgradesTo": "apartment",
       "upgradeCost": { "steel": 10, "machine_parts": 4 }
@@ -175,7 +175,7 @@
       "workerSlots": 4,
       "buildCost": { "planks": 12, "stone": 10 },
       "recipe": { "output": { "iron_ore": 2 }, "timeTicks": 55 },
-      "allowedBiomes": ["mountains", "snow_peaks"]
+      "allowedBiomes": ["mountains", "snow_peaks", "badlands", "volcanic"]
     },
     {
       "id": "coal_mine",
@@ -185,7 +185,7 @@
       "workerSlots": 4,
       "buildCost": { "planks": 12, "stone": 8 },
       "recipe": { "output": { "coal": 2 }, "timeTicks": 50 },
-      "allowedBiomes": ["mountains", "snow_peaks"]
+      "allowedBiomes": ["mountains", "snow_peaks", "badlands", "volcanic"]
     },
     {
       "id": "blast_furnace",
@@ -195,7 +195,7 @@
       "workerSlots": 5,
       "buildCost": { "stone": 25, "bronze": 8 },
       "recipe": { "input": { "iron_ore": 2, "coal": 1 }, "output": { "iron": 1 }, "timeTicks": 55 },
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "iron_forge",
@@ -205,7 +205,7 @@
       "workerSlots": 3,
       "buildCost": { "stone": 18, "iron": 6 },
       "recipe": { "input": { "iron": 1, "planks": 1 }, "output": { "tools": 5 }, "timeTicks": 55 },
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "copper_mine",
@@ -215,7 +215,7 @@
       "workerSlots": 4,
       "buildCost": { "wood": 20, "planks": 8 },
       "recipe": { "output": { "copper_ore": 2 }, "timeTicks": 55 },
-      "allowedBiomes": ["mountains", "snow_peaks"]
+      "allowedBiomes": ["mountains", "snow_peaks", "badlands", "volcanic"]
     },
     {
       "id": "smeltery",
@@ -225,7 +225,7 @@
       "workerSlots": 3,
       "buildCost": { "stone": 20, "planks": 12 },
       "recipe": { "input": { "copper_ore": 2 }, "output": { "bronze": 1 }, "timeTicks": 50 },
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "bronze_smith",
@@ -235,7 +235,7 @@
       "workerSlots": 3,
       "buildCost": { "stone": 15, "bronze": 5 },
       "recipe": { "input": { "bronze": 1, "planks": 1 }, "output": { "tools": 3 }, "timeTicks": 55 },
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "apartment",
@@ -244,7 +244,7 @@
       "footprint": [1, 1],
       "housingCapacity": 40,
       "buildCost": { "steel": 14, "machine_parts": 6 },
-      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
       "buildable": false,
       "upgradesTo": "high_rise",
       "upgradeCost": { "steel": 16, "electronics": 6 }
@@ -257,7 +257,7 @@
       "workerSlots": 6,
       "buildCost": { "stone": 30, "iron": 12 },
       "recipe": { "input": { "iron": 2, "coal": 2 }, "output": { "steel": 1 }, "timeTicks": 60 },
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "coal_power_plant",
@@ -266,7 +266,7 @@
       "footprint": [2, 2],
       "buildCost": { "steel": 12, "iron": 10 },
       "powerSupply": 25,
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "factory",
@@ -277,7 +277,7 @@
       "buildCost": { "steel": 16, "machine_parts": 4 },
       "recipe": { "input": { "steel": 2 }, "output": { "machine_parts": 2 }, "timeTicks": 55 },
       "powerDemand": 10,
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "high_rise",
@@ -286,7 +286,7 @@
       "footprint": [1, 1],
       "housingCapacity": 70,
       "buildCost": { "steel": 20, "electronics": 8 },
-      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
       "buildable": false,
       "upgradesTo": "arcology",
       "upgradeCost": { "nanomaterial": 10, "computer": 6 }
@@ -299,7 +299,7 @@
       "workerSlots": 4,
       "buildCost": { "stone": 20, "iron": 10 },
       "recipe": { "output": { "silicon": 2 }, "timeTicks": 55 },
-      "allowedBiomes": ["mountains", "snow_peaks"]
+      "allowedBiomes": ["mountains", "snow_peaks", "badlands", "volcanic"]
     },
     {
       "id": "electronics_fab",
@@ -310,7 +310,7 @@
       "buildCost": { "steel": 16, "machine_parts": 6 },
       "recipe": { "input": { "silicon": 2 }, "output": { "electronics": 1 }, "timeTicks": 55 },
       "powerDemand": 12,
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "computer_plant",
@@ -321,7 +321,7 @@
       "buildCost": { "steel": 18, "machine_parts": 8 },
       "recipe": { "input": { "electronics": 2, "machine_parts": 1 }, "output": { "computer": 1 }, "timeTicks": 60 },
       "powerDemand": 15,
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "arcology",
@@ -330,7 +330,7 @@
       "footprint": [1, 1],
       "housingCapacity": 150,
       "buildCost": { "nanomaterial": 14, "computer": 8 },
-      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
       "buildable": false
     },
     {
@@ -340,7 +340,7 @@
       "footprint": [2, 2],
       "buildCost": { "steel": 30, "computer": 12 },
       "powerSupply": 120,
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "nano_forge",
@@ -351,7 +351,7 @@
       "buildCost": { "steel": 20, "computer": 6 },
       "recipe": { "input": { "steel": 2, "silicon": 2 }, "output": { "nanomaterial": 1 }, "timeTicks": 60 },
       "powerDemand": 18,
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "robotics_lab",
@@ -362,7 +362,7 @@
       "buildCost": { "computer": 10, "nanomaterial": 6 },
       "recipe": { "input": { "computer": 1, "machine_parts": 2, "nanomaterial": 1 }, "output": { "robot": 1 }, "timeTicks": 65 },
       "powerDemand": 20,
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "fishing_hut",
@@ -382,7 +382,7 @@
       "workerSlots": 2,
       "buildCost": { "wood": 15 },
       "recipe": { "output": { "food": 2 }, "timeTicks": 55 },
-      "allowedBiomes": ["forest"]
+      "allowedBiomes": ["forest", "taiga", "jungle", "mangrove", "highlands"]
     },
     {
       "id": "granary",
@@ -391,7 +391,7 @@
       "footprint": [1, 1],
       "buildCost": { "wood": 20, "planks": 8 },
       "storage": { "food": 150 },
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "depot",
@@ -400,7 +400,7 @@
       "footprint": [1, 1],
       "buildCost": { "planks": 15, "stone": 15 },
       "storage": { "wood": 120, "planks": 80, "stone": 100 },
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "workshop",
@@ -410,7 +410,7 @@
       "workerSlots": 2,
       "buildCost": { "planks": 12, "stone": 10 },
       "recipe": { "input": { "planks": 1, "stone": 1 }, "output": { "tools": 1 }, "timeTicks": 70 },
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "charcoal_kiln",
@@ -420,7 +420,7 @@
       "workerSlots": 3,
       "buildCost": { "stone": 18, "planks": 10 },
       "recipe": { "input": { "wood": 3 }, "output": { "coal": 1 }, "timeTicks": 50 },
-      "allowedBiomes": ["grassland", "steppe", "forest"]
+      "allowedBiomes": ["grassland", "steppe", "savanna", "tundra", "forest", "taiga", "jungle", "mangrove", "highlands"]
     },
     {
       "id": "machine_shop",
@@ -430,7 +430,7 @@
       "workerSlots": 4,
       "buildCost": { "iron": 15, "tools": 10 },
       "recipe": { "input": { "iron": 2, "coal": 1 }, "output": { "machine_parts": 1 }, "timeTicks": 70 },
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "solar_array",
@@ -439,7 +439,7 @@
       "footprint": [2, 2],
       "buildCost": { "silicon": 25, "steel": 15 },
       "powerSupply": 18,
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "hydroponics",
@@ -450,7 +450,7 @@
       "buildCost": { "steel": 20, "electronics": 10 },
       "recipe": { "output": { "food": 12 }, "timeTicks": 45 },
       "powerDemand": 14,
-      "allowedBiomes": ["grassland", "steppe", "beach", "mountains", "snow_peaks"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert", "mountains", "snow_peaks", "badlands", "volcanic"]
     },
     {
       "id": "harbor",
@@ -462,7 +462,7 @@
       "buildCost": { "planks": 25, "stone": 15 },
       "storage": { "food": 250, "wood": 200, "planks": 150, "stone": 150 },
       "requiresAdjacentWater": true,
-      "allowedBiomes": ["beach", "grassland", "steppe"],
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
       "buildable": false
     },
     {
@@ -474,7 +474,7 @@
       "buildCost": { "planks": 20, "tools": 6 },
       "recipe": { "output": { "food": 9 }, "timeTicks": 45 },
       "requiresAdjacentWater": true,
-      "allowedBiomes": ["beach", "grassland", "steppe"],
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
       "buildable": false
     },
     {
@@ -487,7 +487,7 @@
       "buildCost": { "steel": 60, "machine_parts": 25 },
       "storage": { "food": 2000, "wood": 1500, "planks": 1200, "stone": 1200, "iron": 800, "steel": 800, "coal": 800 },
       "requiresAdjacentWater": true,
-      "allowedBiomes": ["beach", "grassland", "steppe"],
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
       "buildable": false
     },
     {
@@ -500,7 +500,7 @@
       "buildCost": { "steel": 40, "machine_parts": 15 },
       "storage": { "food": 600, "tools": 300, "machine_parts": 300 },
       "powerDemand": 12,
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "airport",
@@ -512,7 +512,7 @@
       "buildCost": { "steel": 90, "machine_parts": 50, "electronics": 25 },
       "storage": { "food": 3000, "tools": 1500, "machine_parts": 1500, "electronics": 1000, "computer": 800 },
       "powerDemand": 45,
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "spaceport",
@@ -523,7 +523,7 @@
       "buildCost": { "nanomaterial": 120, "robot": 60, "computer": 90 },
       "recipe": { "input": { "nanomaterial": 2, "robot": 1 }, "output": { "computer": 8, "electronics": 8 }, "timeTicks": 50 },
       "powerDemand": 200,
-      "allowedBiomes": ["grassland", "steppe", "beach"]
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"]
     },
     {
       "id": "megacity_spire",
@@ -533,7 +533,7 @@
       "housingCapacity": 5000,
       "buildCost": { "steel": 120, "computer": 60, "machine_parts": 80 },
       "powerDemand": 60,
-      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
       "buildable": false
     },
     {
@@ -545,7 +545,7 @@
       "buildCost": { "steel": 100, "electronics": 50, "machine_parts": 60 },
       "storage": { "wood": 5000, "planks": 5000, "stone": 5000, "food": 5000, "tools": 3000, "iron": 3000, "steel": 3000, "machine_parts": 2000, "electronics": 2000, "computer": 1500 },
       "powerDemand": 40,
-      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
       "buildable": false
     },
     {
@@ -555,7 +555,7 @@
       "footprint": [3, 3],
       "buildCost": { "nanomaterial": 150, "robot": 60, "computer": 100 },
       "powerSupply": 2000,
-      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
       "buildable": false
     },
     {
@@ -567,7 +567,7 @@
       "buildCost": { "nanomaterial": 200, "robot": 100, "steel": 200 },
       "recipe": { "input": { "silicon": 4, "iron": 4 }, "output": { "nanomaterial": 6, "steel": 6 }, "timeTicks": 40 },
       "powerDemand": 300,
-      "allowedBiomes": ["grassland", "steppe", "beach"],
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
       "buildable": false
     }
   ]

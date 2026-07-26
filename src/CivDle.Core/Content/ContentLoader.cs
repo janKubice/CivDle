@@ -474,6 +474,9 @@ public sealed class ContentLoader
         ValueRange elevation = ValueRange.Full;
         ValueRange moisture = ValueRange.Full;
 
+        // Teplota platí pro vodu i pevninu — teplé moře má útesy, studené zamrzá.
+        ValueRange temperature = ParseRange(path, id, "temperatureRange", dto.TemperatureRange, required: false);
+
         if (dto.IsWater)
         {
             depth = ParseRange(path, id, "depthRange", dto.DepthRange, required: true);
@@ -508,7 +511,8 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"Biom '{id}': 'productionMult' musí být 0.25–3.0, je {productionMult}.");
         }
 
-        return new Biome(id, color, (float)dto.ColorVariation, dto.IsWater, depth, elevation, moisture, clickYield, productionMult);
+        return new Biome(id, color, (float)dto.ColorVariation, dto.IsWater,
+            depth, elevation, moisture, temperature, clickYield, productionMult);
     }
 
     private static ValueRange ParseRange(string path, string biomeId, string field, double[]? values, bool required)
@@ -1702,10 +1706,41 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"Preset '{id}': 'riverMaxElevation' musí být 0–1, je {dto.RiverMaxElevation}.");
         }
 
+        // Klima je volitelné: bez 'temperatureNoise' se biomy vybírají jen podle
+        // výšky a vlhkosti (starší obsah tak zůstává platný).
+        NoiseSpec? temperature = dto.TemperatureNoise is null
+            ? null
+            : ValidateNoise(path, id, "temperatureNoise", dto.TemperatureNoise);
+
+        if (dto.TemperatureBandTiles < 0)
+        {
+            throw new ContentLoadException(path, $"Preset '{id}': 'temperatureBandTiles' nesmí být záporné, je {dto.TemperatureBandTiles}.");
+        }
+
+        if (dto.TemperatureLapse is < 0 or > 1)
+        {
+            throw new ContentLoadException(path, $"Preset '{id}': 'temperatureLapse' musí být 0–1, je {dto.TemperatureLapse}.");
+        }
+
+        int riverBiome = -1;
+        if (!string.IsNullOrWhiteSpace(dto.RiverBiome))
+        {
+            if (!biomes.TryIndexOf(dto.RiverBiome.Trim(), out riverBiome))
+            {
+                throw new ContentLoadException(path, $"Preset '{id}' odkazuje na neexistující biom '{dto.RiverBiome}' v 'riverBiome'.");
+            }
+
+            if (!biomes[riverBiome].IsWater)
+            {
+                throw new ContentLoadException(path, $"Preset '{id}': 'riverBiome' ('{dto.RiverBiome}') musí být vodní biom.");
+            }
+        }
+
         float riverMaxElevation = dto.RiverMaxElevation <= 0 ? 1f : (float)dto.RiverMaxElevation;
         return new TerrainPreset(
             id, (float)dto.SeaLevel, fallbackIndex, elevation, moisture,
-            river, (float)dto.RiverWidth, riverMaxElevation);
+            river, (float)dto.RiverWidth, riverMaxElevation,
+            temperature, (float)dto.TemperatureBandTiles, (float)dto.TemperatureLapse, riverBiome);
     }
 
     private static NoiseSpec ValidateNoise(string path, string presetId, string field, NoiseDto? dto)
