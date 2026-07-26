@@ -1287,6 +1287,16 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"'roads.maxBridgeSpan' musí být 0–64, je {file.Roads.MaxBridgeSpan}.");
         }
 
+        // Nezadaná hodnota = silnice bez mechanického dopadu (zpětně kompatibilní).
+        double disconnectedMult = file.Roads.DisconnectedProductionMult <= 0
+            ? 1.0
+            : file.Roads.DisconnectedProductionMult;
+        if (disconnectedMult > 1.0)
+        {
+            throw new ContentLoadException(path,
+                $"'roads.disconnectedProductionMult' musí být 0–1 (napojení nesmí výrobu snižovat), je {disconnectedMult}.");
+        }
+
         if (file.Settlements is null)
         {
             throw new ContentLoadException(path, "Chybí blok 'settlements' (detekce osad).");
@@ -1376,7 +1386,7 @@ public sealed class ContentLoader
             file.FoodPerPersonPerSecond,
             foodIndex,
             new AutoBuildConfig(file.AutoBuild.IntervalTicks, file.AutoBuild.SearchRadius, file.AutoBuild.PopulationHeadroom),
-            new RoadConfig(roadColor, file.Roads.MaxSearchDistance, file.Roads.MaxBridgeSpan),
+            new RoadConfig(roadColor, file.Roads.MaxSearchDistance, file.Roads.MaxBridgeSpan, disconnectedMult),
             new SettlementConfig(file.Settlements.MinBuildings, file.Settlements.ClusterDistance, file.Settlements.UpdateIntervalTicks),
             new DayNightConfig(
                 file.DayNight.DayLengthSeconds,

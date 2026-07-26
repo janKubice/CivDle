@@ -23,6 +23,8 @@ public sealed class Simulation
     private readonly double[] _storageCaps;
     private readonly Dictionary<long, int> _occupancy = new(); // klíč dlaždice → index budovy + 1
     private readonly HashSet<long> _roads = new();
+    private bool[] _roadLinked = Array.Empty<bool>(); // budova ↔ napojení na síť (cache)
+    private bool _roadLinksDirty = true;
     private readonly List<RoadTile> _roadTiles = new(); // pořadí vzniku — deterministické, jde do savu
     private readonly List<Settlement> _settlements = new();
     private readonly ProductionSystem _production;
@@ -438,6 +440,98 @@ public sealed class Simulation
     /// <summary>Zástavba se změnila — osady čekají na přepočet.</summary>
     internal bool SettlementsDirty { get; set; }
 
+    /// <summary>
+    /// Je budova napojená na silniční síť? Bez cesty se zboží odváží hůř a výroba
+    /// klesne na <see cref="RoadConfig.DisconnectedProductionMult"/> — díky tomu
+    /// silnice nejsou jen čára na mapě. Auto-stavba je staví sama, takže jde
+    /// o odměnu za fungující síť, ne o past.
+    ///
+    /// <para>Dokud ve městě není ANI JEDNA cesta, platí všechny budovy za napojené.
+    /// První chalupa nemá k čemu se připojit a trestat ji za to by hráče jen mátlo —
+    /// mechanika se zapne, teprve až síť vznikne.</para>
+    /// </summary>
+    public bool IsBuildingConnected(int buildingIndex)
+    {
+        if (_roads.Count == 0)
+        {
+            return true;
+        }
+
+        EnsureRoadLinkFresh();
+        return buildingIndex >= 0 && buildingIndex < _buildingCount && _roadLinked[buildingIndex];
+    }
+
+    /// <summary>Kolik postavených budov má napojení na síť (HUD, balanc).</summary>
+    public int ConnectedBuildingCount
+    {
+        get
+        {
+            EnsureRoadLinkFresh();
+            int count = 0;
+            for (int i = 0; i < _buildingCount; i++)
+            {
+                if (_roadLinked[i]) count++;
+            }
+
+            return count;
+        }
+    }
+
+    /// <summary>Napojení se mění jen se stavbou nebo novou cestou — jinak se nepřepočítává.</summary>
+    internal void InvalidateRoadLinks() => _roadLinksDirty = true;
+
+    private void EnsureRoadLinkFresh()
+    {
+        if (!_roadLinksDirty)
+        {
+            return;
+        }
+
+        _roadLinksDirty = false;
+        if (_roadLinked.Length < _buildings.Length)
+        {
+            Array.Resize(ref _roadLinked, _buildings.Length);
+        }
+
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            _roadLinked[i] = TouchesRoad(_buildings[i]);
+        }
+    }
+
+    /// <summary>
+    /// Sousedí půdorys budovy s nějakou silnicí? Jen ORTOGONÁLNĚ — roh se nepočítá,
+    /// po úhlopříčce se zboží nevozí. Proto řádky nad a pod jdou jen přes šířku
+    /// půdorysu a sloupce vlevo a vpravo jen přes jeho výšku.
+    /// </summary>
+    private bool TouchesRoad(in BuildingInstance building)
+    {
+        var def = _content.Buildings[building.DefIndex];
+        for (int x = building.X; x < building.X + def.FootprintWidth; x++)
+        {
+            if (IsRoad(x, building.Y - 1) || IsRoad(x, building.Y + def.FootprintHeight))
+            {
+                return true;
+            }
+        }
+
+        for (int y = building.Y; y < building.Y + def.FootprintHeight; y++)
+        {
+            if (IsRoad(building.X - 1, y) || IsRoad(building.X + def.FootprintWidth, y))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Položí silnici na dlaždici. Veřejné kvůli testům a nástrojům — ve hře cesty
+    /// staví <see cref="RoadBuilder"/> sám, hráč je nekreslí.
+    /// </summary>
+    public void AddRoadTileForTest(int x, int y) => AddRoadTile(x, y);
+
     /// <summary>Označí dlaždici jako silnici (RoadBuilder, načtení savu). Duplicitní volání je no-op.</summary>
     /// <summary>
     /// Je na dlaždici most? Most je silnice vedoucí po vodě — odvozuje se z terénu,
@@ -451,6 +545,7 @@ public sealed class Simulation
         if (_roads.Add(TileKey.Pack(x, y)))
         {
             _roadTiles.Add(new RoadTile(x, y));
+            _roadLinksDirty = true;
         }
     }
 
@@ -585,6 +680,7 @@ public sealed class Simulation
         ApplyBuildingBonuses(def);
         _roadBuilder.ConnectLastBuilding(this);
         SettlementsDirty = true;
+        _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
 
@@ -1550,6 +1646,7 @@ public sealed class Simulation
         instance.Progress = 0f;
         ApplyBuildingBonuses(_content.Buildings[instance.DefIndex]);
         SettlementsDirty = true;
+        _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
 
@@ -1593,6 +1690,7 @@ public sealed class Simulation
 
         _buildingCount--;
         SettlementsDirty = true;
+        _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
 
@@ -1662,6 +1760,7 @@ public sealed class Simulation
         }
 
         SettlementsDirty = true;
+        _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
 
@@ -1797,7 +1896,8 @@ public sealed class Simulation
     {
         AddBuilding(defIndex, x, y, progress);
         ApplyBuildingBonuses(_content.Buildings[defIndex]);
-        SettlementsDirty = true; // silnice ze savu chodí zvlášť, přepočet osad ale spustit musíme
+        SettlementsDirty = true;
+        _roadLinksDirty = true; // silnice ze savu chodí zvlášť, přepočet osad ale spustit musíme
     }
 
     private void AddBuilding(int defIndex, int x, int y, float progress)
@@ -2046,6 +2146,7 @@ public sealed class Simulation
         Population = _content.Gameplay.StartingPopulation;
         TickCount = 0;
         SettlementsDirty = true;
+        _roadLinksDirty = true;
     }
 
     /// <summary>Indexy vyzkoumaných technologií (pro serializaci savu).</summary>

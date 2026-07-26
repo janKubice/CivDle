@@ -613,6 +613,8 @@
     "achievement.forester": "Lesník",
     "achievement.forester.desc": "Zasaď padesát stromů.",
     "achievement.arborist": "Arborista",
-    "achievement.arborist.desc": "Zasaď dvě stě padesát stromů."
+    "achievement.arborist.desc": "Zasaď dvě stě padesát stromů.",
+    "building.roadConnected": "Napojeno na silniční síť",
+    "building.roadMissing": "Bez napojení na silnici — vyrábí jen na {0} %. Cesta se natáhne sama, až poblíž vyroste další budova."
   }
 }

@@ -15,7 +15,17 @@ public sealed record AutoBuildConfig(int IntervalTicks, int SearchRadius, int Po
 /// <param name="MapColor">Barva cesty na mapě (MVP vizuál).</param>
 /// <param name="MaxSearchDistance">Strop délky hledané cesty v dlaždicích — dál se nespojuje.</param>
 /// <param name="MaxBridgeSpan">Kolik vodních dlaždic v řadě umí cesta přemostit (0 = bez mostů).</param>
-public sealed record RoadConfig(RgbColor MapColor, int MaxSearchDistance, int MaxBridgeSpan = 0);
+/// <param name="DisconnectedProductionMult">
+/// Násobič výroby budovy, která nesousedí se silniční sítí. 1.0 = silnice jsou
+/// jen dekorace (původní stav), nižší hodnota z nich dělá skutečnou infrastrukturu:
+/// odvézt zboží bez cesty je dražší. Auto-stavba silnice buduje sama, takže je to
+/// odměna za fungující síť, ne trest za nepozornost.
+/// </param>
+public sealed record RoadConfig(
+    RgbColor MapColor,
+    int MaxSearchDistance,
+    int MaxBridgeSpan = 0,
+    double DisconnectedProductionMult = 1.0);
 
 /// <summary>
 /// Nastavení detekce osad (fáze 4: shluk budov se pozná jako sídlo se jménem).

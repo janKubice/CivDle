@@ -613,6 +613,8 @@
     "achievement.forester": "Forester",
     "achievement.forester.desc": "Plant fifty trees.",
     "achievement.arborist": "Arborist",
-    "achievement.arborist.desc": "Plant two hundred and fifty trees."
+    "achievement.arborist.desc": "Plant two hundred and fifty trees.",
+    "building.roadConnected": "Connected to the road network",
+    "building.roadMissing": "No road connection — running at {0}%. A road appears on its own once another building goes up nearby."
   }
 }

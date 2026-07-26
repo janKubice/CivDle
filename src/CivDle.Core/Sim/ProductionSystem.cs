@@ -38,6 +38,7 @@ internal sealed class ProductionSystem
         // Počasí i bonusy jsou pro celý tik konstantní — spočítej jednou, ne u každé
         // budovy (CurrentWeatherIndex je hash, v tikové smyčce by se zbytečně opakoval).
         double productionMult = sim.Bonuses.ProductionMult * sim.BoostMultiplier * sim.WeatherProductionMult;
+        double disconnectedMult = _content.Gameplay.Roads.DisconnectedProductionMult;
         for (int i = 0; i < buildings.Length; i++)
         {
             ref var building = ref buildings[i];
@@ -50,7 +51,16 @@ internal sealed class ProductionSystem
 
             // Budovy závislé na proudu zpomalí při nedostatečném pokrytí sítě
             // (spotřebují vstupy pomaleji — žádný tvrdý trest, jen míň výkonu).
-            building.Progress += def.NeedsPower ? staffing * powerFactor : staffing;
+            float pace = def.NeedsPower ? staffing * powerFactor : staffing;
+
+            // Bez napojení na silnici se zboží odváží hůř. Silnice tím přestávají
+            // být dekorací a auto-stavba sítě dostává smysl.
+            if (disconnectedMult < 1.0 && !sim.IsBuildingConnected(i))
+            {
+                pace *= (float)disconnectedMult;
+            }
+
+            building.Progress += pace;
             if (building.Progress < recipe.TimeTicks)
             {
                 continue;

@@ -125,7 +125,7 @@ public sealed record FaunaDto(
 public sealed record AutoBuildDto(int IntervalTicks, int SearchRadius, int PopulationHeadroom);
 
 /// <summary>Nastavení auto-silnic tak, jak leží v JSON.</summary>
-public sealed record RoadsDto(string? MapColor, int MaxSearchDistance, int MaxBridgeSpan);
+public sealed record RoadsDto(string? MapColor, int MaxSearchDistance, int MaxBridgeSpan, double DisconnectedProductionMult);
 
 /// <summary>Nastavení detekce osad tak, jak leží v JSON.</summary>
 public sealed record SettlementsDto(int MinBuildings, int ClusterDistance, int UpdateIntervalTicks);

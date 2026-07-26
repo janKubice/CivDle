@@ -12,7 +12,7 @@
   },
   "roads": {
     "mapColor": "#9A9284",
-    "maxSearchDistance": 60, "maxBridgeSpan": 6
+    "maxSearchDistance": 60, "maxBridgeSpan": 6, "disconnectedProductionMult": 0.6
   },
   "settlements": {
     "minBuildings": 3,

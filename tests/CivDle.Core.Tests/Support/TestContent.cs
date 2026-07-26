@@ -141,4 +141,23 @@ internal static class TestContent
         UpgradeCost: upgradeCost ?? Array.Empty<ResourceAmount>(),
         PowerSupply: 0,
         PowerDemand: 0);
+
+    /// <summary>Budova, která z ničeho vyrábí zadanou surovinu — pro testy výroby.</summary>
+    public static BuildingDef Producer(
+        string id, int outputResource, int amount, int timeTicks, int biomeCount = 2, int workerSlots = 1) => new(
+        id, "test", new RgbColor(120, 160, 90), 1, 1,
+        WorkerSlots: workerSlots, HousingCapacity: 0,
+        BuildCost: Array.Empty<ResourceAmount>(),
+        Recipe: new Recipe(
+            Array.Empty<ResourceAmount>(),
+            new[] { new ResourceAmount(outputResource, amount) },
+            timeTicks),
+        AllowedBiomes: Enumerable.Repeat(true, biomeCount).ToArray(),
+        StorageBonus: Array.Empty<ResourceAmount>(),
+        AutoBuild: false,
+        Buildable: true,
+        UpgradesToIndex: -1,
+        UpgradeCost: Array.Empty<ResourceAmount>(),
+        PowerSupply: 0,
+        PowerDemand: 0);
 }
