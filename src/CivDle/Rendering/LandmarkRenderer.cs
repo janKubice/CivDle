@@ -15,6 +15,10 @@ namespace CivDle.Rendering;
 /// </summary>
 public sealed class LandmarkRenderer
 {
+    /// <summary>Pod tímhle zoomem se landmarky nekreslí (LOD — z výšky by byly stejně pod rozlišením).</summary>
+    public const float MinZoom = 0.75f;
+
+
     private readonly Texture2D _pixel;
     private readonly GameContent _content;
 

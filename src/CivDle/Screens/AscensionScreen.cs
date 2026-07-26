@@ -133,14 +133,22 @@ public sealed class AscensionScreen : IScreen
             return button;
         }
 
-        var requirement = _screens.Content.Prestige.Requirement;
-        long current = _simulation.EvaluateMetric(requirement.Kind, requirement.Param);
-        return new Label
+        // Práh roste s každým Vzestupem — ukazuj ten AKTUÁLNÍ, ne základní z dat.
+        long current = _simulation.AscensionProgress();
+        long target = _simulation.AscensionRequirement();
+
+        var pending = new VerticalStackPanel { Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center };
+        pending.Widgets.Add(new Label
         {
-            Text = loc.Format("prestige.requirement", current, requirement.Target),
+            Text = loc.Format("prestige.requirement", current, target),
             HorizontalAlignment = HorizontalAlignment.Center,
             TextColor = new Color(210, 170, 120),
-        };
+        });
+
+        var bar = new ProgressBar(412, 8);
+        bar.SetProgress(target > 0 ? current / (double)target : 1.0);
+        pending.Widgets.Add(bar.Root);
+        return pending;
     }
 
     private Widget UpgradeRow(int upgradeIndex)

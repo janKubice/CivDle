@@ -135,6 +135,10 @@ public sealed class QuestsScreen : IScreen
         };
         row.Widgets.Add(new Label { Text = name, TextColor = UiFactory.Accent });
         row.Widgets.Add(new Label { Text = desc, TextColor = Color.LightGray, Wrap = true });
+
+        var bar = new ProgressBar(412, 8);
+        bar.SetProgress(condition.Target > 0 ? current / (double)condition.Target : 1.0);
+        row.Widgets.Add(bar.Root);
         row.Widgets.Add(new Label { Text = $"{current} / {condition.Target}", TextColor = new Color(150, 220, 150) });
         if (reward.Count > 0)
         {

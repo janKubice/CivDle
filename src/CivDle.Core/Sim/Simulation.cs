@@ -31,6 +31,8 @@ public sealed class Simulation
     private readonly ZoneFillSystem _zoneFill;
     private readonly ColonySystem _colonySystem;
     private readonly WeatherSystem _weatherSystem;
+    private readonly UfoSystem _ufoSystem;
+    private long _lastUfoWindow = -1; // poslední okno, jehož zásah UFO už proběhl
     private readonly List<Zone> _zones = new(); // hráčem namalované zóny (automatizace, stupeň 3)
     private readonly RoadBuilder _roadBuilder;
     private readonly SettlementSystem _settlementSystem;
@@ -44,8 +46,10 @@ public sealed class Simulation
     private readonly bool[] _upgradesPurchased; // koupené trvalé upgrady Vzestupu
     private readonly bool[] _policiesActive;    // zapnuté politiky růstu (automatizace, stupeň 4)
     private readonly long[] _harvestedTotals; // kumulativní sběr surovin klikáním (metriky cílů)
+    private readonly bool[] _resourceKnown;   // surovina, kterou hráč už někdy získal (UI ji do té doby neukazuje)
     private readonly HashSet<long> _claimedDiscoveries = new(); // vyzvednuté skrýše na mapě
     private readonly Dictionary<long, ClickYield> _plantedNodes = new(); // hráčem zasazené obnovitelné zdroje
+    private readonly Dictionary<long, byte> _biomeOverrides = new(); // terraformované dlaždice (UFO)
     private readonly Queue<GameNotification> _notifications = new();
     private PrestigeBonuses _bonuses = PrestigeBonuses.None;
 
@@ -78,6 +82,14 @@ public sealed class Simulation
         _upgradesPurchased = new bool[content.PrestigeUpgrades.Count];
         _policiesActive = new bool[content.Policies.Count];
         _harvestedTotals = new long[content.Resources.Count];
+
+        // Známé suroviny: co má hráč na startu, zná; zbytek se odemyká získáním.
+        // UI ani odměny nesmí prozrazovat suroviny, ke kterým se ještě nedostal.
+        _resourceKnown = new bool[content.Resources.Count];
+        for (int i = 0; i < _resourceKnown.Length; i++)
+        {
+            _resourceKnown[i] = content.Resources[i].StartAmount > 0;
+        }
         RefreshTierUnlocks(); // megastruktury zamčené, dokud měřítko nedoroste
 
         _resources = new double[content.Resources.Count];
@@ -97,6 +109,7 @@ public sealed class Simulation
         _zoneFill = new ZoneFillSystem(content, seed);
         _colonySystem = new ColonySystem(content, seed);
         _weatherSystem = new WeatherSystem(content, seed);
+        _ufoSystem = new UfoSystem(content, seed);
         _roadBuilder = new RoadBuilder(content);
         _settlementSystem = new SettlementSystem(content, seed);
         _questSystem = new QuestSystem(content);
@@ -152,7 +165,9 @@ public sealed class Simulation
     public PrestigeBonuses Bonuses => _bonuses;
 
     /// <summary>Násobič od slavnosti (1.0 když neběží) — výroba i sběr.</summary>
-    public double BoostMultiplier => _boostTicksRemaining > 0 ? _content.Gameplay.Boost.Multiplier : 1.0;
+    public double BoostMultiplier => _boostTicksRemaining > 0
+        ? _content.Gameplay.Boost.Multiplier * _bonuses.FestivalPower
+        : 1.0;
 
     /// <summary>Běží právě slavnost?</summary>
     public bool IsBoostActive => _boostTicksRemaining > 0;
@@ -204,7 +219,29 @@ public sealed class Simulation
     public IReadOnlyList<Settlement> Settlements => _settlements;
 
     /// <summary>Index biomu na dlaždici.</summary>
-    public byte BiomeAt(int x, int y) => Terrain.BiomeAt(x, y);
+    public byte BiomeAt(int x, int y) =>
+        _biomeOverrides.TryGetValue(TileKey.Pack(x, y), out byte overridden)
+            ? overridden
+            : Terrain.BiomeAt(x, y);
+
+    /// <summary>
+    /// Přepíše biom jedné dlaždice (terraformace — zatím jen UFO). Ukládá se jen
+    /// těch pár změněných dlaždic, zbytek nekonečné mapy zůstává čistou funkcí.
+    /// </summary>
+    internal void SetBiomeOverride(int x, int y, byte biomeIndex) =>
+        _biomeOverrides[TileKey.Pack(x, y)] = biomeIndex;
+
+    /// <summary>Terraformované dlaždice (pro uložení).</summary>
+    internal IEnumerable<KeyValuePair<long, byte>> BiomeOverrides() => _biomeOverrides;
+
+    /// <summary>Obnoví terraformovanou dlaždici z savu.</summary>
+    internal void RestoreBiomeOverride(long tile, byte biomeIndex) => _biomeOverrides[tile] = biomeIndex;
+
+    /// <summary>Poslední okno, jehož zásah UFO už proběhl (pro uložení).</summary>
+    internal long LastUfoWindow => _lastUfoWindow;
+
+    /// <summary>Obnoví poslední vyřízené okno UFO ze savu (jinak by zásah proběhl znovu).</summary>
+    internal void RestoreLastUfoWindow(long window) => _lastUfoWindow = window;
 
     /// <summary>Je budova odemčená (technologií)? Neřeší, zda ji lze stavět přímo.</summary>
     public bool IsBuildingUnlocked(int defIndex) => _buildingUnlocked[defIndex];
@@ -289,6 +326,46 @@ public sealed class Simulation
         return true;
     }
 
+    /// <summary>
+    /// Zná už hráč tuhle surovinu (někdy ji získal)? HUD neznámé suroviny NEUKAZUJE
+    /// a náhodné odměny je nerozdávají — jinak by hra prozrazovala obsah, ke kterému
+    /// se hráč ještě nedostal.
+    /// </summary>
+    public bool IsResourceKnown(int resourceIndex) => _resourceKnown[resourceIndex];
+
+    /// <summary>Kolik surovin hráč zná (pro UI, které se překresluje při odemčení nové).</summary>
+    public int KnownResourceCount
+    {
+        get
+        {
+            int count = 0;
+            for (int i = 0; i < _resourceKnown.Length; i++)
+            {
+                if (_resourceKnown[i])
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
+    /// <summary>Označí surovinu za známou (hráč ji získal). Idempotentní.</summary>
+    internal void MarkResourceKnown(int resourceIndex) => _resourceKnown[resourceIndex] = true;
+
+    /// <summary>Známé suroviny pro serializaci savu.</summary>
+    internal IEnumerable<int> KnownResourceIndices()
+    {
+        for (int i = 0; i < _resourceKnown.Length; i++)
+        {
+            if (_resourceKnown[i])
+            {
+                yield return i;
+            }
+        }
+    }
+
     /// <summary>Je technologie vyzkoumaná?</summary>
     public bool IsTechResearched(int techIndex) => _techResearched[techIndex];
 
@@ -337,6 +414,10 @@ public sealed class Simulation
     public void AddResource(int resourceIndex, double amount)
     {
         _resources[resourceIndex] = Math.Clamp(_resources[resourceIndex] + amount, 0, _storageCaps[resourceIndex]);
+        if (amount > 0)
+        {
+            _resourceKnown[resourceIndex] = true; // získáním se surovina odemyká v UI
+        }
     }
 
     /// <summary>Kapacita skladu suroviny (základ + skladové budovy).</summary>
@@ -398,7 +479,18 @@ public sealed class Simulation
         _settlementSystem.Tick(this);
         _questSystem.Tick(this);
         _achievementSystem.Tick(this);
+
+        // Těžiště města a UFO nejsou hot path — stačí je řešit jednou za čas.
+        if (TickCount % CityCenterIntervalTicks == 0)
+        {
+            UpdateCityCenter();
+        }
+
+        UpdateUfo();
     }
+
+    /// <summary>Jak často se přepočítá těžiště města (tiky) — pomalý systém, ne každý tik.</summary>
+    private const int CityCenterIntervalTicks = 50;
 
     /// <summary>
     /// Ověří umístění budovy bez vedlejších efektů — UI z výsledku ukazuje ghost
@@ -505,14 +597,14 @@ public sealed class Simulation
         => TryHarvest(x, y, out resourceIndex, out amount, out _);
 
     /// <summary>
-    /// Jako <see cref="TryHarvest(int,int,out int,out int)"/>, ale navíc hlásí „krit"
-    /// (deterministicky ze seedu a pořadí sběru) — velký výnos, který se ukáže efektem.
+    /// Jako <see cref="TryHarvest(int,int,out int,out int)"/>, ale navíc hlásí, jak
+    /// sběr dopadl (krit, úlovek života) — deterministicky ze seedu a pořadí sběru.
     /// </summary>
-    public bool TryHarvest(int x, int y, out int resourceIndex, out int amount, out bool wasCrit)
+    public bool TryHarvest(int x, int y, out int resourceIndex, out int amount, out HarvestOutcome outcome)
     {
         resourceIndex = 0;
         amount = 0;
-        wasCrit = false;
+        outcome = HarvestOutcome.Normal;
 
         long tile = TileKey.Pack(x, y);
         if (_occupancy.ContainsKey(tile))
@@ -541,18 +633,26 @@ public sealed class Simulation
         // Trvalý bonus Vzestupu + slavnost zvedají výnos (nejmíň původní hodnota).
         int gained = Math.Max(yield.Amount, (int)Math.Round(yield.Amount * _bonuses.HarvestMult * BoostMultiplier));
 
-        // Deterministický krit (aktivní klikání se vyplatí).
+        // Deterministický krit (aktivní klikání se vyplatí). Nejdřív se zkouší
+        // vzácný „úlovek života" — má přednost, aby se s kritem nesčítal do absurdna.
         var harvestConfig = _content.Gameplay.Harvest;
-        if (harvestConfig.CritChance > 0 && CritRoll(_harvestCounter) < harvestConfig.CritChance)
+        double roll = CritRoll(_harvestCounter);
+        double critChance = harvestConfig.CritChance + _bonuses.CritChanceBonus;
+        if (_bonuses.JackpotChance > 0 && roll < _bonuses.JackpotChance)
+        {
+            gained = (int)Math.Round(gained * harvestConfig.JackpotMultiplier);
+            outcome = HarvestOutcome.Jackpot;
+        }
+        else if (critChance > 0 && roll < critChance)
         {
             gained = (int)Math.Round(gained * harvestConfig.CritMultiplier);
-            wasCrit = true;
+            outcome = HarvestOutcome.Crit;
         }
 
         // Plný sklad = žádný sběr (a žádný lživý popup v UI).
         if (_resources[yield.ResourceIndex] + gained > _storageCaps[yield.ResourceIndex])
         {
-            wasCrit = false;
+            outcome = HarvestOutcome.Normal;
             return false;
         }
 
@@ -754,6 +854,233 @@ public sealed class Simulation
         }
     }
 
+    // ----- UFO (mapa dělá věci sama od sebe) -----
+
+    /// <summary>Visí právě UFO nad mapou? Render podle toho kreslí talíř a paprsek.</summary>
+    public bool IsUfoVisible => _ufoSystem.IsVisible(TickCount);
+
+    /// <summary>Kam UFO míří (má smysl jen když <see cref="IsUfoVisible"/>).</summary>
+    public (int X, int Y) UfoTarget => _ufoSystem.TargetTile(_ufoSystem.WindowAt(TickCount), CityCenterX, CityCenterY);
+
+    /// <summary>Střed města (těžiště zástavby) — kolem něj se dějí věci, které mají hráče zajímat.</summary>
+    public int CityCenterX { get; private set; }
+
+    /// <summary>Střed města (těžiště zástavby).</summary>
+    public int CityCenterY { get; private set; }
+
+    /// <summary>
+    /// Doletí UFO a provede svůj zásah, jakmile návštěva skončí. Zásah proběhne
+    /// nejvýš jednou za okno — proto se poslední vyřízené okno ukládá do savu.
+    /// </summary>
+    private void UpdateUfo()
+    {
+        if (!_content.Ufo.IsEnabled)
+        {
+            return;
+        }
+
+        long window = _ufoSystem.WindowAt(TickCount);
+        if (window <= _lastUfoWindow || _ufoSystem.IsVisible(TickCount))
+        {
+            return; // ještě letí (nebo tohle okno už bylo vyřízené)
+        }
+
+        _lastUfoWindow = window;
+        int actionIndex = _ufoSystem.ActionIn(window);
+        if (actionIndex < 0)
+        {
+            return;
+        }
+
+        var (x, y) = _ufoSystem.TargetTile(window, CityCenterX, CityCenterY);
+        ApplyUfoAction(_content.Ufo.Actions[actionIndex], x, y);
+    }
+
+    /// <summary>
+    /// Behavior-ID hook: řetězec z <c>ufo.json</c> → konkrétní zásah do světa.
+    /// Neznámé chování se tiše přeskočí (data smí předběhnout kód).
+    /// </summary>
+    private void ApplyUfoAction(UfoActionDef action, int x, int y)
+    {
+        switch (action.Behavior)
+        {
+            case "abduct":
+                // Únos: pár lidí zmizí. Nikdy do záporu — z prázdného města není koho unést.
+                double taken = Math.Min(Population, action.Magnitude);
+                if (taken <= 0) return;
+                Population -= taken;
+                break;
+
+            case "demolish":
+                if (!DemolishNearest(x, y)) return;
+                break;
+
+            case "plant":
+                // Kruh v obilí: pár dlaždic se promění v sklizitelný porost.
+                if (!PlantUfoPatch(x, y, (int)action.Magnitude)) return;
+                break;
+
+            case "terraform":
+                if (!TerraformPatch(x, y, (int)action.Magnitude)) return;
+                break;
+
+            case "gift":
+                // Mimozemská pozornost — do první známé suroviny, ať je co slavit.
+                int resource = FirstKnownResource();
+                if (resource < 0) return;
+                AddResource(resource, action.Magnitude);
+                break;
+
+            default:
+                return; // „flyby" i neznámé chování: UFO se jen ukázalo
+        }
+
+        EnqueueNotification(new GameNotification(NotificationKind.WorldEvent, "toast.ufo", action.MessageKey));
+    }
+
+    /// <summary>Sestřelí budovu nejblíž zásahu. Vrací false, když ve městě nic nestojí.</summary>
+    private bool DemolishNearest(int x, int y)
+    {
+        int best = -1;
+        long bestDistance = long.MaxValue;
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            long dx = _buildings[i].X - x, dy = _buildings[i].Y - y;
+            long distance = dx * dx + dy * dy;
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                best = i;
+            }
+        }
+
+        return best >= 0 && TryDemolish(best) == PlacementResult.Ok;
+    }
+
+    /// <summary>Zaseje sklizitelný porost na volné dlaždice kolem zásahu (kruh v obilí).</summary>
+    private bool PlantUfoPatch(int x, int y, int tiles)
+    {
+        var planting = _content.Gameplay.Planting;
+        bool any = false;
+        for (int i = 0; i < tiles; i++)
+        {
+            int tx = x + i % 3 - 1;
+            int ty = y + i / 3 - 1;
+            long tile = TileKey.Pack(tx, ty);
+            if (_occupancy.ContainsKey(tile) || _roads.Contains(tile) || _plantedNodes.ContainsKey(tile)
+                || _content.Biomes[BiomeAt(tx, ty)].IsWater)
+            {
+                continue;
+            }
+
+            _plantedNodes[tile] = new ClickYield(planting.ResourceIndex, planting.Amount);
+            any = true;
+        }
+
+        return any;
+    }
+
+    /// <summary>
+    /// Přemaluje kus krajiny na jiný biom. Vybere se biom stejného druhu (souš zůstane
+    /// souší), ať terraformace nezatopí město ani nezanechá budovy ve vodě.
+    /// </summary>
+    private bool TerraformPatch(int x, int y, int tiles)
+    {
+        byte current = BiomeAt(x, y);
+        bool water = _content.Biomes[current].IsWater;
+
+        byte target = current;
+        for (byte i = 0; i < _content.Biomes.Count; i++)
+        {
+            if (_content.Biomes[i].IsWater == water && i != current)
+            {
+                target = i;
+                break;
+            }
+        }
+
+        if (target == current)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < tiles; i++)
+        {
+            SetBiomeOverride(x + i % 3 - 1, y + i / 3 - 1, target);
+        }
+
+        return true;
+    }
+
+    private int FirstKnownResource()
+    {
+        for (int i = 0; i < _resourceKnown.Length; i++)
+        {
+            if (_resourceKnown[i])
+            {
+                return i;
+            }
+        }
+
+        return _resourceKnown.Length > 0 ? 0 : -1;
+    }
+
+    /// <summary>Přepočítá těžiště zástavby (levné, běží na nízké frekvenci).</summary>
+    private void UpdateCityCenter()
+    {
+        if (_buildingCount == 0)
+        {
+            CityCenterX = CityCenterY = 0;
+            return;
+        }
+
+        long sumX = 0, sumY = 0;
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            sumX += _buildings[i].X;
+            sumY += _buildings[i].Y;
+        }
+
+        CityCenterX = (int)(sumX / _buildingCount);
+        CityCenterY = (int)(sumY / _buildingCount);
+    }
+
+    // ----- odemykatelné funkce (postupné odhalování UI) -----
+
+    /// <summary>
+    /// Je funkce odemčená? Dokud není, UI ji NEUKAZUJE — hráč tak nedostane na
+    /// začátku patnáct tlačítek, kterým nerozumí. Bez definic (prázdná data) je
+    /// vše dostupné, aby se hra nedala „zamknout" chybějícím obsahem.
+    /// </summary>
+    public bool IsFeatureUnlocked(string featureId)
+    {
+        if (!_content.Features.TryIndexOf(featureId, out int index))
+        {
+            return true; // funkce bez definice = bez omezení
+        }
+
+        var unlock = _content.Features[index].Unlock;
+        return EvaluateMetric(unlock.Kind, unlock.Param) >= unlock.Target;
+    }
+
+    /// <summary>Kolik funkcí je odemčeno — UI podle změny pozná, že má přestavět lištu.</summary>
+    public int UnlockedFeatureCount
+    {
+        get
+        {
+            int count = 0;
+            foreach (var feature in _content.Features.All)
+            {
+                if (EvaluateMetric(feature.Unlock.Kind, feature.Unlock.Param) >= feature.Unlock.Target)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
     // ----- guvernér: automatické vylepšování budov -----
 
     /// <summary>Nejvyšší míra, na kterou jde guvernérovo vylepšování nastavit.</summary>
@@ -908,21 +1235,36 @@ public sealed class Simulation
     public int LandmarkAt(int x, int y)
     {
         var landmarks = _content.Landmarks;
-        if (landmarks.Count == 0 || _occupancy.ContainsKey(TileKey.Pack(x, y)))
+        if (landmarks.Count == 0)
         {
             return -1;
         }
 
-        int biome = Terrain.BiomeAt(x, y);
+        // POŘADÍ TESTŮ JE VÝKONNOSTNÍ ROZHODNUTÍ: hash je pár násobení, kdežto
+        // BiomeAt vzorkuje fBm šum. Landmarky jsou vzácné (rarity ve stovkách),
+        // takže levný hash odmítne drtivou většinu dlaždic dřív, než se sáhne
+        // na terén. Render se ptá na desítky tisíc dlaždic za snímek — obrácené
+        // pořadí sráželo FPS.
+        int biome = -1;
         for (int i = 0; i < landmarks.Count; i++)
         {
-            if (!landmarks[i].AppliesTo(biome))
+            // Sůl z indexu → každý typ má vlastní rozmístění, ne všechny na stejných místech.
+            if (LandmarkHash(x, y, i) % (ulong)landmarks[i].Rarity != 0)
             {
                 continue;
             }
 
-            // Sůl z indexu → každý typ má vlastní rozmístění, ne všechny na stejných místech.
-            if (LandmarkHash(x, y, i) % (ulong)landmarks[i].Rarity == 0)
+            if (biome < 0)
+            {
+                if (_occupancy.ContainsKey(TileKey.Pack(x, y)))
+                {
+                    return -1; // zástavba landmark překryje
+                }
+
+                biome = Terrain.BiomeAt(x, y);
+            }
+
+            if (landmarks[i].AppliesTo(biome))
             {
                 return i;
             }
@@ -945,7 +1287,11 @@ public sealed class Simulation
 
     private const int DiscoveryRate = 500; // zhruba každá N-tá suchá dlaždice skrývá skrýš
 
-    /// <summary>Je na (suché) dlaždici skrýš k objevení? Deterministické z pozice (nekonečná mapa).</summary>
+    /// <summary>
+    /// Je na (suché) dlaždici skrýš k objevení? Deterministické z pozice (nekonečná mapa).
+    /// Štěstí z Vzestupu zahušťuje síť skrýší — dělitel se zmenšuje, poloha zůstává
+    /// funkcí souřadnic, takže se pořád nic neukládá.
+    /// </summary>
     public bool IsDiscoveryTile(int x, int y)
     {
         if (_content.Biomes[Terrain.BiomeAt(x, y)].IsWater)
@@ -953,7 +1299,8 @@ public sealed class Simulation
             return false;
         }
 
-        return DiscoveryHash(x, y) % DiscoveryRate == 0;
+        int rate = Math.Max(20, (int)Math.Round(DiscoveryRate / Math.Max(0.1, _bonuses.DiscoveryLuck)));
+        return DiscoveryHash(x, y) % (ulong)rate == 0;
     }
 
     /// <summary>Byla skrýš na dlaždici už vyzvednuta?</summary>
@@ -973,7 +1320,31 @@ public sealed class Simulation
         }
 
         ulong roll = DiscoveryHash(x, y);
-        resourceIndex = (int)(roll % (ulong)_resources.Length);
+
+        // Losuje se JEN ze surovin, které hráč zná — skrýš nesmí vysypat nanomateriál
+        // dřív, než se k němu hráč vůbec dostal.
+        int known = KnownResourceCount;
+        if (known == 0)
+        {
+            return false;
+        }
+
+        int pick = (int)(roll % (ulong)known);
+        resourceIndex = 0;
+        for (int i = 0, seen = 0; i < _resourceKnown.Length; i++)
+        {
+            if (!_resourceKnown[i])
+            {
+                continue;
+            }
+
+            if (seen++ == pick)
+            {
+                resourceIndex = i;
+                break;
+            }
+        }
+
         amount = 20 + (int)(roll / DiscoveryRate % 40); // 20–59, deterministicky z pozice
         AddResource(resourceIndex, amount);
         return true;
@@ -1015,6 +1386,7 @@ public sealed class Simulation
         MetricKind.ResearchedTech => _techResearched[param] ? 1 : 0,
         MetricKind.AscensionLevel => AscensionLevel,
         MetricKind.DayNumber => DayNumber,
+        MetricKind.PlantedNodes => _plantedNodes.Count,
         _ => 0,
     };
 
@@ -1329,7 +1701,7 @@ public sealed class Simulation
         var cost = tech.Cost;
         for (int i = 0; i < cost.Count; i++)
         {
-            if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
+            if (_resources[cost[i].ResourceIndex] < ResearchCost(cost[i].Amount))
             {
                 return PlacementResult.NotEnoughResources;
             }
@@ -1350,12 +1722,19 @@ public sealed class Simulation
         var tech = _content.Techs[techIndex];
         for (int i = 0; i < tech.Cost.Count; i++)
         {
-            _resources[tech.Cost[i].ResourceIndex] -= tech.Cost[i].Amount;
+            _resources[tech.Cost[i].ResourceIndex] -= ResearchCost(tech.Cost[i].Amount);
         }
 
         UnlockTech(techIndex);
         return PlacementResult.Ok;
     }
+
+    /// <summary>
+    /// Cena výzkumu po slevě z Vzestupu. Nikdy neklesne pod 1 — technologie zadarmo
+    /// by rozbila celou progresi.
+    /// </summary>
+    public int ResearchCost(int baseAmount) =>
+        Math.Max(1, (int)Math.Round(baseAmount * (1.0 - _bonuses.ResearchDiscount)));
 
     private void UnlockTech(int techIndex)
     {
@@ -1459,10 +1838,23 @@ public sealed class Simulation
 
     // ----- Vzestup (prestige) -----
 
+    /// <summary>
+    /// Práh pro DALŠÍ Vzestup. Roste s každým dosaženým stupněm, jinak by druhý
+    /// Vzestup přišel hned po prvním a měřítko by přestalo něco znamenat.
+    /// </summary>
+    public long AscensionRequirement()
+    {
+        var requirement = _content.Prestige.Requirement;
+        double scaled = requirement.Target * Math.Pow(_content.Prestige.RequirementGrowth, AscensionLevel);
+        return (long)Math.Min(scaled, long.MaxValue / 2);
+    }
+
+    /// <summary>Metrika, kterou práh Vzestupu měří (UI ukazuje pokrok).</summary>
+    public long AscensionProgress() =>
+        EvaluateMetric(_content.Prestige.Requirement.Kind, _content.Prestige.Requirement.Param);
+
     /// <summary>Je splněná podmínka pro Vzestup?</summary>
-    public bool CanAscend() =>
-        EvaluateMetric(_content.Prestige.Requirement.Kind, _content.Prestige.Requirement.Param)
-            >= _content.Prestige.Requirement.Target;
+    public bool CanAscend() => AscensionProgress() >= AscensionRequirement();
 
     /// <summary>Kolik bodů Vzestupu by teď Vzestup udělil.</summary>
     public long PendingAscensionPoints()
@@ -1532,6 +1924,7 @@ public sealed class Simulation
     private void RecomputeBonuses()
     {
         double production = 1.0, harvest = 1.0, growth = 1.0, housing = 1.0, storage = 1.0, start = 1.0, offline = 1.0;
+        double critChance = 0.0, jackpot = 0.0, discovery = 1.0, festival = 1.0, research = 0.0;
         for (int i = 0; i < _upgradesPurchased.Length; i++)
         {
             if (!_upgradesPurchased[i])
@@ -1554,7 +1947,8 @@ public sealed class Simulation
             }
         }
 
-        _bonuses = new PrestigeBonuses(production, harvest, growth, housing, storage, start, offline);
+        _bonuses = new PrestigeBonuses(production, harvest, growth, housing, storage, start, offline,
+            critChance, jackpot, discovery, festival, Math.Min(research, 0.9));
 
         void Apply(string effect, double magnitude)
         {
@@ -1567,6 +1961,11 @@ public sealed class Simulation
                 case "storage_mult": storage += magnitude; break;
                 case "start_resources": start += magnitude; break;
                 case "offline_mult": offline += magnitude; break;
+                case "crit_chance": critChance += magnitude; break;
+                case "jackpot_chance": jackpot += magnitude; break;
+                case "discovery_luck": discovery += magnitude; break;
+                case "festival_power": festival += magnitude; break;
+                case "research_discount": research += magnitude; break;
             }
         }
     }

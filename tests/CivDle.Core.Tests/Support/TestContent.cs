@@ -14,14 +14,16 @@ internal static class TestContent
     /// <summary>Vodní biom pokrývající všechny hloubky.</summary>
     public static Biome WaterBiome(string id = "water") => new(
         id, new RgbColor(0, 0, 128), 0f, IsWater: true,
-        DepthRange: ValueRange.Full, ElevationRange: ValueRange.Full, MoistureRange: ValueRange.Full);
+        DepthRange: ValueRange.Full, ElevationRange: ValueRange.Full, MoistureRange: ValueRange.Full,
+        TemperatureRange: ValueRange.Full);
 
     /// <summary>Pevninský biom s daným pokrytím výšek.</summary>
     public static Biome LandBiome(string id, ValueRange? elevation = null) => new(
         id, new RgbColor(0, 128, 0), 0f, IsWater: false,
         DepthRange: ValueRange.Full,
         ElevationRange: elevation ?? ValueRange.Full,
-        MoistureRange: ValueRange.Full);
+        MoistureRange: ValueRange.Full,
+        TemperatureRange: ValueRange.Full);
 
     /// <summary>Složí kompletní <see cref="GameContent"/> z dodaných či výchozích částí.</summary>
     public static GameContent Build(
@@ -42,7 +44,9 @@ internal static class TestContent
         IReadOnlyList<GrowthPolicyDef>? policies = null,
         IReadOnlyList<AscensionTierDef>? ascensionTiers = null,
         IReadOnlyList<WeatherDef>? weather = null,
-        IReadOnlyList<LandmarkDef>? landmarks = null)
+        IReadOnlyList<LandmarkDef>? landmarks = null,
+        IReadOnlyList<FeatureDef>? features = null,
+        UfoConfig? ufo = null)
     {
         biomes ??= new[] { WaterBiome(), LandBiome("grass") };
         resources ??= new[] { new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 10, BaseStorage: 1000) };
@@ -61,6 +65,7 @@ internal static class TestContent
         ascensionTiers ??= Array.Empty<AscensionTierDef>();
         weather ??= Array.Empty<WeatherDef>();
         landmarks ??= Array.Empty<LandmarkDef>();
+        features ??= Array.Empty<FeatureDef>();
 
         var preset = new TerrainPreset("test", SeaLevel: 0.5f, fallbackBiomeIndex, Noise, Noise);
         var catalog = new WorldGenCatalog(
@@ -90,7 +95,9 @@ internal static class TestContent
             new DefRegistry<GrowthPolicyDef>(policies, p => p.Id, "politika", allowEmpty: true),
             new DefRegistry<AscensionTierDef>(ascensionTiers, t => t.Id, "stupeň měřítka", allowEmpty: true),
             new DefRegistry<WeatherDef>(weather, w => w.Id, "počasí", allowEmpty: true),
-            new DefRegistry<LandmarkDef>(landmarks, l => l.Id, "landmark", allowEmpty: true));
+            new DefRegistry<LandmarkDef>(landmarks, l => l.Id, "landmark", allowEmpty: true),
+            new DefRegistry<FeatureDef>(features, f => f.Id, "funkce", allowEmpty: true),
+            ufo ?? UfoConfig.Disabled);
     }
 
     /// <summary>Výchozí prestige config testů (Vzestup od 50 obyvatel, body = populace ÷ 15).</summary>

@@ -97,19 +97,31 @@ public sealed class BuildingInfoScreen : IScreen
 
         layout.Widgets.Add(UpgradeSection(instance.DefIndex));
 
-        // Agency: přesunout jinam nebo zbourat (vrátí půl ceny).
+        // Agency: přesunout jinam nebo zbourat (vrátí půl ceny). Obojí se ODEMYKÁ —
+        // na začátku hráč jen staví, zásahy do hotového města přijdou později.
         var actions = new HorizontalStackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
-        actions.Widgets.Add(UiFactory.SmallButton(loc["building.move"], () =>
+        if (_simulation.IsFeatureUnlocked("move"))
         {
-            _onStartMove(_buildingIndex);
-            _screens.Pop();
-        }));
-        actions.Widgets.Add(UiFactory.SmallButton(loc["building.demolish"], () =>
+            actions.Widgets.Add(UiFactory.SmallButton(loc["building.move"], () =>
+            {
+                _onStartMove(_buildingIndex);
+                _screens.Pop();
+            }));
+        }
+
+        if (_simulation.IsFeatureUnlocked("demolish"))
         {
-            _simulation.TryDemolish(_buildingIndex);
-            _screens.Pop();
-        }));
-        layout.Widgets.Add(actions);
+            actions.Widgets.Add(UiFactory.SmallButton(loc["building.demolish"], () =>
+            {
+                _simulation.TryDemolish(_buildingIndex);
+                _screens.Pop();
+            }));
+        }
+
+        if (actions.Widgets.Count > 0)
+        {
+            layout.Widgets.Add(actions);
+        }
 
         layout.Widgets.Add(UiFactory.MenuButton(loc["panel.close"], _screens.Pop));
 

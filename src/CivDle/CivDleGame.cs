@@ -74,6 +74,12 @@ public sealed class CivDleGame : Game
         Sprites = new SpriteLibrary(GraphicsDevice);
         MyraEnvironment.Game = this;
 
+        // Tooltipy Myry se kreslí u kurzoru — hráč nemusí očima skákat na spodní
+        // lištu, aby se dozvěděl, co tlačítko dělá. Krátká prodleva, ať se bublina
+        // neplete při rychlém přejetí lišty.
+        MyraEnvironment.TooltipDelayInMs = 260;
+        MyraEnvironment.TooltipOffset = new Point(16, 18);
+
         // Data leží vedle binárky — funguje pro `dotnet run` i pro publish jedním exe.
         var content = new ContentLoader().LoadFrom(Path.Combine(AppContext.BaseDirectory, "data"));
         var localization = new Localization(content.Languages, Settings.Language);

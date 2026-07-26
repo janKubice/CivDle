@@ -33,6 +33,78 @@
       "speed": 6,
       "timeOfDay": "night",
       "glow": true
+    },
+    {
+      "id": "camel",
+      "biomes": ["desert", "steppe"],
+      "color": "#C79B62",
+      "size": 3,
+      "speed": 8,
+      "timeOfDay": "day"
+    },
+    {
+      "id": "gazelle",
+      "biomes": ["savanna"],
+      "color": "#D2A96B",
+      "size": 3,
+      "speed": 24,
+      "timeOfDay": "day"
+    },
+    {
+      "id": "parrot",
+      "biomes": ["jungle", "mangrove"],
+      "color": "#4CD07A",
+      "size": 2,
+      "speed": 30,
+      "timeOfDay": "day"
+    },
+    {
+      "id": "wolf",
+      "biomes": ["taiga", "tundra", "highlands"],
+      "color": "#7E838C",
+      "size": 3,
+      "speed": 18,
+      "timeOfDay": "night"
+    },
+    {
+      "id": "reindeer",
+      "biomes": ["tundra", "taiga"],
+      "color": "#9C8265",
+      "size": 3,
+      "speed": 12,
+      "timeOfDay": "day"
+    },
+    {
+      "id": "penguin",
+      "biomes": ["ice_shelf", "pack_ice", "glacier"],
+      "color": "#2B2F38",
+      "size": 2,
+      "speed": 7,
+      "timeOfDay": "any"
+    },
+    {
+      "id": "heron",
+      "biomes": ["swamp", "mangrove", "shallow_water"],
+      "color": "#DDE3E8",
+      "size": 3,
+      "speed": 14,
+      "timeOfDay": "day"
+    },
+    {
+      "id": "eagle",
+      "biomes": ["mountains", "badlands", "snow_peaks"],
+      "color": "#6B5A44",
+      "size": 3,
+      "speed": 38,
+      "timeOfDay": "day"
+    },
+    {
+      "id": "fish_school",
+      "biomes": ["coral_reef", "shallow_water"],
+      "color": "#F0C060",
+      "size": 2,
+      "speed": 20,
+      "timeOfDay": "any"
     }
   ]
 }

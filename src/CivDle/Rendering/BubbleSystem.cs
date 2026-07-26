@@ -14,10 +14,12 @@ namespace CivDle.Rendering;
 /// </summary>
 public sealed class BubbleSystem
 {
-    private const float SpawnIntervalSeconds = 4.5f;
-    private const int MaxBubbles = 6;
-    private const float LifeSeconds = 13f;
-    private const int OutputCyclesPerBubble = 6; // kolik cyklů výstupu bublina nese
+    // Bublin bylo na obrazovce moc a klikání se změnilo v otravu. Řídší spawn +
+    // méně bublin naráz, ale každá nese víc — čistý příjem zůstává, šum mizí.
+    private const float SpawnIntervalSeconds = 26f;
+    private const int MaxBubbles = 2;
+    private const float LifeSeconds = 16f;
+    private const int OutputCyclesPerBubble = 34; // kolik cyklů výstupu bublina nese
     private const float CollectRadiusTiles = 1.0f;
     private const float MinZoom = 0.5f;
 

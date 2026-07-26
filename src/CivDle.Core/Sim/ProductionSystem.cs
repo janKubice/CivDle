@@ -72,6 +72,7 @@ internal sealed class ProductionSystem
             for (int j = 0; j < recipe.Outputs.Count; j++)
             {
                 int index = recipe.Outputs[j].ResourceIndex;
+                sim.MarkResourceKnown(index); // první vyrobený kus surovinu odhalí v UI
                 // Plný sklad výrobu nezastaví, přebytek propadá (idle konvence) —
                 // motivace stavět sklady, žádný trest. Trvalý bonus Vzestupu zvedá výstup.
                 resources[index] = Math.Min(resources[index] + recipe.Outputs[j].Amount * productionMult * building.BiomeMult, storageCaps[index]);

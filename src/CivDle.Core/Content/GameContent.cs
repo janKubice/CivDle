@@ -30,7 +30,9 @@ public sealed class GameContent
         DefRegistry<GrowthPolicyDef> policies,
         DefRegistry<AscensionTierDef> ascensionTiers,
         DefRegistry<WeatherDef> weather,
-        DefRegistry<LandmarkDef> landmarks)
+        DefRegistry<LandmarkDef> landmarks,
+        DefRegistry<FeatureDef> features,
+        UfoConfig ufo)
     {
         Biomes = biomes;
         Resources = resources;
@@ -55,6 +57,8 @@ public sealed class GameContent
         AscensionTiers = ascensionTiers;
         Weather = weather;
         Landmarks = landmarks;
+        Features = features;
+        Ufo = ufo;
     }
 
     /// <summary>Definice technologií z <c>data/tech.json</c> (tech tree).</summary>
@@ -95,6 +99,12 @@ public sealed class GameContent
 
     /// <summary>Landmarky z <c>data/landmarks.json</c> (body zájmu; smí být prázdné).</summary>
     public DefRegistry<LandmarkDef> Landmarks { get; }
+
+    /// <summary>Odemykatelné funkce z <c>data/features.json</c> (postupné odhalování UI; smí být prázdné).</summary>
+    public DefRegistry<FeatureDef> Features { get; }
+
+    /// <summary>Návštěvy UFO z <c>data/ufo.json</c> (living-map; smí být vypnuté).</summary>
+    public UfoConfig Ufo { get; }
 
     /// <summary>Vývojový deník z <c>data/devlog.json</c> (smí být prázdný).</summary>
     public IReadOnlyList<DevlogEntry> Devlog { get; }

@@ -11,23 +11,24 @@ using Myra.Graphics2D.UI.Styles;
 namespace CivDle.Screens;
 
 /// <summary>
-/// Tech tree jako GRAF („síť"): uzly rozmístěné po sloupcích podle hloubky
-/// závislostí, propojené čarami prerekvizit — vyzkoumáš jeden a otevřou se
-/// navazující. Kreslí se přímo SpriteBatchem (Myra neumí čáry mezi widgety),
-/// posouvá se tažením nebo klávesami. Simulace mezitím stojí.
+/// Tech tree jako SOUHVĚZDÍ: hvězdy v prstencích kolem středu (kořeny uprostřed,
+/// pokročilé technologie na okraji), spojené čarami prerekvizit — vyzkoumáš jednu
+/// a rozsvítí se navazující. Kreslí se přímo SpriteBatchem (Myra neumí čáry mezi
+/// widgety), posouvá se tažením nebo klávesami. Simulace mezitím stojí.
 ///
-/// Barva uzlu nese stav: hotovo (zelená), lze vyzkoumat (zlatá), chybí suroviny
-/// (tlumená zlatá), zamčeno prerekvizitou (šedá). Kliknutí na dostupný uzel
-/// spustí výzkum.
+/// Barva hvězdy nese stav: hotovo (zelená), lze vyzkoumat (zlatá, jemně pulzuje),
+/// chybí suroviny (tlumená zlatá), zamčeno prerekvizitou (šedý bod). Kliknutí na
+/// dostupnou hvězdu spustí výzkum, najetí ukáže bublinu s popisem <b>u kurzoru</b>.
+/// U hvězdy je jen jméno — podrobnosti nese bublina, ať souhvězdí zůstane čitelné.
 /// </summary>
 public sealed class TechScreen : IScreen
 {
-    private static readonly Color ResearchedColor = new(60, 130, 80);
-    private static readonly Color AvailableColor = new(150, 120, 45);
-    private static readonly Color UnaffordableColor = new(88, 76, 44);
-    private static readonly Color LockedColor = new(46, 52, 64);
-    private static readonly Color EdgeDoneColor = new(110, 200, 130, 200);
-    private static readonly Color EdgeColor = new(90, 100, 120, 160);
+    private static readonly Color ResearchedColor = new(120, 235, 165);
+    private static readonly Color AvailableColor = new(255, 215, 120);
+    private static readonly Color UnaffordableColor = new(160, 130, 80);
+    private static readonly Color LockedColor = new(78, 88, 108);
+    private static readonly Color EdgeDoneColor = new(110, 210, 150, 190);
+    private static readonly Color EdgeColor = new(70, 82, 105, 130);
 
     private readonly ScreenManager _screens;
     private readonly Simulation _simulation;
@@ -35,8 +36,16 @@ public sealed class TechScreen : IScreen
     private readonly TechGraphLayout _layout;
     private readonly SpriteFontBase _font;
 
+    /// <summary>Meze přiblížení: oddálené souhvězdí ukáže celý strom, přiblížené popisky.</summary>
+    private const float MinZoom = 0.28f;
+    private const float MaxZoom = 1.4f;
+
+    /// <summary>Pod tímhle přiblížením se jména vynechají — slila by se do šmouhy.</summary>
+    private const float LabelZoom = 0.5f;
+
     private Desktop _desktop = null!;
     private Vector2 _pan;
+    private float _zoom = 1f;
     private bool _dragging;
     private Point _dragOrigin;
     private Vector2 _panOrigin;
@@ -78,6 +87,15 @@ public sealed class TechScreen : IScreen
 
         bool overUi = _desktop.IsMouseOverGUI;
         var mouse = _input.MousePosition;
+
+        // Kolečko přibližuje KE KURZORU — hráč si oddálí celé souhvězdí, najde větev
+        // a přiblíží se zpět, aniž by ztratil místo, kam koukal.
+        if (_input.ScrollDelta != 0 && !overUi)
+        {
+            var canvasUnderCursor = (mouse.ToVector2() - _pan) / _zoom;
+            _zoom = Math.Clamp(_zoom * MathF.Pow(1.0015f, _input.ScrollDelta), MinZoom, MaxZoom);
+            _pan = mouse.ToVector2() - canvasUnderCursor * _zoom;
+        }
 
         // Tažení levým tlačítkem posouvá plátno; krátký klik (bez tažení) je výzkum.
         if (_input.WasLeftPressed && !overUi)
@@ -121,78 +139,161 @@ public sealed class TechScreen : IScreen
         var loc = _screens.Loc;
 
         spriteBatch.Begin();
-        spriteBatch.Draw(pixel, new Rectangle(0, 0, viewport.Width, viewport.Height), Color.Black * 0.78f);
+        spriteBatch.Draw(pixel, new Rectangle(0, 0, viewport.Width, viewport.Height), new Color(6, 8, 16) * 0.92f);
+        DrawStarfield(spriteBatch, pixel, viewport);
 
-        // Nejdřív hrany (pod uzly), ať síť čte jako pozadí vazeb.
+        // Nejdřív spojnice souhvězdí (pod hvězdami) — vazby čtou jako pozadí.
         for (int i = 0; i < techs.Count; i++)
         {
-            var target = Shift(_layout.Bounds(i));
+            var to = Shift(_layout.Center(i));
             foreach (int prereq in techs[i].PrerequisiteIndices)
             {
-                var source = Shift(_layout.Bounds(prereq));
-                var from = new Vector2(source.Right, source.Center.Y);
-                var to = new Vector2(target.Left, target.Center.Y);
-                DrawLine(spriteBatch, pixel, from, to,
-                    _simulation.IsTechResearched(prereq) ? EdgeDoneColor : EdgeColor,
-                    _simulation.IsTechResearched(prereq) ? 3f : 2f);
+                bool done = _simulation.IsTechResearched(prereq);
+                DrawLine(spriteBatch, pixel, Shift(_layout.Center(prereq)), to,
+                    done ? EdgeDoneColor : EdgeColor, (done ? 2f : 1f) * Math.Max(_zoom, 0.6f));
             }
         }
 
+        // Pulz zvýraznění dostupných hvězd — oko samo najde, kam pokračovat.
+        float pulse = 0.75f + 0.25f * MathF.Sin((float)gameTime.TotalGameTime.TotalSeconds * 2.4f);
+        float star = TechGraphLayout.StarSize * _zoom;
+
         for (int i = 0; i < techs.Count; i++)
         {
-            var box = Shift(_layout.Bounds(i));
-            if (box.Right < 0 || box.Left > viewport.Width || box.Bottom < 0 || box.Top > viewport.Height)
+            var center = Shift(_layout.Center(i));
+            float margin = TechGraphLayout.HitSize * _zoom;
+            if (center.X < -margin || center.X > viewport.Width + margin
+                || center.Y < -margin || center.Y > viewport.Height + margin)
             {
-                continue; // culling — u velkého stromu se vyplatí
+                continue; // culling — u velkého souhvězdí se vyplatí
             }
 
             bool researched = _simulation.IsTechResearched(i);
             var status = _simulation.CanResearch(i);
-            var fill = researched ? ResearchedColor
+            var color = researched ? ResearchedColor
                 : status == PlacementResult.Ok ? AvailableColor
                 : status == PlacementResult.NotEnoughResources ? UnaffordableColor
                 : LockedColor;
 
-            spriteBatch.Draw(pixel, box, fill);
+            bool hovered = i == _hovered;
+            bool beckons = !researched && status == PlacementResult.Ok;
+            float halo = hovered ? 1.35f : beckons ? pulse : 0.8f;
 
-            // Zvýraznění pod kurzorem + rámeček.
-            var border = i == _hovered ? Color.White : new Color(20, 24, 32);
-            DrawBorder(spriteBatch, pixel, box, border, i == _hovered ? 2 : 1);
+            // Hvězda = zář + kosočtvercové jádro (pixel otočený o 45°); zamčené uzly
+            // jsou jen matné body, aby souhvězdí vedlo oko k tomu, co jde vyzkoumat.
+            DrawDiamond(spriteBatch, pixel, center, star * 2.4f * halo, color * 0.22f);
+            DrawDiamond(spriteBatch, pixel, center, star * 1.5f * halo, color * 0.4f);
+            DrawDiamond(spriteBatch, pixel, center, star * halo, color);
+            if (hovered)
+            {
+                DrawDiamond(spriteBatch, pixel, center, star * 0.45f, Color.White);
+            }
 
-            var tech = techs[i];
-            string name = loc[tech.NameKey];
-            spriteBatch.DrawString(_font, name, new Vector2(box.X + 8, box.Y + 6), Color.White);
+            // Jméno pod hvězdou; zbytek (popis, cena, chybějící prerekvizity) nese
+            // bublina u kurzoru — tabulka u každé hvězdy by souhvězdí zaplevelila.
+            // Při silném oddálení se jména vypustí, aby zbyl čitelný obrazec hvězd.
+            if (_zoom < LabelZoom && !hovered)
+            {
+                continue;
+            }
 
-            // Druhý řádek: pasivní bonus, nebo cena — to hráče zajímá při rozhodování.
-            string second = researched
-                ? loc["tech.researched"]
-                : CostFormat.Line(_screens.Content, loc, tech.Cost);
-            spriteBatch.DrawString(_font, second, new Vector2(box.X + 8, box.Y + 30),
-                researched ? new Color(190, 240, 200) : new Color(225, 225, 235));
+            string name = loc[techs[i].NameKey];
+            var size = _font.MeasureString(name) * _zoom;
+            var labelColor = researched ? new Color(170, 225, 190)
+                : status == PlacementResult.NotUnlocked ? new Color(120, 128, 145)
+                : Color.White;
+            spriteBatch.DrawString(_font, name,
+                new Vector2(center.X - size.X / 2f, center.Y + star * 1.1f),
+                hovered ? Color.White : labelColor,
+                0f, Vector2.Zero, new Vector2(_zoom, _zoom));
         }
 
         spriteBatch.End();
 
         _desktop.Render();
 
-        // Detail zvoleného uzlu až nad UI, ať nezmizí pod panelem.
+        // Detail uzlu až nad UI (ať nezmizí pod panelem) a U KURZORU — hráč nemá
+        // očima skákat na spodek obrazovky, aby zjistil, na co kouká.
         if (_hovered >= 0)
         {
-            DrawTooltip(spriteBatch, pixel, techs[_hovered].DescriptionKey);
+            var tech = techs[_hovered];
+            bool researched = _simulation.IsTechResearched(_hovered);
+            var status = _simulation.CanResearch(_hovered);
+            string body = loc[tech.DescriptionKey] + '\n' + (researched
+                ? loc["tech.researched"]
+                : status == PlacementResult.NotUnlocked
+                    ? loc.Format("tech.needs", PrerequisiteNames(_hovered))
+                    : loc.Format("panel.cost", CostFormat.Line(_screens.Content, loc, tech.Cost)));
+
+            HoverTooltip.Draw(spriteBatch, pixel, _font, viewport, _input.MousePosition,
+                loc[tech.NameKey], body,
+                researched ? new Color(150, 235, 175)
+                    : status == PlacementResult.Ok ? new Color(240, 215, 130)
+                    : Color.White);
         }
+    }
+
+    /// <summary>Jména chybějících prerekvizit — u zamčeného uzlu je to jediná užitečná informace.</summary>
+    private string PrerequisiteNames(int techIndex)
+    {
+        var loc = _screens.Loc;
+        var techs = _screens.Content.Techs;
+        var missing = techs[techIndex].PrerequisiteIndices
+            .Where(p => !_simulation.IsTechResearched(p))
+            .Select(p => loc[techs[p].NameKey]);
+        return string.Join(", ", missing);
     }
 
     public void Dispose() => _screens.Loc.LanguageChanged -= BuildUi;
 
-    private Rectangle Shift(Rectangle bounds) =>
-        new(bounds.X + (int)_pan.X, bounds.Y + (int)_pan.Y, bounds.Width, bounds.Height);
+    /// <summary>Plátno → obrazovka (přiblížení a posun).</summary>
+    private Vector2 Shift(Vector2 point) => point * _zoom + _pan;
+
+    /// <summary>
+    /// Kosočtverec = pixel otočený o 45° kolem svého středu. Levná „hvězda" bez
+    /// vlastní textury — vrstvením průhledných kosočtverců vznikne zář.
+    /// </summary>
+    private static void DrawDiamond(SpriteBatch spriteBatch, Texture2D pixel, Vector2 center, float size, Color color)
+    {
+        spriteBatch.Draw(pixel, center, null, color, MathHelper.PiOver4,
+            new Vector2(0.5f, 0.5f), new Vector2(size, size), SpriteEffects.None, 0f);
+    }
+
+    /// <summary>
+    /// Statické hvězdné pozadí: deterministicky rozseté body v souřadnicích plátna,
+    /// takže se s posunem hýbou spolu se souhvězdím. Nic se neukládá — pozice jsou
+    /// funkce indexu (stejný trik jako u terénu).
+    /// </summary>
+    private void DrawStarfield(SpriteBatch spriteBatch, Texture2D pixel, Viewport viewport)
+    {
+        const int Count = 260;
+        int span = Math.Max(_layout.Width, _layout.Height);
+        for (int i = 0; i < Count; i++)
+        {
+            uint hash = (uint)HashCode.Combine(i, 0x5EED);
+            float x = (hash % 65521u) / 65521f * span;
+            float y = ((hash >> 11) % 65521u) / 65521f * span;
+            var point = Shift(new Vector2(x, y));
+            if (point.X < 0 || point.X > viewport.Width || point.Y < 0 || point.Y > viewport.Height)
+            {
+                continue;
+            }
+
+            float brightness = 0.12f + (hash >> 24) / 255f * 0.28f;
+            float size = 1f + (hash >> 22 & 1);
+            spriteBatch.Draw(pixel, new Rectangle((int)point.X, (int)point.Y, (int)size, (int)size),
+                Color.White * brightness);
+        }
+    }
 
     private int NodeAt(Point screen)
     {
+        // Hit test v souřadnicích plátna — jinak by se musel škálovat každý obdélník.
+        var canvas = (screen.ToVector2() - _pan) / _zoom;
         var techs = _screens.Content.Techs;
         for (int i = 0; i < techs.Count; i++)
         {
-            if (Shift(_layout.Bounds(i)).Contains(screen))
+            if (_layout.Bounds(i).Contains((int)canvas.X, (int)canvas.Y))
             {
                 return i;
             }
@@ -201,14 +302,18 @@ public sealed class TechScreen : IScreen
         return -1;
     }
 
-    /// <summary>Posun drží graf v dohledu — nesmí se „utéct" mimo obrazovku.</summary>
+    /// <summary>Posun drží souhvězdí v dohledu — nesmí se „utéct" mimo obrazovku.</summary>
     private void ClampPan(Viewport viewport)
     {
-        float minX = Math.Min(0, viewport.Width - _layout.Width - 40);
-        float minY = Math.Min(0, viewport.Height - _layout.Height - 120);
-        _pan.X = Math.Clamp(_pan.X, minX, 40);
-        _pan.Y = Math.Clamp(_pan.Y, minY, 80);
+        _pan.X = ClampAxis(_pan.X, viewport.Width, (int)(_layout.Width * _zoom));
+        _pan.Y = ClampAxis(_pan.Y, viewport.Height, (int)(_layout.Height * _zoom));
     }
+
+    /// <summary>Plátno menší než okno se vycentruje; větší se posouvá jen v rámci svých okrajů.</summary>
+    private static float ClampAxis(float pan, int viewportSize, int canvasSize) =>
+        canvasSize <= viewportSize
+            ? (viewportSize - canvasSize) / 2f
+            : Math.Clamp(pan, viewportSize - canvasSize, 0f);
 
     /// <summary>Nascrolluje na první nevyzkoumanou dostupnou technologii (kam pokračovat).</summary>
     private void CenterOnNextTech()
@@ -219,12 +324,19 @@ public sealed class TechScreen : IScreen
         {
             if (!_simulation.IsTechResearched(i) && _simulation.CanResearch(i) != PlacementResult.NotUnlocked)
             {
-                var box = _layout.Bounds(i);
-                _pan = new Vector2(viewport.Width / 2f - box.Center.X, viewport.Height / 2f - box.Center.Y);
-                ClampPan(viewport);
+                CenterOn(_layout.Center(i), viewport);
                 return;
             }
         }
+
+        // Vše vyzkoumáno (nebo prázdný strom) — ukaž souhvězdí jako celek.
+        CenterOn(new Vector2(_layout.Width / 2f, _layout.Height / 2f), viewport);
+    }
+
+    private void CenterOn(Vector2 canvasPoint, Viewport viewport)
+    {
+        _pan = new Vector2(viewport.Width / 2f, viewport.Height / 2f) - canvasPoint * _zoom;
+        ClampPan(viewport);
     }
 
     private static void DrawLine(SpriteBatch spriteBatch, Texture2D pixel, Vector2 from, Vector2 to, Color color, float thickness)
@@ -238,32 +350,6 @@ public sealed class TechScreen : IScreen
 
         float angle = MathF.Atan2(delta.Y, delta.X);
         spriteBatch.Draw(pixel, from, null, color, angle, Vector2.Zero, new Vector2(length, thickness), SpriteEffects.None, 0f);
-    }
-
-    private static void DrawBorder(SpriteBatch spriteBatch, Texture2D pixel, Rectangle box, Color color, int thickness)
-    {
-        spriteBatch.Draw(pixel, new Rectangle(box.X, box.Y, box.Width, thickness), color);
-        spriteBatch.Draw(pixel, new Rectangle(box.X, box.Bottom - thickness, box.Width, thickness), color);
-        spriteBatch.Draw(pixel, new Rectangle(box.X, box.Y, thickness, box.Height), color);
-        spriteBatch.Draw(pixel, new Rectangle(box.Right - thickness, box.Y, thickness, box.Height), color);
-    }
-
-    private void DrawTooltip(SpriteBatch spriteBatch, Texture2D pixel, string descriptionKey)
-    {
-        var viewport = _screens.GraphicsDevice.Viewport;
-        string text = _screens.Loc[descriptionKey];
-        var size = _font.MeasureString(text);
-        var box = new Rectangle(
-            (int)(viewport.Width / 2f - size.X / 2f) - 12,
-            viewport.Height - 96,
-            (int)size.X + 24,
-            (int)size.Y + 16);
-
-        spriteBatch.Begin();
-        spriteBatch.Draw(pixel, box, new Color(18, 22, 30, 240));
-        DrawBorder(spriteBatch, pixel, box, new Color(90, 100, 120), 1);
-        spriteBatch.DrawString(_font, text, new Vector2(box.X + 12, box.Y + 8), Color.White);
-        spriteBatch.End();
     }
 
     private void BuildUi()

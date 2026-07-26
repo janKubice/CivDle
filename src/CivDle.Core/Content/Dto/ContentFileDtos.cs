@@ -16,6 +16,7 @@ public sealed record BiomeDto(
     double[]? DepthRange,
     double[]? ElevationRange,
     double[]? MoistureRange,
+    double[]? TemperatureRange,
     ClickYieldDto? ClickYield,
     double ProductionMult);
 
@@ -78,7 +79,7 @@ public sealed record GameplayFileDto(
 public sealed record BoostDto(int DurationSeconds, int CooldownSeconds, double Multiplier);
 
 /// <summary>Nastavení kritického sběru tak, jak leží v JSON.</summary>
-public sealed record HarvestDto(double CritChance, double CritMultiplier);
+public sealed record HarvestDto(double CritChance, double CritMultiplier, double JackpotMultiplier);
 
 /// <summary>Denní odměna tak, jak leží v JSON.</summary>
 public sealed record DailyRewardDto(Dictionary<string, int>? Reward, int StreakCap);
@@ -162,7 +163,7 @@ public sealed record PrestigeFileDto(
     List<PrestigeUpgradeDto>? Upgrades);
 
 /// <summary>Nastavení dostupnosti a odměny Vzestupu tak, jak leží v JSON.</summary>
-public sealed record PrestigeAscensionDto(GoalConditionDto? Requirement, PrestigePointsDto? Points);
+public sealed record PrestigeAscensionDto(GoalConditionDto? Requirement, PrestigePointsDto? Points, double RequirementGrowth);
 
 /// <summary>Jak se z metriky počítají body Vzestupu.</summary>
 public sealed record PrestigePointsDto(string? Metric, string? Resource, long Divisor);
@@ -208,6 +209,12 @@ public sealed record PoliciesFileDto(int SchemaVersion, List<PolicyDto>? Policie
 
 /// <summary>Jedna politika růstu tak, jak leží v JSON.</summary>
 public sealed record PolicyDto(string? Id, string? Effect, double Magnitude);
+
+/// <summary>Obsah souboru <c>data/features.json</c> (odemykatelné herní funkce).</summary>
+public sealed record FeaturesFileDto(int SchemaVersion, List<FeatureDto>? Features);
+
+/// <summary>Jedna odemykatelná funkce tak, jak leží v JSON.</summary>
+public sealed record FeatureDto(string? Id, GoalConditionDto? Unlock);
 
 /// <summary>Obsah souboru <c>data/landmarks.json</c> (vzácné body zájmu na mapě).</summary>
 public sealed record LandmarksFileDto(int SchemaVersion, List<LandmarkDto>? Landmarks);
@@ -293,4 +300,22 @@ public sealed record TerrainPresetDto(
     NoiseDto? MoistureNoise,
     NoiseDto? RiverNoise,
     double RiverWidth,
-    double RiverMaxElevation);
+    double RiverMaxElevation,
+    NoiseDto? TemperatureNoise,
+    double TemperatureBandTiles,
+    double TemperatureLapse,
+    string? RiverBiome);
+
+/// <summary>Obsah souboru <c>data/ufo.json</c> (návštěvy UFO).</summary>
+public sealed record UfoFileDto(int SchemaVersion, UfoConfigDto? Ufo);
+
+/// <summary>Nastavení návštěv UFO tak, jak leží v JSON.</summary>
+public sealed record UfoConfigDto(
+    double WindowSeconds,
+    double Chance,
+    double VisitSeconds,
+    int Radius,
+    List<UfoActionDto>? Actions);
+
+/// <summary>Jeden zásah UFO tak, jak leží v JSON.</summary>
+public sealed record UfoActionDto(string? Id, string? Behavior, double Weight, double Magnitude);

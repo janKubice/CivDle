@@ -4,13 +4,18 @@ using CivDle.Core.WorldGen;
 namespace CivDle.Core.World;
 
 /// <summary>
-/// Nekonečný procedurální terén: dvě vrstvy fBm šumu (výška, vlhkost) a výběr biomu
+/// Nekonečný procedurální terén: tři vrstvy (výška, vlhkost, teplota) a výběr biomu
 /// podle rozsahů z JSON definic. Terén je čistá funkce (seed + preset) — pro libovolnou
 /// dlaždici (i zápornou) vrací stejný biom, nikdy se neukládá.
 ///
-/// Výběr biomu: pod hladinou moře rozhoduje hloubka (vodní biomy), nad hladinou
-/// přeškálovaná výška × vlhkost (pevninské biomy, první shoda v pořadí souboru).
-/// Algoritmus v kódu, čísla v datech (data-driven-content.md).
+/// Výběr biomu: pod hladinou moře rozhoduje hloubka × teplota (vodní biomy), nad
+/// hladinou přeškálovaná výška × vlhkost × teplota (pevninské biomy, první shoda
+/// v pořadí souboru). Algoritmus v kódu, čísla v datech (data-driven-content.md).
+///
+/// <para>Teplota není jen další šum: základ dává zeměpisná šířka (pásma o zadané
+/// délce), takže mapa má klimatické pruhy — na sever tundra a tajga, na rovníku
+/// džungle a poušť. Výška navíc ochlazuje, takže hory jsou studené i v tropech.
+/// Bez téhle vrstvy vycházela krajina jednotvárná (pořád tráva a les).</para>
 /// </summary>
 public sealed class ProceduralTerrain : ITerrain
 {
@@ -23,11 +28,19 @@ public sealed class ProceduralTerrain : ITerrain
     // Sůl pro seed řek — nezávislý na výšce i vlhkosti.
     private const ulong RiverSeedSalt = 0xD1B54A32D192ED03UL;
 
+    // Sůl pro seed teploty — nezávislá na ostatních vrstvách.
+    private const ulong TemperatureSeedSalt = 0xA24BAED4963EE407UL;
+
+    // Jak moc kolísá teplota od šumu; zbytek nese zeměpisná šířka. Málo šumu =
+    // rozmazaná pásma, moc šumu = klima bez řádu (poušť vedle ledovce).
+    private const float TemperatureNoiseWeight = 0.3f;
+
     private readonly BiomeRegistry _biomes;
     private readonly TerrainPreset _preset;
     private readonly FractalNoise _elevationNoise;
     private readonly FractalNoise _moistureNoise;
     private readonly FractalNoise? _riverNoise;
+    private readonly FractalNoise? _temperatureNoise;
     private readonly int _riverBiome;
     private readonly int[] _waterBiomes;
     private readonly int[] _landBiomes;
@@ -42,6 +55,9 @@ public sealed class ProceduralTerrain : ITerrain
         _riverNoise = preset.RiverNoise is null || preset.RiverWidth <= 0f
             ? null
             : new FractalNoise(DeriveSeed(seed, RiverSeedSalt), preset.RiverNoise);
+        _temperatureNoise = preset.TemperatureNoise is null
+            ? null
+            : new FractalNoise(DeriveSeed(seed, TemperatureSeedSalt), preset.TemperatureNoise);
 
         var water = new List<int>();
         var land = new List<int>();
@@ -53,16 +69,30 @@ public sealed class ProceduralTerrain : ITerrain
         _waterBiomes = water.ToArray();
         _landBiomes = land.ToArray();
 
-        // Řeka je mělká voda — najdi vodní biom pokrývající nulovou hloubku (pobřeží).
-        _riverBiome = _waterBiomes.Length > 0 ? _waterBiomes[^1] : 0;
-        foreach (int index in _waterBiomes)
+        _riverBiome = ResolveRiverBiome(biomes, preset, _waterBiomes);
+    }
+
+    /// <summary>
+    /// Biom v řečišti. Preset ho smí určit napřímo (<c>riverBiome</c>); jinak se vezme
+    /// první KLIMATICKY UNIVERZÁLNÍ mělká voda — jinak by řeky v datech s teplotními
+    /// pásmy braly třeba korálový útes, který patří do teplého moře, ne do potoka.
+    /// </summary>
+    private static int ResolveRiverBiome(BiomeRegistry biomes, TerrainPreset preset, int[] waterBiomes)
+    {
+        if (preset.RiverBiomeIndex >= 0)
         {
-            if (biomes[index].DepthRange.Contains(0f))
+            return preset.RiverBiomeIndex;
+        }
+
+        foreach (int index in waterBiomes)
+        {
+            if (biomes[index].DepthRange.Contains(0f) && biomes[index].TemperatureRange.IsFull)
             {
-                _riverBiome = index;
-                break;
+                return index;
             }
         }
+
+        return waterBiomes.Length > 0 ? waterBiomes[^1] : 0;
     }
 
     /// <summary>Seed, ze kterého terén vznikl (pro serializaci savu).</summary>
@@ -76,6 +106,38 @@ public sealed class ProceduralTerrain : ITerrain
 
     /// <summary>Vlhkost 0–1 (řídí vegetaci, suroviny a dekorace).</summary>
     public float MoistureAt(int x, int y) => _moistureNoise.Sample01(x * FrequencyScale, y * FrequencyScale);
+
+    /// <summary>
+    /// Teplota 0–1: 0 = polární, 1 = rovníková. Skládá se ze zeměpisné šířky
+    /// (kosinová pásma podle <c>y</c>), ze šumu (aby hranice pásem nebyly pravítkem)
+    /// a z ochlazení s výškou — vrcholky hor jsou studené i v tropech.
+    ///
+    /// <para>Bez presetu s teplotou vrací 0.5, takže starý obsah bez klimatické
+    /// vrstvy se chová jako dřív (data smí předběhnout kód i naopak).</para>
+    /// </summary>
+    public float TemperatureAt(int x, int y)
+    {
+        if (_temperatureNoise is null)
+        {
+            return 0.5f;
+        }
+
+        float latitude = _preset.TemperatureBandTiles > 0f
+            ? 0.5f + 0.5f * MathF.Cos(y / _preset.TemperatureBandTiles * MathF.PI * 2f)
+            : 0.5f;
+
+        float noise = _temperatureNoise.Sample01(x * FrequencyScale, y * FrequencyScale);
+        float temperature = latitude * (1f - TemperatureNoiseWeight) + noise * TemperatureNoiseWeight;
+
+        float elevation = ElevationAt(x, y);
+        if (elevation > _preset.SeaLevel && _preset.TemperatureLapse > 0f)
+        {
+            float landElevation = (elevation - _preset.SeaLevel) / (1f - _preset.SeaLevel);
+            temperature -= landElevation * _preset.TemperatureLapse;
+        }
+
+        return Math.Clamp(temperature, 0f, 1f);
+    }
 
     /// <summary>
     /// Je na dlaždici řeka? Řeka vzniká z „hřebene" šumu: hodnoty blízko 0.5 tvoří
@@ -109,7 +171,7 @@ public sealed class ProceduralTerrain : ITerrain
     public byte BiomeAt(int x, int y)
     {
         float elevation = ElevationAt(x, y);
-        float moisture = MoistureAt(x, y);
+        float temperature = TemperatureAt(x, y);
 
         // Řeka přebíjí pevninský biom — je to voda uprostřed souše.
         if (elevation >= _preset.SeaLevel && IsRiver(x, y))
@@ -119,11 +181,12 @@ public sealed class ProceduralTerrain : ITerrain
 
         if (elevation < _preset.SeaLevel)
         {
-            // Hloubka 0 = u pobřeží, 1 = nejhlubší oceán.
+            // Hloubka 0 = u pobřeží, 1 = nejhlubší oceán. I moře má klima: teplá
+            // mělčina je útes, studená pobřežní voda zamrzá.
             float depth = (_preset.SeaLevel - elevation) / _preset.SeaLevel;
             foreach (int index in _waterBiomes)
             {
-                if (_biomes[index].DepthRange.Contains(depth))
+                if (_biomes[index].DepthRange.Contains(depth) && _biomes[index].TemperatureRange.Contains(temperature))
                 {
                     return (byte)index;
                 }
@@ -134,10 +197,13 @@ public sealed class ProceduralTerrain : ITerrain
 
         // Výška nad mořem přeškálovaná na 0–1, aby rozsahy biomů nezávisely na seaLevel.
         float landElevation = (elevation - _preset.SeaLevel) / (1f - _preset.SeaLevel);
+        float moisture = MoistureAt(x, y);
         foreach (int index in _landBiomes)
         {
             var biome = _biomes[index];
-            if (biome.ElevationRange.Contains(landElevation) && biome.MoistureRange.Contains(moisture))
+            if (biome.ElevationRange.Contains(landElevation)
+                && biome.MoistureRange.Contains(moisture)
+                && biome.TemperatureRange.Contains(temperature))
             {
                 return (byte)index;
             }

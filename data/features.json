@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "features": [
+    { "id": "harvest_bubbles", "unlock": { "metric": "buildings", "target": 1 } },
+    { "id": "festival",  "unlock": { "metric": "population", "target": 12 } },
+    { "id": "plant",     "unlock": { "metric": "harvested", "resource": "wood", "target": 20 } },
+    { "id": "move",      "unlock": { "metric": "buildings", "target": 4 } },
+    { "id": "demolish",  "unlock": { "metric": "buildings", "target": 6 } },
+    { "id": "settlements", "unlock": { "metric": "buildings", "target": 5 } },
+    { "id": "research",  "unlock": { "metric": "buildings", "target": 3 } },
+    { "id": "zones",     "unlock": { "metric": "research", "tech": "municipal_administration" } },
+    { "id": "governor",  "unlock": { "metric": "research", "tech": "municipal_administration" } },
+    { "id": "ascend",    "unlock": { "metric": "population", "target": 150 } }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Návštěvy UFO: vzácná událost, která do mapy sama zasáhne. Váhy se losují dohromady; 'behavior' je hook do kódu (UfoSystem).",
+  "ufo": {
+    "windowSeconds": 420,
+    "chance": 0.35,
+    "visitSeconds": 22,
+    "radius": 14,
+    "actions": [
+      { "id": "abduction",   "behavior": "abduct",    "weight": 3.0, "magnitude": 3 },
+      { "id": "beam_house",  "behavior": "demolish",  "weight": 1.0, "magnitude": 1 },
+      { "id": "crop_circle", "behavior": "plant",     "weight": 3.0, "magnitude": 5 },
+      { "id": "terraform",   "behavior": "terraform", "weight": 2.0, "magnitude": 3 },
+      { "id": "gift",        "behavior": "gift",      "weight": 2.5, "magnitude": 120 },
+      { "id": "flyby",       "behavior": "none",      "weight": 4.0, "magnitude": 0 }
+    ]
+  }
+}

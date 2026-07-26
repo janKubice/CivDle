@@ -18,7 +18,15 @@ public sealed record WorldSize(string Id, int Width, int Height)
 /// <para>Řeky: <paramref name="RiverWidth"/> = 0 je vypne. Vznikají z „hřebene" šumu
 /// (viz <see cref="World.ProceduralTerrain"/>), takže zůstávají čistou funkcí souřadnic —
 /// nekonečná mapa je nemusí ukládat.</para>
+///
+/// <para>Klima: teplota se skládá ze zeměpisné šířky (pásma o délce
+/// <paramref name="TemperatureBandTiles"/> dlaždic), šumu a ochlazení s výškou
+/// (<paramref name="TemperatureLapse"/>). Díky tomu je putování mapou zajímavé —
+/// na sever od města jsou jiné biomy než na jih.</para>
 /// </summary>
+/// <param name="TemperatureBandTiles">Délka jednoho klimatického cyklu v dlaždicích (0 = teplota jen ze šumu).</param>
+/// <param name="TemperatureLapse">O kolik ochladí plná výška hor (0 = výška teplotu neovlivní).</param>
+/// <param name="RiverBiomeIndex">Biom sladké vody v řečišti; −1 = odvodí se z definic (první mělká voda).</param>
 public sealed record TerrainPreset(
     string Id,
     float SeaLevel,
@@ -27,7 +35,11 @@ public sealed record TerrainPreset(
     NoiseSpec MoistureNoise,
     NoiseSpec? RiverNoise = null,
     float RiverWidth = 0f,
-    float RiverMaxElevation = 1f)
+    float RiverMaxElevation = 1f,
+    NoiseSpec? TemperatureNoise = null,
+    float TemperatureBandTiles = 0f,
+    float TemperatureLapse = 0f,
+    int RiverBiomeIndex = -1)
 {
     /// <summary>Lokalizační klíč jména presetu.</summary>
     public string NameKey => $"preset.{Id}";
