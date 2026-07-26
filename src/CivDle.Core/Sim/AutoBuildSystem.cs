@@ -61,6 +61,16 @@ internal sealed class AutoBuildSystem
             return;
         }
 
+        // Guvernér: vylepšování běží NEZÁVISLE na tlaku bydlení — hráč si nastavil,
+        // že se o modernizaci města stará sám. Míra = počet vylepšení za interval.
+        for (int i = 0; i < sim.AutoUpgradeLevel; i++)
+        {
+            if (!TryAutoUpgrade(sim))
+            {
+                break; // není co (nebo na co) vylepšit
+            }
+        }
+
         // Politika „build_pace" zvyšuje počet akcí za interval (jinak 1 — pozvolný růst).
         int budget = sim.BuildsPerInterval;
         for (int b = 0; b < budget; b++)
@@ -102,6 +112,26 @@ internal sealed class AutoBuildSystem
             if (TryBuildNear(sim, defIndex, anchor.X, anchor.Y))
             {
                 return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Guvernérovo vylepšení: povýší první budovu, kterou nastavená míra pokrývá
+    /// a na kterou jsou suroviny. Vyšší stupeň zabírá víc kategorií i víc vylepšení
+    /// za interval (viz <see cref="Simulation.AutoUpgradeCovers"/>).
+    /// </summary>
+    private bool TryAutoUpgrade(Simulation sim)
+    {
+        var buildings = sim.Buildings;
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            var def = _content.Buildings[buildings[i].DefIndex];
+            if (def.HasUpgrade && sim.AutoUpgradeCovers(def.Category) && sim.CanUpgrade(i) == PlacementResult.Ok)
+            {
+                return sim.TryUpgradeBuilding(i) == PlacementResult.Ok;
             }
         }
 

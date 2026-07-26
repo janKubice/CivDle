@@ -969,8 +969,6 @@ public sealed class GameplayScreen : IScreen
         buildStack.Widgets.Add(_buildItemsPanel);
         var bottomCenter = UiFactory.DarkPanel(buildStack);
         bottomCenter.HorizontalAlignment = HorizontalAlignment.Center;
-        bottomCenter.VerticalAlignment = VerticalAlignment.Bottom;
-        bottomCenter.Margin = new Thickness(0, 0, 0, 12);
 
         // Levý střed: sledovač úkolů (aktuální cíle + pokrok) — vede hráče hrou.
         _goalsPanel = new VerticalStackPanel { Spacing = 5 };
@@ -979,12 +977,23 @@ public sealed class GameplayScreen : IScreen
         goalsBox.VerticalAlignment = VerticalAlignment.Center;
         goalsBox.Margin = new Thickness(10, 0, 0, 0);
 
+        // Spodní blok: lišta rychlých akcí nad stavebním menu. Nahoře zůstávají
+        // suroviny (vlevo) a stav světa (vpravo) — spodek patří ovládání.
+        var bottomBar = new VerticalStackPanel
+        {
+            Spacing = 8,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(0, 0, 0, 12),
+        };
+        bottomBar.Widgets.Add(BuildToolButtons());
+        bottomBar.Widgets.Add(bottomCenter);
+
         var root = new Panel();
         root.Widgets.Add(topLeft);
         root.Widgets.Add(topRight);
         root.Widgets.Add(goalsBox);
-        root.Widgets.Add(bottomCenter);
-        root.Widgets.Add(BuildToolButtons());
+        root.Widgets.Add(bottomBar);
 
         _desktop = new Desktop { Root = root };
         _goalsDirty = true;
@@ -992,11 +1001,15 @@ public sealed class GameplayScreen : IScreen
         RefreshHudTexts();
     }
 
-    /// <summary>Rychlé akce mapy vlevo dole: zpět na město, seznam osad, tech tree.</summary>
+    /// <summary>
+    /// Lišta rychlých akcí (úkoly, sázení, zóny, výzkum, guvernér, Vzestup…).
+    /// Vodorovný pruh DOLE nad stavebním menu — spodek obrazovky patří akcím,
+    /// horní okraj zůstává na suroviny a stav světa.
+    /// </summary>
     private Widget BuildToolButtons()
     {
         var loc = _screens.Loc;
-        var stack = new VerticalStackPanel { Spacing = 6 };
+        var stack = new HorizontalStackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.quests"],
             () => _screens.Push(new QuestsScreen(_screens, _simulation))));
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.plant"], () =>
@@ -1012,7 +1025,7 @@ public sealed class GameplayScreen : IScreen
         for (int z = 0; z < zoneTypes.Count; z++)
         {
             int typeIndex = z;
-            stack.Widgets.Add(UiFactory.SmallButton(loc.Format("hud.zone", loc[zoneTypes[z].NameKey]), () =>
+            stack.Widgets.Add(UiFactory.SmallButton(loc[zoneTypes[z].NameKey], () =>
             {
                 if (_zoneMode && _zonePaintTypeIndex == typeIndex)
                 {
@@ -1035,7 +1048,7 @@ public sealed class GameplayScreen : IScreen
 
         if (_screens.Content.Policies.Count > 0)
         {
-            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.policies"],
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.governor"],
                 () => _screens.Push(new PoliciesScreen(_screens, _simulation))));
         }
 
@@ -1062,9 +1075,7 @@ public sealed class GameplayScreen : IScreen
         stack.Widgets.Add(_festivalButton);
 
         var panel = UiFactory.DarkPanel(stack);
-        panel.HorizontalAlignment = HorizontalAlignment.Left;
-        panel.VerticalAlignment = VerticalAlignment.Bottom;
-        panel.Margin = new Thickness(10, 0, 0, 12);
+        panel.HorizontalAlignment = HorizontalAlignment.Center;
         return panel;
     }
 

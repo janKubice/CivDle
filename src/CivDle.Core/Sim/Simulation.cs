@@ -754,6 +754,49 @@ public sealed class Simulation
         }
     }
 
+    // ----- guvernér: automatické vylepšování budov -----
+
+    /// <summary>Nejvyšší míra, na kterou jde guvernérovo vylepšování nastavit.</summary>
+    public const int MaxAutoUpgradeLevel = 3;
+
+    /// <summary>ID technologie, která guvernérovu správu vylepšení odemyká (data-driven odkaz).</summary>
+    public const string GovernorTechId = "municipal_administration";
+
+    private int _autoUpgradeLevel;
+
+    /// <summary>
+    /// Je guvernérova správa vylepšení odemčená? Automatizace se ODEMYKÁ, není
+    /// výchozí (living-city.md §4 — jinak by hráč neměl co dělat).
+    /// </summary>
+    public bool IsGovernorUnlocked =>
+        _content.Techs.TryIndexOf(GovernorTechId, out int index) && _techResearched[index];
+
+    /// <summary>
+    /// Jak moc si guvernér vylepšuje budovy sám: 0 = vůbec, 1 = jen bydlení,
+    /// 2 = bydlení i výroba, 3 = vše a svižně. Zároveň to je počet vylepšení,
+    /// která smí provést za jeden interval — vyšší stupeň = agresivnější správa.
+    /// </summary>
+    public int AutoUpgradeLevel => IsGovernorUnlocked ? _autoUpgradeLevel : 0;
+
+    /// <summary>Příkaz hráče: nastaví míru automatického vylepšování (ořízne se do rozsahu).</summary>
+    public void SetAutoUpgradeLevel(int level) =>
+        _autoUpgradeLevel = Math.Clamp(level, 0, MaxAutoUpgradeLevel);
+
+    /// <summary>Smí guvernér na téhle úrovni vylepšit budovu dané kategorie?</summary>
+    internal bool AutoUpgradeCovers(string category) => AutoUpgradeLevel switch
+    {
+        <= 0 => false,
+        1 => category == "housing",
+        2 => category is "housing" or "production",
+        _ => true,
+    };
+
+    /// <summary>Míra vylepšování pro serializaci savu.</summary>
+    internal int AutoUpgradeLevelRaw => _autoUpgradeLevel;
+
+    /// <summary>Obnoví míru vylepšování při načtení savu.</summary>
+    internal void RestoreAutoUpgradeLevel(int level) => SetAutoUpgradeLevel(level);
+
     // ----- politiky růstu (automatizace, stupeň 4) -----
 
     /// <summary>Kolik budov smí auto-stavba i plnění zón položit za interval (výchozí 1; politika „build_pace" zvedá).</summary>

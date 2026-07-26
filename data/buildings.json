@@ -491,6 +491,41 @@
       "buildable": false
     },
     {
+      "id": "airfield",
+      "category": "civic",
+      "mapColor": "#7C8FA6",
+      "footprint": [3, 3],
+      "workerSlots": 8,
+      "housingCapacity": 2,
+      "buildCost": { "steel": 40, "machine_parts": 15 },
+      "storage": { "food": 600, "tools": 300, "machine_parts": 300 },
+      "powerDemand": 12,
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "airport",
+      "category": "civic",
+      "mapColor": "#5B7EA8",
+      "footprint": [4, 4],
+      "workerSlots": 30,
+      "housingCapacity": 12,
+      "buildCost": { "steel": 90, "machine_parts": 50, "electronics": 25 },
+      "storage": { "food": 3000, "tools": 1500, "machine_parts": 1500, "electronics": 1000, "computer": 800 },
+      "powerDemand": 45,
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "spaceport",
+      "category": "megastructure",
+      "mapColor": "#B0C4DE",
+      "footprint": [4, 4],
+      "workerSlots": 50,
+      "buildCost": { "nanomaterial": 120, "robot": 60, "computer": 90 },
+      "recipe": { "input": { "nanomaterial": 2, "robot": 1 }, "output": { "computer": 8, "electronics": 8 }, "timeTicks": 50 },
+      "powerDemand": 200,
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
       "id": "megacity_spire",
       "category": "megastructure",
       "mapColor": "#9C6ADE",
