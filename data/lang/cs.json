@@ -395,6 +395,7 @@
     "tech.matter_synthesis": "Syntéza hmoty",
     "tech.matter_synthesis.desc": "Ruční sběr +200 %.",
     "tech.longevity": "Dlouhověkost",
-    "tech.longevity.desc": "Růst populace +150 %."
+    "tech.longevity.desc": "Růst populace +150 %.",
+    "tech.graphHelp": "Táhni myší nebo WASD · klikni na uzel a vyzkoumej"
   }
 }
