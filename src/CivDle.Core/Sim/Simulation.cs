@@ -1761,11 +1761,30 @@ public sealed class Simulation
     /// <summary>Nastaví globální stav načtený ze savu (zásoby se přiškrtí na aktuální kapacity).</summary>
     internal void RestoreState(double[] resourceAmounts, double population, long tickCount)
     {
+        RestoreResources(resourceAmounts);
+        RestoreCore(population, tickCount);
+    }
+
+    /// <summary>
+    /// Obnoví jen zásoby surovin. Sekční save načítá části nezávisle na pořadí,
+    /// takže potřebuje obnovu po částech, ne jedno velké „nastav všechno".
+    ///
+    /// <para>Zásoby se schválně NEOŘEZÁVAJÍ na kapacitu: sklady zvedají až budovy
+    /// a bonusy Vzestupu, které přijdou v jiné sekci. Ořez proběhne jednou na konci
+    /// ve <see cref="FinalizeLoad"/> — jinak by hráč s plným skladem o zásoby přišel
+    /// jen kvůli pořadí sekcí.</para>
+    /// </summary>
+    internal void RestoreResources(double[] resourceAmounts)
+    {
         for (int i = 0; i < _resources.Length; i++)
         {
-            _resources[i] = Math.Min(resourceAmounts[i], _storageCaps[i]);
+            _resources[i] = resourceAmounts[i];
         }
+    }
 
+    /// <summary>Obnoví populaci a odtikaný čas (zbytek stavu nesou další sekce).</summary>
+    internal void RestoreCore(double population, long tickCount)
+    {
         Population = population;
         TickCount = tickCount;
     }
