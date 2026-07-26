@@ -14,7 +14,8 @@ public sealed record AutoBuildConfig(int IntervalTicks, int SearchRadius, int Po
 /// </summary>
 /// <param name="MapColor">Barva cesty na mapě (MVP vizuál).</param>
 /// <param name="MaxSearchDistance">Strop délky hledané cesty v dlaždicích — dál se nespojuje.</param>
-public sealed record RoadConfig(RgbColor MapColor, int MaxSearchDistance);
+/// <param name="MaxBridgeSpan">Kolik vodních dlaždic v řadě umí cesta přemostit (0 = bez mostů).</param>
+public sealed record RoadConfig(RgbColor MapColor, int MaxSearchDistance, int MaxBridgeSpan = 0);
 
 /// <summary>
 /// Nastavení detekce osad (fáze 4: shluk budov se pozná jako sídlo se jménem).

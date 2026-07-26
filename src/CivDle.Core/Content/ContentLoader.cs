@@ -43,9 +43,12 @@ public sealed class ContentLoader
         var eras = LoadEras(Path.Combine(dataDirectory, "eras.json"));
         var zoneTypes = LoadZoneTypes(Path.Combine(dataDirectory, "zones.json"), buildings);
         var policies = LoadPolicies(Path.Combine(dataDirectory, "policies.json"));
+        var tiers = LoadAscensionTiers(Path.Combine(dataDirectory, "ascension-tiers.json"), buildings);
+        var weather = LoadWeather(Path.Combine(dataDirectory, "weather.json"), biomes);
+        var landmarks = LoadLandmarks(Path.Combine(dataDirectory, "landmarks.json"), biomes, resources);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
@@ -53,7 +56,7 @@ public sealed class ContentLoader
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks);
     }
 
     // ----- éry -----
@@ -179,6 +182,211 @@ public sealed class ContentLoader
         return new DefRegistry<GrowthPolicyDef>(result, p => p.Id, "politika", allowEmpty: true);
     }
 
+    // ----- landmarky (živá mapa) -----
+
+    private static DefRegistry<LandmarkDef> LoadLandmarks(string path, BiomeRegistry biomes, DefRegistry<Resource> resources)
+    {
+        // Landmarky jsou volitelný obsah — bez souboru je mapa jen bez bodů zájmu.
+        if (!File.Exists(path))
+        {
+            return new DefRegistry<LandmarkDef>(Array.Empty<LandmarkDef>(), l => l.Id, "landmark", allowEmpty: true);
+        }
+
+        var file = ReadFile<LandmarksFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Landmarks ?? new List<LandmarkDto>();
+        var result = new List<LandmarkDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Landmark na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID landmarku '{id}'.");
+            }
+
+            if (dto.Biomes is not { Length: > 0 })
+            {
+                throw new ContentLoadException(path, $"Landmark '{id}' nemá vyplněné 'biomes'.");
+            }
+
+            var mask = new bool[biomes.Count];
+            foreach (var biomeId in dto.Biomes)
+            {
+                if (biomeId is null || !biomes.TryIndexOf(biomeId.Trim(), out int biomeIndex))
+                {
+                    throw new ContentLoadException(path, $"Landmark '{id}' odkazuje na neexistující biom '{biomeId}'.");
+                }
+
+                mask[biomeIndex] = true;
+            }
+
+            if (dto.Rarity is < 1 or > 1_000_000)
+            {
+                throw new ContentLoadException(path, $"Landmark '{id}': 'rarity' musí být 1–1000000, je {dto.Rarity}.");
+            }
+
+            if (dto.Size is < 1 or > 64)
+            {
+                throw new ContentLoadException(path, $"Landmark '{id}': 'size' musí být 1–64, je {dto.Size}.");
+            }
+
+            var color = ParseColor(path, dto.MapColor, $"Landmark '{id}'");
+            ClickYield? yield = null;
+            if (dto.ClickYield is { } cy)
+            {
+                if (cy.Resource is null || !resources.TryIndexOf(cy.Resource.Trim(), out int resourceIndex))
+                {
+                    throw new ContentLoadException(path, $"Landmark '{id}' odkazuje na neexistující surovinu '{cy.Resource}'.");
+                }
+
+                if (cy.Amount < 1)
+                {
+                    throw new ContentLoadException(path, $"Landmark '{id}': 'clickYield.amount' musí být kladný.");
+                }
+
+                yield = new ClickYield(resourceIndex, cy.Amount);
+            }
+
+            result.Add(new LandmarkDef(id, mask, color, dto.Size, dto.Rarity, yield));
+        }
+
+        return new DefRegistry<LandmarkDef>(result, l => l.Id, "landmark", allowEmpty: true);
+    }
+
+    // ----- počasí (živá mapa) -----
+
+    private static DefRegistry<WeatherDef> LoadWeather(string path, BiomeRegistry biomes)
+    {
+        // Počasí je volitelný obsah — bez souboru je registr prázdný (mapa bez počasí).
+        if (!File.Exists(path))
+        {
+            return new DefRegistry<WeatherDef>(Array.Empty<WeatherDef>(), w => w.Id, "počasí", allowEmpty: true);
+        }
+
+        var file = ReadFile<WeatherFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Weather ?? new List<WeatherDto>();
+        var result = new List<WeatherDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Počasí na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID počasí '{id}'.");
+            }
+
+            if (dto.Biomes is not { Length: > 0 })
+            {
+                throw new ContentLoadException(path, $"Počasí '{id}' nemá vyplněné 'biomes'.");
+            }
+
+            var mask = new bool[biomes.Count];
+            foreach (var biomeId in dto.Biomes)
+            {
+                if (biomeId is null || !biomes.TryIndexOf(biomeId.Trim(), out int biomeIndex))
+                {
+                    throw new ContentLoadException(path, $"Počasí '{id}' odkazuje na neexistující biom '{biomeId}'.");
+                }
+
+                mask[biomeIndex] = true;
+            }
+
+            if (dto.Weight <= 0)
+            {
+                throw new ContentLoadException(path, $"Počasí '{id}': 'weight' musí být kladná, je {dto.Weight}.");
+            }
+
+            if (dto.DurationSeconds is <= 0 or > 3600)
+            {
+                throw new ContentLoadException(path, $"Počasí '{id}': 'durationSeconds' musí být 0–3600, je {dto.DurationSeconds}.");
+            }
+
+            // Výchozí 1.0 = bez vlivu; extrémní jev smí flow jen SNÍŽIT, nikdy nezničit.
+            double productionMult = dto.ProductionMult <= 0 ? 1.0 : dto.ProductionMult;
+            if (productionMult is < 0.1 or > 1.0)
+            {
+                throw new ContentLoadException(
+                    path, $"Počasí '{id}': 'productionMult' musí být 0.1–1.0 (počasí flow jen zpomaluje), je {productionMult}.");
+            }
+
+            if (dto.TintAlpha is < 0 or > 1)
+            {
+                throw new ContentLoadException(path, $"Počasí '{id}': 'tintAlpha' musí být 0–1, je {dto.TintAlpha}.");
+            }
+
+            var tint = ParseColor(path, dto.Tint, $"Počasí '{id}'");
+            result.Add(new WeatherDef(
+                id, mask, dto.Extreme, productionMult, dto.DurationSeconds, dto.Weight,
+                tint, dto.TintAlpha, string.IsNullOrWhiteSpace(dto.Particle) ? "none" : dto.Particle.Trim()));
+        }
+
+        return new DefRegistry<WeatherDef>(result, w => w.Id, "počasí", allowEmpty: true);
+    }
+
+    // ----- stupně měřítka (Vzestup) -----
+
+    private static DefRegistry<AscensionTierDef> LoadAscensionTiers(string path, DefRegistry<BuildingDef> buildings)
+    {
+        // Stupně měřítka jsou volitelný obsah — bez souboru je registr prázdný (žádný strop).
+        if (!File.Exists(path))
+        {
+            return new DefRegistry<AscensionTierDef>(Array.Empty<AscensionTierDef>(), t => t.Id, "stupeň měřítka", allowEmpty: true);
+        }
+
+        var file = ReadFile<AscensionTiersFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Tiers ?? new List<AscensionTierDto>();
+        var result = new List<AscensionTierDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        var seenOrders = new HashSet<int>();
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Stupeň měřítka na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID stupně měřítka '{id}'.");
+            }
+
+            if (dto.Order is < 0 or > 100)
+            {
+                throw new ContentLoadException(path, $"Stupeň '{id}': 'order' musí být 0–100, je {dto.Order}.");
+            }
+
+            if (!seenOrders.Add(dto.Order))
+            {
+                throw new ContentLoadException(path, $"Stupeň '{id}': pořadí {dto.Order} už má jiný stupeň.");
+            }
+
+            if (dto.PopulationCap <= 0)
+            {
+                throw new ContentLoadException(path, $"Stupeň '{id}': 'populationCap' musí být kladný, je {dto.PopulationCap}.");
+            }
+
+            var unlocked = new List<int>();
+            foreach (var buildingId in dto.Unlocks ?? new List<string>())
+            {
+                if (buildingId is null || !buildings.TryIndexOf(buildingId.Trim(), out int buildingIndex))
+                {
+                    throw new ContentLoadException(path, $"Stupeň '{id}' odkazuje v 'unlocks' na neexistující budovu '{buildingId}'.");
+                }
+
+                unlocked.Add(buildingIndex);
+            }
+
+            result.Add(new AscensionTierDef(id, dto.Order, dto.PopulationCap, unlocked));
+        }
+
+        return new DefRegistry<AscensionTierDef>(result, t => t.Id, "stupeň měřítka", allowEmpty: true);
+    }
+
     // ----- biomy -----
 
     private static BiomeRegistry LoadBiomes(string path, DefRegistry<Resource> resources)
@@ -253,7 +461,15 @@ public sealed class ContentLoader
             clickYield = new ClickYield(resourceIndex, dto.ClickYield.Amount);
         }
 
-        return new Biome(id, color, (float)dto.ColorVariation, dto.IsWater, depth, elevation, moisture, clickYield);
+        // Výchozí 1.0 = neutrální biom. Rozsah drží identitu biomů v rozumných mezích
+        // (biom smí ekonomiku naklonit, ne rozbít).
+        double productionMult = dto.ProductionMult <= 0 ? 1.0 : dto.ProductionMult;
+        if (productionMult is < 0.25 or > 3.0)
+        {
+            throw new ContentLoadException(path, $"Biom '{id}': 'productionMult' musí být 0.25–3.0, je {productionMult}.");
+        }
+
+        return new Biome(id, color, (float)dto.ColorVariation, dto.IsWater, depth, elevation, moisture, clickYield, productionMult);
     }
 
     private static ValueRange ParseRange(string path, string biomeId, string field, double[]? values, bool required)
@@ -505,7 +721,7 @@ public sealed class ContentLoader
             id, category, color, dto.Footprint[0], dto.Footprint[1],
             dto.WorkerSlots, dto.HousingCapacity, buildCost, recipe, mask,
             storageBonus, dto.AutoBuild, dto.Buildable ?? true, upgradesToIndex, upgradeCost,
-            dto.PowerSupply, dto.PowerDemand);
+            dto.PowerSupply, dto.PowerDemand, dto.RequiresAdjacentWater);
     }
 
     // ----- tech tree -----
@@ -571,7 +787,9 @@ public sealed class ContentLoader
                 unlocks.Add(buildingIndex);
             }
 
-            techs.Add(new TechDef(id, cost, prereqs, unlocks));
+            // Efekt se NEvaliduje proti seznamu — neznámý se za běhu tiše ignoruje
+            // (behavior-ID hook, data smí předběhnout kód).
+            techs.Add(new TechDef(id, cost, prereqs, unlocks, dto.Effect?.Trim() ?? string.Empty, dto.Magnitude));
         }
 
         return new DefRegistry<TechDef>(techs, t => t.Id, "technologie", allowEmpty: true);
@@ -933,6 +1151,11 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"'roads.maxSearchDistance' musí být 1–1000, je {file.Roads.MaxSearchDistance}.");
         }
 
+        if (file.Roads.MaxBridgeSpan is < 0 or > 64)
+        {
+            throw new ContentLoadException(path, $"'roads.maxBridgeSpan' musí být 0–64, je {file.Roads.MaxBridgeSpan}.");
+        }
+
         if (file.Settlements is null)
         {
             throw new ContentLoadException(path, "Chybí blok 'settlements' (detekce osad).");
@@ -1016,7 +1239,7 @@ public sealed class ContentLoader
             file.FoodPerPersonPerSecond,
             foodIndex,
             new AutoBuildConfig(file.AutoBuild.IntervalTicks, file.AutoBuild.SearchRadius, file.AutoBuild.PopulationHeadroom),
-            new RoadConfig(roadColor, file.Roads.MaxSearchDistance),
+            new RoadConfig(roadColor, file.Roads.MaxSearchDistance, file.Roads.MaxBridgeSpan),
             new SettlementConfig(file.Settlements.MinBuildings, file.Settlements.ClusterDistance, file.Settlements.UpdateIntervalTicks),
             new DayNightConfig(
                 file.DayNight.DayLengthSeconds,
@@ -1213,7 +1436,10 @@ public sealed class ContentLoader
         DefRegistry<EventDef> events,
         DefRegistry<EraDef> eras,
         DefRegistry<ZoneTypeDef> zoneTypes,
-        DefRegistry<GrowthPolicyDef> policies)
+        DefRegistry<GrowthPolicyDef> policies,
+        DefRegistry<AscensionTierDef> tiers,
+        DefRegistry<WeatherDef> weather,
+        DefRegistry<LandmarkDef> landmarks)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -1247,7 +1473,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -1267,7 +1493,10 @@ public sealed class ContentLoader
         DefRegistry<EventDef> events,
         DefRegistry<EraDef> eras,
         DefRegistry<ZoneTypeDef> zoneTypes,
-        DefRegistry<GrowthPolicyDef> policies)
+        DefRegistry<GrowthPolicyDef> policies,
+        DefRegistry<AscensionTierDef> tiers,
+        DefRegistry<WeatherDef> weather,
+        DefRegistry<LandmarkDef> landmarks)
     {
         var required = new List<string>();
         required.AddRange(biomes.All.Select(b => b.NameKey));
@@ -1294,6 +1523,9 @@ public sealed class ContentLoader
         required.AddRange(zoneTypes.All.Select(z => z.NameKey));
         required.AddRange(policies.All.Select(p => p.NameKey));
         required.AddRange(policies.All.Select(p => p.DescriptionKey));
+        required.AddRange(tiers.All.Select(t => t.NameKey));
+        required.AddRange(weather.All.Select(w => w.NameKey));
+        required.AddRange(landmarks.All.Select(l => l.NameKey));
 
         var missing = required.Where(key => !language.Strings.ContainsKey(key)).ToList();
         if (missing.Count > 0)
@@ -1415,7 +1647,23 @@ public sealed class ContentLoader
 
         var elevation = ValidateNoise(path, id, "elevationNoise", dto.ElevationNoise);
         var moisture = ValidateNoise(path, id, "moistureNoise", dto.MoistureNoise);
-        return new TerrainPreset(id, (float)dto.SeaLevel, fallbackIndex, elevation, moisture);
+
+        // Řeky jsou volitelné: bez 'riverNoise' (nebo s nulovou šířkou) se negenerují.
+        NoiseSpec? river = dto.RiverNoise is null ? null : ValidateNoise(path, id, "riverNoise", dto.RiverNoise);
+        if (dto.RiverWidth is < 0 or > 0.2)
+        {
+            throw new ContentLoadException(path, $"Preset '{id}': 'riverWidth' musí být 0–0.2, je {dto.RiverWidth}.");
+        }
+
+        if (dto.RiverMaxElevation is < 0 or > 1)
+        {
+            throw new ContentLoadException(path, $"Preset '{id}': 'riverMaxElevation' musí být 0–1, je {dto.RiverMaxElevation}.");
+        }
+
+        float riverMaxElevation = dto.RiverMaxElevation <= 0 ? 1f : (float)dto.RiverMaxElevation;
+        return new TerrainPreset(
+            id, (float)dto.SeaLevel, fallbackIndex, elevation, moisture,
+            river, (float)dto.RiverWidth, riverMaxElevation);
     }
 
     private static NoiseSpec ValidateNoise(string path, string presetId, string field, NoiseDto? dto)

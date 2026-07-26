@@ -27,11 +27,16 @@ internal sealed class PopulationSystem
 
         // Roste se jen s plným břichem a volnou kapacitou bydlení.
         // Trvalý bonus Vzestupu růst zrychluje.
+        //
+        // Strop měřítka (stupeň Vzestupu) je druhá, MĚKKÁ brzda: růst se u něj
+        // zastaví, ale nic se neboří — je to pobídka k Vzestupu, ne trest
+        // (progression-prestige.md §6).
+        double ceiling = Math.Min(sim.HousingCapacity, sim.PopulationCap);
         bool fed = eaten >= demand - 1e-9;
-        if (fed && sim.Population < sim.HousingCapacity)
+        if (fed && sim.Population < ceiling)
         {
             sim.Population = Math.Min(
-                sim.HousingCapacity,
+                ceiling,
                 sim.Population + _config.PopulationGrowthPerSecond * dt * sim.Bonuses.GrowthMult);
         }
     }

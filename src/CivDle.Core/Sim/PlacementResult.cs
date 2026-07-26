@@ -20,4 +20,7 @@ public enum PlacementResult
 
     /// <summary>Budova není odemčená (chybí technologie) nebo se nedá stavět přímo.</summary>
     NotUnlocked,
+
+    /// <summary>Budova potřebuje sousedit s vodou (přístav, rybolov), ale břeh tam není.</summary>
+    NeedsWaterAccess,
 }

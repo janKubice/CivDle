@@ -16,7 +16,8 @@ public sealed record BiomeDto(
     double[]? DepthRange,
     double[]? ElevationRange,
     double[]? MoistureRange,
-    ClickYieldDto? ClickYield);
+    ClickYieldDto? ClickYield,
+    double ProductionMult);
 
 /// <summary>Výnos ručního kliknutí na biom tak, jak leží v JSON.</summary>
 public sealed record ClickYieldDto(string? Resource, int Amount);
@@ -47,7 +48,8 @@ public sealed record BuildingDto(
     string? UpgradesTo,
     Dictionary<string, int>? UpgradeCost,
     int PowerSupply,
-    int PowerDemand);
+    int PowerDemand,
+    bool RequiresAdjacentWater);
 
 /// <summary>Výrobní recept budovy tak, jak leží v JSON.</summary>
 public sealed record RecipeDto(
@@ -122,7 +124,7 @@ public sealed record FaunaDto(
 public sealed record AutoBuildDto(int IntervalTicks, int SearchRadius, int PopulationHeadroom);
 
 /// <summary>Nastavení auto-silnic tak, jak leží v JSON.</summary>
-public sealed record RoadsDto(string? MapColor, int MaxSearchDistance);
+public sealed record RoadsDto(string? MapColor, int MaxSearchDistance, int MaxBridgeSpan);
 
 /// <summary>Nastavení detekce osad tak, jak leží v JSON.</summary>
 public sealed record SettlementsDto(int MinBuildings, int ClusterDistance, int UpdateIntervalTicks);
@@ -138,7 +140,9 @@ public sealed record TechDto(
     string? Id,
     Dictionary<string, int>? Cost,
     string[]? Prerequisites,
-    string[]? Unlocks);
+    string[]? Unlocks,
+    string? Effect,
+    double Magnitude);
 
 /// <summary>
 /// Podmínka cíle/achievementu/Vzestupu tak, jak leží v JSON: metrika + práh + volitelný
@@ -205,6 +209,39 @@ public sealed record PoliciesFileDto(int SchemaVersion, List<PolicyDto>? Policie
 /// <summary>Jedna politika růstu tak, jak leží v JSON.</summary>
 public sealed record PolicyDto(string? Id, string? Effect, double Magnitude);
 
+/// <summary>Obsah souboru <c>data/landmarks.json</c> (vzácné body zájmu na mapě).</summary>
+public sealed record LandmarksFileDto(int SchemaVersion, List<LandmarkDto>? Landmarks);
+
+/// <summary>Jeden landmark tak, jak leží v JSON.</summary>
+public sealed record LandmarkDto(
+    string? Id,
+    string[]? Biomes,
+    string? MapColor,
+    int Size,
+    int Rarity,
+    ClickYieldDto? ClickYield);
+
+/// <summary>Obsah souboru <c>data/weather.json</c> (počasí vázané na biom).</summary>
+public sealed record WeatherFileDto(int SchemaVersion, List<WeatherDto>? Weather);
+
+/// <summary>Jeden jev počasí tak, jak leží v JSON.</summary>
+public sealed record WeatherDto(
+    string? Id,
+    string[]? Biomes,
+    bool Extreme,
+    double ProductionMult,
+    double DurationSeconds,
+    double Weight,
+    string? Tint,
+    double TintAlpha,
+    string? Particle);
+
+/// <summary>Obsah souboru <c>data/ascension-tiers.json</c> (stupně měřítka).</summary>
+public sealed record AscensionTiersFileDto(int SchemaVersion, List<AscensionTierDto>? Tiers);
+
+/// <summary>Jeden stupeň měřítka tak, jak leží v JSON.</summary>
+public sealed record AscensionTierDto(string? Id, int Order, double PopulationCap, List<string>? Unlocks);
+
 /// <summary>Obsah souboru <c>data/events.json</c> (náhodné události s volbami).</summary>
 public sealed record EventFileDto(int SchemaVersion, List<EventDto>? Events);
 
@@ -253,4 +290,7 @@ public sealed record TerrainPresetDto(
     double SeaLevel,
     string? FallbackBiome,
     NoiseDto? ElevationNoise,
-    NoiseDto? MoistureNoise);
+    NoiseDto? MoistureNoise,
+    NoiseDto? RiverNoise,
+    double RiverWidth,
+    double RiverMaxElevation);

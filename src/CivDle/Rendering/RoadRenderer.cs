@@ -34,7 +34,9 @@ public sealed class RoadRenderer
         }
 
         const int tileSize = TerrainRenderer.TileSize;
-        var color = _content.Gameplay.Roads.MapColor.ToXna();
+        var roadColor = _content.Gameplay.Roads.MapColor.ToXna();
+        // Most = silnice po vodě. Dřevěná deska pod cestou ho odliší od běžné pěšiny.
+        var bridgeColor = new Color(122, 88, 56);
         var (min, max) = camera.VisibleWorldBounds();
 
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
@@ -47,6 +49,14 @@ public sealed class RoadRenderer
             if (x + tileSize < min.X || x > max.X || y + tileSize < min.Y || y > max.Y)
             {
                 continue;
+            }
+
+            var color = roadColor;
+            if (simulation.IsBridge(tileX, tileY))
+            {
+                // Podklad mostu přes celou dlaždici, ať je nad vodou čitelný.
+                spriteBatch.Draw(_pixel, new Rectangle(x, y, tileSize, tileSize), bridgeColor);
+                color = new Color(168, 132, 92);
             }
 
             spriteBatch.Draw(_pixel, new Rectangle(x + Pad, y + Pad, Thickness, Thickness), color);

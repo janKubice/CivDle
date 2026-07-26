@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "landmarks": [
+    {
+      "id": "ancient_tree",
+      "biomes": ["forest"],
+      "mapColor": "#2F6B34",
+      "size": 13,
+      "rarity": 900,
+      "clickYield": { "resource": "wood", "amount": 12 }
+    },
+    {
+      "id": "berry_grove",
+      "biomes": ["forest", "grassland"],
+      "mapColor": "#B0356B",
+      "size": 8,
+      "rarity": 600,
+      "clickYield": { "resource": "food", "amount": 8 }
+    },
+    {
+      "id": "deer_herd",
+      "biomes": ["forest", "grassland"],
+      "mapColor": "#8A5A33",
+      "size": 9,
+      "rarity": 700,
+      "clickYield": { "resource": "food", "amount": 14 }
+    },
+    {
+      "id": "fish_shoal",
+      "biomes": ["shallow_water"],
+      "mapColor": "#4FD0E0",
+      "size": 8,
+      "rarity": 400,
+      "clickYield": { "resource": "food", "amount": 10 }
+    },
+    {
+      "id": "ore_vein",
+      "biomes": ["mountains", "snow_peaks"],
+      "mapColor": "#C08A3E",
+      "size": 9,
+      "rarity": 500,
+      "clickYield": { "resource": "stone", "amount": 14 }
+    },
+    {
+      "id": "geyser",
+      "biomes": ["mountains", "snow_peaks"],
+      "mapColor": "#DCEAF2",
+      "size": 10,
+      "rarity": 1100
+    },
+    {
+      "id": "canyon",
+      "biomes": ["steppe"],
+      "mapColor": "#9C5A32",
+      "size": 14,
+      "rarity": 800
+    },
+    {
+      "id": "stone_circle",
+      "biomes": ["grassland", "steppe"],
+      "mapColor": "#8E8E96",
+      "size": 11,
+      "rarity": 1300
+    }
+  ]
+}

@@ -35,7 +35,10 @@
         "octaves": 3,
         "persistence": 0.5,
         "lacunarity": 2.0
-      }
+      },
+      "riverNoise": { "frequency": 0.9, "octaves": 2, "persistence": 0.5, "lacunarity": 2.0 },
+      "riverWidth": 0.012,
+      "riverMaxElevation": 0.72
     },
     {
       "id": "islands",
@@ -52,7 +55,10 @@
         "octaves": 3,
         "persistence": 0.5,
         "lacunarity": 2.0
-      }
+      },
+      "riverNoise": { "frequency": 0.9, "octaves": 2, "persistence": 0.5, "lacunarity": 2.0 },
+      "riverWidth": 0.012,
+      "riverMaxElevation": 0.72
     },
     {
       "id": "pangaea",
@@ -69,7 +75,10 @@
         "octaves": 3,
         "persistence": 0.5,
         "lacunarity": 2.0
-      }
+      },
+      "riverNoise": { "frequency": 0.9, "octaves": 2, "persistence": 0.5, "lacunarity": 2.0 },
+      "riverWidth": 0.012,
+      "riverMaxElevation": 0.72
     }
   ]
 }

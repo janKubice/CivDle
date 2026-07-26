@@ -135,14 +135,17 @@ public class SimulationTests
         double woodAfterBuild = sim.GetResource(wood);
 
         // Populace 5 ≥ 2 sloty → plná obsazenost; recept: 2 dřeva / 40 tiků.
+        // Les má ekonomickou identitu (productionMult) — výnos cyklu ji zahrnuje.
+        double perCycle = 2 * content.Biomes[content.Biomes.IndexOf("forest")].Production;
+
         RunTicks(sim, 39);
         Assert.Equal(woodAfterBuild, sim.GetResource(wood));
 
         RunTicks(sim, 1);
-        Assert.Equal(woodAfterBuild + 2, sim.GetResource(wood));
+        Assert.Equal(woodAfterBuild + perCycle, sim.GetResource(wood), precision: 4);
 
         RunTicks(sim, 40);
-        Assert.Equal(woodAfterBuild + 4, sim.GetResource(wood));
+        Assert.Equal(woodAfterBuild + 2 * perCycle, sim.GetResource(wood), precision: 4);
     }
 
     [Fact]
@@ -162,8 +165,10 @@ public class SimulationTests
         RunTicks(sim, 55);
         Assert.Equal(stoneAfterBuild, sim.GetResource(stone));
 
+        // Dva lomy à 2 kameny, × identita hor (productionMult).
+        double expected = 4 * content.Biomes[content.Biomes.IndexOf("mountains")].Production;
         RunTicks(sim, 7);
-        Assert.Equal(stoneAfterBuild + 4, sim.GetResource(stone));
+        Assert.Equal(stoneAfterBuild + expected, sim.GetResource(stone), precision: 4);
     }
 
     [Fact]

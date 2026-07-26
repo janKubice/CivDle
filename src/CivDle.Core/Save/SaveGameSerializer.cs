@@ -20,8 +20,8 @@ public sealed class SaveGameSerializer
 {
     private const string Magic = "CIVD";
 
-    /// <summary>Verze formátu — zvýšit při každé změně struktury. v6: + úkoly. v7: + skrýše. v8: + zasazené uzly. v9: + zóny. v10: + politiky.</summary>
-    public const int FormatVersion = 10;
+    /// <summary>Verze formátu — zvýšit při každé změně struktury. v6: + úkoly. v7: + skrýše. v8: + zasazené uzly. v9: + zóny. v10: + politiky. v11: + guvernér.</summary>
+    public const int FormatVersion = 11;
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -52,6 +52,7 @@ public sealed class SaveGameSerializer
         WritePlanted(writer, simulation);
         WriteZones(writer, simulation);
         WritePolicies(writer, simulation);
+        writer.Write(simulation.AutoUpgradeLevelRaw);
     }
 
     /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
@@ -100,6 +101,7 @@ public sealed class SaveGameSerializer
             ReadPlanted(reader, content, simulation);
             ReadZones(reader, content, simulation);
             ReadPolicies(reader, content, simulation);
+            simulation.RestoreAutoUpgradeLevel(reader.ReadInt32());
             simulation.FinalizeLoad(); // bonusy Vzestupu → přepočet bydlení/skladů + politik
 
             return (simulation, metadata);

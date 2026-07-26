@@ -12,7 +12,12 @@ namespace CivDle.Core.Sim;
 /// Nekonečná mapa: BFS pracuje nad řídkými mapami (Dictionary/HashSet) v okně
 /// omezeném <c>maxSearchDistance</c>, ne nad plochým polem celého světa. Pevné
 /// pořadí sousedů drží determinismus; existující síť je cílem hledání, takže se
-/// cesty napojují místo duplikování. Voda a budovy jsou neprůchozí (mosty zatím ne).
+/// cesty napojují místo duplikování. Budovy jsou neprůchozí.
+///
+/// <para><b>Mosty:</b> voda je průchozí jen v souvislém úseku do
+/// <c>roads.maxBridgeSpan</c> dlaždic — cesta tak překlene řeku nebo úžinu, ale
+/// nepostaví most přes oceán. Most se nikde neukládá: silniční dlaždice na vodě
+/// JE most (odvozené z terénu), takže save formát zůstává beze změny.</para>
 /// </summary>
 internal sealed class RoadBuilder
 {
@@ -21,6 +26,9 @@ internal sealed class RoadBuilder
     private readonly HashSet<long> _visited = new();
     private readonly Dictionary<long, long> _cameFrom = new();
     private readonly Queue<long> _queue = new();
+
+    /// <summary>Kolik vodních dlaždic v řadě už cesta k danému místu překlenula (délka mostu).</summary>
+    private readonly Dictionary<long, int> _waterRun = new();
 
     public RoadBuilder(GameContent content)
     {
@@ -40,6 +48,7 @@ internal sealed class RoadBuilder
         _visited.Clear();
         _cameFrom.Clear();
         _queue.Clear();
+        _waterRun.Clear();
 
         // Cíle: existující silnice + průchozí obvod všech starších budov.
         foreach (var road in sim.RoadTiles)
@@ -58,6 +67,7 @@ internal sealed class RoadBuilder
             if (_visited.Add(key))
             {
                 _cameFrom[key] = -1;
+                _waterRun[key] = 0; // obvod budovy je vždy na souši
                 _queue.Enqueue(key);
             }
         });
@@ -120,13 +130,23 @@ internal sealed class RoadBuilder
     {
         foundTarget = -1;
         long key = TileKey.Pack(x, y);
-        if (_visited.Contains(key) || !IsPassable(sim, x, y))
+        if (_visited.Contains(key) || sim.IsOccupied(x, y))
         {
             return false;
         }
 
+        // Přes vodu se smí jen po most dlouhý nejvýš maxBridgeSpan dlaždic. Délka
+        // se počítá po cestě: souš ji nuluje, další voda ji prodlužuje.
+        bool water = IsWater(sim, x, y);
+        int run = water ? _waterRun.GetValueOrDefault(from) + 1 : 0;
+        if (water && run > _content.Gameplay.Roads.MaxBridgeSpan)
+        {
+            return false; // širší tok, než umíme přemostit (oceán zůstane bariérou)
+        }
+
         _visited.Add(key);
         _cameFrom[key] = from;
+        _waterRun[key] = run;
 
         if (_targets.Contains(key))
         {
@@ -138,15 +158,12 @@ internal sealed class RoadBuilder
         return false;
     }
 
-    private bool IsPassable(Simulation sim, int x, int y)
-    {
-        if (sim.IsOccupied(x, y))
-        {
-            return false;
-        }
+    /// <summary>Suchá průchozí dlaždice — start i konec cesty musí stát na souši.</summary>
+    private bool IsPassable(Simulation sim, int x, int y) =>
+        !sim.IsOccupied(x, y) && !IsWater(sim, x, y);
 
-        return !_content.Biomes[sim.Terrain.BiomeAt(x, y)].IsWater;
-    }
+    private bool IsWater(Simulation sim, int x, int y) =>
+        _content.Biomes[sim.Terrain.BiomeAt(x, y)].IsWater;
 
     /// <summary>Zavolá akci pro každou průchozí dlaždici po obvodu půdorysu budovy.</summary>
     private void MarkPerimeter(Simulation sim, in BuildingInstance building, Action<long> action)

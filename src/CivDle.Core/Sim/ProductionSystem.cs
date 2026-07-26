@@ -34,6 +34,10 @@ internal sealed class ProductionSystem
         var storageCaps = sim.StorageCaps;
 
         float powerFactor = (float)sim.PowerFactor;
+
+        // Počasí i bonusy jsou pro celý tik konstantní — spočítej jednou, ne u každé
+        // budovy (CurrentWeatherIndex je hash, v tikové smyčce by se zbytečně opakoval).
+        double productionMult = sim.Bonuses.ProductionMult * sim.BoostMultiplier * sim.WeatherProductionMult;
         for (int i = 0; i < buildings.Length; i++)
         {
             ref var building = ref buildings[i];
@@ -65,13 +69,12 @@ internal sealed class ProductionSystem
                 resources[recipe.Inputs[j].ResourceIndex] -= recipe.Inputs[j].Amount;
             }
 
-            double productionMult = sim.Bonuses.ProductionMult * sim.BoostMultiplier;
             for (int j = 0; j < recipe.Outputs.Count; j++)
             {
                 int index = recipe.Outputs[j].ResourceIndex;
                 // Plný sklad výrobu nezastaví, přebytek propadá (idle konvence) —
                 // motivace stavět sklady, žádný trest. Trvalý bonus Vzestupu zvedá výstup.
-                resources[index] = Math.Min(resources[index] + recipe.Outputs[j].Amount * productionMult, storageCaps[index]);
+                resources[index] = Math.Min(resources[index] + recipe.Outputs[j].Amount * productionMult * building.BiomeMult, storageCaps[index]);
             }
 
             building.Progress -= recipe.TimeTicks;

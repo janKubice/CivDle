@@ -29,6 +29,8 @@ public sealed class Simulation
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
     private readonly ZoneFillSystem _zoneFill;
+    private readonly ColonySystem _colonySystem;
+    private readonly WeatherSystem _weatherSystem;
     private readonly List<Zone> _zones = new(); // hráčem namalované zóny (automatizace, stupeň 3)
     private readonly RoadBuilder _roadBuilder;
     private readonly SettlementSystem _settlementSystem;
@@ -76,6 +78,7 @@ public sealed class Simulation
         _upgradesPurchased = new bool[content.PrestigeUpgrades.Count];
         _policiesActive = new bool[content.Policies.Count];
         _harvestedTotals = new long[content.Resources.Count];
+        RefreshTierUnlocks(); // megastruktury zamčené, dokud měřítko nedoroste
 
         _resources = new double[content.Resources.Count];
         _storageCaps = new double[content.Resources.Count];
@@ -92,6 +95,8 @@ public sealed class Simulation
         _populationSystem = new PopulationSystem(content.Gameplay);
         _autoBuild = new AutoBuildSystem(content, seed);
         _zoneFill = new ZoneFillSystem(content, seed);
+        _colonySystem = new ColonySystem(content, seed);
+        _weatherSystem = new WeatherSystem(content, seed);
         _roadBuilder = new RoadBuilder(content);
         _settlementSystem = new SettlementSystem(content, seed);
         _questSystem = new QuestSystem(content);
@@ -207,6 +212,65 @@ public sealed class Simulation
     /// <summary>Smí hráč budovu přímo postavit (odemčená a nemarkovaná jako jen-upgrade)?</summary>
     public bool IsBuildingBuildable(int defIndex) => _buildingUnlocked[defIndex] && _content.Buildings[defIndex].Buildable;
 
+    // ----- měřítko (stupně Vzestupu) -----
+
+    /// <summary>
+    /// Index aktuálního stupně měřítka: nejvyšší, jehož <see cref="AscensionTierDef.Order"/>
+    /// úroveň Vzestupu dosáhla. −1 = žádné stupně (bez stropu).
+    /// </summary>
+    public int CurrentTierIndex
+    {
+        get
+        {
+            int best = -1, bestOrder = -1;
+            var tiers = _content.AscensionTiers;
+            for (int i = 0; i < tiers.Count; i++)
+            {
+                if (tiers[i].Order <= AscensionLevel && tiers[i].Order > bestOrder)
+                {
+                    bestOrder = tiers[i].Order;
+                    best = i;
+                }
+            }
+
+            return best;
+        }
+    }
+
+    /// <summary>
+    /// Strop populace aktuálního měřítka (progression-prestige.md §3). Je to MĚKKÝ cíl:
+    /// růst se u něj zastaví, ale nic se neboří — láká k dalšímu Vzestupu, netrestá
+    /// („soft-lock, ne hard-lock"). Bez definovaných stupňů je strop nekonečný.
+    /// </summary>
+    public double PopulationCap
+    {
+        get
+        {
+            int tier = CurrentTierIndex;
+            return tier < 0 ? double.PositiveInfinity : _content.AscensionTiers[tier].PopulationCap;
+        }
+    }
+
+    /// <summary>
+    /// Zamkne budovy hlídané stupněm měřítka a hned odemkne ty, na jejichž stupeň
+    /// už úroveň Vzestupu dosáhla. Stejný princip jako u technologií — megastruktura
+    /// je ale odměna za MĚŘÍTKO, ne za výzkum. Volá se při startu, Vzestupu, resetu
+    /// éry a načtení savu.
+    /// </summary>
+    private void RefreshTierUnlocks()
+    {
+        var tiers = _content.AscensionTiers;
+        for (int i = 0; i < tiers.Count; i++)
+        {
+            var unlocks = tiers[i].UnlockedBuildingIndices;
+            bool reached = tiers[i].Order <= AscensionLevel;
+            for (int j = 0; j < unlocks.Count; j++)
+            {
+                _buildingUnlocked[unlocks[j]] = reached;
+            }
+        }
+    }
+
     /// <summary>
     /// Má hráč dost surovin na stavbu (bez ohledu na místo/biom)? Pro HUD — barevné
     /// zvýraznění tlačítek, ať je na první pohled jasné, co si můžu dovolit.
@@ -294,6 +358,13 @@ public sealed class Simulation
     internal bool SettlementsDirty { get; set; }
 
     /// <summary>Označí dlaždici jako silnici (RoadBuilder, načtení savu). Duplicitní volání je no-op.</summary>
+    /// <summary>
+    /// Je na dlaždici most? Most je silnice vedoucí po vodě — odvozuje se z terénu,
+    /// takže se nikde neukládá a po načtení savu vyjde stejně. Pro render (jiný vzhled).
+    /// </summary>
+    public bool IsBridge(int x, int y) =>
+        IsRoad(x, y) && _content.Biomes[Terrain.BiomeAt(x, y)].IsWater;
+
     internal void AddRoadTile(int x, int y)
     {
         if (_roads.Add(TileKey.Pack(x, y)))
@@ -323,6 +394,7 @@ public sealed class Simulation
         _populationSystem.Tick(this);
         _autoBuild.Tick(this);
         _zoneFill.Tick(this);
+        _colonySystem.Tick(this); // guvernér: expanze do nových kolonií
         _settlementSystem.Tick(this);
         _questSystem.Tick(this);
         _achievementSystem.Tick(this);
@@ -359,6 +431,12 @@ public sealed class Simulation
             }
         }
 
+        // Přístav a rybolov musí stát na břehu — jinak by „pobřežní" budovy ztratily smysl.
+        if (def.NeedsWaterAccess && !HasAdjacentWater(def, x, y))
+        {
+            return PlacementResult.NeedsWaterAccess;
+        }
+
         var cost = def.BuildCost;
         for (int i = 0; i < cost.Count; i++)
         {
@@ -370,6 +448,30 @@ public sealed class Simulation
 
         return PlacementResult.Ok;
     }
+
+    /// <summary>Dotýká se půdorys budovy aspoň jednou stranou vody (moře, jezera či řeky)?</summary>
+    private bool HasAdjacentWater(BuildingDef def, int x, int y)
+    {
+        for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
+        {
+            if (IsWaterTile(tileX, y - 1) || IsWaterTile(tileX, y + def.FootprintHeight))
+            {
+                return true;
+            }
+        }
+
+        for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
+        {
+            if (IsWaterTile(x - 1, tileY) || IsWaterTile(x + def.FootprintWidth, tileY))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool IsWaterTile(int x, int y) => _content.Biomes[Terrain.BiomeAt(x, y)].IsWater;
 
     /// <summary>Příkaz hráče: postavit budovu. Odečte cenu a obsadí dlaždice.</summary>
     public PlacementResult TryPlaceBuilding(int defIndex, int x, int y)
@@ -418,8 +520,19 @@ public sealed class Simulation
             return false;
         }
 
-        // Zasazený uzel má přednost před přírodním výnosem biomu.
-        var yield = _plantedNodes.TryGetValue(tile, out var planted) ? planted : _content.Biomes[Terrain.BiomeAt(x, y)].ClickYield;
+        // Přednost: zasazený uzel → landmark (stádo, háj, žíla) → přírodní výnos biomu.
+        ClickYield? yield;
+        if (_plantedNodes.TryGetValue(tile, out var planted))
+        {
+            yield = planted;
+        }
+        else
+        {
+            int landmark = LandmarkAt(x, y);
+            yield = landmark >= 0 && _content.Landmarks[landmark].IsHarvestable
+                ? _content.Landmarks[landmark].ClickYield
+                : _content.Biomes[Terrain.BiomeAt(x, y)].ClickYield;
+        }
         if (yield is null)
         {
             return false;
@@ -595,6 +708,95 @@ public sealed class Simulation
         }
     }
 
+    // ----- počasí (živá mapa) -----
+
+    /// <summary>
+    /// Biom, ve kterém město stojí (podle první budovy) — počasí je vázané na něj.
+    /// Bez budov padne na biom v počátku souřadnic.
+    /// </summary>
+    public int CityBiome => _buildingCount > 0
+        ? Terrain.BiomeAt(_buildings[0].X, _buildings[0].Y)
+        : Terrain.BiomeAt(0, 0);
+
+    /// <summary>Index aktuálního jevu počasí, nebo −1 (žádné počasí v datech / pro biom).</summary>
+    public int CurrentWeatherIndex
+    {
+        get
+        {
+            int index = _weatherSystem.CurrentWeather(CityBiome, TickCount);
+            return _weatherSystem.IsActive(index, TickCount) ? index : -1;
+        }
+    }
+
+    /// <summary>Kolik sekund zbývá do konce aktuálního jevu (0 = žádný neběží).</summary>
+    public double WeatherSecondsRemaining => _weatherSystem.SecondsRemaining(CurrentWeatherIndex, TickCount);
+
+    /// <summary>
+    /// Násobič výroby od počasí. Extrémní jev (tornádo, vánice…) flow dočasně sníží,
+    /// ambientní počasí ho nechá být. Nikdy nic neničí — jen zpomalí (soft pressure).
+    /// </summary>
+    public double WeatherProductionMult
+    {
+        get
+        {
+            int index = CurrentWeatherIndex;
+            return index < 0 ? 1.0 : _content.Weather[index].ProductionMult;
+        }
+    }
+
+    /// <summary>Probíhá právě extrémní jev (katastrofa)? Pro HUD a varování.</summary>
+    public bool IsExtremeWeather
+    {
+        get
+        {
+            int index = CurrentWeatherIndex;
+            return index >= 0 && _content.Weather[index].Extreme;
+        }
+    }
+
+    // ----- guvernér: automatické vylepšování budov -----
+
+    /// <summary>Nejvyšší míra, na kterou jde guvernérovo vylepšování nastavit.</summary>
+    public const int MaxAutoUpgradeLevel = 3;
+
+    /// <summary>ID technologie, která guvernérovu správu vylepšení odemyká (data-driven odkaz).</summary>
+    public const string GovernorTechId = "municipal_administration";
+
+    private int _autoUpgradeLevel;
+
+    /// <summary>
+    /// Je guvernérova správa vylepšení odemčená? Automatizace se ODEMYKÁ, není
+    /// výchozí (living-city.md §4 — jinak by hráč neměl co dělat).
+    /// </summary>
+    public bool IsGovernorUnlocked =>
+        _content.Techs.TryIndexOf(GovernorTechId, out int index) && _techResearched[index];
+
+    /// <summary>
+    /// Jak moc si guvernér vylepšuje budovy sám: 0 = vůbec, 1 = jen bydlení,
+    /// 2 = bydlení i výroba, 3 = vše a svižně. Zároveň to je počet vylepšení,
+    /// která smí provést za jeden interval — vyšší stupeň = agresivnější správa.
+    /// </summary>
+    public int AutoUpgradeLevel => IsGovernorUnlocked ? _autoUpgradeLevel : 0;
+
+    /// <summary>Příkaz hráče: nastaví míru automatického vylepšování (ořízne se do rozsahu).</summary>
+    public void SetAutoUpgradeLevel(int level) =>
+        _autoUpgradeLevel = Math.Clamp(level, 0, MaxAutoUpgradeLevel);
+
+    /// <summary>Smí guvernér na téhle úrovni vylepšit budovu dané kategorie?</summary>
+    internal bool AutoUpgradeCovers(string category) => AutoUpgradeLevel switch
+    {
+        <= 0 => false,
+        1 => category == "housing",
+        2 => category is "housing" or "production",
+        _ => true,
+    };
+
+    /// <summary>Míra vylepšování pro serializaci savu.</summary>
+    internal int AutoUpgradeLevelRaw => _autoUpgradeLevel;
+
+    /// <summary>Obnoví míru vylepšování při načtení savu.</summary>
+    internal void RestoreAutoUpgradeLevel(int level) => SetAutoUpgradeLevel(level);
+
     // ----- politiky růstu (automatizace, stupeň 4) -----
 
     /// <summary>Kolik budov smí auto-stavba i plnění zón položit za interval (výchozí 1; politika „build_pace" zvedá).</summary>
@@ -602,6 +804,19 @@ public sealed class Simulation
 
     /// <summary>Preferovat hustotu: auto-stavba nejdřív povýší existující bydlení, než postaví nové (politika „housing_density").</summary>
     public bool PreferHousingDensity { get; private set; }
+
+    /// <summary>Guvernér: zakládat samostatné kolonie, když je doma plno (politika „auto_expand").</summary>
+    public bool AutoExpandColonies { get; private set; }
+
+    /// <summary>Jak daleko od těžiště zástavby guvernér zakládá kolonii (dlaždice).</summary>
+    public int ColonyDistance { get; private set; } = DefaultColonyDistance;
+
+    /// <summary>Výchozí vzdálenost kolonie, když ji politika neurčí jinak.</summary>
+    private const int DefaultColonyDistance = 18;
+
+    /// <summary>Oznámí založení kolonie (guvernér) — HUD z toho udělá „founder moment".</summary>
+    internal void EnqueueColonyFounded() =>
+        EnqueueNotification(new GameNotification(NotificationKind.Milestone, "toast.milestone", "colony.founded"));
 
     /// <summary>Je politika zapnutá?</summary>
     public bool IsPolicyActive(int policyIndex) => _policiesActive[policyIndex];
@@ -648,6 +863,8 @@ public sealed class Simulation
     {
         int buildsPerInterval = 1;
         bool preferDensity = false;
+        bool autoExpand = false;
+        int colonyDistance = DefaultColonyDistance;
         for (int i = 0; i < _policiesActive.Length; i++)
         {
             if (!_policiesActive[i])
@@ -664,11 +881,64 @@ public sealed class Simulation
                 case "housing_density":
                     preferDensity = true;
                     break;
+                case "auto_expand":
+                    autoExpand = true;
+                    if (policy.Magnitude > 0)
+                    {
+                        colonyDistance = (int)policy.Magnitude;
+                    }
+
+                    break;
             }
         }
 
         BuildsPerInterval = buildsPerInterval;
         PreferHousingDensity = preferDensity;
+        AutoExpandColonies = autoExpand;
+        ColonyDistance = colonyDistance;
+    }
+
+    // ----- landmarky (živá mapa) -----
+
+    /// <summary>
+    /// Který landmark stojí na dlaždici (−1 = žádný)? Výskyt je ČISTÁ FUNKCE pozice
+    /// a seedu — nic se negeneruje dopředu ani neukládá, takže po načtení savu je
+    /// mapa bodů zájmu stejná. Zastavěná dlaždice landmark překryje.
+    /// </summary>
+    public int LandmarkAt(int x, int y)
+    {
+        var landmarks = _content.Landmarks;
+        if (landmarks.Count == 0 || _occupancy.ContainsKey(TileKey.Pack(x, y)))
+        {
+            return -1;
+        }
+
+        int biome = Terrain.BiomeAt(x, y);
+        for (int i = 0; i < landmarks.Count; i++)
+        {
+            if (!landmarks[i].AppliesTo(biome))
+            {
+                continue;
+            }
+
+            // Sůl z indexu → každý typ má vlastní rozmístění, ne všechny na stejných místech.
+            if (LandmarkHash(x, y, i) % (ulong)landmarks[i].Rarity == 0)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private ulong LandmarkHash(int x, int y, int landmarkIndex)
+    {
+        var rng = new WorldGen.SplitMix64(unchecked(
+            (ulong)Seed
+            ^ ((ulong)(uint)x * 0x9E3779B97F4A7C15UL)
+            ^ ((ulong)(uint)y * 0xC2B2AE3D27D4EB4FUL)
+            ^ ((ulong)(uint)landmarkIndex * 0x165667B19E3779F9UL)));
+        return rng.Next();
     }
 
     // ----- objevování mapy (skrýše) -----
@@ -1009,6 +1279,8 @@ public sealed class Simulation
 
         building.X = x;
         building.Y = y;
+        // Přesun mění biom pod budovou → cachovaný násobič výroby musí jít s ní.
+        building.BiomeMult = (float)_content.Biomes[Terrain.BiomeAt(x, y)].Production;
         for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
         {
             for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
@@ -1092,6 +1364,14 @@ public sealed class Simulation
         {
             _buildingUnlocked[buildingIndex] = true;
         }
+
+        // Pasivní bonus technologie se musí hned promítnout do násobičů i do
+        // odvozeného stavu (bydlení/sklady se počítají z bonusů).
+        if (_content.Techs[techIndex].HasPassiveEffect)
+        {
+            RecomputeBonuses();
+            RecomputeDerivedState();
+        }
     }
 
     // ----- obnova ze savu (jen pro SaveGameSerializer, obchází cenu a validaci biomů) -----
@@ -1130,7 +1410,16 @@ public sealed class Simulation
             Array.Resize(ref _buildings, _buildings.Length * 2);
         }
 
-        _buildings[_buildingCount] = new BuildingInstance { DefIndex = defIndex, X = x, Y = y, Progress = progress };
+        _buildings[_buildingCount] = new BuildingInstance
+        {
+            DefIndex = defIndex,
+            X = x,
+            Y = y,
+            Progress = progress,
+            // Ekonomická identita biomu se cachuje při položení — v tikové smyčce
+            // už se terén nevzorkuje (viz BuildingInstance.BiomeMult).
+            BiomeMult = (float)_content.Biomes[Terrain.BiomeAt(x, y)].Production,
+        };
         _buildingCount++;
 
         for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
@@ -1235,7 +1524,7 @@ public sealed class Simulation
 
         PrestigePoints += PendingAscensionPoints();
         AscensionLevel++;
-        ResetEra();
+        ResetEra(); // uvnitř i RefreshTierUnlocks — nové měřítko může odemknout megastruktury
         EnqueueNotification(new GameNotification(NotificationKind.Ascended, "toast.ascended", "prestige.ascendedSubject"));
         return PlacementResult.Ok;
     }
@@ -1251,19 +1540,35 @@ public sealed class Simulation
             }
 
             var upgrade = _content.PrestigeUpgrades[i];
-            switch (upgrade.Effect)
+            Apply(upgrade.Effect, upgrade.Magnitude);
+        }
+
+        // Vyzkoumané technologie dávají trvalé pasivní bonusy stejnými behavior-ID
+        // jako upgrady Vzestupu — jen platí v rámci běhu (Vzestup výzkum resetuje).
+        for (int i = 0; i < _techResearched.Length; i++)
+        {
+            if (_techResearched[i])
             {
-                case "production_mult": production += upgrade.Magnitude; break;
-                case "harvest_mult": harvest += upgrade.Magnitude; break;
-                case "growth_mult": growth += upgrade.Magnitude; break;
-                case "housing_mult": housing += upgrade.Magnitude; break;
-                case "storage_mult": storage += upgrade.Magnitude; break;
-                case "start_resources": start += upgrade.Magnitude; break;
-                case "offline_mult": offline += upgrade.Magnitude; break;
+                var tech = _content.Techs[i];
+                Apply(tech.Effect, tech.Magnitude);
             }
         }
 
         _bonuses = new PrestigeBonuses(production, harvest, growth, housing, storage, start, offline);
+
+        void Apply(string effect, double magnitude)
+        {
+            switch (effect)
+            {
+                case "production_mult": production += magnitude; break;
+                case "harvest_mult": harvest += magnitude; break;
+                case "growth_mult": growth += magnitude; break;
+                case "housing_mult": housing += magnitude; break;
+                case "storage_mult": storage += magnitude; break;
+                case "start_resources": start += magnitude; break;
+                case "offline_mult": offline += magnitude; break;
+            }
+        }
     }
 
     /// <summary>
@@ -1312,6 +1617,7 @@ public sealed class Simulation
             }
         }
 
+        RefreshTierUnlocks(); // dosažené měřítko přetrvává i po resetu éry
         RecomputeBonuses();
         RecomputeDerivedState(); // bez budov → základní kapacity × StorageMult
         for (int i = 0; i < _resources.Length; i++)
@@ -1367,5 +1673,6 @@ public sealed class Simulation
         RecomputeBonuses();
         RecomputeDerivedState();
         RecomputePolicyEffects(); // obnovené politiky → odvozené parametry růstu
+        RefreshTierUnlocks();     // obnovená úroveň Vzestupu → odemčené megastruktury
     }
 }

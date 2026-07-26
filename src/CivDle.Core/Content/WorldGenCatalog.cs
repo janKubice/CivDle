@@ -14,13 +14,20 @@ public sealed record WorldSize(string Id, int Width, int Height)
 /// Zvalidovaný preset generátoru světa. <paramref name="FallbackBiomeIndex"/> je pevninský biom,
 /// který se použije, když žádná definice nepokryje kombinaci výška × vlhkost.
 /// Jméno je v jazycích pod <c>preset.&lt;Id&gt;</c>.
+///
+/// <para>Řeky: <paramref name="RiverWidth"/> = 0 je vypne. Vznikají z „hřebene" šumu
+/// (viz <see cref="World.ProceduralTerrain"/>), takže zůstávají čistou funkcí souřadnic —
+/// nekonečná mapa je nemusí ukládat.</para>
 /// </summary>
 public sealed record TerrainPreset(
     string Id,
     float SeaLevel,
     int FallbackBiomeIndex,
     NoiseSpec ElevationNoise,
-    NoiseSpec MoistureNoise)
+    NoiseSpec MoistureNoise,
+    NoiseSpec? RiverNoise = null,
+    float RiverWidth = 0f,
+    float RiverMaxElevation = 1f)
 {
     /// <summary>Lokalizační klíč jména presetu.</summary>
     public string NameKey => $"preset.{Id}";

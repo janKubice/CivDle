@@ -41,6 +41,8 @@ public sealed class GameplayScreen : IScreen
     private readonly HarvestableRenderer _harvestables;
     private readonly RoadRenderer _roadRenderer;
     private readonly ZoneRenderer _zoneRenderer;
+    private readonly LandmarkRenderer _landmarkRenderer;
+    private readonly WeatherRenderer _weatherRenderer;
     private readonly BuildingRenderer _buildingRenderer;
     private readonly LightsRenderer _lightsRenderer;
     private readonly FaunaSystem _fauna;
@@ -69,7 +71,9 @@ public sealed class GameplayScreen : IScreen
     private float _rateTimer;
     private Label _populationLabel = null!;
     private Label _eraLabel = null!;
+    private Label _tierLabel = null!;
     private Label _powerLabel = null!;
+    private Label _weatherLabel = null!;
     private Label _dayLabel = null!;
     private Label _cursorLabel = null!;
     private Label _statusLabel = null!;
@@ -141,6 +145,8 @@ public sealed class GameplayScreen : IScreen
         _harvestables = new HarvestableRenderer(screens.Sprites, screens.Content);
         _roadRenderer = new RoadRenderer(screens.WhitePixel, screens.Content);
         _zoneRenderer = new ZoneRenderer(screens.WhitePixel, screens.Content);
+        _landmarkRenderer = new LandmarkRenderer(screens.WhitePixel, screens.Content);
+        _weatherRenderer = new WeatherRenderer(screens.WhitePixel, screens.Content);
         _buildingRenderer = new BuildingRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
         _lightsRenderer = new LightsRenderer(screens.WhitePixel, screens.Content);
         _fauna = new FaunaSystem(screens.Content);
@@ -266,6 +272,7 @@ public sealed class GameplayScreen : IScreen
             _discoveries.Update(dt);
         }
 
+        _weatherRenderer.Update(dt, _simulation, _screens.GraphicsDevice.Viewport);
         _minimap.Update(dt, _camera, _simulation);
         DrainNotifications();
         _toasts.Update(dt);
@@ -278,6 +285,7 @@ public sealed class GameplayScreen : IScreen
         _terrainRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
         _decorationRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
         _zoneRenderer.Draw(spriteBatch, _camera, _simulation); // tint zón na zemi, pod budovami
+        _landmarkRenderer.Draw(spriteBatch, _camera, _simulation); // body zájmu (gejzíry, stáda, žíly)
 
         // Velké oddálení → agregátní pohled na měřítko (hustota + populace) místo
         // drobných jednotlivců (game-feel-wow: „koukni, jak to vyrostlo").
@@ -338,6 +346,7 @@ public sealed class GameplayScreen : IScreen
             _zoneRenderer.DrawPreview(spriteBatch, _camera, _zonePaintTypeIndex, x, y, width, height);
         }
 
+        _weatherRenderer.Draw(spriteBatch, _screens.GraphicsDevice.Viewport); // závoj + srážky nad scénou
         _vignette.Draw(spriteBatch, _screens.GraphicsDevice.Viewport); // decentní sevření pohledu, pod HUD
         _desktop.Render();
 
@@ -932,12 +941,16 @@ public sealed class GameplayScreen : IScreen
 
         // Pravý horní roh: éra + den/čas + dlaždice pod kurzorem.
         _eraLabel = new Label { TextColor = new Color(210, 185, 120), HorizontalAlignment = HorizontalAlignment.Right };
+        _tierLabel = new Label { TextColor = new Color(190, 160, 230), HorizontalAlignment = HorizontalAlignment.Right };
         _powerLabel = new Label { TextColor = new Color(120, 200, 240), HorizontalAlignment = HorizontalAlignment.Right };
+        _weatherLabel = new Label { TextColor = new Color(170, 200, 220), HorizontalAlignment = HorizontalAlignment.Right };
         _dayLabel = new Label { TextColor = UiFactory.Accent };
         _cursorLabel = new Label { TextColor = Color.LightGray };
         var worldInfoStack = new VerticalStackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Right };
         worldInfoStack.Widgets.Add(_eraLabel);
+        worldInfoStack.Widgets.Add(_tierLabel);
         worldInfoStack.Widgets.Add(_powerLabel);
+        worldInfoStack.Widgets.Add(_weatherLabel);
         worldInfoStack.Widgets.Add(_dayLabel);
         worldInfoStack.Widgets.Add(_cursorLabel);
         var topRight = UiFactory.DarkPanel(worldInfoStack);
@@ -956,8 +969,6 @@ public sealed class GameplayScreen : IScreen
         buildStack.Widgets.Add(_buildItemsPanel);
         var bottomCenter = UiFactory.DarkPanel(buildStack);
         bottomCenter.HorizontalAlignment = HorizontalAlignment.Center;
-        bottomCenter.VerticalAlignment = VerticalAlignment.Bottom;
-        bottomCenter.Margin = new Thickness(0, 0, 0, 12);
 
         // Levý střed: sledovač úkolů (aktuální cíle + pokrok) — vede hráče hrou.
         _goalsPanel = new VerticalStackPanel { Spacing = 5 };
@@ -966,12 +977,23 @@ public sealed class GameplayScreen : IScreen
         goalsBox.VerticalAlignment = VerticalAlignment.Center;
         goalsBox.Margin = new Thickness(10, 0, 0, 0);
 
+        // Spodní blok: lišta rychlých akcí nad stavebním menu. Nahoře zůstávají
+        // suroviny (vlevo) a stav světa (vpravo) — spodek patří ovládání.
+        var bottomBar = new VerticalStackPanel
+        {
+            Spacing = 8,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(0, 0, 0, 12),
+        };
+        bottomBar.Widgets.Add(BuildToolButtons());
+        bottomBar.Widgets.Add(bottomCenter);
+
         var root = new Panel();
         root.Widgets.Add(topLeft);
         root.Widgets.Add(topRight);
         root.Widgets.Add(goalsBox);
-        root.Widgets.Add(bottomCenter);
-        root.Widgets.Add(BuildToolButtons());
+        root.Widgets.Add(bottomBar);
 
         _desktop = new Desktop { Root = root };
         _goalsDirty = true;
@@ -979,11 +1001,15 @@ public sealed class GameplayScreen : IScreen
         RefreshHudTexts();
     }
 
-    /// <summary>Rychlé akce mapy vlevo dole: zpět na město, seznam osad, tech tree.</summary>
+    /// <summary>
+    /// Lišta rychlých akcí (úkoly, sázení, zóny, výzkum, guvernér, Vzestup…).
+    /// Vodorovný pruh DOLE nad stavebním menu — spodek obrazovky patří akcím,
+    /// horní okraj zůstává na suroviny a stav světa.
+    /// </summary>
     private Widget BuildToolButtons()
     {
         var loc = _screens.Loc;
-        var stack = new VerticalStackPanel { Spacing = 6 };
+        var stack = new HorizontalStackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.quests"],
             () => _screens.Push(new QuestsScreen(_screens, _simulation))));
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.plant"], () =>
@@ -999,7 +1025,7 @@ public sealed class GameplayScreen : IScreen
         for (int z = 0; z < zoneTypes.Count; z++)
         {
             int typeIndex = z;
-            stack.Widgets.Add(UiFactory.SmallButton(loc.Format("hud.zone", loc[zoneTypes[z].NameKey]), () =>
+            stack.Widgets.Add(UiFactory.SmallButton(loc[zoneTypes[z].NameKey], () =>
             {
                 if (_zoneMode && _zonePaintTypeIndex == typeIndex)
                 {
@@ -1022,7 +1048,7 @@ public sealed class GameplayScreen : IScreen
 
         if (_screens.Content.Policies.Count > 0)
         {
-            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.policies"],
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.governor"],
                 () => _screens.Push(new PoliciesScreen(_screens, _simulation))));
         }
 
@@ -1049,9 +1075,7 @@ public sealed class GameplayScreen : IScreen
         stack.Widgets.Add(_festivalButton);
 
         var panel = UiFactory.DarkPanel(stack);
-        panel.HorizontalAlignment = HorizontalAlignment.Left;
-        panel.VerticalAlignment = VerticalAlignment.Bottom;
-        panel.Margin = new Thickness(10, 0, 0, 12);
+        panel.HorizontalAlignment = HorizontalAlignment.Center;
         return panel;
     }
 
@@ -1301,6 +1325,46 @@ public sealed class GameplayScreen : IScreen
         int eraIndex = _simulation.CurrentEraIndex;
         _eraLabel.Text = eraIndex >= 0 ? loc.Format("hud.era", loc[eras[eraIndex].NameKey]) : string.Empty;
 
+        // Měřítko (stupeň Vzestupu): jméno + strop; u stropu zežloutne jako pobídka k Vzestupu.
+        var tiers = _screens.Content.AscensionTiers;
+        int tierIndex = _simulation.CurrentTierIndex;
+        if (tierIndex >= 0)
+        {
+            double cap = _simulation.PopulationCap;
+            _tierLabel.Text = loc.Format("hud.tier", loc[tiers[tierIndex].NameKey])
+                + " · " + loc.Format("hud.populationCap", CivDle.Core.Numbers.Format(cap));
+            _tierLabel.TextColor = _simulation.Population >= cap - 0.5
+                ? new Color(240, 200, 90)
+                : new Color(190, 160, 230);
+        }
+        else
+        {
+            _tierLabel.Text = string.Empty;
+        }
+
+        // Počasí: ambientní jen informuje, extrémní varuje (oranžově) i s odpočtem —
+        // hráč má vědět, proč mu zrovna teď klesla výroba.
+        int weatherIndex = _simulation.CurrentWeatherIndex;
+        if (weatherIndex >= 0)
+        {
+            string weatherName = loc[_screens.Content.Weather[weatherIndex].NameKey];
+            if (_simulation.IsExtremeWeather)
+            {
+                _weatherLabel.Text = loc.Format("hud.weatherExtreme", weatherName,
+                    (int)MathF.Ceiling((float)_simulation.WeatherSecondsRemaining));
+                _weatherLabel.TextColor = new Color(240, 170, 80);
+            }
+            else
+            {
+                _weatherLabel.Text = loc.Format("hud.weather", weatherName);
+                _weatherLabel.TextColor = new Color(170, 200, 220);
+            }
+        }
+        else
+        {
+            _weatherLabel.Text = string.Empty;
+        }
+
         // Rozvodná síť: zobraz se až když má město spotřebiče; červená = nedostatek.
         if (_simulation.TotalPowerDemand > 0)
         {
@@ -1398,6 +1462,7 @@ public sealed class GameplayScreen : IScreen
         PlacementResult.Occupied => "build.error.occupied",
         PlacementResult.WrongBiome => "build.error.wrongBiome",
         PlacementResult.NotEnoughResources => "build.error.resources",
+        PlacementResult.NeedsWaterAccess => "build.error.waterAccess",
         _ => "build.title",
     };
 }
