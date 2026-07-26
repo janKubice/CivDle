@@ -28,10 +28,16 @@ public sealed class AgentSystem
         Cart,
     }
 
+    /// <summary>Jaká část chodců se drží silnic (zbytek chodí po svém).</summary>
+    private const float PedestrianRoadShare = 0.5f;
+
     private struct Agent
     {
         public Vector2 Position;
         public Vector2 Target;
+
+        /// <summary>Drží se tenhle agent silnic? Vozy vždy, lidé zhruba půl na půl.</summary>
+        public bool FollowsRoads;
         public Kind Kind;
         public float Speed;
         public float Phase;
@@ -124,7 +130,10 @@ public sealed class AgentSystem
             float distance = toTarget.Length();
             if (distance < 3f)
             {
-                agent.Target = PickTarget(simulation, agent.Position, agent.Kind);
+                // Směr, kterým agent zrovna míří — nový cíl se hledá přednostně
+                // dopředu, aby vůz na silnici neposkakoval tam a zpět.
+                var heading = distance > 0.01f ? toTarget / distance : Vector2.Zero;
+                agent.Target = PickTarget(simulation, agent.Position, agent.FollowsRoads, heading);
                 toTarget = agent.Target - agent.Position;
                 distance = toTarget.Length();
             }
@@ -178,36 +187,103 @@ public sealed class AgentSystem
 
         // Vozíky jen když je kam jet (existují cesty); jinak chodci.
         bool cart = simulation.RoadTiles.Count > 0 && Random.Shared.NextSingle() < 0.25f;
+
+        // Vůz po silnici jezdí vždycky — jinak by cesty neměly smysl ani opticky.
+        // Chodec se silnice drží zhruba v polovině případů: město tak působí živě,
+        // ale ne jako mravenčí kolona po jedné lince.
+        bool followsRoads = cart
+            || (simulation.RoadTiles.Count > 0 && Random.Shared.NextSingle() < PedestrianRoadShare);
+
         _agents[_count++] = new Agent
         {
             Position = pos,
-            Target = PickTarget(simulation, pos, cart ? Kind.Cart : Kind.Person),
+            Target = PickTarget(simulation, pos, followsRoads, Vector2.Zero),
             Kind = cart ? Kind.Cart : Kind.Person,
+            FollowsRoads = followsRoads,
             Speed = cart ? CartSpeed : PersonSpeed,
             Phase = Random.Shared.NextSingle() * 10f,
         };
     }
 
-    /// <summary>Náhodný průchozí cíl poblíž; vozíky preferují cesty.</summary>
-    private Vector2 PickTarget(Simulation simulation, Vector2 from, Kind kind)
+    /// <summary>
+    /// Vybere další cíl. Kdo se drží silnic, míří na SOUSEDNÍ dlaždici cesty —
+    /// krátkými kroky po síti, takže je vidět, že jede po silnici, a ne přes pole.
+    /// Ostatní se toulají volně jako dřív.
+    /// </summary>
+    private Vector2 PickTarget(Simulation simulation, Vector2 from, bool followsRoads, Vector2 heading)
     {
+        if (followsRoads && TryStepAlongRoad(simulation, from, heading, out var roadTarget))
+        {
+            return roadTarget;
+        }
+
         for (int attempt = 0; attempt < 8; attempt++)
         {
             var candidate = from + new Vector2(
                 (Random.Shared.NextSingle() - 0.5f) * 10f * TerrainRenderer.TileSize,
                 (Random.Shared.NextSingle() - 0.5f) * 10f * TerrainRenderer.TileSize);
 
-            int tileX = (int)MathF.Floor(candidate.X / TerrainRenderer.TileSize);
-            int tileY = (int)MathF.Floor(candidate.Y / TerrainRenderer.TileSize);
-            bool ok = IsPassable(simulation, candidate)
-                && (kind != Kind.Cart || simulation.IsRoad(tileX, tileY));
-            if (ok)
+            if (IsPassable(simulation, candidate))
             {
                 return candidate;
             }
         }
 
         return from; // nic vhodného → počkej na místě
+    }
+
+    /// <summary>
+    /// Krok po silniční síti: ze čtyř sousedů vybere ten, který je cesta, a
+    /// upřednostní pokračování v dosavadním směru (jinak by se vůz na křižovatce
+    /// otáčel dokola). Vrací false, když poblíž žádná cesta není.
+    /// </summary>
+    private static bool TryStepAlongRoad(Simulation simulation, Vector2 from, Vector2 heading, out Vector2 target)
+    {
+        const int tile = TerrainRenderer.TileSize;
+        int x = (int)MathF.Floor(from.X / tile);
+        int y = (int)MathF.Floor(from.Y / tile);
+
+        Span<(int Dx, int Dy)> steps = stackalloc (int, int)[] { (1, 0), (-1, 0), (0, 1), (0, -1) };
+
+        float bestScore = float.MinValue;
+        (int Dx, int Dy) best = default;
+        bool found = false;
+
+        foreach (var (dx, dy) in steps)
+        {
+            if (!simulation.IsRoad(x + dx, y + dy))
+            {
+                continue;
+            }
+
+            // Skóre: shoda se směrem jízdy (dopředu nejlíp, zpět nejhůř) + špetka
+            // náhody, aby se doprava na křižovatkách rozdělovala.
+            float score = heading.LengthSquared() > 0.01f
+                ? Vector2.Dot(heading, new Vector2(dx, dy))
+                : 0f;
+            score += Random.Shared.NextSingle() * 0.35f;
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = (dx, dy);
+                found = true;
+            }
+        }
+
+        if (!found)
+        {
+            target = from;
+            return false;
+        }
+
+        // Střed sousední dlaždice, s malým rozptylem napříč cestou, ať agenti
+        // nejedou přesně v jedné lince.
+        float jitter = (Random.Shared.NextSingle() - 0.5f) * tile * 0.35f;
+        target = new Vector2(
+            (x + best.Dx + 0.5f) * tile + (best.Dx == 0 ? jitter : 0f),
+            (y + best.Dy + 0.5f) * tile + (best.Dy == 0 ? jitter : 0f));
+        return true;
     }
 
     private bool IsPassable(Simulation simulation, Vector2 worldPos)

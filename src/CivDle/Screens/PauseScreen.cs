@@ -84,11 +84,22 @@ public sealed class PauseScreen : IScreen
         layout.Widgets.Add(_saveStatusLabel);
         layout.Widgets.Add(UiFactory.MenuButton(loc["pause.resume"], _screens.Pop));
         layout.Widgets.Add(UiFactory.MenuButton(loc["pause.save"], SaveGame));
+        layout.Widgets.Add(UiFactory.MenuButton(loc["menu.howto"], () => _screens.Push(new HowToPlayScreen(_screens))));
         layout.Widgets.Add(UiFactory.MenuButton(loc["pause.settings"], () => _screens.Push(new SettingsScreen(_screens, showBackground: false))));
-        layout.Widgets.Add(UiFactory.MenuButton(loc["pause.mainMenu"], () => _screens.ReplaceAll(new MainMenuScreen(_screens))));
-        layout.Widgets.Add(UiFactory.MenuButton(loc["pause.quit"], _screens.ExitGame));
+        // Odchod z rozehrané hry vždycky uloží — hráč nemá o postup přijít proto,
+        // že zapomněl kliknout na „Uložit".
+        layout.Widgets.Add(UiFactory.MenuButton(loc["pause.mainMenu"], () =>
+        {
+            SaveGame();
+            _screens.ReplaceAll(new MainMenuScreen(_screens));
+        }));
+        layout.Widgets.Add(UiFactory.MenuButton(loc["pause.quit"], () =>
+        {
+            SaveGame();
+            _screens.ExitGame();
+        }));
 
-        _desktop = new Desktop { Root = layout };
+        _desktop = new Desktop { Root = UiFactory.MenuBackdrop(layout) };
     }
 
     private void SaveGame()

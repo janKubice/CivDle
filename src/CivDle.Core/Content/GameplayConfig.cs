@@ -155,8 +155,32 @@ public sealed record GameplayConfig(
     HarvestConfig Harvest,
     DailyRewardConfig DailyReward,
     PlantingConfig Planting,
-    HappinessConfig? HappinessOrNull = null)
+    HappinessConfig? HappinessOrNull = null,
+    StaffingConfig? StaffingOrNull = null)
 {
     /// <summary>Nastavení spokojenosti; chybí-li v datech, je vrstva vypnutá.</summary>
     public HappinessConfig Happiness => HappinessOrNull ?? HappinessConfig.Disabled;
+
+    /// <summary>Nastavení přidělování dělníků; chybí-li v datech, platí výchozí.</summary>
+    public StaffingConfig Staffing => StaffingOrNull ?? StaffingConfig.Default;
+}
+
+/// <summary>
+/// Jak město rozděluje lidi mezi budovy.
+///
+/// <para>Dřív se obsazenost počítala globálně (populace ÷ všechna pracovní místa),
+/// takže každá další výrobna zpomalila i všechny předchozí — balanční nástroj
+/// ukázal, že si tím hráč sám podřezával výrobu. Teď se dělníci přidělují budovu
+/// po budově a přednost mají ty, jejichž surovina zrovna dochází: město se samo
+/// přeorganizuje na to, čeho je nedostatek, což je přesně to, co by hráč dělal
+/// ručně — a v idle hře to dělat ručně nechce.</para>
+/// </summary>
+/// <param name="ScarcityThreshold">
+/// Pod jakým naplněním skladu (0–1) se surovina považuje za nedostatkovou a její
+/// výrobny dostanou dělníky přednostně.
+/// </param>
+public sealed record StaffingConfig(double ScarcityThreshold)
+{
+    /// <summary>Výchozí nastavení pro data, která blok neuvádějí.</summary>
+    public static StaffingConfig Default { get; } = new(0.6);
 }

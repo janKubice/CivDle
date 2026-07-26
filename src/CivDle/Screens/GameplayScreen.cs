@@ -1,5 +1,6 @@
 using CivDle.Audio;
 using CivDle.Core.Content;
+using CivDle.Core.Save;
 using CivDle.Core.Sim;
 using CivDle.Input;
 using CivDle.Rendering;
@@ -75,7 +76,9 @@ public sealed class GameplayScreen : IScreen
     private double[] _perSecond = Array.Empty<double>();
     private float _rateTimer;
     private Label _populationLabel = null!;
+    private Label _idleLabel = null!;
     private Label _eraLabel = null!;
+    private Label _eraNextLabel = null!;
     private Label _tierLabel = null!;
     private Label _powerLabel = null!;
     private Label _weatherLabel = null!;
@@ -87,9 +90,7 @@ public sealed class GameplayScreen : IScreen
     private HorizontalStackPanel _buildItemsPanel = null!;
     private string _selectedCategory = string.Empty;
     private readonly List<(int DefIndex, Button Button, Label PriceLabel)> _buildButtons = new();
-    private VerticalStackPanel _goalsPanel = null!;
-    private readonly List<(GoalCondition Condition, Label Progress, ProgressBar Bar)> _goalSlots = new();
-    private bool _goalsDirty = true;
+    private ObjectiveTracker _objectives = null!;
     private readonly Queue<IScreen> _pendingIntros = new(); // uvítací overlaye (offline, denní odměna)
     private readonly Random _eventRng = new();
     private float _eventTimer;
@@ -101,8 +102,17 @@ public sealed class GameplayScreen : IScreen
     private bool _buildMenuOpen;
     private int _unlockedFeatureCount = -1;
 
+    /// <summary>Jak dlouho musí kurzor stát nad dlaždicí, než vyskočí bublina.</summary>
+    private const float TileTooltipDelaySeconds = 0.45f;
+    private int _hoverTileX = int.MinValue;
+    private int _hoverTileY = int.MinValue;
+    private float _hoverSeconds;
+
+    /// <summary>Jak často se hra uloží sama (sekundy). Idle hru nesmí sežrat pád.</summary>
+    private const float AutosaveIntervalSeconds = 120f;
+    private float _autosaveTimer = AutosaveIntervalSeconds;
+
     /// <summary>Šířka pruhu pokroku ve sledovači úkolů (v pixelech).</summary>
-    private const int GoalBarWidth = 180;
 
     /// <summary>Nástroje mapy (stavba, sázení, zóny, přesun) i s jejich stavem.</summary>
     private readonly MapTools _tools;
@@ -181,7 +191,7 @@ public sealed class GameplayScreen : IScreen
         // nebo zresetovat éru — stavební menu přebuduj a srovnej počítadlo budov,
         // ať po Vzestupu (reset na 0 budov) nevystřelí prach za „nové" budovy.
         RefreshBuildMenu();
-        _goalsDirty = true;
+        _objectives.MarkDirty();
         _knownBuildingCount = _simulation.Buildings.Length;
     }
 
@@ -199,6 +209,16 @@ public sealed class GameplayScreen : IScreen
 
         // Kulisa podle biomu a počasí — atmosféra stála skoro jen na obraze.
         _soundscape.Update(dt, _simulation);
+        _hoverSeconds += dt;
+
+        // Pravidelný autosave: idle hra běží hodiny, ztratit ji kvůli pádu
+        // nebo zavření okna je to nejhorší, co se může stát.
+        _autosaveTimer -= dt;
+        if (_autosaveTimer <= 0f)
+        {
+            _autosaveTimer = AutosaveIntervalSeconds;
+            SaveGame();
+        }
 
         var viewport = _screens.GraphicsDevice.Viewport;
         _camera.SetViewport(viewport.Width, viewport.Height);
@@ -327,6 +347,18 @@ public sealed class GameplayScreen : IScreen
             spriteBatch.End();
         }
 
+        if (_tools.TerraformGhostActive)
+        {
+            const int ts = TerrainRenderer.TileSize;
+            var tint = (_tools.TerraformGhostResult == PlacementResult.Ok
+                ? new Color(140, 230, 200)
+                : new Color(240, 110, 100)) * 0.55f;
+            spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.Transform);
+            spriteBatch.Draw(_screens.WhitePixel,
+                new Rectangle(_tools.TerraformGhostX * ts, _tools.TerraformGhostY * ts, ts, ts), tint);
+            spriteBatch.End();
+        }
+
         if (_tools.ZonePreviewActive)
         {
             var preview = _tools.ZonePreview;
@@ -361,6 +393,22 @@ public sealed class GameplayScreen : IScreen
         var world = _camera.ScreenToWorld(_input.MousePosition.ToVector2());
         int tileX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
         int tileY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
+
+        // Bublina vyskočí, teprve když kurzor chvíli stojí nad TOUŽ dlaždicí.
+        // Bez prodlevy poskakovala po celé mapě při každém pohnutí myší a byla
+        // spíš na obtíž než k užitku.
+        if (tileX != _hoverTileX || tileY != _hoverTileY)
+        {
+            _hoverTileX = tileX;
+            _hoverTileY = tileY;
+            _hoverSeconds = 0f;
+            return;
+        }
+
+        if (_hoverSeconds < TileTooltipDelaySeconds)
+        {
+            return;
+        }
 
         var loc = _screens.Loc;
         var content = _screens.Content;
@@ -656,7 +704,7 @@ public sealed class GameplayScreen : IScreen
             // Splněný úkol / Vzestup mění seznam aktivních cílů — přestav sledovač.
             if (note.Kind is NotificationKind.QuestCompleted or NotificationKind.Ascended)
             {
-                _goalsDirty = true;
+                _objectives.MarkDirty();
             }
 
             // Nový achievement → zapiš do účet-wide profilu (přežije i restart).
@@ -810,6 +858,16 @@ public sealed class GameplayScreen : IScreen
         _populationLabel = new Label { VerticalAlignment = VerticalAlignment.Center, TextColor = UiFactory.Accent };
         resourceBar.Widgets.Add(_populationLabel);
 
+        // Nevyužité budovy se musí ohlásit: bez dělníků nevyrábějí a hráč by jinak
+        // jen viděl, že mu stavění přestalo něco přinášet, aniž by věděl proč.
+        _idleLabel = new Label
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            TextColor = new Color(240, 180, 90),
+            Tooltip = _screens.Loc["tip.idleBuildings"],
+        };
+        resourceBar.Widgets.Add(_idleLabel);
+
         var topLeft = UiFactory.DarkPanel(resourceBar);
         topLeft.HorizontalAlignment = HorizontalAlignment.Left;
         topLeft.VerticalAlignment = VerticalAlignment.Top;
@@ -818,6 +876,7 @@ public sealed class GameplayScreen : IScreen
         // Pravý horní roh: éra + den/čas + dlaždice pod kurzorem.
         var loc = _screens.Loc;
         _eraLabel = new Label { TextColor = new Color(210, 185, 120), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.era"] };
+        _eraNextLabel = new Label { TextColor = new Color(160, 150, 120), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.eraNext"] };
         _tierLabel = new Label { TextColor = new Color(190, 160, 230), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.tier"] };
         _powerLabel = new Label { TextColor = new Color(120, 200, 240), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.power"] };
         _weatherLabel = new Label { TextColor = new Color(170, 200, 220), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.weather"] };
@@ -826,6 +885,7 @@ public sealed class GameplayScreen : IScreen
         _cursorLabel = new Label { TextColor = Color.LightGray };
         var worldInfoStack = new VerticalStackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Right };
         worldInfoStack.Widgets.Add(_eraLabel);
+        worldInfoStack.Widgets.Add(_eraNextLabel);
         worldInfoStack.Widgets.Add(_tierLabel);
         worldInfoStack.Widgets.Add(_powerLabel);
         worldInfoStack.Widgets.Add(_weatherLabel);
@@ -858,12 +918,8 @@ public sealed class GameplayScreen : IScreen
         _statusPanel = UiFactory.DarkPanel(_statusLabel);
         _statusPanel.HorizontalAlignment = HorizontalAlignment.Center;
 
-        // Levý střed: sledovač úkolů (aktuální cíle + pokrok) — vede hráče hrou.
-        _goalsPanel = new VerticalStackPanel { Spacing = 5 };
-        var goalsBox = UiFactory.DarkPanel(_goalsPanel);
-        goalsBox.HorizontalAlignment = HorizontalAlignment.Left;
-        goalsBox.VerticalAlignment = VerticalAlignment.Center;
-        goalsBox.Margin = new Thickness(10, 0, 0, 0);
+        // Levý střed: „co teď" — hlavní cíl s návodem, pod ním ostatní úkoly.
+        _objectives = new ObjectiveTracker(_screens, _simulation, FocusOn, SkipGuide);
 
         // Spodní blok zdola nahoru: proužek tlačítek, nad ním stav, a úplně nahoře
         // vyskakovací katalog budov. Nahoře na obrazovce zůstávají suroviny (vlevo)
@@ -882,11 +938,10 @@ public sealed class GameplayScreen : IScreen
         var root = new Panel();
         root.Widgets.Add(topLeft);
         root.Widgets.Add(topRight);
-        root.Widgets.Add(goalsBox);
+        root.Widgets.Add(_objectives.Root);
         root.Widgets.Add(bottomBar);
 
         _desktop = new Desktop { Root = root };
-        _goalsDirty = true;
         RefreshBuildMenu();
         RefreshHudTexts();
     }
@@ -925,6 +980,23 @@ public sealed class GameplayScreen : IScreen
             stack.Widgets.Add(UiFactory.SmallButton(loc[zoneTypes[z].NameKey],
                 () => _tools.ToggleZone(typeIndex), ZoneTooltip(zoneTypes[z])));
         }
+        // Přetváření krajiny: jedno tlačítko na zásah, odemyká se výzkumem.
+        var terraform = _simulation.IsFeatureUnlocked("terraform") ? _screens.Content.Terraform : null;
+        for (int a = 0; terraform is not null && a < terraform.Count; a++)
+        {
+            int actionIndex = a;
+            var action = terraform[a];
+            if (_simulation.CanTerraform(actionIndex, 0, 0) == PlacementResult.NotUnlocked)
+            {
+                continue; // technologie ještě není — nástroj se vůbec neukáže
+            }
+
+            stack.Widgets.Add(UiFactory.SmallButton(loc[action.NameKey],
+                () => _tools.ToggleTerraform(actionIndex),
+                loc[action.DescriptionKey] + '\n' + loc.Format("panel.cost",
+                    CostFormat.Line(_screens.Content, loc, action.Cost))));
+        }
+
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.backToCity"], RecenterOnCity, loc["tip.backToCity"]));
 
         if (_simulation.IsFeatureUnlocked("settlements"))
@@ -1149,77 +1221,93 @@ public sealed class GameplayScreen : IScreen
         }
     }
 
-    /// <summary>Přestaví sledovač úkolů (aktivní cíle) — volá se, jen když se stav změní.</summary>
-    private void RebuildGoals()
+    /// <summary>
+    /// Uloží hru na pozadí (autosave). Selhání se schválně nehlásí vyskakovacím
+    /// oknem — je to tichá pojistka, ne akce hráče; ruční uložení v pauze dál
+    /// výsledek hlásí.
+    /// </summary>
+    private void SaveGame() =>
+        _screens.Saves.TrySave(_simulation, new SaveMetadata(_info.Seed, _info.SizeId, _info.PresetId, DateTime.UtcNow));
+
+    /// <summary>
+    /// Řádek „kam to celé směřuje": příští éra a technologie, která ji otevře.
+    /// Samotné jméno aktuální éry je jen údaj — tohle z něj dělá směr, aby hráč
+    /// věděl, že hra někam vede (zpětná vazba „nemám jasný cíl").
+    /// </summary>
+    private string NextEraLine(int currentEraIndex)
     {
-        var loc = _screens.Loc;
-        var content = _screens.Content;
-        _goalsPanel.Widgets.Clear();
-        _goalSlots.Clear();
-        _goalsPanel.Widgets.Add(new Label
-        {
-            Text = loc["hud.quests"],
-            TextColor = UiFactory.Accent,
-            Tooltip = loc["tip.quests"],
-        });
+        var eras = _screens.Content.Eras;
+        int currentOrder = currentEraIndex >= 0 ? eras[currentEraIndex].Order : int.MinValue;
 
-        int shown = 0;
-        for (int i = 0; i < content.Quests.Count && shown < 3; i++)
+        EraDef? next = null;
+        foreach (var era in eras.All)
         {
-            if (_simulation.IsQuestCompleted(i))
+            if (era.Order > currentOrder && (next is null || era.Order < next.Order))
             {
-                continue;
+                next = era;
             }
-
-            var quest = content.Quests[i];
-            AddGoalSlot(loc[quest.NameKey], quest.Condition,
-                loc[quest.DescriptionKey] + '\n' + loc.Format("panel.reward",
-                    CostFormat.Line(content, loc, quest.Reward)));
-            shown++;
         }
 
-        if (shown < 3)
+        // Poslední éra (nebo éra bez technologie) už nikam neukazuje — pak radši nic.
+        if (next is null || next.UnlockTechId.Length == 0
+            || !_screens.Content.Techs.TryIndexOf(next.UnlockTechId, out int techIndex))
         {
-            long target = _simulation.DynamicQuestTarget;
-            var dyn = content.QuestsDynamic;
-            AddGoalSlot(loc.Format("quest.dynamic", target),
-                new GoalCondition(dyn.BaseCondition.Kind, dyn.BaseCondition.Param, target),
-                loc.Format("quest.dynamic.desc", target) + '\n' + loc.Format("panel.reward",
-                    CostFormat.Line(content, loc, dyn.BaseReward)));
+            return string.Empty;
         }
+
+        var loc = _screens.Loc;
+        return loc.Format("hud.eraNext", loc[next.NameKey], loc[_screens.Content.Techs[techIndex].NameKey]);
     }
 
     /// <summary>
-    /// Jeden řádek sledovače: jméno, pruh pokroku a čísla. Pruh nese „jak daleko
-    /// jsem", čísla „kolik ještě" — samotné „12 / 40" se v HUD špatně čte.
+    /// Tlačítko „Ukaž mi" u hlavního cíle: otevře to, co krok potřebuje. Data
+    /// říkají jen „tohle je cíl", překlad na obrazovku/nástroj patří sem —
+    /// obsah tak nemusí vědět nic o UI.
     /// </summary>
-    private void AddGoalSlot(string name, GoalCondition condition, string tooltip)
+    private void FocusOn(FocusHint focus)
     {
-        var slot = new VerticalStackPanel { Spacing = 2, Tooltip = tooltip };
-        slot.Widgets.Add(new Label { Text = name });
-        var bar = new ProgressBar(GoalBarWidth);
-        slot.Widgets.Add(bar.Root);
-        var progress = new Label { TextColor = new Color(150, 220, 150) };
-        slot.Widgets.Add(progress);
-        _goalsPanel.Widgets.Add(slot);
-        _goalSlots.Add((condition, progress, bar));
+        switch (focus.Kind)
+        {
+            case FocusKind.Map:
+                RecenterOnCity();
+                break;
+
+            case FocusKind.Build:
+                SetBuildMenuOpen(true);
+                _selectedCategory = _screens.Content.Buildings[focus.BuildingIndex].Category;
+                RefreshBuildMenu();
+                // Rovnou i vybrat: hráč tak jen klikne do mapy a je hotovo.
+                if (_simulation.IsBuildingBuildable(focus.BuildingIndex))
+                {
+                    _tools.ToggleBuilding(focus.BuildingIndex);
+                }
+
+                break;
+
+            case FocusKind.Tool when focus.Target == "plant":
+                SetBuildMenuOpen(false);
+                _tools.TogglePlant();
+                break;
+
+            case FocusKind.Screen when focus.Target == "tech":
+                _screens.Push(new TechScreen(_screens, _simulation));
+                break;
+
+            case FocusKind.Screen when focus.Target == "quests":
+                _screens.Push(new QuestsScreen(_screens, _simulation));
+                break;
+
+            case FocusKind.Screen when focus.Target == "ascend":
+                _screens.Push(new AscensionScreen(_screens, _simulation));
+                break;
+        }
     }
 
-    /// <summary>Přebuduje sledovač jen při změně; jinak jen aktualizuje čísla pokroku.</summary>
-    private void UpdateGoals()
+    /// <summary>Vypne průvodce natrvalo; hlavním cílem se stane první nesplněný úkol.</summary>
+    private void SkipGuide()
     {
-        if (_goalsDirty)
-        {
-            RebuildGoals();
-            _goalsDirty = false;
-        }
-
-        foreach (var (condition, progress, bar) in _goalSlots)
-        {
-            long current = Math.Min(_simulation.EvaluateMetric(condition.Kind, condition.Param), condition.Target);
-            progress.Text = $"{current} / {condition.Target}";
-            bar.SetProgress(condition.Target > 0 ? current / (double)condition.Target : 1.0);
-        }
+        _simulation.SkipTutorial();
+        _objectives.MarkDirty();
     }
 
     /// <summary>„Zpět na město": vycentruje kameru na těžiště zástavby (nebo start, když nic nestojí).</summary>
@@ -1335,12 +1423,17 @@ public sealed class GameplayScreen : IScreen
             _resourceRateLabels[i].Text = rate >= 0.05 ? $"+{CivDle.Core.Numbers.Format(rate)}/s" : string.Empty;
         }
 
+        _idleLabel.Text = _simulation.IdleBuildings > 0
+            ? loc.Format("hud.idleBuildings", _simulation.IdleBuildings)
+            : string.Empty;
+
         _populationLabel.Text = loc.Format("hud.population",
             CivDle.Core.Numbers.Format(_simulation.Population), CivDle.Core.Numbers.Format(_simulation.HousingCapacity));
 
         var eras = _screens.Content.Eras;
         int eraIndex = _simulation.CurrentEraIndex;
         _eraLabel.Text = eraIndex >= 0 ? loc.Format("hud.era", loc[eras[eraIndex].NameKey]) : string.Empty;
+        _eraNextLabel.Text = NextEraLine(eraIndex);
 
         // Měřítko (stupeň Vzestupu): jméno + strop; u stropu zežloutne jako pobídka k Vzestupu.
         var tiers = _screens.Content.AscensionTiers;
@@ -1412,7 +1505,7 @@ public sealed class GameplayScreen : IScreen
         UpdateCursorLabel();
         UpdateStatusLabel();
         RefreshBuildAffordability();
-        UpdateGoals();
+        _objectives.Update();
         UpdateFestivalButton();
     }
 
@@ -1458,6 +1551,13 @@ public sealed class GameplayScreen : IScreen
         _statusPanel.Visible = _tools.AnyActive;
         if (!_statusPanel.Visible)
         {
+            return;
+        }
+
+        if (_tools.TerraformIndex >= 0)
+        {
+            _statusLabel.Text = loc[_screens.Content.Terraform[_tools.TerraformIndex].NameKey];
+            _statusLabel.TextColor = new Color(140, 230, 200);
             return;
         }
 

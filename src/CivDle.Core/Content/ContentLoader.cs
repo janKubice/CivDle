@@ -49,17 +49,102 @@ public sealed class ContentLoader
         var features = LoadFeatures(Path.Combine(dataDirectory, "features.json"), resources, buildings, techs);
         var ufo = LoadUfo(Path.Combine(dataDirectory, "ufo.json"));
         var ambience = LoadAmbience(Path.Combine(dataDirectory, "ambience.json"), biomes, weather);
+        var terraform = LoadTerraform(Path.Combine(dataDirectory, "terraform.json"), biomes, resources, techs);
+        var tutorial = LoadTutorial(Path.Combine(dataDirectory, "tutorial.json"), resources, buildings, techs);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features);
+        var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
-        var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial);
+    }
+
+    // ----- průvodce prvními kroky -----
+
+    /// <summary>
+    /// Načte kroky průvodce. Pořadí v souboru JE pořadí kroků (v savu se drží
+    /// index), takže se nesmí přehazovat — proto se validuje jen unikátnost ID
+    /// a to, že cíl „ukaž mi" existuje.
+    /// </summary>
+    private static IReadOnlyList<TutorialStepDef> LoadTutorial(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        // Průvodce je volitelný — bez souboru se hra prostě spustí bez vedení.
+        if (!File.Exists(path))
+        {
+            return Array.Empty<TutorialStepDef>();
+        }
+
+        var file = ReadFile<TutorialFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Steps ?? new List<TutorialStepDto>();
+        var result = new List<TutorialStepDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Krok průvodce na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID kroku průvodce '{id}'.");
+            }
+
+            if (dto.Condition is null)
+            {
+                throw new ContentLoadException(path, $"Krok průvodce '{id}' nemá 'condition' (kdy je hotový).");
+            }
+
+            var condition = ParseCondition(path, $"krok průvodce '{id}'", dto.Condition, resources, buildings, techs);
+            result.Add(new TutorialStepDef(id, condition, ParseFocus(path, id, dto.Focus, buildings)));
+        }
+
+        return result;
+    }
+
+    private static FocusHint ParseFocus(string path, string ownerId, FocusHintDto? dto, DefRegistry<BuildingDef> buildings)
+    {
+        if (dto is null)
+        {
+            return FocusHint.None;
+        }
+
+        string target = dto.Target?.Trim() ?? string.Empty;
+        switch ((dto.Kind ?? string.Empty).Trim().ToLowerInvariant())
+        {
+            case "":
+            case "none":
+                return FocusHint.None;
+
+            case "map":
+                return new FocusHint(FocusKind.Map, -1, string.Empty);
+
+            case "build":
+                if (dto.Building is null || !buildings.TryIndexOf(dto.Building.Trim(), out int buildingIndex))
+                {
+                    throw new ContentLoadException(path, $"Krok průvodce '{ownerId}': 'focus.building' odkazuje na neexistující budovu '{dto.Building}'.");
+                }
+
+                return new FocusHint(FocusKind.Build, buildingIndex, string.Empty);
+
+            case "tool":
+            case "screen":
+                if (target.Length == 0)
+                {
+                    throw new ContentLoadException(path, $"Krok průvodce '{ownerId}': 'focus.target' musí říct, co otevřít.");
+                }
+
+                var kind = dto.Kind!.Trim().Equals("tool", StringComparison.OrdinalIgnoreCase) ? FocusKind.Tool : FocusKind.Screen;
+                return new FocusHint(kind, -1, target);
+
+            default:
+                throw new ContentLoadException(path, $"Krok průvodce '{ownerId}': neznámý 'focus.kind' '{dto.Kind}'.");
+        }
     }
 
     // ----- éry -----
@@ -221,6 +306,63 @@ public sealed class ContentLoader
         }
 
         return new DefRegistry<FeatureDef>(result, f => f.Id, "funkce", allowEmpty: true);
+    }
+
+    // ----- přetváření krajiny -----
+
+    private static DefRegistry<TerraformDef> LoadTerraform(
+        string path, BiomeRegistry biomes, DefRegistry<Resource> resources, DefRegistry<TechDef> techs)
+    {
+        // Volitelný obsah — bez souboru se krajina prostě přetvářet nedá.
+        if (!File.Exists(path))
+        {
+            return new DefRegistry<TerraformDef>(Array.Empty<TerraformDef>(), t => t.Id, "terraformace", allowEmpty: true);
+        }
+
+        var file = ReadFile<TerraformFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var result = new List<TerraformDef>();
+        foreach (var (dto, i) in (file.Terraform ?? new List<TerraformDto>()).Select((d, i) => (d, i)))
+        {
+            string id = RequireId(path, dto.Id, $"Terraformace na pozici {i}");
+            if (dto.To is null || !biomes.TryIndexOf(dto.To.Trim(), out int target))
+            {
+                throw new ContentLoadException(path, $"Terraformace '{id}' odkazuje na neexistující biom '{dto.To}' v 'to'.");
+            }
+
+            if (biomes[target].IsWater)
+            {
+                throw new ContentLoadException(path, $"Terraformace '{id}': cílem nesmí být vodní biom — utopila by město.");
+            }
+
+            var sources = new List<int>();
+            foreach (string? from in dto.From ?? Array.Empty<string>())
+            {
+                if (from is null || !biomes.TryIndexOf(from.Trim(), out int source))
+                {
+                    throw new ContentLoadException(path, $"Terraformace '{id}' odkazuje na neexistující biom '{from}' ve 'from'.");
+                }
+
+                sources.Add(source);
+            }
+
+            var cost = ParseResourceAmounts(path, id, "cost", dto.Cost, resources);
+            if (cost.Count == 0)
+            {
+                throw new ContentLoadException(path, $"Terraformace '{id}' musí něco stát — zadarmo by přetvořila celý svět.");
+            }
+
+            int unlockTech = -1;
+            if (!string.IsNullOrWhiteSpace(dto.UnlockTech) && !techs.TryIndexOf(dto.UnlockTech.Trim(), out unlockTech))
+            {
+                throw new ContentLoadException(path, $"Terraformace '{id}' odkazuje na neexistující technologii '{dto.UnlockTech}'.");
+            }
+
+            result.Add(new TerraformDef(id, target, sources, cost, unlockTech));
+        }
+
+        return new DefRegistry<TerraformDef>(result, t => t.Id, "terraformace", allowEmpty: true);
     }
 
     // ----- ambientní kulisa -----
@@ -1251,6 +1393,7 @@ public sealed class ContentLoader
             case "ascension": return (MetricKind.AscensionLevel, -1);
             case "day": return (MetricKind.DayNumber, -1);
             case "planted": return (MetricKind.PlantedNodes, -1);
+            case "terraformed": return (MetricKind.TerraformedTiles, -1);
             case "harvested": return (MetricKind.Harvested, ResolveRef(path, owner, "resource", resource, resources));
             case "resource": return (MetricKind.ResourceStock, ResolveRef(path, owner, "resource", resource, resources));
             case "building": return (MetricKind.BuildingOfType, ResolveRef(path, owner, "building", building, buildings));
@@ -1482,7 +1625,27 @@ public sealed class ContentLoader
             harvest,
             dailyReward,
             planting,
-            ParseHappiness(path, file.Happiness));
+            ParseHappiness(path, file.Happiness),
+            ParseStaffing(path, file.Staffing));
+    }
+
+    /// <summary>
+    /// Nastavení přidělování dělníků. Chybí-li blok, platí výchozí práh —
+    /// starší data se načtou beze změny chování.
+    /// </summary>
+    private static StaffingConfig? ParseStaffing(string path, StaffingDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (dto.ScarcityThreshold is < 0 or > 1)
+        {
+            throw new ContentLoadException(path, $"'staffing.scarcityThreshold' musí být 0–1, je {dto.ScarcityThreshold}.");
+        }
+
+        return new StaffingConfig(dto.ScarcityThreshold);
     }
 
     /// <summary>
@@ -1542,13 +1705,15 @@ public sealed class ContentLoader
         var entries = new List<DevlogEntry>();
         foreach (var dto in file.Entries ?? new List<DevlogEntryDto>())
         {
-            if (string.IsNullOrWhiteSpace(dto.Version))
+            // Text deníku žije v jazycích (aby byl i anglicky) — data drží jen ID,
+            // datum a počet řádků.
+            string id = RequireId(path, dto.Id, "Záznam deníku");
+            if (dto.LineCount is < 1 or > 50)
             {
-                throw new ContentLoadException(path, "Záznam deníku nemá vyplněnou 'version'.");
+                throw new ContentLoadException(path, $"Záznam deníku '{id}': 'lineCount' musí být 1–50, je {dto.LineCount}.");
             }
 
-            var lines = (dto.Lines ?? new List<string>()).Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
-            entries.Add(new DevlogEntry(dto.Version.Trim(), dto.Date?.Trim() ?? string.Empty, lines));
+            entries.Add(new DevlogEntry(id, dto.Date?.Trim() ?? string.Empty, dto.LineCount));
         }
 
         return entries;
@@ -1713,7 +1878,10 @@ public sealed class ContentLoader
         DefRegistry<AscensionTierDef> tiers,
         DefRegistry<WeatherDef> weather,
         DefRegistry<LandmarkDef> landmarks,
-        DefRegistry<FeatureDef> features)
+        DefRegistry<FeatureDef> features,
+        IReadOnlyList<DevlogEntry> devlog,
+        DefRegistry<TerraformDef> terraform,
+        IReadOnlyList<TutorialStepDef> tutorial)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -1747,7 +1915,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -1771,7 +1939,10 @@ public sealed class ContentLoader
         DefRegistry<AscensionTierDef> tiers,
         DefRegistry<WeatherDef> weather,
         DefRegistry<LandmarkDef> landmarks,
-        DefRegistry<FeatureDef> features)
+        DefRegistry<FeatureDef> features,
+        IReadOnlyList<DevlogEntry> devlog,
+        DefRegistry<TerraformDef> terraform,
+        IReadOnlyList<TutorialStepDef> tutorial)
     {
         var required = new List<string>();
         required.AddRange(biomes.All.Select(b => b.NameKey));
@@ -1798,10 +1969,22 @@ public sealed class ContentLoader
         required.AddRange(zoneTypes.All.Select(z => z.NameKey));
         required.AddRange(policies.All.Select(p => p.NameKey));
         required.AddRange(policies.All.Select(p => p.DescriptionKey));
+        required.AddRange(terraform.All.Select(t => t.NameKey));
+        required.AddRange(terraform.All.Select(t => t.DescriptionKey));
+        foreach (var entry in devlog)
+        {
+            required.Add(entry.TitleKey);
+            for (int i = 0; i < entry.LineCount; i++)
+            {
+                required.Add(entry.LineKey(i));
+            }
+        }
         required.AddRange(tiers.All.Select(t => t.NameKey));
         required.AddRange(weather.All.Select(w => w.NameKey));
         required.AddRange(landmarks.All.Select(l => l.NameKey));
         required.AddRange(features.All.Select(f => f.NameKey));
+        required.AddRange(tutorial.Select(t => t.NameKey));
+        required.AddRange(tutorial.Select(t => t.HintKey));
 
         var missing = required.Where(key => !language.Strings.ContainsKey(key)).ToList();
         if (missing.Count > 0)

@@ -36,6 +36,9 @@ public enum MetricKind
 
     /// <summary>Počet zasazených (obnovitelných) uzlů na mapě — sázení jako sledovaná činnost.</summary>
     PlantedNodes,
+
+    /// <summary>Kolik dlaždic hráč přetvořil terraformací.</summary>
+    TerraformedTiles,
 }
 
 /// <summary>

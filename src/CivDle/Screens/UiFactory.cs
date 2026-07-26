@@ -56,6 +56,29 @@ internal static class UiFactory
         return button;
     }
 
+    /// <summary>
+    /// Podklad pod celé menu. Nabídky se kreslí přes živou mapu a bez podkladu se
+    /// text ztrácel v pixelech terénu — tenhle panel dá obsahu vlastní plochu,
+    /// takže je čitelný nad čímkoli.
+    /// </summary>
+    public static Panel MenuBackdrop(Widget content)
+    {
+        var backdrop = new Panel
+        {
+            Background = new SolidBrush(new Color(12, 16, 24, 232)),
+            Border = new SolidBrush(new Color(90, 120, 150, 150)),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(36, 28),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        backdrop.Widgets.Add(content);
+
+        var root = new Panel();
+        root.Widgets.Add(backdrop);
+        return root;
+    }
+
     /// <summary>Poloprůhledný tmavý panel (HUD, podklad menu), ať je text čitelný nad mapou.</summary>
     public static Panel DarkPanel(Widget content)
     {

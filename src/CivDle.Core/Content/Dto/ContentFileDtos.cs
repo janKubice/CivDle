@@ -76,7 +76,11 @@ public sealed record GameplayFileDto(
     HarvestDto? Harvest,
     DailyRewardDto? DailyReward,
     PlantingDto? Planting,
-    HappinessDto? Happiness);
+    HappinessDto? Happiness,
+    StaffingDto? Staffing);
+
+/// <summary>Přidělování dělníků tak, jak leží v JSON.</summary>
+public sealed record StaffingDto(double ScarcityThreshold);
 
 /// <summary>Nastavení spokojenosti tak, jak leží v JSON.</summary>
 public sealed record HappinessDto(
@@ -205,6 +209,15 @@ public sealed record DynamicQuestDto(
     Dictionary<string, int>? Reward,
     double RewardGrowth);
 
+/// <summary>Obsah souboru <c>data/tutorial.json</c> (průvodce prvními kroky).</summary>
+public sealed record TutorialFileDto(int SchemaVersion, List<TutorialStepDto>? Steps);
+
+/// <summary>Jeden krok průvodce tak, jak leží v JSON.</summary>
+public sealed record TutorialStepDto(string? Id, GoalConditionDto? Condition, FocusHintDto? Focus);
+
+/// <summary>Ukazatel „kam se podívat" tak, jak leží v JSON.</summary>
+public sealed record FocusHintDto(string? Kind, string? Building, string? Target);
+
 /// <summary>Obsah souboru <c>data/eras.json</c> (éry civilizace T0–T6).</summary>
 public sealed record ErasFileDto(int SchemaVersion, List<EraDto>? Eras);
 
@@ -281,7 +294,7 @@ public sealed record AchievementDto(string? Id, GoalConditionDto? Condition, boo
 public sealed record DevlogFileDto(int SchemaVersion, List<DevlogEntryDto>? Entries);
 
 /// <summary>Jeden záznam deníku tak, jak leží v JSON.</summary>
-public sealed record DevlogEntryDto(string? Version, string? Date, List<string>? Lines);
+public sealed record DevlogEntryDto(string? Id, string? Date, int LineCount);
 
 /// <summary>Obsah jednoho jazyka <c>data/lang/*.json</c>.</summary>
 public sealed record LanguageFileDto(
@@ -346,3 +359,14 @@ public sealed record AmbienceDto(
     double ToneLevel,
     double PulseHz,
     double Volume);
+
+/// <summary>Obsah souboru <c>data/terraform.json</c> (ruční přetváření krajiny).</summary>
+public sealed record TerraformFileDto(int SchemaVersion, List<TerraformDto>? Terraform);
+
+/// <summary>Jeden terraformační nástroj tak, jak leží v JSON.</summary>
+public sealed record TerraformDto(
+    string? Id,
+    string? To,
+    string[]? From,
+    Dictionary<string, int>? Cost,
+    string? UnlockTech);

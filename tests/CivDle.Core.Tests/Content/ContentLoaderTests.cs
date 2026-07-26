@@ -280,6 +280,88 @@ public class ContentLoaderTests : IDisposable
         Assert.Contains("maso", ex.Message);
     }
 
+    // ----- průvodce prvními kroky -----
+
+    [Fact]
+    public void LoadFrom_TutorialWithUnknownFocusKind_Throws()
+    {
+        WriteAllValid();
+        Write("tutorial.json", """
+        {
+          "schemaVersion": 1,
+          "steps": [
+            { "id": "a", "condition": { "metric": "population", "target": 5 }, "focus": { "kind": "teleport" } }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("teleport", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_TutorialFocusOnUnknownBuilding_Throws()
+    {
+        WriteAllValid();
+        Write("tutorial.json", """
+        {
+          "schemaVersion": 1,
+          "steps": [
+            { "id": "a", "condition": { "metric": "population", "target": 5 }, "focus": { "kind": "build", "building": "palace" } }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("palace", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_TutorialStepWithoutCondition_Throws()
+    {
+        WriteAllValid();
+        Write("tutorial.json", """
+        { "schemaVersion": 1, "steps": [ { "id": "a" } ] }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("condition", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_DuplicateTutorialStepId_Throws()
+    {
+        WriteAllValid();
+        Write("tutorial.json", """
+        {
+          "schemaVersion": 1,
+          "steps": [
+            { "id": "a", "condition": { "metric": "population", "target": 5 } },
+            { "id": "a", "condition": { "metric": "population", "target": 9 } }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("Duplicitní", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_RealGameData_HasAGuidedOpening()
+    {
+        var content = TestData.LoadRealContent();
+
+        // Průvodce je odpověď na „nevím, co po mně hra chce" — pár kroků nestačí,
+        // a aspoň jeden musí umět hráče někam poslat.
+        Assert.True(content.Tutorial.Count >= 5,
+            $"Průvodce má mít aspoň 5 kroků, má {content.Tutorial.Count}.");
+        Assert.Contains(content.Tutorial, step => step.Focus.Kind != FocusKind.None);
+    }
+
     [Fact]
     public void LoadFrom_MissingSettlementNames_Throws()
     {
@@ -398,7 +480,8 @@ public class ContentLoaderTests : IDisposable
         var content = TestData.LoadRealContent();
 
         Assert.NotEmpty(content.Devlog);
-        Assert.All(content.Devlog, e => Assert.False(string.IsNullOrWhiteSpace(e.Version)));
+        Assert.All(content.Devlog, e => Assert.False(string.IsNullOrWhiteSpace(e.Id)));
+        Assert.All(content.Devlog, e => Assert.True(e.LineCount > 0));
     }
 
     [Fact]

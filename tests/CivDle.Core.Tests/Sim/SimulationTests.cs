@@ -149,26 +149,30 @@ public class SimulationTests
     }
 
     [Fact]
-    public void Production_UnderstaffedBuildingsRunSlower()
+    public void Production_OlderBuildingKeepsItsWorkers_NewerOneRunsSlower()
     {
         var content = TestData.LoadRealContent();
         var map = UniformMap(8, (byte)content.Biomes.IndexOf("mountains"));
         var sim = new Simulation(content, map);
         int stone = content.Resources.IndexOf("stone");
 
-        // Dva kamenolomy = 6 slotů, populace 5 → obsazenost 5/6; recept 50 tiků
-        // se protáhne na ~60. (Populace na horách bez kapacity neroste.)
+        // Dva kamenolomy à 3 sloty, populace 5: první dostane všechny tři dělníky
+        // a jede naplno (recept 50 tiků), druhý zbylé dva a jede na 2/3 (~75 tiků).
+        // Dřív se obsazenost dělila globálně a zpomalily se OBA — to byla ta past,
+        // kdy stavět víc znamenalo vyrábět míň. (Populace na horách neroste.)
         Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(content.Buildings.IndexOf("quarry"), 0, 0));
         Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(content.Buildings.IndexOf("quarry"), 2, 0));
         double stoneAfterBuild = sim.GetResource(stone);
+        double perCycle = 2 * content.Biomes[content.Biomes.IndexOf("mountains")].Production;
 
-        RunTicks(sim, 55);
+        RunTicks(sim, 49);
         Assert.Equal(stoneAfterBuild, sim.GetResource(stone));
 
-        // Dva lomy à 2 kameny, × identita hor (productionMult).
-        double expected = 4 * content.Biomes[content.Biomes.IndexOf("mountains")].Production;
-        RunTicks(sim, 7);
-        Assert.Equal(stoneAfterBuild + expected, sim.GetResource(stone), precision: 4);
+        RunTicks(sim, 1); // 50. tik: první lom má cyklus hotový
+        Assert.Equal(stoneAfterBuild + perCycle, sim.GetResource(stone), precision: 4);
+
+        RunTicks(sim, 26); // ~76. tik: dokončí i pomalejší druhý lom
+        Assert.Equal(stoneAfterBuild + 2 * perCycle, sim.GetResource(stone), precision: 4);
     }
 
     [Fact]

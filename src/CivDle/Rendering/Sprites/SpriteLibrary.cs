@@ -32,6 +32,18 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "icon.stone", IconSize, StoneIcon);
         Add(device, "icon.food", IconSize, FoodIcon);
         Add(device, "icon.tools", IconSize, ToolsIcon);
+        Add(device, "icon.copper_ore", IconSize, canvas => OreIcon(canvas, new Color(196, 120, 66)));
+        Add(device, "icon.iron_ore", IconSize, canvas => OreIcon(canvas, new Color(150, 140, 132)));
+        Add(device, "icon.coal", IconSize, canvas => OreIcon(canvas, new Color(62, 60, 64)));
+        Add(device, "icon.silicon", IconSize, canvas => OreIcon(canvas, new Color(158, 168, 184)));
+        Add(device, "icon.bronze", IconSize, canvas => IngotIcon(canvas, new Color(206, 140, 76)));
+        Add(device, "icon.iron", IconSize, canvas => IngotIcon(canvas, new Color(168, 170, 176)));
+        Add(device, "icon.steel", IconSize, canvas => IngotIcon(canvas, new Color(126, 140, 158)));
+        Add(device, "icon.nanomaterial", IconSize, canvas => IngotIcon(canvas, new Color(178, 132, 220)));
+        Add(device, "icon.machine_parts", IconSize, GearIcon);
+        Add(device, "icon.electronics", IconSize, ChipIcon);
+        Add(device, "icon.computer", IconSize, ComputerIcon);
+        Add(device, "icon.robot", IconSize, RobotIcon);
 
         // Těžitelné objekty na terénu.
         Add(device, "node.tree", SpriteSize, Tree);
@@ -53,6 +65,58 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.windmill", SpriteSize, Windmill);
         Add(device, "building.market", SpriteSize, Market);
         Add(device, "building.toolmaker", SpriteSize, Toolmaker);
+
+        // Éra kamene a dřeva.
+        Add(device, "building.granary", SpriteSize, Granary);
+        Add(device, "building.depot", SpriteSize, Depot);
+        Add(device, "building.workshop", SpriteSize, Workshop);
+        Add(device, "building.charcoal_kiln", SpriteSize, CharcoalKiln);
+        Add(device, "building.fishing_hut", SpriteSize, FishingHut);
+        Add(device, "building.hunters_lodge", SpriteSize, HuntersLodge);
+        Add(device, "building.brick_house", SpriteSize, canvas => TownHouse(canvas, new Color(178, 96, 78), floors: 2));
+        Add(device, "building.tenement", SpriteSize, canvas => TownHouse(canvas, new Color(150, 108, 92), floors: 3));
+
+        // Doly a hutě.
+        Add(device, "building.iron_mine", SpriteSize, canvas => MineShaft(canvas, new Color(120, 112, 108)));
+        Add(device, "building.coal_mine", SpriteSize, canvas => MineShaft(canvas, new Color(58, 56, 60)));
+        Add(device, "building.copper_mine", SpriteSize, canvas => MineShaft(canvas, new Color(178, 108, 62)));
+        Add(device, "building.silicon_mine", SpriteSize, canvas => MineShaft(canvas, new Color(150, 160, 178)));
+        Add(device, "building.smeltery", SpriteSize, canvas => Furnace(canvas, new Color(196, 118, 62)));
+        Add(device, "building.blast_furnace", SpriteSize, canvas => Furnace(canvas, new Color(120, 104, 100)));
+        Add(device, "building.bronze_smith", SpriteSize, canvas => Smithy(canvas, new Color(196, 130, 70)));
+        Add(device, "building.iron_forge", SpriteSize, canvas => Smithy(canvas, new Color(130, 132, 140)));
+        Add(device, "building.steel_mill", SpriteSize, SteelMill);
+
+        // Průmysl a energie.
+        Add(device, "building.factory", SpriteSize, Factory);
+        Add(device, "building.machine_shop", SpriteSize, MachineShop);
+        Add(device, "building.coal_power_plant", SpriteSize, PowerPlant);
+        Add(device, "building.solar_array", SpriteSize, SolarArray);
+        Add(device, "building.fusion_plant", SpriteSize, FusionPlant);
+        Add(device, "building.electronics_fab", SpriteSize, canvas => TechPlant(canvas, new Color(86, 176, 150)));
+        Add(device, "building.computer_plant", SpriteSize, canvas => TechPlant(canvas, new Color(96, 148, 200)));
+        Add(device, "building.nano_forge", SpriteSize, canvas => TechPlant(canvas, new Color(168, 122, 208)));
+        Add(device, "building.robotics_lab", SpriteSize, RoboticsLab);
+        Add(device, "building.hydroponics", SpriteSize, Hydroponics);
+
+        // Bydlení pozdních ér.
+        Add(device, "building.apartment", SpriteSize, canvas => Tower(canvas, new Color(170, 156, 142), floors: 4));
+        Add(device, "building.high_rise", SpriteSize, canvas => Tower(canvas, new Color(140, 152, 168), floors: 6));
+        Add(device, "building.arcology", SpriteSize, Arcology);
+
+        // Voda a doprava.
+        Add(device, "building.harbor", SpriteSize, Harbor);
+        Add(device, "building.fishery", SpriteSize, Fishery);
+        Add(device, "building.deep_sea_port", SpriteSize, DeepSeaPort);
+        Add(device, "building.airfield", SpriteSize, canvas => Airfield(canvas, big: false));
+        Add(device, "building.airport", SpriteSize, canvas => Airfield(canvas, big: true));
+        Add(device, "building.spaceport", SpriteSize, Spaceport);
+
+        // Megastavby.
+        Add(device, "building.megacity_spire", SpriteSize, MegacitySpire);
+        Add(device, "building.grand_exchange", SpriteSize, GrandExchange);
+        Add(device, "building.orbital_ring", SpriteSize, OrbitalRing);
+        Add(device, "building.world_forge", SpriteSize, WorldForge);
 
         // Agenti (živý svět).
         Add(device, "agent.person", 12, Person);
@@ -321,4 +385,440 @@ public sealed class SpriteLibrary : IDisposable
         c.FillCircle(5f, 12f, 2.6f, new Color(50, 40, 32)); // kola
         c.FillCircle(12f, 12f, 2.6f, new Color(50, 40, 32));
     }
+
+    // ----- éra kamene a dřeva -----
+
+    private static void Granary(PixelCanvas c)
+    {
+        c.FillRect(7, 14, 18, 16, new Color(186, 158, 104)); // hliněné stěny
+        c.FillTriangle(5f, 14f, 27f, 14f, 16f, 4f, new Color(146, 118, 72)); // došková střecha
+        c.FillRect(13, 20, 6, 10, new Color(120, 88, 52)); // vrata
+        c.FillRect(9, 17, 3, 3, new Color(120, 96, 60));    // větrací otvory
+        c.FillRect(20, 17, 3, 3, new Color(120, 96, 60));
+    }
+
+    private static void Depot(PixelCanvas c)
+    {
+        c.FillRect(4, 15, 24, 15, new Color(150, 144, 132));
+        c.FillRect(4, 12, 24, 4, new Color(112, 108, 100)); // plochá střecha
+        for (int i = 0; i < 3; i++)
+        {
+            c.FillRect(7 + i * 7, 20, 5, 10, new Color(96, 104, 118)); // vrata v řadě
+        }
+    }
+
+    private static void Workshop(PixelCanvas c)
+    {
+        c.FillRect(5, 16, 22, 14, new Color(160, 122, 82));
+        c.FillTriangle(3f, 16f, 29f, 16f, 16f, 7f, new Color(122, 90, 58));
+        c.FillRect(12, 21, 8, 9, new Color(92, 66, 40));  // dílenská vrata
+        c.FillRect(21, 19, 4, 4, new Color(150, 205, 225));
+        c.FillRect(7, 10, 3, 7, new Color(110, 100, 92)); // komín
+    }
+
+    private static void CharcoalKiln(PixelCanvas c)
+    {
+        c.FillCircle(16f, 22f, 9f, new Color(96, 82, 66)); // kupa hlíny
+        c.FillCircle(16f, 22f, 6f, new Color(64, 54, 46));
+        c.FillRect(14, 8, 4, 8, new Color(110, 100, 92));  // komínek
+        c.FillCircle(16f, 8f, 3f, new Color(90, 90, 96) * 0.7f); // kouř
+        c.FillCircle(18f, 5f, 2.2f, new Color(110, 110, 116) * 0.5f);
+    }
+
+    private static void FishingHut(PixelCanvas c)
+    {
+        c.FillRect(8, 16, 16, 12, new Color(150, 120, 88));
+        c.FillTriangle(6f, 16f, 26f, 16f, 16f, 8f, new Color(112, 88, 62));
+        c.FillRect(5, 27, 22, 2, new Color(120, 96, 66));   // molo
+        c.FillRect(7, 29, 2, 3, new Color(100, 78, 52));    // piloty
+        c.FillRect(23, 29, 2, 3, new Color(100, 78, 52));
+        c.FillCircle(24f, 20f, 3f, new Color(210, 210, 200) * 0.8f); // síť
+    }
+
+    private static void HuntersLodge(PixelCanvas c)
+    {
+        c.FillRect(7, 17, 18, 13, new Color(122, 94, 62));
+        c.FillTriangle(4f, 17f, 28f, 17f, 16f, 6f, new Color(88, 68, 46));
+        c.FillRect(14, 23, 5, 7, new Color(70, 52, 34));
+        // Sušící stojan s kůží.
+        c.FillRect(24, 14, 1, 12, new Color(96, 74, 50));
+        c.FillRect(21, 15, 6, 5, new Color(150, 112, 78));
+    }
+
+    /// <summary>Patrový městský dům — základ pro cihlový dům i činžák.</summary>
+    private static void TownHouse(PixelCanvas c, Color wall, int floors)
+    {
+        int height = 6 + floors * 6;
+        int top = 30 - height;
+        c.FillRect(7, top, 18, height, wall);
+        c.FillTriangle(5f, top, 27f, top, 16f, top - 6f, new Color(126, 62, 54));
+        c.FillRect(14, 24, 5, 6, new Color(88, 60, 38)); // dveře
+        for (int f = 0; f < floors; f++)
+        {
+            int y = top + 3 + f * 6;
+            c.FillRect(9, y, 4, 4, new Color(150, 205, 225));
+            c.FillRect(19, y, 4, 4, new Color(150, 205, 225));
+        }
+    }
+
+    // ----- doly a hutě -----
+
+    private static void MineShaft(PixelCanvas c, Color ore)
+    {
+        c.FillRect(6, 20, 20, 10, new Color(104, 96, 88)); // podezdívka
+        // Těžní věž.
+        c.FillTriangle(10f, 20f, 22f, 20f, 16f, 6f, new Color(120, 96, 66));
+        c.FillRect(15, 6, 3, 6, new Color(96, 76, 52));
+        c.FillCircle(16.5f, 7f, 2.5f, new Color(70, 62, 54)); // kladka
+        // Vytěžená ruda na hromádce.
+        c.FillCircle(9f, 27f, 3f, ore);
+        c.FillCircle(23f, 27f, 2.4f, ore);
+    }
+
+    private static void Furnace(PixelCanvas c, Color glow)
+    {
+        c.FillRect(8, 14, 16, 16, new Color(104, 92, 84));
+        c.FillTriangle(8f, 14f, 24f, 14f, 16f, 8f, new Color(84, 74, 68));
+        c.FillRect(12, 20, 8, 8, new Color(48, 40, 36)); // ústí
+        c.FillCircle(16f, 25f, 3.2f, glow);              // žhavá tavenina
+        c.FillRect(6, 10, 3, 12, new Color(96, 88, 80));  // komín
+        c.FillRect(23, 10, 3, 12, new Color(96, 88, 80));
+    }
+
+    private static void Smithy(PixelCanvas c, Color metal)
+    {
+        c.FillRect(5, 16, 22, 14, new Color(126, 104, 88));
+        c.FillTriangle(3f, 16f, 29f, 16f, 16f, 8f, new Color(96, 78, 64));
+        c.FillRect(11, 21, 10, 9, new Color(52, 44, 40)); // otevřená kovárna
+        c.FillCircle(16f, 26f, 3f, new Color(232, 140, 60)); // výheň
+        c.FillRect(22, 18, 5, 4, metal);                  // hotové výrobky
+        c.FillRect(6, 9, 3, 8, new Color(104, 96, 88));
+    }
+
+    private static void SteelMill(PixelCanvas c)
+    {
+        c.FillRect(3, 15, 26, 15, new Color(112, 116, 124));
+        c.FillRect(3, 12, 26, 4, new Color(88, 92, 100));
+        for (int i = 0; i < 3; i++)
+        {
+            c.FillRect(6 + i * 9, 4, 4, 9, new Color(96, 100, 108)); // komíny
+            c.FillCircle(8f + i * 9, 3f, 2.6f, new Color(120, 120, 126) * 0.55f);
+        }
+
+        c.FillRect(8, 22, 16, 5, new Color(226, 132, 58)); // rozžhavená ocel
+    }
+
+    // ----- průmysl a energie -----
+
+    private static void Factory(PixelCanvas c)
+    {
+        c.FillRect(4, 16, 24, 14, new Color(132, 128, 136));
+        // Pilovitá střecha — typický tvar továrny.
+        for (int i = 0; i < 4; i++)
+        {
+            c.FillTriangle(4f + i * 6, 16f, 10f + i * 6, 16f, 4f + i * 6, 10f, new Color(104, 100, 110));
+            c.FillRect(5 + i * 6, 12, 3, 4, new Color(150, 205, 225));
+        }
+
+        c.FillRect(12, 22, 8, 8, new Color(88, 92, 100));
+        c.FillRect(24, 6, 4, 11, new Color(110, 106, 114));
+    }
+
+    private static void MachineShop(PixelCanvas c)
+    {
+        c.FillRect(5, 15, 22, 15, new Color(140, 136, 130));
+        c.FillRect(5, 12, 22, 4, new Color(108, 104, 100));
+        c.FillCircle(16f, 21f, 6f, new Color(96, 100, 108)); // velké ozubené kolo
+        c.FillCircle(16f, 21f, 3f, new Color(150, 154, 162));
+        for (int i = 0; i < 6; i++)
+        {
+            float angle = i * MathF.PI / 3f;
+            c.FillRect((int)(16 + MathF.Cos(angle) * 7) - 1, (int)(21 + MathF.Sin(angle) * 7) - 1, 3, 3,
+                new Color(96, 100, 108));
+        }
+    }
+
+    private static void PowerPlant(PixelCanvas c)
+    {
+        c.FillRect(4, 18, 24, 12, new Color(118, 114, 112));
+        // Dvě chladicí věže (užší nahoře).
+        c.FillTriangle(6f, 18f, 14f, 18f, 10f, 6f, new Color(148, 144, 142));
+        c.FillTriangle(18f, 18f, 26f, 18f, 22f, 6f, new Color(148, 144, 142));
+        c.FillCircle(10f, 5f, 3f, new Color(200, 200, 205) * 0.5f); // pára
+        c.FillCircle(22f, 4f, 2.6f, new Color(200, 200, 205) * 0.4f);
+        c.FillRect(12, 24, 8, 6, new Color(70, 68, 66));
+    }
+
+    private static void SolarArray(PixelCanvas c)
+    {
+        c.FillRect(4, 24, 24, 4, new Color(120, 118, 116)); // rám
+        for (int i = 0; i < 3; i++)
+        {
+            // Nakloněné panely.
+            c.FillTriangle(5f + i * 8, 24f, 12f + i * 8, 24f, 12f + i * 8, 13f, new Color(58, 92, 150));
+            c.FillTriangle(5f + i * 8, 24f, 12f + i * 8, 13f, 6f + i * 8, 15f, new Color(80, 130, 200));
+        }
+    }
+
+    private static void FusionPlant(PixelCanvas c)
+    {
+        c.FillRect(5, 17, 22, 13, new Color(126, 132, 142));
+        c.FillCircle(16f, 15f, 8f, new Color(96, 104, 118)); // torus
+        c.FillCircle(16f, 15f, 5f, new Color(120, 220, 240));
+        c.FillCircle(16f, 15f, 2.4f, new Color(240, 252, 255)); // plazma
+        c.FillRect(6, 24, 5, 6, new Color(96, 100, 108));
+        c.FillRect(21, 24, 5, 6, new Color(96, 100, 108));
+    }
+
+    private static void TechPlant(PixelCanvas c, Color accent)
+    {
+        c.FillRect(4, 14, 24, 16, new Color(146, 150, 158));
+        c.FillRect(4, 11, 24, 4, new Color(112, 118, 128));
+        // Čisté prostory za prosklením.
+        for (int i = 0; i < 4; i++)
+        {
+            c.FillRect(6 + i * 6, 17, 4, 6, accent);
+        }
+
+        c.FillRect(13, 25, 6, 5, new Color(96, 100, 110));
+        c.FillRect(25, 6, 2, 6, accent); // anténa
+    }
+
+    private static void RoboticsLab(PixelCanvas c)
+    {
+        c.FillRect(5, 15, 22, 15, new Color(150, 154, 160));
+        c.FillRect(5, 12, 22, 4, new Color(112, 116, 124));
+        // Robotické rameno.
+        c.FillRect(11, 18, 3, 9, new Color(96, 100, 108));
+        c.FillRect(11, 18, 10, 3, new Color(96, 100, 108));
+        c.FillCircle(21f, 20f, 2.4f, new Color(232, 140, 60));
+        c.FillRect(18, 25, 8, 5, new Color(120, 200, 190));
+    }
+
+    private static void Hydroponics(PixelCanvas c)
+    {
+        c.FillRect(4, 16, 24, 14, new Color(180, 200, 210) * 0.85f); // skleník
+        c.FillTriangle(4f, 16f, 28f, 16f, 16f, 8f, new Color(200, 220, 230) * 0.8f);
+        for (int i = 0; i < 3; i++)
+        {
+            c.FillRect(7, 20 + i * 4, 18, 2, new Color(80, 170, 90)); // patra sazenic
+        }
+    }
+
+    // ----- bydlení pozdních ér -----
+
+    private static void Tower(PixelCanvas c, Color wall, int floors)
+    {
+        int height = 4 + floors * 4;
+        int top = 30 - height;
+        c.FillRect(8, top, 16, height, wall);
+        c.FillRect(8, top - 2, 16, 3, wall * 0.8f); // atika
+        for (int f = 0; f < floors; f++)
+        {
+            int y = top + 2 + f * 4;
+            c.FillRect(10, y, 4, 2, new Color(150, 205, 225));
+            c.FillRect(18, y, 4, 2, new Color(150, 205, 225));
+        }
+
+        c.FillRect(14, 26, 4, 4, new Color(88, 84, 80)); // vchod
+    }
+
+    private static void Arcology(PixelCanvas c)
+    {
+        // Stupňovitá pyramida se zelení — soběstačné město v jedné budově.
+        c.FillTriangle(2f, 30f, 30f, 30f, 16f, 4f, new Color(150, 158, 168));
+        for (int i = 0; i < 4; i++)
+        {
+            int y = 26 - i * 5;
+            int half = 11 - i * 2;
+            c.FillRect(16 - half, y, half * 2, 2, new Color(90, 170, 110)); // terasy se zelení
+        }
+
+        c.FillCircle(16f, 6f, 2.6f, new Color(180, 230, 255));
+    }
+
+    // ----- voda a doprava -----
+
+    private static void Harbor(PixelCanvas c)
+    {
+        c.FillRect(3, 22, 26, 4, new Color(140, 128, 110)); // molo
+        c.FillRect(6, 26, 2, 5, new Color(112, 96, 74));
+        c.FillRect(24, 26, 2, 5, new Color(112, 96, 74));
+        c.FillRect(8, 12, 12, 10, new Color(158, 132, 96));  // skladiště
+        c.FillTriangle(6f, 12f, 22f, 12f, 14f, 6f, new Color(120, 96, 68));
+        // Plachetnice u mola.
+        c.FillRect(22, 18, 7, 3, new Color(120, 88, 60));
+        c.FillRect(25, 10, 1, 8, new Color(96, 76, 52));
+        c.FillTriangle(26f, 10f, 26f, 17f, 30f, 16f, new Color(235, 235, 230));
+    }
+
+    private static void Fishery(PixelCanvas c)
+    {
+        c.FillRect(5, 16, 22, 12, new Color(150, 152, 156));
+        c.FillRect(5, 13, 22, 4, new Color(110, 114, 120));
+        c.FillRect(4, 28, 24, 3, new Color(130, 118, 100)); // rampa
+        // Ryby v přepravkách.
+        for (int i = 0; i < 3; i++)
+        {
+            c.FillRect(8 + i * 6, 20, 5, 4, new Color(120, 170, 190));
+            c.FillCircle(10.5f + i * 6, 22f, 1.2f, new Color(220, 225, 230));
+        }
+    }
+
+    private static void DeepSeaPort(PixelCanvas c)
+    {
+        c.FillRect(2, 24, 28, 5, new Color(126, 126, 130)); // betonové nábřeží
+        // Portálový jeřáb.
+        c.FillRect(7, 8, 2, 16, new Color(220, 140, 50));
+        c.FillRect(21, 8, 2, 16, new Color(220, 140, 50));
+        c.FillRect(6, 6, 18, 3, new Color(220, 140, 50));
+        c.FillRect(14, 9, 2, 7, new Color(150, 150, 154)); // lano
+        c.FillRect(12, 16, 7, 5, new Color(80, 140, 180));  // kontejner
+        c.FillRect(2, 19, 6, 4, new Color(180, 90, 70));
+    }
+
+    private static void Airfield(PixelCanvas c, bool big)
+    {
+        c.FillRect(2, 20, 28, 8, new Color(96, 98, 104)); // dráha
+        for (int i = 0; i < 5; i++)
+        {
+            c.FillRect(4 + i * 6, 23, 3, 2, new Color(220, 220, 210)); // středová čára
+        }
+
+        var body = big ? new Color(230, 232, 236) : new Color(200, 200, 190);
+        c.FillRect(11, 12, 12, 4, body);                   // trup
+        c.FillTriangle(23f, 12f, 23f, 16f, 29f, 14f, body); // příď
+        c.FillTriangle(13f, 12f, 19f, 12f, 16f, 6f, body);  // křídlo
+        c.FillTriangle(13f, 16f, 19f, 16f, 16f, 21f, body);
+        if (big)
+        {
+            c.FillRect(3, 8, 6, 10, new Color(150, 154, 162)); // terminál
+            c.FillRect(4, 4, 2, 5, new Color(120, 124, 132));  // věž
+        }
+    }
+
+    private static void Spaceport(PixelCanvas c)
+    {
+        c.FillRect(4, 25, 24, 5, new Color(110, 112, 118)); // rampa
+        // Raketa.
+        c.FillRect(13, 8, 6, 17, new Color(226, 228, 232));
+        c.FillTriangle(13f, 8f, 19f, 8f, 16f, 1f, new Color(200, 80, 70)); // špička
+        c.FillTriangle(13f, 20f, 13f, 25f, 9f, 25f, new Color(200, 80, 70)); // stabilizátory
+        c.FillTriangle(19f, 20f, 19f, 25f, 23f, 25f, new Color(200, 80, 70));
+        c.FillCircle(16f, 14f, 2f, new Color(120, 190, 230)); // okénko
+        c.FillRect(6, 14, 3, 12, new Color(140, 142, 148));   // obslužná věž
+    }
+
+    // ----- megastavby -----
+
+    private static void MegacitySpire(PixelCanvas c)
+    {
+        c.FillTriangle(6f, 30f, 26f, 30f, 16f, 2f, new Color(120, 132, 150));
+        c.FillTriangle(10f, 30f, 22f, 30f, 16f, 6f, new Color(150, 164, 182));
+        for (int i = 0; i < 6; i++)
+        {
+            c.FillRect(12, 26 - i * 4, 8, 1, new Color(190, 225, 245)); // pásy oken
+        }
+
+        c.FillCircle(16f, 3f, 1.8f, new Color(255, 220, 120)); // maják na špici
+    }
+
+    private static void GrandExchange(PixelCanvas c)
+    {
+        c.FillRect(4, 14, 24, 16, new Color(196, 186, 164)); // mramor
+        c.FillTriangle(2f, 14f, 30f, 14f, 16f, 5f, new Color(168, 156, 134)); // tympanon
+        for (int i = 0; i < 5; i++)
+        {
+            c.FillRect(6 + i * 5, 17, 3, 13, new Color(226, 218, 200)); // sloupy
+        }
+
+        c.FillRect(4, 29, 24, 2, new Color(150, 140, 122)); // schodiště
+    }
+
+    private static void OrbitalRing(PixelCanvas c)
+    {
+        c.FillCircle(16f, 15f, 12f, new Color(110, 130, 160) * 0.55f);
+        c.FillCircle(16f, 15f, 9f, Color.Transparent);      // prstenec
+        c.FillRect(15, 15, 3, 15, new Color(150, 154, 162)); // kotvící stožár
+        c.FillCircle(16f, 15f, 3.2f, new Color(180, 220, 245));
+        c.FillCircle(6f, 10f, 1.6f, new Color(255, 235, 160)); // moduly na prstenci
+        c.FillCircle(26f, 20f, 1.6f, new Color(255, 235, 160));
+    }
+
+    private static void WorldForge(PixelCanvas c)
+    {
+        c.FillRect(3, 16, 26, 14, new Color(96, 92, 96));
+        c.FillTriangle(3f, 16f, 29f, 16f, 16f, 8f, new Color(72, 68, 72));
+        c.FillCircle(16f, 22f, 6f, new Color(232, 120, 50)); // roztavené jádro
+        c.FillCircle(16f, 22f, 3f, new Color(255, 220, 140));
+        c.FillRect(5, 6, 4, 11, new Color(88, 84, 88));
+        c.FillRect(23, 6, 4, 11, new Color(88, 84, 88));
+        c.FillCircle(7f, 5f, 2.4f, new Color(150, 140, 140) * 0.5f);
+        c.FillCircle(25f, 4f, 2f, new Color(150, 140, 140) * 0.45f);
+    }
+
+
+    // ----- ikony pozdějších surovin -----
+
+    /// <summary>Ruda: hrubé kusy kamene s barevnou žílou.</summary>
+    private static void OreIcon(PixelCanvas c, Color ore)
+    {
+        c.FillCircle(9f, 15f, 6f, new Color(112, 106, 100));
+        c.FillCircle(16f, 11f, 5f, new Color(128, 122, 116));
+        c.FillCircle(8f, 14f, 2.2f, ore);
+        c.FillCircle(17f, 10f, 2f, ore);
+    }
+
+    /// <summary>Ingot: kovový hranol s odleskem.</summary>
+    private static void IngotIcon(PixelCanvas c, Color metal)
+    {
+        c.FillTriangle(3f, 17f, 21f, 17f, 6f, 9f, metal);
+        c.FillRect(6, 9, 12, 8, metal);
+        c.FillRect(6, 9, 12, 2, metal * 1.25f); // odlesk na horní hraně
+        c.FillRect(3, 17, 18, 2, metal * 0.7f);
+    }
+
+    private static void GearIcon(PixelCanvas c)
+    {
+        var metal = new Color(150, 156, 166);
+        c.FillCircle(12f, 12f, 7f, metal);
+        c.FillCircle(12f, 12f, 3f, new Color(70, 74, 82));
+        for (int i = 0; i < 8; i++)
+        {
+            float angle = i * MathF.PI / 4f;
+            c.FillRect((int)(12 + MathF.Cos(angle) * 8) - 1, (int)(12 + MathF.Sin(angle) * 8) - 1, 3, 3, metal);
+        }
+    }
+
+    private static void ChipIcon(PixelCanvas c)
+    {
+        c.FillRect(6, 6, 12, 12, new Color(46, 108, 92));
+        c.FillRect(9, 9, 6, 6, new Color(120, 200, 170));
+        for (int i = 0; i < 3; i++)
+        {
+            c.FillRect(3, 8 + i * 4, 3, 2, new Color(210, 190, 90)); // nožičky
+            c.FillRect(18, 8 + i * 4, 3, 2, new Color(210, 190, 90));
+        }
+    }
+
+    private static void ComputerIcon(PixelCanvas c)
+    {
+        c.FillRect(3, 5, 18, 12, new Color(96, 104, 118)); // monitor
+        c.FillRect(5, 7, 14, 8, new Color(110, 180, 220));
+        c.FillRect(9, 17, 6, 2, new Color(80, 86, 96));    // stojan
+        c.FillRect(5, 19, 14, 2, new Color(96, 104, 118));
+    }
+
+    private static void RobotIcon(PixelCanvas c)
+    {
+        c.FillRect(7, 8, 10, 9, new Color(160, 166, 176)); // trup
+        c.FillRect(8, 3, 8, 5, new Color(180, 186, 196));  // hlava
+        c.FillCircle(10f, 5.5f, 1.2f, new Color(230, 120, 90)); // oči
+        c.FillCircle(14f, 5.5f, 1.2f, new Color(230, 120, 90));
+        c.FillRect(4, 9, 3, 6, new Color(140, 146, 156));  // paže
+        c.FillRect(17, 9, 3, 6, new Color(140, 146, 156));
+        c.FillRect(8, 17, 3, 4, new Color(120, 126, 136)); // nohy
+        c.FillRect(13, 17, 3, 4, new Color(120, 126, 136));
+    }
+
 }

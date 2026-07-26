@@ -40,6 +40,7 @@ public sealed class Simulation
     private readonly RoadBuilder _roadBuilder;
     private readonly SettlementSystem _settlementSystem;
     private readonly QuestSystem _questSystem;
+    private readonly TutorialSystem _tutorialSystem;
     private readonly bool[] _questsCompleted;
     private readonly AchievementSystem _achievementSystem;
     private readonly bool[] _achievementsUnlocked;
@@ -117,6 +118,7 @@ public sealed class Simulation
         _roadBuilder = new RoadBuilder(content);
         _settlementSystem = new SettlementSystem(content, seed);
         _questSystem = new QuestSystem(content);
+        _tutorialSystem = new TutorialSystem(content);
         _questsCompleted = new bool[content.Quests.Count];
         _achievementSystem = new AchievementSystem(content);
         _achievementsUnlocked = new bool[content.Achievements.Count];
@@ -204,6 +206,13 @@ public sealed class Simulation
     /// <summary>Součet pracovních míst výrobních budov — obsazenost škáluje výrobu.</summary>
     public int TotalWorkerSlots { get; private set; }
 
+    /// <summary>
+    /// Kolik budov zrovna stojí bez jediného dělníka. Počítá výrobní tik při
+    /// rozdělování lidí; UI to ukazuje jako varování, aby hráč poznal, že další
+    /// budova mu nic nepřinese, dokud nepřibudou lidi.
+    /// </summary>
+    public int IdleBuildings { get; internal set; }
+
     /// <summary>Celkový výkon elektráren (jednotky elektřiny).</summary>
     public int TotalPowerSupply { get; private set; }
 
@@ -235,6 +244,64 @@ public sealed class Simulation
     internal void SetBiomeOverride(int x, int y, byte biomeIndex) =>
         _biomeOverrides[TileKey.Pack(x, y)] = biomeIndex;
 
+    /// <summary>
+    /// Lze tímhle nástrojem přetvořit dlaždici? Kontroluje odemčení technologií,
+    /// vhodný výchozí biom, volnost dlaždice a suroviny.
+    /// </summary>
+    public PlacementResult CanTerraform(int actionIndex, int x, int y)
+    {
+        var action = _content.Terraform[actionIndex];
+        if (action.UnlockTechIndex >= 0 && !_techResearched[action.UnlockTechIndex])
+        {
+            return PlacementResult.NotUnlocked;
+        }
+
+        byte current = BiomeAt(x, y);
+        if (current == action.TargetBiomeIndex || !action.AppliesTo(current))
+        {
+            return PlacementResult.WrongBiome;
+        }
+
+        long tile = TileKey.Pack(x, y);
+        if (_occupancy.ContainsKey(tile) || _roads.Contains(tile))
+        {
+            return PlacementResult.Occupied; // pod budovou ani cestou se nekope
+        }
+
+        for (int i = 0; i < action.Cost.Count; i++)
+        {
+            if (_resources[action.Cost[i].ResourceIndex] < action.Cost[i].Amount)
+            {
+                return PlacementResult.NotEnoughResources;
+            }
+        }
+
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>Příkaz hráče: přetvoř dlaždici (zaplatí cenu a přepíše biom).</summary>
+    public PlacementResult TryTerraform(int actionIndex, int x, int y)
+    {
+        var result = CanTerraform(actionIndex, x, y);
+        if (result != PlacementResult.Ok)
+        {
+            return result;
+        }
+
+        var action = _content.Terraform[actionIndex];
+        for (int i = 0; i < action.Cost.Count; i++)
+        {
+            _resources[action.Cost[i].ResourceIndex] -= action.Cost[i].Amount;
+        }
+
+        SetBiomeOverride(x, y, (byte)action.TargetBiomeIndex);
+        TerraformedTiles++;
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>Kolik dlaždic hráč přetvořil (metrika pro úkoly a achievementy).</summary>
+    public long TerraformedTiles { get; internal set; }
+
     /// <summary>Terraformované dlaždice (pro uložení).</summary>
     internal IEnumerable<KeyValuePair<long, byte>> BiomeOverrides() => _biomeOverrides;
 
@@ -243,6 +310,9 @@ public sealed class Simulation
 
     /// <summary>Poslední okno, jehož zásah UFO už proběhl (pro uložení).</summary>
     internal long LastUfoWindow => _lastUfoWindow;
+
+    /// <summary>Obnoví počet přetvořených dlaždic ze savu.</summary>
+    internal void RestoreTerraformedTiles(long count) => TerraformedTiles = count;
 
     /// <summary>Obnoví poslední vyřízené okno UFO ze savu (jinak by zásah proběhl znovu).</summary>
     internal void RestoreLastUfoWindow(long window) => _lastUfoWindow = window;
@@ -592,6 +662,7 @@ public sealed class Simulation
         _settlementSystem.Tick(this);
         _happinessSystem.Tick(this);
         _questSystem.Tick(this);
+        _tutorialSystem.Tick(this);
         _achievementSystem.Tick(this);
 
         // Těžiště města a UFO nejsou hot path — stačí je řešit jednou za čas.
@@ -1511,6 +1582,7 @@ public sealed class Simulation
         MetricKind.AscensionLevel => AscensionLevel,
         MetricKind.DayNumber => DayNumber,
         MetricKind.PlantedNodes => _plantedNodes.Count,
+        MetricKind.TerraformedTiles => TerraformedTiles,
         _ => 0,
     };
 
@@ -1585,6 +1657,30 @@ public sealed class Simulation
 
     /// <summary>Označí úkol jako splněný při načtení savu (bez odměny).</summary>
     internal void RestoreQuestCompleted(int questIndex) => _questsCompleted[questIndex] = true;
+
+    // ----- průvodce prvními kroky -----
+
+    /// <summary>
+    /// Kolikátý krok průvodce je na řadě (0 = první). Rovná se počtu kroků,
+    /// když je průvodce dokončený; větší hodnota znamená ručně přeskočený.
+    /// </summary>
+    public int TutorialStep { get; internal set; }
+
+    /// <summary>Nemá už průvodce co říct (dokončený nebo přeskočený)?</summary>
+    public bool IsTutorialFinished => TutorialStep >= _content.Tutorial.Count;
+
+    /// <summary>Aktivní krok průvodce, nebo <c>null</c>, když je hotovo.</summary>
+    public TutorialStepDef? CurrentTutorialStep =>
+        IsTutorialFinished ? null : _content.Tutorial[TutorialStep];
+
+    /// <summary>
+    /// Vypne průvodce natrvalo (tlačítko „Přeskočit"). Hráč, který ví, co dělá,
+    /// nemá být nucen odklikat devět kroků.
+    /// </summary>
+    public void SkipTutorial() => TutorialStep = _content.Tutorial.Count;
+
+    /// <summary>Obnoví postup průvodce ze savu (bez oznámení).</summary>
+    internal void RestoreTutorialStep(int step) => TutorialStep = Math.Max(0, step);
 
     // ----- achievementy (účet-wide) -----
 

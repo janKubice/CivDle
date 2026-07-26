@@ -9,6 +9,7 @@
     { "id": "sawyer",          "condition": { "metric": "building", "building": "sawmill", "target": 1 } },
     { "id": "scholar",         "condition": { "metric": "research", "tech": "milling" } },
     { "id": "veteran",         "condition": { "metric": "day", "target": 3 } },
+    { "id": "chronicler",      "condition": { "metric": "day", "target": 100 }, "hidden": true },
     { "id": "ascendant",       "condition": { "metric": "ascension", "target": 1 } },
     { "id": "prestige_master", "condition": { "metric": "ascension", "target": 2 }, "hidden": true },
     { "id": "bronze_age", "condition": { "metric": "research", "tech": "bronze_working" } },
@@ -50,6 +51,21 @@
     { "id": "roboticist",      "condition": { "metric": "research", "tech": "robotics" } },
     { "id": "immortal",        "condition": { "metric": "research", "tech": "longevity" }, "hidden": true },
     { "id": "planetary",       "condition": { "metric": "ascension", "target": 4 }, "hidden": true },
-    { "id": "eternal",         "condition": { "metric": "ascension", "target": 6 }, "hidden": true }
+    { "id": "eternal",         "condition": { "metric": "ascension", "target": 6 }, "hidden": true },
+    { "id": "hoarder_wood",    "condition": { "metric": "resource", "resource": "wood", "target": 500 } },
+    { "id": "hoarder_stone",   "condition": { "metric": "resource", "resource": "stone", "target": 500 } },
+    { "id": "hoarder_food",    "condition": { "metric": "resource", "resource": "food", "target": 500 } },
+    { "id": "hoarder_tools",   "condition": { "metric": "resource", "resource": "tools", "target": 250 } },
+    { "id": "woodcutter_2",    "condition": { "metric": "harvested", "resource": "wood", "target": 10000 }, "hidden": true },
+    { "id": "quarryman_2",     "condition": { "metric": "harvested", "resource": "stone", "target": 5000 }, "hidden": true },
+    { "id": "builder_2",       "condition": { "metric": "buildings", "target": 1000 }, "hidden": true },
+    { "id": "population_2",    "condition": { "metric": "population", "target": 1000000 }, "hidden": true },
+    { "id": "gardener_2",      "condition": { "metric": "planted", "target": 1000 }, "hidden": true },
+    { "id": "first_steps",     "condition": { "metric": "buildings", "target": 1 } },
+    { "id": "first_harvest",   "condition": { "metric": "harvested", "resource": "wood", "target": 1 } },
+    { "id": "first_research",  "condition": { "metric": "research", "tech": "tools" } },
+    { "id": "landscaper",      "condition": { "metric": "terraformed", "target": 1 } },
+    { "id": "landscaper_2",    "condition": { "metric": "terraformed", "target": 50 } },
+    { "id": "worldshaper",     "condition": { "metric": "terraformed", "target": 500 }, "hidden": true }
   ]
 }
