@@ -461,7 +461,15 @@ public sealed class ContentLoader
             clickYield = new ClickYield(resourceIndex, dto.ClickYield.Amount);
         }
 
-        return new Biome(id, color, (float)dto.ColorVariation, dto.IsWater, depth, elevation, moisture, clickYield);
+        // Výchozí 1.0 = neutrální biom. Rozsah drží identitu biomů v rozumných mezích
+        // (biom smí ekonomiku naklonit, ne rozbít).
+        double productionMult = dto.ProductionMult <= 0 ? 1.0 : dto.ProductionMult;
+        if (productionMult is < 0.25 or > 3.0)
+        {
+            throw new ContentLoadException(path, $"Biom '{id}': 'productionMult' musí být 0.25–3.0, je {productionMult}.");
+        }
+
+        return new Biome(id, color, (float)dto.ColorVariation, dto.IsWater, depth, elevation, moisture, clickYield, productionMult);
     }
 
     private static ValueRange ParseRange(string path, string biomeId, string field, double[]? values, bool required)

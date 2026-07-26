@@ -1236,6 +1236,8 @@ public sealed class Simulation
 
         building.X = x;
         building.Y = y;
+        // Přesun mění biom pod budovou → cachovaný násobič výroby musí jít s ní.
+        building.BiomeMult = (float)_content.Biomes[Terrain.BiomeAt(x, y)].Production;
         for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
         {
             for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
@@ -1365,7 +1367,16 @@ public sealed class Simulation
             Array.Resize(ref _buildings, _buildings.Length * 2);
         }
 
-        _buildings[_buildingCount] = new BuildingInstance { DefIndex = defIndex, X = x, Y = y, Progress = progress };
+        _buildings[_buildingCount] = new BuildingInstance
+        {
+            DefIndex = defIndex,
+            X = x,
+            Y = y,
+            Progress = progress,
+            // Ekonomická identita biomu se cachuje při položení — v tikové smyčce
+            // už se terén nevzorkuje (viz BuildingInstance.BiomeMult).
+            BiomeMult = (float)_content.Biomes[Terrain.BiomeAt(x, y)].Production,
+        };
         _buildingCount++;
 
         for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)

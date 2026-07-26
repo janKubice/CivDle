@@ -28,8 +28,15 @@ public sealed record Biome(
     ValueRange DepthRange,
     ValueRange ElevationRange,
     ValueRange MoistureRange,
-    ClickYield? ClickYield = null)
+    ClickYield? ClickYield = null,
+    double ProductionMult = 1.0)
 {
+    /// <summary>
+    /// Násobič výroby budov stojících na tomhle biomu (living-map.md §5 — biomy
+    /// nejsou jen jiná grafika, mají jinou ekonomiku). 1.0 = neutrální.
+    /// </summary>
+    public double Production => ProductionMult;
+
     /// <summary>Lokalizační klíč jména biomu (existence ve všech jazycích je validovaná při startu).</summary>
     public string NameKey => $"biome.{Id}";
 }

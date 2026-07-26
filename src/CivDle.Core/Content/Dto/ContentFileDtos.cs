@@ -16,7 +16,8 @@ public sealed record BiomeDto(
     double[]? DepthRange,
     double[]? ElevationRange,
     double[]? MoistureRange,
-    ClickYieldDto? ClickYield);
+    ClickYieldDto? ClickYield,
+    double ProductionMult);
 
 /// <summary>Výnos ručního kliknutí na biom tak, jak leží v JSON.</summary>
 public sealed record ClickYieldDto(string? Resource, int Amount);

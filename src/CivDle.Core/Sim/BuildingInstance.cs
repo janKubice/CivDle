@@ -20,4 +20,11 @@ public struct BuildingInstance
     /// Po dosažení <c>Recipe.TimeTicks</c> proběhne výroba.
     /// </summary>
     public float Progress;
+
+    /// <summary>
+    /// Násobič výroby z biomu, na kterém budova stojí (ekonomická identita biomů).
+    /// Cachuje se při položení/načtení — jinak by se terén vzorkoval každý tik
+    /// pro každou budovu (hot path, CLAUDE.md výkon). Neukládá se: odvodí se z terénu.
+    /// </summary>
+    public float BiomeMult;
 }

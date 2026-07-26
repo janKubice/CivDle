@@ -29,7 +29,8 @@
       "elevationRange": [
         0.0,
         0.03
-      ]
+      ],
+      "productionMult": 1.0
     },
     {
       "id": "forest",
@@ -47,7 +48,8 @@
       "clickYield": {
         "resource": "wood",
         "amount": 2
-      }
+      },
+      "productionMult": 1.2
     },
     {
       "id": "grassland",
@@ -61,7 +63,8 @@
       "moistureRange": [
         0.39,
         0.56
-      ]
+      ],
+      "productionMult": 1.0
     },
     {
       "id": "steppe",
@@ -75,7 +78,8 @@
       "moistureRange": [
         0.0,
         0.39
-      ]
+      ],
+      "productionMult": 0.85
     },
     {
       "id": "mountains",
@@ -89,7 +93,8 @@
       "clickYield": {
         "resource": "stone",
         "amount": 1
-      }
+      },
+      "productionMult": 1.2
     },
     {
       "id": "snow_peaks",
@@ -99,7 +104,8 @@
       "elevationRange": [
         0.44,
         1.0
-      ]
+      ],
+      "productionMult": 0.8
     }
   ]
 }
