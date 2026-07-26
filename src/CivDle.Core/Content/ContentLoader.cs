@@ -47,6 +47,7 @@ public sealed class ContentLoader
         var weather = LoadWeather(Path.Combine(dataDirectory, "weather.json"), biomes);
         var landmarks = LoadLandmarks(Path.Combine(dataDirectory, "landmarks.json"), biomes, resources);
         var features = LoadFeatures(Path.Combine(dataDirectory, "features.json"), resources, buildings, techs);
+        var ufo = LoadUfo(Path.Combine(dataDirectory, "ufo.json"));
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
         var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features);
@@ -57,7 +58,7 @@ public sealed class ContentLoader
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo);
     }
 
     // ----- éry -----
@@ -219,6 +220,78 @@ public sealed class ContentLoader
         }
 
         return new DefRegistry<FeatureDef>(result, f => f.Id, "funkce", allowEmpty: true);
+    }
+
+    // ----- UFO (živá mapa) -----
+
+    /// <summary>Behavior-ID zásahů UFO — překlep v datech spadne hned při startu.</summary>
+    private static readonly HashSet<string> KnownUfoBehaviors = new(StringComparer.Ordinal)
+    {
+        "abduct", "demolish", "plant", "terraform", "gift", "none",
+    };
+
+    private static UfoConfig LoadUfo(string path)
+    {
+        // Volitelný obsah — bez souboru UFO ve hře prostě není.
+        if (!File.Exists(path))
+        {
+            return UfoConfig.Disabled;
+        }
+
+        var file = ReadFile<UfoFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+        if (file.Ufo is null)
+        {
+            return UfoConfig.Disabled;
+        }
+
+        var dto = file.Ufo;
+        if (dto.WindowSeconds is < 1 or > 86400)
+        {
+            throw new ContentLoadException(path, $"'ufo.windowSeconds' musí být 1–86400, je {dto.WindowSeconds}.");
+        }
+
+        if (dto.Chance is < 0 or > 1)
+        {
+            throw new ContentLoadException(path, $"'ufo.chance' musí být 0–1, je {dto.Chance}.");
+        }
+
+        if (dto.VisitSeconds < 0 || dto.VisitSeconds > dto.WindowSeconds)
+        {
+            throw new ContentLoadException(path, "'ufo.visitSeconds' musí být 0 až 'windowSeconds' (návštěva se nesmí překrývat s další).");
+        }
+
+        if (dto.Radius is < 0 or > 10000)
+        {
+            throw new ContentLoadException(path, $"'ufo.radius' musí být 0–10000, je {dto.Radius}.");
+        }
+
+        var actions = new List<UfoActionDef>();
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (action, i) in (dto.Actions ?? new List<UfoActionDto>()).Select((a, i) => (a, i)))
+        {
+            string id = RequireId(path, action.Id, $"Zásah UFO na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID zásahu UFO '{id}'.");
+            }
+
+            string behavior = (action.Behavior ?? string.Empty).Trim();
+            if (!KnownUfoBehaviors.Contains(behavior))
+            {
+                throw new ContentLoadException(path,
+                    $"Zásah UFO '{id}': neznámé chování '{behavior}' (známé: {string.Join(", ", KnownUfoBehaviors)}).");
+            }
+
+            if (action.Weight <= 0)
+            {
+                throw new ContentLoadException(path, $"Zásah UFO '{id}': 'weight' musí být kladná, je {action.Weight}.");
+            }
+
+            actions.Add(new UfoActionDef(id, behavior, action.Weight, action.Magnitude));
+        }
+
+        return new UfoConfig(dto.WindowSeconds, dto.Chance, dto.VisitSeconds, dto.Radius, actions);
     }
 
     // ----- landmarky (živá mapa) -----
@@ -840,9 +913,16 @@ public sealed class ContentLoader
 
     // ----- Vzestup (prestige) -----
 
+    /// <summary>
+    /// Behavior-ID trvalých bonusů (Vzestup i pasivní efekty technologií). Seznam je
+    /// tu proto, aby překlep v datech spadl hned při startu, ne aby se za hodinu
+    /// hraní tiše nic nedělo. Přidání nového efektu = zápis sem + větev v
+    /// <c>Simulation.RecomputeBonuses</c>.
+    /// </summary>
     private static readonly HashSet<string> KnownPrestigeEffects = new(StringComparer.Ordinal)
     {
         "production_mult", "harvest_mult", "growth_mult", "housing_mult", "storage_mult", "start_resources", "offline_mult",
+        "crit_chance", "jackpot_chance", "discovery_luck", "festival_power", "research_discount",
     };
 
     private static (PrestigeConfig Config, DefRegistry<PrestigeUpgradeDef> Upgrades) LoadPrestige(
@@ -917,7 +997,14 @@ public sealed class ContentLoader
             upgrades.Add(new PrestigeUpgradeDef(id, effect, dto.Magnitude, dto.Cost, prereqs));
         }
 
-        var config = new PrestigeConfig(requirement, pointsMetric, pointsParam, points.Divisor);
+        // Bez zadaného růstu se práh nemění (zpětně kompatibilní starší data).
+        double requirementGrowth = file.Ascension.RequirementGrowth <= 0 ? 1.0 : file.Ascension.RequirementGrowth;
+        if (requirementGrowth is < 1.0 or > 100.0)
+        {
+            throw new ContentLoadException(path, $"'ascension.requirementGrowth' musí být 1–100, je {requirementGrowth}.");
+        }
+
+        var config = new PrestigeConfig(requirement, pointsMetric, pointsParam, points.Divisor, requirementGrowth);
         return (config, new DefRegistry<PrestigeUpgradeDef>(upgrades, u => u.Id, "upgrade Vzestupu", allowEmpty: true));
     }
 
@@ -1252,10 +1339,16 @@ public sealed class ContentLoader
 
         var harvest = file.Harvest is null
             ? new HarvestConfig(0.12, 5.0)
-            : new HarvestConfig(file.Harvest.CritChance, file.Harvest.CritMultiplier);
+            : new HarvestConfig(file.Harvest.CritChance, file.Harvest.CritMultiplier,
+                file.Harvest.JackpotMultiplier <= 0 ? 25.0 : file.Harvest.JackpotMultiplier);
         if (harvest.CritChance is < 0 or > 1 || harvest.CritMultiplier is < 1 or > 1000)
         {
             throw new ContentLoadException(path, "'harvest.critChance' musí být 0–1 a 'critMultiplier' 1–1000.");
+        }
+
+        if (harvest.JackpotMultiplier is < 1 or > 10000)
+        {
+            throw new ContentLoadException(path, $"'harvest.jackpotMultiplier' musí být 1–10000, je {harvest.JackpotMultiplier}.");
         }
 
         var dailyReward = new DailyRewardConfig(

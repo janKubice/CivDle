@@ -7,15 +7,20 @@ namespace CivDle.Core.Content;
 /// dostupný a kolik bodů dá. Vzestup zresetuje éru (mapu), ale trvalé upgrady
 /// a body zůstávají — progrese přes měřítko (viz progression-prestige.md).
 /// </summary>
-/// <param name="Requirement">Podmínka, při které jde Vzestoupit (metrika ≥ práh).</param>
+/// <param name="Requirement">Podmínka PRVNÍHO Vzestupu (metrika ≥ práh).</param>
 /// <param name="PointsMetric">Metrika, ze které se počítají body Vzestupu.</param>
 /// <param name="PointsParam">Doplňující index metriky bodů (surovina…), nebo −1.</param>
 /// <param name="PointsDivisor">Body = hodnota metriky ÷ tenhle dělitel (celočíselně).</param>
+/// <param name="RequirementGrowth">
+/// Kolikrát je každý další Vzestup náročnější (1.0 = pořád stejně). Bez růstu by
+/// druhý Vzestup přišel hned po prvním a celá progrese by ztratila smysl.
+/// </param>
 public sealed record PrestigeConfig(
     GoalCondition Requirement,
     MetricKind PointsMetric,
     int PointsParam,
-    long PointsDivisor);
+    long PointsDivisor,
+    double RequirementGrowth = 1.0);
 
 /// <summary>
 /// Jeden trvalý upgrade za body Vzestupu. <see cref="Effect"/> je behavior-ID

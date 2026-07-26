@@ -21,7 +21,7 @@ public sealed class SaveGameSerializer
     private const string Magic = "CIVD";
 
     /// <summary>Verze formátu — zvýšit při každé změně struktury. v6: + úkoly. v7: + skrýše. v8: + zasazené uzly. v9: + zóny. v10: + politiky. v11: + guvernér. v12: + známé suroviny.</summary>
-    public const int FormatVersion = 12;
+    public const int FormatVersion = 13;
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -54,6 +54,7 @@ public sealed class SaveGameSerializer
         WritePolicies(writer, simulation);
         writer.Write(simulation.AutoUpgradeLevelRaw);
         WriteKnownResources(writer, simulation);
+        WriteWorldChanges(writer, simulation);
     }
 
     /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
@@ -104,6 +105,7 @@ public sealed class SaveGameSerializer
             ReadPolicies(reader, content, simulation);
             simulation.RestoreAutoUpgradeLevel(reader.ReadInt32());
             ReadKnownResources(reader, content, simulation);
+            ReadWorldChanges(reader, content, simulation);
             simulation.FinalizeLoad(); // bonusy Vzestupu → přepočet bydlení/skladů + politik
 
             return (simulation, metadata);
@@ -370,6 +372,43 @@ public sealed class SaveGameSerializer
 
             // Smazaná surovina v datech = zasazený uzel se tiše přeskočí.
         }
+    }
+
+    /// <summary>
+    /// Zásahy do světa, které nejsou funkcí seedu: terraformované dlaždice a poslední
+    /// okno, ve kterém už UFO zasáhlo. Bez toho druhého by se po načtení savu tentýž
+    /// zásah provedl znovu.
+    /// </summary>
+    private static void WriteWorldChanges(BinaryWriter writer, Simulation simulation)
+    {
+        var biomeDefs = SimContent(simulation).Biomes;
+        var overrides = simulation.BiomeOverrides().ToList();
+        writer.Write(overrides.Count);
+        foreach (var (tile, biomeIndex) in overrides)
+        {
+            writer.Write(tile);
+            writer.Write(biomeDefs[biomeIndex].Id); // stabilní ID, ne index
+        }
+
+        writer.Write(simulation.LastUfoWindow);
+    }
+
+    private static void ReadWorldChanges(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        int count = ReadCount(reader, max: 20_000_000, what: "terraformovaných dlaždic");
+        for (int i = 0; i < count; i++)
+        {
+            long tile = reader.ReadInt64();
+            string id = reader.ReadString();
+            if (content.Biomes.TryIndexOf(id, out int biomeIndex))
+            {
+                simulation.RestoreBiomeOverride(tile, (byte)biomeIndex);
+            }
+
+            // Smazaný biom v datech = dlaždice se vrátí k původnímu terénu.
+        }
+
+        simulation.RestoreLastUfoWindow(reader.ReadInt64());
     }
 
     private static void WriteZones(BinaryWriter writer, Simulation simulation)

@@ -45,7 +45,8 @@ internal static class TestContent
         IReadOnlyList<AscensionTierDef>? ascensionTiers = null,
         IReadOnlyList<WeatherDef>? weather = null,
         IReadOnlyList<LandmarkDef>? landmarks = null,
-        IReadOnlyList<FeatureDef>? features = null)
+        IReadOnlyList<FeatureDef>? features = null,
+        UfoConfig? ufo = null)
     {
         biomes ??= new[] { WaterBiome(), LandBiome("grass") };
         resources ??= new[] { new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 10, BaseStorage: 1000) };
@@ -95,7 +96,8 @@ internal static class TestContent
             new DefRegistry<AscensionTierDef>(ascensionTiers, t => t.Id, "stupeň měřítka", allowEmpty: true),
             new DefRegistry<WeatherDef>(weather, w => w.Id, "počasí", allowEmpty: true),
             new DefRegistry<LandmarkDef>(landmarks, l => l.Id, "landmark", allowEmpty: true),
-            new DefRegistry<FeatureDef>(features, f => f.Id, "funkce", allowEmpty: true));
+            new DefRegistry<FeatureDef>(features, f => f.Id, "funkce", allowEmpty: true),
+            ufo ?? UfoConfig.Disabled);
     }
 
     /// <summary>Výchozí prestige config testů (Vzestup od 50 obyvatel, body = populace ÷ 15).</summary>

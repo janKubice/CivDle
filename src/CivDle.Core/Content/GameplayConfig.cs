@@ -69,7 +69,11 @@ public sealed record BoostConfig(int DurationSeconds, int CooldownSeconds, doubl
 /// <summary>Ruční sběr: šance na „krit" (velký výnos) — aktivní klikání se vyplatí.</summary>
 /// <param name="CritChance">Pravděpodobnost kritu (0–1) na jeden sběr.</param>
 /// <param name="CritMultiplier">Násobič výnosu při kritu.</param>
-public sealed record HarvestConfig(double CritChance, double CritMultiplier);
+/// <param name="JackpotMultiplier">
+/// Násobič „úlovku života" (velryba, obří žíla). Šanci na něj dávají až upgrady
+/// Vzestupu — bez nich nenastane, takže tenhle násobič smí být pořádně velký.
+/// </param>
+public sealed record HarvestConfig(double CritChance, double CritMultiplier, double JackpotMultiplier = 25.0);
 
 /// <summary>Denní odměna za návrat: základ × série dní (do stropu). Retenční háček.</summary>
 /// <param name="BaseReward">Základní odměna v surovinách (za 1. den série).</param>

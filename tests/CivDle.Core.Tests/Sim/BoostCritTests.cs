@@ -63,8 +63,8 @@ public class BoostCritTests
             gameplay: TestContent.DefaultGameplay with { Harvest = new HarvestConfig(1.0, 3.0) });
         var sim = new Simulation(content, new UniformTerrain((byte)1));
 
-        Assert.True(sim.TryHarvest(0, 0, out _, out int amount, out bool crit));
-        Assert.True(crit);
+        Assert.True(sim.TryHarvest(0, 0, out _, out int amount, out var outcome));
+        Assert.Equal(HarvestOutcome.Crit, outcome);
         Assert.Equal(6, amount); // 2 základ × 3 krit
     }
 }

@@ -10,6 +10,6 @@
     { "id": "research",  "unlock": { "metric": "buildings", "target": 3 } },
     { "id": "zones",     "unlock": { "metric": "research", "tech": "municipal_administration" } },
     { "id": "governor",  "unlock": { "metric": "research", "tech": "municipal_administration" } },
-    { "id": "ascend",    "unlock": { "metric": "population", "target": 40 } }
+    { "id": "ascend",    "unlock": { "metric": "population", "target": 150 } }
   ]
 }

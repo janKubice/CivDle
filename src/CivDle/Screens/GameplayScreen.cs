@@ -43,6 +43,7 @@ public sealed class GameplayScreen : IScreen
     private readonly RoadRenderer _roadRenderer;
     private readonly ZoneRenderer _zoneRenderer;
     private readonly LandmarkRenderer _landmarkRenderer;
+    private readonly UfoRenderer _ufoRenderer;
     private readonly WeatherRenderer _weatherRenderer;
     private readonly BuildingRenderer _buildingRenderer;
     private readonly LightsRenderer _lightsRenderer;
@@ -157,6 +158,7 @@ public sealed class GameplayScreen : IScreen
         _roadRenderer = new RoadRenderer(screens.WhitePixel, screens.Content);
         _zoneRenderer = new ZoneRenderer(screens.WhitePixel, screens.Content);
         _landmarkRenderer = new LandmarkRenderer(screens.WhitePixel, screens.Content);
+        _ufoRenderer = new UfoRenderer(screens.WhitePixel);
         _weatherRenderer = new WeatherRenderer(screens.WhitePixel, screens.Content);
         _buildingRenderer = new BuildingRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
         _lightsRenderer = new LightsRenderer(screens.WhitePixel, screens.Content);
@@ -322,6 +324,9 @@ public sealed class GameplayScreen : IScreen
             _cityScale.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, _camera, _simulation);
         }
 
+        // UFO letí nad vším na mapě — je to událost, ne kulisa.
+        _ufoRenderer.Draw(spriteBatch, _camera, _simulation, (float)gameTime.TotalGameTime.TotalSeconds);
+
         _particles.Draw(spriteBatch, _screens.WhitePixel, _camera);
 
         // Den/noc: ztmavení scény a pak aditivní světla, ať září skrz tmu.
@@ -370,7 +375,54 @@ public sealed class GameplayScreen : IScreen
         _minimap.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, _camera, _simulation);
         _floatingText.Draw(spriteBatch, _camera, _popupFont);
         DrawSettlementLabels(spriteBatch);
+        DrawTileTooltip(spriteBatch);
         _toasts.Draw(spriteBatch, _screens.GraphicsDevice.Viewport);
+    }
+
+    /// <summary>
+    /// Bublina u kurzoru s tím, co je na dlaždici pod myší: terén, a hlavně jméno
+    /// zvláštnosti (prastarý strom, žíla, skrýš). Bez toho hráč koukal na „nějaké
+    /// kostičky" a neměl jak zjistit, co to je.
+    /// </summary>
+    private void DrawTileTooltip(SpriteBatch spriteBatch)
+    {
+        if (_desktop.IsMouseOverGUI || _camera.Zoom < LandmarkRenderer.MinZoom)
+        {
+            return;
+        }
+
+        var world = _camera.ScreenToWorld(_input.MousePosition.ToVector2());
+        int tileX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
+        int tileY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
+
+        var loc = _screens.Loc;
+        var content = _screens.Content;
+        string title = loc[content.Biomes[_simulation.BiomeAt(tileX, tileY)].NameKey];
+        string? body = null;
+        Color? accent = null;
+
+        int landmark = _simulation.LandmarkAt(tileX, tileY);
+        if (landmark >= 0)
+        {
+            title = loc[content.Landmarks[landmark].NameKey];
+            body = loc["tip.landmark"];
+            accent = new Color(255, 215, 120);
+        }
+        else if (_simulation.IsDiscoveryTile(tileX, tileY) && !_simulation.IsDiscoveryClaimed(tileX, tileY))
+        {
+            title = loc["tip.discovery"];
+            body = loc["tip.discovery.desc"];
+            accent = new Color(160, 220, 255);
+        }
+        else if (_simulation.TryGetPlantedNode(tileX, tileY, out int plantedResource))
+        {
+            title = loc[content.Resources[plantedResource].NameKey];
+            body = loc["tip.planted"];
+            accent = new Color(150, 230, 150);
+        }
+
+        HoverTooltip.Draw(spriteBatch, _screens.WhitePixel, _popupFont,
+            _screens.GraphicsDevice.Viewport, _input.MousePosition, title, body, accent);
     }
 
     /// <summary>Jmenovky osad ve screen-space nad těžištěm shluku (orientace na mapě, fáze 4).</summary>
@@ -703,7 +755,7 @@ public sealed class GameplayScreen : IScreen
             return;
         }
 
-        if (!_simulation.TryHarvest(tileX, tileY, out int resourceIndex, out int amount, out bool crit))
+        if (!_simulation.TryHarvest(tileX, tileY, out int resourceIndex, out int amount, out var outcome))
         {
             return;
         }
@@ -713,16 +765,27 @@ public sealed class GameplayScreen : IScreen
         var resourceColor = content.Resources[resourceIndex].MapColor.ToXna();
         var biomeColor = content.Biomes[_simulation.BiomeAt(tileX, tileY)].MapColor.ToXna();
 
-        if (crit)
+        switch (outcome)
         {
-            // Krit: zlatý velký popup + extra jiskry + cinknutí — aktivní klikání se vyplatí.
-            _floatingText.Add(tileCenter, _screens.Loc.Format("hud.crit", amount), new Color(255, 215, 80));
-            _particles.SpawnBurst(tileCenter, new Color(255, 215, 80), 20, 60f, 200f);
-            _sounds.PlayChime();
-        }
-        else
-        {
-            _floatingText.Add(tileCenter, PopupText(resourceIndex, amount), resourceColor);
+            case HarvestOutcome.Jackpot:
+                // Úlovek života (velryba, obří žíla): největší oslava, jakou hra má —
+                // je to vzácnost odemčená až Vzestupem, musí to být poznat.
+                _floatingText.Add(tileCenter, _screens.Loc.Format("hud.jackpot", amount), new Color(120, 235, 255));
+                _particles.SpawnBurst(tileCenter, new Color(120, 235, 255), 48, 80f, 340f);
+                _particles.SpawnBurst(tileCenter, new Color(255, 255, 255), 24, 40f, 180f);
+                _sounds.PlayChime();
+                break;
+
+            case HarvestOutcome.Crit:
+                // Krit: zlatý velký popup + extra jiskry + cinknutí — aktivní klikání se vyplatí.
+                _floatingText.Add(tileCenter, _screens.Loc.Format("hud.crit", amount), new Color(255, 215, 80));
+                _particles.SpawnBurst(tileCenter, new Color(255, 215, 80), 20, 60f, 200f);
+                _sounds.PlayChime();
+                break;
+
+            default:
+                _floatingText.Add(tileCenter, PopupText(resourceIndex, amount), resourceColor);
+                break;
         }
 
         _sounds.PlayChop();

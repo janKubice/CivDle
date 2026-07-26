@@ -12,6 +12,11 @@ namespace CivDle.Core.Sim;
 /// <param name="StorageMult">Násobič kapacity skladů (základ i budovy).</param>
 /// <param name="StartResourceMult">Násobič startovních surovin nové éry.</param>
 /// <param name="OfflineMult">Násobič efektivity offline postupu (co běží, když nehraješ).</param>
+/// <param name="CritChanceBonus">Přičítá se k šanci na krit při ručním sběru (0.05 = +5 p. b.).</param>
+/// <param name="JackpotChance">Šance na „úlovek života" — vzácný obří výnos (0 = nikdy).</param>
+/// <param name="DiscoveryLuck">Násobič hustoty nálezů na mapě (1.0 = beze změny).</param>
+/// <param name="FestivalPower">Násobič síly slavnosti nad rámec základního boostu.</param>
+/// <param name="ResearchDiscount">Podíl, o který zlevní výzkum (0.25 = −25 %).</param>
 public readonly record struct PrestigeBonuses(
     double ProductionMult,
     double HarvestMult,
@@ -19,8 +24,13 @@ public readonly record struct PrestigeBonuses(
     double HousingMult,
     double StorageMult,
     double StartResourceMult,
-    double OfflineMult)
+    double OfflineMult,
+    double CritChanceBonus = 0.0,
+    double JackpotChance = 0.0,
+    double DiscoveryLuck = 1.0,
+    double FestivalPower = 1.0,
+    double ResearchDiscount = 0.0)
 {
-    /// <summary>Neutrální bonusy (vše 1.0) — žádné upgrady.</summary>
+    /// <summary>Neutrální bonusy (vše 1.0 / 0) — žádné upgrady.</summary>
     public static PrestigeBonuses None { get; } = new(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
 }

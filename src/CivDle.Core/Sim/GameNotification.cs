@@ -14,6 +14,9 @@ public enum NotificationKind
 
     /// <summary>Proběhl Vzestup.</summary>
     Ascended,
+
+    /// <summary>Zásah do světa, který nespustil hráč (návštěva UFO).</summary>
+    WorldEvent,
 }
 
 /// <summary>
