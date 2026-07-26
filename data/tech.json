@@ -46,7 +46,7 @@
       "id": "iron_working",
       "cost": { "stone": 60, "bronze": 25 },
       "prerequisites": ["bronze_working"],
-      "unlocks": ["iron_mine", "coal_mine", "blast_furnace"]
+      "unlocks": ["iron_mine", "coal_mine", "blast_furnace", "charcoal_kiln"]
     },
     {
       "id": "toolsmithing",
@@ -64,7 +64,7 @@
       "id": "steam_power",
       "cost": { "iron": 40, "coal": 40 },
       "prerequisites": ["iron_working"],
-      "unlocks": ["steel_mill"]
+      "unlocks": ["steel_mill", "machine_shop"]
     },
     {
       "id": "electrification",
@@ -83,7 +83,7 @@
       "id": "electronics",
       "cost": { "machine_parts": 30, "steel": 30 },
       "prerequisites": ["electrification"],
-      "unlocks": ["silicon_mine", "electronics_fab"]
+      "unlocks": ["silicon_mine", "electronics_fab", "solar_array", "hydroponics"]
     },
     {
       "id": "computing",

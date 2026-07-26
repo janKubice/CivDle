@@ -396,6 +396,15 @@
     "tech.matter_synthesis.desc": "Hand harvest +200%.",
     "tech.longevity": "Longevity",
     "tech.longevity.desc": "Population growth +150%.",
-    "tech.graphHelp": "Drag or WASD to pan · click a node to research"
+    "tech.graphHelp": "Drag or WASD to pan · click a node to research",
+    "building.fishing_hut": "Fishing Hut",
+    "building.hunters_lodge": "Hunter's Lodge",
+    "building.granary": "Granary",
+    "building.depot": "Depot",
+    "building.workshop": "Workshop",
+    "building.charcoal_kiln": "Charcoal Kiln",
+    "building.machine_shop": "Machine Shop",
+    "building.solar_array": "Solar Array",
+    "building.hydroponics": "Hydroponics"
   }
 }

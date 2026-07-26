@@ -365,6 +365,94 @@
       "allowedBiomes": ["grassland", "steppe", "beach"]
     },
     {
+      "id": "fishing_hut",
+      "category": "production",
+      "mapColor": "#4FA3C7",
+      "footprint": [1, 1],
+      "workerSlots": 2,
+      "buildCost": { "wood": 12 },
+      "recipe": { "output": { "food": 2 }, "timeTicks": 50 },
+      "allowedBiomes": ["beach"]
+    },
+    {
+      "id": "hunters_lodge",
+      "category": "production",
+      "mapColor": "#7A5C3A",
+      "footprint": [1, 1],
+      "workerSlots": 2,
+      "buildCost": { "wood": 15 },
+      "recipe": { "output": { "food": 2 }, "timeTicks": 55 },
+      "allowedBiomes": ["forest"]
+    },
+    {
+      "id": "granary",
+      "category": "storage",
+      "mapColor": "#C9A227",
+      "footprint": [1, 1],
+      "buildCost": { "wood": 20, "planks": 8 },
+      "storage": { "food": 150 },
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "depot",
+      "category": "storage",
+      "mapColor": "#8D7B5F",
+      "footprint": [1, 1],
+      "buildCost": { "planks": 15, "stone": 15 },
+      "storage": { "wood": 120, "planks": 80, "stone": 100 },
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "workshop",
+      "category": "production",
+      "mapColor": "#A98C5F",
+      "footprint": [1, 1],
+      "workerSlots": 2,
+      "buildCost": { "planks": 12, "stone": 10 },
+      "recipe": { "input": { "planks": 1, "stone": 1 }, "output": { "tools": 1 }, "timeTicks": 70 },
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "charcoal_kiln",
+      "category": "production",
+      "mapColor": "#4B4038",
+      "footprint": [1, 1],
+      "workerSlots": 3,
+      "buildCost": { "stone": 18, "planks": 10 },
+      "recipe": { "input": { "wood": 3 }, "output": { "coal": 1 }, "timeTicks": 50 },
+      "allowedBiomes": ["grassland", "steppe", "forest"]
+    },
+    {
+      "id": "machine_shop",
+      "category": "production",
+      "mapColor": "#6B7A85",
+      "footprint": [1, 1],
+      "workerSlots": 4,
+      "buildCost": { "iron": 15, "tools": 10 },
+      "recipe": { "input": { "iron": 2, "coal": 1 }, "output": { "machine_parts": 1 }, "timeTicks": 70 },
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "solar_array",
+      "category": "power",
+      "mapColor": "#3F7FBF",
+      "footprint": [2, 2],
+      "buildCost": { "silicon": 25, "steel": 15 },
+      "powerSupply": 18,
+      "allowedBiomes": ["grassland", "steppe", "beach"]
+    },
+    {
+      "id": "hydroponics",
+      "category": "production",
+      "mapColor": "#5FBF7F",
+      "footprint": [2, 2],
+      "workerSlots": 4,
+      "buildCost": { "steel": 20, "electronics": 10 },
+      "recipe": { "output": { "food": 12 }, "timeTicks": 45 },
+      "powerDemand": 14,
+      "allowedBiomes": ["grassland", "steppe", "beach", "mountains", "snow_peaks"]
+    },
+    {
       "id": "megacity_spire",
       "category": "megastructure",
       "mapColor": "#9C6ADE",

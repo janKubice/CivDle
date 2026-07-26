@@ -396,6 +396,15 @@
     "tech.matter_synthesis.desc": "Ruční sběr +200 %.",
     "tech.longevity": "Dlouhověkost",
     "tech.longevity.desc": "Růst populace +150 %.",
-    "tech.graphHelp": "Táhni myší nebo WASD · klikni na uzel a vyzkoumej"
+    "tech.graphHelp": "Táhni myší nebo WASD · klikni na uzel a vyzkoumej",
+    "building.fishing_hut": "Rybářská chata",
+    "building.hunters_lodge": "Lovecká chata",
+    "building.granary": "Sýpka",
+    "building.depot": "Skladiště",
+    "building.workshop": "Dílna",
+    "building.charcoal_kiln": "Milíř",
+    "building.machine_shop": "Strojírna",
+    "building.solar_array": "Solární pole",
+    "building.hydroponics": "Hydroponie"
   }
 }
