@@ -1625,7 +1625,27 @@ public sealed class ContentLoader
             harvest,
             dailyReward,
             planting,
-            ParseHappiness(path, file.Happiness));
+            ParseHappiness(path, file.Happiness),
+            ParseStaffing(path, file.Staffing));
+    }
+
+    /// <summary>
+    /// Nastavení přidělování dělníků. Chybí-li blok, platí výchozí práh —
+    /// starší data se načtou beze změny chování.
+    /// </summary>
+    private static StaffingConfig? ParseStaffing(string path, StaffingDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (dto.ScarcityThreshold is < 0 or > 1)
+        {
+            throw new ContentLoadException(path, $"'staffing.scarcityThreshold' musí být 0–1, je {dto.ScarcityThreshold}.");
+        }
+
+        return new StaffingConfig(dto.ScarcityThreshold);
     }
 
     /// <summary>

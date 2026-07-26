@@ -206,6 +206,13 @@ public sealed class Simulation
     /// <summary>Součet pracovních míst výrobních budov — obsazenost škáluje výrobu.</summary>
     public int TotalWorkerSlots { get; private set; }
 
+    /// <summary>
+    /// Kolik budov zrovna stojí bez jediného dělníka. Počítá výrobní tik při
+    /// rozdělování lidí; UI to ukazuje jako varování, aby hráč poznal, že další
+    /// budova mu nic nepřinese, dokud nepřibudou lidi.
+    /// </summary>
+    public int IdleBuildings { get; internal set; }
+
     /// <summary>Celkový výkon elektráren (jednotky elektřiny).</summary>
     public int TotalPowerSupply { get; private set; }
 

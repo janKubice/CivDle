@@ -76,7 +76,11 @@ public sealed record GameplayFileDto(
     HarvestDto? Harvest,
     DailyRewardDto? DailyReward,
     PlantingDto? Planting,
-    HappinessDto? Happiness);
+    HappinessDto? Happiness,
+    StaffingDto? Staffing);
+
+/// <summary>Přidělování dělníků tak, jak leží v JSON.</summary>
+public sealed record StaffingDto(double ScarcityThreshold);
 
 /// <summary>Nastavení spokojenosti tak, jak leží v JSON.</summary>
 public sealed record HappinessDto(

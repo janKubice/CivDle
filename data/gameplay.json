@@ -12,7 +12,9 @@
   },
   "roads": {
     "mapColor": "#9A9284",
-    "maxSearchDistance": 60, "maxBridgeSpan": 6, "disconnectedProductionMult": 0.6
+    "maxSearchDistance": 60,
+    "maxBridgeSpan": 6,
+    "disconnectedProductionMult": 0.6
   },
   "settlements": {
     "minBuildings": 3,
@@ -27,10 +29,29 @@
     "nightAlpha": 0.45,
     "duskAlpha": 0.18
   },
-  "boost": { "durationSeconds": 30, "cooldownSeconds": 120, "multiplier": 2.0 },
-  "harvest": { "critChance": 0.12, "critMultiplier": 5 },
-  "dailyReward": { "reward": { "food": 25, "wood": 20 }, "streakCap": 7 },
-  "planting": { "cost": { "food": 10 }, "resource": "wood", "amount": 2 },
+  "boost": {
+    "durationSeconds": 30,
+    "cooldownSeconds": 120,
+    "multiplier": 2.0
+  },
+  "harvest": {
+    "critChance": 0.12,
+    "critMultiplier": 5
+  },
+  "dailyReward": {
+    "reward": {
+      "food": 25,
+      "wood": 20
+    },
+    "streakCap": 7
+  },
+  "planting": {
+    "cost": {
+      "food": 10
+    },
+    "resource": "wood",
+    "amount": 2
+  },
   "_comment_happiness": "Spokojenost 0-1: základ + pokrytí službami - přelidnění. Nízká brzdí růst (nikdy nikoho nezabije). intervalTicks 0 = vrstva vypnutá.",
   "happiness": {
     "intervalTicks": 50,
@@ -40,5 +61,8 @@
     "peoplePerServicePoint": 12,
     "growthFloor": 0.15,
     "freePopulation": 25
+  },
+  "staffing": {
+    "scarcityThreshold": 0.6
   }
 }

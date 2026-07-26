@@ -744,6 +744,8 @@
     "howto.3": "3 · Population is the engine. People staff buildings; an understaffed city produces less of everything.",
     "howto.4": "4 · Research. The tech tree unlocks better buildings, new resources and whole eras.",
     "howto.5": "5 · Ascend. Once your city is big enough you can restart at a larger scale, keeping permanent bonuses.",
-    "howto.6": "6 · The goal: turn one settlement into an agglomeration of millions. The tracker on the left always names your next step."
+    "howto.6": "6 · The goal: turn one settlement into an agglomeration of millions. The tracker on the left always names your next step.",
+    "hud.idleBuildings": "{0} idle (no workers)",
+    "tip.idleBuildings": "These buildings have nobody to staff them, so they produce nothing. Workers go to the oldest buildings first — grow the population, or demolish what you do not need."
   }
 }

@@ -76,6 +76,7 @@ public sealed class GameplayScreen : IScreen
     private double[] _perSecond = Array.Empty<double>();
     private float _rateTimer;
     private Label _populationLabel = null!;
+    private Label _idleLabel = null!;
     private Label _eraLabel = null!;
     private Label _eraNextLabel = null!;
     private Label _tierLabel = null!;
@@ -857,6 +858,16 @@ public sealed class GameplayScreen : IScreen
         _populationLabel = new Label { VerticalAlignment = VerticalAlignment.Center, TextColor = UiFactory.Accent };
         resourceBar.Widgets.Add(_populationLabel);
 
+        // Nevyužité budovy se musí ohlásit: bez dělníků nevyrábějí a hráč by jinak
+        // jen viděl, že mu stavění přestalo něco přinášet, aniž by věděl proč.
+        _idleLabel = new Label
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            TextColor = new Color(240, 180, 90),
+            Tooltip = _screens.Loc["tip.idleBuildings"],
+        };
+        resourceBar.Widgets.Add(_idleLabel);
+
         var topLeft = UiFactory.DarkPanel(resourceBar);
         topLeft.HorizontalAlignment = HorizontalAlignment.Left;
         topLeft.VerticalAlignment = VerticalAlignment.Top;
@@ -1411,6 +1422,10 @@ public sealed class GameplayScreen : IScreen
             double rate = i < _perSecond.Length ? _perSecond[i] : 0.0;
             _resourceRateLabels[i].Text = rate >= 0.05 ? $"+{CivDle.Core.Numbers.Format(rate)}/s" : string.Empty;
         }
+
+        _idleLabel.Text = _simulation.IdleBuildings > 0
+            ? loc.Format("hud.idleBuildings", _simulation.IdleBuildings)
+            : string.Empty;
 
         _populationLabel.Text = loc.Format("hud.population",
             CivDle.Core.Numbers.Format(_simulation.Population), CivDle.Core.Numbers.Format(_simulation.HousingCapacity));

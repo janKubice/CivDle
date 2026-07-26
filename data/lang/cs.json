@@ -744,6 +744,8 @@
     "howto.3": "3 · Populace je motor. Lidé obsazují budovy; nedoobsazené město vyrábí míň všeho.",
     "howto.4": "4 · Zkoumej. Strom technologií odemyká lepší budovy, nové suroviny i celé éry.",
     "howto.5": "5 · Vzestup. Až bude město dost velké, restartuješ ho ve větším měřítku a trvalé bonusy si necháš.",
-    "howto.6": "6 · Cíl: udělat z jedné osady aglomeraci o milionech. Sledovač vlevo ti vždycky řekne další krok."
+    "howto.6": "6 · Cíl: udělat z jedné osady aglomeraci o milionech. Sledovač vlevo ti vždycky řekne další krok.",
+    "hud.idleBuildings": "{0} bez dělníků",
+    "tip.idleBuildings": "Tyhle budovy nemá kdo obsadit, takže nevyrábějí. Dělníci jdou nejdřív do nejstarších budov — nech vyrůst populaci, nebo zbourej, co nepotřebuješ."
   }
 }
