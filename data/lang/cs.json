@@ -1033,6 +1033,8 @@
     "milestone.thousand_buildings": "Tisíc budov",
     "milestone.first_ascension": "První Vzestup",
     "milestone.third_ascension": "Tři Vzestupy",
-    "milestone.first_merge": "První sloučení"
+    "milestone.first_merge": "První sloučení",
+    "hud.escort": "Doprovod!",
+    "toast.caravanArrived": "Karavana dorazila"
   }
 }

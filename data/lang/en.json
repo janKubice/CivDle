@@ -1033,6 +1033,8 @@
     "milestone.thousand_buildings": "A thousand buildings",
     "milestone.first_ascension": "The first Ascension",
     "milestone.third_ascension": "Three Ascensions",
-    "milestone.first_merge": "The first merge"
+    "milestone.first_merge": "The first merge",
+    "hud.escort": "Escort!",
+    "toast.caravanArrived": "Caravan arrived"
   }
 }

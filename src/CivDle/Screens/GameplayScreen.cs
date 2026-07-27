@@ -65,6 +65,7 @@ public sealed class GameplayScreen : IScreen
     private readonly CityScaleRenderer _cityScale;
     private readonly VignetteRenderer _vignette;
     private readonly BubbleSystem _bubbles;
+    private readonly CaravanSystem _caravans;
     private readonly GoldenSpawnSystem _golden;
     private readonly DiscoveryRenderer _discoveries;
     private readonly SpriteFontBase _popupFont;
@@ -164,6 +165,7 @@ public sealed class GameplayScreen : IScreen
         _minimap = new MinimapRenderer(screens.GraphicsDevice, screens.Content.Biomes, screens.WhitePixel);
         _vignette = new VignetteRenderer(screens.GraphicsDevice);
         _bubbles = new BubbleSystem(screens.Sprites, screens.Content);
+        _caravans = new CaravanSystem(screens.Sprites, screens.Content);
         _golden = new GoldenSpawnSystem(screens.Sprites, screens.Content);
         _discoveries = new DiscoveryRenderer(screens.Sprites);
         _popupFont = Stylesheet.Current.LabelStyle.Font;
@@ -279,6 +281,7 @@ public sealed class GameplayScreen : IScreen
             _fauna.Update(dt, _camera, _simulation);
             _agents.Update(dt, _camera, _simulation);
             _bubbles.Update(dt, _simulation);
+            UpdateCaravan(dt);
             _golden.Update(dt, _camera, _simulation);
             _discoveries.Update(dt);
         }
@@ -314,6 +317,7 @@ public sealed class GameplayScreen : IScreen
             _agents.Draw(spriteBatch, _camera);
             _fauna.Draw(spriteBatch, _screens.WhitePixel, _camera);
             _bubbles.Draw(spriteBatch, _camera);
+            _caravans.Draw(spriteBatch, _camera);
             _golden.Draw(spriteBatch, _camera);
         }
         else
@@ -598,6 +602,16 @@ public sealed class GameplayScreen : IScreen
         int tileY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
 
         // Sběrné bubliny a zlaté spawny mají přednost před budovou i těžbou.
+        // Karavana má přednost před těžbou i bublinou — je na ní vidět, že se
+        // na ni klika, a hráč po ní klika záměrně.
+        if (_caravans.TryEscort(world, out var caravanPos))
+        {
+            _floatingText.Add(caravanPos - new Vector2(0f, TerrainRenderer.TileSize * 0.5f),
+                _screens.Loc["hud.escort"], new Color(255, 220, 140));
+            _particles.SpawnBurst(caravanPos, new Color(255, 220, 140), 8, 40f, 130f);
+            return;
+        }
+
         if (_bubbles.TryCollect(world, _simulation, out int bubbleRes, out int bubbleAmt, out var bubblePos))
         {
             CollectFeedback(bubbleRes, bubbleAmt, bubblePos);
@@ -1391,6 +1405,25 @@ public sealed class GameplayScreen : IScreen
     /// </summary>
     private void RefreshChallengeDay() =>
         _simulation.SetChallengeDay(DailyReward.TodayKey(DateTime.UtcNow));
+
+    /// <summary>
+    /// Posune karavanu a vyplatí ji, když dorazí. Odemyká se stejnou funkcí jako
+    /// ruční silnice — bez sítě není kudy jezdit.
+    /// </summary>
+    private void UpdateCaravan(float dt)
+    {
+        if (!_simulation.IsFeatureUnlocked("roads"))
+        {
+            return;
+        }
+
+        _caravans.Update(dt, _simulation);
+        if (_caravans.TryCollectArrival(_simulation, out int resourceIndex, out int amount, out var position))
+        {
+            _simulation.AddResource(resourceIndex, amount);
+            CollectFeedback(resourceIndex, amount, position);
+        }
+    }
 
     /// <summary>Promítne přístupnostní volbu „omezit pohyb" do vizuálních efektů.</summary>
     private void ApplyMotionSettings()
