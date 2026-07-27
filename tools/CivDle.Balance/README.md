@@ -7,6 +7,7 @@ a po ní, místo aby se odhadoval od oka.
 ```bash
 dotnet run --project tools/CivDle.Balance -- --minutes 60
 dotnet run --project tools/CivDle.Balance -- --minutes 180 --runs 3 --csv krivky.csv
+dotnet run -c Release --project tools/CivDle.Balance -- --stress
 ```
 
 Simulace je deterministická, takže stejný seed dá vždy stejný výsledek.
@@ -53,3 +54,37 @@ Stejný seed, 60 minut, před a po:
 ve 150. minutě je na 335 obyvatelích.
 
 Zbývá otevřené: hodnota prahu 250 je pořád nastavená odhadem, jen už je dosažitelná.
+
+## Zátěžový režim (`--stress`)
+
+Balanční běh se do velkých čísel nedostane — náhradní hráč staví pomalu. Zátěžový
+režim proto město naskládá rovnou a měří dobu tiku. Vypisuje dvě tabulky:
+
+- **nečinné město** — reálná populace (pár lidí), většina budov bez dělníků. Tohle
+  je stav, do kterého se hra opravdu dostane.
+- **plně obsazené město** — startovní populace nasazená tak, aby vyráběla každá
+  budova. Reálná hra se sem nedostane (populace roste lineárně, viz nález níže),
+  ale je to jediný poctivý **horní odhad**: jinak se výrobní smyčka přeskakuje
+  a číslo lže.
+
+Měří se celý tik, ne jednotlivé systémy — na otázku „vejdeme se do rozpočtu?"
+to stačí. Rozpočet = podíl reálného času (10 Hz → 100 ms na tik).
+
+### Naměřeno (2026-07, plně obsazené město)
+
+| budov | obyvatel | µs/tik před | µs/tik po | rozpočet po |
+|---|---|---|---|---|
+| 1 000 | 2 000 | 18 | 11 | 0,01 % |
+| 10 000 | 20 000 | 178 | 91 | 0,09 % |
+| 50 000 | 100 000 | 1 053 | 461 | 0,46 % |
+| 250 000 | 500 000 | 4 553 | 2 383 | **2,38 %** |
+
+Obava, že přidělování dělníků bude na velkém městě problém, se **nepotvrdila**:
+i před optimalizací sežral tik při 250 tisících budovách 4,5 % rozpočtu. Zrychlení
+na dvojnásobek přišlo z jedné změny — nedostatkovost se počítá jednou za tik nad
+*definicemi* budov (desítky), ne u každé *budovy* zvlášť (statisíce). Výsledek je
+pro všechny budovy téhož typu stejný, takže se to počítalo pořád dokola.
+
+Skutečný strop tedy neleží ve výkonu simulace, ale v tom, že se hráč k městu téhle
+velikosti nedostane: populace roste konstantní rychlostí, zatímco stupně měřítka
+rostou násobně. To je otevřená otázka návrhu, ne optimalizace.

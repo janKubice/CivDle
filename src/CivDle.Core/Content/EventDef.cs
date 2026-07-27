@@ -1,3 +1,5 @@
+using CivDle.Core.Sim;
+
 namespace CivDle.Core.Content;
 
 /// <summary>
@@ -18,10 +20,18 @@ public sealed record EventChoiceDef(
 /// učenec, slavnost… Občas vyskočí a hráč vybere jednu z možností. Přidává agenci
 /// a variabilitu, ladí s relaxačním tónem (žádný trest, jen nabídky). Jméno a popis
 /// v jazycích pod <c>event.&lt;Id&gt;</c> / <c>.desc</c>.
+///
+/// <para>Volitelná <see cref="Requirement"/> drží události v jejich době: kupec
+/// s ocelí nemá co nabízet osadě, která ještě neumí bronz. Bez podmínky je
+/// událost dostupná od začátku.</para>
 /// </summary>
 /// <param name="Id">Stabilní ID.</param>
 /// <param name="Choices">Nabízené volby (1–4).</param>
-public sealed record EventDef(string Id, IReadOnlyList<EventChoiceDef> Choices)
+/// <param name="Requirement">Kdy se událost smí objevit; <c>null</c> = vždy.</param>
+public sealed record EventDef(
+    string Id,
+    IReadOnlyList<EventChoiceDef> Choices,
+    GoalCondition? Requirement = null)
 {
     /// <summary>Lokalizační klíč jména události.</summary>
     public string NameKey => $"event.{Id}";

@@ -218,6 +218,12 @@ public sealed record TutorialStepDto(string? Id, GoalConditionDto? Condition, Fo
 /// <summary>Ukazatel „kam se podívat" tak, jak leží v JSON.</summary>
 public sealed record FocusHintDto(string? Kind, string? Building, string? Target);
 
+/// <summary>Obsah souboru <c>data/challenges.json</c> (denní výzvy).</summary>
+public sealed record ChallengeFileDto(int SchemaVersion, int DailyCount, List<ChallengeDto>? Challenges);
+
+/// <summary>Jedna denní výzva tak, jak leží v JSON.</summary>
+public sealed record ChallengeDto(string? Id, GoalConditionDto? Condition, Dictionary<string, int>? Reward);
+
 /// <summary>Obsah souboru <c>data/eras.json</c> (éry civilizace T0–T6).</summary>
 public sealed record ErasFileDto(int SchemaVersion, List<EraDto>? Eras);
 
@@ -279,7 +285,7 @@ public sealed record AscensionTierDto(string? Id, int Order, double PopulationCa
 public sealed record EventFileDto(int SchemaVersion, List<EventDto>? Events);
 
 /// <summary>Jedna událost tak, jak leží v JSON.</summary>
-public sealed record EventDto(string? Id, List<EventChoiceDto>? Choices);
+public sealed record EventDto(string? Id, List<EventChoiceDto>? Choices, GoalConditionDto? Requires);
 
 /// <summary>Jedna volba události tak, jak leží v JSON.</summary>
 public sealed record EventChoiceDto(string? Id, Dictionary<string, int>? Cost, Dictionary<string, int>? Gain);

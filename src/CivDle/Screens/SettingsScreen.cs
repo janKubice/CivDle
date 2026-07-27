@@ -29,6 +29,12 @@ public sealed class SettingsScreen : IScreen
     private int _windowModeIndex;
     private bool _vsync;
     private int _volumeStep;
+    private int _uiScaleStep;
+    private bool _reduceMotion;
+    private bool _colorCues;
+
+    /// <summary>Nabízená zvětšení UI (index = krok v přepínači).</summary>
+    private static readonly float[] UiScales = { 0.8f, 0.9f, 1.0f, 1.15f, 1.3f, 1.45f, 1.6f };
 
     /// <param name="showBackground">
     /// True v menu (kreslí živé město na pozadí); false z pauzy ve hře, kde by
@@ -52,9 +58,13 @@ public sealed class SettingsScreen : IScreen
         _windowModeIndex = (int)settings.WindowMode;
         _vsync = settings.VSync;
         _volumeStep = Math.Clamp((int)MathF.Round(settings.MasterVolume * 10f), 0, 10);
+        _uiScaleStep = NearestUiScaleStep(settings.SafeUiScale);
+        _reduceMotion = settings.ReduceMotion;
+        _colorCues = settings.ColorCues;
 
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
+        _screens.UiSettingsChanged += BuildUi;
     }
 
     public bool IsOverlay => false;
@@ -80,6 +90,7 @@ public sealed class SettingsScreen : IScreen
     public void Dispose()
     {
         _screens.Loc.LanguageChanged -= BuildUi;
+        _screens.UiSettingsChanged -= BuildUi;
     }
 
     private void BuildUi()
@@ -112,6 +123,16 @@ public sealed class SettingsScreen : IScreen
         var volume = new CycleSelector(11, _volumeStep, i => i == 0 ? loc["common.off"] : $"{i * 10} %");
         volume.SelectionChanged += i => _volumeStep = i;
 
+        var uiScale = new CycleSelector(
+            UiScales.Length, _uiScaleStep, i => $"{UiScales[i] * 100f:0} %");
+        uiScale.SelectionChanged += i => _uiScaleStep = i;
+
+        var reduceMotion = new CycleSelector(2, _reduceMotion ? 0 : 1, i => loc[i == 0 ? "common.on" : "common.off"]);
+        reduceMotion.SelectionChanged += i => _reduceMotion = i == 0;
+
+        var colorCues = new CycleSelector(2, _colorCues ? 0 : 1, i => loc[i == 0 ? "common.on" : "common.off"]);
+        colorCues.SelectionChanged += i => _colorCues = i == 0;
+
         var layout = new VerticalStackPanel
         {
             Spacing = 14,
@@ -131,10 +152,20 @@ public sealed class SettingsScreen : IScreen
         layout.Widgets.Add(UiFactory.Row(loc["settings.vsync"], vsync.Widget));
         layout.Widgets.Add(UiFactory.Row(loc["settings.sound"], volume.Widget));
         layout.Widgets.Add(new Label { Text = " " });
+        layout.Widgets.Add(new Label
+        {
+            Text = loc["settings.accessibility"],
+            TextColor = UiFactory.Accent,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        });
+        layout.Widgets.Add(UiFactory.Row(loc["settings.uiScale"], uiScale.Widget));
+        layout.Widgets.Add(UiFactory.Row(loc["settings.reduceMotion"], reduceMotion.Widget));
+        layout.Widgets.Add(UiFactory.Row(loc["settings.colorCues"], colorCues.Widget));
+        layout.Widgets.Add(new Label { Text = " " });
         layout.Widgets.Add(UiFactory.MenuButton(loc["settings.apply"], Apply));
         layout.Widgets.Add(UiFactory.MenuButton(loc["settings.back"], _screens.Pop));
 
-        _desktop = new Desktop { Root = UiFactory.MenuBackdrop(layout) };
+        _desktop = _screens.NewDesktop(UiFactory.MenuBackdrop(layout));
     }
 
     private void Apply()
@@ -148,11 +179,29 @@ public sealed class SettingsScreen : IScreen
             WindowMode = (WindowMode)_windowModeIndex,
             VSync = _vsync,
             MasterVolume = _volumeStep / 10f,
+            UiScale = UiScales[_uiScaleStep],
+            ReduceMotion = _reduceMotion,
+            ColorCues = _colorCues,
         };
 
         _screens.ApplySettings(settings);
         // Změna jazyka rozešle event — tahle i spodní obrazovky se přestaví.
         _screens.Loc.SetLanguage(settings.Language);
+    }
+
+    /// <summary>Nejbližší nabízený krok zvětšení k uložené hodnotě (soubor mohl někdo ručně upravit).</summary>
+    private static int NearestUiScaleStep(float scale)
+    {
+        int best = 0;
+        for (int i = 1; i < UiScales.Length; i++)
+        {
+            if (MathF.Abs(UiScales[i] - scale) < MathF.Abs(UiScales[best] - scale))
+            {
+                best = i;
+            }
+        }
+
+        return best;
     }
 
     private int IndexOfLanguage(string id)

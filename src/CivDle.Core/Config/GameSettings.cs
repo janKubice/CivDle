@@ -36,4 +36,31 @@ public sealed record GameSettings
 
     /// <summary>Hlasitost zvuků 0–1 (0 = ticho).</summary>
     public float MasterVolume { get; init; } = 0.7f;
+
+    /// <summary>
+    /// Zvětšení uživatelského rozhraní (1.0 = výchozí). HUD hry je hustý a na
+    /// velkém rozlišení drobný — bez tohohle je pro slabozraké nečitelný.
+    /// </summary>
+    public float UiScale { get; init; } = 1.0f;
+
+    /// <summary>
+    /// Omezit pohyb: vypne poletující čísla, částice a chvění obrazu. Pro hráče
+    /// citlivé na pohyb (vestibulární potíže) i pro ty, komu efekty překáží ve čtení.
+    /// </summary>
+    public bool ReduceMotion { get; init; }
+
+    /// <summary>
+    /// Nespoléhat jen na barvu: k zelené/červené ceně přidá i značku, takže
+    /// „mám / nemám" pozná i hráč s poruchou barvocitu.
+    /// </summary>
+    public bool ColorCues { get; init; }
+
+    /// <summary>Povolený rozsah zvětšení UI (mimo něj by se rozbilo rozvržení).</summary>
+    public const float MinUiScale = 0.8f;
+
+    /// <summary>Povolený rozsah zvětšení UI.</summary>
+    public const float MaxUiScale = 1.6f;
+
+    /// <summary>Zvětšení UI oříznuté do povoleného rozsahu (ochrana proti ručně upravenému souboru).</summary>
+    public float SafeUiScale => Math.Clamp(UiScale, MinUiScale, MaxUiScale);
 }

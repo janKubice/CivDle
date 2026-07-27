@@ -36,6 +36,7 @@ public sealed class HowToPlayScreen : IScreen
         _dimBackground = dimBackground;
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
+        _screens.UiSettingsChanged += BuildUi;
     }
 
     public bool IsOverlay => true;
@@ -68,6 +69,7 @@ public sealed class HowToPlayScreen : IScreen
     public void Dispose()
     {
         _screens.Loc.LanguageChanged -= BuildUi;
+        _screens.UiSettingsChanged -= BuildUi;
     }
 
     private void BuildUi()
@@ -97,6 +99,6 @@ public sealed class HowToPlayScreen : IScreen
         layout.Widgets.Add(new Label { Text = " " });
         layout.Widgets.Add(UiFactory.MenuButton(loc["settings.back"], _screens.Pop));
 
-        _desktop = new Desktop { Root = UiFactory.MenuBackdrop(layout) };
+        _desktop = _screens.NewDesktop(UiFactory.MenuBackdrop(layout));
     }
 }

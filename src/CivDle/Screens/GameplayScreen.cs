@@ -178,8 +178,10 @@ public sealed class GameplayScreen : IScreen
 
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
+        _screens.UiSettingsChanged += BuildUi;
         _ambient.Play(); // klidná smyčka pro relaxační jádro
         _eventTimer = NextEventGap();
+        RefreshChallengeDay();
     }
 
     public bool IsOverlay => false;
@@ -192,6 +194,7 @@ public sealed class GameplayScreen : IScreen
         // ať po Vzestupu (reset na 0 budov) nevystřelí prach za „nové" budovy.
         RefreshBuildMenu();
         _objectives.MarkDirty();
+        ApplyMotionSettings(); // hráč se mohl vrátit z nastavení
         _knownBuildingCount = _simulation.Buildings.Length;
     }
 
@@ -213,6 +216,7 @@ public sealed class GameplayScreen : IScreen
 
         // Pravidelný autosave: idle hra běží hodiny, ztratit ji kvůli pádu
         // nebo zavření okna je to nejhorší, co se může stát.
+        RefreshChallengeDay();
         _autosaveTimer -= dt;
         if (_autosaveTimer <= 0f)
         {
@@ -470,6 +474,7 @@ public sealed class GameplayScreen : IScreen
     public void Dispose()
     {
         _screens.Loc.LanguageChanged -= BuildUi;
+        _screens.UiSettingsChanged -= BuildUi;
         _terrainRenderer.Dispose();
         _minimap.Dispose();
         _vignette.Dispose();
@@ -712,24 +717,66 @@ public sealed class GameplayScreen : IScreen
             {
                 SyncAchievements();
             }
+            else if (note.TitleKey == "toast.challenge")
+            {
+                _screens.Profile.ChallengesCompleted++;
+                _screens.SaveProfile();
+            }
         }
     }
 
     /// <summary>Občas spustí náhodnou událost s volbami (mikro-rozhodnutí).</summary>
     private void UpdateEventScheduler(float dt)
     {
-        var events = _screens.Content.Events;
-        if (events.Count == 0)
+        if (_screens.Content.Events.Count == 0)
         {
             return;
         }
 
         _eventTimer -= dt;
-        if (_eventTimer <= 0f)
+        if (_eventTimer > 0f)
         {
-            _eventTimer = NextEventGap();
-            _screens.Push(new EventScreen(_screens, _simulation, events[_eventRng.Next(events.Count)]));
+            return;
         }
+
+        _eventTimer = NextEventGap();
+        if (PickEligibleEvent() is { } chosen)
+        {
+            _screens.Push(new EventScreen(_screens, _simulation, chosen));
+        }
+    }
+
+    /// <summary>
+    /// Vybere náhodnou událost, na kterou už město dorostlo. Bez filtru by nabízel
+    /// kupec ocel osadě, která ještě neumí bronz — a nabídka, kterou hráč nemůže
+    /// využít, je horší než žádná událost.
+    ///
+    /// <para>Reservoir sampling: rovnoměrný výběr jedním průchodem, bez pomocného
+    /// seznamu (událostí jsou desítky a tohle běží jednou za ~10 minut, ale je to
+    /// stejně krátké jako alokovat).</para>
+    /// </summary>
+    private EventDef? PickEligibleEvent()
+    {
+        var events = _screens.Content.Events;
+        EventDef? chosen = null;
+        int seen = 0;
+        for (int i = 0; i < events.Count; i++)
+        {
+            var candidate = events[i];
+            if (candidate.Requirement is { } requirement
+                && _simulation.EvaluateMetric(requirement.Kind, requirement.Param) < requirement.Target)
+            {
+                continue;
+            }
+
+            seen++;
+            if (_eventRng.Next(seen) == 0)
+            {
+                chosen = candidate;
+            }
+        }
+
+        return chosen;
     }
 
     /// <summary>
@@ -795,6 +842,32 @@ public sealed class GameplayScreen : IScreen
             if (_simulation.IsAchievementUnlocked(i) && !profile.UnlockedAchievements.Contains(id))
             {
                 profile.UnlockedAchievements.Add(id);
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            _screens.SaveProfile();
+        }
+    }
+
+    /// <summary>
+    /// Zapíše do kroniky, co tahle hra dokázala (rekordy a zastavěné biomy).
+    /// Volá se spolu s autosavem, ne každý snímek — profil se ukládá na disk
+    /// a rekord se stejně mění zřídka.
+    /// </summary>
+    private void SyncChronicle()
+    {
+        var profile = _screens.Profile;
+        bool changed = profile.RecordBest(
+            _simulation.Population, _simulation.Buildings.Length, _simulation.AscensionLevel);
+
+        var biomes = _screens.Content.Biomes;
+        for (int i = 0; i < biomes.Count; i++)
+        {
+            if (_simulation.HasSettledBiome(i) && profile.RecordBiome(biomes[i].Id))
+            {
                 changed = true;
             }
         }
@@ -941,7 +1014,8 @@ public sealed class GameplayScreen : IScreen
         root.Widgets.Add(_objectives.Root);
         root.Widgets.Add(bottomBar);
 
-        _desktop = new Desktop { Root = root };
+        _desktop = _screens.NewDesktop(root);
+        ApplyMotionSettings();
         RefreshBuildMenu();
         RefreshHudTexts();
     }
@@ -1025,6 +1099,8 @@ public sealed class GameplayScreen : IScreen
 
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.achievements"],
             () => _screens.Push(new AchievementsScreen(_screens, _simulation)), loc["tip.achievements"]));
+        stack.Widgets.Add(UiFactory.SmallButton(loc["menu.chronicle"],
+            () => _screens.Push(new ChronicleScreen(_screens)), loc["tip.chronicle"]));
 
         // Slavnost: aktivní boost na kliknutí (stav se přepisuje v RefreshHudTexts).
         _festivalLabel = new Label
@@ -1213,9 +1289,16 @@ public sealed class GameplayScreen : IScreen
     /// </summary>
     private void RefreshBuildAffordability()
     {
+        var loc = _screens.Loc;
+        var content = _screens.Content;
+        // Se zapnutými barevnými vodítky nese „mám / nemám" i značka před cenou,
+        // aby to nezáviselo jen na rozlišení zelené a červené.
+        bool cues = _screens.Settings.ColorCues;
         foreach (var (defIndex, button, priceLabel) in _buildButtons)
         {
             bool affordable = _simulation.CanAfford(defIndex);
+            string price = CostFormat.Line(content, loc, content.Buildings[defIndex].BuildCost);
+            priceLabel.Text = cues ? loc[affordable ? "cue.yes" : "cue.no"] + ' ' + price : price;
             priceLabel.TextColor = affordable ? new Color(150, 220, 150) : new Color(232, 120, 110);
             button.Background = new SolidBrush(affordable ? new Color(38, 48, 64, 235) : new Color(30, 34, 42, 170));
         }
@@ -1226,8 +1309,28 @@ public sealed class GameplayScreen : IScreen
     /// oknem — je to tichá pojistka, ne akce hráče; ruční uložení v pauze dál
     /// výsledek hlásí.
     /// </summary>
-    private void SaveGame() =>
+    private void SaveGame()
+    {
+        SyncChronicle();
         _screens.Saves.TrySave(_simulation, new SaveMetadata(_info.Seed, _info.SizeId, _info.PresetId, DateTime.UtcNow));
+    }
+
+    /// <summary>
+    /// Řekne simulaci, jaký je dnes den (UTC). Simulace si na hodiny nesahá sama,
+    /// aby zůstala deterministická — datum je vstup jako každý jiný. Změna dne
+    /// uvnitř vydá novou sadu denních výzev; volání ve stejný den nic nedělá,
+    /// takže se to může klidně ptát každý snímek.
+    /// </summary>
+    private void RefreshChallengeDay() =>
+        _simulation.SetChallengeDay(DailyReward.TodayKey(DateTime.UtcNow));
+
+    /// <summary>Promítne přístupnostní volbu „omezit pohyb" do vizuálních efektů.</summary>
+    private void ApplyMotionSettings()
+    {
+        bool motion = !_screens.Settings.ReduceMotion;
+        _particles.Enabled = motion;
+        _floatingText.Enabled = motion;
+    }
 
     /// <summary>
     /// Řádek „kam to celé směřuje": příští éra a technologie, která ji otevře.

@@ -57,6 +57,7 @@ public sealed class SaveGameSerializer
     private const string SectionKnownResources = "known";
     private const string SectionWorldChanges = "world";
     private const string SectionTutorial = "tutorial";
+    private const string SectionChallenges = "challenges";
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -95,6 +96,7 @@ public sealed class SaveGameSerializer
         WriteSection(writer, SectionKnownResources, w => WriteKnownResources(w, simulation));
         WriteSection(writer, SectionWorldChanges, w => WriteWorldChanges(w, simulation));
         WriteSection(writer, SectionTutorial, w => w.Write(simulation.TutorialStep));
+        WriteSection(writer, SectionChallenges, w => WriteChallenges(w, simulation));
     }
 
     /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
@@ -159,6 +161,37 @@ public sealed class SaveGameSerializer
     /// do paměti, protože gzip stream neumí zpětně doplnit délku — a bez délky by
     /// čtečka neznámou sekci nedokázala přeskočit.
     /// </summary>
+    /// <summary>Dnešní sada výzev: den, indexy do fondu, výchozí metriky a splněnost.</summary>
+    private static void WriteChallenges(BinaryWriter writer, Simulation simulation)
+    {
+        var active = simulation.ActiveChallenges;
+        writer.Write(simulation.ChallengeDay);
+        writer.Write(active.Count);
+        for (int i = 0; i < active.Count; i++)
+        {
+            writer.Write(active[i]);
+            writer.Write(simulation.ChallengeBaselines[i]);
+            writer.Write(simulation.ChallengeDoneFlags[i]);
+        }
+    }
+
+    private static void ReadChallenges(BinaryReader reader, Simulation simulation)
+    {
+        string day = reader.ReadString();
+        int count = reader.ReadInt32();
+        var indices = new List<int>(count);
+        var baselines = new List<long>(count);
+        var done = new List<bool>(count);
+        for (int i = 0; i < count; i++)
+        {
+            indices.Add(reader.ReadInt32());
+            baselines.Add(reader.ReadInt64());
+            done.Add(reader.ReadBoolean());
+        }
+
+        simulation.RestoreChallenges(day, indices, baselines, done);
+    }
+
     private static void WriteSection(BinaryWriter writer, string name, Action<BinaryWriter> body)
     {
         var buffer = new MemoryStream();
@@ -230,6 +263,7 @@ public sealed class SaveGameSerializer
             case SectionKnownResources: ReadKnownResources(section, content, simulation); break;
             case SectionWorldChanges: ReadWorldChanges(section, content, simulation); break;
             case SectionTutorial: simulation.RestoreTutorialStep(section.ReadInt32()); break;
+            case SectionChallenges: ReadChallenges(section, simulation); break;
             default: break; // neznámá sekce z novější hry — přeskočit, ne spadnout
         }
     }

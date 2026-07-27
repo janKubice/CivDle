@@ -15,6 +15,20 @@ internal sealed class ProductionSystem
     private readonly GameContent _content;
 
     /// <summary>
+    /// Definice budov jako pole. V tikové smyčce se sahá na definici u každé
+    /// budovy; přes registr to znamená indexer navíc, přes pole je to jeden
+    /// přístup do paměti. Obsah je neměnný, takže se dá vytáhnout jednou.
+    /// </summary>
+    private readonly BuildingDef[] _defs;
+
+    /// <summary>
+    /// Vyrábí definice na daném indexu něco nedostatkového? Přepočítá se jednou
+    /// za tik (desítky definic) místo u každé budovy zvlášť (statisíce) — na
+    /// velkém městě je to rozdíl mezi procházením receptů 250 000× a 53×.
+    /// </summary>
+    private readonly bool[] _defScarce;
+
+    /// <summary>
     /// Kolik dělníků dostala budova na daném indexu (drží se mezi tiky, aby se
     /// v hot path nealokovalo). Roste jen když přibude budov.
     /// </summary>
@@ -23,6 +37,8 @@ internal sealed class ProductionSystem
     public ProductionSystem(GameContent content)
     {
         _content = content;
+        _defs = content.Buildings.All.ToArray();
+        _defScarce = new bool[_defs.Length];
     }
 
     public void Tick(Simulation sim)
@@ -46,7 +62,7 @@ internal sealed class ProductionSystem
         for (int i = 0; i < buildings.Length; i++)
         {
             ref var building = ref buildings[i];
-            var def = _content.Buildings[building.DefIndex];
+            var def = _defs[building.DefIndex];
             var recipe = def.Recipe;
             if (recipe is null)
             {
@@ -119,16 +135,16 @@ internal sealed class ProductionSystem
     /// </summary>
     private int AssignWorkers(Simulation sim, Span<BuildingInstance> buildings)
     {
-        double threshold = _content.Gameplay.Staffing.ScarcityThreshold;
+        RefreshScarcity(sim);
 
         Array.Clear(_assigned, 0, buildings.Length);
-        long workersLeft = AssignPass(sim, buildings, (long)Math.Floor(sim.Population), threshold, scarceOnly: true);
-        AssignPass(sim, buildings, workersLeft, threshold, scarceOnly: false);
+        long workersLeft = AssignPass(buildings, (long)Math.Floor(sim.Population), scarceOnly: true);
+        AssignPass(buildings, workersLeft, scarceOnly: false);
 
         int idle = 0;
         for (int i = 0; i < buildings.Length; i++)
         {
-            if (_content.Buildings[buildings[i].DefIndex].WorkerSlots > 0 && _assigned[i] == 0)
+            if (_defs[buildings[i].DefIndex].WorkerSlots > 0 && _assigned[i] == 0)
             {
                 idle++;
             }
@@ -138,22 +154,53 @@ internal sealed class ProductionSystem
     }
 
     /// <summary>
-    /// Jedno kolo přidělování. <paramref name="scarceOnly"/> = ber jen budovy
-    /// vyrábějící nedostatkovou surovinu; druhé kolo pak dosype zbytek.
+    /// Přepočítá, které definice vyrábí zrovna nedostatkovou surovinu. Dělá se to
+    /// nad definicemi (desítky), ne nad budovami (statisíce) — výsledek je pro
+    /// všechny budovy téhož typu stejný.
     /// </summary>
-    private long AssignPass(
-        Simulation sim, Span<BuildingInstance> buildings, long workersLeft, double threshold, bool scarceOnly)
+    private void RefreshScarcity(Simulation sim)
     {
-        for (int i = 0; i < buildings.Length && workersLeft > 0; i++)
+        double threshold = _content.Gameplay.Staffing.ScarcityThreshold;
+        var resources = sim.Resources;
+        var caps = sim.StorageCaps;
+
+        for (int d = 0; d < _defs.Length; d++)
         {
-            var def = _content.Buildings[buildings[i].DefIndex];
-            int free = def.WorkerSlots - _assigned[i];
-            if (free <= 0)
+            _defScarce[d] = false;
+            if (_defs[d].Recipe is not { } recipe)
             {
                 continue;
             }
 
-            if (scarceOnly && !ProducesSomethingScarce(sim, def, threshold))
+            for (int i = 0; i < recipe.Outputs.Count; i++)
+            {
+                int index = recipe.Outputs[i].ResourceIndex;
+                double cap = caps[index];
+                if (cap <= 0 || resources[index] < cap * threshold)
+                {
+                    _defScarce[d] = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Jedno kolo přidělování. <paramref name="scarceOnly"/> = ber jen budovy
+    /// vyrábějící nedostatkovou surovinu; druhé kolo pak dosype zbytek.
+    /// </summary>
+    private long AssignPass(Span<BuildingInstance> buildings, long workersLeft, bool scarceOnly)
+    {
+        for (int i = 0; i < buildings.Length && workersLeft > 0; i++)
+        {
+            int defIndex = buildings[i].DefIndex;
+            if (scarceOnly && !_defScarce[defIndex])
+            {
+                continue;
+            }
+
+            int free = _defs[defIndex].WorkerSlots - _assigned[i];
+            if (free <= 0)
             {
                 continue;
             }
@@ -164,29 +211,6 @@ internal sealed class ProductionSystem
         }
 
         return workersLeft;
-    }
-
-    /// <summary>Vyrábí budova něco, čeho má město míň než <paramref name="threshold"/> skladu?</summary>
-    private static bool ProducesSomethingScarce(Simulation sim, BuildingDef def, double threshold)
-    {
-        if (def.Recipe is not { } recipe)
-        {
-            return false;
-        }
-
-        var resources = sim.Resources;
-        var caps = sim.StorageCaps;
-        for (int i = 0; i < recipe.Outputs.Count; i++)
-        {
-            int index = recipe.Outputs[i].ResourceIndex;
-            double cap = caps[index];
-            if (cap <= 0 || resources[index] < cap * threshold)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static bool HasInputs(double[] resources, Recipe recipe)

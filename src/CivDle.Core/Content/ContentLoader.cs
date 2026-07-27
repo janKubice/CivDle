@@ -39,7 +39,7 @@ public sealed class ContentLoader
         var (prestige, prestigeUpgrades) = LoadPrestige(Path.Combine(dataDirectory, "prestige.json"), resources, buildings, techs);
         var (quests, questsDynamic) = LoadQuests(Path.Combine(dataDirectory, "quests.json"), resources, buildings, techs);
         var achievements = LoadAchievements(Path.Combine(dataDirectory, "achievements.json"), resources, buildings, techs);
-        var events = LoadEvents(Path.Combine(dataDirectory, "events.json"), resources);
+        var events = LoadEvents(Path.Combine(dataDirectory, "events.json"), resources, buildings, techs);
         var eras = LoadEras(Path.Combine(dataDirectory, "eras.json"));
         var zoneTypes = LoadZoneTypes(Path.Combine(dataDirectory, "zones.json"), buildings);
         var policies = LoadPolicies(Path.Combine(dataDirectory, "policies.json"));
@@ -50,18 +50,76 @@ public sealed class ContentLoader
         var ufo = LoadUfo(Path.Combine(dataDirectory, "ufo.json"));
         var ambience = LoadAmbience(Path.Combine(dataDirectory, "ambience.json"), biomes, weather);
         var terraform = LoadTerraform(Path.Combine(dataDirectory, "terraform.json"), biomes, resources, techs);
+        var challenges = LoadChallenges(Path.Combine(dataDirectory, "challenges.json"), resources, buildings, techs);
         var tutorial = LoadTutorial(Path.Combine(dataDirectory, "tutorial.json"), resources, buildings, techs);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges);
+    }
+
+    // ----- denní výzvy -----
+
+    /// <summary>
+    /// Načte fond denních výzev. Volitelný soubor — bez něj hra běží bez výzev.
+    /// </summary>
+    private static ChallengeCatalog LoadChallenges(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        if (!File.Exists(path))
+        {
+            return ChallengeCatalog.Empty;
+        }
+
+        var file = ReadFile<ChallengeFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Challenges ?? new List<ChallengeDto>();
+        var result = new List<ChallengeDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Výzva na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID výzvy '{id}'.");
+            }
+
+            if (dto.Condition is null)
+            {
+                throw new ContentLoadException(path, $"Výzva '{id}' nemá 'condition'.");
+            }
+
+            var condition = ParseCondition(path, $"výzva '{id}'", dto.Condition, resources, buildings, techs);
+            var reward = ParseResourceAmounts(path, id, "reward", dto.Reward, resources);
+            if (reward.Count == 0)
+            {
+                throw new ContentLoadException(path, $"Výzva '{id}' nemá odměnu — pak nemá proč existovat.");
+            }
+
+            result.Add(new ChallengeDef(id, condition, reward));
+        }
+
+        if (result.Count > 0 && file.DailyCount is < 1)
+        {
+            throw new ContentLoadException(path, $"'dailyCount' musí být aspoň 1, je {file.DailyCount}.");
+        }
+
+        if (file.DailyCount > result.Count)
+        {
+            throw new ContentLoadException(
+                path, $"'dailyCount' ({file.DailyCount}) je víc než výzev ve fondu ({result.Count}).");
+        }
+
+        return new ChallengeCatalog(result, file.DailyCount);
     }
 
     // ----- průvodce prvními kroky -----
@@ -1318,7 +1376,8 @@ public sealed class ContentLoader
 
     // ----- události -----
 
-    private static DefRegistry<EventDef> LoadEvents(string path, DefRegistry<Resource> resources)
+    private static DefRegistry<EventDef> LoadEvents(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         var file = ReadFile<EventFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -1355,7 +1414,12 @@ public sealed class ContentLoader
                 choices.Add(new EventChoiceDef($"event.{id}.{choiceId}", cost, gain));
             }
 
-            result.Add(new EventDef(id, choices));
+            // Podmínka je volitelná — bez ní je událost dostupná od začátku.
+            GoalCondition? requirement = dto.Requires is null
+                ? null
+                : ParseCondition(path, $"událost '{id}'", dto.Requires, resources, buildings, techs);
+
+            result.Add(new EventDef(id, choices, requirement));
         }
 
         return new DefRegistry<EventDef>(result, e => e.Id, "událost", allowEmpty: true);
@@ -1881,7 +1945,8 @@ public sealed class ContentLoader
         DefRegistry<FeatureDef> features,
         IReadOnlyList<DevlogEntry> devlog,
         DefRegistry<TerraformDef> terraform,
-        IReadOnlyList<TutorialStepDef> tutorial)
+        IReadOnlyList<TutorialStepDef> tutorial,
+        ChallengeCatalog challenges)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -1915,7 +1980,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -1942,7 +2007,8 @@ public sealed class ContentLoader
         DefRegistry<FeatureDef> features,
         IReadOnlyList<DevlogEntry> devlog,
         DefRegistry<TerraformDef> terraform,
-        IReadOnlyList<TutorialStepDef> tutorial)
+        IReadOnlyList<TutorialStepDef> tutorial,
+        ChallengeCatalog challenges)
     {
         var required = new List<string>();
         required.AddRange(biomes.All.Select(b => b.NameKey));
@@ -1985,6 +2051,8 @@ public sealed class ContentLoader
         required.AddRange(features.All.Select(f => f.NameKey));
         required.AddRange(tutorial.Select(t => t.NameKey));
         required.AddRange(tutorial.Select(t => t.HintKey));
+        required.AddRange(challenges.Challenges.Select(c => c.NameKey));
+        required.AddRange(challenges.Challenges.Select(c => c.DescriptionKey));
 
         var missing = required.Where(key => !language.Strings.ContainsKey(key)).ToList();
         if (missing.Count > 0)

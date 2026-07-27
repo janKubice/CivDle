@@ -25,6 +25,7 @@ public sealed class DailyRewardScreen : IScreen
         _reward = reward;
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
+        _screens.UiSettingsChanged += BuildUi;
     }
 
     public bool IsOverlay => true;
@@ -51,7 +52,11 @@ public sealed class DailyRewardScreen : IScreen
         _desktop.Render();
     }
 
-    public void Dispose() => _screens.Loc.LanguageChanged -= BuildUi;
+    public void Dispose()
+    {
+        _screens.Loc.LanguageChanged -= BuildUi;
+        _screens.UiSettingsChanged -= BuildUi;
+    }
 
     private void BuildUi()
     {
@@ -96,6 +101,6 @@ public sealed class DailyRewardScreen : IScreen
 
         var root = new Panel();
         root.Widgets.Add(panel);
-        _desktop = new Desktop { Root = root };
+        _desktop = _screens.NewDesktop(root);
     }
 }

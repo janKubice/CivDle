@@ -45,6 +45,19 @@ public sealed class ScreenManager
     /// <summary>Uloží profil na disk (po odemčení achievementu).</summary>
     public void SaveProfile() => Game.SaveProfile();
 
+    /// <summary>
+    /// Vyrobí Myra plochu se zvětšením UI z nastavení. Obrazovky si Desktop
+    /// nevytvářejí samy, aby zvětšení platilo všude stejně a nešlo ho někde
+    /// zapomenout — Myra hit-testuje přes inverzní transformaci, takže se
+    /// zvětšeným UI zůstává klikání přesné.
+    /// </summary>
+    public Myra.Graphics2D.UI.Desktop NewDesktop(Myra.Graphics2D.UI.Widget root)
+    {
+        float scale = Settings.SafeUiScale;
+        root.Scale = new Vector2(scale, scale);
+        return new Myra.Graphics2D.UI.Desktop { Root = root };
+    }
+
     public GraphicsDevice GraphicsDevice => Game.GraphicsDevice;
 
     public SpriteBatch SpriteBatch => Game.SpriteBatch;
@@ -68,7 +81,21 @@ public sealed class ScreenManager
     }
 
     /// <summary>Uloží a aplikuje nastavení (grafiku hned; jazyk přes <see cref="Loc"/>).</summary>
-    public void ApplySettings(GameSettings settings) => Game.ApplySettings(settings);
+    public void ApplySettings(GameSettings settings)
+    {
+        // Zvětšení UI a barevná vodítka se propisují až do rozvržení widgetů,
+        // takže se obrazovky musí přestavět. Jazyk má vlastní event; tenhle je
+        // pro nastavení vzhledu, aby se změna projevila hned a ne až po restartu.
+        bool uiChanged = Settings.SafeUiScale != settings.SafeUiScale || Settings.ColorCues != settings.ColorCues;
+        Game.ApplySettings(settings);
+        if (uiChanged)
+        {
+            UiSettingsChanged?.Invoke();
+        }
+    }
+
+    /// <summary>Změnilo se nastavení, které mění vzhled UI — obrazovky se mají přestavět.</summary>
+    public event Action? UiSettingsChanged;
 
     /// <summary>Položí obrazovku navrch zásobníku.</summary>
     public void Push(IScreen screen)

@@ -15,4 +15,46 @@ public sealed class PlayerProfile
 
     /// <summary>Aktuální série po sobě jdoucích dní s vyzvednutím.</summary>
     public int DailyStreak { get; set; }
+
+    // ----- kronika (rekordy napříč všemi hrami) -----
+
+    /// <summary>Nejvyšší populace, jakou kdy hráč měl.</summary>
+    public double BestPopulation { get; set; }
+
+    /// <summary>Nejvíc budov v jednom městě.</summary>
+    public int BestBuildings { get; set; }
+
+    /// <summary>Nejvyšší dosažený stupeň Vzestupu.</summary>
+    public int BestAscension { get; set; }
+
+    /// <summary>Kolik denních výzev už hráč splnil (celkem, napříč hrami).</summary>
+    public int ChallengesCompleted { get; set; }
+
+    /// <summary>ID biomů, na kterých hráč někdy stavěl (sběratelský cíl kroniky).</summary>
+    public List<string> SettledBiomes { get; set; } = new();
+
+    /// <summary>
+    /// Zapíše rekordy z právě běžící hry. Jen posouvá nahoru — kronika je síň
+    /// slávy, ne aktuální stav, takže horší hra do ní nesmí zasáhnout.
+    /// </summary>
+    public bool RecordBest(double population, int buildings, int ascension)
+    {
+        bool changed = false;
+        if (population > BestPopulation) { BestPopulation = population; changed = true; }
+        if (buildings > BestBuildings) { BestBuildings = buildings; changed = true; }
+        if (ascension > BestAscension) { BestAscension = ascension; changed = true; }
+        return changed;
+    }
+
+    /// <summary>Přidá biom do kroniky; vrací true, když je to novinka (stojí za uložení).</summary>
+    public bool RecordBiome(string biomeId)
+    {
+        if (SettledBiomes.Contains(biomeId))
+        {
+            return false;
+        }
+
+        SettledBiomes.Add(biomeId);
+        return true;
+    }
 }

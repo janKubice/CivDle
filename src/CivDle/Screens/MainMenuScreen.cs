@@ -21,6 +21,7 @@ public sealed class MainMenuScreen : IScreen
         _screens = screens;
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
+        _screens.UiSettingsChanged += BuildUi;
     }
 
     public bool IsOverlay => false;
@@ -36,6 +37,7 @@ public sealed class MainMenuScreen : IScreen
     public void Dispose()
     {
         _screens.Loc.LanguageChanged -= BuildUi;
+        _screens.UiSettingsChanged -= BuildUi;
     }
 
     private void BuildUi()
@@ -65,6 +67,7 @@ public sealed class MainMenuScreen : IScreen
 
         buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.newGame"], () => _screens.Push(new NewGameScreen(_screens))));
         buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.howto"], () => _screens.Push(new HowToPlayScreen(_screens, dimBackground: false))));
+        buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.chronicle"], () => _screens.Push(new ChronicleScreen(_screens))));
         buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.settings"], () => _screens.Push(new SettingsScreen(_screens))));
         buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.quit"], _screens.ExitGame));
 
@@ -93,7 +96,7 @@ public sealed class MainMenuScreen : IScreen
             root.Widgets.Add(devlogPanel);
         }
 
-        _desktop = new Desktop { Root = root };
+        _desktop = _screens.NewDesktop(root);
     }
 
     private Panel BuildDevlog(Localization loc)

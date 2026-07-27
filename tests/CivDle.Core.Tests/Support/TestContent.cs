@@ -47,7 +47,8 @@ internal static class TestContent
         IReadOnlyList<LandmarkDef>? landmarks = null,
         IReadOnlyList<FeatureDef>? features = null,
         UfoConfig? ufo = null,
-        IReadOnlyList<TutorialStepDef>? tutorial = null)
+        IReadOnlyList<TutorialStepDef>? tutorial = null,
+        ChallengeCatalog? challenges = null)
     {
         biomes ??= new[] { WaterBiome(), LandBiome("grass") };
         resources ??= new[] { new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 10, BaseStorage: 1000) };
@@ -101,7 +102,8 @@ internal static class TestContent
             ufo ?? UfoConfig.Disabled,
             Array.Empty<AmbienceDef>(),
             new DefRegistry<TerraformDef>(Array.Empty<TerraformDef>(), t => t.Id, "terraformace", allowEmpty: true),
-            tutorial ?? Array.Empty<TutorialStepDef>());
+            tutorial ?? Array.Empty<TutorialStepDef>(),
+            challenges ?? ChallengeCatalog.Empty);
     }
 
     /// <summary>Výchozí prestige config testů (Vzestup od 50 obyvatel, body = populace ÷ 15).</summary>

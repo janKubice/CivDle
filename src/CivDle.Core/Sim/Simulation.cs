@@ -41,6 +41,11 @@ public sealed class Simulation
     private readonly SettlementSystem _settlementSystem;
     private readonly QuestSystem _questSystem;
     private readonly TutorialSystem _tutorialSystem;
+    private readonly ChallengeSystem _challengeSystem;
+    private readonly bool[] _settledBiomes; // biomy, na kterých už tohle město stavělo (kronika)
+    private readonly List<int> _activeChallenges = new();   // indexy do fondu výzev
+    private readonly List<long> _challengeBaselines = new(); // hodnota metriky při vydání výzvy
+    private readonly List<bool> _challengesDone = new();
     private readonly bool[] _questsCompleted;
     private readonly AchievementSystem _achievementSystem;
     private readonly bool[] _achievementsUnlocked;
@@ -119,6 +124,8 @@ public sealed class Simulation
         _settlementSystem = new SettlementSystem(content, seed);
         _questSystem = new QuestSystem(content);
         _tutorialSystem = new TutorialSystem(content);
+        _challengeSystem = new ChallengeSystem(content);
+        _settledBiomes = new bool[content.Biomes.Count];
         _questsCompleted = new bool[content.Quests.Count];
         _achievementSystem = new AchievementSystem(content);
         _achievementsUnlocked = new bool[content.Achievements.Count];
@@ -663,6 +670,7 @@ public sealed class Simulation
         _happinessSystem.Tick(this);
         _questSystem.Tick(this);
         _tutorialSystem.Tick(this);
+        _challengeSystem.Tick(this);
         _achievementSystem.Tick(this);
 
         // Těžiště města a UFO nejsou hot path — stačí je řešit jednou za čas.
@@ -1658,6 +1666,87 @@ public sealed class Simulation
     /// <summary>Označí úkol jako splněný při načtení savu (bez odměny).</summary>
     internal void RestoreQuestCompleted(int questIndex) => _questsCompleted[questIndex] = true;
 
+    /// <summary>
+    /// Postavilo tohle město někdy na daném biomu? Podklad pro kroniku —
+    /// „kde všude jsi stavěl" je sběratelský cíl, který přesahuje jednu hru.
+    /// </summary>
+    public bool HasSettledBiome(int biomeIndex) => _settledBiomes[biomeIndex];
+
+    // ----- denní výzvy -----
+
+    /// <summary>Den, pro který platí aktuální sada výzev (UTC, <c>yyyy-MM-dd</c>); prázdné = žádná.</summary>
+    public string ChallengeDay { get; private set; } = string.Empty;
+
+    /// <summary>Indexy dnešních výzev do fondu <see cref="GameContent.Challenges"/>.</summary>
+    public IReadOnlyList<int> ActiveChallenges => _activeChallenges;
+
+    /// <summary>Je výzva na daném místě dnešní sady splněná?</summary>
+    public bool IsChallengeDone(int slot) => _challengesDone[slot];
+
+    /// <summary>
+    /// Řekne simulaci, jaký je dnes den. Simulace si na hodiny nesahá sama —
+    /// musí zůstat deterministická — takže datum vkládá aplikační vrstva.
+    /// Změna dne vydá novou sadu výzev a zapamatuje si výchozí hodnoty metrik.
+    /// </summary>
+    public void SetChallengeDay(string dayKey)
+    {
+        if (!_content.Challenges.IsEnabled || dayKey == ChallengeDay || dayKey.Length == 0)
+        {
+            return;
+        }
+
+        ChallengeDay = dayKey;
+        _activeChallenges.Clear();
+        _challengeBaselines.Clear();
+        _challengesDone.Clear();
+
+        var catalog = _content.Challenges;
+        foreach (int index in DailyChallenges.Select(catalog.Challenges.Count, catalog.DailyCount, dayKey))
+        {
+            var condition = catalog.Challenges[index].Condition;
+            _activeChallenges.Add(index);
+            _challengeBaselines.Add(EvaluateMetric(condition.Kind, condition.Param));
+            _challengesDone.Add(false);
+        }
+    }
+
+    /// <summary>Kolik z dnešní výzvy je hotovo (u kumulativních metrik jen dnešní přírůstek).</summary>
+    public long ChallengeProgress(int slot)
+    {
+        var condition = _content.Challenges.Challenges[_activeChallenges[slot]].Condition;
+        return DailyChallenges.Progress(
+            condition.Kind, EvaluateMetric(condition.Kind, condition.Param), _challengeBaselines[slot]);
+    }
+
+    /// <summary>Označí výzvu za splněnou (volá systém výzev po udělení odměny).</summary>
+    internal void MarkChallengeDone(int slot) => _challengesDone[slot] = true;
+
+    /// <summary>Obnoví sadu výzev ze savu (bez vydávání nové a bez odměn).</summary>
+    internal void RestoreChallenges(string dayKey, IReadOnlyList<int> indices, IReadOnlyList<long> baselines, IReadOnlyList<bool> done)
+    {
+        // Fond se mohl mezi verzemi zmenšit — neplatné indexy se zahodí, ať save
+        // z novějšího obsahu nikdy neshodí načtení.
+        ChallengeDay = dayKey;
+        _activeChallenges.Clear();
+        _challengeBaselines.Clear();
+        _challengesDone.Clear();
+        for (int i = 0; i < indices.Count; i++)
+        {
+            if (indices[i] >= 0 && indices[i] < _content.Challenges.Challenges.Count)
+            {
+                _activeChallenges.Add(indices[i]);
+                _challengeBaselines.Add(i < baselines.Count ? baselines[i] : 0);
+                _challengesDone.Add(i < done.Count && done[i]);
+            }
+        }
+    }
+
+    /// <summary>Výchozí hodnoty metrik dnešních výzev (pro serializaci savu).</summary>
+    internal IReadOnlyList<long> ChallengeBaselines => _challengeBaselines;
+
+    /// <summary>Splněnost dnešních výzev (pro serializaci savu).</summary>
+    internal IReadOnlyList<bool> ChallengeDoneFlags => _challengesDone;
+
     // ----- průvodce prvními kroky -----
 
     /// <summary>
@@ -2031,6 +2120,10 @@ public sealed class Simulation
         {
             Array.Resize(ref _buildings, _buildings.Length * 2);
         }
+
+        // Kronika: biom, na kterém město stavělo. Zaznamenává se tady, protože
+        // tudy prochází i obnova ze savu — jinak by se po načtení zapomněl.
+        _settledBiomes[Terrain.BiomeAt(x, y)] = true;
 
         _buildings[_buildingCount] = new BuildingInstance
         {

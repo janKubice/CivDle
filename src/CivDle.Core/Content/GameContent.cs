@@ -35,7 +35,8 @@ public sealed class GameContent
         UfoConfig ufo,
         IReadOnlyList<AmbienceDef> ambience,
         DefRegistry<TerraformDef> terraform,
-        IReadOnlyList<TutorialStepDef> tutorial)
+        IReadOnlyList<TutorialStepDef> tutorial,
+        ChallengeCatalog challenges)
     {
         Biomes = biomes;
         Resources = resources;
@@ -65,6 +66,7 @@ public sealed class GameContent
         Ambience = ambience;
         Terraform = terraform;
         Tutorial = tutorial;
+        Challenges = challenges;
     }
 
     /// <summary>Definice technologií z <c>data/tech.json</c> (tech tree).</summary>
@@ -117,6 +119,20 @@ public sealed class GameContent
 
     /// <summary>Nástroje na přetváření krajiny z <c>data/terraform.json</c> (smí být prázdné).</summary>
     public DefRegistry<TerraformDef> Terraform { get; }
+
+    /// <summary>
+    /// Kopie obsahu s jiným nastavením hry. Existuje kvůli nástrojům na balanc
+    /// a zátěž, které potřebují prozkoumat „co kdyby" (jiný růst, jiná startovní
+    /// populace) nad ostrými daty, aniž by se ta data musela editovat.
+    /// </summary>
+    public GameContent WithGameplay(GameplayConfig gameplay) => new(
+        Biomes, Resources, Buildings, Techs, Prestige, PrestigeUpgrades, Quests, QuestsDynamic,
+        Achievements, Events, Eras, WorldGen, gameplay, Languages, SettlementNames, Decorations,
+        Fauna, Devlog, ZoneTypes, Policies, AscensionTiers, Weather, Landmarks, Features, Ufo,
+        Ambience, Terraform, Tutorial, Challenges);
+
+    /// <summary>Fond denních výzev z <c>data/challenges.json</c> (smí být prázdný).</summary>
+    public ChallengeCatalog Challenges { get; }
 
     /// <summary>Kroky průvodce prvními kroky z <c>data/tutorial.json</c> (v pořadí; smí být prázdné).</summary>
     public IReadOnlyList<TutorialStepDef> Tutorial { get; }
