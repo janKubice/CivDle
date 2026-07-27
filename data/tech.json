@@ -572,6 +572,174 @@
         "terraforming",
         "steam_power"
       ]
+    },
+    {
+      "id": "city_blocks",
+      "cost": {
+        "planks": 60,
+        "stone": 40
+      },
+      "prerequisites": [
+        "masonry"
+      ],
+      "unlocks": [
+        "manor",
+        "townhouses"
+      ]
+    },
+    {
+      "id": "urban_planning",
+      "cost": {
+        "stone": 160,
+        "iron": 40
+      },
+      "prerequisites": [
+        "city_blocks",
+        "brickwork"
+      ],
+      "unlocks": [
+        "terrace_row",
+        "housing_block"
+      ]
+    },
+    {
+      "id": "industrial_estates",
+      "cost": {
+        "planks": 80,
+        "iron": 30
+      },
+      "prerequisites": [
+        "guilds"
+      ],
+      "unlocks": [
+        "timber_yard",
+        "great_quarry"
+      ]
+    },
+    {
+      "id": "public_gardens",
+      "cost": {
+        "wood": 40,
+        "food": 60
+      },
+      "prerequisites": [
+        "crop_rotation"
+      ],
+      "unlocks": [
+        "park",
+        "city_park"
+      ]
+    },
+    {
+      "id": "waterworks",
+      "cost": {
+        "stone": 90,
+        "tools": 20
+      },
+      "prerequisites": [
+        "aqueducts"
+      ],
+      "unlocks": [
+        "fountain_square"
+      ]
+    },
+    {
+      "id": "botany",
+      "cost": {
+        "planks": 70,
+        "food": 120
+      },
+      "prerequisites": [
+        "public_gardens",
+        "sanitation"
+      ],
+      "unlocks": [
+        "botanical_garden"
+      ]
+    },
+    {
+      "id": "megaliths",
+      "cost": {
+        "stone": 70
+      },
+      "prerequisites": [
+        "masonry"
+      ],
+      "unlocks": [
+        "standing_stones",
+        "obelisk"
+      ]
+    },
+    {
+      "id": "monumental_art",
+      "cost": {
+        "stone": 140,
+        "bronze": 50
+      },
+      "prerequisites": [
+        "megaliths",
+        "alloys"
+      ],
+      "unlocks": [
+        "great_statue"
+      ]
+    },
+    {
+      "id": "civic_pride",
+      "cost": {
+        "stone": 220,
+        "iron": 70
+      },
+      "prerequisites": [
+        "monumental_art",
+        "municipal_administration"
+      ],
+      "unlocks": [
+        "triumphal_arch",
+        "clock_tower"
+      ]
+    },
+    {
+      "id": "scriptoria",
+      "cost": {
+        "planks": 140,
+        "stone": 180
+      },
+      "prerequisites": [
+        "guilds",
+        "civic_pride"
+      ],
+      "unlocks": [
+        "grand_library"
+      ]
+    },
+    {
+      "id": "sacred_architecture",
+      "cost": {
+        "stone": 420,
+        "iron": 140
+      },
+      "prerequisites": [
+        "civic_pride",
+        "brickwork"
+      ],
+      "unlocks": [
+        "cathedral"
+      ]
+    },
+    {
+      "id": "astronomy",
+      "cost": {
+        "stone": 280,
+        "steel": 90
+      },
+      "prerequisites": [
+        "scriptoria",
+        "steel_frames"
+      ],
+      "unlocks": [
+        "observatory"
+      ]
     }
   ]
 }

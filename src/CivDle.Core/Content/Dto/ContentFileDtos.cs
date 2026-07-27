@@ -52,7 +52,9 @@ public sealed record BuildingDto(
     int PowerDemand,
     bool RequiresAdjacentWater,
     int ServiceValue,
-    Dictionary<string, int>? Upkeep);
+    Dictionary<string, int>? Upkeep,
+    string? MergesTo,
+    Dictionary<string, int>? MergeCost);
 
 /// <summary>Výrobní recept budovy tak, jak leží v JSON.</summary>
 public sealed record RecipeDto(
@@ -217,6 +219,12 @@ public sealed record TutorialStepDto(string? Id, GoalConditionDto? Condition, Fo
 
 /// <summary>Ukazatel „kam se podívat" tak, jak leží v JSON.</summary>
 public sealed record FocusHintDto(string? Kind, string? Building, string? Target);
+
+/// <summary>Obsah souboru <c>data/elections.json</c> (volby na pozadí).</summary>
+public sealed record ElectionFileDto(int SchemaVersion, int TermDays, int BallotSize, List<ElectionCandidateDto>? Candidates);
+
+/// <summary>Jeden volební program tak, jak leží v JSON.</summary>
+public sealed record ElectionCandidateDto(string? Id, string? Effect, double Magnitude);
 
 /// <summary>Obsah souboru <c>data/challenges.json</c> (denní výzvy).</summary>
 public sealed record ChallengeFileDto(int SchemaVersion, int DailyCount, List<ChallengeDto>? Challenges);

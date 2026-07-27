@@ -104,6 +104,32 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.high_rise", SpriteSize, canvas => Tower(canvas, new Color(140, 152, 168), floors: 6));
         Add(device, "building.arcology", SpriteSize, Arcology);
 
+        // Sloučené bloky (2×2 z bloku čtyř stejných budov) — vyšší a širší silueta,
+        // aby se na mapě daly rozeznat od jednotlivých domů na první pohled.
+        Add(device, "agent.boat", SpriteSize, Boat);
+        Add(device, "building.manor", SpriteSize, canvas => BigHouse(canvas, new Color(199, 122, 68), 2));
+        Add(device, "building.townhouses", SpriteSize, canvas => BigHouse(canvas, new Color(212, 137, 74), 3));
+        Add(device, "building.terrace_row", SpriteSize, canvas => BigHouse(canvas, new Color(179, 106, 70), 4));
+        Add(device, "building.housing_block", SpriteSize, canvas => BigHouse(canvas, new Color(155, 90, 64), 5));
+        Add(device, "building.timber_yard", SpriteSize, TimberYard);
+        Add(device, "building.great_quarry", SpriteSize, GreatQuarry);
+
+        // Zeleň a odpočinek.
+        Add(device, "building.park", SpriteSize, canvas => Greenery(canvas, trees: 2));
+        Add(device, "building.city_park", SpriteSize, canvas => Greenery(canvas, trees: 4));
+        Add(device, "building.botanical_garden", SpriteSize, BotanicalGarden);
+        Add(device, "building.fountain_square", SpriteSize, FountainSquare);
+
+        // Monumenty — každý má být poznat podle obrysu, ne podle barvy.
+        Add(device, "building.standing_stones", SpriteSize, StandingStones);
+        Add(device, "building.obelisk", SpriteSize, Obelisk);
+        Add(device, "building.great_statue", SpriteSize, GreatStatue);
+        Add(device, "building.triumphal_arch", SpriteSize, TriumphalArch);
+        Add(device, "building.clock_tower", SpriteSize, ClockTower);
+        Add(device, "building.grand_library", SpriteSize, GrandLibrary);
+        Add(device, "building.cathedral", SpriteSize, Cathedral);
+        Add(device, "building.observatory", SpriteSize, Observatory);
+
         // Voda a doprava.
         Add(device, "building.harbor", SpriteSize, Harbor);
         Add(device, "building.fishery", SpriteSize, Fishery);
@@ -284,6 +310,172 @@ public sealed class SpriteLibrary : IDisposable
         c.FillRect(14, 22, 5, 8, new Color(96, 64, 38)); // dveře
         c.FillRect(9, 19, 4, 4, new Color(150, 205, 225)); // okno
         c.FillRect(20, 19, 4, 4, new Color(150, 205, 225));
+    }
+
+
+    /// <summary>
+    /// Sloučený obytný blok: řada štítů místo jednoho domu. Počet štítů roste
+    /// s úrovní, takže panské sídlo a obytný blok jdou od sebe rozeznat i bez barvy.
+    /// </summary>
+    private static void BigHouse(PixelCanvas c, Color wall, int gables)
+    {
+        c.FillRect(2, 14, 28, 16, wall);
+        c.FillRect(2, 27, 28, 3, new Color(70, 52, 40)); // podezdívka
+
+        int width = 28 / gables;
+        for (int i = 0; i < gables; i++)
+        {
+            float left = 2 + i * width;
+            c.FillTriangle(left, 14f, left + width, 14f, left + width / 2f, 14f - width * 0.55f, new Color(150, 60, 48));
+            c.FillRect((int)left + width / 2 - 2, 17, 4, 4, new Color(150, 205, 225)); // okno
+            c.FillRect((int)left + width / 2 - 1, 23, 3, 7, new Color(96, 64, 38));    // dveře
+        }
+    }
+
+    /// <summary>Rybářská loďka: trup, plachta, drobná postava. Kreslí se malá — je to detail, ne budova.</summary>
+    private static void Boat(PixelCanvas c)
+    {
+        c.FillTriangle(8f, 22f, 24f, 22f, 21f, 27f, new Color(122, 88, 56)); // trup
+        c.FillRect(8, 20, 16, 3, new Color(146, 108, 68));                   // paluba
+        c.FillRect(15, 8, 2, 12, new Color(96, 74, 50));                     // stěžeň
+        c.FillTriangle(17f, 9f, 17f, 19f, 25f, 19f, new Color(232, 226, 210)); // plachta
+        c.FillCircle(12f, 18f, 1.8f, new Color(216, 176, 136));              // rybář
+    }
+
+    private static void TimberYard(PixelCanvas c)
+    {
+        c.FillRect(3, 15, 26, 15, new Color(122, 94, 58));
+        c.FillTriangle(1f, 15f, 31f, 15f, 16f, 6f, new Color(92, 68, 42));
+        // Tři štosy klád — velkoprovoz, ne tábor.
+        for (int i = 0; i < 3; i++)
+        {
+            c.FillRect(4 + i * 8, 22, 7, 3, new Color(154, 114, 68));
+            c.FillRect(4 + i * 8, 25, 7, 3, new Color(130, 94, 54));
+        }
+    }
+
+    private static void GreatQuarry(PixelCanvas c)
+    {
+        c.FillRect(2, 18, 28, 12, new Color(104, 100, 94)); // vylámaná jáma
+        c.FillTriangle(4f, 18f, 14f, 18f, 9f, 7f, new Color(126, 122, 114));
+        c.FillTriangle(16f, 18f, 28f, 18f, 22f, 5f, new Color(112, 108, 100));
+        c.FillRect(6, 24, 6, 4, new Color(78, 76, 72)); // odvalové vozíky
+        c.FillRect(19, 25, 7, 3, new Color(78, 76, 72));
+    }
+
+    /// <summary>Zeleň: trávník s korunami stromů. Počet stromů odlišuje park od městského parku.</summary>
+    private static void Greenery(PixelCanvas c, int trees)
+    {
+        c.FillRect(3, 10, 26, 20, new Color(96, 148, 78));
+        c.FillRect(3, 19, 26, 3, new Color(196, 178, 130)); // pěšina napříč
+        for (int i = 0; i < trees; i++)
+        {
+            float cx = 7 + i * (18f / Math.Max(1, trees - 1) + 2f);
+            c.FillRect((int)cx - 1, 22, 2, 6, new Color(96, 70, 44));
+            c.FillCircle(cx, 16f, 4.4f, new Color(58, 116, 56));
+        }
+    }
+
+    private static void BotanicalGarden(PixelCanvas c)
+    {
+        c.FillRect(3, 12, 26, 18, new Color(84, 136, 72));
+        // Skleník: prosklená klenba.
+        c.FillRect(8, 14, 16, 12, new Color(178, 214, 220));
+        c.FillTriangle(7f, 14f, 25f, 14f, 16f, 7f, new Color(206, 232, 236));
+        for (int i = 0; i < 3; i++)
+        {
+            c.FillRect(10 + i * 5, 14, 1, 12, new Color(120, 150, 140)); // příčle
+        }
+
+        c.FillCircle(6f, 25f, 3f, new Color(58, 116, 56));
+        c.FillCircle(26f, 25f, 3f, new Color(58, 116, 56));
+    }
+
+    private static void FountainSquare(PixelCanvas c)
+    {
+        c.FillRect(2, 10, 28, 20, new Color(186, 178, 160)); // dlážděné náměstí
+        c.FillCircle(16f, 20f, 8f, new Color(150, 146, 134));
+        c.FillCircle(16f, 20f, 6.4f, new Color(96, 166, 200)); // voda
+        c.FillRect(15, 12, 2, 8, new Color(210, 206, 196));    // sloupek
+        c.FillCircle(16f, 12f, 2.6f, new Color(178, 224, 238)); // vodní chochol
+    }
+
+    private static void StandingStones(PixelCanvas c)
+    {
+        c.FillRect(2, 22, 28, 8, new Color(112, 140, 92)); // travnatý pahorek
+        c.FillRect(5, 10, 5, 14, new Color(146, 142, 134));
+        c.FillRect(14, 7, 5, 17, new Color(158, 154, 146));
+        c.FillRect(23, 11, 5, 13, new Color(140, 136, 128));
+        c.FillRect(5, 6, 14, 3, new Color(166, 162, 154)); // překlad
+    }
+
+    private static void Obelisk(PixelCanvas c)
+    {
+        c.FillRect(11, 26, 10, 4, new Color(150, 142, 120)); // podstavec
+        c.FillRect(13, 6, 6, 20, new Color(216, 196, 138));
+        c.FillTriangle(13f, 6f, 19f, 6f, 16f, 1f, new Color(238, 220, 160)); // pyramidion
+        c.FillRect(15, 12, 2, 10, new Color(186, 166, 112)); // rytý sloupec
+    }
+
+    private static void GreatStatue(PixelCanvas c)
+    {
+        c.FillRect(9, 25, 14, 5, new Color(146, 138, 116)); // sokl
+        c.FillRect(14, 12, 4, 13, new Color(198, 172, 106)); // trup
+        c.FillCircle(16f, 9f, 3.6f, new Color(214, 190, 124)); // hlava
+        c.FillRect(8, 13, 6, 2, new Color(198, 172, 106));  // rozpažené ruce
+        c.FillRect(18, 13, 6, 2, new Color(198, 172, 106));
+    }
+
+    private static void TriumphalArch(PixelCanvas c)
+    {
+        c.FillRect(3, 8, 26, 22, new Color(203, 182, 138));
+        c.FillRect(12, 16, 8, 14, new Color(88, 76, 60));   // průchod
+        c.FillCircle(16f, 16f, 4f, new Color(88, 76, 60));  // oblouk průchodu
+        c.FillRect(3, 5, 26, 4, new Color(222, 202, 158));  // atika
+        c.FillRect(7, 20, 3, 10, new Color(186, 166, 124)); // polosloupy
+        c.FillRect(22, 20, 3, 10, new Color(186, 166, 124));
+    }
+
+    private static void ClockTower(PixelCanvas c)
+    {
+        c.FillRect(10, 8, 12, 22, new Color(170, 140, 100));
+        c.FillTriangle(8f, 8f, 24f, 8f, 16f, 1f, new Color(120, 78, 62)); // jehlan
+        c.FillCircle(16f, 14f, 4.2f, new Color(238, 232, 214));           // ciferník
+        c.FillRect(15, 11, 2, 4, new Color(60, 54, 46));                  // ručičky
+        c.FillRect(16, 13, 4, 2, new Color(60, 54, 46));
+    }
+
+    private static void GrandLibrary(PixelCanvas c)
+    {
+        c.FillRect(3, 12, 26, 18, new Color(178, 152, 108));
+        c.FillTriangle(1f, 12f, 31f, 12f, 16f, 4f, new Color(154, 128, 88)); // tympanon
+        for (int i = 0; i < 5; i++)
+        {
+            c.FillRect(5 + i * 5, 16, 3, 14, new Color(206, 186, 146)); // sloupořadí
+        }
+
+        c.FillRect(3, 28, 26, 2, new Color(140, 116, 82)); // schodiště
+    }
+
+    private static void Cathedral(PixelCanvas c)
+    {
+        c.FillRect(6, 12, 20, 18, new Color(196, 182, 156)); // hlavní loď
+        c.FillTriangle(4f, 12f, 28f, 12f, 16f, 4f, new Color(150, 134, 112));
+        c.FillRect(2, 6, 5, 24, new Color(184, 170, 144));   // věž vlevo
+        c.FillTriangle(1f, 6f, 8f, 6f, 4.5f, 0f, new Color(120, 104, 88));
+        c.FillRect(25, 6, 5, 24, new Color(184, 170, 144));  // věž vpravo
+        c.FillTriangle(24f, 6f, 31f, 6f, 27.5f, 0f, new Color(120, 104, 88));
+        c.FillCircle(16f, 18f, 3.6f, new Color(120, 168, 200)); // rozeta
+        c.FillRect(14, 24, 5, 6, new Color(96, 78, 62));        // portál
+    }
+
+    private static void Observatory(PixelCanvas c)
+    {
+        c.FillRect(7, 18, 18, 12, new Color(158, 162, 176));
+        c.FillCircle(16f, 17f, 8f, new Color(186, 190, 204)); // kopule
+        c.FillRect(14, 6, 4, 12, new Color(120, 126, 142));   // štěrbina
+        c.FillRect(15, 4, 8, 3, new Color(96, 102, 118));     // tubus dalekohledu
+        c.FillRect(7, 27, 18, 3, new Color(126, 130, 144));
     }
 
     private static void LumberCamp(PixelCanvas c)

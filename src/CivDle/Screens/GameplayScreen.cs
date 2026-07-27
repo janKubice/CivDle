@@ -363,6 +363,28 @@ public sealed class GameplayScreen : IScreen
             spriteBatch.End();
         }
 
+        // Náhled slučování: obtáhne celý čtverec 2×2, ne jednu dlaždici — hráč
+        // musí vidět, které čtyři budovy zmizí.
+        if (_tools.MergeGhostActive)
+        {
+            int ts = TerrainRenderer.TileSize;
+            var tint = (_tools.MergeGhostResult == PlacementResult.Ok
+                ? new Color(150, 235, 150)
+                : new Color(235, 120, 110)) * 0.45f;
+            spriteBatch.Draw(_screens.WhitePixel,
+                new Rectangle(_tools.MergeGhostX * ts, _tools.MergeGhostY * ts, ts * 2, ts * 2), tint);
+        }
+
+        if (_tools.RoadGhostActive)
+        {
+            int ts = TerrainRenderer.TileSize;
+            var tint = (_tools.RoadGhostResult != PlacementResult.Ok
+                ? new Color(235, 120, 110)
+                : _tools.RoadGhostErasing ? new Color(240, 190, 90) : new Color(200, 200, 190)) * 0.55f;
+            spriteBatch.Draw(_screens.WhitePixel,
+                new Rectangle(_tools.RoadGhostX * ts, _tools.RoadGhostY * ts, ts, ts), tint);
+        }
+
         if (_tools.ZonePreviewActive)
         {
             var preview = _tools.ZonePreview;
@@ -1044,6 +1066,19 @@ public sealed class GameplayScreen : IScreen
             stack.Widgets.Add(UiFactory.SmallButton(loc["hud.plant"], _tools.TogglePlant, loc["tip.plant"]));
         }
 
+        // Silnice: tvar sítě má být na hráči — auto-silnice řeší jen nutné napojení.
+        if (_simulation.IsFeatureUnlocked("roads"))
+        {
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.road"], _tools.ToggleRoad, loc["tip.road"]));
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.roadErase"], _tools.ToggleRoadErase, loc["tip.roadErase"]));
+        }
+
+        // Slučování bloků 2×2 v jednu velkou budovu.
+        if (_simulation.IsFeatureUnlocked("merge"))
+        {
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.merge"], _tools.ToggleMerge, loc["tip.merge"]));
+        }
+
         // Zóny (automatizace): jedno tlačítko na typ; klik = malovat, další klik na stejný = ven.
         var zoneTypes = _simulation.IsFeatureUnlocked("zones")
             ? _screens.Content.ZoneTypes
@@ -1099,6 +1134,12 @@ public sealed class GameplayScreen : IScreen
 
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.achievements"],
             () => _screens.Push(new AchievementsScreen(_screens, _simulation)), loc["tip.achievements"]));
+        if (_simulation.IsFeatureUnlocked("elections") && _screens.Content.Elections.IsEnabled)
+        {
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.election"],
+                () => _screens.Push(new ElectionScreen(_screens, _simulation)), loc["tip.election"]));
+        }
+
         stack.Widgets.Add(UiFactory.SmallButton(loc["menu.chronicle"],
             () => _screens.Push(new ChronicleScreen(_screens)), loc["tip.chronicle"]));
 
@@ -1654,6 +1695,24 @@ public sealed class GameplayScreen : IScreen
         _statusPanel.Visible = _tools.AnyActive;
         if (!_statusPanel.Visible)
         {
+            return;
+        }
+
+        if (_tools.MergeMode)
+        {
+            // Bez bloku pod kurzorem se řekne proč — jinak hráč klika naprázdno
+            // a neví, jestli je rozbitý nástroj, nebo jeho zástavba.
+            _statusLabel.Text = loc[_tools.MergeGhostActive ? "status.merge" : "status.mergeNoBlock"];
+            _statusLabel.TextColor = _tools.MergeGhostActive
+                ? new Color(150, 220, 150)
+                : new Color(220, 190, 120);
+            return;
+        }
+
+        if (_tools.RoadMode || _tools.RoadEraseMode)
+        {
+            _statusLabel.Text = loc[_tools.RoadEraseMode ? "status.roadErase" : "status.road"];
+            _statusLabel.TextColor = new Color(210, 205, 190);
             return;
         }
 

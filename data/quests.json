@@ -1,28 +1,234 @@
 {
   "schemaVersion": 1,
   "quests": [
-    { "id": "chop_wood",   "condition": { "metric": "harvested", "resource": "wood", "target": 15 }, "reward": { "food": 10 } },
-    { "id": "chop_stone",  "condition": { "metric": "harvested", "resource": "stone", "target": 10 }, "reward": { "wood": 10 } },
-    { "id": "first_house", "condition": { "metric": "building", "building": "house", "target": 1 },    "reward": { "planks": 8 } },
-    { "id": "grow_10",     "condition": { "metric": "population", "target": 10 },                       "reward": { "food": 20 } },
-    { "id": "first_lumber", "condition": { "metric": "building", "building": "lumber_camp", "target": 1 }, "reward": { "stone": 10 } },
-    { "id": "first_sawmill", "condition": { "metric": "building", "building": "sawmill", "target": 1 }, "reward": { "stone": 15 } },
-    { "id": "plant_first",   "condition": { "metric": "planted", "target": 1 },  "reward": { "food": 15 } },
-    { "id": "plant_grove",   "condition": { "metric": "planted", "target": 10 }, "reward": { "planks": 20 } },
-    { "id": "first_farm",  "condition": { "metric": "building", "building": "farm", "target": 1 },      "reward": { "wood": 20 } },
-    { "id": "research_milling", "condition": { "metric": "research", "tech": "milling" },               "reward": { "planks": 20 } },
-    { "id": "grow_25",     "condition": { "metric": "population", "target": 25 },                       "reward": { "food": 40 } },
-    { "id": "first_ascension", "condition": { "metric": "ascension", "target": 1 },                    "reward": { "food": 60 } },
-    { "id": "enter_bronze", "condition": { "metric": "research", "tech": "bronze_working" },            "reward": { "tools": 20 } },
-    { "id": "enter_iron", "condition": { "metric": "research", "tech": "iron_working" },                "reward": { "tools": 40 } },
-    { "id": "enter_industry", "condition": { "metric": "research", "tech": "steam_power" },             "reward": { "steel": 15 } },
-    { "id": "enter_information", "condition": { "metric": "research", "tech": "electronics" },           "reward": { "electronics": 12 } },
-    { "id": "enter_future", "condition": { "metric": "research", "tech": "fusion" },                     "reward": { "computer": 10 } }
+    {
+      "id": "chop_wood",
+      "condition": {
+        "metric": "harvested",
+        "resource": "wood",
+        "target": 15
+      },
+      "reward": {
+        "food": 10
+      }
+    },
+    {
+      "id": "chop_stone",
+      "condition": {
+        "metric": "harvested",
+        "resource": "stone",
+        "target": 10
+      },
+      "reward": {
+        "wood": 10
+      }
+    },
+    {
+      "id": "first_house",
+      "condition": {
+        "metric": "building",
+        "building": "house",
+        "target": 1
+      },
+      "reward": {
+        "planks": 8
+      }
+    },
+    {
+      "id": "grow_10",
+      "condition": {
+        "metric": "population",
+        "target": 10
+      },
+      "reward": {
+        "food": 20
+      }
+    },
+    {
+      "id": "first_lumber",
+      "condition": {
+        "metric": "building",
+        "building": "lumber_camp",
+        "target": 1
+      },
+      "reward": {
+        "stone": 10
+      }
+    },
+    {
+      "id": "first_sawmill",
+      "condition": {
+        "metric": "building",
+        "building": "sawmill",
+        "target": 1
+      },
+      "reward": {
+        "stone": 15
+      }
+    },
+    {
+      "id": "plant_first",
+      "condition": {
+        "metric": "planted",
+        "target": 1
+      },
+      "reward": {
+        "food": 15
+      }
+    },
+    {
+      "id": "plant_grove",
+      "condition": {
+        "metric": "planted",
+        "target": 10
+      },
+      "reward": {
+        "planks": 20
+      }
+    },
+    {
+      "id": "first_farm",
+      "condition": {
+        "metric": "building",
+        "building": "farm",
+        "target": 1
+      },
+      "reward": {
+        "wood": 20
+      }
+    },
+    {
+      "id": "research_milling",
+      "condition": {
+        "metric": "research",
+        "tech": "milling"
+      },
+      "reward": {
+        "planks": 20
+      }
+    },
+    {
+      "id": "grow_25",
+      "condition": {
+        "metric": "population",
+        "target": 25
+      },
+      "reward": {
+        "food": 40
+      }
+    },
+    {
+      "id": "first_ascension",
+      "condition": {
+        "metric": "ascension",
+        "target": 1
+      },
+      "reward": {
+        "food": 60
+      }
+    },
+    {
+      "id": "enter_bronze",
+      "condition": {
+        "metric": "research",
+        "tech": "bronze_working"
+      },
+      "reward": {
+        "tools": 20
+      }
+    },
+    {
+      "id": "enter_iron",
+      "condition": {
+        "metric": "research",
+        "tech": "iron_working"
+      },
+      "reward": {
+        "tools": 40
+      }
+    },
+    {
+      "id": "enter_industry",
+      "condition": {
+        "metric": "research",
+        "tech": "steam_power"
+      },
+      "reward": {
+        "steel": 15
+      }
+    },
+    {
+      "id": "enter_information",
+      "condition": {
+        "metric": "research",
+        "tech": "electronics"
+      },
+      "reward": {
+        "electronics": 12
+      }
+    },
+    {
+      "id": "enter_future",
+      "condition": {
+        "metric": "research",
+        "tech": "fusion"
+      },
+      "reward": {
+        "computer": 10
+      }
+    },
+    {
+      "id": "first_merge_quest",
+      "condition": {
+        "metric": "merged",
+        "target": 1
+      },
+      "reward": {
+        "stone": 40
+      }
+    },
+    {
+      "id": "merge_five",
+      "condition": {
+        "metric": "merged",
+        "target": 5
+      },
+      "reward": {
+        "planks": 60
+      }
+    },
+    {
+      "id": "first_park",
+      "condition": {
+        "metric": "building",
+        "building": "park",
+        "target": 1
+      },
+      "reward": {
+        "food": 50
+      }
+    },
+    {
+      "id": "first_monument",
+      "condition": {
+        "metric": "building",
+        "building": "standing_stones",
+        "target": 1
+      },
+      "reward": {
+        "stone": 80
+      }
+    }
   ],
   "dynamic": {
-    "condition": { "metric": "population", "target": 40 },
+    "condition": {
+      "metric": "population",
+      "target": 40
+    },
     "targetGrowth": 1.5,
-    "reward": { "food": 30 },
+    "reward": {
+      "food": 30
+    },
     "rewardGrowth": 1.4
   }
 }

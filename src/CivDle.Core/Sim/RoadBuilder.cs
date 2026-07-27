@@ -44,6 +44,26 @@ internal sealed class RoadBuilder
             return;
         }
 
+        // Dřív se dláždilo po každé stavbě, takže i mezi dvěma sousedními domy
+        // vyrostl kus cesty — město pak vypadalo jako šachovnice a nešlo postavit
+        // ani blok 2×2 (dlaždice pro čtvrtý dům byla zabraná silnicí). Cesta se
+        // proto staví jen tam, kde opravdu chybí:
+        int last = buildings.Length - 1;
+
+        // 1) Budova přiléhá k jiné → patří do stejného bloku a mezi domy v bloku
+        //    se nedláždí; k silnici se dostane přes svůj blok.
+        if (TouchesAnotherBuilding(sim, buildings[last], last))
+        {
+            return;
+        }
+
+        // 2) Blok už se silnice dotýká (podmínka roads.Count > 0 kvůli tomu, že
+        //    bez jediné silnice platí výjimka „všichni jsou napojení").
+        if (sim.RoadTiles.Count > 0 && sim.IsBuildingConnected(last))
+        {
+            return;
+        }
+
         _targets.Clear();
         _visited.Clear();
         _cameFrom.Clear();
@@ -83,6 +103,34 @@ internal sealed class RoadBuilder
             sim.AddRoadTile(TileKey.X(key), TileKey.Y(key));
         }
     }
+
+    /// <summary>Dotýká se půdorys budovy hranou jiné budovy? (Roh se nepočítá.)</summary>
+    private bool TouchesAnotherBuilding(Simulation sim, in BuildingInstance building, int ownIndex)
+    {
+        var def = _content.Buildings[building.DefIndex];
+        for (int x = building.X; x < building.X + def.FootprintWidth; x++)
+        {
+            if (IsOtherBuilding(sim, x, building.Y - 1, ownIndex)
+                || IsOtherBuilding(sim, x, building.Y + def.FootprintHeight, ownIndex))
+            {
+                return true;
+            }
+        }
+
+        for (int y = building.Y; y < building.Y + def.FootprintHeight; y++)
+        {
+            if (IsOtherBuilding(sim, building.X - 1, y, ownIndex)
+                || IsOtherBuilding(sim, building.X + def.FootprintWidth, y, ownIndex))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsOtherBuilding(Simulation sim, int x, int y, int ownIndex) =>
+        sim.TryGetBuildingAt(x, y, out int index) && index != ownIndex;
 
     /// <summary>BFS s limitem vzdálenosti; vrací klíč nalezené cílové dlaždice, jinak −1.</summary>
     private long Search(Simulation sim)

@@ -34,6 +34,8 @@ public sealed record Recipe(
 /// <param name="UpgradeCost">Cena vylepšení na další úroveň.</param>
 /// <param name="PowerSupply">Kolik elektřiny budova dodává (elektrárny); 0 = žádnou.</param>
 /// <param name="PowerDemand">Kolik elektřiny budova potřebuje; &gt;0 = její výroba škáluje s pokrytím sítě.</param>
+/// <param name="MergesToIndex">Index budovy, na kterou se sloučí blok 2×2 stejných; −1 = neslučuje se.</param>
+/// <param name="MergeCostOrNull">Cena sloučení (nad rámec už postavených budov).</param>
 public sealed record BuildingDef(
     string Id,
     string Category,
@@ -54,8 +56,19 @@ public sealed record BuildingDef(
     int PowerDemand,
     bool RequiresAdjacentWater = false,
     int ServiceValue = 0,
-    IReadOnlyList<ResourceAmount>? UpkeepOrNull = null)
+    IReadOnlyList<ResourceAmount>? UpkeepOrNull = null,
+    int MergesToIndex = -1,
+    IReadOnlyList<ResourceAmount>? MergeCostOrNull = null)
 {
+    /// <summary>
+    /// Cena za sloučení bloku 2×2 do jedné velké budovy. Doplácí se k tomu, co už
+    /// stojí — hráč čtyři domy nestaví znovu, jen je přestaví na jeden velký.
+    /// </summary>
+    public IReadOnlyList<ResourceAmount> MergeCost => MergeCostOrNull ?? Array.Empty<ResourceAmount>();
+
+    /// <summary>Dá se čtveřice těchhle budov v bloku 2×2 sloučit v jednu větší?</summary>
+    public bool CanMergeIntoBigger => MergesToIndex >= 0;
+
     /// <summary>
     /// Kolik „bodů služby" budova poskytuje (trh, sýpka, lázně…). 0 = budova
     /// obyvatele neobsluhuje. Přepočet na lidi řídí gameplay.json.

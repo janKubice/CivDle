@@ -148,6 +148,31 @@ public sealed class PoliciesScreen : IScreen
         }
 
         box.Widgets.Add(levels);
+
+        // Automatické slučování je vlastní přepínač, ne další stupeň: mění půdorys
+        // města a je nevratné, takže se nemá zapnout jen posunutím míry vylepšování.
+        box.Widgets.Add(new Label { Text = " " });
+        if (!_simulation.IsAutoMergeUnlocked)
+        {
+            box.Widgets.Add(new Label
+            {
+                Text = loc["governor.mergeLocked"],
+                TextColor = new Color(210, 170, 120),
+                Wrap = true,
+            });
+            return box;
+        }
+
+        box.Widgets.Add(new Label { Text = loc["governor.mergeDesc"], TextColor = Color.LightGray, Wrap = true });
+        var mergeToggle = UiFactory.SmallButton(
+            loc.Format("governor.merge", loc[_simulation.AutoMerge ? "common.on" : "common.off"]),
+            () =>
+            {
+                _simulation.SetAutoMerge(!_simulation.AutoMerge);
+                BuildUi();
+            },
+            loc["tip.governorMerge"]);
+        box.Widgets.Add(mergeToggle);
         return box;
     }
 

@@ -26,10 +26,19 @@ public sealed class AgentSystem
     {
         Person,
         Cart,
+        Boat,
     }
+
+    /// <summary>Kategorie budov, od kterých vyplouvají lodě (rybolov, přístavy).</summary>
+    private const string WaterCategory = "production";
+
+    private const float BoatSpeed = 30f;
 
     /// <summary>Jaká část chodců se drží silnic (zbytek chodí po svém).</summary>
     private const float PedestrianRoadShare = 0.5f;
+
+    /// <summary>Jak často se u přístavní budovy místo chodce objeví loďka.</summary>
+    private const float BoatChance = 0.55f;
 
     private struct Agent
     {
@@ -99,16 +108,24 @@ public sealed class AgentSystem
         for (int i = 0; i < _count; i++)
         {
             ref readonly var agent = ref _agents[i];
-            var sprite = _sprites.Get(agent.Kind == Kind.Person ? "agent.person" : "agent.cart");
+            var sprite = _sprites.Get(agent.Kind switch
+            {
+                Kind.Person => "agent.person",
+                Kind.Boat => "agent.boat",
+                _ => "agent.cart",
+            });
             if (sprite is null)
             {
                 continue;
             }
 
-            // Chodci lehce poskakují, vozíky drncají.
-            float bob = agent.Kind == Kind.Person
-                ? MathF.Abs(MathF.Sin(agent.Phase * 8f)) * 1.5f
-                : MathF.Sin(agent.Phase * 14f) * 0.6f;
+            // Chodci lehce poskakují, vozíky drncají, lodě se pomalu houpou na vlnách.
+            float bob = agent.Kind switch
+            {
+                Kind.Person => MathF.Abs(MathF.Sin(agent.Phase * 8f)) * 1.5f,
+                Kind.Boat => MathF.Sin(agent.Phase * 2.2f) * 1.6f,
+                _ => MathF.Sin(agent.Phase * 14f) * 0.6f,
+            };
             var origin = new Vector2(sprite.Width * 0.5f, sprite.Height);
             var effect = agent.FaceLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
             // Stín + tělo.
@@ -133,7 +150,11 @@ public sealed class AgentSystem
                 // Směr, kterým agent zrovna míří — nový cíl se hledá přednostně
                 // dopředu, aby vůz na silnici neposkakoval tam a zpět.
                 var heading = distance > 0.01f ? toTarget / distance : Vector2.Zero;
-                agent.Target = PickTarget(simulation, agent.Position, agent.FollowsRoads, heading);
+                // Loďka hledá cíl po vodě, ostatní po souši — jiné prostředí,
+                // jiná pravidla pohybu.
+                agent.Target = agent.Kind == Kind.Boat
+                    ? PickWaterTarget(simulation, agent.Position, heading)
+                    : PickTarget(simulation, agent.Position, agent.FollowsRoads, heading);
                 toTarget = agent.Target - agent.Position;
                 distance = toTarget.Length();
             }
@@ -182,6 +203,24 @@ public sealed class AgentSystem
             (Random.Shared.NextSingle() - 0.5f) * 6f * TerrainRenderer.TileSize);
         if (!IsPassable(simulation, pos))
         {
+            return;
+        }
+
+        // Přístavní budova = šance na loďku. Vyplouvá z vody vedle budovy, takže
+        // je hned vidět, odkud jede — právě ten detail dělá pobřeží živým.
+        if (_content.Buildings[anchor.DefIndex].NeedsWaterAccess
+            && Random.Shared.NextSingle() < BoatChance
+            && TryFindWaterNear(simulation, anchor, out var launch))
+        {
+            _agents[_count++] = new Agent
+            {
+                Position = launch,
+                Target = PickWaterTarget(simulation, launch, Vector2.Zero),
+                Kind = Kind.Boat,
+                FollowsRoads = false,
+                Speed = BoatSpeed,
+                Phase = Random.Shared.NextSingle() * 10f,
+            };
             return;
         }
 
@@ -285,6 +324,57 @@ public sealed class AgentSystem
             (y + best.Dy + 0.5f) * tile + (best.Dy == 0 ? jitter : 0f));
         return true;
     }
+
+    /// <summary>Najde vodní dlaždici hned vedle budovy — odtud loďka vyplouvá.</summary>
+    private bool TryFindWaterNear(Simulation simulation, in BuildingInstance building, out Vector2 position)
+    {
+        var def = _content.Buildings[building.DefIndex];
+        for (int y = building.Y - 1; y <= building.Y + def.FootprintHeight; y++)
+        {
+            for (int x = building.X - 1; x <= building.X + def.FootprintWidth; x++)
+            {
+                if (IsOpenWater(simulation, x, y))
+                {
+                    position = new Vector2((x + 0.5f) * TerrainRenderer.TileSize, (y + 0.5f) * TerrainRenderer.TileSize);
+                    return true;
+                }
+            }
+        }
+
+        position = Vector2.Zero;
+        return false;
+    }
+
+    /// <summary>
+    /// Kam loďka popluje: náhodný bod poblíž, ale jen po vodě. Několik pokusů
+    /// stačí — když se žádný netrefí, loď zůstane stát a zkusí to příští cíl.
+    /// </summary>
+    private Vector2 PickWaterTarget(Simulation simulation, Vector2 from, Vector2 heading)
+    {
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            float angle = heading == Vector2.Zero
+                ? Random.Shared.NextSingle() * MathF.Tau
+                : MathF.Atan2(heading.Y, heading.X) + (Random.Shared.NextSingle() - 0.5f) * 1.2f;
+            float distance = (2f + Random.Shared.NextSingle() * 4f) * TerrainRenderer.TileSize;
+            var candidate = from + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * distance;
+
+            int tileX = (int)MathF.Floor(candidate.X / TerrainRenderer.TileSize);
+            int tileY = (int)MathF.Floor(candidate.Y / TerrainRenderer.TileSize);
+            if (IsOpenWater(simulation, tileX, tileY))
+            {
+                return candidate;
+            }
+        }
+
+        return from;
+    }
+
+    /// <summary>Volná voda (ne most, ne budova) — loď po mostě neplave.</summary>
+    private bool IsOpenWater(Simulation simulation, int x, int y) =>
+        _content.Biomes[simulation.BiomeAt(x, y)].IsWater
+        && !simulation.IsRoad(x, y)
+        && !simulation.IsOccupied(x, y);
 
     private bool IsPassable(Simulation simulation, Vector2 worldPos)
     {

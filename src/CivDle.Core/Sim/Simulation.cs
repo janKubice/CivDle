@@ -42,6 +42,8 @@ public sealed class Simulation
     private readonly QuestSystem _questSystem;
     private readonly TutorialSystem _tutorialSystem;
     private readonly ChallengeSystem _challengeSystem;
+    private readonly ElectionSystem _electionSystem;
+    private readonly int[] _ballot;
     private readonly bool[] _settledBiomes; // biomy, na kterých už tohle město stavělo (kronika)
     private readonly List<int> _activeChallenges = new();   // indexy do fondu výzev
     private readonly List<long> _challengeBaselines = new(); // hodnota metriky při vydání výzvy
@@ -125,6 +127,8 @@ public sealed class Simulation
         _questSystem = new QuestSystem(content);
         _tutorialSystem = new TutorialSystem(content);
         _challengeSystem = new ChallengeSystem(content);
+        _electionSystem = new ElectionSystem(content);
+        _ballot = new int[Math.Max(1, content.Elections.BallotSize)];
         _settledBiomes = new bool[content.Biomes.Count];
         _questsCompleted = new bool[content.Quests.Count];
         _achievementSystem = new AchievementSystem(content);
@@ -572,11 +576,68 @@ public sealed class Simulation
             Array.Resize(ref _roadLinked, _buildings.Length);
         }
 
+        // Napojení se počítá po BLOCÍCH, ne po jednotlivých budovách: co se
+        // dotýká hranou, patří k sobě a stačí, když se silnice dotkne kteréhokoli
+        // domu v řadě. Bez toho by řadová zástavba vyžadovala dlažbu mezi každými
+        // dvěma domy — a přesně tak město vypadat nemá.
         for (int i = 0; i < _buildingCount; i++)
         {
             _roadLinked[i] = TouchesRoad(_buildings[i]);
         }
+
+        SpreadRoadLinkThroughBlocks();
     }
+
+    /// <summary>
+    /// Rozšíří „napojeno" na celé bloky dotýkajících se budov. Vlna se opakuje,
+    /// dokud něco přibývá — bloků je málo a běží to jen při změně sítě.
+    /// </summary>
+    private void SpreadRoadLinkThroughBlocks()
+    {
+        bool changed = true;
+        while (changed)
+        {
+            changed = false;
+            for (int i = 0; i < _buildingCount; i++)
+            {
+                if (_roadLinked[i] || !TouchesLinkedBuilding(i))
+                {
+                    continue;
+                }
+
+                _roadLinked[i] = true;
+                changed = true;
+            }
+        }
+    }
+
+    /// <summary>Dotýká se budova hranou jiné budovy, která už napojení má?</summary>
+    private bool TouchesLinkedBuilding(int buildingIndex)
+    {
+        ref var building = ref _buildings[buildingIndex];
+        var def = _content.Buildings[building.DefIndex];
+
+        for (int x = building.X; x < building.X + def.FootprintWidth; x++)
+        {
+            if (IsLinkedBuildingAt(x, building.Y - 1) || IsLinkedBuildingAt(x, building.Y + def.FootprintHeight))
+            {
+                return true;
+            }
+        }
+
+        for (int y = building.Y; y < building.Y + def.FootprintHeight; y++)
+        {
+            if (IsLinkedBuildingAt(building.X - 1, y) || IsLinkedBuildingAt(building.X + def.FootprintWidth, y))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool IsLinkedBuildingAt(int x, int y) =>
+        TryGetBuildingAt(x, y, out int index) && _roadLinked[index];
 
     /// <summary>
     /// Sousedí půdorys budovy s nějakou silnicí? Jen ORTOGONÁLNĚ — roh se nepočítá,
@@ -644,6 +705,72 @@ public sealed class Simulation
         }
     }
 
+    // ----- ruční silnice -----
+
+    /// <summary>Lze na dlaždici položit silnici? (Zastavěno, už silnice, nebo vysazený zdroj = ne.)</summary>
+    public PlacementResult CanBuildRoad(int x, int y)
+    {
+        long tile = TileKey.Pack(x, y);
+        if (_roads.Contains(tile))
+        {
+            return PlacementResult.Occupied;
+        }
+
+        if (_occupancy.ContainsKey(tile) || _plantedNodes.ContainsKey(tile))
+        {
+            return PlacementResult.Occupied;
+        }
+
+        // Voda jen tam, kde je most únosně dlouhý, se řeší u auto-silnic; ruční
+        // most nechceme přes oceán, takže vodní dlaždice hráč nedláždí.
+        if (_content.Biomes[Terrain.BiomeAt(x, y)].IsWater)
+        {
+            return PlacementResult.WrongBiome;
+        }
+
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>
+    /// Příkaz hráče: postaví kus silnice. Auto-silnice řeší jen nutné napojení,
+    /// takže tvar sítě má být na hráči — bez tohohle nešlo město srovnat do ulic.
+    /// </summary>
+    public PlacementResult TryBuildRoad(int x, int y)
+    {
+        var result = CanBuildRoad(x, y);
+        if (result != PlacementResult.Ok)
+        {
+            return result;
+        }
+
+        AddRoadTile(x, y);
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>Příkaz hráče: strhne silnici z dlaždice. Vrací false, když tam žádná není.</summary>
+    public bool TryRemoveRoad(int x, int y)
+    {
+        long tile = TileKey.Pack(x, y);
+        if (!_roads.Remove(tile))
+        {
+            return false;
+        }
+
+        for (int i = 0; i < _roadTiles.Count; i++)
+        {
+            if (_roadTiles[i].X == x && _roadTiles[i].Y == y)
+            {
+                // Swap-remove: na pořadí dlaždic v seznamu nikde nezáleží.
+                _roadTiles[i] = _roadTiles[^1];
+                _roadTiles.RemoveAt(_roadTiles.Count - 1);
+                break;
+            }
+        }
+
+        _roadLinksDirty = true;
+        return true;
+    }
+
     /// <summary>Budovy pro systémy simulace (mutace progressu výroby).</summary>
     internal Span<BuildingInstance> BuildingsMutable => _buildings.AsSpan(0, _buildingCount);
 
@@ -671,6 +798,7 @@ public sealed class Simulation
         _questSystem.Tick(this);
         _tutorialSystem.Tick(this);
         _challengeSystem.Tick(this);
+        _electionSystem.Tick(this);
         _achievementSystem.Tick(this);
 
         // Těžiště města a UFO nejsou hot path — stačí je řešit jednou za čas.
@@ -825,7 +953,8 @@ public sealed class Simulation
         }
 
         // Trvalý bonus Vzestupu + slavnost zvedají výnos (nejmíň původní hodnota).
-        int gained = Math.Max(yield.Amount, (int)Math.Round(yield.Amount * _bonuses.HarvestMult * BoostMultiplier));
+        int gained = Math.Max(yield.Amount,
+            (int)Math.Round(yield.Amount * _bonuses.HarvestMult * BoostMultiplier * ElectionHarvestMult));
 
         // Deterministický krit (aktivní klikání se vyplatí). Nejdřív se zkouší
         // vzácný „úlovek života" — má přednost, aby se s kritem nesčítal do absurdna.
@@ -1312,6 +1441,32 @@ public sealed class Simulation
     public void SetAutoUpgradeLevel(int level) =>
         _autoUpgradeLevel = Math.Clamp(level, 0, MaxAutoUpgradeLevel);
 
+    /// <summary>ID technologie, po které umí guvernér i slučovat bloky (data-driven odkaz).</summary>
+    public const string GovernorMergeTechId = "urban_planning";
+
+    private bool _autoMerge;
+
+    /// <summary>
+    /// Umí guvernér slučovat bloky 2×2 sám? Odemyká se vlastní technologií —
+    /// slučování mění půdorys města, takže se nemá zapnout nepozorovaně spolu
+    /// s běžným vylepšováním.
+    /// </summary>
+    public bool IsAutoMergeUnlocked =>
+        IsGovernorUnlocked
+        && _content.Techs.TryIndexOf(GovernorMergeTechId, out int index) && _techResearched[index];
+
+    /// <summary>Slučuje guvernér bloky sám? (Bez technologie vždy ne.)</summary>
+    public bool AutoMerge => IsAutoMergeUnlocked && _autoMerge;
+
+    /// <summary>Příkaz hráče: zapne/vypne automatické slučování bloků.</summary>
+    public void SetAutoMerge(bool enabled) => _autoMerge = enabled;
+
+    /// <summary>Surová volba pro save (bez ohledu na odemčení).</summary>
+    internal bool AutoMergeRaw => _autoMerge;
+
+    /// <summary>Obnoví volbu automatického slučování ze savu.</summary>
+    internal void RestoreAutoMerge(bool enabled) => _autoMerge = enabled;
+
     /// <summary>Smí guvernér na téhle úrovni vylepšit budovu dané kategorie?</summary>
     internal bool AutoUpgradeCovers(string category) => AutoUpgradeLevel switch
     {
@@ -1591,6 +1746,7 @@ public sealed class Simulation
         MetricKind.DayNumber => DayNumber,
         MetricKind.PlantedNodes => _plantedNodes.Count,
         MetricKind.TerraformedTiles => TerraformedTiles,
+        MetricKind.MergedBuildings => MergedBuildings,
         _ => 0,
     };
 
@@ -1671,6 +1827,116 @@ public sealed class Simulation
     /// „kde všude jsi stavěl" je sběratelský cíl, který přesahuje jednu hru.
     /// </summary>
     public bool HasSettledBiome(int biomeIndex) => _settledBiomes[biomeIndex];
+
+    // ----- volby -----
+
+    /// <summary>Kolikáté volební období běží; −1 = volby se ještě nekonaly.</summary>
+    public long ElectionTerm { get; private set; } = -1;
+
+    /// <summary>Index zvoleného programu do <see cref="ElectionConfig.Candidates"/>; −1 = zatím nikdo.</summary>
+    public int ElectedCandidate { get; private set; } = -1;
+
+    /// <summary>Kolik programů je na aktuální kandidátce.</summary>
+    public int BallotSize => _content.Elections.IsEnabled ? _content.Elections.BallotSize : 0;
+
+    /// <summary>Program na daném místě kandidátky (index do fondu programů).</summary>
+    public int BallotAt(int slot) => _ballot[slot];
+
+    /// <summary>Vybral už hráč (nebo automat) program pro tohle období?</summary>
+    public bool HasElected => ElectedCandidate >= 0;
+
+    /// <summary>Kolik herních dní zbývá do dalších voleb.</summary>
+    public long DaysUntilElection => !_content.Elections.IsEnabled
+        ? 0
+        : Math.Max(0, (ElectionTerm + 1) * _content.Elections.TermDays - DayNumber);
+
+    /// <summary>
+    /// Příkaz hráče: zvolí program z kandidátky. Volba platí do konce období.
+    /// </summary>
+    public void ElectCandidate(int candidateIndex)
+    {
+        if (candidateIndex >= 0 && candidateIndex < _content.Elections.Candidates.Count)
+        {
+            ElectedCandidate = candidateIndex;
+        }
+    }
+
+    /// <summary>
+    /// Otevře nové volební období: sestaví kandidátku a zruší předchozí volbu.
+    /// Kandidátka je odvozená z čísla období a seedu, aby po načtení savu vyšla stejná.
+    /// </summary>
+    internal void BeginElectionTerm(long term)
+    {
+        ElectionTerm = term;
+        FillBallot(term);
+
+        // Vláda nastoupí hned: prázdné období by znamenalo, že hráč, který si
+        // nevybral, přijde o bonus úplně — a to není relaxační, to je trest.
+        ElectedCandidate = _ballot[0];
+    }
+
+    /// <summary>Obnoví stav voleb ze savu (bez oznámení a bez nové kandidátky).</summary>
+    internal void RestoreElection(long term, int elected)
+    {
+        ElectionTerm = term;
+        ElectedCandidate = elected;
+        if (term >= 0)
+        {
+            FillBallot(term);
+        }
+    }
+
+    private void FillBallot(long term)
+    {
+        var candidates = _content.Elections.Candidates;
+        if (candidates.Count == 0)
+        {
+            return;
+        }
+
+        // Bez opakování: postupně se losuje z těch, které ještě na kandidátce nejsou.
+        Span<int> pool = candidates.Count <= 64 ? stackalloc int[candidates.Count] : new int[candidates.Count];
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            pool[i] = i;
+        }
+
+        var rng = new CivDle.Core.WorldGen.SplitMix64(unchecked((ulong)Seed ^ ((ulong)term * 0x9E3779B97F4A7C15UL)));
+        int remaining = candidates.Count;
+        for (int slot = 0; slot < _ballot.Length; slot++)
+        {
+            int pick = (int)(rng.Next() % (ulong)remaining);
+            _ballot[slot] = pool[pick];
+            pool[pick] = pool[--remaining];
+        }
+    }
+
+    /// <summary>Účinek zvoleného programu daného druhu (0 = nikdo takový nevládne).</summary>
+    private double ElectionBonus(ElectionEffect effect)
+    {
+        if (ElectedCandidate < 0)
+        {
+            return 0.0;
+        }
+
+        var candidate = _content.Elections.Candidates[ElectedCandidate];
+        return candidate.Effect == effect ? candidate.Magnitude : 0.0;
+    }
+
+    /// <summary>Násobič výroby ze zvoleného programu (1.0 = bez vlivu).</summary>
+    public double ElectionProductionMult => 1.0 + ElectionBonus(ElectionEffect.Production);
+
+    /// <summary>Násobič růstu populace ze zvoleného programu.</summary>
+    public double ElectionGrowthMult => 1.0 + ElectionBonus(ElectionEffect.Growth);
+
+    /// <summary>Násobič ručního sběru ze zvoleného programu.</summary>
+    public double ElectionHarvestMult => 1.0 + ElectionBonus(ElectionEffect.Harvest);
+
+    /// <summary>Sleva na výzkum ze zvoleného programu (podíl ceny).</summary>
+    public double ElectionResearchDiscount => ElectionBonus(ElectionEffect.Research);
+
+    /// <summary>Přídavek ke spokojenosti ze zvoleného programu.</summary>
+    public double ElectionHappinessBonus => ElectionBonus(ElectionEffect.Happiness);
 
     // ----- denní výzvy -----
 
@@ -1805,6 +2071,192 @@ public sealed class Simulation
         }
 
         return false;
+    }
+
+    // ----- slučování bloků 2×2 -----
+
+    /// <summary>
+    /// Najde blok 2×2 stejných budov, jehož součástí je budova na dané dlaždici.
+    /// Zkouší všechny čtyři polohy, ve kterých může dlaždice v bloku ležet —
+    /// hráč klikne kamkoli do čtverce, ne nutně do jeho levého horního rohu.
+    /// </summary>
+    public bool TryFindMergeGroup(int x, int y, out MergeGroup group)
+    {
+        group = default;
+        if (!TryGetBuildingAt(x, y, out int clicked))
+        {
+            return false;
+        }
+
+        int defIndex = _buildings[clicked].DefIndex;
+        if (!_content.Buildings[defIndex].CanMergeIntoBigger)
+        {
+            return false;
+        }
+
+        for (int dy = 0; dy <= 1; dy++)
+        {
+            for (int dx = 0; dx <= 1; dx++)
+            {
+                if (TryBlockAt(x - dx, y - dy, defIndex, out group))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Leží na dlaždicích (x,y)…(x+1,y+1) čtyři budovy téhož typu?</summary>
+    private bool TryBlockAt(int x, int y, int defIndex, out MergeGroup group)
+    {
+        group = default;
+        if (!IsSameBuilding(x, y, defIndex, out int a)
+            || !IsSameBuilding(x + 1, y, defIndex, out int b)
+            || !IsSameBuilding(x, y + 1, defIndex, out int c)
+            || !IsSameBuilding(x + 1, y + 1, defIndex, out int d))
+        {
+            return false;
+        }
+
+        group = new MergeGroup(x, y, defIndex, a, b, c, d);
+        return true;
+    }
+
+    private bool IsSameBuilding(int x, int y, int defIndex, out int buildingIndex) =>
+        TryGetBuildingAt(x, y, out buildingIndex) && _buildings[buildingIndex].DefIndex == defIndex;
+
+    /// <summary>
+    /// Lze blok 2×2 na dané dlaždici sloučit? Cíl musí být odemčený technologií
+    /// (proto se slučování nedá zneužít hned na začátku) a hráč musí mít na doplatek.
+    /// </summary>
+    public PlacementResult CanMerge(int x, int y)
+    {
+        if (!TryFindMergeGroup(x, y, out var group))
+        {
+            return PlacementResult.Occupied;
+        }
+
+        return CanMerge(group);
+    }
+
+    /// <summary>Lze konkrétní nalezený blok sloučit?</summary>
+    public PlacementResult CanMerge(MergeGroup group)
+    {
+        var def = _content.Buildings[group.DefIndex];
+        int targetIndex = def.MergesToIndex;
+        if (targetIndex < 0 || !_buildingUnlocked[targetIndex])
+        {
+            return PlacementResult.NotUnlocked;
+        }
+
+        // Cílová budova musí na dané místo vůbec smět — biom se pod blokem může lišit.
+        var target = _content.Buildings[targetIndex];
+        for (int tileY = group.Y; tileY < group.Y + 2; tileY++)
+        {
+            for (int tileX = group.X; tileX < group.X + 2; tileX++)
+            {
+                if (!target.IsBiomeAllowed(Terrain.BiomeAt(tileX, tileY)))
+                {
+                    return PlacementResult.WrongBiome;
+                }
+            }
+        }
+
+        var cost = def.MergeCost;
+        for (int i = 0; i < cost.Count; i++)
+        {
+            if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
+            {
+                return PlacementResult.NotEnoughResources;
+            }
+        }
+
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>
+    /// Příkaz hráče: sloučí blok 2×2 stejných budov v jednu velkou. Čtyři budovy
+    /// zmizí (bez vrácení ceny — nebourá se, přestavuje) a na jejich místě vznikne
+    /// cílová 2×2 budova.
+    ///
+    /// <para>Existuje kvůli tomu, že velké město je jinak koberec identických
+    /// domečků; sloučení dá hráči důvod stavět úhledně a odmění ho siluetou,
+    /// kterou jinak nezíská.</para>
+    /// </summary>
+    public PlacementResult TryMerge(int x, int y)
+    {
+        if (!TryFindMergeGroup(x, y, out var group))
+        {
+            return PlacementResult.Occupied;
+        }
+
+        var result = CanMerge(group);
+        if (result != PlacementResult.Ok)
+        {
+            return result;
+        }
+
+        var def = _content.Buildings[group.DefIndex];
+        var cost = def.MergeCost;
+        for (int i = 0; i < cost.Count; i++)
+        {
+            _resources[cost[i].ResourceIndex] -= cost[i].Amount;
+        }
+
+        // Od nejvyššího indexu: odebrání přesouvá poslední budovu na uvolněné
+        // místo, takže při mazání odspodu by se zbylé indexy posunuly pod rukama.
+        var (first, second, third, fourth) = group.DescendingIndices();
+        RemoveBuildingSilently(first);
+        RemoveBuildingSilently(second);
+        RemoveBuildingSilently(third);
+        RemoveBuildingSilently(fourth);
+
+        AddBuilding(def.MergesToIndex, group.X, group.Y, progress: 0f);
+        ApplyBuildingBonuses(_content.Buildings[def.MergesToIndex]);
+        _roadLinksDirty = true; // napojení se musí přepočítat, než se zeptáme na cestu
+        _roadBuilder.ConnectLastBuilding(this);
+        MergedBuildings++;
+        SettlementsDirty = true;
+        _roadLinksDirty = true;
+        EnqueueNotification(new GameNotification(
+            NotificationKind.Milestone, "toast.merged", _content.Buildings[def.MergesToIndex].NameKey));
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>Kolik sloučení hráč provedl (metrika pro cíle a achievementy).</summary>
+    public long MergedBuildings { get; internal set; }
+
+    /// <summary>Obnoví počet sloučení ze savu.</summary>
+    internal void RestoreMergedBuildings(long count) => MergedBuildings = count;
+
+    /// <summary>
+    /// Odebere budovu bez vracení surovin a bez oznámení — slučování není bourání,
+    /// materiál jde do nové stavby.
+    /// </summary>
+    private void RemoveBuildingSilently(int buildingIndex)
+    {
+        var def = _content.Buildings[_buildings[buildingIndex].DefIndex];
+        int x = _buildings[buildingIndex].X, y = _buildings[buildingIndex].Y;
+        for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
+        {
+            for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
+            {
+                _occupancy.Remove(TileKey.Pack(tileX, tileY));
+            }
+        }
+
+        RemoveBuildingBonuses(def);
+
+        int last = _buildingCount - 1;
+        if (buildingIndex != last)
+        {
+            _buildings[buildingIndex] = _buildings[last];
+            RemapOccupancy(buildingIndex);
+        }
+
+        _buildingCount--;
     }
 
     /// <summary>Lze budovu (podle indexu v <see cref="Buildings"/>) vylepšit na další úroveň?</summary>
@@ -2046,7 +2498,7 @@ public sealed class Simulation
     /// by rozbila celou progresi.
     /// </summary>
     public int ResearchCost(int baseAmount) =>
-        Math.Max(1, (int)Math.Round(baseAmount * (1.0 - _bonuses.ResearchDiscount)));
+        Math.Max(1, (int)Math.Round(baseAmount * (1.0 - Math.Min(0.9, _bonuses.ResearchDiscount + ElectionResearchDiscount))));
 
     private void UnlockTech(int techIndex)
     {

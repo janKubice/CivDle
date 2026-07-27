@@ -127,6 +127,16 @@
       "reward": {
         "food": 160
       }
+    },
+    {
+      "id": "merger",
+      "condition": {
+        "metric": "merged",
+        "target": 3
+      },
+      "reward": {
+        "stone": 140
+      }
     }
   ]
 }

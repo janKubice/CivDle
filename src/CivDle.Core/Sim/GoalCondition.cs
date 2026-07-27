@@ -39,6 +39,9 @@ public enum MetricKind
 
     /// <summary>Kolik dlaždic hráč přetvořil terraformací.</summary>
     TerraformedTiles,
+
+    /// <summary>Kolik bloků 2×2 hráč sloučil v jednu velkou budovu.</summary>
+    MergedBuildings,
 }
 
 /// <summary>
