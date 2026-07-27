@@ -858,6 +858,12 @@
     "event.longevity_trial": "Studie dlouhověkosti",
     "event.longevity_trial.desc": "Klinika hledá dobrovolníky a platí jistotou jídla na deset let.",
     "event.longevity_trial.volunteer": "Otevřít studii",
-    "event.longevity_trial.abstain": "Zdržet se"
+    "event.longevity_trial.abstain": "Zdržet se",
+    "settings.accessibility": "Přístupnost",
+    "settings.uiScale": "Velikost rozhraní",
+    "settings.reduceMotion": "Omezit pohyb",
+    "settings.colorCues": "Značky u barev",
+    "cue.yes": "[+]",
+    "cue.no": "[-]"
   }
 }

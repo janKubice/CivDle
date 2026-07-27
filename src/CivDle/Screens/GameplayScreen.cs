@@ -178,6 +178,7 @@ public sealed class GameplayScreen : IScreen
 
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
+        _screens.UiSettingsChanged += BuildUi;
         _ambient.Play(); // klidná smyčka pro relaxační jádro
         _eventTimer = NextEventGap();
     }
@@ -192,6 +193,7 @@ public sealed class GameplayScreen : IScreen
         // ať po Vzestupu (reset na 0 budov) nevystřelí prach za „nové" budovy.
         RefreshBuildMenu();
         _objectives.MarkDirty();
+        ApplyMotionSettings(); // hráč se mohl vrátit z nastavení
         _knownBuildingCount = _simulation.Buildings.Length;
     }
 
@@ -470,6 +472,7 @@ public sealed class GameplayScreen : IScreen
     public void Dispose()
     {
         _screens.Loc.LanguageChanged -= BuildUi;
+        _screens.UiSettingsChanged -= BuildUi;
         _terrainRenderer.Dispose();
         _minimap.Dispose();
         _vignette.Dispose();
@@ -978,7 +981,8 @@ public sealed class GameplayScreen : IScreen
         root.Widgets.Add(_objectives.Root);
         root.Widgets.Add(bottomBar);
 
-        _desktop = new Desktop { Root = root };
+        _desktop = _screens.NewDesktop(root);
+        ApplyMotionSettings();
         RefreshBuildMenu();
         RefreshHudTexts();
     }
@@ -1250,9 +1254,16 @@ public sealed class GameplayScreen : IScreen
     /// </summary>
     private void RefreshBuildAffordability()
     {
+        var loc = _screens.Loc;
+        var content = _screens.Content;
+        // Se zapnutými barevnými vodítky nese „mám / nemám" i značka před cenou,
+        // aby to nezáviselo jen na rozlišení zelené a červené.
+        bool cues = _screens.Settings.ColorCues;
         foreach (var (defIndex, button, priceLabel) in _buildButtons)
         {
             bool affordable = _simulation.CanAfford(defIndex);
+            string price = CostFormat.Line(content, loc, content.Buildings[defIndex].BuildCost);
+            priceLabel.Text = cues ? loc[affordable ? "cue.yes" : "cue.no"] + ' ' + price : price;
             priceLabel.TextColor = affordable ? new Color(150, 220, 150) : new Color(232, 120, 110);
             button.Background = new SolidBrush(affordable ? new Color(38, 48, 64, 235) : new Color(30, 34, 42, 170));
         }
@@ -1265,6 +1276,14 @@ public sealed class GameplayScreen : IScreen
     /// </summary>
     private void SaveGame() =>
         _screens.Saves.TrySave(_simulation, new SaveMetadata(_info.Seed, _info.SizeId, _info.PresetId, DateTime.UtcNow));
+
+    /// <summary>Promítne přístupnostní volbu „omezit pohyb" do vizuálních efektů.</summary>
+    private void ApplyMotionSettings()
+    {
+        bool motion = !_screens.Settings.ReduceMotion;
+        _particles.Enabled = motion;
+        _floatingText.Enabled = motion;
+    }
 
     /// <summary>
     /// Řádek „kam to celé směřuje": příští éra a technologie, která ji otevře.

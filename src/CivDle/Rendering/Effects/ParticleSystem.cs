@@ -26,9 +26,20 @@ public sealed class ParticleSystem
     private readonly Particle[] _particles = new Particle[MaxParticles];
     private int _count;
 
+    /// <summary>
+    /// Mají částice vůbec vznikat? Vypíná je přístupnostní volba „omezit pohyb" —
+    /// řeší se to tady, ne u každého volání, aby nešlo někde zapomenout.
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+
     /// <summary>Vystřelí dávku částic z bodu do náhodných směrů (třísky po kliku, prach po stavbě).</summary>
     public void SpawnBurst(Vector2 center, Color color, int count, float minSpeed, float maxSpeed)
     {
+        if (!Enabled)
+        {
+            return;
+        }
+
         for (int i = 0; i < count && _count < MaxParticles; i++)
         {
             float angle = Random.Shared.NextSingle() * MathF.Tau;

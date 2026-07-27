@@ -29,6 +29,7 @@ public sealed class NewGameScreen : IScreen
 
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
+        _screens.UiSettingsChanged += BuildUi;
     }
 
     public bool IsOverlay => false;
@@ -44,6 +45,7 @@ public sealed class NewGameScreen : IScreen
     public void Dispose()
     {
         _screens.Loc.LanguageChanged -= BuildUi;
+        _screens.UiSettingsChanged -= BuildUi;
     }
 
     private void BuildUi()
@@ -86,7 +88,7 @@ public sealed class NewGameScreen : IScreen
         layout.Widgets.Add(UiFactory.MenuButton(loc["newgame.create"], StartGame));
         layout.Widgets.Add(UiFactory.MenuButton(loc["newgame.back"], _screens.Pop));
 
-        _desktop = new Desktop { Root = UiFactory.MenuBackdrop(layout) };
+        _desktop = _screens.NewDesktop(UiFactory.MenuBackdrop(layout));
     }
 
     private void StartGame()

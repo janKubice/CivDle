@@ -21,6 +21,7 @@ public sealed class MainMenuScreen : IScreen
         _screens = screens;
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
+        _screens.UiSettingsChanged += BuildUi;
     }
 
     public bool IsOverlay => false;
@@ -36,6 +37,7 @@ public sealed class MainMenuScreen : IScreen
     public void Dispose()
     {
         _screens.Loc.LanguageChanged -= BuildUi;
+        _screens.UiSettingsChanged -= BuildUi;
     }
 
     private void BuildUi()
@@ -93,7 +95,7 @@ public sealed class MainMenuScreen : IScreen
             root.Widgets.Add(devlogPanel);
         }
 
-        _desktop = new Desktop { Root = root };
+        _desktop = _screens.NewDesktop(root);
     }
 
     private Panel BuildDevlog(Localization loc)

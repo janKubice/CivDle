@@ -59,6 +59,7 @@ public sealed class TechScreen : IScreen
         _font = Stylesheet.Current.LabelStyle.Font;
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
+        _screens.UiSettingsChanged += BuildUi;
 
         // Start u prvního nevyzkoumaného uzlu, ať hráč hned vidí, kam pokračovat.
         CenterOnNextTech();
@@ -266,7 +267,11 @@ public sealed class TechScreen : IScreen
         return string.Join(", ", missing);
     }
 
-    public void Dispose() => _screens.Loc.LanguageChanged -= BuildUi;
+    public void Dispose()
+    {
+        _screens.Loc.LanguageChanged -= BuildUi;
+        _screens.UiSettingsChanged -= BuildUi;
+    }
 
     /// <summary>Plátno → obrazovka (přiblížení a posun).</summary>
     private Vector2 Shift(Vector2 point) => point * _zoom + _pan;
@@ -415,6 +420,6 @@ public sealed class TechScreen : IScreen
         var root = new Panel();
         root.Widgets.Add(headerPanel);
         root.Widgets.Add(close);
-        _desktop = new Desktop { Root = root };
+        _desktop = _screens.NewDesktop(root);
     }
 }

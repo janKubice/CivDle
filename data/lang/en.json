@@ -858,6 +858,12 @@
     "event.longevity_trial": "A Longevity Trial",
     "event.longevity_trial.desc": "The clinic needs volunteers and is paying in food security for a decade.",
     "event.longevity_trial.volunteer": "Open the trial",
-    "event.longevity_trial.abstain": "Abstain"
+    "event.longevity_trial.abstain": "Abstain",
+    "settings.accessibility": "Accessibility",
+    "settings.uiScale": "Interface size",
+    "settings.reduceMotion": "Reduce motion",
+    "settings.colorCues": "Symbols with colour",
+    "cue.yes": "[+]",
+    "cue.no": "[-]"
   }
 }

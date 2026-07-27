@@ -29,6 +29,7 @@ public sealed class PauseScreen : IScreen
         _info = info;
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
+        _screens.UiSettingsChanged += BuildUi;
     }
 
     public bool IsOverlay => true;
@@ -59,6 +60,7 @@ public sealed class PauseScreen : IScreen
     public void Dispose()
     {
         _screens.Loc.LanguageChanged -= BuildUi;
+        _screens.UiSettingsChanged -= BuildUi;
     }
 
     private void BuildUi()
@@ -99,7 +101,7 @@ public sealed class PauseScreen : IScreen
             _screens.ExitGame();
         }));
 
-        _desktop = new Desktop { Root = UiFactory.MenuBackdrop(layout) };
+        _desktop = _screens.NewDesktop(UiFactory.MenuBackdrop(layout));
     }
 
     private void SaveGame()

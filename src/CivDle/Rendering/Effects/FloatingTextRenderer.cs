@@ -26,9 +26,20 @@ public sealed class FloatingTextRenderer
     private readonly Entry[] _entries = new Entry[MaxEntries];
     private int _count;
 
+    /// <summary>
+    /// Mají popupy vůbec vznikat? Vypíná je přístupnostní volba „omezit pohyb";
+    /// informace se tím neztratí — čísla jsou i v horním pruhu surovin.
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+
     /// <summary>Přidá popup nad world pozicí (text má být z cache, ne skládaný per klik).</summary>
     public void Add(Vector2 worldPosition, string text, Color color)
     {
+        if (!Enabled)
+        {
+            return;
+        }
+
         if (_count == MaxEntries)
         {
             // Pool plný → zahodí se nejstarší (index 0 po prohozech ≈ nejstarší dost dobře).
