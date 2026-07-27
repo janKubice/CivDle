@@ -181,6 +181,7 @@ public sealed class GameplayScreen : IScreen
         _screens.UiSettingsChanged += BuildUi;
         _ambient.Play(); // klidná smyčka pro relaxační jádro
         _eventTimer = NextEventGap();
+        RefreshChallengeDay();
     }
 
     public bool IsOverlay => false;
@@ -215,6 +216,7 @@ public sealed class GameplayScreen : IScreen
 
         // Pravidelný autosave: idle hra běží hodiny, ztratit ji kvůli pádu
         // nebo zavření okna je to nejhorší, co se může stát.
+        RefreshChallengeDay();
         _autosaveTimer -= dt;
         if (_autosaveTimer <= 0f)
         {
@@ -715,6 +717,11 @@ public sealed class GameplayScreen : IScreen
             {
                 SyncAchievements();
             }
+            else if (note.TitleKey == "toast.challenge")
+            {
+                _screens.Profile.ChallengesCompleted++;
+                _screens.SaveProfile();
+            }
         }
     }
 
@@ -835,6 +842,32 @@ public sealed class GameplayScreen : IScreen
             if (_simulation.IsAchievementUnlocked(i) && !profile.UnlockedAchievements.Contains(id))
             {
                 profile.UnlockedAchievements.Add(id);
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            _screens.SaveProfile();
+        }
+    }
+
+    /// <summary>
+    /// Zapíše do kroniky, co tahle hra dokázala (rekordy a zastavěné biomy).
+    /// Volá se spolu s autosavem, ne každý snímek — profil se ukládá na disk
+    /// a rekord se stejně mění zřídka.
+    /// </summary>
+    private void SyncChronicle()
+    {
+        var profile = _screens.Profile;
+        bool changed = profile.RecordBest(
+            _simulation.Population, _simulation.Buildings.Length, _simulation.AscensionLevel);
+
+        var biomes = _screens.Content.Biomes;
+        for (int i = 0; i < biomes.Count; i++)
+        {
+            if (_simulation.HasSettledBiome(i) && profile.RecordBiome(biomes[i].Id))
+            {
                 changed = true;
             }
         }
@@ -1066,6 +1099,8 @@ public sealed class GameplayScreen : IScreen
 
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.achievements"],
             () => _screens.Push(new AchievementsScreen(_screens, _simulation)), loc["tip.achievements"]));
+        stack.Widgets.Add(UiFactory.SmallButton(loc["menu.chronicle"],
+            () => _screens.Push(new ChronicleScreen(_screens)), loc["tip.chronicle"]));
 
         // Slavnost: aktivní boost na kliknutí (stav se přepisuje v RefreshHudTexts).
         _festivalLabel = new Label
@@ -1274,8 +1309,20 @@ public sealed class GameplayScreen : IScreen
     /// oknem — je to tichá pojistka, ne akce hráče; ruční uložení v pauze dál
     /// výsledek hlásí.
     /// </summary>
-    private void SaveGame() =>
+    private void SaveGame()
+    {
+        SyncChronicle();
         _screens.Saves.TrySave(_simulation, new SaveMetadata(_info.Seed, _info.SizeId, _info.PresetId, DateTime.UtcNow));
+    }
+
+    /// <summary>
+    /// Řekne simulaci, jaký je dnes den (UTC). Simulace si na hodiny nesahá sama,
+    /// aby zůstala deterministická — datum je vstup jako každý jiný. Změna dne
+    /// uvnitř vydá novou sadu denních výzev; volání ve stejný den nic nedělá,
+    /// takže se to může klidně ptát každý snímek.
+    /// </summary>
+    private void RefreshChallengeDay() =>
+        _simulation.SetChallengeDay(DailyReward.TodayKey(DateTime.UtcNow));
 
     /// <summary>Promítne přístupnostní volbu „omezit pohyb" do vizuálních efektů.</summary>
     private void ApplyMotionSettings()

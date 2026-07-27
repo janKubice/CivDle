@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "dailyCount": 3,
+  "challenges": [
+    {
+      "id": "woodcutter",
+      "condition": {
+        "metric": "harvested",
+        "resource": "wood",
+        "target": 120
+      },
+      "reward": {
+        "food": 100
+      }
+    },
+    {
+      "id": "stonecutter",
+      "condition": {
+        "metric": "harvested",
+        "resource": "stone",
+        "target": 90
+      },
+      "reward": {
+        "planks": 40
+      }
+    },
+    {
+      "id": "forager",
+      "condition": {
+        "metric": "harvested",
+        "resource": "food",
+        "target": 100
+      },
+      "reward": {
+        "wood": 120
+      }
+    },
+    {
+      "id": "builder",
+      "condition": {
+        "metric": "buildings",
+        "target": 6
+      },
+      "reward": {
+        "stone": 80
+      }
+    },
+    {
+      "id": "planter",
+      "condition": {
+        "metric": "planted",
+        "target": 8
+      },
+      "reward": {
+        "food": 140
+      }
+    },
+    {
+      "id": "landscaper",
+      "condition": {
+        "metric": "terraformed",
+        "target": 4
+      },
+      "reward": {
+        "planks": 60
+      }
+    },
+    {
+      "id": "settler",
+      "condition": {
+        "metric": "population",
+        "target": 60
+      },
+      "reward": {
+        "food": 180
+      }
+    },
+    {
+      "id": "housing",
+      "condition": {
+        "metric": "housing",
+        "target": 80
+      },
+      "reward": {
+        "planks": 70
+      }
+    },
+    {
+      "id": "stockpile",
+      "condition": {
+        "metric": "resource",
+        "resource": "planks",
+        "target": 150
+      },
+      "reward": {
+        "tools": 25
+      }
+    },
+    {
+      "id": "granary",
+      "condition": {
+        "metric": "resource",
+        "resource": "food",
+        "target": 250
+      },
+      "reward": {
+        "wood": 150
+      }
+    },
+    {
+      "id": "toolshed",
+      "condition": {
+        "metric": "resource",
+        "resource": "tools",
+        "target": 40
+      },
+      "reward": {
+        "stone": 120
+      }
+    },
+    {
+      "id": "patient",
+      "condition": {
+        "metric": "day",
+        "target": 6
+      },
+      "reward": {
+        "food": 160
+      }
+    }
+  ]
+}

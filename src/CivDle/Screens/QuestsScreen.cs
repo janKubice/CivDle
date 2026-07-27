@@ -60,12 +60,83 @@ public sealed class QuestsScreen : IScreen
         _screens.UiSettingsChanged -= BuildUi;
     }
 
+    /// <summary>
+    /// Dnešní výzvy nad úkoly. Jsou nahoře schválně: úkoly čekají, výzvy platí
+    /// jen dnes, takže je hráč má vidět první.
+    /// </summary>
+    private void AddDailyChallenges(VerticalStackPanel list)
+    {
+        var loc = _screens.Loc;
+        var catalog = _screens.Content.Challenges;
+        var active = _simulation.ActiveChallenges;
+        if (!catalog.IsEnabled || active.Count == 0)
+        {
+            return;
+        }
+
+        list.Widgets.Add(Header(loc["hud.challenges"]));
+        for (int slot = 0; slot < active.Count; slot++)
+        {
+            var challenge = catalog.Challenges[active[slot]];
+            if (_simulation.IsChallengeDone(slot))
+            {
+                list.Widgets.Add(CompletedRow(loc[challenge.NameKey]));
+                continue;
+            }
+
+            // Pokrok se u výzev počítá od vydání sady, takže hotová podmínka
+            // nestačí — musí se ukázat dnešní číslo, ne celoherní metrika.
+            list.Widgets.Add(ChallengeRow(challenge, _simulation.ChallengeProgress(slot)));
+        }
+
+        list.Widgets.Add(new Label
+        {
+            Text = loc["challenge.resetsAt"],
+            TextColor = new Color(150, 160, 175),
+        });
+    }
+
+    /// <summary>Řádek výzvy: jméno, popis, dnešní pokrok a odměna.</summary>
+    private Widget ChallengeRow(ChallengeDef challenge, long progress)
+    {
+        var loc = _screens.Loc;
+        var content = _screens.Content;
+        long target = challenge.Condition.Target;
+
+        var stack = new VerticalStackPanel { Spacing = 3 };
+        stack.Widgets.Add(new Label { Text = loc[challenge.NameKey], TextColor = new Color(255, 214, 120) });
+        stack.Widgets.Add(new Label { Text = loc[challenge.DescriptionKey], TextColor = new Color(186, 198, 214) });
+
+        var bar = new ProgressBar(320);
+        bar.SetProgress(target > 0 ? Math.Min(progress, target) / (double)target : 1.0);
+        stack.Widgets.Add(bar.Root);
+        stack.Widgets.Add(new Label
+        {
+            Text = $"{Math.Min(progress, target)} / {target}   " + loc.Format("panel.reward",
+                CostFormat.Line(content, loc, challenge.Reward)),
+            TextColor = new Color(150, 220, 150),
+        });
+
+        var panel = new Panel
+        {
+            Background = new SolidBrush(new Color(32, 42, 58, 200)),
+            Border = new SolidBrush(UiFactory.Accent * 0.55f),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(10, 8),
+            Tooltip = loc["tip.challenges"],
+        };
+        panel.Widgets.Add(stack);
+        return panel;
+    }
+
     private void BuildUi()
     {
         var loc = _screens.Loc;
         var content = _screens.Content;
 
         var list = new VerticalStackPanel { Spacing = 8 };
+
+        AddDailyChallenges(list);
 
         list.Widgets.Add(Header(loc["panel.quests.active"]));
         for (int i = 0; i < content.Quests.Count; i++)
