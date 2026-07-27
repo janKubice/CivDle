@@ -70,7 +70,10 @@ internal sealed class HappinessSystem
             : Math.Clamp(sim.Population / sim.HousingCapacity, 0.0, 1.0);
         double crowdingPenalty = crowding * config.OvercrowdingPenalty;
 
-        double happiness = config.BaseHappiness + coverage * config.ServiceWeight - crowdingPenalty;
+        // Zvolený program města se přičítá ke spokojenosti — reformátoři a slavnosti
+        // nedělají nic jiného, než že lidem zlepší náladu.
+        double happiness = config.BaseHappiness + coverage * config.ServiceWeight
+            - crowdingPenalty + sim.ElectionHappinessBonus;
         return Math.Clamp(happiness, 0.0, 1.0);
     }
 

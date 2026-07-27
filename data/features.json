@@ -87,6 +87,13 @@
       }
     },
     {
+      "id": "elections",
+      "unlock": {
+        "metric": "research",
+        "tech": "municipal_administration"
+      }
+    },
+    {
       "id": "ascend",
       "unlock": {
         "metric": "population",

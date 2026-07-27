@@ -42,6 +42,8 @@ public sealed class Simulation
     private readonly QuestSystem _questSystem;
     private readonly TutorialSystem _tutorialSystem;
     private readonly ChallengeSystem _challengeSystem;
+    private readonly ElectionSystem _electionSystem;
+    private readonly int[] _ballot;
     private readonly bool[] _settledBiomes; // biomy, na kterých už tohle město stavělo (kronika)
     private readonly List<int> _activeChallenges = new();   // indexy do fondu výzev
     private readonly List<long> _challengeBaselines = new(); // hodnota metriky při vydání výzvy
@@ -125,6 +127,8 @@ public sealed class Simulation
         _questSystem = new QuestSystem(content);
         _tutorialSystem = new TutorialSystem(content);
         _challengeSystem = new ChallengeSystem(content);
+        _electionSystem = new ElectionSystem(content);
+        _ballot = new int[Math.Max(1, content.Elections.BallotSize)];
         _settledBiomes = new bool[content.Biomes.Count];
         _questsCompleted = new bool[content.Quests.Count];
         _achievementSystem = new AchievementSystem(content);
@@ -794,6 +798,7 @@ public sealed class Simulation
         _questSystem.Tick(this);
         _tutorialSystem.Tick(this);
         _challengeSystem.Tick(this);
+        _electionSystem.Tick(this);
         _achievementSystem.Tick(this);
 
         // Těžiště města a UFO nejsou hot path — stačí je řešit jednou za čas.
@@ -948,7 +953,8 @@ public sealed class Simulation
         }
 
         // Trvalý bonus Vzestupu + slavnost zvedají výnos (nejmíň původní hodnota).
-        int gained = Math.Max(yield.Amount, (int)Math.Round(yield.Amount * _bonuses.HarvestMult * BoostMultiplier));
+        int gained = Math.Max(yield.Amount,
+            (int)Math.Round(yield.Amount * _bonuses.HarvestMult * BoostMultiplier * ElectionHarvestMult));
 
         // Deterministický krit (aktivní klikání se vyplatí). Nejdřív se zkouší
         // vzácný „úlovek života" — má přednost, aby se s kritem nesčítal do absurdna.
@@ -1822,6 +1828,116 @@ public sealed class Simulation
     /// </summary>
     public bool HasSettledBiome(int biomeIndex) => _settledBiomes[biomeIndex];
 
+    // ----- volby -----
+
+    /// <summary>Kolikáté volební období běží; −1 = volby se ještě nekonaly.</summary>
+    public long ElectionTerm { get; private set; } = -1;
+
+    /// <summary>Index zvoleného programu do <see cref="ElectionConfig.Candidates"/>; −1 = zatím nikdo.</summary>
+    public int ElectedCandidate { get; private set; } = -1;
+
+    /// <summary>Kolik programů je na aktuální kandidátce.</summary>
+    public int BallotSize => _content.Elections.IsEnabled ? _content.Elections.BallotSize : 0;
+
+    /// <summary>Program na daném místě kandidátky (index do fondu programů).</summary>
+    public int BallotAt(int slot) => _ballot[slot];
+
+    /// <summary>Vybral už hráč (nebo automat) program pro tohle období?</summary>
+    public bool HasElected => ElectedCandidate >= 0;
+
+    /// <summary>Kolik herních dní zbývá do dalších voleb.</summary>
+    public long DaysUntilElection => !_content.Elections.IsEnabled
+        ? 0
+        : Math.Max(0, (ElectionTerm + 1) * _content.Elections.TermDays - DayNumber);
+
+    /// <summary>
+    /// Příkaz hráče: zvolí program z kandidátky. Volba platí do konce období.
+    /// </summary>
+    public void ElectCandidate(int candidateIndex)
+    {
+        if (candidateIndex >= 0 && candidateIndex < _content.Elections.Candidates.Count)
+        {
+            ElectedCandidate = candidateIndex;
+        }
+    }
+
+    /// <summary>
+    /// Otevře nové volební období: sestaví kandidátku a zruší předchozí volbu.
+    /// Kandidátka je odvozená z čísla období a seedu, aby po načtení savu vyšla stejná.
+    /// </summary>
+    internal void BeginElectionTerm(long term)
+    {
+        ElectionTerm = term;
+        FillBallot(term);
+
+        // Vláda nastoupí hned: prázdné období by znamenalo, že hráč, který si
+        // nevybral, přijde o bonus úplně — a to není relaxační, to je trest.
+        ElectedCandidate = _ballot[0];
+    }
+
+    /// <summary>Obnoví stav voleb ze savu (bez oznámení a bez nové kandidátky).</summary>
+    internal void RestoreElection(long term, int elected)
+    {
+        ElectionTerm = term;
+        ElectedCandidate = elected;
+        if (term >= 0)
+        {
+            FillBallot(term);
+        }
+    }
+
+    private void FillBallot(long term)
+    {
+        var candidates = _content.Elections.Candidates;
+        if (candidates.Count == 0)
+        {
+            return;
+        }
+
+        // Bez opakování: postupně se losuje z těch, které ještě na kandidátce nejsou.
+        Span<int> pool = candidates.Count <= 64 ? stackalloc int[candidates.Count] : new int[candidates.Count];
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            pool[i] = i;
+        }
+
+        var rng = new CivDle.Core.WorldGen.SplitMix64(unchecked((ulong)Seed ^ ((ulong)term * 0x9E3779B97F4A7C15UL)));
+        int remaining = candidates.Count;
+        for (int slot = 0; slot < _ballot.Length; slot++)
+        {
+            int pick = (int)(rng.Next() % (ulong)remaining);
+            _ballot[slot] = pool[pick];
+            pool[pick] = pool[--remaining];
+        }
+    }
+
+    /// <summary>Účinek zvoleného programu daného druhu (0 = nikdo takový nevládne).</summary>
+    private double ElectionBonus(ElectionEffect effect)
+    {
+        if (ElectedCandidate < 0)
+        {
+            return 0.0;
+        }
+
+        var candidate = _content.Elections.Candidates[ElectedCandidate];
+        return candidate.Effect == effect ? candidate.Magnitude : 0.0;
+    }
+
+    /// <summary>Násobič výroby ze zvoleného programu (1.0 = bez vlivu).</summary>
+    public double ElectionProductionMult => 1.0 + ElectionBonus(ElectionEffect.Production);
+
+    /// <summary>Násobič růstu populace ze zvoleného programu.</summary>
+    public double ElectionGrowthMult => 1.0 + ElectionBonus(ElectionEffect.Growth);
+
+    /// <summary>Násobič ručního sběru ze zvoleného programu.</summary>
+    public double ElectionHarvestMult => 1.0 + ElectionBonus(ElectionEffect.Harvest);
+
+    /// <summary>Sleva na výzkum ze zvoleného programu (podíl ceny).</summary>
+    public double ElectionResearchDiscount => ElectionBonus(ElectionEffect.Research);
+
+    /// <summary>Přídavek ke spokojenosti ze zvoleného programu.</summary>
+    public double ElectionHappinessBonus => ElectionBonus(ElectionEffect.Happiness);
+
     // ----- denní výzvy -----
 
     /// <summary>Den, pro který platí aktuální sada výzev (UTC, <c>yyyy-MM-dd</c>); prázdné = žádná.</summary>
@@ -2382,7 +2498,7 @@ public sealed class Simulation
     /// by rozbila celou progresi.
     /// </summary>
     public int ResearchCost(int baseAmount) =>
-        Math.Max(1, (int)Math.Round(baseAmount * (1.0 - _bonuses.ResearchDiscount)));
+        Math.Max(1, (int)Math.Round(baseAmount * (1.0 - Math.Min(0.9, _bonuses.ResearchDiscount + ElectionResearchDiscount))));
 
     private void UnlockTech(int techIndex)
     {

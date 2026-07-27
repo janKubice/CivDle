@@ -1134,6 +1134,12 @@ public sealed class GameplayScreen : IScreen
 
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.achievements"],
             () => _screens.Push(new AchievementsScreen(_screens, _simulation)), loc["tip.achievements"]));
+        if (_simulation.IsFeatureUnlocked("elections") && _screens.Content.Elections.IsEnabled)
+        {
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.election"],
+                () => _screens.Push(new ElectionScreen(_screens, _simulation)), loc["tip.election"]));
+        }
+
         stack.Widgets.Add(UiFactory.SmallButton(loc["menu.chronicle"],
             () => _screens.Push(new ChronicleScreen(_screens)), loc["tip.chronicle"]));
 

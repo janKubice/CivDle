@@ -57,7 +57,8 @@ internal sealed class ProductionSystem
 
         // Počasí i bonusy jsou pro celý tik konstantní — spočítej jednou, ne u každé
         // budovy (CurrentWeatherIndex je hash, v tikové smyčce by se zbytečně opakoval).
-        double productionMult = sim.Bonuses.ProductionMult * sim.BoostMultiplier * sim.WeatherProductionMult;
+        double productionMult = sim.Bonuses.ProductionMult * sim.BoostMultiplier * sim.WeatherProductionMult
+            * sim.ElectionProductionMult;
         double disconnectedMult = _content.Gameplay.Roads.DisconnectedProductionMult;
         for (int i = 0; i < buildings.Length; i++)
         {

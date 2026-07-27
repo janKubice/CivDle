@@ -36,7 +36,8 @@ public sealed class GameContent
         IReadOnlyList<AmbienceDef> ambience,
         DefRegistry<TerraformDef> terraform,
         IReadOnlyList<TutorialStepDef> tutorial,
-        ChallengeCatalog challenges)
+        ChallengeCatalog challenges,
+        ElectionConfig elections)
     {
         Biomes = biomes;
         Resources = resources;
@@ -67,6 +68,7 @@ public sealed class GameContent
         Terraform = terraform;
         Tutorial = tutorial;
         Challenges = challenges;
+        Elections = elections;
     }
 
     /// <summary>Definice technologií z <c>data/tech.json</c> (tech tree).</summary>
@@ -129,7 +131,10 @@ public sealed class GameContent
         Biomes, Resources, Buildings, Techs, Prestige, PrestigeUpgrades, Quests, QuestsDynamic,
         Achievements, Events, Eras, WorldGen, gameplay, Languages, SettlementNames, Decorations,
         Fauna, Devlog, ZoneTypes, Policies, AscensionTiers, Weather, Landmarks, Features, Ufo,
-        Ambience, Terraform, Tutorial, Challenges);
+        Ambience, Terraform, Tutorial, Challenges, Elections);
+
+    /// <summary>Volby na pozadí z <c>data/elections.json</c> (smí být vypnuté).</summary>
+    public ElectionConfig Elections { get; }
 
     /// <summary>Fond denních výzev z <c>data/challenges.json</c> (smí být prázdný).</summary>
     public ChallengeCatalog Challenges { get; }

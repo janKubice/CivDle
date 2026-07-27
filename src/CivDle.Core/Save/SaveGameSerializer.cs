@@ -58,6 +58,7 @@ public sealed class SaveGameSerializer
     private const string SectionWorldChanges = "world";
     private const string SectionTutorial = "tutorial";
     private const string SectionChallenges = "challenges";
+    private const string SectionElection = "election";
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -101,6 +102,11 @@ public sealed class SaveGameSerializer
         WriteSection(writer, SectionWorldChanges, w => WriteWorldChanges(w, simulation));
         WriteSection(writer, SectionTutorial, w => w.Write(simulation.TutorialStep));
         WriteSection(writer, SectionChallenges, w => WriteChallenges(w, simulation));
+        WriteSection(writer, SectionElection, w =>
+        {
+            w.Write(simulation.ElectionTerm);
+            w.Write(simulation.ElectedCandidate);
+        });
     }
 
     /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
@@ -279,6 +285,7 @@ public sealed class SaveGameSerializer
             case SectionWorldChanges: ReadWorldChanges(section, content, simulation); break;
             case SectionTutorial: simulation.RestoreTutorialStep(section.ReadInt32()); break;
             case SectionChallenges: ReadChallenges(section, simulation); break;
+            case SectionElection: simulation.RestoreElection(section.ReadInt64(), section.ReadInt32()); break;
             default: break; // neznámá sekce z novější hry — přeskočit, ne spadnout
         }
     }

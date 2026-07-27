@@ -106,6 +106,7 @@ public sealed class SpriteLibrary : IDisposable
 
         // Sloučené bloky (2×2 z bloku čtyř stejných budov) — vyšší a širší silueta,
         // aby se na mapě daly rozeznat od jednotlivých domů na první pohled.
+        Add(device, "agent.boat", SpriteSize, Boat);
         Add(device, "building.manor", SpriteSize, canvas => BigHouse(canvas, new Color(199, 122, 68), 2));
         Add(device, "building.townhouses", SpriteSize, canvas => BigHouse(canvas, new Color(212, 137, 74), 3));
         Add(device, "building.terrace_row", SpriteSize, canvas => BigHouse(canvas, new Color(179, 106, 70), 4));
@@ -329,6 +330,16 @@ public sealed class SpriteLibrary : IDisposable
             c.FillRect((int)left + width / 2 - 2, 17, 4, 4, new Color(150, 205, 225)); // okno
             c.FillRect((int)left + width / 2 - 1, 23, 3, 7, new Color(96, 64, 38));    // dveře
         }
+    }
+
+    /// <summary>Rybářská loďka: trup, plachta, drobná postava. Kreslí se malá — je to detail, ne budova.</summary>
+    private static void Boat(PixelCanvas c)
+    {
+        c.FillTriangle(8f, 22f, 24f, 22f, 21f, 27f, new Color(122, 88, 56)); // trup
+        c.FillRect(8, 20, 16, 3, new Color(146, 108, 68));                   // paluba
+        c.FillRect(15, 8, 2, 12, new Color(96, 74, 50));                     // stěžeň
+        c.FillTriangle(17f, 9f, 17f, 19f, 25f, 19f, new Color(232, 226, 210)); // plachta
+        c.FillCircle(12f, 18f, 1.8f, new Color(216, 176, 136));              // rybář
     }
 
     private static void TimberYard(PixelCanvas c)

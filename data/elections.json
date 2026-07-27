@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "termDays": 8,
+  "ballotSize": 3,
+  "candidates": [
+    {
+      "id": "industrialists",
+      "effect": "production",
+      "magnitude": 0.25
+    },
+    {
+      "id": "guild_masters",
+      "effect": "production",
+      "magnitude": 0.15
+    },
+    {
+      "id": "settlers",
+      "effect": "growth",
+      "magnitude": 0.3
+    },
+    {
+      "id": "family_league",
+      "effect": "growth",
+      "magnitude": 0.18
+    },
+    {
+      "id": "prospectors",
+      "effect": "harvest",
+      "magnitude": 0.4
+    },
+    {
+      "id": "foragers",
+      "effect": "harvest",
+      "magnitude": 0.22
+    },
+    {
+      "id": "academics",
+      "effect": "research",
+      "magnitude": 0.2
+    },
+    {
+      "id": "librarians",
+      "effect": "research",
+      "magnitude": 0.12
+    },
+    {
+      "id": "reformers",
+      "effect": "happiness",
+      "magnitude": 0.12
+    },
+    {
+      "id": "festival_party",
+      "effect": "happiness",
+      "magnitude": 0.07
+    }
+  ]
+}

@@ -50,20 +50,86 @@ public sealed class ContentLoader
         var ufo = LoadUfo(Path.Combine(dataDirectory, "ufo.json"));
         var ambience = LoadAmbience(Path.Combine(dataDirectory, "ambience.json"), biomes, weather);
         var terraform = LoadTerraform(Path.Combine(dataDirectory, "terraform.json"), biomes, resources, techs);
+        var elections = LoadElections(Path.Combine(dataDirectory, "elections.json"));
         var challenges = LoadChallenges(Path.Combine(dataDirectory, "challenges.json"), resources, buildings, techs);
         var tutorial = LoadTutorial(Path.Combine(dataDirectory, "tutorial.json"), resources, buildings, techs);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, elections);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, elections);
     }
+
+    // ----- volby -----
+
+    /// <summary>
+    /// Načte volební programy. Volitelný soubor — bez něj hra běží bez voleb.
+    /// </summary>
+    private static ElectionConfig LoadElections(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return ElectionConfig.Disabled;
+        }
+
+        var file = ReadFile<ElectionFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Candidates ?? new List<ElectionCandidateDto>();
+        var result = new List<ElectionCandidateDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Volební program na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID volebního programu '{id}'.");
+            }
+
+            if (dto.Magnitude is <= 0 or > 10)
+            {
+                throw new ContentLoadException(path, $"Program '{id}': 'magnitude' musí být 0–10, je {dto.Magnitude}.");
+            }
+
+            result.Add(new ElectionCandidateDef(id, ParseElectionEffect(path, id, dto.Effect), dto.Magnitude));
+        }
+
+        if (result.Count == 0)
+        {
+            return ElectionConfig.Disabled;
+        }
+
+        if (file.TermDays < 1)
+        {
+            throw new ContentLoadException(path, $"'termDays' musí být aspoň 1, je {file.TermDays}.");
+        }
+
+        if (file.BallotSize < 2 || file.BallotSize > result.Count)
+        {
+            throw new ContentLoadException(
+                path, $"'ballotSize' musí být 2–{result.Count} (počet programů), je {file.BallotSize}.");
+        }
+
+        return new ElectionConfig(result, file.TermDays, file.BallotSize);
+    }
+
+    private static ElectionEffect ParseElectionEffect(string path, string id, string? effect) =>
+        (effect ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "production" => ElectionEffect.Production,
+            "growth" => ElectionEffect.Growth,
+            "harvest" => ElectionEffect.Harvest,
+            "research" => ElectionEffect.Research,
+            "happiness" => ElectionEffect.Happiness,
+            _ => throw new ContentLoadException(path, $"Program '{id}': neznámý 'effect' '{effect}'."),
+        };
 
     // ----- denní výzvy -----
 
@@ -1983,7 +2049,8 @@ public sealed class ContentLoader
         IReadOnlyList<DevlogEntry> devlog,
         DefRegistry<TerraformDef> terraform,
         IReadOnlyList<TutorialStepDef> tutorial,
-        ChallengeCatalog challenges)
+        ChallengeCatalog challenges,
+        ElectionConfig elections)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -2017,7 +2084,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, elections);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -2045,7 +2112,8 @@ public sealed class ContentLoader
         IReadOnlyList<DevlogEntry> devlog,
         DefRegistry<TerraformDef> terraform,
         IReadOnlyList<TutorialStepDef> tutorial,
-        ChallengeCatalog challenges)
+        ChallengeCatalog challenges,
+        ElectionConfig elections)
     {
         var required = new List<string>();
         required.AddRange(biomes.All.Select(b => b.NameKey));
@@ -2090,6 +2158,8 @@ public sealed class ContentLoader
         required.AddRange(tutorial.Select(t => t.HintKey));
         required.AddRange(challenges.Challenges.Select(c => c.NameKey));
         required.AddRange(challenges.Challenges.Select(c => c.DescriptionKey));
+        required.AddRange(elections.Candidates.Select(c => c.NameKey));
+        required.AddRange(elections.Candidates.Select(c => c.DescriptionKey));
 
         var missing = required.Where(key => !language.Strings.ContainsKey(key)).ToList();
         if (missing.Count > 0)
