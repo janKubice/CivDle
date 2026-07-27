@@ -44,6 +44,9 @@ public sealed class TechScreen : IScreen
     private const float LabelZoom = 0.5f;
 
     private Desktop _desktop = null!;
+
+    /// <summary>Vyrovnávací seznam bodů spojnice — kreslí se každý snímek, alokovat ho pokaždé by bylo zbytečné.</summary>
+    private readonly List<Vector2> _edgePoints = new();
     private Vector2 _pan;
     private float _zoom = 1f;
     private bool _dragging;
@@ -146,12 +149,19 @@ public sealed class TechScreen : IScreen
         // Nejdřív spojnice souhvězdí (pod hvězdami) — vazby čtou jako pozadí.
         for (int i = 0; i < techs.Count; i++)
         {
-            var to = Shift(_layout.Center(i));
             foreach (int prereq in techs[i].PrerequisiteIndices)
             {
                 bool done = _simulation.IsTechResearched(prereq);
-                DrawLine(spriteBatch, pixel, Shift(_layout.Center(prereq)), to,
-                    done ? EdgeDoneColor : EdgeColor, (done ? 2f : 1f) * Math.Max(_zoom, 0.6f));
+                var color = done ? EdgeDoneColor : EdgeColor;
+                float thickness = (done ? 2f : 1f) * Math.Max(_zoom, 0.6f);
+
+                // Dlouhá hrana se kreslí přes body lomu z rozvržení, ne rovně —
+                // rovná čára napříč sloupci by křížila to, čemu se řazení vyhnulo.
+                _layout.AppendEdgePoints(prereq, i, _edgePoints);
+                for (int p = 0; p + 1 < _edgePoints.Count; p++)
+                {
+                    DrawLine(spriteBatch, pixel, Shift(_edgePoints[p]), Shift(_edgePoints[p + 1]), color, thickness);
+                }
             }
         }
 
