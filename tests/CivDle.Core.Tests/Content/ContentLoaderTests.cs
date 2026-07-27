@@ -261,6 +261,70 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadFrom_AdjacencyOnBuildingWithoutRecipe_Throws()
+    {
+        // Bonus za okolí u budovy, která nic nevyrábí, je tichá chyba obsahu:
+        // v JSON to vypadá, že pravidlo platí, ale nikdy se neprojeví.
+        WriteAllValid();
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "house", "mapColor": "#B5651D", "footprint": [1, 1],
+              "buildCost": { "wood": 5 }, "allowedBiomes": ["grass"],
+              "adjacency": { "biomes": ["grass"], "radius": 2, "perTile": 0.02, "max": 0.3 } }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("adjacency", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_AdjacencyWithUnknownBiome_ReportsId()
+    {
+        WriteAllValid();
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "camp", "mapColor": "#B5651D", "footprint": [1, 1],
+              "buildCost": { "wood": 5 }, "allowedBiomes": ["grass"],
+              "recipe": { "output": { "wood": 1 }, "timeTicks": 10 },
+              "adjacency": { "biomes": ["bazina"], "radius": 2, "perTile": 0.02, "max": 0.3 } }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("bazina", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_AdjacencyWithZeroRadius_Throws()
+    {
+        WriteAllValid();
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "camp", "mapColor": "#B5651D", "footprint": [1, 1],
+              "buildCost": { "wood": 5 }, "allowedBiomes": ["grass"],
+              "recipe": { "output": { "wood": 1 }, "timeTicks": 10 },
+              "adjacency": { "biomes": ["grass"], "radius": 0, "perTile": 0.02, "max": 0.3 } }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("radius", ex.Message);
+    }
+
+    [Fact]
     public void LoadFrom_GameplayWithUnknownFoodResource_Throws()
     {
         WriteAllValid();

@@ -1035,6 +1035,10 @@
     "milestone.third_ascension": "Tři Vzestupy",
     "milestone.first_merge": "První sloučení",
     "hud.escort": "Doprovod!",
-    "toast.caravanArrived": "Karavana dorazila"
+    "toast.caravanArrived": "Karavana dorazila",
+    "tip.build.adjacency": "Okolí ({0}): až +{1} % k výrobě",
+    "build.adjacencyBonus": "+{0} % za okolí",
+    "building.adjacencyGood": "Dobré místo: +{0} % k výrobě za okolí",
+    "building.adjacencyNone": "Okolí téhle budově nic nepřidává"
   }
 }

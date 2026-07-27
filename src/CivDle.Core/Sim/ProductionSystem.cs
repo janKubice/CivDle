@@ -112,7 +112,9 @@ internal sealed class ProductionSystem
                 sim.MarkResourceKnown(index); // první vyrobený kus surovinu odhalí v UI
                 // Plný sklad výrobu nezastaví, přebytek propadá (idle konvence) —
                 // motivace stavět sklady, žádný trest. Trvalý bonus Vzestupu zvedá výstup.
-                resources[index] = Math.Min(resources[index] + recipe.Outputs[j].Amount * productionMult * building.BiomeMult, storageCaps[index]);
+                resources[index] = Math.Min(
+                    resources[index] + recipe.Outputs[j].Amount * productionMult * building.BiomeMult * building.AdjacencyMult,
+                    storageCaps[index]);
             }
 
             // Ohlas dokončený cyklus renderu — bez tohohle je město opticky mrtvé,

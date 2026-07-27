@@ -1255,12 +1255,56 @@ public sealed class ContentLoader
             mergeCost = ParseResourceAmounts(path, id, "mergeCost", dto.MergeCost, resources);
         }
 
+        var adjacency = ParseAdjacency(path, id, dto.Adjacency, recipe, biomes);
+
         return new BuildingDef(
             id, category, color, dto.Footprint[0], dto.Footprint[1],
             dto.WorkerSlots, dto.HousingCapacity, buildCost, recipe, mask,
             storageBonus, dto.AutoBuild, dto.Buildable ?? true, upgradesToIndex, upgradeCost,
             dto.PowerSupply, dto.PowerDemand, dto.RequiresAdjacentWater,
-            dto.ServiceValue, upkeep, mergesToIndex, mergeCost);
+            dto.ServiceValue, upkeep, mergesToIndex, mergeCost, adjacency);
+    }
+
+    /// <summary>
+    /// Načte pravidlo bonusu za okolí. Blok je volitelný; když ale v datech je,
+    /// musí dávat smysl — bonus bez výroby ani bonus s nulovým stropem není
+    /// „skoro správně", je to tichá chyba obsahu (fail-fast, CLAUDE.md).
+    /// </summary>
+    private static AdjacencyRule? ParseAdjacency(
+        string path, string id, AdjacencyDto? dto, Recipe? recipe, BiomeRegistry biomes)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (recipe is null)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}' má 'adjacency', ale nic nevyrábí — bonus za okolí by se neprojevil.");
+        }
+
+        var biomeMask = ParseBiomeMask(path, $"Budova '{id}' v 'adjacency'", dto.Biomes, biomes);
+
+        if (dto.Radius is < 1 or > 8)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': 'adjacency.radius' musí být 1–8, je {dto.Radius}.");
+        }
+
+        if (dto.PerTile <= 0 || dto.PerTile > 1)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': 'adjacency.perTile' musí být větší než 0 a nejvýš 1, je {dto.PerTile}.");
+        }
+
+        if (dto.Max <= 0 || dto.Max > 10)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': 'adjacency.max' musí být větší než 0 a nejvýš 10, je {dto.Max}.");
+        }
+
+        return new AdjacencyRule(biomeMask, dto.Radius, dto.PerTile, dto.Max);
     }
 
     // ----- tech tree -----

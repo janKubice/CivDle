@@ -76,6 +76,13 @@ internal static class BuildingSummary
             text.Append('\n').Append(loc["tip.build.needsWater"]);
         }
 
+        if (def.Adjacency is { } adjacency)
+        {
+            text.Append('\n').Append(loc.Format("tip.build.adjacency",
+                AdjacencyBiomes(content, loc, adjacency),
+                Percent(adjacency.MaxBonus)));
+        }
+
         string biomes = AllowedBiomes(content, loc, def);
         if (biomes.Length > 0)
         {
@@ -102,6 +109,24 @@ internal static class BuildingSummary
 
         return allowed.Count == content.Biomes.Count ? string.Empty : string.Join(", ", allowed);
     }
+
+    /// <summary>Biomy, které se počítají do bonusu za okolí.</summary>
+    private static string AdjacencyBiomes(GameContent content, Localization loc, AdjacencyRule rule)
+    {
+        var counted = new List<string>();
+        for (int i = 0; i < content.Biomes.Count; i++)
+        {
+            if (rule.Counts(i))
+            {
+                counted.Add(loc[content.Biomes[i].NameKey]);
+            }
+        }
+
+        return string.Join(", ", counted);
+    }
+
+    /// <summary>Bonus jako procenta („+35 %") — v procentech je čitelnější než jako násobič.</summary>
+    public static string Percent(double bonus) => $"{Math.Round(bonus * 100)}";
 
     private static string Rate(double perSecond) =>
         perSecond >= 1 ? perSecond.ToString("0.#") : perSecond.ToString("0.##");

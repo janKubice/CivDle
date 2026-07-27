@@ -54,7 +54,15 @@ public sealed record BuildingDto(
     int ServiceValue,
     Dictionary<string, int>? Upkeep,
     string? MergesTo,
-    Dictionary<string, int>? MergeCost);
+    Dictionary<string, int>? MergeCost,
+    AdjacencyDto? Adjacency);
+
+/// <summary>Pravidlo bonusu za okolí budovy tak, jak leží v JSON.</summary>
+public sealed record AdjacencyDto(
+    string[]? Biomes,
+    int Radius,
+    double PerTile,
+    double Max);
 
 /// <summary>Výrobní recept budovy tak, jak leží v JSON.</summary>
 public sealed record RecipeDto(

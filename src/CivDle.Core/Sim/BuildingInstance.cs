@@ -27,4 +27,11 @@ public struct BuildingInstance
     /// pro každou budovu (hot path, CLAUDE.md výkon). Neukládá se: odvodí se z terénu.
     /// </summary>
     public float BiomeMult;
+
+    /// <summary>
+    /// Násobič výroby z okolí (pila u lesa, lom u hor — viz <c>AdjacencyRule</c>).
+    /// Stejně jako <see cref="BiomeMult"/> se cachuje při položení: okolí se
+    /// prohlédne jednou, ne každý tik. 1.0 = budova bez pravidla nebo bez okolí.
+    /// </summary>
+    public float AdjacencyMult;
 }

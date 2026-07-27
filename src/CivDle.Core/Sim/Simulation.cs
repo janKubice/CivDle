@@ -903,6 +903,60 @@ public sealed class Simulation
 
     private bool IsWaterTile(int x, int y) => _content.Biomes[Terrain.BiomeAt(x, y)].IsWater;
 
+    /// <summary>
+    /// Kolik vyhovujících dlaždic má budova daného typu v okolí místa (x, y).
+    /// Veřejné kvůli náhledu při stavbě — hráč má bonus vidět dřív, než položí,
+    /// jinak by se o pravidle nikdy nedozvěděl.
+    /// </summary>
+    public int CountAdjacencyTiles(int defIndex, int x, int y)
+    {
+        var def = _content.Buildings[defIndex];
+        return def.Adjacency is { } rule ? CountAdjacencyTiles(def, rule, x, y) : 0;
+    }
+
+    /// <summary>
+    /// Násobič výroby, který by budova daného typu na místě (x, y) dostala za okolí.
+    /// 1.0 = budova bez pravidla nebo místo bez vyhovujícího terénu.
+    /// </summary>
+    public double AdjacencyMultiplierAt(int defIndex, int x, int y) =>
+        AdjacencyMultiplier(_content.Buildings[defIndex], x, y);
+
+    private double AdjacencyMultiplier(BuildingDef def, int x, int y) =>
+        def.Adjacency is { } rule ? rule.Multiplier(CountAdjacencyTiles(def, rule, x, y)) : 1.0;
+
+    /// <summary>
+    /// Projde obdélník kolem půdorysu do vzdálenosti <c>rule.Radius</c> a spočítá
+    /// dlaždice vyhovujícího biomu. Dlaždice pod budovou se nepočítají — bonus je
+    /// za okolí, ne za to, na čem budova stojí (to už řeší <c>BiomeMult</c>).
+    /// </summary>
+    private int CountAdjacencyTiles(BuildingDef def, AdjacencyRule rule, int x, int y)
+    {
+        int count = 0;
+        int minX = x - rule.Radius;
+        int maxX = x + def.FootprintWidth - 1 + rule.Radius;
+        int minY = y - rule.Radius;
+        int maxY = y + def.FootprintHeight - 1 + rule.Radius;
+
+        for (int tileY = minY; tileY <= maxY; tileY++)
+        {
+            bool insideRows = tileY >= y && tileY < y + def.FootprintHeight;
+            for (int tileX = minX; tileX <= maxX; tileX++)
+            {
+                if (insideRows && tileX >= x && tileX < x + def.FootprintWidth)
+                {
+                    continue; // vlastní půdorys
+                }
+
+                if (rule.Counts(Terrain.BiomeAt(tileX, tileY)))
+                {
+                    count++;
+                }
+            }
+        }
+
+        return count;
+    }
+
     /// <summary>Příkaz hráče: postavit budovu. Odečte cenu a obsadí dlaždice.</summary>
     public PlacementResult TryPlaceBuilding(int defIndex, int x, int y)
     {
@@ -2466,8 +2520,9 @@ public sealed class Simulation
 
         building.X = x;
         building.Y = y;
-        // Přesun mění biom pod budovou → cachovaný násobič výroby musí jít s ní.
+        // Přesun mění biom pod budovou i její okolí → cachované násobiče jdou s ní.
         building.BiomeMult = (float)_content.Biomes[Terrain.BiomeAt(x, y)].Production;
+        building.AdjacencyMult = (float)AdjacencyMultiplier(def, x, y);
         for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
         {
             for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
@@ -2638,6 +2693,7 @@ public sealed class Simulation
             // Ekonomická identita biomu se cachuje při položení — v tikové smyčce
             // už se terén nevzorkuje (viz BuildingInstance.BiomeMult).
             BiomeMult = (float)_content.Biomes[Terrain.BiomeAt(x, y)].Production,
+            AdjacencyMult = (float)AdjacencyMultiplier(def, x, y),
         };
         _buildingCount++;
 

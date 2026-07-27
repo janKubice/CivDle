@@ -116,6 +116,22 @@ public sealed class BuildingInfoScreen : IScreen
             });
         }
 
+        // Bonus za okolí konkrétní budovy — hráč po letech nepamatuje, proč tahle
+        // pila táhne a ta o kus dál ne. Ukazuje se, i když je nulový: „stojí špatně"
+        // je stejně užitečná informace jako „stojí dobře".
+        if (def.Adjacency is not null)
+        {
+            double bonus = instance.AdjacencyMult - 1f;
+            layout.Widgets.Add(new Label
+            {
+                Text = bonus > 0
+                    ? loc.Format("building.adjacencyGood", BuildingSummary.Percent(bonus))
+                    : loc["building.adjacencyNone"],
+                TextColor = bonus > 0 ? new Color(150, 220, 150) : new Color(200, 195, 180),
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+        }
+
         layout.Widgets.Add(UpgradeSection(instance.DefIndex));
 
         // Agency: přesunout jinam nebo zbourat (vrátí půl ceny). Obojí se ODEMYKÁ —

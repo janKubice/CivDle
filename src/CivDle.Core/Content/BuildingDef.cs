@@ -58,8 +58,18 @@ public sealed record BuildingDef(
     int ServiceValue = 0,
     IReadOnlyList<ResourceAmount>? UpkeepOrNull = null,
     int MergesToIndex = -1,
-    IReadOnlyList<ResourceAmount>? MergeCostOrNull = null)
+    IReadOnlyList<ResourceAmount>? MergeCostOrNull = null,
+    AdjacencyRule? AdjacencyOrNull = null)
 {
+    /// <summary>
+    /// Pravidlo bonusu za okolí (pila u lesa, lom u hor); <c>null</c> = budově
+    /// na okolí nezáleží a vyrábí všude stejně.
+    /// </summary>
+    public AdjacencyRule? Adjacency => AdjacencyOrNull;
+
+    /// <summary>Záleží téhle budově na tom, co má kolem sebe?</summary>
+    public bool HasAdjacencyBonus => AdjacencyOrNull is not null;
+
     /// <summary>
     /// Cena za sloučení bloku 2×2 do jedné velké budovy. Doplácí se k tomu, co už
     /// stojí — hráč čtyři domy nestaví znovu, jen je přestaví na jeden velký.

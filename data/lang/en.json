@@ -1035,6 +1035,10 @@
     "milestone.third_ascension": "Three Ascensions",
     "milestone.first_merge": "The first merge",
     "hud.escort": "Escort!",
-    "toast.caravanArrived": "Caravan arrived"
+    "toast.caravanArrived": "Caravan arrived",
+    "tip.build.adjacency": "Surroundings ({0}): up to +{1} % production",
+    "build.adjacencyBonus": "+{0} % from surroundings",
+    "building.adjacencyGood": "Good spot: +{0} % production from surroundings",
+    "building.adjacencyNone": "The surroundings add nothing here"
   }
 }

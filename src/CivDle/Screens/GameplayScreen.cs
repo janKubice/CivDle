@@ -1820,9 +1820,27 @@ public sealed class GameplayScreen : IScreen
         }
         else
         {
-            _statusLabel.Text = loc.Format("build.placing", loc[def.NameKey]);
+            _statusLabel.Text = loc.Format("build.placing", loc[def.NameKey]) + AdjacencyHint(loc, def);
             _statusLabel.TextColor = Color.White;
         }
+    }
+
+    /// <summary>
+    /// Živý bonus za okolí pod kurzorem („+18 % za okolí"). Bez tohohle by se hráč
+    /// o celém pravidle nedozvěděl — bonus se projeví až v číslech za deset minut.
+    /// Ukazuje se jen u budov, kterých se pravidlo týká, a jen když něco dává.
+    /// </summary>
+    private string AdjacencyHint(Localization loc, BuildingDef def)
+    {
+        if (!def.HasAdjacencyBonus || !_tools.GhostVisible)
+        {
+            return string.Empty;
+        }
+
+        double bonus = _simulation.AdjacencyMultiplierAt(_tools.SelectedBuilding, _tools.GhostX, _tools.GhostY) - 1.0;
+        return bonus <= 0
+            ? string.Empty
+            : "  " + loc.Format("build.adjacencyBonus", BuildingSummary.Percent(bonus));
     }
 
     private static string ErrorKey(PlacementResult result) => result switch
