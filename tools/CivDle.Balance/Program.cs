@@ -26,6 +26,15 @@ public static class Program
             string dataPath = Argument(args, "--data") ?? Path.Combine(AppContext.BaseDirectory, "data");
             var content = new ContentLoader().LoadFrom(dataPath);
 
+            if (args.Contains("--stress"))
+            {
+                var sizes = new[] { 100, 1_000, 10_000, 50_000, 250_000 };
+                var stress = new StressRun(content);
+                PrintStress("nečinné město (reálná populace)", stress.Run(sizes, fullyStaffed: false));
+                PrintStress("plně obsazené město (horní odhad)", stress.Run(sizes, fullyStaffed: true));
+                return 0;
+            }
+
             double minutes = Number(args, "--minutes") ?? 60;
             long seed = (long)(Number(args, "--seed") ?? 12345);
             int runs = (int)(Number(args, "--runs") ?? 1);
@@ -55,6 +64,22 @@ public static class Program
             Console.Error.WriteLine($"Chyba v datech: {ex.Message}");
             return 1;
         }
+    }
+
+    /// <summary>Tabulka zátěžového měření: doba tiku a kolik z rozpočtu 10 Hz sežere.</summary>
+    private static void PrintStress(string title, IReadOnlyList<StressSample> samples)
+    {
+        Console.WriteLine();
+        Console.WriteLine($"=== zátěž simulace: {title} ===");
+        Console.WriteLine($"{"budov",9} {"obyvatel",9} {"µs/tik",10} {"rozpočet",10}");
+        foreach (var sample in samples)
+        {
+            Console.WriteLine(
+                $"{sample.Buildings,9} {sample.Population,9:0} {sample.MicrosecondsPerTick,10:0.0} {sample.RealtimeBudgetPercent,9:0.00}%");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("Rozpočet = podíl reálného času na simulaci (10 Hz → 100 ms na tik).");
     }
 
     private static void PrintUsage()
