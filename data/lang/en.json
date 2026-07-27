@@ -1021,6 +1021,18 @@
     "election.reformers": "The Reformers",
     "election.reformers.desc": "Better streets, better mood. Happiness +12 points.",
     "election.festival_party": "The Festival Party",
-    "election.festival_party.desc": "More holidays. Happiness +7 points."
+    "election.festival_party.desc": "More holidays. Happiness +7 points.",
+    "milestone.first_building": "The first roof",
+    "milestone.ten_souls": "Ten souls",
+    "milestone.hundred_souls": "A hundred souls",
+    "milestone.thousand_souls": "A thousand souls",
+    "milestone.ten_thousand": "Ten thousand souls",
+    "milestone.million_souls": "A million souls",
+    "milestone.ten_buildings": "Ten buildings",
+    "milestone.hundred_buildings": "A hundred buildings",
+    "milestone.thousand_buildings": "A thousand buildings",
+    "milestone.first_ascension": "The first Ascension",
+    "milestone.third_ascension": "Three Ascensions",
+    "milestone.first_merge": "The first merge"
   }
 }

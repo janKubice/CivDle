@@ -54,6 +54,9 @@ public sealed class GameplayScreen : IScreen
     private readonly FixedStepLoop _simLoop = new(Simulation.TicksPerSecond);
     private readonly ParticleSystem _particles = new();
     private readonly FloatingTextRenderer _floatingText = new();
+    private CityPulseRenderer _cityPulse = null!;
+    private RollingNumbers _rolling = null!;
+    private readonly CelebrationRenderer _celebration = new();
     private readonly GameSounds _sounds = new();
     private readonly AmbientMusic _ambient = new();
     private readonly AmbientSoundscape _soundscape;
@@ -151,6 +154,9 @@ public sealed class GameplayScreen : IScreen
         _soundscape = new AmbientSoundscape(screens.Content);
         _tools = new MapTools(simulation, _camera, _input, screens.Content);
         _weatherRenderer = new WeatherRenderer(screens.WhitePixel, screens.Content);
+        _cityPulse = new CityPulseRenderer(screens.WhitePixel, screens.Content);
+        _rolling = new RollingNumbers(screens.Content.Resources.Count);
+        _rolling.SnapTo(simulation.GetResource); // na startu (i po načtení savu) žádné dojíždění
         _buildingRenderer = new BuildingRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
         _lightsRenderer = new LightsRenderer(screens.WhitePixel, screens.Content);
         _fauna = new FaunaSystem(screens.Content);
@@ -263,6 +269,9 @@ public sealed class GameplayScreen : IScreen
         _harvestables.Update(dt);
         _particles.Update(dt);
         _floatingText.Update(dt);
+        _cityPulse.Update(dt, _simulation);
+        _rolling.Update(dt, _simulation.GetResource);
+        _celebration.Update(dt);
         // Při velkém oddálení chodce/faunu neaktualizuj — nespawnovali by se přes
         // obří viditelnou plochu (a stejně se nekreslí; z výšky vidíš hustotu).
         if (_camera.Zoom >= CityScaleRenderer.ThresholdZoom)
@@ -317,6 +326,12 @@ public sealed class GameplayScreen : IScreen
         _ufoRenderer.Draw(spriteBatch, _camera, _simulation, (float)gameTime.TotalGameTime.TotalSeconds);
 
         _particles.Draw(spriteBatch, _screens.WhitePixel, _camera);
+
+        // Odezva na práci simulace (jiskry výroby, naskakující stavby) nad mapou,
+        // ale pod denním/nočním překryvem — patří do světa, ne do UI.
+        spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.Transform);
+        _cityPulse.Draw(spriteBatch);
+        spriteBatch.End();
 
         // Den/noc: ztmavení scény a pak aditivní světla, ať září skrz tmu.
         double timeOfDay = _simulation.TimeOfDay01;
@@ -402,6 +417,11 @@ public sealed class GameplayScreen : IScreen
         DrawSettlementLabels(spriteBatch);
         DrawTileTooltip(spriteBatch);
         _toasts.Draw(spriteBatch, _screens.GraphicsDevice.Viewport);
+
+        // Oslava milníku úplně navrchu — je to ta nejdůležitější zpráva na obrazovce.
+        spriteBatch.Begin();
+        _celebration.Draw(spriteBatch, _screens.WhitePixel, _popupFont, _screens.GraphicsDevice.Viewport);
+        spriteBatch.End();
     }
 
     /// <summary>
@@ -727,6 +747,13 @@ public sealed class GameplayScreen : IScreen
             string text = $"{loc[note.TitleKey]}: {loc[note.SubjectKey]}";
             _toasts.Add(text, NotificationColor(note.Kind));
             _sounds.PlayChime(); // dobrá zpráva → příjemné cinknutí
+
+            // Milník a Vzestup dostanou navíc oslavu přes obrazovku. Tisící
+            // obyvatel se nemá ztratit v rohu vedle „sklad je plný".
+            if (note.Kind is NotificationKind.Milestone or NotificationKind.Ascended)
+            {
+                _celebration.Show(loc[note.SubjectKey], NotificationColor(note.Kind));
+            }
 
             // Splněný úkol / Vzestup mění seznam aktivních cílů — přestav sledovač.
             if (note.Kind is NotificationKind.QuestCompleted or NotificationKind.Ascended)
@@ -1371,6 +1398,8 @@ public sealed class GameplayScreen : IScreen
         bool motion = !_screens.Settings.ReduceMotion;
         _particles.Enabled = motion;
         _floatingText.Enabled = motion;
+        _cityPulse.Enabled = motion;
+        _celebration.Enabled = motion;
     }
 
     /// <summary>
@@ -1558,9 +1587,15 @@ public sealed class GameplayScreen : IScreen
 
             double amount = _simulation.GetResource(i);
             double cap = _simulation.GetStorageCap(i);
-            _resourceLabels[i].Text = CivDle.Core.Numbers.FormatRatio(amount, cap);
-            // Přeteklý sklad zežloutne (výzva rozšířit), jinak neutrální.
-            _resourceLabels[i].TextColor = amount >= cap - 0.5 ? new Color(240, 200, 90) : Color.White;
+
+            // Vypisuje se DOJÍŽDĚJÍCÍ hodnota, ne skutečná — číslo se plynule
+            // dotáčí nahoru místo skoku. Barva a strop se přitom řídí skutečnou
+            // hodnotou, aby varování o plném skladu nepřišlo se zpožděním.
+            _resourceLabels[i].Text = CivDle.Core.Numbers.FormatRatio(_rolling.Shown(i), cap);
+
+            // Přeteklý sklad zežloutne (výzva rozšířit); přírůstek krátce rozsvítí.
+            var baseColor = amount >= cap - 0.5 ? new Color(240, 200, 90) : Color.White;
+            _resourceLabels[i].TextColor = Color.Lerp(baseColor, new Color(190, 255, 190), _rolling.Flash(i));
 
             // Ticker přírůstku za sekundu (jen znatelný nárůst).
             double rate = i < _perSecond.Length ? _perSecond[i] : 0.0;

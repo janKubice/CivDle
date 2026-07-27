@@ -1021,6 +1021,18 @@
     "election.reformers": "Reformátoři",
     "election.reformers.desc": "Lepší ulice, lepší nálada. Spokojenost +12 bodů.",
     "election.festival_party": "Strana slavností",
-    "election.festival_party.desc": "Víc svátků. Spokojenost +7 bodů."
+    "election.festival_party.desc": "Víc svátků. Spokojenost +7 bodů.",
+    "milestone.first_building": "První střecha",
+    "milestone.ten_souls": "Deset duší",
+    "milestone.hundred_souls": "Sto duší",
+    "milestone.thousand_souls": "Tisíc duší",
+    "milestone.ten_thousand": "Deset tisíc duší",
+    "milestone.million_souls": "Milion duší",
+    "milestone.ten_buildings": "Deset budov",
+    "milestone.hundred_buildings": "Sto budov",
+    "milestone.thousand_buildings": "Tisíc budov",
+    "milestone.first_ascension": "První Vzestup",
+    "milestone.third_ascension": "Tři Vzestupy",
+    "milestone.first_merge": "První sloučení"
   }
 }

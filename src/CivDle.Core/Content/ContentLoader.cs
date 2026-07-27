@@ -50,20 +50,58 @@ public sealed class ContentLoader
         var ufo = LoadUfo(Path.Combine(dataDirectory, "ufo.json"));
         var ambience = LoadAmbience(Path.Combine(dataDirectory, "ambience.json"), biomes, weather);
         var terraform = LoadTerraform(Path.Combine(dataDirectory, "terraform.json"), biomes, resources, techs);
+        var milestones = LoadMilestones(Path.Combine(dataDirectory, "milestones.json"), resources, buildings, techs);
         var elections = LoadElections(Path.Combine(dataDirectory, "elections.json"));
         var challenges = LoadChallenges(Path.Combine(dataDirectory, "challenges.json"), resources, buildings, techs);
         var tutorial = LoadTutorial(Path.Combine(dataDirectory, "tutorial.json"), resources, buildings, techs);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, elections);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, elections, milestones);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, elections);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, elections, milestones);
+    }
+
+    // ----- milníky -----
+
+    /// <summary>Načte milníky postupu. Volitelný soubor — bez něj se nic neslaví.</summary>
+    private static IReadOnlyList<MilestoneDef> LoadMilestones(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        if (!File.Exists(path))
+        {
+            return Array.Empty<MilestoneDef>();
+        }
+
+        var file = ReadFile<MilestoneFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Milestones ?? new List<MilestoneDto>();
+        var result = new List<MilestoneDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Milník na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID milníku '{id}'.");
+            }
+
+            if (dto.Condition is null)
+            {
+                throw new ContentLoadException(path, $"Milník '{id}' nemá 'condition'.");
+            }
+
+            result.Add(new MilestoneDef(id, ParseCondition(path, $"milník '{id}'", dto.Condition, resources, buildings, techs)));
+        }
+
+        return result;
     }
 
     // ----- volby -----
@@ -2050,7 +2088,8 @@ public sealed class ContentLoader
         DefRegistry<TerraformDef> terraform,
         IReadOnlyList<TutorialStepDef> tutorial,
         ChallengeCatalog challenges,
-        ElectionConfig elections)
+        ElectionConfig elections,
+        IReadOnlyList<MilestoneDef> milestones)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -2084,7 +2123,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, elections);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, elections, milestones);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -2113,7 +2152,8 @@ public sealed class ContentLoader
         DefRegistry<TerraformDef> terraform,
         IReadOnlyList<TutorialStepDef> tutorial,
         ChallengeCatalog challenges,
-        ElectionConfig elections)
+        ElectionConfig elections,
+        IReadOnlyList<MilestoneDef> milestones)
     {
         var required = new List<string>();
         required.AddRange(biomes.All.Select(b => b.NameKey));
@@ -2160,6 +2200,7 @@ public sealed class ContentLoader
         required.AddRange(challenges.Challenges.Select(c => c.DescriptionKey));
         required.AddRange(elections.Candidates.Select(c => c.NameKey));
         required.AddRange(elections.Candidates.Select(c => c.DescriptionKey));
+        required.AddRange(milestones.Select(m => m.NameKey));
 
         var missing = required.Where(key => !language.Strings.ContainsKey(key)).ToList();
         if (missing.Count > 0)

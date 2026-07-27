@@ -59,6 +59,7 @@ public sealed class SaveGameSerializer
     private const string SectionTutorial = "tutorial";
     private const string SectionChallenges = "challenges";
     private const string SectionElection = "election";
+    private const string SectionMilestones = "milestones";
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -102,6 +103,7 @@ public sealed class SaveGameSerializer
         WriteSection(writer, SectionWorldChanges, w => WriteWorldChanges(w, simulation));
         WriteSection(writer, SectionTutorial, w => w.Write(simulation.TutorialStep));
         WriteSection(writer, SectionChallenges, w => WriteChallenges(w, simulation));
+        WriteSection(writer, SectionMilestones, w => WriteMilestones(w, simulation));
         WriteSection(writer, SectionElection, w =>
         {
             w.Write(simulation.ElectionTerm);
@@ -172,6 +174,37 @@ public sealed class SaveGameSerializer
     /// čtečka neznámou sekci nedokázala přeskočit.
     /// </summary>
     /// <summary>Dnešní sada výzev: den, indexy do fondu, výchozí metriky a splněnost.</summary>
+    /// <summary>Dosažené milníky podle ID — přeskládání dat tak nezpůsobí opakovanou oslavu.</summary>
+    private static void WriteMilestones(BinaryWriter writer, Simulation simulation)
+    {
+        var milestones = SimContent(simulation).Milestones;
+        var reached = simulation.ReachedMilestoneIndices().ToList();
+        writer.Write(reached.Count);
+        foreach (int index in reached)
+        {
+            writer.Write(milestones[index].Id);
+        }
+    }
+
+    private static void ReadMilestones(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        int count = ReadCount(reader, max: 10_000, what: "milníků");
+        for (int i = 0; i < count; i++)
+        {
+            string id = reader.ReadString();
+            for (int m = 0; m < content.Milestones.Count; m++)
+            {
+                if (content.Milestones[m].Id == id)
+                {
+                    simulation.RestoreMilestone(m);
+                    break;
+                }
+            }
+
+            // Smazaný milník v datech se prostě přeskočí.
+        }
+    }
+
     private static void ReadGovernor(BinaryReader reader, Simulation simulation)
     {
         simulation.RestoreAutoUpgradeLevel(reader.ReadInt32());
@@ -286,6 +319,7 @@ public sealed class SaveGameSerializer
             case SectionTutorial: simulation.RestoreTutorialStep(section.ReadInt32()); break;
             case SectionChallenges: ReadChallenges(section, simulation); break;
             case SectionElection: simulation.RestoreElection(section.ReadInt64(), section.ReadInt32()); break;
+            case SectionMilestones: ReadMilestones(section, content, simulation); break;
             default: break; // neznámá sekce z novější hry — přeskočit, ne spadnout
         }
     }

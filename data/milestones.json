@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "milestones": [
+    {
+      "id": "first_building",
+      "condition": {
+        "metric": "buildings",
+        "target": 1
+      }
+    },
+    {
+      "id": "ten_souls",
+      "condition": {
+        "metric": "population",
+        "target": 10
+      }
+    },
+    {
+      "id": "hundred_souls",
+      "condition": {
+        "metric": "population",
+        "target": 100
+      }
+    },
+    {
+      "id": "thousand_souls",
+      "condition": {
+        "metric": "population",
+        "target": 1000
+      }
+    },
+    {
+      "id": "ten_thousand",
+      "condition": {
+        "metric": "population",
+        "target": 10000
+      }
+    },
+    {
+      "id": "million_souls",
+      "condition": {
+        "metric": "population",
+        "target": 1000000
+      }
+    },
+    {
+      "id": "ten_buildings",
+      "condition": {
+        "metric": "buildings",
+        "target": 10
+      }
+    },
+    {
+      "id": "hundred_buildings",
+      "condition": {
+        "metric": "buildings",
+        "target": 100
+      }
+    },
+    {
+      "id": "thousand_buildings",
+      "condition": {
+        "metric": "buildings",
+        "target": 1000
+      }
+    },
+    {
+      "id": "first_ascension",
+      "condition": {
+        "metric": "ascension",
+        "target": 1
+      }
+    },
+    {
+      "id": "third_ascension",
+      "condition": {
+        "metric": "ascension",
+        "target": 3
+      }
+    },
+    {
+      "id": "first_merge",
+      "condition": {
+        "metric": "merged",
+        "target": 1
+      }
+    }
+  ]
+}

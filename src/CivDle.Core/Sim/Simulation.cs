@@ -43,6 +43,9 @@ public sealed class Simulation
     private readonly TutorialSystem _tutorialSystem;
     private readonly ChallengeSystem _challengeSystem;
     private readonly ElectionSystem _electionSystem;
+    private readonly VisualEventQueue _visualEvents = new();
+    private readonly MilestoneSystem _milestoneSystem;
+    private readonly bool[] _milestonesReached;
     private readonly int[] _ballot;
     private readonly bool[] _settledBiomes; // biomy, na kterých už tohle město stavělo (kronika)
     private readonly List<int> _activeChallenges = new();   // indexy do fondu výzev
@@ -128,6 +131,8 @@ public sealed class Simulation
         _tutorialSystem = new TutorialSystem(content);
         _challengeSystem = new ChallengeSystem(content);
         _electionSystem = new ElectionSystem(content);
+        _milestoneSystem = new MilestoneSystem(content);
+        _milestonesReached = new bool[content.Milestones.Count];
         _ballot = new int[Math.Max(1, content.Elections.BallotSize)];
         _settledBiomes = new bool[content.Biomes.Count];
         _questsCompleted = new bool[content.Quests.Count];
@@ -702,6 +707,7 @@ public sealed class Simulation
         {
             _roadTiles.Add(new RoadTile(x, y));
             _roadLinksDirty = true;
+            ReportVisual(VisualEventKind.RoadBuilt, x, y);
         }
     }
 
@@ -771,6 +777,16 @@ public sealed class Simulation
         return true;
     }
 
+    /// <summary>
+    /// Fronta vizuálních událostí pro render (dokončená výroba, nová budova…).
+    /// Simulace sem jen odkládá; render si je vyzvedne a vyprázdní frontu.
+    /// </summary>
+    public VisualEventQueue VisualEvents => _visualEvents;
+
+    /// <summary>Ohlásí vizuální událost renderu (přeteklá fronta ji tiše zahodí).</summary>
+    internal void ReportVisual(VisualEventKind kind, int x, int y, int resourceIndex = -1) =>
+        _visualEvents.Add(new VisualEvent(kind, x, y, resourceIndex));
+
     /// <summary>Budovy pro systémy simulace (mutace progressu výroby).</summary>
     internal Span<BuildingInstance> BuildingsMutable => _buildings.AsSpan(0, _buildingCount);
 
@@ -799,6 +815,7 @@ public sealed class Simulation
         _tutorialSystem.Tick(this);
         _challengeSystem.Tick(this);
         _electionSystem.Tick(this);
+        _milestoneSystem.Tick(this);
         _achievementSystem.Tick(this);
 
         // Těžiště města a UFO nejsou hot path — stačí je řešit jednou za čas.
@@ -904,6 +921,7 @@ public sealed class Simulation
 
         AddBuilding(defIndex, x, y, progress: 0f);
         ApplyBuildingBonuses(def);
+        ReportVisual(VisualEventKind.BuildingPlaced, x, y);
         _roadBuilder.ConnectLastBuilding(this);
         SettlementsDirty = true;
         _roadLinksDirty = true;
@@ -1828,6 +1846,38 @@ public sealed class Simulation
     /// </summary>
     public bool HasSettledBiome(int biomeIndex) => _settledBiomes[biomeIndex];
 
+    // ----- milníky -----
+
+    /// <summary>Byl milník už oslaven? (Každý se spustí jen jednou za hru.)</summary>
+    public bool IsMilestoneReached(int index) => _milestonesReached[index];
+
+    /// <summary>Označí milník za oslavený (volá systém milníků po oznámení).</summary>
+    internal void MarkMilestoneReached(int index) => _milestonesReached[index] = true;
+
+    /// <summary>Indexy dosažených milníků (pro serializaci savu).</summary>
+    internal IEnumerable<int> ReachedMilestoneIndices()
+    {
+        for (int i = 0; i < _milestonesReached.Length; i++)
+        {
+            if (_milestonesReached[i])
+            {
+                yield return i;
+            }
+        }
+    }
+
+    /// <summary>Dosažené milníky pro testy (vnitřní seznam je jen pro save).</summary>
+    public IReadOnlyList<int> ReachedMilestoneIndicesForTest() => ReachedMilestoneIndices().ToList();
+
+    /// <summary>Obnoví dosažený milník ze savu (bez oslavy).</summary>
+    internal void RestoreMilestone(int index)
+    {
+        if (index >= 0 && index < _milestonesReached.Length)
+        {
+            _milestonesReached[index] = true;
+        }
+    }
+
     // ----- volby -----
 
     /// <summary>Kolikáté volební období běží; −1 = volby se ještě nekonaly.</summary>
@@ -2215,6 +2265,7 @@ public sealed class Simulation
 
         AddBuilding(def.MergesToIndex, group.X, group.Y, progress: 0f);
         ApplyBuildingBonuses(_content.Buildings[def.MergesToIndex]);
+        ReportVisual(VisualEventKind.BuildingMerged, group.X, group.Y);
         _roadLinksDirty = true; // napojení se musí přepočítat, než se zeptáme na cestu
         _roadBuilder.ConnectLastBuilding(this);
         MergedBuildings++;
@@ -2309,6 +2360,7 @@ public sealed class Simulation
         RemoveBuildingBonuses(oldDef);
         instance.DefIndex = oldDef.UpgradesToIndex;
         instance.Progress = 0f;
+        ReportVisual(VisualEventKind.BuildingUpgraded, instance.X, instance.Y);
         ApplyBuildingBonuses(_content.Buildings[instance.DefIndex]);
         SettlementsDirty = true;
         _roadLinksDirty = true;

@@ -115,6 +115,14 @@ internal sealed class ProductionSystem
                 resources[index] = Math.Min(resources[index] + recipe.Outputs[j].Amount * productionMult * building.BiomeMult, storageCaps[index]);
             }
 
+            // Ohlas dokončený cyklus renderu — bez tohohle je město opticky mrtvé,
+            // i když ve skutečnosti pracuje. Fronta má pevnou kapacitu, takže při
+            // statisících budov se ohlásí jen vzorek; to je záměr, ne chyba.
+            if (recipe.Outputs.Count > 0)
+            {
+                sim.ReportVisual(VisualEventKind.Produced, building.X, building.Y, recipe.Outputs[0].ResourceIndex);
+            }
+
             building.Progress -= recipe.TimeTicks;
         }
     }

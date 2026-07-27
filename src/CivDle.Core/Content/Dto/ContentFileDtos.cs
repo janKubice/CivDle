@@ -220,6 +220,12 @@ public sealed record TutorialStepDto(string? Id, GoalConditionDto? Condition, Fo
 /// <summary>Ukazatel „kam se podívat" tak, jak leží v JSON.</summary>
 public sealed record FocusHintDto(string? Kind, string? Building, string? Target);
 
+/// <summary>Obsah souboru <c>data/milestones.json</c> (oslavené okamžiky postupu).</summary>
+public sealed record MilestoneFileDto(int SchemaVersion, List<MilestoneDto>? Milestones);
+
+/// <summary>Jeden milník tak, jak leží v JSON.</summary>
+public sealed record MilestoneDto(string? Id, GoalConditionDto? Condition);
+
 /// <summary>Obsah souboru <c>data/elections.json</c> (volby na pozadí).</summary>
 public sealed record ElectionFileDto(int SchemaVersion, int TermDays, int BallotSize, List<ElectionCandidateDto>? Candidates);
 
