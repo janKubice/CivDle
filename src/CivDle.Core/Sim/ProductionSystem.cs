@@ -113,7 +113,8 @@ internal sealed class ProductionSystem
                 // Plný sklad výrobu nezastaví, přebytek propadá (idle konvence) —
                 // motivace stavět sklady, žádný trest. Trvalý bonus Vzestupu zvedá výstup.
                 resources[index] = Math.Min(
-                    resources[index] + recipe.Outputs[j].Amount * productionMult * building.BiomeMult * building.AdjacencyMult,
+                    resources[index] + recipe.Outputs[j].Amount * productionMult
+                        * building.BiomeMult * building.AdjacencyMult * building.HaulMult,
                     storageCaps[index]);
             }
 

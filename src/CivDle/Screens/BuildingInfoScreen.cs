@@ -132,6 +132,18 @@ public sealed class BuildingInfoScreen : IScreen
             });
         }
 
+        // Svoz: proč tenhle důl v horách táhne na půl plynu. Ukazuje se jen tam,
+        // kde něco ubírá — u budov ve městě by to byl jen řádek navíc.
+        if (def.Recipe is not null && instance.HaulMult < 0.995f)
+        {
+            layout.Widgets.Add(new Label
+            {
+                Text = loc.Format("building.haulPenalty", BuildingSummary.Percent(instance.HaulMult)),
+                TextColor = new Color(235, 170, 110),
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+        }
+
         layout.Widgets.Add(UpgradeSection(instance.DefIndex));
 
         // Agency: přesunout jinam nebo zbourat (vrátí půl ceny). Obojí se ODEMYKÁ —

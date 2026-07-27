@@ -114,6 +114,42 @@ public sealed record HappinessConfig(
         GrowthFloor + (1.0 - GrowthFloor) * Math.Clamp(happiness, 0.0, 1.0);
 }
 
+/// <summary>
+/// Svoz zboží do skladu. Budova daleko od nejbližšího sběrného místa vyrábí míň —
+/// sklad tím dostává jiný smysl než jen „větší číslo kapacity".
+///
+/// <para>Trest je měkký a má podlahu: vzdálená kolonie zpomalí, nikdy neumře
+/// (idle konvence — hra netrestá za nepozornost, odměňuje za pozornost).</para>
+/// </summary>
+/// <param name="FreeDistance">Do téhle vzdálenosti (Manhattan, dlaždice) se sváží zadarmo.</param>
+/// <param name="Range">O kolik dlaždic navíc se výroba pokaždé zhruba půlí.</param>
+/// <param name="MinMultiplier">Podlaha násobiče — pod tohle výroba neklesne.</param>
+public sealed record HaulConfig(int FreeDistance, int Range, double MinMultiplier)
+{
+    /// <summary>Vypnutý svoz — hra bez téhle vrstvy (výchozí pro starší data).</summary>
+    public static HaulConfig Disabled { get; } = new(0, 0, 1.0);
+
+    /// <summary>Má smysl svoz počítat?</summary>
+    public bool IsEnabled => Range > 0 && MinMultiplier < 1.0;
+
+    /// <summary>
+    /// Násobič výroby pro danou vzdálenost k nejbližšímu sběrnému místu.
+    /// Klesá hyperbolicky (1 / (1 + přesah / dosah)), takže první dlaždice navíc
+    /// bolí nejvíc a pak se to zplošťuje — jinak by byla mapa rozdělená na ostrou
+    /// hranici „tady ano, tady ne".
+    /// </summary>
+    public double Multiplier(int distance)
+    {
+        if (!IsEnabled || distance <= FreeDistance)
+        {
+            return 1.0;
+        }
+
+        double over = distance - FreeDistance;
+        return Math.Max(MinMultiplier, 1.0 / (1.0 + over / Range));
+    }
+}
+
 /// <summary>Ruční sběr: šance na „krit" (velký výnos) — aktivní klikání se vyplatí.</summary>
 /// <param name="CritChance">Pravděpodobnost kritu (0–1) na jeden sběr.</param>
 /// <param name="CritMultiplier">Násobič výnosu při kritu.</param>
@@ -156,13 +192,17 @@ public sealed record GameplayConfig(
     DailyRewardConfig DailyReward,
     PlantingConfig Planting,
     HappinessConfig? HappinessOrNull = null,
-    StaffingConfig? StaffingOrNull = null)
+    StaffingConfig? StaffingOrNull = null,
+    HaulConfig? HaulOrNull = null)
 {
     /// <summary>Nastavení spokojenosti; chybí-li v datech, je vrstva vypnutá.</summary>
     public HappinessConfig Happiness => HappinessOrNull ?? HappinessConfig.Disabled;
 
     /// <summary>Nastavení přidělování dělníků; chybí-li v datech, platí výchozí.</summary>
     public StaffingConfig Staffing => StaffingOrNull ?? StaffingConfig.Default;
+
+    /// <summary>Nastavení svozu do skladu; chybí-li v datech, je vrstva vypnutá.</summary>
+    public HaulConfig Haul => HaulOrNull ?? HaulConfig.Disabled;
 }
 
 /// <summary>

@@ -1039,6 +1039,9 @@
     "tip.build.adjacency": "Surroundings ({0}): up to +{1} % production",
     "build.adjacencyBonus": "+{0} % from surroundings",
     "building.adjacencyGood": "Good spot: +{0} % production from surroundings",
-    "building.adjacencyNone": "The surroundings add nothing here"
+    "building.adjacencyNone": "The surroundings add nothing here",
+    "build.haulPenalty": "hauling {0} %",
+    "building.haulPenalty": "Far from storage: producing at {0} %",
+    "tip.build.haul": "Produces less far from storage — build one closer"
   }
 }

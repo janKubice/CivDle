@@ -87,10 +87,14 @@ public sealed record GameplayFileDto(
     DailyRewardDto? DailyReward,
     PlantingDto? Planting,
     HappinessDto? Happiness,
-    StaffingDto? Staffing);
+    StaffingDto? Staffing,
+    HaulDto? Haul);
 
 /// <summary>Přidělování dělníků tak, jak leží v JSON.</summary>
 public sealed record StaffingDto(double ScarcityThreshold);
+
+/// <summary>Svoz zboží do skladu tak, jak leží v JSON.</summary>
+public sealed record HaulDto(int FreeDistance, int Range, double MinMultiplier);
 
 /// <summary>Nastavení spokojenosti tak, jak leží v JSON.</summary>
 public sealed record HappinessDto(

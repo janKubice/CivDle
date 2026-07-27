@@ -34,4 +34,12 @@ public struct BuildingInstance
     /// prohlédne jednou, ne každý tik. 1.0 = budova bez pravidla nebo bez okolí.
     /// </summary>
     public float AdjacencyMult;
+
+    /// <summary>
+    /// Násobič výroby ze vzdálenosti k nejbližšímu skladu (viz <c>HaulSystem</c>).
+    /// Na rozdíl od <see cref="BiomeMult"/> se může měnit i bez zásahu do budovy —
+    /// stačí, že hráč postaví sklad opodál. Přepočet je proto rozložený do ticků,
+    /// ne v hot path.
+    /// </summary>
+    public float HaulMult;
 }

@@ -1039,6 +1039,9 @@
     "tip.build.adjacency": "Okolí ({0}): až +{1} % k výrobě",
     "build.adjacencyBonus": "+{0} % za okolí",
     "building.adjacencyGood": "Dobré místo: +{0} % k výrobě za okolí",
-    "building.adjacencyNone": "Okolí téhle budově nic nepřidává"
+    "building.adjacencyNone": "Okolí téhle budově nic nepřidává",
+    "build.haulPenalty": "svoz {0} %",
+    "building.haulPenalty": "Daleko od skladu: výroba na {0} %",
+    "tip.build.haul": "Daleko od skladu vyrábí míň — postav sklad blíž"
   }
 }

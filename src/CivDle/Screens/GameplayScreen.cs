@@ -1,3 +1,4 @@
+using System.Text;
 using CivDle.Audio;
 using CivDle.Core.Content;
 using CivDle.Core.Save;
@@ -1820,27 +1821,42 @@ public sealed class GameplayScreen : IScreen
         }
         else
         {
-            _statusLabel.Text = loc.Format("build.placing", loc[def.NameKey]) + AdjacencyHint(loc, def);
+            _statusLabel.Text = loc.Format("build.placing", loc[def.NameKey]) + PlacementHints(loc, def);
             _statusLabel.TextColor = Color.White;
         }
     }
 
     /// <summary>
-    /// Živý bonus za okolí pod kurzorem („+18 % za okolí"). Bez tohohle by se hráč
-    /// o celém pravidle nedozvěděl — bonus se projeví až v číslech za deset minut.
-    /// Ukazuje se jen u budov, kterých se pravidlo týká, a jen když něco dává.
+    /// Živé dopady místa pod kurzorem („+18 % za okolí", „svoz 60 %"). Bez tohohle
+    /// by se hráč o obou pravidlech nedozvěděl — projeví se až v číslech za deset
+    /// minut. Ukazuje se jen to, co zrovna něco dělá; mlčení znamená „na tomhle
+    /// místě nic zvláštního".
     /// </summary>
-    private string AdjacencyHint(Localization loc, BuildingDef def)
+    private string PlacementHints(Localization loc, BuildingDef def)
     {
-        if (!def.HasAdjacencyBonus || !_tools.GhostVisible)
+        if (!_tools.GhostVisible || def.Recipe is null)
         {
             return string.Empty;
         }
 
-        double bonus = _simulation.AdjacencyMultiplierAt(_tools.SelectedBuilding, _tools.GhostX, _tools.GhostY) - 1.0;
-        return bonus <= 0
-            ? string.Empty
-            : "  " + loc.Format("build.adjacencyBonus", BuildingSummary.Percent(bonus));
+        var hints = new StringBuilder();
+
+        if (def.HasAdjacencyBonus)
+        {
+            double bonus = _simulation.AdjacencyMultiplierAt(_tools.SelectedBuilding, _tools.GhostX, _tools.GhostY) - 1.0;
+            if (bonus > 0)
+            {
+                hints.Append("  ").Append(loc.Format("build.adjacencyBonus", BuildingSummary.Percent(bonus)));
+            }
+        }
+
+        double haul = _simulation.HaulMultiplierAt(_tools.GhostX, _tools.GhostY);
+        if (haul < 0.995)
+        {
+            hints.Append("  ").Append(loc.Format("build.haulPenalty", BuildingSummary.Percent(haul)));
+        }
+
+        return hints.ToString();
     }
 
     private static string ErrorKey(PlacementResult result) => result switch

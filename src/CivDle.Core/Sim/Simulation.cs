@@ -28,6 +28,7 @@ public sealed class Simulation
     private readonly List<RoadTile> _roadTiles = new(); // pořadí vzniku — deterministické, jde do savu
     private readonly List<Settlement> _settlements = new();
     private readonly ProductionSystem _production;
+    private readonly HaulSystem _haulSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
     private readonly ZoneFillSystem _zoneFill;
@@ -118,6 +119,7 @@ public sealed class Simulation
         HousingCapacity = content.Gameplay.BaseHousingCapacity;
 
         _production = new ProductionSystem(content);
+        _haulSystem = new HaulSystem(content);
         _populationSystem = new PopulationSystem(content.Gameplay);
         _autoBuild = new AutoBuildSystem(content, seed);
         _zoneFill = new ZoneFillSystem(content, seed);
@@ -529,6 +531,12 @@ public sealed class Simulation
     internal bool SettlementsDirty { get; set; }
 
     /// <summary>
+    /// Přibylo/ubylo sběrné místo (sklad) nebo se posunulo těžiště města —
+    /// násobiče svozu čekají na rozložený přepočet.
+    /// </summary>
+    internal bool HaulDirty { get; set; } = true;
+
+    /// <summary>
     /// Je budova napojená na silniční síť? Bez cesty se zboží odváží hůř a výroba
     /// klesne na <see cref="RoadConfig.DisconnectedProductionMult"/> — díky tomu
     /// silnice nejsou jen čára na mapě. Auto-stavba je staví sama, takže jde
@@ -805,6 +813,7 @@ public sealed class Simulation
         }
 
         _production.Tick(this);
+        _haulSystem.Tick(this);
         _populationSystem.Tick(this);
         _autoBuild.Tick(this);
         _zoneFill.Tick(this);
@@ -829,6 +838,9 @@ public sealed class Simulation
 
     /// <summary>Jak často se přepočítá těžiště města (tiky) — pomalý systém, ne každý tik.</summary>
     private const int CityCenterIntervalTicks = 50;
+
+    /// <summary>O kolik dlaždic se musí těžiště posunout, aby stálo za přepočet svozu.</summary>
+    private const int CityCenterHaulShift = 4;
 
     /// <summary>
     /// Ověří umístění budovy bez vedlejších efektů — UI z výsledku ukazuje ghost
@@ -913,6 +925,13 @@ public sealed class Simulation
         var def = _content.Buildings[defIndex];
         return def.Adjacency is { } rule ? CountAdjacencyTiles(def, rule, x, y) : 0;
     }
+
+    /// <summary>
+    /// Násobič výroby ze svozu, který by budova na místě (x, y) dostala. Veřejné
+    /// kvůli náhledu při stavbě — „tady bude výroba na 60 %" je informace, kterou
+    /// hráč potřebuje před kliknutím, ne po něm.
+    /// </summary>
+    public double HaulMultiplierAt(int x, int y) => _haulSystem.MultiplierAt(x, y);
 
     /// <summary>
     /// Násobič výroby, který by budova daného typu na místě (x, y) dostala za okolí.
@@ -1445,8 +1464,18 @@ public sealed class Simulation
             sumY += _buildings[i].Y;
         }
 
-        CityCenterX = (int)(sumX / _buildingCount);
-        CityCenterY = (int)(sumY / _buildingCount);
+        int centerX = (int)(sumX / _buildingCount);
+        int centerY = (int)(sumY / _buildingCount);
+
+        // Těžiště je jedno ze sběrných míst svozu. Přepočítávat celé město po
+        // každém posunu o dlaždici je zbytečné — až znatelný posun stojí za to.
+        if (Math.Abs(centerX - CityCenterX) + Math.Abs(centerY - CityCenterY) >= CityCenterHaulShift)
+        {
+            HaulDirty = true;
+        }
+
+        CityCenterX = centerX;
+        CityCenterY = centerY;
     }
 
     // ----- odemykatelné funkce (postupné odhalování UI) -----
@@ -2523,6 +2552,11 @@ public sealed class Simulation
         // Přesun mění biom pod budovou i její okolí → cachované násobiče jdou s ní.
         building.BiomeMult = (float)_content.Biomes[Terrain.BiomeAt(x, y)].Production;
         building.AdjacencyMult = (float)AdjacencyMultiplier(def, x, y);
+        building.HaulMult = (float)_haulSystem.MultiplierAt(x, y);
+        if (def.StorageBonus.Count > 0)
+        {
+            HaulDirty = true; // přesunutý sklad mění svoz na obou koncích
+        }
         for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
         {
             for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
@@ -2694,8 +2728,16 @@ public sealed class Simulation
             // už se terén nevzorkuje (viz BuildingInstance.BiomeMult).
             BiomeMult = (float)_content.Biomes[Terrain.BiomeAt(x, y)].Production,
             AdjacencyMult = (float)AdjacencyMultiplier(def, x, y),
+            HaulMult = (float)_haulSystem.MultiplierAt(x, y),
         };
         _buildingCount++;
+
+        // Nový sklad mění svoz i budovám, které stojí dávno — ty se přepočítají
+        // rozloženě, tahle jedna to má správně hned.
+        if (def.StorageBonus.Count > 0)
+        {
+            HaulDirty = true;
+        }
 
         for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
         {
@@ -2729,6 +2771,14 @@ public sealed class Simulation
         for (int i = 0; i < def.StorageBonus.Count; i++)
         {
             _storageCaps[def.StorageBonus[i].ResourceIndex] -= def.StorageBonus[i].Amount * _bonuses.StorageMult;
+        }
+
+        // Zbouraný (nebo vylepšený) sklad zmizel ze sběrných míst — svoz kolem
+        // něj se musí přepočítat. Sedí to tady, protože tímhle jediným místem
+        // prochází bourání i slučování.
+        if (def.StorageBonus.Count > 0)
+        {
+            HaulDirty = true;
         }
     }
 

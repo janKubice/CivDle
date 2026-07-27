@@ -1875,7 +1875,38 @@ public sealed class ContentLoader
             dailyReward,
             planting,
             ParseHappiness(path, file.Happiness),
-            ParseStaffing(path, file.Staffing));
+            ParseStaffing(path, file.Staffing),
+            ParseHaul(path, file.Haul));
+    }
+
+    /// <summary>
+    /// Nastavení svozu do skladu. Chybí-li blok, je vrstva vypnutá a hra se chová
+    /// jako dřív (zboží se „teleportuje") — starší data se načtou beze změny.
+    /// </summary>
+    private static HaulConfig? ParseHaul(string path, HaulDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (dto.FreeDistance < 0)
+        {
+            throw new ContentLoadException(path, $"'haul.freeDistance' nesmí být záporná, je {dto.FreeDistance}.");
+        }
+
+        if (dto.Range <= 0)
+        {
+            throw new ContentLoadException(path, $"'haul.range' musí být kladný, je {dto.Range}.");
+        }
+
+        if (dto.MinMultiplier is <= 0 or > 1)
+        {
+            throw new ContentLoadException(path,
+                $"'haul.minMultiplier' musí být větší než 0 a nejvýš 1, je {dto.MinMultiplier}.");
+        }
+
+        return new HaulConfig(dto.FreeDistance, dto.Range, dto.MinMultiplier);
     }
 
     /// <summary>

@@ -64,5 +64,10 @@
   },
   "staffing": {
     "scarcityThreshold": 0.6
+  },
+  "haul": {
+    "freeDistance": 14,
+    "range": 30,
+    "minMultiplier": 0.35
   }
 }

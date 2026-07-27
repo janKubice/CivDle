@@ -76,6 +76,13 @@ internal static class BuildingSummary
             text.Append('\n').Append(loc["tip.build.needsWater"]);
         }
 
+        // Svoz se týká každé výrobny, takže se zmiňuje jen jednou obecně —
+        // konkrétní číslo pro místo pod kurzorem ukazuje stavební režim.
+        if (def.Recipe is not null && content.Gameplay.Haul.IsEnabled)
+        {
+            text.Append('\n').Append(loc["tip.build.haul"]);
+        }
+
         if (def.Adjacency is { } adjacency)
         {
             text.Append('\n').Append(loc.Format("tip.build.adjacency",
