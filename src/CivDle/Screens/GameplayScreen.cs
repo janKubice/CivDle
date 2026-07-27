@@ -718,18 +718,55 @@ public sealed class GameplayScreen : IScreen
     /// <summary>Občas spustí náhodnou událost s volbami (mikro-rozhodnutí).</summary>
     private void UpdateEventScheduler(float dt)
     {
-        var events = _screens.Content.Events;
-        if (events.Count == 0)
+        if (_screens.Content.Events.Count == 0)
         {
             return;
         }
 
         _eventTimer -= dt;
-        if (_eventTimer <= 0f)
+        if (_eventTimer > 0f)
         {
-            _eventTimer = NextEventGap();
-            _screens.Push(new EventScreen(_screens, _simulation, events[_eventRng.Next(events.Count)]));
+            return;
         }
+
+        _eventTimer = NextEventGap();
+        if (PickEligibleEvent() is { } chosen)
+        {
+            _screens.Push(new EventScreen(_screens, _simulation, chosen));
+        }
+    }
+
+    /// <summary>
+    /// Vybere náhodnou událost, na kterou už město dorostlo. Bez filtru by nabízel
+    /// kupec ocel osadě, která ještě neumí bronz — a nabídka, kterou hráč nemůže
+    /// využít, je horší než žádná událost.
+    ///
+    /// <para>Reservoir sampling: rovnoměrný výběr jedním průchodem, bez pomocného
+    /// seznamu (událostí jsou desítky a tohle běží jednou za ~10 minut, ale je to
+    /// stejně krátké jako alokovat).</para>
+    /// </summary>
+    private EventDef? PickEligibleEvent()
+    {
+        var events = _screens.Content.Events;
+        EventDef? chosen = null;
+        int seen = 0;
+        for (int i = 0; i < events.Count; i++)
+        {
+            var candidate = events[i];
+            if (candidate.Requirement is { } requirement
+                && _simulation.EvaluateMetric(requirement.Kind, requirement.Param) < requirement.Target)
+            {
+                continue;
+            }
+
+            seen++;
+            if (_eventRng.Next(seen) == 0)
+            {
+                chosen = candidate;
+            }
+        }
+
+        return chosen;
     }
 
     /// <summary>

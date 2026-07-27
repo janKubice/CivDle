@@ -279,7 +279,7 @@ public sealed record AscensionTierDto(string? Id, int Order, double PopulationCa
 public sealed record EventFileDto(int SchemaVersion, List<EventDto>? Events);
 
 /// <summary>Jedna událost tak, jak leží v JSON.</summary>
-public sealed record EventDto(string? Id, List<EventChoiceDto>? Choices);
+public sealed record EventDto(string? Id, List<EventChoiceDto>? Choices, GoalConditionDto? Requires);
 
 /// <summary>Jedna volba události tak, jak leží v JSON.</summary>
 public sealed record EventChoiceDto(string? Id, Dictionary<string, int>? Cost, Dictionary<string, int>? Gain);

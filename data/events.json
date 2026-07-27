@@ -4,29 +4,609 @@
     {
       "id": "caravan",
       "choices": [
-        { "id": "accept", "gain": { "food": 40, "wood": 20 } },
-        { "id": "decline" }
-      ]
-    },
-    {
-      "id": "scholar",
-      "choices": [
-        { "id": "pay", "cost": { "food": 30 }, "gain": { "planks": 25 } },
-        { "id": "refuse" }
+        {
+          "id": "accept",
+          "gain": {
+            "food": 40,
+            "wood": 20
+          }
+        },
+        {
+          "id": "decline"
+        }
       ]
     },
     {
       "id": "harvest_festival",
       "choices": [
-        { "id": "celebrate", "gain": { "wood": 15, "food": 15 } },
-        { "id": "skip" }
+        {
+          "id": "celebrate",
+          "gain": {
+            "wood": 15,
+            "food": 15
+          }
+        },
+        {
+          "id": "skip"
+        }
       ]
     },
     {
       "id": "traveler",
       "choices": [
-        { "id": "feed", "cost": { "food": 15 }, "gain": { "stone": 25 } },
-        { "id": "refuse" }
+        {
+          "id": "feed",
+          "cost": {
+            "food": 15
+          },
+          "gain": {
+            "stone": 25
+          }
+        },
+        {
+          "id": "refuse"
+        }
+      ]
+    },
+    {
+      "id": "lost_child",
+      "choices": [
+        {
+          "id": "search",
+          "cost": {
+            "food": 10
+          },
+          "gain": {
+            "food": 35
+          }
+        },
+        {
+          "id": "wait"
+        }
+      ]
+    },
+    {
+      "id": "berry_year",
+      "choices": [
+        {
+          "id": "gather",
+          "gain": {
+            "food": 50
+          }
+        },
+        {
+          "id": "preserve",
+          "cost": {
+            "wood": 10
+          },
+          "gain": {
+            "food": 90
+          }
+        }
+      ]
+    },
+    {
+      "id": "fallen_tree",
+      "choices": [
+        {
+          "id": "salvage",
+          "gain": {
+            "wood": 45
+          }
+        },
+        {
+          "id": "leave"
+        }
+      ]
+    },
+    {
+      "id": "stone_seam",
+      "choices": [
+        {
+          "id": "dig",
+          "cost": {
+            "food": 20
+          },
+          "gain": {
+            "stone": 70
+          }
+        },
+        {
+          "id": "mark"
+        }
+      ]
+    },
+    {
+      "id": "wandering_mason",
+      "choices": [
+        {
+          "id": "hire",
+          "cost": {
+            "food": 25
+          },
+          "gain": {
+            "stone": 40,
+            "wood": 20
+          }
+        },
+        {
+          "id": "send_on"
+        }
+      ]
+    },
+    {
+      "id": "scholar",
+      "requires": {
+        "metric": "research",
+        "tech": "milling"
+      },
+      "choices": [
+        {
+          "id": "pay",
+          "cost": {
+            "food": 30
+          },
+          "gain": {
+            "planks": 25
+          }
+        },
+        {
+          "id": "refuse"
+        }
+      ]
+    },
+    {
+      "id": "timber_deal",
+      "requires": {
+        "metric": "research",
+        "tech": "trade"
+      },
+      "choices": [
+        {
+          "id": "sell",
+          "cost": {
+            "wood": 60
+          },
+          "gain": {
+            "tools": 12
+          }
+        },
+        {
+          "id": "buy",
+          "cost": {
+            "tools": 8
+          },
+          "gain": {
+            "wood": 90
+          }
+        },
+        {
+          "id": "pass"
+        }
+      ]
+    },
+    {
+      "id": "toolsmith_visit",
+      "requires": {
+        "metric": "research",
+        "tech": "tools"
+      },
+      "choices": [
+        {
+          "id": "commission",
+          "cost": {
+            "wood": 40,
+            "stone": 20
+          },
+          "gain": {
+            "tools": 18
+          }
+        },
+        {
+          "id": "decline"
+        }
+      ]
+    },
+    {
+      "id": "granary_rats",
+      "requires": {
+        "metric": "research",
+        "tech": "granary"
+      },
+      "choices": [
+        {
+          "id": "bait",
+          "cost": {
+            "tools": 4
+          },
+          "gain": {
+            "food": 60
+          }
+        },
+        {
+          "id": "ignore"
+        }
+      ]
+    },
+    {
+      "id": "river_flood",
+      "requires": {
+        "metric": "population",
+        "target": 20
+      },
+      "choices": [
+        {
+          "id": "rebuild",
+          "cost": {
+            "planks": 15
+          },
+          "gain": {
+            "food": 70
+          }
+        },
+        {
+          "id": "move_on"
+        }
+      ]
+    },
+    {
+      "id": "guild_charter",
+      "requires": {
+        "metric": "research",
+        "tech": "guilds"
+      },
+      "choices": [
+        {
+          "id": "sign",
+          "cost": {
+            "tools": 15
+          },
+          "gain": {
+            "planks": 60
+          }
+        },
+        {
+          "id": "stay_free"
+        }
+      ]
+    },
+    {
+      "id": "copper_find",
+      "requires": {
+        "metric": "research",
+        "tech": "bronze_working"
+      },
+      "choices": [
+        {
+          "id": "mine",
+          "cost": {
+            "tools": 6
+          },
+          "gain": {
+            "copper_ore": 45
+          }
+        },
+        {
+          "id": "record"
+        }
+      ]
+    },
+    {
+      "id": "bronze_caster",
+      "requires": {
+        "metric": "research",
+        "tech": "alloys"
+      },
+      "choices": [
+        {
+          "id": "trade",
+          "cost": {
+            "copper_ore": 40
+          },
+          "gain": {
+            "bronze": 22
+          }
+        },
+        {
+          "id": "refuse"
+        }
+      ]
+    },
+    {
+      "id": "iron_prospector",
+      "requires": {
+        "metric": "research",
+        "tech": "iron_working"
+      },
+      "choices": [
+        {
+          "id": "grubstake",
+          "cost": {
+            "food": 50
+          },
+          "gain": {
+            "iron_ore": 60
+          }
+        },
+        {
+          "id": "decline"
+        }
+      ]
+    },
+    {
+      "id": "collapsed_shaft",
+      "requires": {
+        "metric": "research",
+        "tech": "deep_mining"
+      },
+      "choices": [
+        {
+          "id": "shore_up",
+          "cost": {
+            "planks": 30
+          },
+          "gain": {
+            "iron_ore": 80,
+            "coal": 30
+          }
+        },
+        {
+          "id": "seal"
+        }
+      ]
+    },
+    {
+      "id": "smith_apprentice",
+      "requires": {
+        "metric": "research",
+        "tech": "toolsmithing"
+      },
+      "choices": [
+        {
+          "id": "take_on",
+          "cost": {
+            "food": 40
+          },
+          "gain": {
+            "tools": 30
+          }
+        },
+        {
+          "id": "turn_away"
+        }
+      ]
+    },
+    {
+      "id": "boiler_burst",
+      "requires": {
+        "metric": "research",
+        "tech": "steam_power"
+      },
+      "choices": [
+        {
+          "id": "repair",
+          "cost": {
+            "iron": 20
+          },
+          "gain": {
+            "coal": 80
+          }
+        },
+        {
+          "id": "shut_down"
+        }
+      ]
+    },
+    {
+      "id": "rail_survey",
+      "requires": {
+        "metric": "research",
+        "tech": "rail_freight"
+      },
+      "choices": [
+        {
+          "id": "fund",
+          "cost": {
+            "steel": 18
+          },
+          "gain": {
+            "coal": 120,
+            "iron": 40
+          }
+        },
+        {
+          "id": "refuse"
+        }
+      ]
+    },
+    {
+      "id": "strike",
+      "requires": {
+        "metric": "research",
+        "tech": "assembly_line"
+      },
+      "choices": [
+        {
+          "id": "raise_wages",
+          "cost": {
+            "food": 120
+          },
+          "gain": {
+            "machine_parts": 25
+          }
+        },
+        {
+          "id": "wait_out"
+        }
+      ]
+    },
+    {
+      "id": "factory_order",
+      "requires": {
+        "metric": "research",
+        "tech": "steel_frames"
+      },
+      "choices": [
+        {
+          "id": "fill_it",
+          "cost": {
+            "steel": 30
+          },
+          "gain": {
+            "machine_parts": 35
+          }
+        },
+        {
+          "id": "pass"
+        }
+      ]
+    },
+    {
+      "id": "power_surge",
+      "requires": {
+        "metric": "research",
+        "tech": "electrification"
+      },
+      "choices": [
+        {
+          "id": "reroute",
+          "cost": {
+            "machine_parts": 12
+          },
+          "gain": {
+            "steel": 60
+          }
+        },
+        {
+          "id": "blackout"
+        }
+      ]
+    },
+    {
+      "id": "chip_shortage",
+      "requires": {
+        "metric": "research",
+        "tech": "electronics"
+      },
+      "choices": [
+        {
+          "id": "stockpile",
+          "cost": {
+            "silicon": 40
+          },
+          "gain": {
+            "electronics": 30
+          }
+        },
+        {
+          "id": "ride_it_out"
+        }
+      ]
+    },
+    {
+      "id": "startup_pitch",
+      "requires": {
+        "metric": "research",
+        "tech": "computing"
+      },
+      "choices": [
+        {
+          "id": "invest",
+          "cost": {
+            "electronics": 25
+          },
+          "gain": {
+            "computer": 18
+          }
+        },
+        {
+          "id": "decline"
+        }
+      ]
+    },
+    {
+      "id": "data_center_heat",
+      "requires": {
+        "metric": "research",
+        "tech": "networks"
+      },
+      "choices": [
+        {
+          "id": "cool_it",
+          "cost": {
+            "machine_parts": 30
+          },
+          "gain": {
+            "computer": 25
+          }
+        },
+        {
+          "id": "throttle"
+        }
+      ]
+    },
+    {
+      "id": "rogue_swarm",
+      "requires": {
+        "metric": "research",
+        "tech": "self_assembly"
+      },
+      "choices": [
+        {
+          "id": "recall",
+          "cost": {
+            "computer": 20
+          },
+          "gain": {
+            "nanomaterial": 40
+          }
+        },
+        {
+          "id": "let_run"
+        }
+      ]
+    },
+    {
+      "id": "orbital_contract",
+      "requires": {
+        "metric": "research",
+        "tech": "orbital_survey"
+      },
+      "choices": [
+        {
+          "id": "sign",
+          "cost": {
+            "robot": 10
+          },
+          "gain": {
+            "nanomaterial": 70,
+            "computer": 30
+          }
+        },
+        {
+          "id": "decline"
+        }
+      ]
+    },
+    {
+      "id": "longevity_trial",
+      "requires": {
+        "metric": "research",
+        "tech": "longevity"
+      },
+      "choices": [
+        {
+          "id": "volunteer",
+          "cost": {
+            "nanomaterial": 30
+          },
+          "gain": {
+            "food": 400
+          }
+        },
+        {
+          "id": "abstain"
+        }
       ]
     }
   ]

@@ -39,7 +39,7 @@ public sealed class ContentLoader
         var (prestige, prestigeUpgrades) = LoadPrestige(Path.Combine(dataDirectory, "prestige.json"), resources, buildings, techs);
         var (quests, questsDynamic) = LoadQuests(Path.Combine(dataDirectory, "quests.json"), resources, buildings, techs);
         var achievements = LoadAchievements(Path.Combine(dataDirectory, "achievements.json"), resources, buildings, techs);
-        var events = LoadEvents(Path.Combine(dataDirectory, "events.json"), resources);
+        var events = LoadEvents(Path.Combine(dataDirectory, "events.json"), resources, buildings, techs);
         var eras = LoadEras(Path.Combine(dataDirectory, "eras.json"));
         var zoneTypes = LoadZoneTypes(Path.Combine(dataDirectory, "zones.json"), buildings);
         var policies = LoadPolicies(Path.Combine(dataDirectory, "policies.json"));
@@ -1318,7 +1318,8 @@ public sealed class ContentLoader
 
     // ----- události -----
 
-    private static DefRegistry<EventDef> LoadEvents(string path, DefRegistry<Resource> resources)
+    private static DefRegistry<EventDef> LoadEvents(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         var file = ReadFile<EventFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -1355,7 +1356,12 @@ public sealed class ContentLoader
                 choices.Add(new EventChoiceDef($"event.{id}.{choiceId}", cost, gain));
             }
 
-            result.Add(new EventDef(id, choices));
+            // Podmínka je volitelná — bez ní je událost dostupná od začátku.
+            GoalCondition? requirement = dto.Requires is null
+                ? null
+                : ParseCondition(path, $"událost '{id}'", dto.Requires, resources, buildings, techs);
+
+            result.Add(new EventDef(id, choices, requirement));
         }
 
         return new DefRegistry<EventDef>(result, e => e.Id, "událost", allowEmpty: true);
