@@ -92,7 +92,11 @@ public sealed class SaveGameSerializer
         WriteSection(writer, SectionPlanted, w => WritePlanted(w, simulation));
         WriteSection(writer, SectionZones, w => WriteZones(w, simulation));
         WriteSection(writer, SectionPolicies, w => WritePolicies(w, simulation));
-        WriteSection(writer, SectionGovernor, w => w.Write(simulation.AutoUpgradeLevelRaw));
+        WriteSection(writer, SectionGovernor, w =>
+        {
+            w.Write(simulation.AutoUpgradeLevelRaw);
+            w.Write(simulation.AutoMergeRaw);
+        });
         WriteSection(writer, SectionKnownResources, w => WriteKnownResources(w, simulation));
         WriteSection(writer, SectionWorldChanges, w => WriteWorldChanges(w, simulation));
         WriteSection(writer, SectionTutorial, w => w.Write(simulation.TutorialStep));
@@ -162,6 +166,17 @@ public sealed class SaveGameSerializer
     /// čtečka neznámou sekci nedokázala přeskočit.
     /// </summary>
     /// <summary>Dnešní sada výzev: den, indexy do fondu, výchozí metriky a splněnost.</summary>
+    private static void ReadGovernor(BinaryReader reader, Simulation simulation)
+    {
+        simulation.RestoreAutoUpgradeLevel(reader.ReadInt32());
+
+        // Automatické slučování přibylo později — starší sekce ho nemá.
+        if (reader.BaseStream.Position < reader.BaseStream.Length)
+        {
+            simulation.RestoreAutoMerge(reader.ReadBoolean());
+        }
+    }
+
     private static void WriteChallenges(BinaryWriter writer, Simulation simulation)
     {
         var active = simulation.ActiveChallenges;
@@ -259,7 +274,7 @@ public sealed class SaveGameSerializer
             case SectionPlanted: ReadPlanted(section, content, simulation); break;
             case SectionZones: ReadZones(section, content, simulation); break;
             case SectionPolicies: ReadPolicies(section, content, simulation); break;
-            case SectionGovernor: simulation.RestoreAutoUpgradeLevel(section.ReadInt32()); break;
+            case SectionGovernor: ReadGovernor(section, simulation); break;
             case SectionKnownResources: ReadKnownResources(section, content, simulation); break;
             case SectionWorldChanges: ReadWorldChanges(section, content, simulation); break;
             case SectionTutorial: simulation.RestoreTutorialStep(section.ReadInt32()); break;
@@ -573,6 +588,7 @@ public sealed class SaveGameSerializer
 
         writer.Write(simulation.LastUfoWindow);
         writer.Write(simulation.TerraformedTiles);
+        writer.Write(simulation.MergedBuildings);
     }
 
     private static void ReadWorldChanges(BinaryReader reader, GameContent content, Simulation simulation)
@@ -592,11 +608,16 @@ public sealed class SaveGameSerializer
 
         simulation.RestoreLastUfoWindow(reader.ReadInt64());
 
-        // Počítadlo terraformace přibylo později — starší sekce ho nemá a to nevadí,
-        // sekční formát čte, co tam je (proto ten pokus o čtení navíc).
+        // Počítadla terraformace a slučování přibyla později — starší sekce je
+        // nemají a to nevadí, sekční formát čte, co tam je.
         if (reader.BaseStream.Position < reader.BaseStream.Length)
         {
             simulation.RestoreTerraformedTiles(reader.ReadInt64());
+        }
+
+        if (reader.BaseStream.Position < reader.BaseStream.Length)
+        {
+            simulation.RestoreMergedBuildings(reader.ReadInt64());
         }
     }
 

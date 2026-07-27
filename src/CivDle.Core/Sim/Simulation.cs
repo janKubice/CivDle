@@ -572,11 +572,68 @@ public sealed class Simulation
             Array.Resize(ref _roadLinked, _buildings.Length);
         }
 
+        // Napojení se počítá po BLOCÍCH, ne po jednotlivých budovách: co se
+        // dotýká hranou, patří k sobě a stačí, když se silnice dotkne kteréhokoli
+        // domu v řadě. Bez toho by řadová zástavba vyžadovala dlažbu mezi každými
+        // dvěma domy — a přesně tak město vypadat nemá.
         for (int i = 0; i < _buildingCount; i++)
         {
             _roadLinked[i] = TouchesRoad(_buildings[i]);
         }
+
+        SpreadRoadLinkThroughBlocks();
     }
+
+    /// <summary>
+    /// Rozšíří „napojeno" na celé bloky dotýkajících se budov. Vlna se opakuje,
+    /// dokud něco přibývá — bloků je málo a běží to jen při změně sítě.
+    /// </summary>
+    private void SpreadRoadLinkThroughBlocks()
+    {
+        bool changed = true;
+        while (changed)
+        {
+            changed = false;
+            for (int i = 0; i < _buildingCount; i++)
+            {
+                if (_roadLinked[i] || !TouchesLinkedBuilding(i))
+                {
+                    continue;
+                }
+
+                _roadLinked[i] = true;
+                changed = true;
+            }
+        }
+    }
+
+    /// <summary>Dotýká se budova hranou jiné budovy, která už napojení má?</summary>
+    private bool TouchesLinkedBuilding(int buildingIndex)
+    {
+        ref var building = ref _buildings[buildingIndex];
+        var def = _content.Buildings[building.DefIndex];
+
+        for (int x = building.X; x < building.X + def.FootprintWidth; x++)
+        {
+            if (IsLinkedBuildingAt(x, building.Y - 1) || IsLinkedBuildingAt(x, building.Y + def.FootprintHeight))
+            {
+                return true;
+            }
+        }
+
+        for (int y = building.Y; y < building.Y + def.FootprintHeight; y++)
+        {
+            if (IsLinkedBuildingAt(building.X - 1, y) || IsLinkedBuildingAt(building.X + def.FootprintWidth, y))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool IsLinkedBuildingAt(int x, int y) =>
+        TryGetBuildingAt(x, y, out int index) && _roadLinked[index];
 
     /// <summary>
     /// Sousedí půdorys budovy s nějakou silnicí? Jen ORTOGONÁLNĚ — roh se nepočítá,
@@ -642,6 +699,72 @@ public sealed class Simulation
             _roadTiles.Add(new RoadTile(x, y));
             _roadLinksDirty = true;
         }
+    }
+
+    // ----- ruční silnice -----
+
+    /// <summary>Lze na dlaždici položit silnici? (Zastavěno, už silnice, nebo vysazený zdroj = ne.)</summary>
+    public PlacementResult CanBuildRoad(int x, int y)
+    {
+        long tile = TileKey.Pack(x, y);
+        if (_roads.Contains(tile))
+        {
+            return PlacementResult.Occupied;
+        }
+
+        if (_occupancy.ContainsKey(tile) || _plantedNodes.ContainsKey(tile))
+        {
+            return PlacementResult.Occupied;
+        }
+
+        // Voda jen tam, kde je most únosně dlouhý, se řeší u auto-silnic; ruční
+        // most nechceme přes oceán, takže vodní dlaždice hráč nedláždí.
+        if (_content.Biomes[Terrain.BiomeAt(x, y)].IsWater)
+        {
+            return PlacementResult.WrongBiome;
+        }
+
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>
+    /// Příkaz hráče: postaví kus silnice. Auto-silnice řeší jen nutné napojení,
+    /// takže tvar sítě má být na hráči — bez tohohle nešlo město srovnat do ulic.
+    /// </summary>
+    public PlacementResult TryBuildRoad(int x, int y)
+    {
+        var result = CanBuildRoad(x, y);
+        if (result != PlacementResult.Ok)
+        {
+            return result;
+        }
+
+        AddRoadTile(x, y);
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>Příkaz hráče: strhne silnici z dlaždice. Vrací false, když tam žádná není.</summary>
+    public bool TryRemoveRoad(int x, int y)
+    {
+        long tile = TileKey.Pack(x, y);
+        if (!_roads.Remove(tile))
+        {
+            return false;
+        }
+
+        for (int i = 0; i < _roadTiles.Count; i++)
+        {
+            if (_roadTiles[i].X == x && _roadTiles[i].Y == y)
+            {
+                // Swap-remove: na pořadí dlaždic v seznamu nikde nezáleží.
+                _roadTiles[i] = _roadTiles[^1];
+                _roadTiles.RemoveAt(_roadTiles.Count - 1);
+                break;
+            }
+        }
+
+        _roadLinksDirty = true;
+        return true;
     }
 
     /// <summary>Budovy pro systémy simulace (mutace progressu výroby).</summary>
@@ -1312,6 +1435,32 @@ public sealed class Simulation
     public void SetAutoUpgradeLevel(int level) =>
         _autoUpgradeLevel = Math.Clamp(level, 0, MaxAutoUpgradeLevel);
 
+    /// <summary>ID technologie, po které umí guvernér i slučovat bloky (data-driven odkaz).</summary>
+    public const string GovernorMergeTechId = "urban_planning";
+
+    private bool _autoMerge;
+
+    /// <summary>
+    /// Umí guvernér slučovat bloky 2×2 sám? Odemyká se vlastní technologií —
+    /// slučování mění půdorys města, takže se nemá zapnout nepozorovaně spolu
+    /// s běžným vylepšováním.
+    /// </summary>
+    public bool IsAutoMergeUnlocked =>
+        IsGovernorUnlocked
+        && _content.Techs.TryIndexOf(GovernorMergeTechId, out int index) && _techResearched[index];
+
+    /// <summary>Slučuje guvernér bloky sám? (Bez technologie vždy ne.)</summary>
+    public bool AutoMerge => IsAutoMergeUnlocked && _autoMerge;
+
+    /// <summary>Příkaz hráče: zapne/vypne automatické slučování bloků.</summary>
+    public void SetAutoMerge(bool enabled) => _autoMerge = enabled;
+
+    /// <summary>Surová volba pro save (bez ohledu na odemčení).</summary>
+    internal bool AutoMergeRaw => _autoMerge;
+
+    /// <summary>Obnoví volbu automatického slučování ze savu.</summary>
+    internal void RestoreAutoMerge(bool enabled) => _autoMerge = enabled;
+
     /// <summary>Smí guvernér na téhle úrovni vylepšit budovu dané kategorie?</summary>
     internal bool AutoUpgradeCovers(string category) => AutoUpgradeLevel switch
     {
@@ -1591,6 +1740,7 @@ public sealed class Simulation
         MetricKind.DayNumber => DayNumber,
         MetricKind.PlantedNodes => _plantedNodes.Count,
         MetricKind.TerraformedTiles => TerraformedTiles,
+        MetricKind.MergedBuildings => MergedBuildings,
         _ => 0,
     };
 
@@ -1805,6 +1955,192 @@ public sealed class Simulation
         }
 
         return false;
+    }
+
+    // ----- slučování bloků 2×2 -----
+
+    /// <summary>
+    /// Najde blok 2×2 stejných budov, jehož součástí je budova na dané dlaždici.
+    /// Zkouší všechny čtyři polohy, ve kterých může dlaždice v bloku ležet —
+    /// hráč klikne kamkoli do čtverce, ne nutně do jeho levého horního rohu.
+    /// </summary>
+    public bool TryFindMergeGroup(int x, int y, out MergeGroup group)
+    {
+        group = default;
+        if (!TryGetBuildingAt(x, y, out int clicked))
+        {
+            return false;
+        }
+
+        int defIndex = _buildings[clicked].DefIndex;
+        if (!_content.Buildings[defIndex].CanMergeIntoBigger)
+        {
+            return false;
+        }
+
+        for (int dy = 0; dy <= 1; dy++)
+        {
+            for (int dx = 0; dx <= 1; dx++)
+            {
+                if (TryBlockAt(x - dx, y - dy, defIndex, out group))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Leží na dlaždicích (x,y)…(x+1,y+1) čtyři budovy téhož typu?</summary>
+    private bool TryBlockAt(int x, int y, int defIndex, out MergeGroup group)
+    {
+        group = default;
+        if (!IsSameBuilding(x, y, defIndex, out int a)
+            || !IsSameBuilding(x + 1, y, defIndex, out int b)
+            || !IsSameBuilding(x, y + 1, defIndex, out int c)
+            || !IsSameBuilding(x + 1, y + 1, defIndex, out int d))
+        {
+            return false;
+        }
+
+        group = new MergeGroup(x, y, defIndex, a, b, c, d);
+        return true;
+    }
+
+    private bool IsSameBuilding(int x, int y, int defIndex, out int buildingIndex) =>
+        TryGetBuildingAt(x, y, out buildingIndex) && _buildings[buildingIndex].DefIndex == defIndex;
+
+    /// <summary>
+    /// Lze blok 2×2 na dané dlaždici sloučit? Cíl musí být odemčený technologií
+    /// (proto se slučování nedá zneužít hned na začátku) a hráč musí mít na doplatek.
+    /// </summary>
+    public PlacementResult CanMerge(int x, int y)
+    {
+        if (!TryFindMergeGroup(x, y, out var group))
+        {
+            return PlacementResult.Occupied;
+        }
+
+        return CanMerge(group);
+    }
+
+    /// <summary>Lze konkrétní nalezený blok sloučit?</summary>
+    public PlacementResult CanMerge(MergeGroup group)
+    {
+        var def = _content.Buildings[group.DefIndex];
+        int targetIndex = def.MergesToIndex;
+        if (targetIndex < 0 || !_buildingUnlocked[targetIndex])
+        {
+            return PlacementResult.NotUnlocked;
+        }
+
+        // Cílová budova musí na dané místo vůbec smět — biom se pod blokem může lišit.
+        var target = _content.Buildings[targetIndex];
+        for (int tileY = group.Y; tileY < group.Y + 2; tileY++)
+        {
+            for (int tileX = group.X; tileX < group.X + 2; tileX++)
+            {
+                if (!target.IsBiomeAllowed(Terrain.BiomeAt(tileX, tileY)))
+                {
+                    return PlacementResult.WrongBiome;
+                }
+            }
+        }
+
+        var cost = def.MergeCost;
+        for (int i = 0; i < cost.Count; i++)
+        {
+            if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
+            {
+                return PlacementResult.NotEnoughResources;
+            }
+        }
+
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>
+    /// Příkaz hráče: sloučí blok 2×2 stejných budov v jednu velkou. Čtyři budovy
+    /// zmizí (bez vrácení ceny — nebourá se, přestavuje) a na jejich místě vznikne
+    /// cílová 2×2 budova.
+    ///
+    /// <para>Existuje kvůli tomu, že velké město je jinak koberec identických
+    /// domečků; sloučení dá hráči důvod stavět úhledně a odmění ho siluetou,
+    /// kterou jinak nezíská.</para>
+    /// </summary>
+    public PlacementResult TryMerge(int x, int y)
+    {
+        if (!TryFindMergeGroup(x, y, out var group))
+        {
+            return PlacementResult.Occupied;
+        }
+
+        var result = CanMerge(group);
+        if (result != PlacementResult.Ok)
+        {
+            return result;
+        }
+
+        var def = _content.Buildings[group.DefIndex];
+        var cost = def.MergeCost;
+        for (int i = 0; i < cost.Count; i++)
+        {
+            _resources[cost[i].ResourceIndex] -= cost[i].Amount;
+        }
+
+        // Od nejvyššího indexu: odebrání přesouvá poslední budovu na uvolněné
+        // místo, takže při mazání odspodu by se zbylé indexy posunuly pod rukama.
+        var (first, second, third, fourth) = group.DescendingIndices();
+        RemoveBuildingSilently(first);
+        RemoveBuildingSilently(second);
+        RemoveBuildingSilently(third);
+        RemoveBuildingSilently(fourth);
+
+        AddBuilding(def.MergesToIndex, group.X, group.Y, progress: 0f);
+        ApplyBuildingBonuses(_content.Buildings[def.MergesToIndex]);
+        _roadLinksDirty = true; // napojení se musí přepočítat, než se zeptáme na cestu
+        _roadBuilder.ConnectLastBuilding(this);
+        MergedBuildings++;
+        SettlementsDirty = true;
+        _roadLinksDirty = true;
+        EnqueueNotification(new GameNotification(
+            NotificationKind.Milestone, "toast.merged", _content.Buildings[def.MergesToIndex].NameKey));
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>Kolik sloučení hráč provedl (metrika pro cíle a achievementy).</summary>
+    public long MergedBuildings { get; internal set; }
+
+    /// <summary>Obnoví počet sloučení ze savu.</summary>
+    internal void RestoreMergedBuildings(long count) => MergedBuildings = count;
+
+    /// <summary>
+    /// Odebere budovu bez vracení surovin a bez oznámení — slučování není bourání,
+    /// materiál jde do nové stavby.
+    /// </summary>
+    private void RemoveBuildingSilently(int buildingIndex)
+    {
+        var def = _content.Buildings[_buildings[buildingIndex].DefIndex];
+        int x = _buildings[buildingIndex].X, y = _buildings[buildingIndex].Y;
+        for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
+        {
+            for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
+            {
+                _occupancy.Remove(TileKey.Pack(tileX, tileY));
+            }
+        }
+
+        RemoveBuildingBonuses(def);
+
+        int last = _buildingCount - 1;
+        if (buildingIndex != last)
+        {
+            _buildings[buildingIndex] = _buildings[last];
+            RemapOccupancy(buildingIndex);
+        }
+
+        _buildingCount--;
     }
 
     /// <summary>Lze budovu (podle indexu v <see cref="Buildings"/>) vylepšit na další úroveň?</summary>

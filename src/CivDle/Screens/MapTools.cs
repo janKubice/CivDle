@@ -54,9 +54,19 @@ public sealed class MapTools
     /// <summary>Index zvoleného terraformačního zásahu, nebo −1.</summary>
     public int TerraformIndex { get; private set; } = -1;
 
+    /// <summary>Slučování bloků 2×2 v jednu velkou budovu.</summary>
+    public bool MergeMode { get; private set; }
+
+    /// <summary>Ruční kladení silnic.</summary>
+    public bool RoadMode { get; private set; }
+
+    /// <summary>Bourání silnic.</summary>
+    public bool RoadEraseMode { get; private set; }
+
     /// <summary>Je aktivní jakýkoli nástroj? (Jinak klik na mapu znamená těžbu.)</summary>
     public bool AnyActive =>
-        SelectedBuilding >= 0 || PlantMode || ZoneMode || MovingBuildingIndex >= 0 || TerraformIndex >= 0;
+        SelectedBuilding >= 0 || PlantMode || ZoneMode || MovingBuildingIndex >= 0 || TerraformIndex >= 0
+        || MergeMode || RoadMode || RoadEraseMode;
 
     // ----- duch pod kurzorem (čte render) -----
 
@@ -76,6 +86,19 @@ public sealed class MapTools
     public PlacementResult PlantGhostResult { get; private set; }
 
     public bool ZonePreviewActive { get; private set; }
+
+    /// <summary>Náhled bloku, který se sloučí (levý horní roh čtverce 2×2).</summary>
+    public bool MergeGhostActive { get; private set; }
+    public int MergeGhostX { get; private set; }
+    public int MergeGhostY { get; private set; }
+    public PlacementResult MergeGhostResult { get; private set; }
+
+    /// <summary>Náhled dlaždice silnice pod kurzorem.</summary>
+    public bool RoadGhostActive { get; private set; }
+    public int RoadGhostX { get; private set; }
+    public int RoadGhostY { get; private set; }
+    public bool RoadGhostErasing { get; private set; }
+    public PlacementResult RoadGhostResult { get; private set; }
     public Rectangle ZonePreview { get; private set; }
 
     public bool TerraformGhostActive { get; private set; }
@@ -124,6 +147,30 @@ public sealed class MapTools
         TerraformIndex = same ? -1 : actionIndex;
     }
 
+    /// <summary>Zapne slučování bloků; podruhé vypne.</summary>
+    public void ToggleMerge()
+    {
+        bool was = MergeMode;
+        Clear();
+        MergeMode = !was;
+    }
+
+    /// <summary>Zapne kladení silnic; podruhé vypne.</summary>
+    public void ToggleRoad()
+    {
+        bool was = RoadMode;
+        Clear();
+        RoadMode = !was;
+    }
+
+    /// <summary>Zapne bourání silnic; podruhé vypne.</summary>
+    public void ToggleRoadErase()
+    {
+        bool was = RoadEraseMode;
+        Clear();
+        RoadEraseMode = !was;
+    }
+
     /// <summary>Začne přesouvat budovu.</summary>
     public void StartMove(int buildingIndex)
     {
@@ -139,6 +186,11 @@ public sealed class MapTools
         ZoneMode = false;
         MovingBuildingIndex = -1;
         TerraformIndex = -1;
+        MergeMode = false;
+        RoadMode = false;
+        RoadEraseMode = false;
+        MergeGhostActive = false;
+        RoadGhostActive = false;
         _zoneDragging = false;
         GhostVisible = false;
         PlantGhostActive = false;
@@ -153,6 +205,9 @@ public sealed class MapTools
     /// </summary>
     public bool CancelTopmost()
     {
+        if (RoadEraseMode) { RoadEraseMode = false; RoadGhostActive = false; return true; }
+        if (RoadMode) { RoadMode = false; RoadGhostActive = false; return true; }
+        if (MergeMode) { MergeMode = false; MergeGhostActive = false; return true; }
         if (TerraformIndex >= 0) { TerraformIndex = -1; TerraformGhostActive = false; return true; }
         if (ZoneMode) { ZoneMode = false; _zoneDragging = false; return true; }
         if (PlantMode) { PlantMode = false; return true; }
@@ -169,6 +224,18 @@ public sealed class MapTools
     /// </summary>
     public bool Update(bool mouseOverUi)
     {
+        if (MergeMode)
+        {
+            UpdateMerge(mouseOverUi);
+            return true;
+        }
+
+        if (RoadMode || RoadEraseMode)
+        {
+            UpdateRoad(mouseOverUi);
+            return true;
+        }
+
         if (TerraformIndex >= 0)
         {
             UpdateTerraform(mouseOverUi);
@@ -241,6 +308,85 @@ public sealed class MapTools
     /// Levý klik přetvoří dlaždici (za cenu), pravý režim opustí. V režimu se
     /// zůstává — hráč obvykle upravuje víc dlaždic za sebou.
     /// </summary>
+    /// <summary>
+    /// Slučování: pod kurzorem se ukáže obrys bloku 2×2, který by se sloučil.
+    /// Ghost je celý blok, ne jedna dlaždice — hráč tak vidí, co přesně zmizí.
+    /// </summary>
+    private void UpdateMerge(bool mouseOverUi)
+    {
+        MergeGhostActive = false;
+        if (_input.WasRightPressed)
+        {
+            MergeMode = false;
+            return;
+        }
+
+        if (mouseOverUi)
+        {
+            return;
+        }
+
+        var (x, y) = TileUnderCursor();
+        if (!_simulation.TryFindMergeGroup(x, y, out var group))
+        {
+            return;
+        }
+
+        MergeGhostX = group.X;
+        MergeGhostY = group.Y;
+        MergeGhostResult = _simulation.CanMerge(group);
+        MergeGhostActive = true;
+
+        if (_input.WasLeftPressed && MergeGhostResult == PlacementResult.Ok)
+        {
+            _simulation.TryMerge(x, y);
+        }
+    }
+
+    /// <summary>
+    /// Ruční silnice: levý klik pokládá (nebo bourá v režimu bourání) a drženým
+    /// tlačítkem jde táhnout ulici. Tažení je tu podstatné — po jedné dlaždici
+    /// by se rovná ulice stavěla nesnesitelně dlouho.
+    /// </summary>
+    private void UpdateRoad(bool mouseOverUi)
+    {
+        RoadGhostActive = false;
+        if (_input.WasRightPressed)
+        {
+            RoadMode = false;
+            RoadEraseMode = false;
+            return;
+        }
+
+        if (mouseOverUi)
+        {
+            return;
+        }
+
+        var (x, y) = TileUnderCursor();
+        RoadGhostX = x;
+        RoadGhostY = y;
+        RoadGhostErasing = RoadEraseMode;
+        RoadGhostResult = RoadEraseMode
+            ? _simulation.IsRoad(x, y) ? PlacementResult.Ok : PlacementResult.Occupied
+            : _simulation.CanBuildRoad(x, y);
+        RoadGhostActive = true;
+
+        if (!_input.IsLeftDown)
+        {
+            return;
+        }
+
+        if (RoadEraseMode)
+        {
+            _simulation.TryRemoveRoad(x, y);
+        }
+        else
+        {
+            _simulation.TryBuildRoad(x, y);
+        }
+    }
+
     private void UpdateTerraform(bool mouseOverUi)
     {
         TerraformGhostActive = false;

@@ -61,6 +61,13 @@ internal sealed class AutoBuildSystem
             return;
         }
 
+        // Guvernér: slučování bloků má vlastní přepínač i technologii. Mění
+        // půdorys města, takže se nemá zapnout nepozorovaně s vylepšováním.
+        if (sim.AutoMerge)
+        {
+            TryAutoMerge(sim);
+        }
+
         // Guvernér: vylepšování běží NEZÁVISLE na tlaku bydlení — hráč si nastavil,
         // že se o modernizaci města stará sám. Míra = počet vylepšení za interval.
         for (int i = 0; i < sim.AutoUpgradeLevel; i++)
@@ -132,6 +139,26 @@ internal sealed class AutoBuildSystem
             if (def.HasUpgrade && sim.AutoUpgradeCovers(def.Category) && sim.CanUpgrade(i) == PlacementResult.Ok)
             {
                 return sim.TryUpgradeBuilding(i) == PlacementResult.Ok;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Sloučí první blok 2×2, na který guvernér narazí. Jeden za interval —
+    /// slučování je vidět a je nevratné, takže má město měnit postupně, ne
+    /// přestavět se hráči pod rukama během jednoho tiku.
+    /// </summary>
+    private static bool TryAutoMerge(Simulation sim)
+    {
+        var buildings = sim.Buildings;
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            if (sim.TryFindMergeGroup(buildings[i].X, buildings[i].Y, out var group)
+                && sim.CanMerge(group) == PlacementResult.Ok)
+            {
+                return sim.TryMerge(group.X, group.Y) == PlacementResult.Ok;
             }
         }
 

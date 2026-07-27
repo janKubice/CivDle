@@ -1,71 +1,569 @@
 {
   "schemaVersion": 1,
   "achievements": [
-    { "id": "woodcutter",      "condition": { "metric": "harvested", "resource": "wood", "target": 50 } },
-    { "id": "quarryman",       "condition": { "metric": "harvested", "resource": "stone", "target": 30 } },
-    { "id": "settler",         "condition": { "metric": "population", "target": 15 } },
-    { "id": "townsfolk",       "condition": { "metric": "population", "target": 25 } },
-    { "id": "builder",         "condition": { "metric": "buildings", "target": 10 } },
-    { "id": "sawyer",          "condition": { "metric": "building", "building": "sawmill", "target": 1 } },
-    { "id": "scholar",         "condition": { "metric": "research", "tech": "milling" } },
-    { "id": "veteran",         "condition": { "metric": "day", "target": 3 } },
-    { "id": "chronicler",      "condition": { "metric": "day", "target": 100 }, "hidden": true },
-    { "id": "ascendant",       "condition": { "metric": "ascension", "target": 1 } },
-    { "id": "prestige_master", "condition": { "metric": "ascension", "target": 2 }, "hidden": true },
-    { "id": "bronze_age", "condition": { "metric": "research", "tech": "bronze_working" } },
-    { "id": "iron_age", "condition": { "metric": "research", "tech": "iron_working" } },
-    { "id": "industrial_age", "condition": { "metric": "research", "tech": "steam_power" } },
-    { "id": "information_age", "condition": { "metric": "research", "tech": "electronics" } },
-    { "id": "future_age", "condition": { "metric": "research", "tech": "fusion" } },
-
-    { "id": "gardener",        "condition": { "metric": "planted", "target": 5 } },
-    { "id": "forester",        "condition": { "metric": "planted", "target": 50 } },
-    { "id": "arborist",        "condition": { "metric": "planted", "target": 250 }, "hidden": true },
-    { "id": "lumberjack",      "condition": { "metric": "harvested", "resource": "wood", "target": 1000 } },
-    { "id": "stonecutter",     "condition": { "metric": "harvested", "resource": "stone", "target": 500 } },
-    { "id": "city",            "condition": { "metric": "population", "target": 250 } },
-    { "id": "metropolis",      "condition": { "metric": "population", "target": 5000 } },
-    { "id": "megacity",        "condition": { "metric": "population", "target": 100000 } },
-    { "id": "district",        "condition": { "metric": "buildings", "target": 50 } },
-    { "id": "sprawl",          "condition": { "metric": "buildings", "target": 250 } },
-    { "id": "week_one",        "condition": { "metric": "day", "target": 7 } },
-    { "id": "month_in",        "condition": { "metric": "day", "target": 30 } },
-    { "id": "well_stocked",    "condition": { "metric": "resource", "resource": "planks", "target": 1000 } },
-    { "id": "iron_reserve",    "condition": { "metric": "resource", "resource": "iron", "target": 500 } },
-    { "id": "silicon_valley",  "condition": { "metric": "building", "building": "electronics_fab", "target": 3 } },
-    { "id": "power_grid",      "condition": { "metric": "building", "building": "coal_power_plant", "target": 2 } },
-    { "id": "green_power",     "condition": { "metric": "building", "building": "solar_array", "target": 5 } },
-    { "id": "seafarer",        "condition": { "metric": "building", "building": "harbor", "target": 1 } },
-    { "id": "deep_sea",        "condition": { "metric": "building", "building": "deep_sea_port", "target": 1 } },
-    { "id": "aviator",         "condition": { "metric": "building", "building": "airfield", "target": 1 } },
-    { "id": "spacefarer",      "condition": { "metric": "building", "building": "spaceport", "target": 1 } },
-    { "id": "skyline",         "condition": { "metric": "building", "building": "high_rise", "target": 10 } },
-    { "id": "arcologist",      "condition": { "metric": "building", "building": "arcology", "target": 1 } },
-    { "id": "megastructure",   "condition": { "metric": "building", "building": "megacity_spire", "target": 1 }, "hidden": true },
-    { "id": "world_builder",   "condition": { "metric": "building", "building": "world_forge", "target": 1 }, "hidden": true },
-    { "id": "orbital",         "condition": { "metric": "building", "building": "orbital_ring", "target": 1 }, "hidden": true },
-    { "id": "governor_hired",  "condition": { "metric": "research", "tech": "municipal_administration" } },
-    { "id": "navigator",       "condition": { "metric": "research", "tech": "cartography" } },
-    { "id": "engineer",        "condition": { "metric": "research", "tech": "assembly_line" } },
-    { "id": "networked",       "condition": { "metric": "research", "tech": "networks" } },
-    { "id": "roboticist",      "condition": { "metric": "research", "tech": "robotics" } },
-    { "id": "immortal",        "condition": { "metric": "research", "tech": "longevity" }, "hidden": true },
-    { "id": "planetary",       "condition": { "metric": "ascension", "target": 4 }, "hidden": true },
-    { "id": "eternal",         "condition": { "metric": "ascension", "target": 6 }, "hidden": true },
-    { "id": "hoarder_wood",    "condition": { "metric": "resource", "resource": "wood", "target": 500 } },
-    { "id": "hoarder_stone",   "condition": { "metric": "resource", "resource": "stone", "target": 500 } },
-    { "id": "hoarder_food",    "condition": { "metric": "resource", "resource": "food", "target": 500 } },
-    { "id": "hoarder_tools",   "condition": { "metric": "resource", "resource": "tools", "target": 250 } },
-    { "id": "woodcutter_2",    "condition": { "metric": "harvested", "resource": "wood", "target": 10000 }, "hidden": true },
-    { "id": "quarryman_2",     "condition": { "metric": "harvested", "resource": "stone", "target": 5000 }, "hidden": true },
-    { "id": "builder_2",       "condition": { "metric": "buildings", "target": 1000 }, "hidden": true },
-    { "id": "population_2",    "condition": { "metric": "population", "target": 1000000 }, "hidden": true },
-    { "id": "gardener_2",      "condition": { "metric": "planted", "target": 1000 }, "hidden": true },
-    { "id": "first_steps",     "condition": { "metric": "buildings", "target": 1 } },
-    { "id": "first_harvest",   "condition": { "metric": "harvested", "resource": "wood", "target": 1 } },
-    { "id": "first_research",  "condition": { "metric": "research", "tech": "tools" } },
-    { "id": "landscaper",      "condition": { "metric": "terraformed", "target": 1 } },
-    { "id": "landscaper_2",    "condition": { "metric": "terraformed", "target": 50 } },
-    { "id": "worldshaper",     "condition": { "metric": "terraformed", "target": 500 }, "hidden": true }
+    {
+      "id": "woodcutter",
+      "condition": {
+        "metric": "harvested",
+        "resource": "wood",
+        "target": 50
+      }
+    },
+    {
+      "id": "quarryman",
+      "condition": {
+        "metric": "harvested",
+        "resource": "stone",
+        "target": 30
+      }
+    },
+    {
+      "id": "settler",
+      "condition": {
+        "metric": "population",
+        "target": 15
+      }
+    },
+    {
+      "id": "townsfolk",
+      "condition": {
+        "metric": "population",
+        "target": 25
+      }
+    },
+    {
+      "id": "builder",
+      "condition": {
+        "metric": "buildings",
+        "target": 10
+      }
+    },
+    {
+      "id": "sawyer",
+      "condition": {
+        "metric": "building",
+        "building": "sawmill",
+        "target": 1
+      }
+    },
+    {
+      "id": "scholar",
+      "condition": {
+        "metric": "research",
+        "tech": "milling"
+      }
+    },
+    {
+      "id": "veteran",
+      "condition": {
+        "metric": "day",
+        "target": 3
+      }
+    },
+    {
+      "id": "chronicler",
+      "condition": {
+        "metric": "day",
+        "target": 100
+      },
+      "hidden": true
+    },
+    {
+      "id": "ascendant",
+      "condition": {
+        "metric": "ascension",
+        "target": 1
+      }
+    },
+    {
+      "id": "prestige_master",
+      "condition": {
+        "metric": "ascension",
+        "target": 2
+      },
+      "hidden": true
+    },
+    {
+      "id": "bronze_age",
+      "condition": {
+        "metric": "research",
+        "tech": "bronze_working"
+      }
+    },
+    {
+      "id": "iron_age",
+      "condition": {
+        "metric": "research",
+        "tech": "iron_working"
+      }
+    },
+    {
+      "id": "industrial_age",
+      "condition": {
+        "metric": "research",
+        "tech": "steam_power"
+      }
+    },
+    {
+      "id": "information_age",
+      "condition": {
+        "metric": "research",
+        "tech": "electronics"
+      }
+    },
+    {
+      "id": "future_age",
+      "condition": {
+        "metric": "research",
+        "tech": "fusion"
+      }
+    },
+    {
+      "id": "gardener",
+      "condition": {
+        "metric": "planted",
+        "target": 5
+      }
+    },
+    {
+      "id": "forester",
+      "condition": {
+        "metric": "planted",
+        "target": 50
+      }
+    },
+    {
+      "id": "arborist",
+      "condition": {
+        "metric": "planted",
+        "target": 250
+      },
+      "hidden": true
+    },
+    {
+      "id": "lumberjack",
+      "condition": {
+        "metric": "harvested",
+        "resource": "wood",
+        "target": 1000
+      }
+    },
+    {
+      "id": "stonecutter",
+      "condition": {
+        "metric": "harvested",
+        "resource": "stone",
+        "target": 500
+      }
+    },
+    {
+      "id": "city",
+      "condition": {
+        "metric": "population",
+        "target": 250
+      }
+    },
+    {
+      "id": "metropolis",
+      "condition": {
+        "metric": "population",
+        "target": 5000
+      }
+    },
+    {
+      "id": "megacity",
+      "condition": {
+        "metric": "population",
+        "target": 100000
+      }
+    },
+    {
+      "id": "district",
+      "condition": {
+        "metric": "buildings",
+        "target": 50
+      }
+    },
+    {
+      "id": "sprawl",
+      "condition": {
+        "metric": "buildings",
+        "target": 250
+      }
+    },
+    {
+      "id": "week_one",
+      "condition": {
+        "metric": "day",
+        "target": 7
+      }
+    },
+    {
+      "id": "month_in",
+      "condition": {
+        "metric": "day",
+        "target": 30
+      }
+    },
+    {
+      "id": "well_stocked",
+      "condition": {
+        "metric": "resource",
+        "resource": "planks",
+        "target": 1000
+      }
+    },
+    {
+      "id": "iron_reserve",
+      "condition": {
+        "metric": "resource",
+        "resource": "iron",
+        "target": 500
+      }
+    },
+    {
+      "id": "silicon_valley",
+      "condition": {
+        "metric": "building",
+        "building": "electronics_fab",
+        "target": 3
+      }
+    },
+    {
+      "id": "power_grid",
+      "condition": {
+        "metric": "building",
+        "building": "coal_power_plant",
+        "target": 2
+      }
+    },
+    {
+      "id": "green_power",
+      "condition": {
+        "metric": "building",
+        "building": "solar_array",
+        "target": 5
+      }
+    },
+    {
+      "id": "seafarer",
+      "condition": {
+        "metric": "building",
+        "building": "harbor",
+        "target": 1
+      }
+    },
+    {
+      "id": "deep_sea",
+      "condition": {
+        "metric": "building",
+        "building": "deep_sea_port",
+        "target": 1
+      }
+    },
+    {
+      "id": "aviator",
+      "condition": {
+        "metric": "building",
+        "building": "airfield",
+        "target": 1
+      }
+    },
+    {
+      "id": "spacefarer",
+      "condition": {
+        "metric": "building",
+        "building": "spaceport",
+        "target": 1
+      }
+    },
+    {
+      "id": "skyline",
+      "condition": {
+        "metric": "building",
+        "building": "high_rise",
+        "target": 10
+      }
+    },
+    {
+      "id": "arcologist",
+      "condition": {
+        "metric": "building",
+        "building": "arcology",
+        "target": 1
+      }
+    },
+    {
+      "id": "megastructure",
+      "condition": {
+        "metric": "building",
+        "building": "megacity_spire",
+        "target": 1
+      },
+      "hidden": true
+    },
+    {
+      "id": "world_builder",
+      "condition": {
+        "metric": "building",
+        "building": "world_forge",
+        "target": 1
+      },
+      "hidden": true
+    },
+    {
+      "id": "orbital",
+      "condition": {
+        "metric": "building",
+        "building": "orbital_ring",
+        "target": 1
+      },
+      "hidden": true
+    },
+    {
+      "id": "governor_hired",
+      "condition": {
+        "metric": "research",
+        "tech": "municipal_administration"
+      }
+    },
+    {
+      "id": "navigator",
+      "condition": {
+        "metric": "research",
+        "tech": "cartography"
+      }
+    },
+    {
+      "id": "engineer",
+      "condition": {
+        "metric": "research",
+        "tech": "assembly_line"
+      }
+    },
+    {
+      "id": "networked",
+      "condition": {
+        "metric": "research",
+        "tech": "networks"
+      }
+    },
+    {
+      "id": "roboticist",
+      "condition": {
+        "metric": "research",
+        "tech": "robotics"
+      }
+    },
+    {
+      "id": "immortal",
+      "condition": {
+        "metric": "research",
+        "tech": "longevity"
+      },
+      "hidden": true
+    },
+    {
+      "id": "planetary",
+      "condition": {
+        "metric": "ascension",
+        "target": 4
+      },
+      "hidden": true
+    },
+    {
+      "id": "eternal",
+      "condition": {
+        "metric": "ascension",
+        "target": 6
+      },
+      "hidden": true
+    },
+    {
+      "id": "hoarder_wood",
+      "condition": {
+        "metric": "resource",
+        "resource": "wood",
+        "target": 500
+      }
+    },
+    {
+      "id": "hoarder_stone",
+      "condition": {
+        "metric": "resource",
+        "resource": "stone",
+        "target": 500
+      }
+    },
+    {
+      "id": "hoarder_food",
+      "condition": {
+        "metric": "resource",
+        "resource": "food",
+        "target": 500
+      }
+    },
+    {
+      "id": "hoarder_tools",
+      "condition": {
+        "metric": "resource",
+        "resource": "tools",
+        "target": 250
+      }
+    },
+    {
+      "id": "woodcutter_2",
+      "condition": {
+        "metric": "harvested",
+        "resource": "wood",
+        "target": 10000
+      },
+      "hidden": true
+    },
+    {
+      "id": "quarryman_2",
+      "condition": {
+        "metric": "harvested",
+        "resource": "stone",
+        "target": 5000
+      },
+      "hidden": true
+    },
+    {
+      "id": "builder_2",
+      "condition": {
+        "metric": "buildings",
+        "target": 1000
+      },
+      "hidden": true
+    },
+    {
+      "id": "population_2",
+      "condition": {
+        "metric": "population",
+        "target": 1000000
+      },
+      "hidden": true
+    },
+    {
+      "id": "gardener_2",
+      "condition": {
+        "metric": "planted",
+        "target": 1000
+      },
+      "hidden": true
+    },
+    {
+      "id": "first_steps",
+      "condition": {
+        "metric": "buildings",
+        "target": 1
+      }
+    },
+    {
+      "id": "first_harvest",
+      "condition": {
+        "metric": "harvested",
+        "resource": "wood",
+        "target": 1
+      }
+    },
+    {
+      "id": "first_research",
+      "condition": {
+        "metric": "research",
+        "tech": "tools"
+      }
+    },
+    {
+      "id": "landscaper",
+      "condition": {
+        "metric": "terraformed",
+        "target": 1
+      }
+    },
+    {
+      "id": "landscaper_2",
+      "condition": {
+        "metric": "terraformed",
+        "target": 50
+      }
+    },
+    {
+      "id": "worldshaper",
+      "condition": {
+        "metric": "terraformed",
+        "target": 500
+      },
+      "hidden": true
+    },
+    {
+      "id": "first_merge",
+      "condition": {
+        "metric": "merged",
+        "target": 1
+      }
+    },
+    {
+      "id": "merger",
+      "condition": {
+        "metric": "merged",
+        "target": 10
+      }
+    },
+    {
+      "id": "merger_2",
+      "condition": {
+        "metric": "merged",
+        "target": 50
+      }
+    },
+    {
+      "id": "city_shaper",
+      "condition": {
+        "metric": "merged",
+        "target": 200
+      }
+    },
+    {
+      "id": "monumental",
+      "condition": {
+        "metric": "building",
+        "building": "great_statue",
+        "target": 1
+      }
+    },
+    {
+      "id": "cathedral_built",
+      "condition": {
+        "metric": "building",
+        "building": "cathedral",
+        "target": 1
+      }
+    },
+    {
+      "id": "stargazer",
+      "condition": {
+        "metric": "building",
+        "building": "observatory",
+        "target": 1
+      }
+    },
+    {
+      "id": "green_city",
+      "condition": {
+        "metric": "building",
+        "building": "park",
+        "target": 10
+      }
+    },
+    {
+      "id": "gardener_city",
+      "condition": {
+        "metric": "building",
+        "building": "botanical_garden",
+        "target": 3
+      }
+    }
   ]
 }

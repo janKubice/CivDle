@@ -1001,6 +1001,22 @@ public sealed class ContentLoader
                     throw new ContentLoadException(path, $"Budova '{building.Id}': vylepšení '{target.Id}' má jiný půdorys (vylepšuje se na místě).");
                 }
             }
+
+            // Sloučení dává smysl jen pro 1×1 → 2×2: blok čtyř budov zabírá přesně
+            // dvě dlaždice na stranu, takže cíl musí sednout na stejné místo.
+            if (building.CanMergeIntoBigger)
+            {
+                var target = buildings[building.MergesToIndex];
+                if (building.FootprintWidth != 1 || building.FootprintHeight != 1)
+                {
+                    throw new ContentLoadException(path, $"Budova '{building.Id}' má 'mergesTo', ale není 1×1 — slučovat jde jen bloky 2×2 z jednodlaždicových budov.");
+                }
+
+                if (target.FootprintWidth != 2 || target.FootprintHeight != 2)
+                {
+                    throw new ContentLoadException(path, $"Budova '{building.Id}': cíl sloučení '{target.Id}' musí být 2×2, je {target.FootprintWidth}×{target.FootprintHeight}.");
+                }
+            }
         }
 
         return new DefRegistry<BuildingDef>(buildings, b => b.Id, "budova");
@@ -1115,12 +1131,32 @@ public sealed class ContentLoader
                 $"Budova '{id}' má 'upkeep', ale nulový 'serviceValue' — platila by se údržba za nic.");
         }
 
+        // Sloučení bloku 2×2: cíl se řeší přes ID → index stejně jako vylepšení.
+        // Technologie se sem NEuvádí — cíl se odemyká běžným 'unlocks' v tech.json
+        // a slučovat jde, až když je odemčený. Jeden mechanismus místo dvou.
+        int mergesToIndex = -1;
+        var mergeCost = Array.Empty<ResourceAmount>() as IReadOnlyList<ResourceAmount>;
+        if (!string.IsNullOrWhiteSpace(dto.MergesTo))
+        {
+            if (!idToIndex.TryGetValue(dto.MergesTo.Trim(), out mergesToIndex))
+            {
+                throw new ContentLoadException(path, $"Budova '{id}' odkazuje v 'mergesTo' na neexistující budovu '{dto.MergesTo}'.");
+            }
+
+            if (mergesToIndex == index)
+            {
+                throw new ContentLoadException(path, $"Budova '{id}' se nemůže sloučit sama na sebe.");
+            }
+
+            mergeCost = ParseResourceAmounts(path, id, "mergeCost", dto.MergeCost, resources);
+        }
+
         return new BuildingDef(
             id, category, color, dto.Footprint[0], dto.Footprint[1],
             dto.WorkerSlots, dto.HousingCapacity, buildCost, recipe, mask,
             storageBonus, dto.AutoBuild, dto.Buildable ?? true, upgradesToIndex, upgradeCost,
             dto.PowerSupply, dto.PowerDemand, dto.RequiresAdjacentWater,
-            dto.ServiceValue, upkeep);
+            dto.ServiceValue, upkeep, mergesToIndex, mergeCost);
     }
 
     // ----- tech tree -----
@@ -1458,6 +1494,7 @@ public sealed class ContentLoader
             case "day": return (MetricKind.DayNumber, -1);
             case "planted": return (MetricKind.PlantedNodes, -1);
             case "terraformed": return (MetricKind.TerraformedTiles, -1);
+            case "merged": return (MetricKind.MergedBuildings, -1);
             case "harvested": return (MetricKind.Harvested, ResolveRef(path, owner, "resource", resource, resources));
             case "resource": return (MetricKind.ResourceStock, ResolveRef(path, owner, "resource", resource, resources));
             case "building": return (MetricKind.BuildingOfType, ResolveRef(path, owner, "building", building, buildings));

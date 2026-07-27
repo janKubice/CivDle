@@ -52,7 +52,9 @@ public sealed record BuildingDto(
     int PowerDemand,
     bool RequiresAdjacentWater,
     int ServiceValue,
-    Dictionary<string, int>? Upkeep);
+    Dictionary<string, int>? Upkeep,
+    string? MergesTo,
+    Dictionary<string, int>? MergeCost);
 
 /// <summary>Výrobní recept budovy tak, jak leží v JSON.</summary>
 public sealed record RecipeDto(
