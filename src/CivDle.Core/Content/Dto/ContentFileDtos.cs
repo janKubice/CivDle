@@ -90,13 +90,17 @@ public sealed record GameplayFileDto(
     HappinessDto? Happiness,
     StaffingDto? Staffing,
     HaulDto? Haul,
-    ToolsDto? Tools);
+    ToolsDto? Tools,
+    ComboDto? Combo);
 
 /// <summary>Přidělování dělníků tak, jak leží v JSON.</summary>
 public sealed record StaffingDto(double ScarcityThreshold);
 
 /// <summary>Svoz zboží do skladu tak, jak leží v JSON.</summary>
 public sealed record HaulDto(int FreeDistance, int Range, double MinMultiplier);
+
+/// <summary>Klikací kombo tak, jak leží v JSON.</summary>
+public sealed record ComboDto(double WindowSeconds, double BonusPerStep, int MaxSteps);
 
 /// <summary>Nástroje jako živá surovina tak, jak leží v JSON.</summary>
 public sealed record ToolsDto(

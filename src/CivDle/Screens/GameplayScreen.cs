@@ -80,6 +80,9 @@ public sealed class GameplayScreen : IScreen
     private double[] _ratePrev = Array.Empty<double>();
     private double[] _perSecond = Array.Empty<double>();
     private float _rateTimer;
+
+    /// <summary>Kolik sekund ještě mlčet o přetékajícím skladu dané suroviny.</summary>
+    private float[] _fullStorageCooldown = Array.Empty<float>();
     private Label _populationLabel = null!;
     private Label _idleLabel = null!;
     private Label _eraLabel = null!;
@@ -185,6 +188,7 @@ public sealed class GameplayScreen : IScreen
 
         _ratePrev = new double[_simulation.ResourceCount];
         _perSecond = new double[_simulation.ResourceCount];
+        _fullStorageCooldown = new float[_simulation.ResourceCount];
         for (int i = 0; i < _ratePrev.Length; i++)
         {
             _ratePrev[i] = _simulation.GetResource(i);
@@ -690,6 +694,18 @@ public sealed class GameplayScreen : IScreen
                 break;
         }
 
+        // Kombo: série rychlých kliků zvedá výnos. Ukazuje se až od druhého
+        // v řadě — u prvního by „×1" jen mátlo. Číslo letí nad popupem výnosu,
+        // aby bylo vidět, že to spolu souvisí.
+        int streak = _simulation.ComboStreak;
+        if (streak > 1)
+        {
+            _floatingText.Add(
+                tileCenter - new Vector2(0f, TerrainRenderer.TileSize * 0.7f),
+                _screens.Loc.Format("hud.combo", streak),
+                Color.Lerp(new Color(255, 235, 180), new Color(255, 140, 60), Math.Min(1f, (streak - 1) / 10f)));
+        }
+
         _sounds.PlayChop();
 
         bool felled = _harvestables.RegisterChop(tileX, tileY);
@@ -790,6 +806,29 @@ public sealed class GameplayScreen : IScreen
         }
 
         _lastSeasonIndex = index;
+    }
+
+    /// <summary>Spokojenost rozepsaná na sčítance („Základ 60 · služby +25 · přelidnění −12").</summary>
+    private string DescribeHappiness(Localization loc)
+    {
+        var parts = _simulation.HappinessParts;
+        string text = loc.Format("hud.happinessParts",
+            Points(parts.Base), Points(parts.Services), Points(parts.Crowding));
+
+        // Vláda se zmiňuje, jen když nějaká je — jinak by to byl řádek o nule.
+        if (Math.Abs(parts.Government) > 0.0005)
+        {
+            text += loc.Format("hud.happinessGovernment", Points(parts.Government));
+        }
+
+        return text;
+    }
+
+    /// <summary>Položka spokojenosti jako body se znaménkem (0.25 → „+25").</summary>
+    private static string Points(double value)
+    {
+        int points = (int)Math.Round(value * 100);
+        return points > 0 ? $"+{points}" : points.ToString();
     }
 
     /// <summary>
@@ -919,11 +958,27 @@ public sealed class GameplayScreen : IScreen
     /// </summary>
     private float NextEventGap() => 540f + (float)_eventRng.NextDouble() * 420f; // ~9–16 min
 
-    /// <summary>Jednou za sekundu spočítá čistý přírůstek surovin za sekundu (HUD ticker).</summary>
+    /// <summary>Jak často se odečítá přírůstek surovin (s). Krátký vzorek + vyhlazení.</summary>
+    private const float RateSampleSeconds = 0.25f;
+
+    /// <summary>
+    /// Jak rychle vyhlazená rychlost dojíždí k naměřené (0–1 na vzorek). Nízké
+    /// číslo = klidný ukazatel, který neposkakuje po každém dokončeném cyklu.
+    /// </summary>
+    private const double RateSmoothing = 0.25;
+
+    /// <summary>
+    /// Přírůstek surovin za sekundu pro HUD.
+    ///
+    /// <para>Dřív se odečítalo jednou za sekundu a číslo skákalo: výroba je po
+    /// dávkách, takže se v jedné sekundě dokončilo pět cyklů a v další žádný.
+    /// Teď se vzorkuje čtyřikrát častěji a hodnota se k naměřené jen přibližuje —
+    /// ukazatel tím dýchá místo blikání a dá se z něj číst trend.</para>
+    /// </summary>
     private void SampleRates(float dt)
     {
         _rateTimer += dt;
-        if (_rateTimer < 1f)
+        if (_rateTimer < RateSampleSeconds)
         {
             return;
         }
@@ -931,12 +986,53 @@ public sealed class GameplayScreen : IScreen
         for (int i = 0; i < _perSecond.Length; i++)
         {
             double now = _simulation.GetResource(i);
-            _perSecond[i] = (now - _ratePrev[i]) / _rateTimer;
+            double measured = (now - _ratePrev[i]) / _rateTimer;
+            _perSecond[i] += (measured - _perSecond[i]) * RateSmoothing;
             _ratePrev[i] = now;
         }
 
         _rateTimer = 0f;
+        WarnAboutFullStorage(dt);
     }
+
+    /// <summary>
+    /// Upozorní, že sklad přetéká a výroba propadá. Idle konvence je nechat
+    /// přebytek propadnout bez trestu — jenže pak se hráč nedozví, že už hodinu
+    /// vyrábí do prázdna. Hláška chodí nejvýš jednou za
+    /// <see cref="FullStorageCooldownSeconds"/> a jen u surovin, které opravdu
+    /// tečou; jinak by z ní byl otravný budík.
+    /// </summary>
+    private void WarnAboutFullStorage(float dt)
+    {
+        _ = dt;
+        for (int i = 0; i < _perSecond.Length; i++)
+        {
+            if (_fullStorageCooldown[i] > 0)
+            {
+                _fullStorageCooldown[i] -= RateSampleSeconds;
+                continue;
+            }
+
+            if (!_simulation.IsResourceKnown(i) || _perSecond[i] <= 0.01)
+            {
+                continue;
+            }
+
+            double cap = _simulation.GetStorageCap(i);
+            if (cap <= 0 || _simulation.GetResource(i) < cap - 0.001)
+            {
+                continue;
+            }
+
+            _fullStorageCooldown[i] = FullStorageCooldownSeconds;
+            _toasts.Add(
+                _screens.Loc.Format("toast.storageFull", _screens.Loc[_screens.Content.Resources[i].NameKey]),
+                new Color(230, 200, 120));
+        }
+    }
+
+    /// <summary>Jak dlouho mlčet o jedné a téže přetékající surovině (s).</summary>
+    private const float FullStorageCooldownSeconds = 120f;
 
     /// <summary>Vyhodnotí a udělí denní odměnu (účet-wide, roste se sérií dní).</summary>
     private void GrantDailyReward()
@@ -1777,6 +1873,11 @@ public sealed class GameplayScreen : IScreen
             _happinessLabel.TextColor = happiness >= 0.75 ? new Color(150, 220, 150)
                 : happiness >= 0.45 ? new Color(230, 210, 130)
                 : new Color(235, 140, 120);
+
+            // Rozpad v bublině: spokojenost je jediná vrstva, kde se dá udělat
+            // chyba, takže hráč musí vidět, KVŮLI ČEMU je zrovna taková. Jedno
+            // číslo, které samo klesne, je nespravedlivé.
+            _happinessLabel.Tooltip = DescribeHappiness(loc);
         }
 
         // Rozvodná síť: zobraz se až když má město spotřebiče; červená = nedostatek.

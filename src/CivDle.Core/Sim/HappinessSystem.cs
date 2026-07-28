@@ -47,14 +47,15 @@ internal sealed class HappinessSystem
             return;
         }
 
-        sim.Happiness = Evaluate(sim, config, payUpkeep: true);
+        sim.Happiness = Evaluate(sim, config, payUpkeep: true).Total;
     }
 
     /// <summary>
-    /// Spočítá spokojenost. <paramref name="payUpkeep"/> = false umožní systémům
-    /// i UI se jen podívat, aniž by tím strhly suroviny.
+    /// Spočítá spokojenost rozepsanou na položky. <paramref name="payUpkeep"/> =
+    /// false umožní systémům i UI se jen podívat, aniž by tím strhly suroviny —
+    /// právě proto může UI ukázat rozpad, aniž by hru ovlivnilo.
     /// </summary>
-    public double Evaluate(Simulation sim, HappinessConfig config, bool payUpkeep)
+    public HappinessBreakdown Evaluate(Simulation sim, HappinessConfig config, bool payUpkeep)
     {
         // Poptávku po službách tvoří až lidé NAD prahem soběstačnosti — malá
         // vesnice si vystačí sama a hra ji netrestá za chybějící trh, který se
@@ -72,9 +73,12 @@ internal sealed class HappinessSystem
 
         // Zvolený program města se přičítá ke spokojenosti — reformátoři a slavnosti
         // nedělají nic jiného, než že lidem zlepší náladu.
-        double happiness = config.BaseHappiness + coverage * config.ServiceWeight
-            - crowdingPenalty + sim.ElectionHappinessBonus;
-        return Math.Clamp(happiness, 0.0, 1.0);
+        return new HappinessBreakdown(
+            Base: config.BaseHappiness,
+            Services: coverage * config.ServiceWeight,
+            Crowding: -crowdingPenalty,
+            Government: sim.ElectionHappinessBonus,
+            ServiceCoverage: coverage);
     }
 
     /// <summary>

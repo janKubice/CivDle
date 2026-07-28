@@ -74,6 +74,8 @@ public sealed class Simulation
     private int _boostTicksRemaining;    // slavnost aktivní, dokud > 0
     private int _boostCooldownRemaining;  // dokud > 0, nejde spustit další
     private long _harvestCounter;         // pořadí sběru — seed deterministického kritu
+    private long _lastHarvestTick = long.MinValue; // kdy hráč naposled sbíral (kombo)
+    private int _comboStreak;             // délka rozjeté série sběrů
 
     private BuildingInstance[] _buildings = new BuildingInstance[16];
     private int _buildingCount;
@@ -238,6 +240,22 @@ public sealed class Simulation
     /// takže je zadarmo — a nástroje se podle toho opotřebovávají.
     /// </summary>
     public long EmployedWorkers { get; internal set; }
+
+    /// <summary>
+    /// Rozpad spokojenosti na položky — kvůli čemu je zrovna taková. Počítá se
+    /// na vyžádání a bez placení údržby, takže se na něj UI může ptát, kdy chce,
+    /// aniž by tím sáhlo do hry.
+    /// </summary>
+    public HappinessBreakdown HappinessParts
+    {
+        get
+        {
+            var config = _content.Gameplay.Happiness;
+            return config.IsEnabled
+                ? _happinessSystem.Evaluate(this, config, payUpkeep: false)
+                : HappinessBreakdown.Perfect;
+        }
+    }
 
     /// <summary>Násobič výroby jídla od ročního období (1.0 bez období).</summary>
     public double SeasonFoodMult => CurrentSeason?.FoodProductionMult ?? 1.0;
@@ -1231,9 +1249,13 @@ public sealed class Simulation
         // Trvalý bonus Vzestupu + slavnost zvedají výnos (nejmíň původní hodnota).
         // Roční období sem patří taky: podzim je čas sbírat, v zimě toho v krajině
         // moc není. Podlaha na původní hodnotě drží ruční sběr užitečný i v zimě.
+        // Kombo: série rychlých sběrů zvedá výnos. Počítá se z tiků, ne z reálného
+        // času — deterministické jako všechno ostatní.
+        AdvanceCombo();
+
         int gained = Math.Max(yield.Amount,
             (int)Math.Round(yield.Amount * _bonuses.HarvestMult * BoostMultiplier
-                * ElectionHarvestMult * SeasonHarvestMult * ToolHarvestMult));
+                * ElectionHarvestMult * SeasonHarvestMult * ToolHarvestMult * ComboMultiplier));
 
         // Deterministický krit (aktivní klikání se vyplatí). Nejdřív se zkouší
         // vzácný „úlovek života" — má přednost, aby se s kritem nesčítal do absurdna.
@@ -1264,6 +1286,51 @@ public sealed class Simulation
         resourceIndex = yield.ResourceIndex;
         amount = gained;
         return true;
+    }
+
+    /// <summary>
+    /// Posune sérii sběrů. Rychlý sběr ji prodlouží, pomalý ji začne od jedničky.
+    /// Volá se u KAŽDÉHO pokusu o sběr, i toho neúspěšného kvůli plnému skladu —
+    /// jinak by hráči série zhasla za něco, co neudělal.
+    /// </summary>
+    private void AdvanceCombo()
+    {
+        var combo = _content.Gameplay.Combo;
+        if (!combo.IsEnabled)
+        {
+            return;
+        }
+
+        _comboStreak = TickCount - _lastHarvestTick <= combo.WindowTicks ? _comboStreak + 1 : 1;
+        _lastHarvestTick = TickCount;
+    }
+
+    /// <summary>
+    /// Kolik sběrů má rozjetá série. 0 = série doběhla; UI podle toho ukazuje
+    /// „×3" nad kurzorem.
+    /// </summary>
+    public int ComboStreak =>
+        _content.Gameplay.Combo.IsEnabled && TickCount - _lastHarvestTick <= _content.Gameplay.Combo.WindowTicks
+            ? _comboStreak
+            : 0;
+
+    /// <summary>Násobič výnosu ze série (1.0 bez série).</summary>
+    public double ComboMultiplier => _content.Gameplay.Combo.Multiplier(ComboStreak);
+
+    /// <summary>Kolik sekund série ještě vydrží, než zhasne (0 = neběží).</summary>
+    public double ComboSecondsLeft
+    {
+        get
+        {
+            var combo = _content.Gameplay.Combo;
+            if (ComboStreak == 0)
+            {
+                return 0;
+            }
+
+            long left = combo.WindowTicks - (TickCount - _lastHarvestTick);
+            return Math.Max(0, left / TicksPerSecond);
+        }
     }
 
     /// <summary>Deterministické „hození kostkou" pro krit — z seedu a pořadí sběru, výsledek v [0, 1).</summary>

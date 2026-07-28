@@ -1066,6 +1066,10 @@
     "achievement.wonder_age": "Age of Wonders",
     "achievement.wonder_age.desc": "Complete five wonders",
     "quest.raise_a_wonder": "Raise a wonder",
-    "quest.raise_a_wonder.desc": "Wonders take minutes, not a click — start one and let it rise"
+    "quest.raise_a_wonder.desc": "Wonders take minutes, not a click — start one and let it rise",
+    "toast.storageFull": "Storage full: {0} is being produced into the void",
+    "hud.combo": "×{0}",
+    "hud.happinessParts": "Base {0} · services {1} · crowding {2}",
+    "hud.happinessGovernment": " · government {0}"
   }
 }

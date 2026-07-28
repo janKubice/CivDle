@@ -76,5 +76,10 @@
     "wearPerWorkerPerSecond": 0.006,
     "productionBonus": 0.2,
     "harvestBonus": 0.5
+  },
+  "combo": {
+    "windowSeconds": 1.5,
+    "bonusPerStep": 0.08,
+    "maxSteps": 10
   }
 }

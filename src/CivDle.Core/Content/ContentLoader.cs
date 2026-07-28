@@ -1981,7 +1981,37 @@ public sealed class ContentLoader
             ParseHappiness(path, file.Happiness),
             ParseStaffing(path, file.Staffing),
             ParseHaul(path, file.Haul),
-            ParseTools(path, file.Tools, resources));
+            ParseTools(path, file.Tools, resources),
+            ParseCombo(path, file.Combo));
+    }
+
+    /// <summary>
+    /// Nastavení klikacího komba. Chybí-li blok, je vrstva vypnutá a klikání se
+    /// chová jako dřív.
+    /// </summary>
+    private static ComboConfig? ParseCombo(string path, ComboDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (dto.WindowSeconds is <= 0 or > 60)
+        {
+            throw new ContentLoadException(path, $"'combo.windowSeconds' musí být větší než 0 a nejvýš 60, je {dto.WindowSeconds}.");
+        }
+
+        if (dto.BonusPerStep is <= 0 or > 1)
+        {
+            throw new ContentLoadException(path, $"'combo.bonusPerStep' musí být větší než 0 a nejvýš 1, je {dto.BonusPerStep}.");
+        }
+
+        if (dto.MaxSteps is < 1 or > 100)
+        {
+            throw new ContentLoadException(path, $"'combo.maxSteps' musí být 1–100, je {dto.MaxSteps}.");
+        }
+
+        return new ComboConfig(dto.WindowSeconds, dto.BonusPerStep, dto.MaxSteps);
     }
 
     /// <summary>

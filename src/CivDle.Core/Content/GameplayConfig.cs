@@ -196,6 +196,36 @@ public sealed record ToolsConfig(
     }
 }
 
+/// <summary>
+/// Klikací kombo: rychlá série sběrů zvedá výnos.
+///
+/// <para>Proč to v hře je: krit je náhoda, na kterou se čeká. Kombo je dovednost,
+/// kterou hráč cítí hned — po třetím kliknutí za sebou vidí větší číslo a ví, že
+/// za to může on. V idle hře, kde je klikání volitelné, je tohle důvod si ho
+/// občas dopřát.</para>
+///
+/// <para>Série se počítá z tiků simulace, ne z reálného času — zůstává tím
+/// deterministická jako všechno ostatní.</para>
+/// </summary>
+/// <param name="WindowSeconds">Jak dlouho po sběru ještě série drží.</param>
+/// <param name="BonusPerStep">O kolik zvedne výnos každý další sběr v sérii.</param>
+/// <param name="MaxSteps">Kolik kroků série se počítá (strop bonusu).</param>
+public sealed record ComboConfig(double WindowSeconds, double BonusPerStep, int MaxSteps)
+{
+    /// <summary>Vypnuté kombo — hra bez téhle vrstvy (výchozí pro starší data).</summary>
+    public static ComboConfig Disabled { get; } = new(0, 0, 0);
+
+    /// <summary>Má smysl kombo počítat?</summary>
+    public bool IsEnabled => WindowSeconds > 0 && BonusPerStep > 0 && MaxSteps > 0;
+
+    /// <summary>Jak dlouho série drží, v ticích simulace.</summary>
+    public int WindowTicks => (int)Math.Round(WindowSeconds * Sim.Simulation.TicksPerSecond);
+
+    /// <summary>Násobič výnosu pro sérii dané délky (1 = první sběr, bez bonusu).</summary>
+    public double Multiplier(int streak) =>
+        IsEnabled ? 1.0 + Math.Clamp(streak - 1, 0, MaxSteps) * BonusPerStep : 1.0;
+}
+
 /// <summary>Ruční sběr: šance na „krit" (velký výnos) — aktivní klikání se vyplatí.</summary>
 /// <param name="CritChance">Pravděpodobnost kritu (0–1) na jeden sběr.</param>
 /// <param name="CritMultiplier">Násobič výnosu při kritu.</param>
@@ -240,8 +270,12 @@ public sealed record GameplayConfig(
     HappinessConfig? HappinessOrNull = null,
     StaffingConfig? StaffingOrNull = null,
     HaulConfig? HaulOrNull = null,
-    ToolsConfig? ToolsOrNull = null)
+    ToolsConfig? ToolsOrNull = null,
+    ComboConfig? ComboOrNull = null)
 {
+    /// <summary>Nastavení klikacího komba; chybí-li v datech, je vrstva vypnutá.</summary>
+    public ComboConfig Combo => ComboOrNull ?? ComboConfig.Disabled;
+
     /// <summary>Nastavení nástrojů; chybí-li v datech, je vrstva vypnutá.</summary>
     public ToolsConfig Tools => ToolsOrNull ?? ToolsConfig.Disabled;
 

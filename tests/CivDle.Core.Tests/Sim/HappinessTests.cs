@@ -122,6 +122,56 @@ public sealed class HappinessTests
     /// <summary>Index budovy se službou v testovém obsahu.</summary>
     private const int ServiceIndex = 1;
 
+    [Fact]
+    public void Breakdown_ExplainsTheNumberInsteadOfJustShowingIt()
+    {
+        // Spokojenost je jediná vrstva, kde se dá udělat chyba — jedno číslo,
+        // které samo klesne, je bez vysvětlení nespravedlivé.
+        var sim = NewSim();
+        sim.Tick();
+
+        var parts = sim.HappinessParts;
+
+        Assert.Equal(Config.BaseHappiness, parts.Base, 6);
+        Assert.True(parts.Crowding <= 0, "přelidnění může jen ubírat");
+        Assert.True(parts.Services >= 0, "služby mohou jen přidávat");
+        Assert.InRange(parts.ServiceCoverage, 0.0, 1.0);
+
+        // Rozpad musí sedět s číslem, které hra doopravdy používá.
+        Assert.Equal(sim.Happiness, parts.Total, 6);
+    }
+
+    [Fact]
+    public void Breakdown_ShowsServicesGoingUpWhenAMarketOpens()
+    {
+        var sim = NewSim();
+        sim.Tick();
+        double before = sim.HappinessParts.Services;
+
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(1, 5, 5)); // trh
+        sim.Tick();
+
+        Assert.True(sim.HappinessParts.Services > before,
+            $"po otevření trhu má vzrůst položka služeb ({sim.HappinessParts.Services} vs {before})");
+    }
+
+    [Fact]
+    public void Breakdown_DoesNotChargeUpkeepJustByLooking()
+    {
+        // UI se na rozpad ptá klidně každý snímek — nesmí tím hráči brát suroviny.
+        var sim = NewSim();
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(1, 5, 5));
+        sim.Tick();
+        double before = sim.GetResource(0);
+
+        for (int i = 0; i < 100; i++)
+        {
+            _ = sim.HappinessParts;
+        }
+
+        Assert.Equal(before, sim.GetResource(0), 6);
+    }
+
     private static Simulation NewSim(int startingResources = 500) =>
         new(HappyContent(Config, startingResources), new UniformTerrain(1));
 
