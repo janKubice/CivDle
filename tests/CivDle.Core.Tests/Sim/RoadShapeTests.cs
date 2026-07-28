@@ -49,6 +49,52 @@ public class RoadShapeTests
     }
 
     [Fact]
+    public void PlacingManyBuildingsOverARoadNetwork_DoesNotCrash()
+    {
+        // Regrese: cache napojení na silnice se zneplatňovala až PO tom, co se jí
+        // RoadBuilder zeptal na právě položenou budovu. Jakmile pole budov mezitím
+        // narostlo, sáhlo se za jeho konec a hra při stavbě spadla. Chytilo to až
+        // měření balancu na delším běhu — proto se tady staví hodně a daleko od sebe,
+        // ať pole víckrát zdvojnásobí kapacitu a síť silnic mezitím vznikne.
+        var sim = GrassSim(out var content);
+        int house = content.Buildings.IndexOf("house");
+
+        // Jedna výrobna na začátku: jen ta se každý tik ptá, jestli je napojená
+        // na silnici, a právě tím prohlásí cache za čerstvou. Bez ní by skulina,
+        // ve které se chybovalo, vůbec nevznikla.
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuildingFree(content.Buildings.IndexOf("farm"), 1, 1));
+
+        // Placenou cestou, ne zdarma: silnice staví jen TryPlaceBuilding, a bez
+        // silnic by test neprošel zrovna tam, kde chyba byla. Sklad se doplňuje
+        // před každou stavbou — jde o síť, ne o ekonomiku.
+        for (int i = 0; i < 200; i++)
+        {
+            for (int r = 0; r < content.Resources.Count; r++)
+            {
+                sim.AddResource(r, sim.GetStorageCap(r));
+            }
+
+            int x = i % 20 * 3;
+            int y = i / 20 * 3;
+            Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(house, x, y));
+
+            // Tik mezi stavbami je to podstatné: výroba se ptá na napojení, čímž
+            // cache prohlásí za čerstvou. Další stavba pak pole budov zvětší —
+            // a přesně v té skulině se dřív sahalo za jeho konec.
+            sim.Tick();
+        }
+
+        Assert.Equal(201, sim.Buildings.Length);
+        Assert.NotEmpty(sim.RoadTiles); // síť opravdu vznikla, test tedy testoval, co měl
+
+        // A odpověď na „je napojená?" musí dávat smysl pro každou budovu, ne padat.
+        for (int i = 0; i < sim.Buildings.Length; i++)
+        {
+            sim.IsBuildingConnected(i);
+        }
+    }
+
+    [Fact]
     public void DistantBuilding_StillGetsARoad()
     {
         // Zrušit dláždění úplně by rozbilo smysl silnic — vzdálená budova ho pořád potřebuje.

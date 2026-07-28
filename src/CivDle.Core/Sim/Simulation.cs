@@ -29,6 +29,7 @@ public sealed class Simulation
     private readonly List<Settlement> _settlements = new();
     private readonly ProductionSystem _production;
     private readonly HaulSystem _haulSystem;
+    private readonly SeasonSystem _seasonSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
     private readonly ZoneFillSystem _zoneFill;
@@ -120,6 +121,7 @@ public sealed class Simulation
 
         _production = new ProductionSystem(content);
         _haulSystem = new HaulSystem(content);
+        _seasonSystem = new SeasonSystem(content);
         _populationSystem = new PopulationSystem(content.Gameplay);
         _autoBuild = new AutoBuildSystem(content, seed);
         _zoneFill = new ZoneFillSystem(content, seed);
@@ -165,6 +167,69 @@ public sealed class Simulation
             var dayNight = _content.Gameplay.DayNight;
             double elapsedDays = dayNight.StartTimeOfDay + TickCount / (TicksPerSecond * dayNight.DayLengthSeconds);
             return elapsedDays - Math.Floor(elapsedDays);
+        }
+    }
+
+    /// <summary>
+    /// Index aktuálního ročního období, nebo −1, když hra období nemá.
+    /// Odvozený z čísla dne — žádný stav, nic v savu.
+    /// </summary>
+    public int CurrentSeasonIndex => _content.Seasons.IndexForDay(DayNumber);
+
+    /// <summary>Aktuální období, nebo <c>null</c> bez ročních období.</summary>
+    public SeasonDef? CurrentSeason
+    {
+        get
+        {
+            int index = CurrentSeasonIndex;
+            return index >= 0 ? _content.Seasons.Seasons[index] : null;
+        }
+    }
+
+    /// <summary>Jak daleko je aktuální období (0 = právě začalo, 1 = končí).</summary>
+    public double SeasonProgress01
+    {
+        get
+        {
+            var calendar = _content.Seasons;
+            if (!calendar.IsEnabled)
+            {
+                return 0;
+            }
+
+            var dayNight = _content.Gameplay.DayNight;
+            double elapsedDays = dayNight.StartTimeOfDay + TickCount / (TicksPerSecond * dayNight.DayLengthSeconds);
+            double inSeason = elapsedDays % calendar.DaysPerSeason;
+            return inSeason / calendar.DaysPerSeason;
+        }
+    }
+
+    /// <summary>
+    /// Má město čím topit? V zimě bez paliva se růst zpomalí na
+    /// <see cref="SeasonDef.ColdGrowthMult"/> — mimo zimu je to vždy true.
+    /// </summary>
+    public bool HasFuelForHeating { get; internal set; } = true;
+
+    /// <summary>Násobič výroby jídla od ročního období (1.0 bez období).</summary>
+    public double SeasonFoodMult => CurrentSeason?.FoodProductionMult ?? 1.0;
+
+    /// <summary>Násobič ručního sběru od ročního období (1.0 bez období).</summary>
+    public double SeasonHarvestMult => CurrentSeason?.HarvestMult ?? 1.0;
+
+    /// <summary>
+    /// Násobič růstu populace od ročního období. V zimě bez paliva platí
+    /// zpomalený <see cref="SeasonDef.ColdGrowthMult"/> místo běžného.
+    /// </summary>
+    public double SeasonGrowthMult
+    {
+        get
+        {
+            if (CurrentSeason is not { } season)
+            {
+                return 1.0;
+            }
+
+            return season.NeedsHeating && !HasFuelForHeating ? season.ColdGrowthMult : season.GrowthMult;
         }
     }
 
@@ -584,9 +649,13 @@ public sealed class Simulation
         }
 
         _roadLinksDirty = false;
-        if (_roadLinked.Length < _buildings.Length)
+
+        // Podle POČTU budov, ne jen podle kapacity pole — occupancy umí vrátit
+        // index kterékoli žijící budovy a ten musí do cache vždycky padnout.
+        int needed = Math.Max(_buildings.Length, _buildingCount);
+        if (_roadLinked.Length < needed)
         {
-            Array.Resize(ref _roadLinked, _buildings.Length);
+            Array.Resize(ref _roadLinked, needed);
         }
 
         // Napojení se počítá po BLOCÍCH, ne po jednotlivých budovách: co se
@@ -650,7 +719,7 @@ public sealed class Simulation
     }
 
     private bool IsLinkedBuildingAt(int x, int y) =>
-        TryGetBuildingAt(x, y, out int index) && _roadLinked[index];
+        TryGetBuildingAt(x, y, out int index) && index < _roadLinked.Length && _roadLinked[index];
 
     /// <summary>
     /// Sousedí půdorys budovy s nějakou silnicí? Jen ORTOGONÁLNĚ — roh se nepočítá,
@@ -812,6 +881,9 @@ public sealed class Simulation
             _boostCooldownRemaining--;
         }
 
+        // Období napřed: výroba i růst v tomhle tiku už mají počítat s tím,
+        // jestli je zima a jestli je čím topit.
+        _seasonSystem.Tick(this);
         _production.Tick(this);
         _haulSystem.Tick(this);
         _populationSystem.Tick(this);
@@ -1044,8 +1116,11 @@ public sealed class Simulation
         }
 
         // Trvalý bonus Vzestupu + slavnost zvedají výnos (nejmíň původní hodnota).
+        // Roční období sem patří taky: podzim je čas sbírat, v zimě toho v krajině
+        // moc není. Podlaha na původní hodnotě drží ruční sběr užitečný i v zimě.
         int gained = Math.Max(yield.Amount,
-            (int)Math.Round(yield.Amount * _bonuses.HarvestMult * BoostMultiplier * ElectionHarvestMult));
+            (int)Math.Round(yield.Amount * _bonuses.HarvestMult * BoostMultiplier
+                * ElectionHarvestMult * SeasonHarvestMult));
 
         // Deterministický krit (aktivní klikání se vyplatí). Nejdřív se zkouší
         // vzácný „úlovek života" — má přednost, aby se s kritem nesčítal do absurdna.
@@ -2717,6 +2792,12 @@ public sealed class Simulation
         // Kronika: biom, na kterém město stavělo. Zaznamenává se tady, protože
         // tudy prochází i obnova ze savu — jinak by se po načtení zapomněl.
         _settledBiomes[Terrain.BiomeAt(x, y)] = true;
+
+        // Cache napojení na silnice mluví o polích, která se právě mění — zneplatni
+        // ji TADY, ne až po zavolání RoadBuilderu. Dřív to bylo až na konci
+        // TryPlaceBuilding, takže se stihl někdo zeptat na napojení budovy, kterou
+        // cache ještě neznala, a sáhnout za konec pole (pád při stavbě).
+        _roadLinksDirty = true;
 
         _buildings[_buildingCount] = new BuildingInstance
         {
