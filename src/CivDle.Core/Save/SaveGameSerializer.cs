@@ -62,6 +62,7 @@ public sealed class SaveGameSerializer
     private const string SectionMilestones = "milestones";
     private const string SectionConstruction = "construction";
     private const string SectionNodes = "nodes";
+    private const string SectionPollution = "pollution";
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -108,6 +109,7 @@ public sealed class SaveGameSerializer
         WriteSection(writer, SectionMilestones, w => WriteMilestones(w, simulation));
         WriteSection(writer, SectionConstruction, w => WriteConstruction(w, simulation));
         WriteSection(writer, SectionNodes, w => WriteNodes(w, simulation));
+        WriteSection(writer, SectionPollution, w => WritePollution(w, simulation));
         WriteSection(writer, SectionElection, w =>
         {
             w.Write(simulation.ElectionTerm);
@@ -324,6 +326,7 @@ public sealed class SaveGameSerializer
             case SectionChallenges: ReadChallenges(section, simulation); break;
             case SectionConstruction: ReadConstruction(section, simulation); break;
             case SectionNodes: ReadNodes(section, simulation); break;
+            case SectionPollution: ReadPollution(section, simulation); break;
             case SectionElection: simulation.RestoreElection(section.ReadInt64(), section.ReadInt32()); break;
             case SectionMilestones: ReadMilestones(section, content, simulation); break;
             default: break; // neznámá sekce z novější hry — přeskočit, ne spadnout
@@ -495,6 +498,39 @@ public sealed class SaveGameSerializer
             writer.Write(y);
             writer.Write(chargesLeft);
             writer.Write(depletedTick);
+        }
+    }
+
+    /// <summary>
+    /// Zamořené buňky. Ukládají se jen ty špinavé — čistá mapa nezabere nic.
+    /// Starší savy sekci nemají a načtou se s nedotčenou krajinou, což je správně:
+    /// dřív se nedalo nic zamořit.
+    /// </summary>
+    private static void WritePollution(BinaryWriter writer, Simulation simulation)
+    {
+        var entries = simulation.PollutionMap.Entries().ToList();
+        writer.Write(entries.Count);
+        foreach (var (cellX, cellY, air, water, soil) in entries)
+        {
+            writer.Write(cellX);
+            writer.Write(cellY);
+            writer.Write(air);
+            writer.Write(water);
+            writer.Write(soil);
+        }
+    }
+
+    private static void ReadPollution(BinaryReader reader, Simulation simulation)
+    {
+        int count = ReadCount(reader, max: 20_000_000, what: "zamořených buněk");
+        for (int i = 0; i < count; i++)
+        {
+            int cellX = reader.ReadInt32();
+            int cellY = reader.ReadInt32();
+            double air = reader.ReadDouble();
+            double water = reader.ReadDouble();
+            double soil = reader.ReadDouble();
+            simulation.PollutionMap.RestoreCell(cellX, cellY, air, water, soil);
         }
     }
 

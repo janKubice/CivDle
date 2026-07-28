@@ -128,7 +128,8 @@ internal sealed class ProductionSystem
                 // Plný sklad výrobu nezastaví, přebytek propadá (idle konvence) —
                 // motivace stavět sklady, žádný trest. Trvalý bonus Vzestupu zvedá výstup.
                 double yield = recipe.Outputs[j].Amount * productionMult
-                    * building.BiomeMult * building.AdjacencyMult * building.HaulMult;
+                    * building.BiomeMult * building.AdjacencyMult * building.HaulMult
+                    * building.PollutionMult;
                 if (index == foodIndex)
                 {
                     yield *= seasonFoodMult;

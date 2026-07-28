@@ -1078,6 +1078,19 @@
     "building.upgradeNoResources": "Not enough resources to upgrade",
     "building.upgradeLocked": "The upgrade isn't researched yet",
     "building.upgradeUnavailable": "Can't upgrade right now",
-    "hud.mergeHint": "Highlighted blocks can be merged"
+    "hud.mergeHint": "Highlighted blocks can be merged",
+    "building.air_scrubber": "Air Scrubber",
+    "building.water_treatment": "Water Treatment Plant",
+    "building.soil_remediation": "Soil Remediation Site",
+    "tech.environmental_engineering": "Environmental Engineering",
+    "tech.environmental_engineering.desc": "Unlocks the air scrubber and the water treatment plant.",
+    "tech.land_reclamation": "Land Reclamation",
+    "tech.land_reclamation.desc": "Unlocks soil remediation — poisoned ground can be brought back.",
+    "hud.pollution": "Pollution {0} %",
+    "hud.happinessPollution": " · smog {0}",
+    "tip.pollution": "How much smog sits over the city. Industry fouls air, water and soil; cleanup plants take it back, but they cost upkeep. Put heavy industry away from housing — smog does spread, but it thins with distance.",
+    "building.pollutionPenalty": "Polluted ground: output {0}",
+    "building.pollutesArea": "Fouls the surrounding area",
+    "building.cleansArea": "Cleans the surrounding area (while upkeep is paid)"
   }
 }

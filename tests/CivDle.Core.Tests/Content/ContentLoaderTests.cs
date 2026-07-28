@@ -325,6 +325,89 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadFrom_EmptyPollutionBlock_Throws()
+    {
+        // Blok samých nul slibuje mechaniku, která se nikdy neprojeví — tichá
+        // chyba obsahu je horší než chybějící blok.
+        WriteAllValid();
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "house", "mapColor": "#B5651D", "footprint": [1, 1],
+              "buildCost": { "wood": 5 }, "allowedBiomes": ["grass"],
+              "pollution": { "air": 0, "water": 0, "soil": 0 } }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("pollution", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_AbsurdPollutionValue_ReportsBuilding()
+    {
+        WriteAllValid();
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "smog_tower", "mapColor": "#B5651D", "footprint": [1, 1],
+              "buildCost": { "wood": 5 }, "allowedBiomes": ["grass"],
+              "pollution": { "air": 5000 } }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("smog_tower", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_PollutionPenaltyOfOne_Throws()
+    {
+        // Plný trest by zamořenou budovu úplně zastavil. Znečištění má brzdit,
+        // ne zabíjet — jinak hráč přijde o výrobu dřív, než postaví čističku.
+        WriteAllValid();
+        WriteGameplayWithPollution("""
+          "pollution": { "intervalTicks": 50, "spreadRate": 0.08, "decayRate": 0.02,
+                         "fullEffectAt": 60, "happinessPenalty": 0.25, "productionPenalty": 1.0 }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("productionPenalty", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_PollutionSpreadAboveOne_Throws()
+    {
+        WriteAllValid();
+        WriteGameplayWithPollution("""
+          "pollution": { "intervalTicks": 50, "spreadRate": 1.5, "decayRate": 0.02,
+                         "fullEffectAt": 60, "happinessPenalty": 0.25, "productionPenalty": 0.35 }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("spreadRate", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_GameplayWithoutPollution_LeavesLayerOff()
+    {
+        // Starší data znečištění neznají a musí se načíst beze změny chování.
+        WriteAllValid();
+
+        var content = Load();
+
+        Assert.False(content.Gameplay.Pollution.IsEnabled);
+    }
+
+    [Fact]
     public void LoadFrom_GameplayWithUnknownFoodResource_Throws()
     {
         WriteAllValid();
@@ -591,6 +674,27 @@ public class ContentLoaderTests : IDisposable
         File.WriteAllText(Path.Combine(_tempDir, relativePath), json);
 
     /// <summary>Minimální kompletní validní sada dat; testy pak přepisují jednotlivé soubory.</summary>
+    /// <summary>Platný gameplay.json plus dodaný blok navíc — pro testy volitelných vrstev.</summary>
+    private void WriteGameplayWithPollution(string extraBlock)
+    {
+        Write("gameplay.json", $$"""
+        {
+          "schemaVersion": 1,
+          "startingPopulation": 5,
+          "baseHousingCapacity": 6,
+          "populationGrowthPerSecond": 0.12,
+          "foodPerPersonPerSecond": 0.04,
+          "foodResource": "food",
+          "autoBuild": { "intervalTicks": 60, "searchRadius": 6, "populationHeadroom": 2 },
+          "roads": { "mapColor": "#9A9284", "maxSearchDistance": 60 },
+          "settlements": { "minBuildings": 3, "clusterDistance": 3, "updateIntervalTicks": 50 },
+          "dayNight": { "dayLengthSeconds": 240, "startTimeOfDay": 0.32, "nightColor": "#0A1430",
+                        "duskColor": "#E8862F", "nightAlpha": 0.45, "duskAlpha": 0.18 },
+        {{extraBlock}}
+        }
+        """);
+    }
+
     private void WriteAllValid()
     {
         Write("biomes.json", """

@@ -13,6 +13,36 @@ public sealed record Recipe(
     int TimeTicks);
 
 /// <summary>
+/// Co budova dělá s okolím za sekundu provozu. Kladné číslo špiní, záporné čistí —
+/// čistička je v datech tatáž věc s obráceným znaménkem, ne zvláštní druh budovy.
+///
+/// <para>Právě tohle drží bronzovou dobu čistou: znečištění nevzniká z kódu, ale
+/// z dat, a hutě, doly a továrny ho mají až od industriální éry dál.</para>
+/// </summary>
+/// <param name="Air">Kouř — nese se daleko a kazí lidem náladu.</param>
+/// <param name="Water">Splašky — kalí vodu a dusí pobřežní výrobu.</param>
+/// <param name="Soil">Hlušina a struska — otravují půdu pod poli a lesy.</param>
+public sealed record PollutionOutput(double Air, double Water, double Soil)
+{
+    /// <summary>Budova, které je okolí lhostejné (výchozí stav všech starých dat).</summary>
+    public static PollutionOutput None { get; } = new(0, 0, 0);
+
+    /// <summary>Nedělá tahle budova s okolím vůbec nic?</summary>
+    public bool IsNeutral => Air == 0 && Water == 0 && Soil == 0;
+
+    /// <summary>Čistí budova aspoň jeden kanál? (Čističky si platí údržbu, špinící ne.)</summary>
+    public bool IsCleaner => Air < 0 || Water < 0 || Soil < 0;
+
+    /// <summary>Hodnota jednoho kanálu — ať se nemusí větvit u každé budovy.</summary>
+    public double Get(Sim.PollutionKind kind) => kind switch
+    {
+        Sim.PollutionKind.Air => Air,
+        Sim.PollutionKind.Water => Water,
+        _ => Soil,
+    };
+}
+
+/// <summary>
 /// Zvalidovaná definice budovy z <c>data/buildings.json</c> (typ; instance jsou
 /// struktury v plochém poli simulace). Jméno je v jazykových souborech pod
 /// <c>building.&lt;Id&gt;</c>.
@@ -61,8 +91,18 @@ public sealed record BuildingDef(
     IReadOnlyList<ResourceAmount>? MergeCostOrNull = null,
     AdjacencyRule? AdjacencyOrNull = null,
     int BuildTicks = 0,
-    int TerrainHarvestRadius = 0)
+    int TerrainHarvestRadius = 0,
+    PollutionOutput? PollutionOrNull = null)
 {
+    /// <summary>
+    /// Co budova dělá s okolím (špiní, čistí, nebo nic). Chybí-li v datech, je
+    /// budova k okolí neutrální — starší obsah se tím chová jako dřív.
+    /// </summary>
+    public PollutionOutput Pollution => PollutionOrNull ?? PollutionOutput.None;
+
+    /// <summary>Sahá tahle budova vůbec na znečištění? (Zkratka pro pomalý systém.)</summary>
+    public bool AffectsPollution => PollutionOrNull is not null && !PollutionOrNull.IsNeutral;
+
     /// <summary>
     /// Bere budova surovinu přímo z krajiny? &gt;0 = dosah v dlaždicích, ve kterém
     /// těží uzly (les, ložisko). 0 = budova zpracovává dovezené vstupy a na

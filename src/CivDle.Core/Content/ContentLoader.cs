@@ -1343,11 +1343,16 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"Budova '{id}': 'serviceValue' musí být 0–1000000, je {dto.ServiceValue}.");
         }
 
+        var pollution = ParseBuildingPollution(path, id, dto.Pollution);
+
+        // Údržba musí mít protihodnotu. Legitimní jsou dvě: budova obsluhuje lidi
+        // (serviceValue), nebo čistí okolí — čističku taky nemá smysl stavět a pak
+        // na ni zapomenout. Údržba bez obojího je jen daň za nic.
         var upkeep = ParseResourceAmounts(path, id, "upkeep", dto.Upkeep, resources);
-        if (upkeep.Count > 0 && dto.ServiceValue <= 0)
+        if (upkeep.Count > 0 && dto.ServiceValue <= 0 && pollution?.IsCleaner != true)
         {
             throw new ContentLoadException(path,
-                $"Budova '{id}' má 'upkeep', ale nulový 'serviceValue' — platila by se údržba za nic.");
+                $"Budova '{id}' má 'upkeep', ale nulový 'serviceValue' a nic nečistí — platila by se údržba za nic.");
         }
 
         // Sloučení bloku 2×2: cíl se řeší přes ID → index stejně jako vylepšení.
@@ -1399,7 +1404,39 @@ public sealed class ContentLoader
             storageBonus, dto.AutoBuild, dto.Buildable ?? true, upgradesToIndex, upgradeCost,
             dto.PowerSupply, dto.PowerDemand, dto.RequiresAdjacentWater,
             dto.ServiceValue, upkeep, mergesToIndex, mergeCost, adjacency, dto.BuildTicks,
-            dto.TerrainHarvestRadius);
+            dto.TerrainHarvestRadius, pollution);
+    }
+
+    /// <summary>
+    /// Dopad budovy na okolí. Blok je volitelný (drtivá většina budov okolí neřeší),
+    /// ale když v datech je, musí něco dělat — prázdný slib je tichá chyba obsahu.
+    /// </summary>
+    private static PollutionOutput? ParseBuildingPollution(string path, string id, BuildingPollutionDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        var output = new PollutionOutput(dto.Air, dto.Water, dto.Soil);
+        if (output.IsNeutral)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}' má blok 'pollution', ale samé nuly — buď ho vyplň, nebo smaž.");
+        }
+
+        // Strop je proti překlepu v datech: budova, která za sekundu vyrobí tisíc
+        // jednotek špíny, by mapu zamořila dřív, než ji hráč stihne uvidět.
+        foreach (double value in new[] { dto.Air, dto.Water, dto.Soil })
+        {
+            if (Math.Abs(value) > 100)
+            {
+                throw new ContentLoadException(path,
+                    $"Budova '{id}': hodnoty v 'pollution' musí být v rozsahu −100 až 100, je {value}.");
+            }
+        }
+
+        return output;
     }
 
     /// <summary>
@@ -2016,7 +2053,66 @@ public sealed class ContentLoader
             ParseStaffing(path, file.Staffing),
             ParseHaul(path, file.Haul),
             ParseTools(path, file.Tools, resources),
-            ParseCombo(path, file.Combo));
+            ParseCombo(path, file.Combo),
+            ParsePollution(path, file.Pollution));
+    }
+
+    /// <summary>
+    /// Nastavení znečištění. Chybí-li blok, je vrstva vypnutá a krajina se chová
+    /// jako dřív — nic se nekazí a čističky nemají co dělat.
+    /// </summary>
+    private static PollutionConfig? ParsePollution(string path, PollutionDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (dto.IntervalTicks is < 1 or > 100_000)
+        {
+            throw new ContentLoadException(path,
+                $"'pollution.intervalTicks' musí být 1–100000, je {dto.IntervalTicks}.");
+        }
+
+        // Rozliv nad 1 by z buňky odsál víc, než v ní je — hodnoty by se rozešly
+        // do záporu a mechanika by tiše přestala dávat smysl.
+        if (dto.SpreadRate is < 0 or > 1)
+        {
+            throw new ContentLoadException(path, $"'pollution.spreadRate' musí být 0–1, je {dto.SpreadRate}.");
+        }
+
+        if (dto.DecayRate is < 0 or > 1)
+        {
+            throw new ContentLoadException(path, $"'pollution.decayRate' musí být 0–1, je {dto.DecayRate}.");
+        }
+
+        if (dto.FullEffectAt <= 0)
+        {
+            throw new ContentLoadException(path,
+                $"'pollution.fullEffectAt' musí být větší než 0, je {dto.FullEffectAt}.");
+        }
+
+        if (dto.HappinessPenalty is < 0 or > 1)
+        {
+            throw new ContentLoadException(path,
+                $"'pollution.happinessPenalty' musí být 0–1, je {dto.HappinessPenalty}.");
+        }
+
+        // Plný trest 1.0 by zamořenou budovu úplně zastavil. Znečištění má brzdit,
+        // ne zabíjet — jinak by hráč přišel o výrobu dřív, než stihne postavit čističku.
+        if (dto.ProductionPenalty is < 0 or >= 1)
+        {
+            throw new ContentLoadException(path,
+                $"'pollution.productionPenalty' musí být 0 až <1, je {dto.ProductionPenalty}.");
+        }
+
+        return new PollutionConfig(
+            dto.IntervalTicks,
+            dto.SpreadRate,
+            dto.DecayRate,
+            dto.FullEffectAt,
+            dto.HappinessPenalty,
+            dto.ProductionPenalty);
     }
 
     /// <summary>

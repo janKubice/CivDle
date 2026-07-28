@@ -71,6 +71,11 @@ internal sealed class HappinessSystem
             : Math.Clamp(sim.Population / sim.HousingCapacity, 0.0, 1.0);
         double crowdingPenalty = crowding * config.OvercrowdingPenalty;
 
+        // Kouř se počítá tam, kde lidé bydlí — nad těžištěm města, ne jako průměr
+        // přes celou mapu. Díky tomu je „postav hutě za kopcem" skutečné rozhodnutí
+        // a ne kosmetika: vzdálená továrna zamoří svoje okolí, ne obývák.
+        double smog = -_content.Gameplay.Pollution.HappinessDrop(sim.AirPollutionOverCity);
+
         // Zvolený program města se přičítá ke spokojenosti — reformátoři a slavnosti
         // nedělají nic jiného, než že lidem zlepší náladu.
         return new HappinessBreakdown(
@@ -78,7 +83,8 @@ internal sealed class HappinessSystem
             Services: coverage * config.ServiceWeight,
             Crowding: -crowdingPenalty,
             Government: sim.ElectionHappinessBonus,
-            ServiceCoverage: coverage);
+            ServiceCoverage: coverage,
+            Pollution: smog);
     }
 
     /// <summary>

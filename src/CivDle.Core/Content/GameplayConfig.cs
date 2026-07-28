@@ -226,6 +226,58 @@ public sealed record ComboConfig(double WindowSeconds, double BonusPerStep, int 
         IsEnabled ? 1.0 + Math.Clamp(streak - 1, 0, MaxSteps) * BonusPerStep : 1.0;
 }
 
+/// <summary>
+/// Znečištění: jediná mechanika, kde po hráči zůstane stopa v krajině — a jediná,
+/// kterou jde vzít zpátky.
+///
+/// <para>Proč to v hře je: do industriální éry byl růst čistě dobrý. Továrna byla
+/// jen další budova s lepšími čísly. Se znečištěním má rozvoj cenu, kterou je
+/// vidět na mapě: hutě dýmají, doly otravují půdu, přístavní průmysl kalí vodu.
+/// A protože na to existují čističky, není to trest, ale <b>úkol</b> — město se
+/// dá vyčistit a hráč u toho vidí, jak se mapa vrací k barvě.</para>
+///
+/// <para>Bronzová doba zůstává čistá sama od sebe: znečištění nevzniká z kódu,
+/// ale z dat konkrétních budov (viz <c>pollution</c> v <c>buildings.json</c>),
+/// a ty ho mají až od hutí dál.</para>
+/// </summary>
+/// <param name="IntervalTicks">Jak často se znečištění přepočítává (pomalý systém).</param>
+/// <param name="SpreadRate">Jaká část hodnoty se za přepočet rozlije do sousedních buněk (0–1).</param>
+/// <param name="DecayRate">Jaká část se za přepočet rozptýlí sama (0–1) — bez toho by šlo jen přitěžovat.</param>
+/// <param name="FullEffectAt">Při jaké hodnotě je dopad plný; níž se škáluje lineárně.</param>
+/// <param name="HappinessPenalty">Kolik spokojenosti ubere plně zamořený vzduch nad městem.</param>
+/// <param name="ProductionPenalty">Kolik výroby ubere plně zamořená půda/voda pod budovou.</param>
+public sealed record PollutionConfig(
+    int IntervalTicks,
+    double SpreadRate,
+    double DecayRate,
+    double FullEffectAt,
+    double HappinessPenalty,
+    double ProductionPenalty)
+{
+    /// <summary>Vypnuté znečištění — hra bez téhle vrstvy (výchozí pro starší data).</summary>
+    public static PollutionConfig Disabled { get; } = new(0, 0, 0, 1, 0, 0);
+
+    /// <summary>Má smysl znečištění vůbec počítat?</summary>
+    public bool IsEnabled => IntervalTicks > 0 && FullEffectAt > 0;
+
+    /// <summary>Kolik sekund uplyne mezi dvěma přepočty — emise se počítají „za sekundu".</summary>
+    public double IntervalSeconds => IntervalTicks / (double)Sim.Simulation.TicksPerSecond;
+
+    /// <summary>Jak zle je na tom místo s danou hodnotou (0 = čisto, 1 = plný dopad).</summary>
+    public double Severity(double level) =>
+        FullEffectAt <= 0 ? 0 : Math.Clamp(level / FullEffectAt, 0.0, 1.0);
+
+    /// <summary>O kolik klesne spokojenost při dané špíně ve vzduchu nad městem.</summary>
+    public double HappinessDrop(double air) => Severity(air) * HappinessPenalty;
+
+    /// <summary>
+    /// Násobič výroby budovy, které vadí zamoření pod ní. Nikdy nejde na nulu, jen
+    /// dolů o <see cref="ProductionPenalty"/> — otrávené pole hůř rodí, ale
+    /// nepřestane; hra netrestá tvrdě, jen ukazuje směr (soft pressure).
+    /// </summary>
+    public double ProductionMultiplier(double level) => 1.0 - Severity(level) * ProductionPenalty;
+}
+
 /// <summary>Ruční sběr: šance na „krit" (velký výnos) — aktivní klikání se vyplatí.</summary>
 /// <param name="CritChance">Pravděpodobnost kritu (0–1) na jeden sběr.</param>
 /// <param name="CritMultiplier">Násobič výnosu při kritu.</param>
@@ -271,8 +323,12 @@ public sealed record GameplayConfig(
     StaffingConfig? StaffingOrNull = null,
     HaulConfig? HaulOrNull = null,
     ToolsConfig? ToolsOrNull = null,
-    ComboConfig? ComboOrNull = null)
+    ComboConfig? ComboOrNull = null,
+    PollutionConfig? PollutionOrNull = null)
 {
+    /// <summary>Nastavení znečištění; chybí-li v datech, je vrstva vypnutá.</summary>
+    public PollutionConfig Pollution => PollutionOrNull ?? PollutionConfig.Disabled;
+
     /// <summary>Nastavení klikacího komba; chybí-li v datech, je vrstva vypnutá.</summary>
     public ComboConfig Combo => ComboOrNull ?? ComboConfig.Disabled;
 

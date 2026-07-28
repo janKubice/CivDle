@@ -330,6 +330,35 @@
       "magnitude": 0.5
     },
     {
+      "id": "environmental_engineering",
+      "cost": {
+        "steel": 60,
+        "machine_parts": 30
+      },
+      "prerequisites": [
+        "public_health",
+        "electrification"
+      ],
+      "unlocks": [
+        "air_scrubber",
+        "water_treatment"
+      ]
+    },
+    {
+      "id": "land_reclamation",
+      "cost": {
+        "steel": 80,
+        "electronics": 20
+      },
+      "prerequisites": [
+        "environmental_engineering",
+        "electronics"
+      ],
+      "unlocks": [
+        "soil_remediation"
+      ]
+    },
+    {
       "id": "steel_frames",
       "cost": {
         "steel": 60,

@@ -81,5 +81,14 @@
     "windowSeconds": 1.5,
     "bonusPerStep": 0.08,
     "maxSteps": 10
+  },
+  "_comment_pollution": "Znecisteni na hrube mrizce (8x8 dlazdic). Vznika jen z budov, ktere ho maji v 'pollution' - bronzova doba proto zustava cista sama od sebe. Vzduch bere spokojenost nad mestem, puda a voda vyrobu pod budovou. intervalTicks 0 = vrstva vypnuta.",
+  "pollution": {
+    "intervalTicks": 50,
+    "spreadRate": 0.08,
+    "decayRate": 0.02,
+    "fullEffectAt": 60,
+    "happinessPenalty": 0.25,
+    "productionPenalty": 0.35
   }
 }

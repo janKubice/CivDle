@@ -57,7 +57,13 @@ public sealed record BuildingDto(
     Dictionary<string, int>? MergeCost,
     AdjacencyDto? Adjacency,
     int BuildTicks,
-    int TerrainHarvestRadius);
+    int TerrainHarvestRadius,
+    BuildingPollutionDto? Pollution);
+
+/// <summary>
+/// Dopad budovy na okolí tak, jak leží v JSON. Záporná čísla = čistička.
+/// </summary>
+public sealed record BuildingPollutionDto(double Air, double Water, double Soil);
 
 /// <summary>Pravidlo bonusu za okolí budovy tak, jak leží v JSON.</summary>
 public sealed record AdjacencyDto(
@@ -92,7 +98,17 @@ public sealed record GameplayFileDto(
     StaffingDto? Staffing,
     HaulDto? Haul,
     ToolsDto? Tools,
-    ComboDto? Combo);
+    ComboDto? Combo,
+    PollutionDto? Pollution);
+
+/// <summary>Znečištění tak, jak leží v JSON.</summary>
+public sealed record PollutionDto(
+    int IntervalTicks,
+    double SpreadRate,
+    double DecayRate,
+    double FullEffectAt,
+    double HappinessPenalty,
+    double ProductionPenalty);
 
 /// <summary>Přidělování dělníků tak, jak leží v JSON.</summary>
 public sealed record StaffingDto(double ScarcityThreshold);

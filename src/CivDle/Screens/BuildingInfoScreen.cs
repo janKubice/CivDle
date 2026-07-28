@@ -163,6 +163,29 @@ public sealed class BuildingInfoScreen : IScreen
             });
         }
 
+        // Zamoření pod budovou: proč zrovna tahle farma sotva rodí. Bez tohohle
+        // řádku by hráč viděl klesající výnos a nevěděl, že za to může huť vedle.
+        if (def.Recipe is not null && instance.PollutionMult < 0.995f)
+        {
+            layout.Widgets.Add(new Label
+            {
+                Text = loc.Format("building.pollutionPenalty", BuildingSummary.Percent(instance.PollutionMult)),
+                TextColor = new Color(228, 140, 110),
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+        }
+
+        // Co budova sama dělá s okolím — ať se dá poznat viník, ne jen následek.
+        if (def.AffectsPollution)
+        {
+            layout.Widgets.Add(new Label
+            {
+                Text = loc[def.Pollution.IsCleaner ? "building.cleansArea" : "building.pollutesArea"],
+                TextColor = def.Pollution.IsCleaner ? new Color(140, 210, 190) : new Color(210, 170, 130),
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+        }
+
         if (instance.IsComplete)
         {
             layout.Widgets.Add(UpgradeSection(instance.DefIndex));

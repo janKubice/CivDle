@@ -44,6 +44,7 @@ public sealed class GameplayScreen : IScreen
     private readonly HarvestableRenderer _harvestables;
     private readonly RoadRenderer _roadRenderer;
     private readonly ZoneRenderer _zoneRenderer;
+    private readonly PollutionRenderer _pollutionRenderer;
     private readonly LandmarkRenderer _landmarkRenderer;
     private readonly UfoRenderer _ufoRenderer;
     private readonly WeatherRenderer _weatherRenderer;
@@ -92,6 +93,7 @@ public sealed class GameplayScreen : IScreen
     private Label _weatherLabel = null!;
     private Label _seasonLabel = null!;
     private Label _toolsLabel = null!;
+    private Label _pollutionLabel = null!;
 
     /// <summary>Poslední ohlášené období — změna se hlásí jednou, ne každý snímek.</summary>
     private int _lastSeasonIndex = -1;
@@ -162,6 +164,7 @@ public sealed class GameplayScreen : IScreen
         _harvestables = new HarvestableRenderer(screens.Sprites, screens.Content);
         _roadRenderer = new RoadRenderer(screens.WhitePixel, screens.Content);
         _zoneRenderer = new ZoneRenderer(screens.WhitePixel, screens.Content);
+        _pollutionRenderer = new PollutionRenderer(screens.WhitePixel, screens.Content);
         _landmarkRenderer = new LandmarkRenderer(screens.WhitePixel, screens.Content);
         _ufoRenderer = new UfoRenderer(screens.WhitePixel);
         _soundscape = new AmbientSoundscape(screens.Content);
@@ -338,6 +341,10 @@ public sealed class GameplayScreen : IScreen
             _roadRenderer.Draw(spriteBatch, _camera, _simulation); // cesty dávají kontext i z výšky
             _cityScale.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, _camera, _simulation);
         }
+
+        // Závoj zamoření nad městem, ale pod událostmi a efekty: špína leží
+        // na krajině, nemá zakrývat, co se zrovna děje.
+        _pollutionRenderer.Draw(spriteBatch, _camera, _simulation);
 
         // UFO letí nad vším na mapě — je to událost, ne kulisa.
         _ufoRenderer.Draw(spriteBatch, _camera, _simulation, (float)gameTime.TotalGameTime.TotalSeconds);
@@ -821,6 +828,12 @@ public sealed class GameplayScreen : IScreen
             text += loc.Format("hud.happinessGovernment", Points(parts.Government));
         }
 
+        // Totéž smog: dokud se nic nekazí, ať zbytečně neplete.
+        if (Math.Abs(parts.Pollution) > 0.0005)
+        {
+            text += loc.Format("hud.happinessPollution", Points(parts.Pollution));
+        }
+
         return text;
     }
 
@@ -849,6 +862,26 @@ public sealed class GameplayScreen : IScreen
         _toolsLabel.TextColor = coverage >= 0.75 ? new Color(150, 220, 150)
             : coverage >= 0.35 ? new Color(230, 210, 130)
             : new Color(200, 195, 180);
+    }
+
+    /// <summary>
+    /// Znečištění v HUD. Objeví se, teprve až se něco pokazí — dokud je vzduch
+    /// čistý, není o čem mluvit a bronzová doba nemá na obrazovce řádek o smogu,
+    /// který ještě nikdo nevyrobil.
+    /// </summary>
+    private void UpdatePollutionLabel(Localization loc)
+    {
+        double severity = _simulation.AirPollutionSeverity;
+        if (!_simulation.PollutionEnabled || severity < 0.01)
+        {
+            _pollutionLabel.Text = string.Empty;
+            return;
+        }
+
+        _pollutionLabel.Text = loc.Format("hud.pollution", (int)Math.Round(severity * 100));
+        _pollutionLabel.TextColor = severity >= 0.6 ? new Color(228, 120, 100)
+            : severity >= 0.3 ? new Color(230, 190, 120)
+            : new Color(180, 190, 170);
     }
 
     /// <summary>Vyzvedne oznámení ze simulace (splněné úkoly, achievementy, milníky) a udělá z nich toasty.</summary>
@@ -1189,6 +1222,7 @@ public sealed class GameplayScreen : IScreen
         _weatherLabel = new Label { TextColor = new Color(170, 200, 220), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.weather"] };
         _seasonLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right };
         _toolsLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.tools"] };
+        _pollutionLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.pollution"] };
         _happinessLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.happiness"] };
         _dayLabel = new Label { TextColor = UiFactory.Accent, Tooltip = loc["tip.day"] };
         _cursorLabel = new Label { TextColor = Color.LightGray };
@@ -1206,6 +1240,10 @@ public sealed class GameplayScreen : IScreen
         if (_screens.Content.Gameplay.Tools.IsEnabled)
         {
             worldInfoStack.Widgets.Add(_toolsLabel);
+        }
+        if (_screens.Content.Gameplay.Pollution.IsEnabled)
+        {
+            worldInfoStack.Widgets.Add(_pollutionLabel);
         }
         if (_screens.Content.Gameplay.Happiness.IsEnabled)
         {
@@ -1890,6 +1928,7 @@ public sealed class GameplayScreen : IScreen
 
         UpdateSeasonLabel(loc);
         UpdateToolsLabel(loc);
+        UpdatePollutionLabel(loc);
 
         // Spokojenost: barva nese stav, ať se to dá číst koutkem oka.
         if (_screens.Content.Gameplay.Happiness.IsEnabled)

@@ -44,6 +44,15 @@ public struct BuildingInstance
     public float HaulMult;
 
     /// <summary>
+    /// Násobič výroby ze zamoření pod budovou (viz <c>PollutionSystem</c>). 1.0 =
+    /// čisto nebo budově na okolí nezáleží.
+    ///
+    /// <para>Cachuje se stejně jako <see cref="HaulMult"/>: znečištění je pomalá
+    /// veličina a v tikové smyčce výroby se do mřížky sahat nemá.</para>
+    /// </summary>
+    public float PollutionMult;
+
+    /// <summary>
     /// Kolik tiků zbývá do dokončení stavby. 0 = budova stojí a funguje.
     ///
     /// <para>Rozestavěná budova nevyrábí a nedává žádné bonusy (bydlení, pracovní
