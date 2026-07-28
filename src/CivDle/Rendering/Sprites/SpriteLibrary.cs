@@ -45,6 +45,11 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "icon.computer", IconSize, ComputerIcon);
         Add(device, "icon.robot", IconSize, RobotIcon);
 
+        // Akce nad budovou. Ikonka nese význam rychleji než slovo — v panelu jsou
+        // „šipka nahoru" a „čtyři čtverce v jeden" poznat na první pohled.
+        Add(device, "icon.upgrade", IconSize, UpgradeIcon);
+        Add(device, "icon.merge", IconSize, MergeIcon);
+
         // Těžitelné objekty na terénu.
         Add(device, "node.tree", SpriteSize, Tree);
         Add(device, "node.rock", SpriteSize, Rock);
@@ -120,6 +125,12 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.city_park", SpriteSize, canvas => Greenery(canvas, trees: 4));
         Add(device, "building.botanical_garden", SpriteSize, BotanicalGarden);
         Add(device, "building.fountain_square", SpriteSize, FountainSquare);
+
+        // Náprava krajiny — světlé, „čisté" tvary, ať se na mapě odliší od průmyslu,
+        // který zamořil okolí.
+        Add(device, "building.air_scrubber", SpriteSize, AirScrubber);
+        Add(device, "building.water_treatment", SpriteSize, WaterTreatment);
+        Add(device, "building.soil_remediation", SpriteSize, SoilRemediation);
 
         // Monumenty — každý má být poznat podle obrysu, ne podle barvy.
         Add(device, "building.standing_stones", SpriteSize, StandingStones);
@@ -410,6 +421,43 @@ public sealed class SpriteLibrary : IDisposable
         c.FillCircle(16f, 20f, 6.4f, new Color(96, 166, 200)); // voda
         c.FillRect(15, 12, 2, 8, new Color(210, 206, 196));    // sloupek
         c.FillCircle(16f, 12f, 2.6f, new Color(178, 224, 238)); // vodní chochol
+    }
+
+    /// <summary>Čistička vzduchu: filtrační věž, ze které stoupá čistý závan.</summary>
+    private static void AirScrubber(PixelCanvas c)
+    {
+        c.FillRect(7, 20, 18, 10, new Color(150, 158, 160));   // technologický blok
+        c.FillRect(10, 8, 12, 13, new Color(196, 204, 202));   // filtrační věž
+        c.FillRect(12, 11, 8, 3, new Color(120, 206, 190));    // filtrační patro
+        c.FillRect(12, 16, 8, 3, new Color(120, 206, 190));
+        c.FillCircle(16f, 6f, 3.2f, new Color(214, 240, 236)); // čistý výdech
+        c.FillRect(8, 24, 16, 2, new Color(118, 124, 128));
+    }
+
+    /// <summary>Čistička vod: kruhové usazovací nádrže s čeřicím ramenem.</summary>
+    private static void WaterTreatment(PixelCanvas c)
+    {
+        c.FillRect(2, 8, 28, 22, new Color(158, 160, 156)); // betonová deska
+        c.FillCircle(11f, 16f, 6.4f, new Color(120, 124, 124));
+        c.FillCircle(11f, 16f, 5.2f, new Color(96, 166, 200)); // nádrž
+        c.FillCircle(22f, 23f, 5.4f, new Color(120, 124, 124));
+        c.FillCircle(22f, 23f, 4.3f, new Color(112, 182, 208));
+        c.FillRect(10, 10, 2, 12, new Color(206, 210, 208)); // čeřicí rameno
+        c.FillRect(6, 15, 10, 2, new Color(206, 210, 208));
+    }
+
+    /// <summary>Sanace půdy: rozorané pásy, které se pod fólií vracejí do zeleně.</summary>
+    private static void SoilRemediation(PixelCanvas c)
+    {
+        c.FillRect(2, 12, 28, 18, new Color(120, 92, 62)); // otrávená zem
+        for (int i = 0; i < 4; i++)
+        {
+            c.FillRect(4, 14 + i * 4, 24, 2, new Color(96, 156, 78)); // ozdravené pásy
+        }
+
+        c.FillRect(2, 9, 28, 3, new Color(186, 206, 196)); // fólie nad plochou
+        c.FillRect(5, 4, 3, 6, new Color(150, 158, 160));  // odsávací sloupek
+        c.FillCircle(6.5f, 3f, 2.2f, new Color(196, 220, 210));
     }
 
     private static void StandingStones(PixelCanvas c)
@@ -992,6 +1040,32 @@ public sealed class SpriteLibrary : IDisposable
             float angle = i * MathF.PI / 4f;
             c.FillRect((int)(12 + MathF.Cos(angle) * 8) - 1, (int)(12 + MathF.Sin(angle) * 8) - 1, 3, 3, metal);
         }
+    }
+
+    /// <summary>Vylepšení: šipka nahoru nad základnou — „tahle budova povyroste".</summary>
+    private static void UpgradeIcon(PixelCanvas c)
+    {
+        var glow = new Color(150, 220, 150);
+        for (int i = 0; i < 7; i++)
+        {
+            c.FillRect(12 - i, 6 + i, 1 + i * 2, 2, glow);
+        }
+
+        c.FillRect(9, 13, 6, 6, glow);
+        c.FillRect(5, 19, 14, 2, new Color(90, 140, 95));
+    }
+
+    /// <summary>Sloučení: čtyři čtverce, které se stáhnou do jednoho většího.</summary>
+    private static void MergeIcon(PixelCanvas c)
+    {
+        var small = new Color(120, 160, 210);
+        c.FillRect(3, 3, 6, 6, small);
+        c.FillRect(15, 3, 6, 6, small);
+        c.FillRect(3, 15, 6, 6, small);
+        c.FillRect(15, 15, 6, 6, small);
+
+        // Velký uprostřed překryje rohy — je vidět, že z nich vzniká.
+        c.FillRect(8, 8, 8, 8, new Color(230, 200, 110));
     }
 
     private static void ChipIcon(PixelCanvas c)

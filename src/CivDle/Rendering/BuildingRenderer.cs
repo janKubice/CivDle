@@ -33,6 +33,11 @@ public sealed class BuildingRenderer
         const int tileSize = TerrainRenderer.TileSize;
         var (min, max) = camera.VisibleWorldBounds();
 
+        // Zjednodušený režim: při oddálení jsou budovy pár pixelů velké, takže
+        // sprite, stín ani odznaky nejsou k rozeznání — a přitom stojí tři kresby
+        // na budovu místo jedné. Tvar města zůstane čitelný z barev.
+        bool detailed = camera.Zoom >= DetailLevel.BuildingSprites;
+
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
         var buildings = simulation.Buildings;
         for (int i = 0; i < buildings.Length; i++)
@@ -46,6 +51,12 @@ public sealed class BuildingRenderer
             int height = def.FootprintHeight * tileSize;
             if (x + width < min.X || x > max.X || y + height < min.Y || y > max.Y)
             {
+                continue;
+            }
+
+            if (!detailed)
+            {
+                spriteBatch.Draw(_pixel, new Rectangle(x, y, width, height), def.MapColor.ToXna());
                 continue;
             }
 

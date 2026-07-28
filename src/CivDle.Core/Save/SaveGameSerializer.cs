@@ -61,6 +61,8 @@ public sealed class SaveGameSerializer
     private const string SectionElection = "election";
     private const string SectionMilestones = "milestones";
     private const string SectionConstruction = "construction";
+    private const string SectionNodes = "nodes";
+    private const string SectionPollution = "pollution";
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -106,6 +108,8 @@ public sealed class SaveGameSerializer
         WriteSection(writer, SectionChallenges, w => WriteChallenges(w, simulation));
         WriteSection(writer, SectionMilestones, w => WriteMilestones(w, simulation));
         WriteSection(writer, SectionConstruction, w => WriteConstruction(w, simulation));
+        WriteSection(writer, SectionNodes, w => WriteNodes(w, simulation));
+        WriteSection(writer, SectionPollution, w => WritePollution(w, simulation));
         WriteSection(writer, SectionElection, w =>
         {
             w.Write(simulation.ElectionTerm);
@@ -321,6 +325,8 @@ public sealed class SaveGameSerializer
             case SectionTutorial: simulation.RestoreTutorialStep(section.ReadInt32()); break;
             case SectionChallenges: ReadChallenges(section, simulation); break;
             case SectionConstruction: ReadConstruction(section, simulation); break;
+            case SectionNodes: ReadNodes(section, simulation); break;
+            case SectionPollution: ReadPollution(section, simulation); break;
             case SectionElection: simulation.RestoreElection(section.ReadInt64(), section.ReadInt32()); break;
             case SectionMilestones: ReadMilestones(section, content, simulation); break;
             default: break; // neznámá sekce z novější hry — přeskočit, ne spadnout
@@ -474,6 +480,70 @@ public sealed class SaveGameSerializer
         if (reader.BaseStream.Position < reader.BaseStream.Length)
         {
             simulation.RestoreWondersCompleted(reader.ReadInt64());
+        }
+    }
+
+    /// <summary>
+    /// Vytěžené dlaždice. Ukládají se jen ty dotčené — na nekonečné mapě není jak
+    /// (ani proč) si pamatovat každý strom. Starší savy sekci nemají a načtou se
+    /// s nedotčenou krajinou, což je správně: dřív se nic nevytěžilo.
+    /// </summary>
+    private static void WriteNodes(BinaryWriter writer, Simulation simulation)
+    {
+        var entries = simulation.Nodes.Entries().ToList();
+        writer.Write(entries.Count);
+        foreach (var (x, y, chargesLeft, depletedTick) in entries)
+        {
+            writer.Write(x);
+            writer.Write(y);
+            writer.Write(chargesLeft);
+            writer.Write(depletedTick);
+        }
+    }
+
+    /// <summary>
+    /// Zamořené buňky. Ukládají se jen ty špinavé — čistá mapa nezabere nic.
+    /// Starší savy sekci nemají a načtou se s nedotčenou krajinou, což je správně:
+    /// dřív se nedalo nic zamořit.
+    /// </summary>
+    private static void WritePollution(BinaryWriter writer, Simulation simulation)
+    {
+        var entries = simulation.PollutionMap.Entries().ToList();
+        writer.Write(entries.Count);
+        foreach (var (cellX, cellY, air, water, soil) in entries)
+        {
+            writer.Write(cellX);
+            writer.Write(cellY);
+            writer.Write(air);
+            writer.Write(water);
+            writer.Write(soil);
+        }
+    }
+
+    private static void ReadPollution(BinaryReader reader, Simulation simulation)
+    {
+        int count = ReadCount(reader, max: 20_000_000, what: "zamořených buněk");
+        for (int i = 0; i < count; i++)
+        {
+            int cellX = reader.ReadInt32();
+            int cellY = reader.ReadInt32();
+            double air = reader.ReadDouble();
+            double water = reader.ReadDouble();
+            double soil = reader.ReadDouble();
+            simulation.PollutionMap.RestoreCell(cellX, cellY, air, water, soil);
+        }
+    }
+
+    private static void ReadNodes(BinaryReader reader, Simulation simulation)
+    {
+        int count = ReadCount(reader, max: 20_000_000, what: "vytěžených dlaždic");
+        for (int i = 0; i < count; i++)
+        {
+            int x = reader.ReadInt32();
+            int y = reader.ReadInt32();
+            int chargesLeft = reader.ReadInt32();
+            long depletedTick = reader.ReadInt64();
+            simulation.Nodes.RestoreEntry(x, y, chargesLeft, depletedTick);
         }
     }
 

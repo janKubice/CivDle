@@ -2,6 +2,7 @@ using CivDle.Capture;
 using CivDle.Core.Config;
 using CivDle.Core.Content;
 using CivDle.Core.Save;
+using CivDle.Core.Sim;
 using CivDle.Rendering.Sprites;
 using CivDle.Screens;
 using Microsoft.Xna.Framework;
@@ -30,6 +31,12 @@ public sealed class CivDleGame : Game
     private readonly ProfileStore _profileStore;
     private readonly CaptureDirector? _capture;
     private readonly string? _capsuleDirectory;
+    private readonly bool _smoke;
+    private readonly bool _perf;
+    private PerfRun? _perfRun;
+    private SmokeRun? _smokeRun;
+    private GameplayScreen? _smokeScreen;
+    private Simulation? _smokeSimulation;
     private ScreenManager? _screens;
 
     /// <param name="captureDirectory">
@@ -40,8 +47,19 @@ public sealed class CivDleGame : Game
     /// Není-li null, hra místo menu vyrobí obrázky do obchodu (header, library,
     /// ikonu) a skončí.
     /// </param>
-    public CivDleGame(string? captureDirectory = null, string? capsuleDirectory = null)
+    /// <param name="smoke">
+    /// Projet všechny nástroje herní obrazovky a skončit. Chytá pády, které se
+    /// projeví až po kliknutí na nástroj — testy simulace na ně nedosáhnou.
+    /// </param>
+    /// <param name="perf">Změřit dobu vykreslení snímku při různém přiblížení a skončit.</param>
+    public CivDleGame(
+        string? captureDirectory = null,
+        string? capsuleDirectory = null,
+        bool smoke = false,
+        bool perf = false)
     {
+        _smoke = smoke;
+        _perf = perf;
         _capture = captureDirectory is null ? null : new CaptureDirector(captureDirectory);
         _capsuleDirectory = capsuleDirectory;
         _settingsStore = new SettingsStore(GetSettingsPath());
@@ -101,7 +119,7 @@ public sealed class CivDleGame : Game
         var content = new ContentLoader().LoadFrom(Path.Combine(AppContext.BaseDirectory, "data"));
         // Obchod je anglicky: snímky do Steamu musí být v jazyce, kterému rozumí
         // každý, kdo si stránku otevře — ne v tom, který má vývojář nastavený.
-        bool storeMode = _capture is not null || _capsuleDirectory is not null;
+        bool storeMode = _capture is not null || _capsuleDirectory is not null || _smoke || _perf;
         var localization = new Localization(content.Languages, storeMode ? "en" : Settings.Language);
         var saves = new SaveStore(Path.Combine(GetProfileDirectory(), "saves", "save.civdle"));
 
@@ -116,6 +134,27 @@ public sealed class CivDleGame : Game
         }
 
         _screens = screens;
+        if (_smoke || _perf)
+        {
+            _smokeSimulation = _perf ? PerfRun.BuildScene(screens) : SmokeRun.BuildScene(screens);
+            _smokeScreen = new GameplayScreen(screens, _smokeSimulation, new WorldInfo(20260728, "medium", "continents"));
+            _smokeScreen.FocusForCapture(
+                new Vector2(
+                    (_smokeSimulation.CityCenterX + 0.5f) * Rendering.TerrainRenderer.TileSize,
+                    (_smokeSimulation.CityCenterY + 0.5f) * Rendering.TerrainRenderer.TileSize),
+                zoom: 2.5f);
+            _screens.ReplaceAll(_smokeScreen);
+            if (_perf)
+            {
+                _perfRun = new PerfRun();
+            }
+            else
+            {
+                _smokeRun = new SmokeRun();
+            }
+
+            return;
+        }
 
         if (_capture is not null)
         {
@@ -135,6 +174,24 @@ public sealed class CivDleGame : Game
 
     protected override void Update(GameTime gameTime)
     {
+        if (_perfRun is not null)
+        {
+            var perfRun = _perfRun;
+            _perfRun = null;
+            perfRun.Run(_smokeScreen!, _smokeSimulation!, gameTime);
+            Exit();
+            return;
+        }
+
+        if (_smokeRun is not null)
+        {
+            var run = _smokeRun;
+            _smokeRun = null; // jen jednou; případná výjimka probublá do crash.log
+            run.Run(_screens!, _smokeScreen!, _smokeSimulation!, gameTime);
+            Exit();
+            return;
+        }
+
         if (_screens is null)
         {
             return; // režim kapslí: hotovo v LoadContent, hra se zavírá
@@ -177,7 +234,7 @@ public sealed class CivDleGame : Game
     {
         // Focení do obchodu má pevné rozlišení: Steam chce 1920×1080 a snímky
         // nesmí záviset na tom, jak měl kdo naposled nastavené okno.
-        bool capturing = _capture is not null || _capsuleDirectory is not null;
+        bool capturing = _capture is not null || _capsuleDirectory is not null || _smoke || _perf;
         _graphics.PreferredBackBufferWidth = capturing ? CaptureWidth : settings.ResolutionWidth;
         _graphics.PreferredBackBufferHeight = capturing ? CaptureHeight : settings.ResolutionHeight;
         _graphics.SynchronizeWithVerticalRetrace = settings.VSync;

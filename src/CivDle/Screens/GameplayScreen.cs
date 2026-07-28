@@ -44,6 +44,7 @@ public sealed class GameplayScreen : IScreen
     private readonly HarvestableRenderer _harvestables;
     private readonly RoadRenderer _roadRenderer;
     private readonly ZoneRenderer _zoneRenderer;
+    private readonly PollutionRenderer _pollutionRenderer;
     private readonly LandmarkRenderer _landmarkRenderer;
     private readonly UfoRenderer _ufoRenderer;
     private readonly WeatherRenderer _weatherRenderer;
@@ -92,6 +93,7 @@ public sealed class GameplayScreen : IScreen
     private Label _weatherLabel = null!;
     private Label _seasonLabel = null!;
     private Label _toolsLabel = null!;
+    private Label _pollutionLabel = null!;
 
     /// <summary>Poslední ohlášené období — změna se hlásí jednou, ne každý snímek.</summary>
     private int _lastSeasonIndex = -1;
@@ -112,6 +114,9 @@ public sealed class GameplayScreen : IScreen
     private Button _buildMenuButton = null!;
     private Widget _buildMenuPanel = null!;
     private Widget _statusPanel = null!;
+    private HorizontalStackPanel _roadModePanel = null!;
+    private Button _roadAddButton = null!;
+    private Button _roadEraseButton = null!;
     private bool _buildMenuOpen;
     private int _unlockedFeatureCount = -1;
 
@@ -159,6 +164,7 @@ public sealed class GameplayScreen : IScreen
         _harvestables = new HarvestableRenderer(screens.Sprites, screens.Content);
         _roadRenderer = new RoadRenderer(screens.WhitePixel, screens.Content);
         _zoneRenderer = new ZoneRenderer(screens.WhitePixel, screens.Content);
+        _pollutionRenderer = new PollutionRenderer(screens.WhitePixel, screens.Content);
         _landmarkRenderer = new LandmarkRenderer(screens.WhitePixel, screens.Content);
         _ufoRenderer = new UfoRenderer(screens.WhitePixel);
         _soundscape = new AmbientSoundscape(screens.Content);
@@ -336,6 +342,10 @@ public sealed class GameplayScreen : IScreen
             _cityScale.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, _camera, _simulation);
         }
 
+        // Závoj zamoření nad městem, ale pod událostmi a efekty: špína leží
+        // na krajině, nemá zakrývat, co se zrovna děje.
+        _pollutionRenderer.Draw(spriteBatch, _camera, _simulation);
+
         // UFO letí nad vším na mapě — je to událost, ne kulisa.
         _ufoRenderer.Draw(spriteBatch, _camera, _simulation, (float)gameTime.TotalGameTime.TotalSeconds);
 
@@ -375,47 +385,44 @@ public sealed class GameplayScreen : IScreen
 
         if (_tools.PlantGhostActive && _screens.Sprites.Get("node.tree") is { } plantSprite)
         {
-            const int ts = TerrainRenderer.TileSize;
-            var tint = (_tools.PlantGhostResult == PlacementResult.Ok
-                ? new Color(120, 240, 140)
-                : new Color(240, 110, 100)) * 0.7f;
-            spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.Transform);
-            spriteBatch.Draw(plantSprite, new Rectangle(_tools.PlantGhostX * ts, _tools.PlantGhostY * ts, ts, ts), tint);
-            spriteBatch.End();
+            DrawTileOverlay(spriteBatch, plantSprite, _tools.PlantGhostX, _tools.PlantGhostY, 1,
+                (_tools.PlantGhostResult == PlacementResult.Ok
+                    ? new Color(120, 240, 140)
+                    : new Color(240, 110, 100)) * 0.7f);
         }
 
         if (_tools.TerraformGhostActive)
         {
-            const int ts = TerrainRenderer.TileSize;
-            var tint = (_tools.TerraformGhostResult == PlacementResult.Ok
-                ? new Color(140, 230, 200)
-                : new Color(240, 110, 100)) * 0.55f;
-            spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.Transform);
-            spriteBatch.Draw(_screens.WhitePixel,
-                new Rectangle(_tools.TerraformGhostX * ts, _tools.TerraformGhostY * ts, ts, ts), tint);
-            spriteBatch.End();
+            DrawTileOverlay(spriteBatch, _screens.WhitePixel, _tools.TerraformGhostX, _tools.TerraformGhostY, 1,
+                (_tools.TerraformGhostResult == PlacementResult.Ok
+                    ? new Color(140, 230, 200)
+                    : new Color(240, 110, 100)) * 0.55f);
+        }
+
+        // V režimu slučování se rozsvítí VŠECHNY bloky, které jdou sloučit —
+        // hráč jinak musí objíždět město myší a hádat, kde se čtyři stejné domy
+        // potkaly. Kreslí se jen to, co je vidět, a jen v tomhle režimu.
+        if (_tools.MergeMode)
+        {
+            DrawMergeCandidates(spriteBatch);
         }
 
         // Náhled slučování: obtáhne celý čtverec 2×2, ne jednu dlaždici — hráč
         // musí vidět, které čtyři budovy zmizí.
         if (_tools.MergeGhostActive)
         {
-            int ts = TerrainRenderer.TileSize;
-            var tint = (_tools.MergeGhostResult == PlacementResult.Ok
-                ? new Color(150, 235, 150)
-                : new Color(235, 120, 110)) * 0.45f;
-            spriteBatch.Draw(_screens.WhitePixel,
-                new Rectangle(_tools.MergeGhostX * ts, _tools.MergeGhostY * ts, ts * 2, ts * 2), tint);
+            DrawTileOverlay(spriteBatch, _screens.WhitePixel, _tools.MergeGhostX, _tools.MergeGhostY, 2,
+                (_tools.MergeGhostResult == PlacementResult.Ok
+                    ? new Color(150, 235, 150)
+                    : new Color(235, 120, 110)) * 0.45f);
         }
 
         if (_tools.RoadGhostActive)
         {
-            int ts = TerrainRenderer.TileSize;
-            var tint = (_tools.RoadGhostResult != PlacementResult.Ok
-                ? new Color(235, 120, 110)
-                : _tools.RoadGhostErasing ? new Color(240, 190, 90) : new Color(200, 200, 190)) * 0.55f;
-            spriteBatch.Draw(_screens.WhitePixel,
-                new Rectangle(_tools.RoadGhostX * ts, _tools.RoadGhostY * ts, ts, ts), tint);
+            DrawTileOverlay(spriteBatch, _screens.WhitePixel, _tools.RoadGhostX, _tools.RoadGhostY, 1,
+                (_tools.RoadGhostResult != PlacementResult.Ok
+                    ? new Color(235, 120, 110)
+                    : _tools.RoadGhostErasing ? new Color(240, 190, 90) : new Color(200, 200, 190)) * 0.55f);
         }
 
         if (_tools.ZonePreviewActive)
@@ -821,6 +828,12 @@ public sealed class GameplayScreen : IScreen
             text += loc.Format("hud.happinessGovernment", Points(parts.Government));
         }
 
+        // Totéž smog: dokud se nic nekazí, ať zbytečně neplete.
+        if (Math.Abs(parts.Pollution) > 0.0005)
+        {
+            text += loc.Format("hud.happinessPollution", Points(parts.Pollution));
+        }
+
         return text;
     }
 
@@ -849,6 +862,26 @@ public sealed class GameplayScreen : IScreen
         _toolsLabel.TextColor = coverage >= 0.75 ? new Color(150, 220, 150)
             : coverage >= 0.35 ? new Color(230, 210, 130)
             : new Color(200, 195, 180);
+    }
+
+    /// <summary>
+    /// Znečištění v HUD. Objeví se, teprve až se něco pokazí — dokud je vzduch
+    /// čistý, není o čem mluvit a bronzová doba nemá na obrazovce řádek o smogu,
+    /// který ještě nikdo nevyrobil.
+    /// </summary>
+    private void UpdatePollutionLabel(Localization loc)
+    {
+        double severity = _simulation.AirPollutionSeverity;
+        if (!_simulation.PollutionEnabled || severity < 0.01)
+        {
+            _pollutionLabel.Text = string.Empty;
+            return;
+        }
+
+        _pollutionLabel.Text = loc.Format("hud.pollution", (int)Math.Round(severity * 100));
+        _pollutionLabel.TextColor = severity >= 0.6 ? new Color(228, 120, 100)
+            : severity >= 0.3 ? new Color(230, 190, 120)
+            : new Color(180, 190, 170);
     }
 
     /// <summary>Vyzvedne oznámení ze simulace (splněné úkoly, achievementy, milníky) a udělá z nich toasty.</summary>
@@ -1189,6 +1222,7 @@ public sealed class GameplayScreen : IScreen
         _weatherLabel = new Label { TextColor = new Color(170, 200, 220), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.weather"] };
         _seasonLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right };
         _toolsLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.tools"] };
+        _pollutionLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.pollution"] };
         _happinessLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.happiness"] };
         _dayLabel = new Label { TextColor = UiFactory.Accent, Tooltip = loc["tip.day"] };
         _cursorLabel = new Label { TextColor = Color.LightGray };
@@ -1206,6 +1240,10 @@ public sealed class GameplayScreen : IScreen
         if (_screens.Content.Gameplay.Tools.IsEnabled)
         {
             worldInfoStack.Widgets.Add(_toolsLabel);
+        }
+        if (_screens.Content.Gameplay.Pollution.IsEnabled)
+        {
+            worldInfoStack.Widgets.Add(_pollutionLabel);
         }
         if (_screens.Content.Gameplay.Happiness.IsEnabled)
         {
@@ -1232,8 +1270,27 @@ public sealed class GameplayScreen : IScreen
 
         // Stavový řádek zůstává vidět i se zavřeným menu — nese hlášky režimů
         // („sázíš", „sem to nejde") a bez nich by hráč tápal.
-        _statusLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
-        _statusPanel = UiFactory.DarkPanel(_statusLabel);
+        _statusLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+
+        // Silnice: „stavět" a „bourat" jsou dva režimy jednoho nástroje, ne dvě
+        // tlačítka v liště. Přepínač je proto tady — objeví se, teprve když ho
+        // hráč potřebuje, a jinak nezabírá místo.
+        _roadAddButton = UiFactory.SmallButton("+", () => _tools.SetRoadErasing(false), loc["tip.road"]);
+        _roadEraseButton = UiFactory.SmallButton("−", () => _tools.SetRoadErasing(true), loc["tip.roadErase"]);
+        _roadModePanel = new HorizontalStackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
+        _roadModePanel.Widgets.Add(_roadAddButton);
+        _roadModePanel.Widgets.Add(_roadEraseButton);
+        _roadModePanel.Visible = false;
+
+        var statusRow = new HorizontalStackPanel
+        {
+            Spacing = 10,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        statusRow.Widgets.Add(_statusLabel);
+        statusRow.Widgets.Add(_roadModePanel);
+
+        _statusPanel = UiFactory.DarkPanel(statusRow);
         _statusPanel.HorizontalAlignment = HorizontalAlignment.Center;
 
         // Levý střed: „co teď" — hlavní cíl s návodem, pod ním ostatní úkoly.
@@ -1293,7 +1350,6 @@ public sealed class GameplayScreen : IScreen
         if (_simulation.IsFeatureUnlocked("roads"))
         {
             stack.Widgets.Add(UiFactory.SmallButton(loc["hud.road"], _tools.ToggleRoad, loc["tip.road"]));
-            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.roadErase"], _tools.ToggleRoadErase, loc["tip.roadErase"]));
         }
 
         // Slučování bloků 2×2 v jednu velkou budovu.
@@ -1872,6 +1928,7 @@ public sealed class GameplayScreen : IScreen
 
         UpdateSeasonLabel(loc);
         UpdateToolsLabel(loc);
+        UpdatePollutionLabel(loc);
 
         // Spokojenost: barva nese stav, ať se to dá číst koutkem oka.
         if (_screens.Content.Gameplay.Happiness.IsEnabled)
@@ -1951,6 +2008,15 @@ public sealed class GameplayScreen : IScreen
         // Proužek se stavem se ukazuje, jen když má co říct — prázdný panel
         // uprostřed spodku obrazovky by byl jen šum.
         _statusPanel.Visible = _tools.AnyActive;
+        _roadModePanel.Visible = _tools.RoadToolActive;
+        if (_tools.RoadToolActive)
+        {
+            // Aktivní režim je vidět na tlačítku, ne jen v textu — přepínač má
+            // sám ukazovat, v čem zrovna jsi.
+            _roadAddButton.Background = new SolidBrush(_tools.RoadEraseMode ? UiFactory.ButtonFill : UiFactory.Accent);
+            _roadEraseButton.Background = new SolidBrush(_tools.RoadEraseMode ? UiFactory.Accent : UiFactory.ButtonFill);
+        }
+
         if (!_statusPanel.Visible)
         {
             return;
@@ -1960,17 +2026,19 @@ public sealed class GameplayScreen : IScreen
         {
             // Bez bloku pod kurzorem se řekne proč — jinak hráč klika naprázdno
             // a neví, jestli je rozbitý nástroj, nebo jeho zástavba.
-            _statusLabel.Text = loc[_tools.MergeGhostActive ? "status.merge" : "status.mergeNoBlock"];
+            _statusLabel.Text = _tools.MergeGhostActive ? loc["status.merge"] : loc["hud.mergeHint"];
             _statusLabel.TextColor = _tools.MergeGhostActive
                 ? new Color(150, 220, 150)
                 : new Color(220, 190, 120);
             return;
         }
 
-        if (_tools.RoadMode || _tools.RoadEraseMode)
+        if (_tools.RoadToolActive)
         {
             _statusLabel.Text = loc[_tools.RoadEraseMode ? "status.roadErase" : "status.road"];
-            _statusLabel.TextColor = new Color(210, 205, 190);
+            _statusLabel.TextColor = _tools.RoadEraseMode
+                ? new Color(240, 190, 90)
+                : new Color(210, 205, 190);
             return;
         }
 
@@ -2012,6 +2080,80 @@ public sealed class GameplayScreen : IScreen
         {
             _statusLabel.Text = loc.Format("build.placing", loc[def.NameKey]) + PlacementHints(loc, def);
             _statusLabel.TextColor = Color.White;
+        }
+    }
+
+    /// <summary>
+    /// Zvýrazní bloky 2×2, které jdou sloučit.
+    ///
+    /// <para>Prochází jen budovy ve výřezu a bere z nich vždy tu levou horní
+    /// (aby se každý blok nakreslil jednou). Běží výhradně v režimu slučování,
+    /// takže mimo něj nestojí nic.</para>
+    /// </summary>
+    private void DrawMergeCandidates(SpriteBatch spriteBatch)
+    {
+        const int ts = TerrainRenderer.TileSize;
+        var (min, max) = _camera.VisibleWorldBounds();
+        var buildings = _simulation.Buildings;
+
+        spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.Transform);
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            ref readonly var building = ref buildings[i];
+            int x = building.X * ts;
+            int y = building.Y * ts;
+            if (x + ts < min.X || x > max.X || y + ts < min.Y || y > max.Y)
+            {
+                continue;
+            }
+
+            if (!_simulation.TryFindMergeGroup(building.X, building.Y, out var group)
+                || group.X != building.X || group.Y != building.Y)
+            {
+                continue; // kreslí jen levý horní roh bloku, ať se nepřekrývá čtyřikrát
+            }
+
+            bool affordable = _simulation.CanMerge(group) == PlacementResult.Ok;
+            var tint = (affordable ? new Color(150, 235, 150) : new Color(220, 200, 120)) * 0.28f;
+            spriteBatch.Draw(_screens.WhitePixel, new Rectangle(x, y, ts * 2, ts * 2), tint);
+        }
+
+        spriteBatch.End();
+    }
+
+    /// <summary>
+    /// Nakreslí barevný čtverec přes dlaždice mapy — náhled nástroje pod kurzorem.
+    ///
+    /// <para>Existuje kvůli konkrétnímu pádu: náhledy silnice a slučování volaly
+    /// <c>spriteBatch.Draw</c> bez <c>Begin()</c>, protože se psaly po vzoru
+    /// sousedního bloku, kde <c>Begin()</c> zůstal o pár řádků výš. Hra spadla
+    /// hned, jak hráč nástroj zapnul. Metoda, která si dávku otevře i zavře sama,
+    /// tuhle třídu chyb odstraňuje.</para>
+    /// </summary>
+    private void DrawTileOverlay(SpriteBatch spriteBatch, Texture2D texture, int tileX, int tileY, int tiles, Color tint)
+    {
+        const int ts = TerrainRenderer.TileSize;
+        spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.Transform);
+        spriteBatch.Draw(texture, new Rectangle(tileX * ts, tileY * ts, ts * tiles, ts * tiles), tint);
+        spriteBatch.End();
+    }
+
+    /// <summary>
+    /// Zapne nástroj pro smoke test (<c>--smoke</c>). Nástroje jinak zapíná
+    /// jen kliknutí na tlačítko, které se bez okna a myši nedá simulovat.
+    /// </summary>
+    internal void ActivateToolForSmoke(Capture.SmokeTool tool)
+    {
+        _tools.Clear();
+        switch (tool)
+        {
+            case Capture.SmokeTool.Road: _tools.ToggleRoad(); break;
+            case Capture.SmokeTool.RoadErase:
+                _tools.ToggleRoad();
+                _tools.SetRoadErasing(true);
+                break;
+            case Capture.SmokeTool.Merge: _tools.ToggleMerge(); break;
+            case Capture.SmokeTool.Plant: _tools.TogglePlant(); break;
         }
     }
 

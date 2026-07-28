@@ -21,7 +21,6 @@ public sealed class BubbleSystem
     private const float LifeSeconds = 16f;
     private const int OutputCyclesPerBubble = 34; // kolik cyklů výstupu bublina nese
     private const float CollectRadiusTiles = 1.0f;
-    private const float MinZoom = 0.5f;
 
     private sealed class Bubble
     {
@@ -94,7 +93,7 @@ public sealed class BubbleSystem
 
     public void Draw(SpriteBatch spriteBatch, Camera2D camera)
     {
-        if (camera.Zoom < MinZoom || _bubbles.Count == 0)
+        if (camera.Zoom < DetailLevel.Creatures || _bubbles.Count == 0)
         {
             return;
         }

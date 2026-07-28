@@ -15,7 +15,6 @@ namespace CivDle.Rendering;
 public sealed class DecorationRenderer
 {
     /// <summary>Pod tímhle zoomem jsou dekorace menší než pixel — nekreslí se.</summary>
-    private const float MinZoom = 0.55f;
 
     private readonly Texture2D _pixel;
     private readonly GameContent _content;
@@ -48,7 +47,7 @@ public sealed class DecorationRenderer
 
     public void Draw(SpriteBatch spriteBatch, Camera2D camera, ITerrain terrain)
     {
-        if (camera.Zoom < MinZoom || _content.Decorations.Count == 0)
+        if (camera.Zoom < DetailLevel.Decorations || _content.Decorations.Count == 0)
         {
             return;
         }
@@ -59,6 +58,10 @@ public sealed class DecorationRenderer
         int startY = (int)MathF.Floor(min.Y / tileSize);
         int endX = (int)MathF.Ceiling(max.X / tileSize);
         int endY = (int)MathF.Ceiling(max.Y / tileSize);
+        if (!DetailLevel.FitsBudget(startX, startY, endX, endY))
+        {
+            return;
+        }
 
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
         for (int y = startY; y <= endY; y++)

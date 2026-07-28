@@ -106,6 +106,16 @@ internal sealed class ProductionSystem
                 continue;
             }
 
+            // Těžba z krajiny: pila si musí vzít strom. Když v dosahu žádný není,
+            // stojí — a to je ten tlak, kvůli kterému má smysl expandovat, sázet
+            // háje nebo výrobnu přesunout. Roste automaticky s městem: víc lidí
+            // znamená víc obsazených výroben a tím rychlejší úbytek okolí.
+            if (def.HarvestsTerrain && !sim.TryConsumeTerrain(ref building, def))
+            {
+                building.Progress = recipe.TimeTicks;
+                continue;
+            }
+
             for (int j = 0; j < recipe.Inputs.Count; j++)
             {
                 resources[recipe.Inputs[j].ResourceIndex] -= recipe.Inputs[j].Amount;
@@ -118,7 +128,8 @@ internal sealed class ProductionSystem
                 // Plný sklad výrobu nezastaví, přebytek propadá (idle konvence) —
                 // motivace stavět sklady, žádný trest. Trvalý bonus Vzestupu zvedá výstup.
                 double yield = recipe.Outputs[j].Amount * productionMult
-                    * building.BiomeMult * building.AdjacencyMult * building.HaulMult;
+                    * building.BiomeMult * building.AdjacencyMult * building.HaulMult
+                    * building.PollutionMult;
                 if (index == foodIndex)
                 {
                     yield *= seasonFoodMult;

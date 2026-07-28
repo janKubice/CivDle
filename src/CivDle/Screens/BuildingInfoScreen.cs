@@ -163,9 +163,33 @@ public sealed class BuildingInfoScreen : IScreen
             });
         }
 
+        // Zamoření pod budovou: proč zrovna tahle farma sotva rodí. Bez tohohle
+        // řádku by hráč viděl klesající výnos a nevěděl, že za to může huť vedle.
+        if (def.Recipe is not null && instance.PollutionMult < 0.995f)
+        {
+            layout.Widgets.Add(new Label
+            {
+                Text = loc.Format("building.pollutionPenalty", BuildingSummary.Percent(instance.PollutionMult)),
+                TextColor = new Color(228, 140, 110),
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+        }
+
+        // Co budova sama dělá s okolím — ať se dá poznat viník, ne jen následek.
+        if (def.AffectsPollution)
+        {
+            layout.Widgets.Add(new Label
+            {
+                Text = loc[def.Pollution.IsCleaner ? "building.cleansArea" : "building.pollutesArea"],
+                TextColor = def.Pollution.IsCleaner ? new Color(140, 210, 190) : new Color(210, 170, 130),
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+        }
+
         if (instance.IsComplete)
         {
             layout.Widgets.Add(UpgradeSection(instance.DefIndex));
+            layout.Widgets.Add(MergeSection(instance.DefIndex, instance.X, instance.Y));
         }
 
         // Agency: přesunout jinam nebo zbourat (vrátí půl ceny). Obojí se ODEMYKÁ —
@@ -205,6 +229,77 @@ public sealed class BuildingInfoScreen : IScreen
         _desktop = _screens.NewDesktop(root);
     }
 
+    /// <summary>
+    /// Sloučení bloku 2×2 přímo z panelu budovy.
+    ///
+    /// <para>Dřív se slučovalo jen zvláštním nástrojem ve spodní liště, takže
+    /// hráč, který si budovu rozklikl, o té možnosti vůbec nevěděl. Vylepšení
+    /// i sloučení jsou přitom totéž rozhodnutí („co s touhle budovou dál") a
+    /// patří na jedno místo.</para>
+    ///
+    /// <para>Když to nejde, řekne se PROČ — zašedlé tlačítko bez vysvětlení je
+    /// horší než žádné.</para>
+    /// </summary>
+    private Widget MergeSection(int defIndex, int tileX, int tileY)
+    {
+        var loc = _screens.Loc;
+        var content = _screens.Content;
+        var def = content.Buildings[defIndex];
+        var stack = new VerticalStackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
+
+        if (!def.CanMergeIntoBigger || !_simulation.IsFeatureUnlocked("merge"))
+        {
+            return stack; // tenhle typ se neslučuje (nebo to hráč ještě neumí)
+        }
+
+        var target = content.Buildings[def.MergesToIndex];
+        var result = _simulation.CanMerge(tileX, tileY);
+
+        stack.Widgets.Add(new Label
+        {
+            Text = loc.Format("panel.cost", CostFormat.Line(content, loc, def.MergeCost)),
+            TextColor = Color.LightGray,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        });
+
+        if (result == PlacementResult.Ok)
+        {
+            stack.Widgets.Add(UiFactory.IconButton(
+                _screens.Sprites.Get("icon.merge"),
+                loc.Format("building.merge", loc[target.NameKey]),
+                () =>
+                {
+                    _simulation.TryMerge(tileX, tileY);
+                    _screens.Pop();
+                }));
+            return stack;
+        }
+
+        stack.Widgets.Add(new Label
+        {
+            Text = loc[MergeProblemKey(result)],
+            TextColor = new Color(235, 170, 110),
+            HorizontalAlignment = HorizontalAlignment.Center,
+        });
+        return stack;
+    }
+
+    /// <summary>Proč vylepšení nejde — každý důvod má vlastní větu.</summary>
+    private static string UpgradeProblemKey(PlacementResult result) => result switch
+    {
+        PlacementResult.NotEnoughResources => "building.upgradeNoResources",
+        PlacementResult.NotUnlocked => "building.upgradeLocked",
+        _ => "building.upgradeUnavailable",
+    };
+
+    /// <summary>Proč sloučení nejde — každý důvod má vlastní větu, ne jedno „nelze".</summary>
+    private static string MergeProblemKey(PlacementResult result) => result switch
+    {
+        PlacementResult.NotEnoughResources => "building.mergeNoResources",
+        PlacementResult.NotUnlocked => "building.mergeLocked",
+        _ => "building.mergeNoBlock",
+    };
+
     private Widget UpgradeSection(int defIndex)
     {
         var loc = _screens.Loc;
@@ -231,26 +326,30 @@ public sealed class BuildingInfoScreen : IScreen
             HorizontalAlignment = HorizontalAlignment.Center,
         });
 
-        var button = new Button
+        // Když to nejde, řekne se PROČ. Zašedlé tlačítko bez vysvětlení nechá
+        // hráče hádat, jestli mu chybí suroviny, nebo výzkum.
+        var upgradeResult = _simulation.CanUpgrade(_buildingIndex);
+        if (upgradeResult != PlacementResult.Ok)
         {
-            Content = new Label
+            section.Widgets.Add(new Label
             {
-                Text = loc.Format("building.upgrade", loc[next.NameKey]),
+                Text = loc[UpgradeProblemKey(upgradeResult)],
+                TextColor = new Color(235, 170, 110),
                 HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-            },
-            Padding = new Thickness(16, 6),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Background = new SolidBrush(new Color(48, 92, 72, 235)),
-            Enabled = _simulation.CanUpgrade(_buildingIndex) == PlacementResult.Ok,
-        };
-        button.Click += (_, _) =>
-        {
-            if (_simulation.TryUpgradeBuilding(_buildingIndex) == PlacementResult.Ok)
+            });
+            return section;
+        }
+
+        var button = UiFactory.IconButton(
+            _screens.Sprites.Get("icon.upgrade"),
+            loc.Format("building.upgrade", loc[next.NameKey]),
+            () =>
             {
-                BuildUi(); // budova je teď o úroveň výš — ukázat nový stav
-            }
-        };
+                if (_simulation.TryUpgradeBuilding(_buildingIndex) == PlacementResult.Ok)
+                {
+                    BuildUi(); // budova je teď o úroveň výš — ukázat nový stav
+                }
+            });
         section.Widgets.Add(button);
         return section;
     }

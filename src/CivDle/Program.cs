@@ -20,7 +20,10 @@ try
         capsuleDirectory = args[capsuleFlag + 1];
     }
 
-    using var game = new CivDleGame(captureDirectory, capsuleDirectory);
+    bool smoke = args.Contains("--smoke");
+    bool perf = args.Contains("--perf");
+
+    using var game = new CivDleGame(captureDirectory, capsuleDirectory, smoke, perf);
     game.Run();
     return 0;
 }

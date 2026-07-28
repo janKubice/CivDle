@@ -1043,7 +1043,26 @@ public sealed class ContentLoader
                 throw new ContentLoadException(path, $"Biom '{id}': 'clickYield.amount' musí být 1–1000, je {dto.ClickYield.Amount}.");
             }
 
-            clickYield = new ClickYield(resourceIndex, dto.ClickYield.Amount);
+            if (dto.ClickYield.Charges is < 0 or > 10_000)
+            {
+                throw new ContentLoadException(path, $"Biom '{id}': 'clickYield.charges' musí být 0–10000, je {dto.ClickYield.Charges}.");
+            }
+
+            if (dto.ClickYield.RegrowSeconds is < 0 or > 100_000)
+            {
+                throw new ContentLoadException(path, $"Biom '{id}': 'clickYield.regrowSeconds' musí být 0–100000.");
+            }
+
+            // Dorůstání bez vyčerpatelnosti nedává smysl — uzel, který nezmizí,
+            // nemá co dorůstat. Tichá past v datech, ne drobnost.
+            if (dto.ClickYield.RegrowSeconds > 0 && dto.ClickYield.Charges <= 0)
+            {
+                throw new ContentLoadException(path,
+                    $"Biom '{id}': 'clickYield.regrowSeconds' bez 'charges' — uzel se nevyčerpá, tak nemá co dorůstat.");
+            }
+
+            clickYield = new ClickYield(
+                resourceIndex, dto.ClickYield.Amount, dto.ClickYield.Charges, dto.ClickYield.RegrowSeconds);
         }
 
         // Výchozí 1.0 = neutrální biom. Rozsah drží identitu biomů v rozumných mezích
@@ -1324,11 +1343,16 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"Budova '{id}': 'serviceValue' musí být 0–1000000, je {dto.ServiceValue}.");
         }
 
+        var pollution = ParseBuildingPollution(path, id, dto.Pollution);
+
+        // Údržba musí mít protihodnotu. Legitimní jsou dvě: budova obsluhuje lidi
+        // (serviceValue), nebo čistí okolí — čističku taky nemá smysl stavět a pak
+        // na ni zapomenout. Údržba bez obojího je jen daň za nic.
         var upkeep = ParseResourceAmounts(path, id, "upkeep", dto.Upkeep, resources);
-        if (upkeep.Count > 0 && dto.ServiceValue <= 0)
+        if (upkeep.Count > 0 && dto.ServiceValue <= 0 && pollution?.IsCleaner != true)
         {
             throw new ContentLoadException(path,
-                $"Budova '{id}' má 'upkeep', ale nulový 'serviceValue' — platila by se údržba za nic.");
+                $"Budova '{id}' má 'upkeep', ale nulový 'serviceValue' a nic nečistí — platila by se údržba za nic.");
         }
 
         // Sloučení bloku 2×2: cíl se řeší přes ID → index stejně jako vylepšení.
@@ -1353,6 +1377,20 @@ public sealed class ContentLoader
 
         var adjacency = ParseAdjacency(path, id, dto.Adjacency, recipe, biomes);
 
+        if (dto.TerrainHarvestRadius is < 0 or > 32)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': 'terrainHarvestRadius' musí být 0–32, je {dto.TerrainHarvestRadius}.");
+        }
+
+        // Těžit z krajiny může jen budova, která něco vyrábí bez dovezených vstupů.
+        // Jinak by data slibovala mechaniku, která se nemá čeho chytit.
+        if (dto.TerrainHarvestRadius > 0 && recipe is null)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}' má 'terrainHarvestRadius', ale nic nevyrábí — nemá co z krajiny brát.");
+        }
+
         // Doba stavby: strop je tu proto, aby překlep v datech neudělal budovu,
         // která se staví déle, než kdo kdy bude hrát.
         if (dto.BuildTicks is < 0 or > 1_000_000)
@@ -1365,7 +1403,40 @@ public sealed class ContentLoader
             dto.WorkerSlots, dto.HousingCapacity, buildCost, recipe, mask,
             storageBonus, dto.AutoBuild, dto.Buildable ?? true, upgradesToIndex, upgradeCost,
             dto.PowerSupply, dto.PowerDemand, dto.RequiresAdjacentWater,
-            dto.ServiceValue, upkeep, mergesToIndex, mergeCost, adjacency, dto.BuildTicks);
+            dto.ServiceValue, upkeep, mergesToIndex, mergeCost, adjacency, dto.BuildTicks,
+            dto.TerrainHarvestRadius, pollution);
+    }
+
+    /// <summary>
+    /// Dopad budovy na okolí. Blok je volitelný (drtivá většina budov okolí neřeší),
+    /// ale když v datech je, musí něco dělat — prázdný slib je tichá chyba obsahu.
+    /// </summary>
+    private static PollutionOutput? ParseBuildingPollution(string path, string id, BuildingPollutionDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        var output = new PollutionOutput(dto.Air, dto.Water, dto.Soil);
+        if (output.IsNeutral)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}' má blok 'pollution', ale samé nuly — buď ho vyplň, nebo smaž.");
+        }
+
+        // Strop je proti překlepu v datech: budova, která za sekundu vyrobí tisíc
+        // jednotek špíny, by mapu zamořila dřív, než ji hráč stihne uvidět.
+        foreach (double value in new[] { dto.Air, dto.Water, dto.Soil })
+        {
+            if (Math.Abs(value) > 100)
+            {
+                throw new ContentLoadException(path,
+                    $"Budova '{id}': hodnoty v 'pollution' musí být v rozsahu −100 až 100, je {value}.");
+            }
+        }
+
+        return output;
     }
 
     /// <summary>
@@ -1982,7 +2053,66 @@ public sealed class ContentLoader
             ParseStaffing(path, file.Staffing),
             ParseHaul(path, file.Haul),
             ParseTools(path, file.Tools, resources),
-            ParseCombo(path, file.Combo));
+            ParseCombo(path, file.Combo),
+            ParsePollution(path, file.Pollution));
+    }
+
+    /// <summary>
+    /// Nastavení znečištění. Chybí-li blok, je vrstva vypnutá a krajina se chová
+    /// jako dřív — nic se nekazí a čističky nemají co dělat.
+    /// </summary>
+    private static PollutionConfig? ParsePollution(string path, PollutionDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (dto.IntervalTicks is < 1 or > 100_000)
+        {
+            throw new ContentLoadException(path,
+                $"'pollution.intervalTicks' musí být 1–100000, je {dto.IntervalTicks}.");
+        }
+
+        // Rozliv nad 1 by z buňky odsál víc, než v ní je — hodnoty by se rozešly
+        // do záporu a mechanika by tiše přestala dávat smysl.
+        if (dto.SpreadRate is < 0 or > 1)
+        {
+            throw new ContentLoadException(path, $"'pollution.spreadRate' musí být 0–1, je {dto.SpreadRate}.");
+        }
+
+        if (dto.DecayRate is < 0 or > 1)
+        {
+            throw new ContentLoadException(path, $"'pollution.decayRate' musí být 0–1, je {dto.DecayRate}.");
+        }
+
+        if (dto.FullEffectAt <= 0)
+        {
+            throw new ContentLoadException(path,
+                $"'pollution.fullEffectAt' musí být větší než 0, je {dto.FullEffectAt}.");
+        }
+
+        if (dto.HappinessPenalty is < 0 or > 1)
+        {
+            throw new ContentLoadException(path,
+                $"'pollution.happinessPenalty' musí být 0–1, je {dto.HappinessPenalty}.");
+        }
+
+        // Plný trest 1.0 by zamořenou budovu úplně zastavil. Znečištění má brzdit,
+        // ne zabíjet — jinak by hráč přišel o výrobu dřív, než stihne postavit čističku.
+        if (dto.ProductionPenalty is < 0 or >= 1)
+        {
+            throw new ContentLoadException(path,
+                $"'pollution.productionPenalty' musí být 0 až <1, je {dto.ProductionPenalty}.");
+        }
+
+        return new PollutionConfig(
+            dto.IntervalTicks,
+            dto.SpreadRate,
+            dto.DecayRate,
+            dto.FullEffectAt,
+            dto.HappinessPenalty,
+            dto.ProductionPenalty);
     }
 
     /// <summary>

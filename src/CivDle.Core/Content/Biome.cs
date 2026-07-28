@@ -3,8 +3,27 @@ namespace CivDle.Core.Content;
 /// <summary>
 /// Výnos ručního kliknutí na dlaždici biomu („klik na strom → dřevo",
 /// mvp-roadmap.md fáze 1). Surovina jako index, ne string (hot path).
+///
+/// <para><b>Uzel se vytěží.</b> Do téhle chvíle byl každý strom nekonečný, takže
+/// hráč neměl důvod se hnout z místa. Teď má uzel omezený počet sběrů a po
+/// vytěžení chvíli dorůstá — z krajiny se tím stává něco, s čím se hospodaří:
+/// vyplatí se expandovat, ale i sázet háje a nechat les vydechnout.</para>
 /// </summary>
-public sealed record ClickYield(int ResourceIndex, int Amount);
+/// <param name="ResourceIndex">Kterou surovinu uzel dává.</param>
+/// <param name="Amount">Kolik dá jeden sběr.</param>
+/// <param name="Charges">Kolik sběrů uzel vydrží, než zmizí. 0 = nevyčerpatelný (staré chování).</param>
+/// <param name="RegrowSeconds">Za jak dlouho doroste. 0 = nedoroste nikdy (ložiska rud).</param>
+public sealed record ClickYield(int ResourceIndex, int Amount, int Charges = 0, double RegrowSeconds = 0)
+{
+    /// <summary>Dá se uzel vytěžit do zmizení?</summary>
+    public bool IsExhaustible => Charges > 0;
+
+    /// <summary>Vrátí se uzel po čase sám?</summary>
+    public bool IsRenewable => IsExhaustible && RegrowSeconds > 0;
+
+    /// <summary>Doba dorůstání v ticích simulace.</summary>
+    public long RegrowTicks => (long)Math.Round(RegrowSeconds * Sim.Simulation.TicksPerSecond);
+}
 
 /// <summary>
 /// Zvalidovaná definice biomu (typ, ne instance — viz data-driven-content.md).

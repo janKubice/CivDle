@@ -44,6 +44,15 @@ public struct BuildingInstance
     public float HaulMult;
 
     /// <summary>
+    /// Násobič výroby ze zamoření pod budovou (viz <c>PollutionSystem</c>). 1.0 =
+    /// čisto nebo budově na okolí nezáleží.
+    ///
+    /// <para>Cachuje se stejně jako <see cref="HaulMult"/>: znečištění je pomalá
+    /// veličina a v tikové smyčce výroby se do mřížky sahat nemá.</para>
+    /// </summary>
+    public float PollutionMult;
+
+    /// <summary>
     /// Kolik tiků zbývá do dokončení stavby. 0 = budova stojí a funguje.
     ///
     /// <para>Rozestavěná budova nevyrábí a nedává žádné bonusy (bydlení, pracovní
@@ -51,6 +60,18 @@ public struct BuildingInstance
     /// mění z drahého kliknutí na událost.</para>
     /// </summary>
     public int BuildTicksRemaining;
+
+    /// <summary>
+    /// Kam došla budova při těžbě okolí (pořadí dlaždice ve spirále kolem ní).
+    ///
+    /// <para>Bez tohohle by se při každém výrobním cyklu prohledávalo celé okolí
+    /// od začátku. Takhle se kurzor posune, teprve až dlaždice dojde — hledání
+    /// je proto amortizovaně konstantní i pro statisíce budov.</para>
+    /// </summary>
+    public int HarvestCursor;
+
+    /// <summary>Došly budově v dosahu zdroje? (Render i UI to hlásí hráči.)</summary>
+    public bool OutOfResources;
 
     /// <summary>Je budova hotová a v provozu?</summary>
     public readonly bool IsComplete => BuildTicksRemaining <= 0;

@@ -31,6 +31,7 @@ public sealed class Simulation
     private readonly HaulSystem _haulSystem;
     private readonly SeasonSystem _seasonSystem;
     private readonly ToolsSystem _toolsSystem;
+    private readonly PollutionSystem _pollutionSystem;
     private readonly ConstructionSystem _constructionSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
@@ -67,6 +68,8 @@ public sealed class Simulation
     private readonly bool[] _resourceKnown;   // surovina, kterou hráč už někdy získal (UI ji do té doby neukazuje)
     private readonly HashSet<long> _claimedDiscoveries = new(); // vyzvednuté skrýše na mapě
     private readonly Dictionary<long, ClickYield> _plantedNodes = new(); // hráčem zasazené obnovitelné zdroje
+    private readonly NodeLedger _nodes = new(); // co už se v krajině vytěžilo (jen dotčené dlaždice)
+    private readonly PollutionGrid _pollution = new(); // stopa průmyslu v krajině (hrubá mřížka)
     private readonly Dictionary<long, byte> _biomeOverrides = new(); // terraformované dlaždice (UFO)
     private readonly Queue<GameNotification> _notifications = new();
     private PrestigeBonuses _bonuses = PrestigeBonuses.None;
@@ -127,6 +130,7 @@ public sealed class Simulation
         _haulSystem = new HaulSystem(content);
         _seasonSystem = new SeasonSystem(content);
         _toolsSystem = new ToolsSystem(content);
+        _pollutionSystem = new PollutionSystem(content);
         _constructionSystem = new ConstructionSystem(content);
         _populationSystem = new PopulationSystem(content.Gameplay);
         _autoBuild = new AutoBuildSystem(content, seed);
@@ -256,6 +260,30 @@ public sealed class Simulation
                 : HappinessBreakdown.Perfect;
         }
     }
+
+    /// <summary>
+    /// Stopa průmyslu v krajině. Render i UI z ní čtou (zákal nad mapou, HUD);
+    /// zapisuje do ní jen <c>PollutionSystem</c>.
+    /// </summary>
+    public PollutionGrid PollutionMap => _pollution;
+
+    /// <summary>
+    /// Kolik je kouře přímo nad městem. Právě tohle číslo cítí obyvatelé — ne
+    /// průměr přes celou mapu, který by vzdálený důl rozmělnil do bezvýznamnosti.
+    /// </summary>
+    public double AirPollutionOverCity => _pollution.At(CityCenterX, CityCenterY, PollutionKind.Air);
+
+    /// <summary>Nejhorší naměřená hodnota daného druhu kdekoli na mapě (HUD, varování).</summary>
+    public double PollutionPeak(PollutionKind kind) => _pollution.Peak(kind);
+
+    /// <summary>
+    /// Jak zle je na tom město se vzduchem (0 = čisto, 1 = plný dopad). UI z toho
+    /// dělá barvu i sílu zákalu, takže nemusí znát čísla z konfigurace.
+    /// </summary>
+    public double AirPollutionSeverity => _content.Gameplay.Pollution.Severity(AirPollutionOverCity);
+
+    /// <summary>Je vrstva znečištění v datech vůbec zapnutá? (UI podle toho skrývá readout.)</summary>
+    public bool PollutionEnabled => _content.Gameplay.Pollution.IsEnabled;
 
     /// <summary>Násobič výroby jídla od ročního období (1.0 bez období).</summary>
     public double SeasonFoodMult => CurrentSeason?.FoodProductionMult ?? 1.0;
@@ -1012,6 +1040,7 @@ public sealed class Simulation
         _constructionSystem.Tick(this); // staveniště napřed: co se dnes dostavělo, dnes i vyrábí
         _production.Tick(this);
         _toolsSystem.Tick(this); // až po výrobě: ohladí se to, čím se právě pracovalo
+        _pollutionSystem.Tick(this); // taky po výrobě: dýmá to, co dnes běželo
         _haulSystem.Tick(this);
         _populationSystem.Tick(this);
         _autoBuild.Tick(this);
@@ -1229,18 +1258,7 @@ public sealed class Simulation
         }
 
         // Přednost: zasazený uzel → landmark (stádo, háj, žíla) → přírodní výnos biomu.
-        ClickYield? yield;
-        if (_plantedNodes.TryGetValue(tile, out var planted))
-        {
-            yield = planted;
-        }
-        else
-        {
-            int landmark = LandmarkAt(x, y);
-            yield = landmark >= 0 && _content.Landmarks[landmark].IsHarvestable
-                ? _content.Landmarks[landmark].ClickYield
-                : _content.Biomes[Terrain.BiomeAt(x, y)].ClickYield;
-        }
+        var yield = YieldAt(x, y);
         if (yield is null)
         {
             return false;
@@ -1275,6 +1293,14 @@ public sealed class Simulation
 
         // Plný sklad = žádný sběr (a žádný lživý popup v UI).
         if (_resources[yield.ResourceIndex] + gained > _storageCaps[yield.ResourceIndex])
+        {
+            outcome = HarvestOutcome.Normal;
+            return false;
+        }
+
+        // Uzel se sběrem ubývá. Až TADY, po všech důvodech, proč se sběr nekoná —
+        // jinak by hráč přišel o strom za kliknutí, které mu nic nedalo.
+        if (!_nodes.TryConsume(x, y, yield, TickCount))
         {
             outcome = HarvestOutcome.Normal;
             return false;
@@ -1390,7 +1416,74 @@ public sealed class Simulation
         }
 
         _plantedNodes[TileKey.Pack(x, y)] = new ClickYield(planting.ResourceIndex, planting.Amount);
+        _nodes.Restore(x, y); // zasazený háj stojí na plném uzlu, i když se tu předtím těžilo
         return PlacementResult.Ok;
+    }
+
+    /// <summary>
+    /// Kolik sběrů dlaždici ještě zbývá (0 = vytěženo a zatím nedorostlo).
+    /// Render podle toho kreslí plný strom, nakousnutý, nebo pařez.
+    /// </summary>
+    public int NodeChargesLeft(int x, int y)
+    {
+        var yield = YieldAt(x, y);
+        return yield is null ? 0 : _nodes.ChargesLeft(x, y, yield, TickCount);
+    }
+
+    /// <summary>Kolik sběrů uzel na dlaždici pojme, když je plný.</summary>
+    public int NodeMaxCharges(int x, int y) => YieldAt(x, y)?.Charges ?? 0;
+
+    /// <summary>Co dlaždice dává ručnímu sběru — zasazený uzel, landmark, nebo biom.</summary>
+    private ClickYield? YieldAt(int x, int y)
+    {
+        if (_plantedNodes.TryGetValue(TileKey.Pack(x, y), out var planted))
+        {
+            return planted;
+        }
+
+        int landmark = LandmarkAt(x, y);
+        return landmark >= 0 && _content.Landmarks[landmark].IsHarvestable
+            ? _content.Landmarks[landmark].ClickYield
+            : _content.Biomes[Terrain.BiomeAt(x, y)].ClickYield;
+    }
+
+    /// <summary>Evidence vytěžených dlaždic — pro sav a testy.</summary>
+    public NodeLedger Nodes => _nodes;
+
+    /// <summary>
+    /// Budova si vezme z okolí jednu dávku suroviny. Vrací false, když v dosahu
+    /// není co brát — výrobna pak stojí, dokud něco nedoroste (nebo dokud ji hráč
+    /// nepřesune či nezasadí nový háj).
+    ///
+    /// <para>Prochází se spirálou od budovy ven a pozice se drží na instanci, takže
+    /// se okolí neprohledává znovu od nuly při každém cyklu. Kurzor se posune,
+    /// teprve když dlaždice dojde.</para>
+    /// </summary>
+    internal bool TryConsumeTerrain(ref BuildingInstance building, BuildingDef def)
+    {
+        int radius = def.TerrainHarvestRadius;
+        int side = radius * 2 + 1;
+        int tiles = side * side;
+
+        for (int step = 0; step < tiles; step++)
+        {
+            int index = (building.HarvestCursor + step) % tiles;
+            int tx = building.X + index % side - radius;
+            int ty = building.Y + index / side - radius;
+
+            var yield = YieldAt(tx, ty);
+            if (yield is null || !_nodes.TryConsume(tx, ty, yield, TickCount))
+            {
+                continue;
+            }
+
+            building.HarvestCursor = index;
+            building.OutOfResources = false;
+            return true;
+        }
+
+        building.OutOfResources = true;
+        return false;
     }
 
     /// <summary>Je na dlaždici zasazený uzel? (pro render.)</summary>
@@ -2810,6 +2903,7 @@ public sealed class Simulation
         building.BiomeMult = (float)_content.Biomes[Terrain.BiomeAt(x, y)].Production;
         building.AdjacencyMult = (float)AdjacencyMultiplier(def, x, y);
         building.HaulMult = (float)_haulSystem.MultiplierAt(x, y);
+        building.PollutionMult = (float)_pollutionSystem.MultiplierAt(this, building.DefIndex, x, y);
         if (def.StorageBonus.Count > 0)
         {
             HaulDirty = true; // přesunutý sklad mění svoz na obou koncích
@@ -2997,6 +3091,9 @@ public sealed class Simulation
             BiomeMult = (float)_content.Biomes[Terrain.BiomeAt(x, y)].Production,
             AdjacencyMult = (float)AdjacencyMultiplier(def, x, y),
             HaulMult = (float)_haulSystem.MultiplierAt(x, y),
+            // Čistá 1.0, ne 0 — jinak by nová budova nevyráběla nic, dokud kolem ní
+            // poprvé neproběhne pomalý přepočet znečištění.
+            PollutionMult = (float)_pollutionSystem.MultiplierAt(this, defIndex, x, y),
             BuildTicksRemaining = asConstructionSite ? def.BuildTicks : 0,
         };
         _buildingCount++;
@@ -3243,6 +3340,8 @@ public sealed class Simulation
         _roadTiles.Clear();
         _settlements.Clear();
         _zones.Clear(); // zóny řídí přestavbu — po Vzestupu (nové měřítko) začínáš nanovo
+        _nodes.Clear(); // nový svět má nedotčenou krajinu, ne vytěžené paseky po předchůdcích
+        _pollution.Clear(); // ani smog po továrnách, které v novém měřítku ještě nestojí
         _buildingCount = 0;
 
         Array.Clear(_techResearched);

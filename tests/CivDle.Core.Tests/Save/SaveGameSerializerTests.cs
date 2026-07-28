@@ -167,6 +167,23 @@ public class SaveGameSerializerTests
     }
 
     [Fact]
+    public void RoundTrip_PreservesPollution()
+    {
+        // Zamoření je stav světa, ne odvozená veličina — kdyby se neukládalo,
+        // stačilo by hru vypnout a zapnout, aby byl smog pryč.
+        var (content, original) = PlayedGame();
+        original.PollutionMap.Emit(12, 34, PollutionKind.Air, 7.5);
+        original.PollutionMap.Emit(12, 34, PollutionKind.Soil, 2.25);
+
+        using var stream = Saved(original, Metadata);
+        var (loaded, _) = new SaveGameSerializer().Read(stream, content);
+
+        Assert.Equal(7.5, loaded.PollutionMap.At(12, 34, PollutionKind.Air), 6);
+        Assert.Equal(2.25, loaded.PollutionMap.At(12, 34, PollutionKind.Soil), 6);
+        Assert.Equal(0, loaded.PollutionMap.At(12, 34, PollutionKind.Water));
+    }
+
+    [Fact]
     public void Load_RemapsResourceIdsWhenContentIsReordered()
     {
         // Obsah A: [wood, planks]; obsah B má stejná ID v opačném pořadí.

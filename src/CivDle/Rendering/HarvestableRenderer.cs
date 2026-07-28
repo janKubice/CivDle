@@ -18,7 +18,6 @@ public sealed class HarvestableRenderer
     private const int ClicksToFell = 4;
     private const float FallSeconds = 0.5f;
     private const float RegrowSeconds = 6f;
-    private const float MinZoom = 0.5f;
 
     private sealed class ChopState
     {
@@ -116,7 +115,7 @@ public sealed class HarvestableRenderer
 
     public void Draw(SpriteBatch spriteBatch, Camera2D camera, Simulation simulation)
     {
-        if (camera.Zoom < MinZoom)
+        if (camera.Zoom < DetailLevel.Harvestables)
         {
             return;
         }
@@ -127,6 +126,10 @@ public sealed class HarvestableRenderer
         int startY = (int)MathF.Floor(min.Y / tileSize);
         int endX = (int)MathF.Ceiling(max.X / tileSize);
         int endY = (int)MathF.Ceiling(max.Y / tileSize);
+        if (!DetailLevel.FitsBudget(startX, startY, endX, endY))
+        {
+            return;
+        }
 
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
         for (int y = startY; y <= endY; y++)
@@ -144,19 +147,30 @@ public sealed class HarvestableRenderer
                     continue;
                 }
 
-                DrawNode(spriteBatch, x, y, spriteKey);
+                // Vytěžená dlaždice je prázdná, dokud nedoroste — a čím míň
+                // v uzlu zbývá, tím je menší. Hráč tak vidí, kde už bral,
+                // a nemusí to zkoušet naslepo.
+                int charges = simulation.NodeChargesLeft(x, y);
+                if (charges == 0)
+                {
+                    continue;
+                }
+
+                int capacity = simulation.NodeMaxCharges(x, y);
+                float fullness = capacity > 0 ? Math.Clamp(charges / (float)capacity, 0.45f, 1f) : 1f;
+                DrawNode(spriteBatch, x, y, spriteKey, fullness);
             }
         }
 
         spriteBatch.End();
     }
 
-    private void DrawNode(SpriteBatch spriteBatch, int tileX, int tileY, string spriteKey)
+    private void DrawNode(SpriteBatch spriteBatch, int tileX, int tileY, string spriteKey, float fullness)
     {
         const int tileSize = TerrainRenderer.TileSize;
         // Jemný jitter velikosti/pozice per dlaždice, ať to není mřížka.
         ulong h = Hash(tileX, tileY);
-        float sizeJitter = 0.82f + (h & 0xFF) / 255f * 0.36f;
+        float sizeJitter = (0.82f + (h & 0xFF) / 255f * 0.36f) * fullness;
         int drawSize = (int)(tileSize * sizeJitter) + 2;
         int offsetX = (int)((h >> 8) % 5) - 2;
 

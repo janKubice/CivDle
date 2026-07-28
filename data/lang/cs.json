@@ -1070,6 +1070,27 @@
     "toast.storageFull": "Sklad je plný: {0} se vyrábí do prázdna",
     "hud.combo": "×{0}",
     "hud.happinessParts": "Základ {0} · služby {1} · přelidnění {2}",
-    "hud.happinessGovernment": " · vláda {0}"
+    "hud.happinessGovernment": " · vláda {0}",
+    "building.merge": "Sloučit na {0}",
+    "building.mergeNoBlock": "Sloučit jde jen blok 2×2 stejných budov",
+    "building.mergeNoResources": "Na sloučení chybí suroviny",
+    "building.mergeLocked": "Cíl sloučení ještě není vyzkoumaný",
+    "building.upgradeNoResources": "Na vylepšení chybí suroviny",
+    "building.upgradeLocked": "Vylepšení ještě není vyzkoumané",
+    "building.upgradeUnavailable": "Vylepšit teď nejde",
+    "hud.mergeHint": "Zvýrazněné bloky jdou sloučit",
+    "building.air_scrubber": "Čistička vzduchu",
+    "building.water_treatment": "Čistička vod",
+    "building.soil_remediation": "Sanace půdy",
+    "tech.environmental_engineering": "Ekologické inženýrství",
+    "tech.environmental_engineering.desc": "Odemkne čističku vzduchu a čističku vod.",
+    "tech.land_reclamation": "Rekultivace krajiny",
+    "tech.land_reclamation.desc": "Odemkne sanaci půdy — otrávenou zem jde vrátit do pořádku.",
+    "hud.pollution": "Znečištění {0} %",
+    "hud.happinessPollution": " · smog {0}",
+    "tip.pollution": "Kolik je kouře přímo nad městem. Průmysl špiní vzduch, vodu i půdu; čističky to berou zpátky, ale stojí údržbu. Postav těžký průmysl dál od domů — smog se sice roznese, ale řídne s dálkou.",
+    "building.pollutionPenalty": "Zamořené okolí: výroba {0}",
+    "building.pollutesArea": "Špiní okolí",
+    "building.cleansArea": "Čistí okolí (dokud má na údržbu)"
   }
 }
