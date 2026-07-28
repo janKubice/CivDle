@@ -857,22 +857,25 @@ public sealed class GameplayScreen : IScreen
         var loc = _screens.Loc;
         while (_simulation.TryDequeueNotification(out var note))
         {
-            string text = $"{loc[note.TitleKey]}: {loc[note.SubjectKey]}";
-            _toasts.Add(text, NotificationColor(note.Kind));
-            _sounds.PlayChime(); // dobrá zpráva → příjemné cinknutí
+            string subject = note.HasSubjectArg ? loc.Format(note.SubjectKey, note.SubjectArg) : loc[note.SubjectKey];
+            if (!_captureMode)
+            {
+                _toasts.Add($"{loc[note.TitleKey]}: {subject}", NotificationColor(note.Kind));
+                _sounds.PlayChime(); // dobrá zpráva → příjemné cinknutí
+            }
 
             // Milník a Vzestup dostanou navíc oslavu přes obrazovku. Tisící
             // obyvatel se nemá ztratit v rohu vedle „sklad je plný".
-            if (note.Kind is NotificationKind.Milestone or NotificationKind.Ascended)
+            if (!_captureMode && note.Kind is NotificationKind.Milestone or NotificationKind.Ascended)
             {
-                _celebration.Show(loc[note.SubjectKey], NotificationColor(note.Kind));
+                _celebration.Show(subject, NotificationColor(note.Kind));
             }
 
             // Div světa se stavěl minuty — dokončení nesmí skončit jako řádek
             // v rohu vedle „sklad je plný".
-            if (note.TitleKey == "toast.wonderDone")
+            if (!_captureMode && note.TitleKey == "toast.wonderDone")
             {
-                _celebration.Show(loc[note.SubjectKey], new Color(240, 200, 90));
+                _celebration.Show(subject, new Color(240, 200, 90));
             }
 
             // Splněný úkol / Vzestup mění seznam aktivních cílů — přestav sledovač.
@@ -1025,6 +1028,11 @@ public sealed class GameplayScreen : IScreen
             }
 
             _fullStorageCooldown[i] = FullStorageCooldownSeconds;
+            if (_captureMode)
+            {
+                continue;
+            }
+
             _toasts.Add(
                 _screens.Loc.Format("toast.storageFull", _screens.Loc[_screens.Content.Resources[i].NameKey]),
                 new Color(230, 200, 120));
@@ -2006,6 +2014,38 @@ public sealed class GameplayScreen : IScreen
             _statusLabel.TextColor = Color.White;
         }
     }
+
+    /// <summary>
+    /// Postaví kameru pro režim focení do obchodu (<c>--capture</c>). Existuje
+    /// proto, aby snímky procházely skutečným renderem hry — vyfotit jde jen to,
+    /// na co se dá namířit.
+    /// </summary>
+    internal void FocusForCapture(Vector2 world, float zoom)
+    {
+        _camera.SetViewport(_screens.GraphicsDevice.Viewport.Width, _screens.GraphicsDevice.Viewport.Height);
+        _camera.CenterOn(world, zoom);
+
+        // Uvítací okna (denní odměna, souhrn offline) patří hráči, ne fotografovi —
+        // na snímku by jen zakryly město.
+        _pendingIntros.Clear();
+
+        // Hromada toastů z rychle nasimulovaného města taky ne: hráč je vidí po
+        // jednom, jak přicházejí, ne jako zeď přes půl obrazovky.
+        while (_simulation.TryDequeueNotification(out _))
+        {
+        }
+
+        _toasts.Clear();
+        _objectives.MarkDirty();
+        _captureMode = true;
+    }
+
+    /// <summary>
+    /// Focení do obchodu: oznámení se zpracují (achievementy se zapíšou), ale
+    /// toasty a oslavy se nekreslí. Zrychlená simulace jich vyrobí desítky naráz
+    /// a na snímku by z nich byla zeď přes půl obrazovky.
+    /// </summary>
+    private bool _captureMode;
 
     /// <summary>
     /// Živé dopady místa pod kurzorem („+18 % za okolí", „svoz 60 %"). Bez tohohle

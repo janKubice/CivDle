@@ -1,3 +1,4 @@
+using CivDle.Capture;
 using CivDle.Core.Config;
 using CivDle.Core.Content;
 using CivDle.Core.Save;
@@ -20,13 +21,29 @@ public sealed class CivDleGame : Game
 {
     private static readonly Color BackgroundColor = new(24, 26, 32);
 
+    /// <summary>Rozlišení snímků do obchodu — Steam chce 1920×1080.</summary>
+    private const int CaptureWidth = 1920;
+    private const int CaptureHeight = 1080;
+
     private readonly GraphicsDeviceManager _graphics;
     private readonly SettingsStore _settingsStore;
     private readonly ProfileStore _profileStore;
+    private readonly CaptureDirector? _capture;
+    private readonly string? _capsuleDirectory;
     private ScreenManager? _screens;
 
-    public CivDleGame()
+    /// <param name="captureDirectory">
+    /// Není-li null, hra se místo menu spustí v režimu focení do obchodu: sama si
+    /// vypěstuje město, uloží sadu snímků do téhle složky a skončí.
+    /// </param>
+    /// <param name="capsuleDirectory">
+    /// Není-li null, hra místo menu vyrobí obrázky do obchodu (header, library,
+    /// ikonu) a skončí.
+    /// </param>
+    public CivDleGame(string? captureDirectory = null, string? capsuleDirectory = null)
     {
+        _capture = captureDirectory is null ? null : new CaptureDirector(captureDirectory);
+        _capsuleDirectory = capsuleDirectory;
         _settingsStore = new SettingsStore(GetSettingsPath());
         Settings = _settingsStore.Load();
         _profileStore = new ProfileStore(GetProfilePath());
@@ -82,10 +99,30 @@ public sealed class CivDleGame : Game
 
         // Data leží vedle binárky — funguje pro `dotnet run` i pro publish jedním exe.
         var content = new ContentLoader().LoadFrom(Path.Combine(AppContext.BaseDirectory, "data"));
-        var localization = new Localization(content.Languages, Settings.Language);
+        // Obchod je anglicky: snímky do Steamu musí být v jazyce, kterému rozumí
+        // každý, kdo si stránku otevře — ne v tom, který má vývojář nastavený.
+        bool storeMode = _capture is not null || _capsuleDirectory is not null;
+        var localization = new Localization(content.Languages, storeMode ? "en" : Settings.Language);
         var saves = new SaveStore(Path.Combine(GetProfileDirectory(), "saves", "save.civdle"));
 
-        _screens = new ScreenManager(this, content, localization, saves);
+        var screens = new ScreenManager(this, content, localization, saves);
+        if (_capsuleDirectory is not null)
+        {
+            var scene = CityFixture.Grow(content, seed: 20260728, minutes: 14);
+            CityFixture.TickUntilPostcardMoment(scene, content, from: 0.40, to: 0.58);
+            new CapsuleDirector(_capsuleDirectory).RenderAll(screens, scene);
+            Exit();
+            return; // _screens zůstává null — Update ani Draw už nemají co dělat
+        }
+
+        _screens = screens;
+
+        if (_capture is not null)
+        {
+            _screens.ReplaceAll(_capture.PrepareNextShot(_screens));
+            return;
+        }
+
         _screens.ReplaceAll(new MainMenuScreen(_screens));
     }
 
@@ -98,25 +135,55 @@ public sealed class CivDleGame : Game
 
     protected override void Update(GameTime gameTime)
     {
-        _screens!.Update(gameTime);
+        if (_screens is null)
+        {
+            return; // režim kapslí: hotovo v LoadContent, hra se zavírá
+        }
+
+        _screens.Update(gameTime);
         base.Update(gameTime);
     }
 
     protected override void Draw(GameTime gameTime)
     {
         GraphicsDevice.Clear(BackgroundColor);
-        _screens!.Draw(gameTime);
+        if (_screens is null)
+        {
+            return;
+        }
+
+        _screens.Draw(gameTime);
         base.Draw(gameTime);
+
+        if (_capture is null)
+        {
+            return;
+        }
+
+        // Snímek se čte až po vykreslení celého rámce — jinak by v něm chyběl HUD.
+        if (_capture.AfterDraw(GraphicsDevice))
+        {
+            if (_capture.Finished)
+            {
+                Exit();
+                return;
+            }
+
+            _screens.ReplaceAll(_capture.PrepareNextShot(_screens));
+        }
     }
 
     private void ApplyGraphicsToManager(GameSettings settings)
     {
-        _graphics.PreferredBackBufferWidth = settings.ResolutionWidth;
-        _graphics.PreferredBackBufferHeight = settings.ResolutionHeight;
+        // Focení do obchodu má pevné rozlišení: Steam chce 1920×1080 a snímky
+        // nesmí záviset na tom, jak měl kdo naposled nastavené okno.
+        bool capturing = _capture is not null || _capsuleDirectory is not null;
+        _graphics.PreferredBackBufferWidth = capturing ? CaptureWidth : settings.ResolutionWidth;
+        _graphics.PreferredBackBufferHeight = capturing ? CaptureHeight : settings.ResolutionHeight;
         _graphics.SynchronizeWithVerticalRetrace = settings.VSync;
         // Borderless = fullscreen bez přepnutí režimu monitoru (rychlé Alt-Tab).
         _graphics.HardwareModeSwitch = settings.WindowMode == WindowMode.Fullscreen;
-        _graphics.IsFullScreen = settings.WindowMode != WindowMode.Windowed;
+        _graphics.IsFullScreen = !capturing && settings.WindowMode != WindowMode.Windowed;
         // Hlasitost je globální přes MonoGame — jeden zdroj pravdy pro všechny zvuky.
         SoundEffect.MasterVolume = settings.MasterVolume;
     }

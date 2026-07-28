@@ -42,6 +42,9 @@ public sealed class ToastRenderer
         _toasts.Insert(0, new Toast { Text = text, Accent = accent });
     }
 
+    /// <summary>Zahodí všechny běžící toasty najednou (režim focení do obchodu).</summary>
+    public void Clear() => _toasts.Clear();
+
     public void Update(float dt)
     {
         _expired.Clear();
