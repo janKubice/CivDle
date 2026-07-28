@@ -54,7 +54,16 @@ public sealed record BuildingDto(
     int ServiceValue,
     Dictionary<string, int>? Upkeep,
     string? MergesTo,
-    Dictionary<string, int>? MergeCost);
+    Dictionary<string, int>? MergeCost,
+    AdjacencyDto? Adjacency,
+    int BuildTicks);
+
+/// <summary>Pravidlo bonusu za okolí budovy tak, jak leží v JSON.</summary>
+public sealed record AdjacencyDto(
+    string[]? Biomes,
+    int Radius,
+    double PerTile,
+    double Max);
 
 /// <summary>Výrobní recept budovy tak, jak leží v JSON.</summary>
 public sealed record RecipeDto(
@@ -79,10 +88,45 @@ public sealed record GameplayFileDto(
     DailyRewardDto? DailyReward,
     PlantingDto? Planting,
     HappinessDto? Happiness,
-    StaffingDto? Staffing);
+    StaffingDto? Staffing,
+    HaulDto? Haul,
+    ToolsDto? Tools,
+    ComboDto? Combo);
 
 /// <summary>Přidělování dělníků tak, jak leží v JSON.</summary>
 public sealed record StaffingDto(double ScarcityThreshold);
+
+/// <summary>Svoz zboží do skladu tak, jak leží v JSON.</summary>
+public sealed record HaulDto(int FreeDistance, int Range, double MinMultiplier);
+
+/// <summary>Klikací kombo tak, jak leží v JSON.</summary>
+public sealed record ComboDto(double WindowSeconds, double BonusPerStep, int MaxSteps);
+
+/// <summary>Nástroje jako živá surovina tak, jak leží v JSON.</summary>
+public sealed record ToolsDto(
+    string? Resource,
+    double PerPerson,
+    double WearPerWorkerPerSecond,
+    double ProductionBonus,
+    double HarvestBonus);
+
+/// <summary>Obsah souboru <c>data/seasons.json</c>.</summary>
+public sealed record SeasonsFileDto(
+    int SchemaVersion,
+    int DaysPerSeason,
+    string? FuelResource,
+    List<SeasonDto>? Seasons);
+
+/// <summary>Jedno roční období tak, jak leží v JSON.</summary>
+public sealed record SeasonDto(
+    string? Id,
+    string? TintColor,
+    double TintAlpha,
+    double FoodProductionMult,
+    double HarvestMult,
+    double GrowthMult,
+    double FuelPerPersonPerSecond,
+    double ColdGrowthMult);
 
 /// <summary>Nastavení spokojenosti tak, jak leží v JSON.</summary>
 public sealed record HappinessDto(
@@ -219,6 +263,12 @@ public sealed record TutorialStepDto(string? Id, GoalConditionDto? Condition, Fo
 
 /// <summary>Ukazatel „kam se podívat" tak, jak leží v JSON.</summary>
 public sealed record FocusHintDto(string? Kind, string? Building, string? Target);
+
+/// <summary>Obsah souboru <c>data/milestones.json</c> (oslavené okamžiky postupu).</summary>
+public sealed record MilestoneFileDto(int SchemaVersion, List<MilestoneDto>? Milestones);
+
+/// <summary>Jeden milník tak, jak leží v JSON.</summary>
+public sealed record MilestoneDto(string? Id, GoalConditionDto? Condition);
 
 /// <summary>Obsah souboru <c>data/elections.json</c> (volby na pozadí).</summary>
 public sealed record ElectionFileDto(int SchemaVersion, int TermDays, int BallotSize, List<ElectionCandidateDto>? Candidates);

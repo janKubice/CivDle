@@ -116,7 +116,57 @@ public sealed class BuildingInfoScreen : IScreen
             });
         }
 
-        layout.Widgets.Add(UpgradeSection(instance.DefIndex));
+        // Rozestavěný div: postup a zbývající čas. Dokud se staví, nemá smysl
+        // nabízet vylepšení ani mluvit o výrobě — ještě nic nedělá.
+        if (!instance.IsComplete)
+        {
+            double progress = _simulation.ConstructionProgress01(_buildingIndex);
+            layout.Widgets.Add(new Label
+            {
+                Text = loc.Format("building.underConstruction", (int)Math.Round(progress * 100)),
+                TextColor = new Color(240, 200, 90),
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+            layout.Widgets.Add(new Label
+            {
+                Text = loc.Format("building.buildTimeLeft", DurationFormat.FromTicks(instance.BuildTicksRemaining)),
+                TextColor = Color.LightGray,
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+        }
+
+        // Bonus za okolí konkrétní budovy — hráč po letech nepamatuje, proč tahle
+        // pila táhne a ta o kus dál ne. Ukazuje se, i když je nulový: „stojí špatně"
+        // je stejně užitečná informace jako „stojí dobře".
+        if (def.Adjacency is not null)
+        {
+            double bonus = instance.AdjacencyMult - 1f;
+            layout.Widgets.Add(new Label
+            {
+                Text = bonus > 0
+                    ? loc.Format("building.adjacencyGood", BuildingSummary.Percent(bonus))
+                    : loc["building.adjacencyNone"],
+                TextColor = bonus > 0 ? new Color(150, 220, 150) : new Color(200, 195, 180),
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+        }
+
+        // Svoz: proč tenhle důl v horách táhne na půl plynu. Ukazuje se jen tam,
+        // kde něco ubírá — u budov ve městě by to byl jen řádek navíc.
+        if (def.Recipe is not null && instance.HaulMult < 0.995f)
+        {
+            layout.Widgets.Add(new Label
+            {
+                Text = loc.Format("building.haulPenalty", BuildingSummary.Percent(instance.HaulMult)),
+                TextColor = new Color(235, 170, 110),
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+        }
+
+        if (instance.IsComplete)
+        {
+            layout.Widgets.Add(UpgradeSection(instance.DefIndex));
+        }
 
         // Agency: přesunout jinam nebo zbourat (vrátí půl ceny). Obojí se ODEMYKÁ —
         // na začátku hráč jen staví, zásahy do hotového města přijdou později.

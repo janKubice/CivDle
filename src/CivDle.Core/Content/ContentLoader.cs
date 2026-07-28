@@ -50,20 +50,154 @@ public sealed class ContentLoader
         var ufo = LoadUfo(Path.Combine(dataDirectory, "ufo.json"));
         var ambience = LoadAmbience(Path.Combine(dataDirectory, "ambience.json"), biomes, weather);
         var terraform = LoadTerraform(Path.Combine(dataDirectory, "terraform.json"), biomes, resources, techs);
+        var milestones = LoadMilestones(Path.Combine(dataDirectory, "milestones.json"), resources, buildings, techs);
         var elections = LoadElections(Path.Combine(dataDirectory, "elections.json"));
         var challenges = LoadChallenges(Path.Combine(dataDirectory, "challenges.json"), resources, buildings, techs);
+        var seasons = LoadSeasons(Path.Combine(dataDirectory, "seasons.json"), resources);
         var tutorial = LoadTutorial(Path.Combine(dataDirectory, "tutorial.json"), resources, buildings, techs);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, elections);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, elections, milestones, seasons);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, elections);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, elections, milestones, seasons);
+    }
+
+    // ----- roční období -----
+
+    /// <summary>
+    /// Načte kalendář ročních období. Volitelný soubor — bez něj hra běží
+    /// v jednom nekonečném létě jako dřív.
+    /// </summary>
+    private static SeasonCalendar LoadSeasons(string path, DefRegistry<Resource> resources)
+    {
+        if (!File.Exists(path))
+        {
+            return SeasonCalendar.Disabled;
+        }
+
+        var file = ReadFile<SeasonsFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Seasons ?? new List<SeasonDto>();
+        if (dtos.Count == 0)
+        {
+            return SeasonCalendar.Disabled;
+        }
+
+        if (file.DaysPerSeason <= 0)
+        {
+            throw new ContentLoadException(path, $"'daysPerSeason' musí být kladný, je {file.DaysPerSeason}.");
+        }
+
+        // Palivo je povinné, jen když se v některém období topí — jinak by data
+        // slibovala mechaniku, kterou nemají čím zaplatit.
+        int fuelIndex = -1;
+        if (!string.IsNullOrWhiteSpace(file.FuelResource))
+        {
+            if (!resources.TryIndexOf(file.FuelResource.Trim(), out fuelIndex))
+            {
+                throw new ContentLoadException(path, $"'fuelResource' odkazuje na neexistující surovinu '{file.FuelResource}'.");
+            }
+        }
+
+        var seasons = new List<SeasonDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Období na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID období '{id}'.");
+            }
+
+            CheckSeasonMultiplier(path, id, "foodProductionMult", dto.FoodProductionMult);
+            CheckSeasonMultiplier(path, id, "harvestMult", dto.HarvestMult);
+            CheckSeasonMultiplier(path, id, "growthMult", dto.GrowthMult);
+            CheckSeasonMultiplier(path, id, "coldGrowthMult", dto.ColdGrowthMult);
+
+            if (dto.FuelPerPersonPerSecond < 0)
+            {
+                throw new ContentLoadException(path, $"Období '{id}': 'fuelPerPersonPerSecond' nesmí být záporná.");
+            }
+
+            if (dto.FuelPerPersonPerSecond > 0 && fuelIndex < 0)
+            {
+                throw new ContentLoadException(path,
+                    $"Období '{id}' topí, ale soubor nemá 'fuelResource' — není čím.");
+            }
+
+            if (dto.TintAlpha is < 0 or > 1)
+            {
+                throw new ContentLoadException(path, $"Období '{id}': 'tintAlpha' musí být 0–1, je {dto.TintAlpha}.");
+            }
+
+            var tint = dto.TintAlpha > 0
+                ? ParseColor(path, dto.TintColor, $"Období '{id}' ('tintColor')")
+                : new RgbColor(0, 0, 0);
+
+            seasons.Add(new SeasonDef(
+                id, tint, dto.TintAlpha,
+                dto.FoodProductionMult, dto.HarvestMult, dto.GrowthMult,
+                dto.FuelPerPersonPerSecond, dto.ColdGrowthMult));
+        }
+
+        return new SeasonCalendar(seasons, file.DaysPerSeason, fuelIndex);
+    }
+
+    /// <summary>
+    /// Násobič období musí být kladný. Nula by znamenala „úplně vypnuto", což je
+    /// tvrdý trest — a ten hra zásadně nedělá (soft pressure).
+    /// </summary>
+    private static void CheckSeasonMultiplier(string path, string id, string field, double value)
+    {
+        if (value is <= 0 or > 10)
+        {
+            throw new ContentLoadException(path, $"Období '{id}': '{field}' musí být větší než 0 a nejvýš 10, je {value}.");
+        }
+    }
+
+    // ----- milníky -----
+
+    /// <summary>Načte milníky postupu. Volitelný soubor — bez něj se nic neslaví.</summary>
+    private static IReadOnlyList<MilestoneDef> LoadMilestones(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        if (!File.Exists(path))
+        {
+            return Array.Empty<MilestoneDef>();
+        }
+
+        var file = ReadFile<MilestoneFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Milestones ?? new List<MilestoneDto>();
+        var result = new List<MilestoneDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Milník na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID milníku '{id}'.");
+            }
+
+            if (dto.Condition is null)
+            {
+                throw new ContentLoadException(path, $"Milník '{id}' nemá 'condition'.");
+            }
+
+            result.Add(new MilestoneDef(id, ParseCondition(path, $"milník '{id}'", dto.Condition, resources, buildings, techs)));
+        }
+
+        return result;
     }
 
     // ----- volby -----
@@ -1217,12 +1351,63 @@ public sealed class ContentLoader
             mergeCost = ParseResourceAmounts(path, id, "mergeCost", dto.MergeCost, resources);
         }
 
+        var adjacency = ParseAdjacency(path, id, dto.Adjacency, recipe, biomes);
+
+        // Doba stavby: strop je tu proto, aby překlep v datech neudělal budovu,
+        // která se staví déle, než kdo kdy bude hrát.
+        if (dto.BuildTicks is < 0 or > 1_000_000)
+        {
+            throw new ContentLoadException(path, $"Budova '{id}': 'buildTicks' musí být 0–1000000, je {dto.BuildTicks}.");
+        }
+
         return new BuildingDef(
             id, category, color, dto.Footprint[0], dto.Footprint[1],
             dto.WorkerSlots, dto.HousingCapacity, buildCost, recipe, mask,
             storageBonus, dto.AutoBuild, dto.Buildable ?? true, upgradesToIndex, upgradeCost,
             dto.PowerSupply, dto.PowerDemand, dto.RequiresAdjacentWater,
-            dto.ServiceValue, upkeep, mergesToIndex, mergeCost);
+            dto.ServiceValue, upkeep, mergesToIndex, mergeCost, adjacency, dto.BuildTicks);
+    }
+
+    /// <summary>
+    /// Načte pravidlo bonusu za okolí. Blok je volitelný; když ale v datech je,
+    /// musí dávat smysl — bonus bez výroby ani bonus s nulovým stropem není
+    /// „skoro správně", je to tichá chyba obsahu (fail-fast, CLAUDE.md).
+    /// </summary>
+    private static AdjacencyRule? ParseAdjacency(
+        string path, string id, AdjacencyDto? dto, Recipe? recipe, BiomeRegistry biomes)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (recipe is null)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}' má 'adjacency', ale nic nevyrábí — bonus za okolí by se neprojevil.");
+        }
+
+        var biomeMask = ParseBiomeMask(path, $"Budova '{id}' v 'adjacency'", dto.Biomes, biomes);
+
+        if (dto.Radius is < 1 or > 8)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': 'adjacency.radius' musí být 1–8, je {dto.Radius}.");
+        }
+
+        if (dto.PerTile <= 0 || dto.PerTile > 1)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': 'adjacency.perTile' musí být větší než 0 a nejvýš 1, je {dto.PerTile}.");
+        }
+
+        if (dto.Max <= 0 || dto.Max > 10)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': 'adjacency.max' musí být větší než 0 a nejvýš 10, je {dto.Max}.");
+        }
+
+        return new AdjacencyRule(biomeMask, dto.Radius, dto.PerTile, dto.Max);
     }
 
     // ----- tech tree -----
@@ -1561,6 +1746,7 @@ public sealed class ContentLoader
             case "planted": return (MetricKind.PlantedNodes, -1);
             case "terraformed": return (MetricKind.TerraformedTiles, -1);
             case "merged": return (MetricKind.MergedBuildings, -1);
+            case "wonders": return (MetricKind.WondersCompleted, -1);
             case "harvested": return (MetricKind.Harvested, ResolveRef(path, owner, "resource", resource, resources));
             case "resource": return (MetricKind.ResourceStock, ResolveRef(path, owner, "resource", resource, resources));
             case "building": return (MetricKind.BuildingOfType, ResolveRef(path, owner, "building", building, buildings));
@@ -1793,7 +1979,111 @@ public sealed class ContentLoader
             dailyReward,
             planting,
             ParseHappiness(path, file.Happiness),
-            ParseStaffing(path, file.Staffing));
+            ParseStaffing(path, file.Staffing),
+            ParseHaul(path, file.Haul),
+            ParseTools(path, file.Tools, resources),
+            ParseCombo(path, file.Combo));
+    }
+
+    /// <summary>
+    /// Nastavení klikacího komba. Chybí-li blok, je vrstva vypnutá a klikání se
+    /// chová jako dřív.
+    /// </summary>
+    private static ComboConfig? ParseCombo(string path, ComboDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (dto.WindowSeconds is <= 0 or > 60)
+        {
+            throw new ContentLoadException(path, $"'combo.windowSeconds' musí být větší než 0 a nejvýš 60, je {dto.WindowSeconds}.");
+        }
+
+        if (dto.BonusPerStep is <= 0 or > 1)
+        {
+            throw new ContentLoadException(path, $"'combo.bonusPerStep' musí být větší než 0 a nejvýš 1, je {dto.BonusPerStep}.");
+        }
+
+        if (dto.MaxSteps is < 1 or > 100)
+        {
+            throw new ContentLoadException(path, $"'combo.maxSteps' musí být 1–100, je {dto.MaxSteps}.");
+        }
+
+        return new ComboConfig(dto.WindowSeconds, dto.BonusPerStep, dto.MaxSteps);
+    }
+
+    /// <summary>
+    /// Nastavení nástrojů. Chybí-li blok, je vrstva vypnutá a nástroje zůstávají
+    /// jednorázovou měnou jako dřív — starší data se načtou beze změny chování.
+    /// </summary>
+    private static ToolsConfig? ParseTools(string path, ToolsDto? dto, DefRegistry<Resource> resources)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Resource) || !resources.TryIndexOf(dto.Resource.Trim(), out int index))
+        {
+            throw new ContentLoadException(path, $"'tools.resource' odkazuje na neexistující surovinu '{dto.Resource}'.");
+        }
+
+        if (dto.PerPerson <= 0)
+        {
+            throw new ContentLoadException(path, $"'tools.perPerson' musí být kladné, je {dto.PerPerson}.");
+        }
+
+        if (dto.WearPerWorkerPerSecond < 0)
+        {
+            throw new ContentLoadException(path, "'tools.wearPerWorkerPerSecond' nesmí být záporné.");
+        }
+
+        // Bonus bez opotřebení by znamenal, že se nástroje jednou vyrobí a navždy
+        // platí — přesně ta slepá větev, kvůli které tahle vrstva vznikla.
+        if (dto.WearPerWorkerPerSecond <= 0 && (dto.ProductionBonus > 0 || dto.HarvestBonus > 0))
+        {
+            throw new ContentLoadException(path,
+                "'tools' dávají bonus, ale nemají opotřebení — nástroje by se vyrobily jednou a platily navždy.");
+        }
+
+        if (dto.ProductionBonus is < 0 or > 10 || dto.HarvestBonus is < 0 or > 10)
+        {
+            throw new ContentLoadException(path, "'tools.productionBonus' i 'tools.harvestBonus' musí být 0–10.");
+        }
+
+        return new ToolsConfig(index, dto.PerPerson, dto.WearPerWorkerPerSecond, dto.ProductionBonus, dto.HarvestBonus);
+    }
+
+    /// <summary>
+    /// Nastavení svozu do skladu. Chybí-li blok, je vrstva vypnutá a hra se chová
+    /// jako dřív (zboží se „teleportuje") — starší data se načtou beze změny.
+    /// </summary>
+    private static HaulConfig? ParseHaul(string path, HaulDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (dto.FreeDistance < 0)
+        {
+            throw new ContentLoadException(path, $"'haul.freeDistance' nesmí být záporná, je {dto.FreeDistance}.");
+        }
+
+        if (dto.Range <= 0)
+        {
+            throw new ContentLoadException(path, $"'haul.range' musí být kladný, je {dto.Range}.");
+        }
+
+        if (dto.MinMultiplier is <= 0 or > 1)
+        {
+            throw new ContentLoadException(path,
+                $"'haul.minMultiplier' musí být větší než 0 a nejvýš 1, je {dto.MinMultiplier}.");
+        }
+
+        return new HaulConfig(dto.FreeDistance, dto.Range, dto.MinMultiplier);
     }
 
     /// <summary>
@@ -2050,7 +2340,9 @@ public sealed class ContentLoader
         DefRegistry<TerraformDef> terraform,
         IReadOnlyList<TutorialStepDef> tutorial,
         ChallengeCatalog challenges,
-        ElectionConfig elections)
+        ElectionConfig elections,
+        IReadOnlyList<MilestoneDef> milestones,
+        SeasonCalendar seasons)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -2084,7 +2376,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, elections);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, elections, milestones, seasons);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -2113,7 +2405,9 @@ public sealed class ContentLoader
         DefRegistry<TerraformDef> terraform,
         IReadOnlyList<TutorialStepDef> tutorial,
         ChallengeCatalog challenges,
-        ElectionConfig elections)
+        ElectionConfig elections,
+        IReadOnlyList<MilestoneDef> milestones,
+        SeasonCalendar seasons)
     {
         var required = new List<string>();
         required.AddRange(biomes.All.Select(b => b.NameKey));
@@ -2160,6 +2454,9 @@ public sealed class ContentLoader
         required.AddRange(challenges.Challenges.Select(c => c.DescriptionKey));
         required.AddRange(elections.Candidates.Select(c => c.NameKey));
         required.AddRange(elections.Candidates.Select(c => c.DescriptionKey));
+        required.AddRange(milestones.Select(m => m.NameKey));
+        required.AddRange(seasons.Seasons.Select(x => x.NameKey));
+        required.AddRange(seasons.Seasons.Select(x => x.DescriptionKey));
 
         var missing = required.Where(key => !language.Strings.ContainsKey(key)).ToList();
         if (missing.Count > 0)

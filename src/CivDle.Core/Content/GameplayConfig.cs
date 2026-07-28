@@ -114,6 +114,118 @@ public sealed record HappinessConfig(
         GrowthFloor + (1.0 - GrowthFloor) * Math.Clamp(happiness, 0.0, 1.0);
 }
 
+/// <summary>
+/// Svoz zboží do skladu. Budova daleko od nejbližšího sběrného místa vyrábí míň —
+/// sklad tím dostává jiný smysl než jen „větší číslo kapacity".
+///
+/// <para>Trest je měkký a má podlahu: vzdálená kolonie zpomalí, nikdy neumře
+/// (idle konvence — hra netrestá za nepozornost, odměňuje za pozornost).</para>
+/// </summary>
+/// <param name="FreeDistance">Do téhle vzdálenosti (Manhattan, dlaždice) se sváží zadarmo.</param>
+/// <param name="Range">O kolik dlaždic navíc se výroba pokaždé zhruba půlí.</param>
+/// <param name="MinMultiplier">Podlaha násobiče — pod tohle výroba neklesne.</param>
+public sealed record HaulConfig(int FreeDistance, int Range, double MinMultiplier)
+{
+    /// <summary>Vypnutý svoz — hra bez téhle vrstvy (výchozí pro starší data).</summary>
+    public static HaulConfig Disabled { get; } = new(0, 0, 1.0);
+
+    /// <summary>Má smysl svoz počítat?</summary>
+    public bool IsEnabled => Range > 0 && MinMultiplier < 1.0;
+
+    /// <summary>
+    /// Násobič výroby pro danou vzdálenost k nejbližšímu sběrnému místu.
+    /// Klesá hyperbolicky (1 / (1 + přesah / dosah)), takže první dlaždice navíc
+    /// bolí nejvíc a pak se to zplošťuje — jinak by byla mapa rozdělená na ostrou
+    /// hranici „tady ano, tady ne".
+    /// </summary>
+    public double Multiplier(int distance)
+    {
+        if (!IsEnabled || distance <= FreeDistance)
+        {
+            return 1.0;
+        }
+
+        double over = distance - FreeDistance;
+        return Math.Max(MinMultiplier, 1.0 / (1.0 + over / Range));
+    }
+}
+
+/// <summary>
+/// Nástroje jako živá surovina, ne jednorázová měna.
+///
+/// <para>Proč to v hře je: nástroje se do téhle chvíle vyráběly, jednou dvakrát
+/// utratily za stavbu a pak se jen hromadily do stropu skladu. Tím pádem byla
+/// celá jejich větev slepá. S opotřebením a pokrytím mají trvalý odbyt: čím
+/// větší město, tím víc nástrojů potřebuje, a dobře vybavení lidé odvedou víc
+/// práce.</para>
+///
+/// <para>Je to čistě bonusová vrstva — bez nástrojů se hraje jako dřív, jen bez
+/// bonusu. Žádný trest za to, že je hráč ještě neobjevil.</para>
+/// </summary>
+/// <param name="ResourceIndex">Která surovina jsou „nástroje"; −1 = vrstva vypnutá.</param>
+/// <param name="PerPerson">Kolik nástrojů na obyvatele znamená plné pokrytí.</param>
+/// <param name="WearPerWorkerPerSecond">Kolik nástrojů za sekundu ohladí jeden pracující člověk.</param>
+/// <param name="ProductionBonus">O kolik zvedne výrobu plné pokrytí (0.2 = +20 %).</param>
+/// <param name="HarvestBonus">O kolik zvedne ruční sběr plné pokrytí (0.5 = +50 %).</param>
+public sealed record ToolsConfig(
+    int ResourceIndex,
+    double PerPerson,
+    double WearPerWorkerPerSecond,
+    double ProductionBonus,
+    double HarvestBonus)
+{
+    /// <summary>Vypnuté nástroje — hra bez téhle vrstvy (výchozí pro starší data).</summary>
+    public static ToolsConfig Disabled { get; } = new(-1, 0, 0, 0, 0);
+
+    /// <summary>Má smysl nástroje vůbec počítat?</summary>
+    public bool IsEnabled => ResourceIndex >= 0 && PerPerson > 0;
+
+    /// <summary>
+    /// Pokrytí 0–1: kolik lidí má nástroje. Nad plné pokrytí se nesčítá —
+    /// hromada nástrojů navíc už nikomu nepřidá a jinak by šlo bonus škálovat
+    /// donekonečna jednou surovinou.
+    /// </summary>
+    public double Coverage(double tools, double population)
+    {
+        if (!IsEnabled || population <= 0)
+        {
+            return 0;
+        }
+
+        return Math.Clamp(tools / (population * PerPerson), 0, 1);
+    }
+}
+
+/// <summary>
+/// Klikací kombo: rychlá série sběrů zvedá výnos.
+///
+/// <para>Proč to v hře je: krit je náhoda, na kterou se čeká. Kombo je dovednost,
+/// kterou hráč cítí hned — po třetím kliknutí za sebou vidí větší číslo a ví, že
+/// za to může on. V idle hře, kde je klikání volitelné, je tohle důvod si ho
+/// občas dopřát.</para>
+///
+/// <para>Série se počítá z tiků simulace, ne z reálného času — zůstává tím
+/// deterministická jako všechno ostatní.</para>
+/// </summary>
+/// <param name="WindowSeconds">Jak dlouho po sběru ještě série drží.</param>
+/// <param name="BonusPerStep">O kolik zvedne výnos každý další sběr v sérii.</param>
+/// <param name="MaxSteps">Kolik kroků série se počítá (strop bonusu).</param>
+public sealed record ComboConfig(double WindowSeconds, double BonusPerStep, int MaxSteps)
+{
+    /// <summary>Vypnuté kombo — hra bez téhle vrstvy (výchozí pro starší data).</summary>
+    public static ComboConfig Disabled { get; } = new(0, 0, 0);
+
+    /// <summary>Má smysl kombo počítat?</summary>
+    public bool IsEnabled => WindowSeconds > 0 && BonusPerStep > 0 && MaxSteps > 0;
+
+    /// <summary>Jak dlouho série drží, v ticích simulace.</summary>
+    public int WindowTicks => (int)Math.Round(WindowSeconds * Sim.Simulation.TicksPerSecond);
+
+    /// <summary>Násobič výnosu pro sérii dané délky (1 = první sběr, bez bonusu).</summary>
+    public double Multiplier(int streak) =>
+        IsEnabled ? 1.0 + Math.Clamp(streak - 1, 0, MaxSteps) * BonusPerStep : 1.0;
+}
+
 /// <summary>Ruční sběr: šance na „krit" (velký výnos) — aktivní klikání se vyplatí.</summary>
 /// <param name="CritChance">Pravděpodobnost kritu (0–1) na jeden sběr.</param>
 /// <param name="CritMultiplier">Násobič výnosu při kritu.</param>
@@ -156,13 +268,25 @@ public sealed record GameplayConfig(
     DailyRewardConfig DailyReward,
     PlantingConfig Planting,
     HappinessConfig? HappinessOrNull = null,
-    StaffingConfig? StaffingOrNull = null)
+    StaffingConfig? StaffingOrNull = null,
+    HaulConfig? HaulOrNull = null,
+    ToolsConfig? ToolsOrNull = null,
+    ComboConfig? ComboOrNull = null)
 {
+    /// <summary>Nastavení klikacího komba; chybí-li v datech, je vrstva vypnutá.</summary>
+    public ComboConfig Combo => ComboOrNull ?? ComboConfig.Disabled;
+
+    /// <summary>Nastavení nástrojů; chybí-li v datech, je vrstva vypnutá.</summary>
+    public ToolsConfig Tools => ToolsOrNull ?? ToolsConfig.Disabled;
+
     /// <summary>Nastavení spokojenosti; chybí-li v datech, je vrstva vypnutá.</summary>
     public HappinessConfig Happiness => HappinessOrNull ?? HappinessConfig.Disabled;
 
     /// <summary>Nastavení přidělování dělníků; chybí-li v datech, platí výchozí.</summary>
     public StaffingConfig Staffing => StaffingOrNull ?? StaffingConfig.Default;
+
+    /// <summary>Nastavení svozu do skladu; chybí-li v datech, je vrstva vypnutá.</summary>
+    public HaulConfig Haul => HaulOrNull ?? HaulConfig.Disabled;
 }
 
 /// <summary>

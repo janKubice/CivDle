@@ -564,6 +564,20 @@
         "building": "botanical_garden",
         "target": 3
       }
+    },
+    {
+      "id": "first_wonder",
+      "condition": {
+        "metric": "wonders",
+        "target": 1
+      }
+    },
+    {
+      "id": "wonder_age",
+      "condition": {
+        "metric": "wonders",
+        "target": 5
+      }
     }
   ]
 }

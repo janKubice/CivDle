@@ -107,6 +107,7 @@ public sealed class SpriteLibrary : IDisposable
         // Sloučené bloky (2×2 z bloku čtyř stejných budov) — vyšší a širší silueta,
         // aby se na mapě daly rozeznat od jednotlivých domů na první pohled.
         Add(device, "agent.boat", SpriteSize, Boat);
+        Add(device, "agent.caravan", SpriteSize, Caravan);
         Add(device, "building.manor", SpriteSize, canvas => BigHouse(canvas, new Color(199, 122, 68), 2));
         Add(device, "building.townhouses", SpriteSize, canvas => BigHouse(canvas, new Color(212, 137, 74), 3));
         Add(device, "building.terrace_row", SpriteSize, canvas => BigHouse(canvas, new Color(179, 106, 70), 4));
@@ -340,6 +341,17 @@ public sealed class SpriteLibrary : IDisposable
         c.FillRect(15, 8, 2, 12, new Color(96, 74, 50));                     // stěžeň
         c.FillTriangle(17f, 9f, 17f, 19f, 25f, 19f, new Color(232, 226, 210)); // plachta
         c.FillCircle(12f, 18f, 1.8f, new Color(216, 176, 136));              // rybář
+    }
+
+    /// <summary>Obchodní karavana: krytý vůz s plachtou a nákladem — na první pohled jiná než běžný vozík.</summary>
+    private static void Caravan(PixelCanvas c)
+    {
+        c.FillRect(5, 18, 22, 8, new Color(126, 92, 58));                 // korba
+        c.FillTriangle(5f, 18f, 27f, 18f, 16f, 9f, new Color(226, 216, 192)); // plachta
+        c.FillRect(7, 12, 18, 2, new Color(198, 186, 160));               // obruč plachty
+        c.FillCircle(9f, 27f, 3.2f, new Color(78, 62, 46));               // kola
+        c.FillCircle(22f, 27f, 3.2f, new Color(78, 62, 46));
+        c.FillRect(24, 20, 5, 4, new Color(168, 132, 80));                // bedny vzadu
     }
 
     private static void TimberYard(PixelCanvas c)

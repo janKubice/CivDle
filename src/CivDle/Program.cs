@@ -4,7 +4,23 @@ using CivDle;
 // se zapíšou do crash.log vedle exe, protože Windows build nemá konzoli.
 try
 {
-    using var game = new CivDleGame();
+    // --capture <složka>: nafotí sadu snímků do obchodu a skončí. Běžný start
+    // hry se tím nemění — bez přepínače se rovnou otevře menu.
+    string? captureDirectory = null;
+    int captureFlag = Array.IndexOf(args, "--capture");
+    if (captureFlag >= 0 && captureFlag + 1 < args.Length)
+    {
+        captureDirectory = args[captureFlag + 1];
+    }
+
+    string? capsuleDirectory = null;
+    int capsuleFlag = Array.IndexOf(args, "--capsules");
+    if (capsuleFlag >= 0 && capsuleFlag + 1 < args.Length)
+    {
+        capsuleDirectory = args[capsuleFlag + 1];
+    }
+
+    using var game = new CivDleGame(captureDirectory, capsuleDirectory);
     game.Run();
     return 0;
 }

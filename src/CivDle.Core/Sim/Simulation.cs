@@ -28,6 +28,10 @@ public sealed class Simulation
     private readonly List<RoadTile> _roadTiles = new(); // pořadí vzniku — deterministické, jde do savu
     private readonly List<Settlement> _settlements = new();
     private readonly ProductionSystem _production;
+    private readonly HaulSystem _haulSystem;
+    private readonly SeasonSystem _seasonSystem;
+    private readonly ToolsSystem _toolsSystem;
+    private readonly ConstructionSystem _constructionSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
     private readonly ZoneFillSystem _zoneFill;
@@ -43,6 +47,9 @@ public sealed class Simulation
     private readonly TutorialSystem _tutorialSystem;
     private readonly ChallengeSystem _challengeSystem;
     private readonly ElectionSystem _electionSystem;
+    private readonly VisualEventQueue _visualEvents = new();
+    private readonly MilestoneSystem _milestoneSystem;
+    private readonly bool[] _milestonesReached;
     private readonly int[] _ballot;
     private readonly bool[] _settledBiomes; // biomy, na kterých už tohle město stavělo (kronika)
     private readonly List<int> _activeChallenges = new();   // indexy do fondu výzev
@@ -67,6 +74,8 @@ public sealed class Simulation
     private int _boostTicksRemaining;    // slavnost aktivní, dokud > 0
     private int _boostCooldownRemaining;  // dokud > 0, nejde spustit další
     private long _harvestCounter;         // pořadí sběru — seed deterministického kritu
+    private long _lastHarvestTick = long.MinValue; // kdy hráč naposled sbíral (kombo)
+    private int _comboStreak;             // délka rozjeté série sběrů
 
     private BuildingInstance[] _buildings = new BuildingInstance[16];
     private int _buildingCount;
@@ -115,6 +124,10 @@ public sealed class Simulation
         HousingCapacity = content.Gameplay.BaseHousingCapacity;
 
         _production = new ProductionSystem(content);
+        _haulSystem = new HaulSystem(content);
+        _seasonSystem = new SeasonSystem(content);
+        _toolsSystem = new ToolsSystem(content);
+        _constructionSystem = new ConstructionSystem(content);
         _populationSystem = new PopulationSystem(content.Gameplay);
         _autoBuild = new AutoBuildSystem(content, seed);
         _zoneFill = new ZoneFillSystem(content, seed);
@@ -128,6 +141,8 @@ public sealed class Simulation
         _tutorialSystem = new TutorialSystem(content);
         _challengeSystem = new ChallengeSystem(content);
         _electionSystem = new ElectionSystem(content);
+        _milestoneSystem = new MilestoneSystem(content);
+        _milestonesReached = new bool[content.Milestones.Count];
         _ballot = new int[Math.Max(1, content.Elections.BallotSize)];
         _settledBiomes = new bool[content.Biomes.Count];
         _questsCompleted = new bool[content.Quests.Count];
@@ -158,6 +173,110 @@ public sealed class Simulation
             var dayNight = _content.Gameplay.DayNight;
             double elapsedDays = dayNight.StartTimeOfDay + TickCount / (TicksPerSecond * dayNight.DayLengthSeconds);
             return elapsedDays - Math.Floor(elapsedDays);
+        }
+    }
+
+    /// <summary>
+    /// Index aktuálního ročního období, nebo −1, když hra období nemá.
+    /// Odvozený z čísla dne — žádný stav, nic v savu.
+    /// </summary>
+    public int CurrentSeasonIndex => _content.Seasons.IndexForDay(DayNumber);
+
+    /// <summary>Aktuální období, nebo <c>null</c> bez ročních období.</summary>
+    public SeasonDef? CurrentSeason
+    {
+        get
+        {
+            int index = CurrentSeasonIndex;
+            return index >= 0 ? _content.Seasons.Seasons[index] : null;
+        }
+    }
+
+    /// <summary>Jak daleko je aktuální období (0 = právě začalo, 1 = končí).</summary>
+    public double SeasonProgress01
+    {
+        get
+        {
+            var calendar = _content.Seasons;
+            if (!calendar.IsEnabled)
+            {
+                return 0;
+            }
+
+            var dayNight = _content.Gameplay.DayNight;
+            double elapsedDays = dayNight.StartTimeOfDay + TickCount / (TicksPerSecond * dayNight.DayLengthSeconds);
+            double inSeason = elapsedDays % calendar.DaysPerSeason;
+            return inSeason / calendar.DaysPerSeason;
+        }
+    }
+
+    /// <summary>
+    /// Má město čím topit? V zimě bez paliva se růst zpomalí na
+    /// <see cref="SeasonDef.ColdGrowthMult"/> — mimo zimu je to vždy true.
+    /// </summary>
+    public bool HasFuelForHeating { get; internal set; } = true;
+
+    /// <summary>
+    /// Kolik lidí ve městě má nástroje (0–1). Nad plné pokrytí se nesčítá —
+    /// hromada nástrojů navíc už nikomu nepřidá.
+    /// </summary>
+    public double ToolCoverage
+    {
+        get
+        {
+            var tools = _content.Gameplay.Tools;
+            return tools.IsEnabled ? tools.Coverage(_resources[tools.ResourceIndex], Population) : 0;
+        }
+    }
+
+    /// <summary>Násobič výroby od vybavenosti nástroji (1.0 bez nástrojů — bonus, ne daň).</summary>
+    public double ToolProductionMult => 1.0 + _content.Gameplay.Tools.ProductionBonus * ToolCoverage;
+
+    /// <summary>Násobič ručního sběru od vybavenosti nástroji.</summary>
+    public double ToolHarvestMult => 1.0 + _content.Gameplay.Tools.HarvestBonus * ToolCoverage;
+
+    /// <summary>
+    /// Kolik lidí zrovna pracuje v budovách. Počítá se při rozdělování dělníků,
+    /// takže je zadarmo — a nástroje se podle toho opotřebovávají.
+    /// </summary>
+    public long EmployedWorkers { get; internal set; }
+
+    /// <summary>
+    /// Rozpad spokojenosti na položky — kvůli čemu je zrovna taková. Počítá se
+    /// na vyžádání a bez placení údržby, takže se na něj UI může ptát, kdy chce,
+    /// aniž by tím sáhlo do hry.
+    /// </summary>
+    public HappinessBreakdown HappinessParts
+    {
+        get
+        {
+            var config = _content.Gameplay.Happiness;
+            return config.IsEnabled
+                ? _happinessSystem.Evaluate(this, config, payUpkeep: false)
+                : HappinessBreakdown.Perfect;
+        }
+    }
+
+    /// <summary>Násobič výroby jídla od ročního období (1.0 bez období).</summary>
+    public double SeasonFoodMult => CurrentSeason?.FoodProductionMult ?? 1.0;
+
+    /// <summary>Násobič ručního sběru od ročního období (1.0 bez období).</summary>
+    public double SeasonHarvestMult => CurrentSeason?.HarvestMult ?? 1.0;
+
+    /// <summary>
+    /// Násobič růstu populace od ročního období. V zimě bez paliva platí
+    /// zpomalený <see cref="SeasonDef.ColdGrowthMult"/> místo běžného.
+    /// </summary>
+    public double SeasonGrowthMult
+    {
+        get
+        {
+            if (CurrentSeason is not { } season)
+            {
+                return 1.0;
+            }
+
+            return season.NeedsHeating && !HasFuelForHeating ? season.ColdGrowthMult : season.GrowthMult;
         }
     }
 
@@ -520,8 +639,84 @@ public sealed class Simulation
     /// <summary>Osady k přepsání systémem detekce.</summary>
     internal List<Settlement> SettlementsMutable => _settlements;
 
+    /// <summary>Jak často se sahá na staveniště (tiky) — viz <c>ConstructionSystem</c>.</summary>
+    public const int ConstructionIntervalTicks = ConstructionSystem.IntervalTicks;
+
+    /// <summary>
+    /// Kolik budov se zrovna staví. Dokud je nula, nemá stavební systém co dělat
+    /// a pole budov se kvůli němu vůbec neprochází.
+    /// </summary>
+    public int BuildingsUnderConstruction { get; private set; }
+
+    /// <summary>
+    /// Postup stavby budovy 0–1 (1 = hotovo). Pro ukazatel nad staveništěm —
+    /// div světa, u kterého není vidět, jak daleko je, není událost, ale čekání.
+    /// </summary>
+    public double ConstructionProgress01(int buildingIndex)
+    {
+        if (buildingIndex < 0 || buildingIndex >= _buildingCount)
+        {
+            return 1.0;
+        }
+
+        ref readonly var building = ref _buildings[buildingIndex];
+        int total = _content.Buildings[building.DefIndex].BuildTicks;
+        return total <= 0 ? 1.0 : 1.0 - Math.Clamp(building.BuildTicksRemaining / (double)total, 0, 1);
+    }
+
+    /// <summary>
+    /// Dostavěno: budova se zapne, připíše bonusy a hráč se to dozví. Volá
+    /// stavební systém; dokončení je jediný okamžik, kdy div světa začne platit.
+    /// </summary>
+    internal void CompleteConstruction(int buildingIndex, BuildingDef def)
+    {
+        BuildingsUnderConstruction = Math.Max(0, BuildingsUnderConstruction - 1);
+        ApplyBuildingBonuses(def);
+        WondersCompleted++;
+        SettlementsDirty = true;
+        _roadLinksDirty = true;
+        ReportVisual(VisualEventKind.BuildingUpgraded, _buildings[buildingIndex].X, _buildings[buildingIndex].Y);
+        EnqueueNotification(new GameNotification(NotificationKind.Milestone, "toast.wonderDone", def.NameKey));
+    }
+
+    /// <summary>Kolik divů světa už město dostavělo (metrika pro cíle a achievementy).</summary>
+    public long WondersCompleted { get; internal set; }
+
+    /// <summary>Obnoví počet dostavěných divů ze savu.</summary>
+    internal void RestoreWondersCompleted(long count) => WondersCompleted = count;
+
+    /// <summary>
+    /// Vrátí budovu ze savu zpět na staveniště. Volá se až po načtení budov,
+    /// protože sav nese odpočet zvlášť — půlka rozestavěného divu se po načtení
+    /// nesmí tvářit jako hotová.
+    /// </summary>
+    internal void RestoreConstruction(int buildingIndex, int remainingTicks)
+    {
+        if (buildingIndex < 0 || buildingIndex >= _buildingCount || remainingTicks <= 0)
+        {
+            return;
+        }
+
+        ref var building = ref _buildings[buildingIndex];
+        var def = _content.Buildings[building.DefIndex];
+        if (!def.TakesTimeToBuild)
+        {
+            return; // typ se mezitím v datech změnil na okamžitý — nech budovu stát
+        }
+
+        building.BuildTicksRemaining = Math.Min(remainingTicks, def.BuildTicks);
+        BuildingsUnderConstruction++;
+        RemoveBuildingBonuses(def); // obnova je připsala, staveniště je zase nemá
+    }
+
     /// <summary>Zástavba se změnila — osady čekají na přepočet.</summary>
     internal bool SettlementsDirty { get; set; }
+
+    /// <summary>
+    /// Přibylo/ubylo sběrné místo (sklad) nebo se posunulo těžiště města —
+    /// násobiče svozu čekají na rozložený přepočet.
+    /// </summary>
+    internal bool HaulDirty { get; set; } = true;
 
     /// <summary>
     /// Je budova napojená na silniční síť? Bez cesty se zboží odváží hůř a výroba
@@ -571,9 +766,13 @@ public sealed class Simulation
         }
 
         _roadLinksDirty = false;
-        if (_roadLinked.Length < _buildings.Length)
+
+        // Podle POČTU budov, ne jen podle kapacity pole — occupancy umí vrátit
+        // index kterékoli žijící budovy a ten musí do cache vždycky padnout.
+        int needed = Math.Max(_buildings.Length, _buildingCount);
+        if (_roadLinked.Length < needed)
         {
-            Array.Resize(ref _roadLinked, _buildings.Length);
+            Array.Resize(ref _roadLinked, needed);
         }
 
         // Napojení se počítá po BLOCÍCH, ne po jednotlivých budovách: co se
@@ -637,7 +836,7 @@ public sealed class Simulation
     }
 
     private bool IsLinkedBuildingAt(int x, int y) =>
-        TryGetBuildingAt(x, y, out int index) && _roadLinked[index];
+        TryGetBuildingAt(x, y, out int index) && index < _roadLinked.Length && _roadLinked[index];
 
     /// <summary>
     /// Sousedí půdorys budovy s nějakou silnicí? Jen ORTOGONÁLNĚ — roh se nepočítá,
@@ -678,7 +877,15 @@ public sealed class Simulation
             return result;
         }
 
-        RestoreBuilding(defIndex, x, y, progress: 0f);
+        var def = _content.Buildings[defIndex];
+        AddBuilding(defIndex, x, y, progress: 0f);
+        if (!def.TakesTimeToBuild)
+        {
+            ApplyBuildingBonuses(def); // „zdarma" znamená bez ceny, ne okamžitě
+        }
+
+        SettlementsDirty = true;
+        _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
 
@@ -702,6 +909,7 @@ public sealed class Simulation
         {
             _roadTiles.Add(new RoadTile(x, y));
             _roadLinksDirty = true;
+            ReportVisual(VisualEventKind.RoadBuilt, x, y);
         }
     }
 
@@ -771,6 +979,16 @@ public sealed class Simulation
         return true;
     }
 
+    /// <summary>
+    /// Fronta vizuálních událostí pro render (dokončená výroba, nová budova…).
+    /// Simulace sem jen odkládá; render si je vyzvedne a vyprázdní frontu.
+    /// </summary>
+    public VisualEventQueue VisualEvents => _visualEvents;
+
+    /// <summary>Ohlásí vizuální událost renderu (přeteklá fronta ji tiše zahodí).</summary>
+    internal void ReportVisual(VisualEventKind kind, int x, int y, int resourceIndex = -1) =>
+        _visualEvents.Add(new VisualEvent(kind, x, y, resourceIndex));
+
     /// <summary>Budovy pro systémy simulace (mutace progressu výroby).</summary>
     internal Span<BuildingInstance> BuildingsMutable => _buildings.AsSpan(0, _buildingCount);
 
@@ -788,7 +1006,13 @@ public sealed class Simulation
             _boostCooldownRemaining--;
         }
 
+        // Období napřed: výroba i růst v tomhle tiku už mají počítat s tím,
+        // jestli je zima a jestli je čím topit.
+        _seasonSystem.Tick(this);
+        _constructionSystem.Tick(this); // staveniště napřed: co se dnes dostavělo, dnes i vyrábí
         _production.Tick(this);
+        _toolsSystem.Tick(this); // až po výrobě: ohladí se to, čím se právě pracovalo
+        _haulSystem.Tick(this);
         _populationSystem.Tick(this);
         _autoBuild.Tick(this);
         _zoneFill.Tick(this);
@@ -799,6 +1023,7 @@ public sealed class Simulation
         _tutorialSystem.Tick(this);
         _challengeSystem.Tick(this);
         _electionSystem.Tick(this);
+        _milestoneSystem.Tick(this);
         _achievementSystem.Tick(this);
 
         // Těžiště města a UFO nejsou hot path — stačí je řešit jednou za čas.
@@ -812,6 +1037,9 @@ public sealed class Simulation
 
     /// <summary>Jak často se přepočítá těžiště města (tiky) — pomalý systém, ne každý tik.</summary>
     private const int CityCenterIntervalTicks = 50;
+
+    /// <summary>O kolik dlaždic se musí těžiště posunout, aby stálo za přepočet svozu.</summary>
+    private const int CityCenterHaulShift = 4;
 
     /// <summary>
     /// Ověří umístění budovy bez vedlejších efektů — UI z výsledku ukazuje ghost
@@ -886,6 +1114,67 @@ public sealed class Simulation
 
     private bool IsWaterTile(int x, int y) => _content.Biomes[Terrain.BiomeAt(x, y)].IsWater;
 
+    /// <summary>
+    /// Kolik vyhovujících dlaždic má budova daného typu v okolí místa (x, y).
+    /// Veřejné kvůli náhledu při stavbě — hráč má bonus vidět dřív, než položí,
+    /// jinak by se o pravidle nikdy nedozvěděl.
+    /// </summary>
+    public int CountAdjacencyTiles(int defIndex, int x, int y)
+    {
+        var def = _content.Buildings[defIndex];
+        return def.Adjacency is { } rule ? CountAdjacencyTiles(def, rule, x, y) : 0;
+    }
+
+    /// <summary>
+    /// Násobič výroby ze svozu, který by budova na místě (x, y) dostala. Veřejné
+    /// kvůli náhledu při stavbě — „tady bude výroba na 60 %" je informace, kterou
+    /// hráč potřebuje před kliknutím, ne po něm.
+    /// </summary>
+    public double HaulMultiplierAt(int x, int y) => _haulSystem.MultiplierAt(x, y);
+
+    /// <summary>
+    /// Násobič výroby, který by budova daného typu na místě (x, y) dostala za okolí.
+    /// 1.0 = budova bez pravidla nebo místo bez vyhovujícího terénu.
+    /// </summary>
+    public double AdjacencyMultiplierAt(int defIndex, int x, int y) =>
+        AdjacencyMultiplier(_content.Buildings[defIndex], x, y);
+
+    private double AdjacencyMultiplier(BuildingDef def, int x, int y) =>
+        def.Adjacency is { } rule ? rule.Multiplier(CountAdjacencyTiles(def, rule, x, y)) : 1.0;
+
+    /// <summary>
+    /// Projde obdélník kolem půdorysu do vzdálenosti <c>rule.Radius</c> a spočítá
+    /// dlaždice vyhovujícího biomu. Dlaždice pod budovou se nepočítají — bonus je
+    /// za okolí, ne za to, na čem budova stojí (to už řeší <c>BiomeMult</c>).
+    /// </summary>
+    private int CountAdjacencyTiles(BuildingDef def, AdjacencyRule rule, int x, int y)
+    {
+        int count = 0;
+        int minX = x - rule.Radius;
+        int maxX = x + def.FootprintWidth - 1 + rule.Radius;
+        int minY = y - rule.Radius;
+        int maxY = y + def.FootprintHeight - 1 + rule.Radius;
+
+        for (int tileY = minY; tileY <= maxY; tileY++)
+        {
+            bool insideRows = tileY >= y && tileY < y + def.FootprintHeight;
+            for (int tileX = minX; tileX <= maxX; tileX++)
+            {
+                if (insideRows && tileX >= x && tileX < x + def.FootprintWidth)
+                {
+                    continue; // vlastní půdorys
+                }
+
+                if (rule.Counts(Terrain.BiomeAt(tileX, tileY)))
+                {
+                    count++;
+                }
+            }
+        }
+
+        return count;
+    }
+
     /// <summary>Příkaz hráče: postavit budovu. Odečte cenu a obsadí dlaždice.</summary>
     public PlacementResult TryPlaceBuilding(int defIndex, int x, int y)
     {
@@ -903,7 +1192,12 @@ public sealed class Simulation
         }
 
         AddBuilding(defIndex, x, y, progress: 0f);
-        ApplyBuildingBonuses(def);
+        if (!def.TakesTimeToBuild)
+        {
+            ApplyBuildingBonuses(def); // staveniště nic nedává, dokud nestojí
+        }
+
+        ReportVisual(VisualEventKind.BuildingPlaced, x, y);
         _roadBuilder.ConnectLastBuilding(this);
         SettlementsDirty = true;
         _roadLinksDirty = true;
@@ -953,8 +1247,15 @@ public sealed class Simulation
         }
 
         // Trvalý bonus Vzestupu + slavnost zvedají výnos (nejmíň původní hodnota).
+        // Roční období sem patří taky: podzim je čas sbírat, v zimě toho v krajině
+        // moc není. Podlaha na původní hodnotě drží ruční sběr užitečný i v zimě.
+        // Kombo: série rychlých sběrů zvedá výnos. Počítá se z tiků, ne z reálného
+        // času — deterministické jako všechno ostatní.
+        AdvanceCombo();
+
         int gained = Math.Max(yield.Amount,
-            (int)Math.Round(yield.Amount * _bonuses.HarvestMult * BoostMultiplier * ElectionHarvestMult));
+            (int)Math.Round(yield.Amount * _bonuses.HarvestMult * BoostMultiplier
+                * ElectionHarvestMult * SeasonHarvestMult * ToolHarvestMult * ComboMultiplier));
 
         // Deterministický krit (aktivní klikání se vyplatí). Nejdřív se zkouší
         // vzácný „úlovek života" — má přednost, aby se s kritem nesčítal do absurdna.
@@ -985,6 +1286,51 @@ public sealed class Simulation
         resourceIndex = yield.ResourceIndex;
         amount = gained;
         return true;
+    }
+
+    /// <summary>
+    /// Posune sérii sběrů. Rychlý sběr ji prodlouží, pomalý ji začne od jedničky.
+    /// Volá se u KAŽDÉHO pokusu o sběr, i toho neúspěšného kvůli plnému skladu —
+    /// jinak by hráči série zhasla za něco, co neudělal.
+    /// </summary>
+    private void AdvanceCombo()
+    {
+        var combo = _content.Gameplay.Combo;
+        if (!combo.IsEnabled)
+        {
+            return;
+        }
+
+        _comboStreak = TickCount - _lastHarvestTick <= combo.WindowTicks ? _comboStreak + 1 : 1;
+        _lastHarvestTick = TickCount;
+    }
+
+    /// <summary>
+    /// Kolik sběrů má rozjetá série. 0 = série doběhla; UI podle toho ukazuje
+    /// „×3" nad kurzorem.
+    /// </summary>
+    public int ComboStreak =>
+        _content.Gameplay.Combo.IsEnabled && TickCount - _lastHarvestTick <= _content.Gameplay.Combo.WindowTicks
+            ? _comboStreak
+            : 0;
+
+    /// <summary>Násobič výnosu ze série (1.0 bez série).</summary>
+    public double ComboMultiplier => _content.Gameplay.Combo.Multiplier(ComboStreak);
+
+    /// <summary>Kolik sekund série ještě vydrží, než zhasne (0 = neběží).</summary>
+    public double ComboSecondsLeft
+    {
+        get
+        {
+            var combo = _content.Gameplay.Combo;
+            if (ComboStreak == 0)
+            {
+                return 0;
+            }
+
+            long left = combo.WindowTicks - (TickCount - _lastHarvestTick);
+            return Math.Max(0, left / TicksPerSecond);
+        }
     }
 
     /// <summary>Deterministické „hození kostkou" pro krit — z seedu a pořadí sběru, výsledek v [0, 1).</summary>
@@ -1373,8 +1719,18 @@ public sealed class Simulation
             sumY += _buildings[i].Y;
         }
 
-        CityCenterX = (int)(sumX / _buildingCount);
-        CityCenterY = (int)(sumY / _buildingCount);
+        int centerX = (int)(sumX / _buildingCount);
+        int centerY = (int)(sumY / _buildingCount);
+
+        // Těžiště je jedno ze sběrných míst svozu. Přepočítávat celé město po
+        // každém posunu o dlaždici je zbytečné — až znatelný posun stojí za to.
+        if (Math.Abs(centerX - CityCenterX) + Math.Abs(centerY - CityCenterY) >= CityCenterHaulShift)
+        {
+            HaulDirty = true;
+        }
+
+        CityCenterX = centerX;
+        CityCenterY = centerY;
     }
 
     // ----- odemykatelné funkce (postupné odhalování UI) -----
@@ -1747,6 +2103,7 @@ public sealed class Simulation
         MetricKind.PlantedNodes => _plantedNodes.Count,
         MetricKind.TerraformedTiles => TerraformedTiles,
         MetricKind.MergedBuildings => MergedBuildings,
+        MetricKind.WondersCompleted => WondersCompleted,
         _ => 0,
     };
 
@@ -1827,6 +2184,38 @@ public sealed class Simulation
     /// „kde všude jsi stavěl" je sběratelský cíl, který přesahuje jednu hru.
     /// </summary>
     public bool HasSettledBiome(int biomeIndex) => _settledBiomes[biomeIndex];
+
+    // ----- milníky -----
+
+    /// <summary>Byl milník už oslaven? (Každý se spustí jen jednou za hru.)</summary>
+    public bool IsMilestoneReached(int index) => _milestonesReached[index];
+
+    /// <summary>Označí milník za oslavený (volá systém milníků po oznámení).</summary>
+    internal void MarkMilestoneReached(int index) => _milestonesReached[index] = true;
+
+    /// <summary>Indexy dosažených milníků (pro serializaci savu).</summary>
+    internal IEnumerable<int> ReachedMilestoneIndices()
+    {
+        for (int i = 0; i < _milestonesReached.Length; i++)
+        {
+            if (_milestonesReached[i])
+            {
+                yield return i;
+            }
+        }
+    }
+
+    /// <summary>Dosažené milníky pro testy (vnitřní seznam je jen pro save).</summary>
+    public IReadOnlyList<int> ReachedMilestoneIndicesForTest() => ReachedMilestoneIndices().ToList();
+
+    /// <summary>Obnoví dosažený milník ze savu (bez oslavy).</summary>
+    internal void RestoreMilestone(int index)
+    {
+        if (index >= 0 && index < _milestonesReached.Length)
+        {
+            _milestonesReached[index] = true;
+        }
+    }
 
     // ----- volby -----
 
@@ -2213,8 +2602,10 @@ public sealed class Simulation
         RemoveBuildingSilently(third);
         RemoveBuildingSilently(fourth);
 
-        AddBuilding(def.MergesToIndex, group.X, group.Y, progress: 0f);
+        // Sloučení není nová stavba: čtyři domy už stojí, jen se přestaví.
+        AddBuilding(def.MergesToIndex, group.X, group.Y, progress: 0f, asConstructionSite: false);
         ApplyBuildingBonuses(_content.Buildings[def.MergesToIndex]);
+        ReportVisual(VisualEventKind.BuildingMerged, group.X, group.Y);
         _roadLinksDirty = true; // napojení se musí přepočítat, než se zeptáme na cestu
         _roadBuilder.ConnectLastBuilding(this);
         MergedBuildings++;
@@ -2247,7 +2638,7 @@ public sealed class Simulation
             }
         }
 
-        RemoveBuildingBonuses(def);
+        ForgetBuilding(buildingIndex, def);
 
         int last = _buildingCount - 1;
         if (buildingIndex != last)
@@ -2309,6 +2700,7 @@ public sealed class Simulation
         RemoveBuildingBonuses(oldDef);
         instance.DefIndex = oldDef.UpgradesToIndex;
         instance.Progress = 0f;
+        ReportVisual(VisualEventKind.BuildingUpgraded, instance.X, instance.Y);
         ApplyBuildingBonuses(_content.Buildings[instance.DefIndex]);
         SettlementsDirty = true;
         _roadLinksDirty = true;
@@ -2337,7 +2729,7 @@ public sealed class Simulation
             }
         }
 
-        RemoveBuildingBonuses(def);
+        ForgetBuilding(buildingIndex, def);
         var cost = def.BuildCost;
         for (int i = 0; i < cost.Count; i++)
         {
@@ -2414,8 +2806,14 @@ public sealed class Simulation
 
         building.X = x;
         building.Y = y;
-        // Přesun mění biom pod budovou → cachovaný násobič výroby musí jít s ní.
+        // Přesun mění biom pod budovou i její okolí → cachované násobiče jdou s ní.
         building.BiomeMult = (float)_content.Biomes[Terrain.BiomeAt(x, y)].Production;
+        building.AdjacencyMult = (float)AdjacencyMultiplier(def, x, y);
+        building.HaulMult = (float)_haulSystem.MultiplierAt(x, y);
+        if (def.StorageBonus.Count > 0)
+        {
+            HaulDirty = true; // přesunutý sklad mění svoz na obou koncích
+        }
         for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
         {
             for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
@@ -2559,13 +2957,18 @@ public sealed class Simulation
     /// </summary>
     internal void RestoreBuilding(int defIndex, int x, int y, float progress)
     {
-        AddBuilding(defIndex, x, y, progress);
+        AddBuilding(defIndex, x, y, progress, asConstructionSite: false);
         ApplyBuildingBonuses(_content.Buildings[defIndex]);
         SettlementsDirty = true;
         _roadLinksDirty = true; // silnice ze savu chodí zvlášť, přepočet osad ale spustit musíme
     }
 
-    private void AddBuilding(int defIndex, int x, int y, float progress)
+    /// <summary>
+    /// Vloží budovu do plochého pole. <paramref name="asConstructionSite"/> říká,
+    /// jestli se teprve staví (nová stavba), nebo už stojí (obnova ze savu) —
+    /// odpočet stavby je stav budovy, ne vlastnost jejího typu.
+    /// </summary>
+    private void AddBuilding(int defIndex, int x, int y, float progress, bool asConstructionSite = true)
     {
         var def = _content.Buildings[defIndex];
         if (_buildingCount == _buildings.Length)
@@ -2577,6 +2980,12 @@ public sealed class Simulation
         // tudy prochází i obnova ze savu — jinak by se po načtení zapomněl.
         _settledBiomes[Terrain.BiomeAt(x, y)] = true;
 
+        // Cache napojení na silnice mluví o polích, která se právě mění — zneplatni
+        // ji TADY, ne až po zavolání RoadBuilderu. Dřív to bylo až na konci
+        // TryPlaceBuilding, takže se stihl někdo zeptat na napojení budovy, kterou
+        // cache ještě neznala, a sáhnout za konec pole (pád při stavbě).
+        _roadLinksDirty = true;
+
         _buildings[_buildingCount] = new BuildingInstance
         {
             DefIndex = defIndex,
@@ -2586,8 +2995,22 @@ public sealed class Simulation
             // Ekonomická identita biomu se cachuje při položení — v tikové smyčce
             // už se terén nevzorkuje (viz BuildingInstance.BiomeMult).
             BiomeMult = (float)_content.Biomes[Terrain.BiomeAt(x, y)].Production,
+            AdjacencyMult = (float)AdjacencyMultiplier(def, x, y),
+            HaulMult = (float)_haulSystem.MultiplierAt(x, y),
+            BuildTicksRemaining = asConstructionSite ? def.BuildTicks : 0,
         };
         _buildingCount++;
+        if (asConstructionSite && def.TakesTimeToBuild)
+        {
+            BuildingsUnderConstruction++;
+        }
+
+        // Nový sklad mění svoz i budovám, které stojí dávno — ty se přepočítají
+        // rozloženě, tahle jedna to má správně hned.
+        if (def.StorageBonus.Count > 0)
+        {
+            HaulDirty = true;
+        }
 
         for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
         {
@@ -2611,6 +3034,23 @@ public sealed class Simulation
         }
     }
 
+    /// <summary>
+    /// Odepíše budovu ze všech evidencí, než zmizí z pole. Rozestavěná budova
+    /// žádné bonusy nedostala, takže se jí ani neodebírají — jen se odečte
+    /// ze staveniště, jinak by počítadlo zůstalo viset a stavební systém by
+    /// nadarmo procházel celé město.
+    /// </summary>
+    private void ForgetBuilding(int buildingIndex, BuildingDef def)
+    {
+        if (_buildings[buildingIndex].IsComplete)
+        {
+            RemoveBuildingBonuses(def);
+            return;
+        }
+
+        BuildingsUnderConstruction = Math.Max(0, BuildingsUnderConstruction - 1);
+    }
+
     /// <summary>Odebere globální bonusy budovy (vylepšení nahrazuje starou úroveň novou).</summary>
     private void RemoveBuildingBonuses(BuildingDef def)
     {
@@ -2621,6 +3061,14 @@ public sealed class Simulation
         for (int i = 0; i < def.StorageBonus.Count; i++)
         {
             _storageCaps[def.StorageBonus[i].ResourceIndex] -= def.StorageBonus[i].Amount * _bonuses.StorageMult;
+        }
+
+        // Zbouraný (nebo vylepšený) sklad zmizel ze sběrných míst — svoz kolem
+        // něj se musí přepočítat. Sedí to tady, protože tímhle jediným místem
+        // prochází bourání i slučování.
+        if (def.StorageBonus.Count > 0)
+        {
+            HaulDirty = true;
         }
     }
 
@@ -2776,7 +3224,10 @@ public sealed class Simulation
 
         for (int i = 0; i < _buildingCount; i++)
         {
-            ApplyBuildingBonuses(_content.Buildings[_buildings[i].DefIndex]);
+            if (_buildings[i].IsComplete)
+            {
+                ApplyBuildingBonuses(_content.Buildings[_buildings[i].DefIndex]);
+            }
         }
 
         for (int i = 0; i < _resources.Length; i++)

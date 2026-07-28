@@ -37,7 +37,9 @@ public sealed class GameContent
         DefRegistry<TerraformDef> terraform,
         IReadOnlyList<TutorialStepDef> tutorial,
         ChallengeCatalog challenges,
-        ElectionConfig elections)
+        ElectionConfig elections,
+        IReadOnlyList<MilestoneDef> milestones,
+        SeasonCalendar seasons)
     {
         Biomes = biomes;
         Resources = resources;
@@ -69,7 +71,12 @@ public sealed class GameContent
         Tutorial = tutorial;
         Challenges = challenges;
         Elections = elections;
+        Milestones = milestones;
+        Seasons = seasons;
     }
+
+    /// <summary>Roční období z <c>data/seasons.json</c> (smí být vypnutá).</summary>
+    public SeasonCalendar Seasons { get; }
 
     /// <summary>Definice technologií z <c>data/tech.json</c> (tech tree).</summary>
     public DefRegistry<TechDef> Techs { get; }
@@ -131,7 +138,10 @@ public sealed class GameContent
         Biomes, Resources, Buildings, Techs, Prestige, PrestigeUpgrades, Quests, QuestsDynamic,
         Achievements, Events, Eras, WorldGen, gameplay, Languages, SettlementNames, Decorations,
         Fauna, Devlog, ZoneTypes, Policies, AscensionTiers, Weather, Landmarks, Features, Ufo,
-        Ambience, Terraform, Tutorial, Challenges, Elections);
+        Ambience, Terraform, Tutorial, Challenges, Elections, Milestones, Seasons);
+
+    /// <summary>Milníky postupu z <c>data/milestones.json</c> (smí být prázdné).</summary>
+    public IReadOnlyList<MilestoneDef> Milestones { get; }
 
     /// <summary>Volby na pozadí z <c>data/elections.json</c> (smí být vypnuté).</summary>
     public ElectionConfig Elections { get; }

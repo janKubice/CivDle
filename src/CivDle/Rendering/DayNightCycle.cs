@@ -72,6 +72,27 @@ public static class DayNightCycle
         spriteBatch.End();
     }
 
+    /// <summary>
+    /// Nádech ročního období přes scénu — modravá zima, zlatý podzim. Kreslí se
+    /// pod overlay dne/noci, aby noc zůstala noc.
+    ///
+    /// <para>Je to čistě atmosféra: mechaniku období nese simulace, tohle jen
+    /// dává hráči poznat, že se něco změnilo, dřív než si přečte HUD.</para>
+    /// </summary>
+    public static void DrawSeasonTint(
+        SpriteBatch spriteBatch, Texture2D pixel, Viewport viewport, SeasonDef? season)
+    {
+        if (season is null || season.TintAlpha <= 0.001)
+        {
+            return;
+        }
+
+        spriteBatch.Begin();
+        spriteBatch.Draw(pixel, new Rectangle(0, 0, viewport.Width, viewport.Height),
+            season.TintColor.ToXna() * (float)season.TintAlpha);
+        spriteBatch.End();
+    }
+
     private static float SmoothStep(float t)
     {
         t = Math.Clamp(t, 0f, 1f);

@@ -118,6 +118,12 @@ public static class Program
                 ? $"První Vzestup dostupný v {ascend:0.0} min."
                 : "První Vzestup nedosažen.");
 
+            // Složení města: bez něj je zaseknutá křivka němá — „populace stojí
+            // na deseti" neřekne, jestli chybí pila, domy, nebo dělníci.
+            Console.WriteLine("Postaveno: " + (result.FinalBuildings.Count == 0
+                ? "nic"
+                : string.Join(", ", result.FinalBuildings.Select(b => $"{b.Id} ×{b.Count}"))));
+
             if (result.StalledAtMinutes is { } stalled)
             {
                 Console.WriteLine($"POZOR: růst se zastavil v {stalled:0.0} min a už se nerozjel.");

@@ -50,9 +50,13 @@ internal sealed class QuestSystem
         var dynamic = _content.QuestsDynamic;
         if (sim.EvaluateMetric(dynamic.BaseCondition.Kind, dynamic.BaseCondition.Param) >= sim.DynamicQuestTarget)
         {
+            long completedTarget = sim.DynamicQuestTarget;
             GrantReward(sim, dynamic.BaseReward, Math.Pow(dynamic.RewardGrowth, sim.DynamicQuestTier));
             sim.DynamicQuestTier++;
-            sim.EnqueueNotification(new GameNotification(NotificationKind.QuestCompleted, "toast.quest", "quest.dynamic"));
+            // Cíl jde do zprávy: jméno dynamického úkolu ho obsahuje, jinak by
+            // se v toastu ukázalo doslova „{0}".
+            sim.EnqueueNotification(new GameNotification(
+                NotificationKind.QuestCompleted, "toast.quest", "quest.dynamic", completedTarget));
         }
     }
 

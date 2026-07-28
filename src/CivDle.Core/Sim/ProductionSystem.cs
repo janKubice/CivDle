@@ -58,16 +58,21 @@ internal sealed class ProductionSystem
         // Počasí i bonusy jsou pro celý tik konstantní — spočítej jednou, ne u každé
         // budovy (CurrentWeatherIndex je hash, v tikové smyčce by se zbytečně opakoval).
         double productionMult = sim.Bonuses.ProductionMult * sim.BoostMultiplier * sim.WeatherProductionMult
-            * sim.ElectionProductionMult;
+            * sim.ElectionProductionMult * sim.ToolProductionMult;
+
+        // Roční období sahá jen na jídlo — zima podvazuje pole, ne hutě. Index
+        // jídla i násobič se čtou jednou za tik, ne u každé budovy.
+        int foodIndex = _content.Gameplay.FoodResourceIndex;
+        double seasonFoodMult = sim.SeasonFoodMult;
         double disconnectedMult = _content.Gameplay.Roads.DisconnectedProductionMult;
         for (int i = 0; i < buildings.Length; i++)
         {
             ref var building = ref buildings[i];
             var def = _defs[building.DefIndex];
             var recipe = def.Recipe;
-            if (recipe is null)
+            if (recipe is null || !building.IsComplete)
             {
-                continue;
+                continue; // staveniště nevyrábí, dokud nestojí
             }
 
             float staffing = def.WorkerSlots > 0 ? _assigned[i] / (float)def.WorkerSlots : 1f;
@@ -112,7 +117,22 @@ internal sealed class ProductionSystem
                 sim.MarkResourceKnown(index); // první vyrobený kus surovinu odhalí v UI
                 // Plný sklad výrobu nezastaví, přebytek propadá (idle konvence) —
                 // motivace stavět sklady, žádný trest. Trvalý bonus Vzestupu zvedá výstup.
-                resources[index] = Math.Min(resources[index] + recipe.Outputs[j].Amount * productionMult * building.BiomeMult, storageCaps[index]);
+                double yield = recipe.Outputs[j].Amount * productionMult
+                    * building.BiomeMult * building.AdjacencyMult * building.HaulMult;
+                if (index == foodIndex)
+                {
+                    yield *= seasonFoodMult;
+                }
+
+                resources[index] = Math.Min(resources[index] + yield, storageCaps[index]);
+            }
+
+            // Ohlas dokončený cyklus renderu — bez tohohle je město opticky mrtvé,
+            // i když ve skutečnosti pracuje. Fronta má pevnou kapacitu, takže při
+            // statisících budov se ohlásí jen vzorek; to je záměr, ne chyba.
+            if (recipe.Outputs.Count > 0)
+            {
+                sim.ReportVisual(VisualEventKind.Produced, building.X, building.Y, recipe.Outputs[0].ResourceIndex);
             }
 
             building.Progress -= recipe.TimeTicks;
@@ -139,8 +159,13 @@ internal sealed class ProductionSystem
         RefreshScarcity(sim);
 
         Array.Clear(_assigned, 0, buildings.Length);
-        long workersLeft = AssignPass(buildings, (long)Math.Floor(sim.Population), scarceOnly: true);
-        AssignPass(buildings, workersLeft, scarceOnly: false);
+        long workforce = (long)Math.Floor(sim.Population);
+        long workersLeft = AssignPass(buildings, workforce, scarceOnly: true);
+        workersLeft = AssignPass(buildings, workersLeft, scarceOnly: false);
+
+        // Kolik lidí opravdu pracuje — podle toho se opotřebovávají nástroje.
+        // Tady je to zadarmo, jinde by se to muselo počítat znovu.
+        sim.EmployedWorkers = workforce - workersLeft;
 
         int idle = 0;
         for (int i = 0; i < buildings.Length; i++)

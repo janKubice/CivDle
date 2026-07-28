@@ -40,7 +40,8 @@ internal sealed class PopulationSystem
             sim.Population = Math.Min(
                 ceiling,
                 sim.Population + _config.PopulationGrowthPerSecond * dt
-                    * sim.Bonuses.GrowthMult * sim.HappinessGrowthFactor * sim.ElectionGrowthMult);
+                    * sim.Bonuses.GrowthMult * sim.HappinessGrowthFactor * sim.ElectionGrowthMult
+                    * sim.SeasonGrowthMult);
         }
     }
 }

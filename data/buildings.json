@@ -101,6 +101,17 @@
       "mergeCost": {
         "planks": 18,
         "stone": 10
+      },
+      "adjacency": {
+        "biomes": [
+          "forest",
+          "taiga",
+          "jungle",
+          "mangrove"
+        ],
+        "radius": 2,
+        "perTile": 0.025,
+        "max": 0.35
       }
     },
     {
@@ -129,7 +140,18 @@
         "mangrove",
         "highlands"
       ],
-      "buildable": false
+      "buildable": false,
+      "adjacency": {
+        "biomes": [
+          "forest",
+          "taiga",
+          "jungle",
+          "mangrove"
+        ],
+        "radius": 2,
+        "perTile": 0.025,
+        "max": 0.35
+      }
     },
     {
       "id": "sawmill",
@@ -160,7 +182,18 @@
         "savanna",
         "tundra",
         "desert"
-      ]
+      ],
+      "adjacency": {
+        "biomes": [
+          "forest",
+          "taiga",
+          "jungle",
+          "mangrove"
+        ],
+        "radius": 2,
+        "perTile": 0.03,
+        "max": 0.35
+      }
     },
     {
       "id": "quarry",
@@ -195,6 +228,18 @@
       "mergeCost": {
         "planks": 22,
         "stone": 16
+      },
+      "adjacency": {
+        "biomes": [
+          "mountains",
+          "snow_peaks",
+          "badlands",
+          "volcanic",
+          "highlands"
+        ],
+        "radius": 2,
+        "perTile": 0.025,
+        "max": 0.35
       }
     },
     {
@@ -222,7 +267,19 @@
         "badlands",
         "volcanic"
       ],
-      "buildable": false
+      "buildable": false,
+      "adjacency": {
+        "biomes": [
+          "mountains",
+          "snow_peaks",
+          "badlands",
+          "volcanic",
+          "highlands"
+        ],
+        "radius": 2,
+        "perTile": 0.025,
+        "max": 0.35
+      }
     },
     {
       "id": "farm",
@@ -251,6 +308,19 @@
       "upgradeCost": {
         "planks": 10,
         "stone": 8
+      },
+      "adjacency": {
+        "biomes": [
+          "shallow_water",
+          "ocean",
+          "coral_reef",
+          "grassland",
+          "savanna",
+          "swamp"
+        ],
+        "radius": 2,
+        "perTile": 0.025,
+        "max": 0.3
       }
     },
     {
@@ -276,7 +346,20 @@
         "grassland",
         "savanna"
       ],
-      "buildable": false
+      "buildable": false,
+      "adjacency": {
+        "biomes": [
+          "shallow_water",
+          "ocean",
+          "coral_reef",
+          "grassland",
+          "savanna",
+          "swamp"
+        ],
+        "radius": 2,
+        "perTile": 0.025,
+        "max": 0.3
+      }
     },
     {
       "id": "warehouse",
@@ -345,7 +428,17 @@
         "savanna",
         "tundra"
       ],
-      "serviceValue": 3
+      "serviceValue": 3,
+      "adjacency": {
+        "biomes": [
+          "steppe",
+          "highlands",
+          "tundra"
+        ],
+        "radius": 2,
+        "perTile": 0.025,
+        "max": 0.3
+      }
     },
     {
       "id": "market",
@@ -500,7 +593,19 @@
         "snow_peaks",
         "badlands",
         "volcanic"
-      ]
+      ],
+      "adjacency": {
+        "biomes": [
+          "mountains",
+          "snow_peaks",
+          "badlands",
+          "volcanic",
+          "highlands"
+        ],
+        "radius": 2,
+        "perTile": 0.025,
+        "max": 0.35
+      }
     },
     {
       "id": "coal_mine",
@@ -526,7 +631,19 @@
         "snow_peaks",
         "badlands",
         "volcanic"
-      ]
+      ],
+      "adjacency": {
+        "biomes": [
+          "mountains",
+          "snow_peaks",
+          "badlands",
+          "volcanic",
+          "highlands"
+        ],
+        "radius": 2,
+        "perTile": 0.025,
+        "max": 0.35
+      }
     },
     {
       "id": "blast_furnace",
@@ -558,7 +675,19 @@
         "savanna",
         "tundra",
         "desert"
-      ]
+      ],
+      "adjacency": {
+        "biomes": [
+          "mountains",
+          "snow_peaks",
+          "badlands",
+          "volcanic",
+          "highlands"
+        ],
+        "radius": 3,
+        "perTile": 0.02,
+        "max": 0.25
+      }
     },
     {
       "id": "iron_forge",
@@ -616,7 +745,19 @@
         "snow_peaks",
         "badlands",
         "volcanic"
-      ]
+      ],
+      "adjacency": {
+        "biomes": [
+          "mountains",
+          "snow_peaks",
+          "badlands",
+          "volcanic",
+          "highlands"
+        ],
+        "radius": 2,
+        "perTile": 0.025,
+        "max": 0.35
+      }
     },
     {
       "id": "smeltery",
@@ -647,7 +788,19 @@
         "savanna",
         "tundra",
         "desert"
-      ]
+      ],
+      "adjacency": {
+        "biomes": [
+          "mountains",
+          "snow_peaks",
+          "badlands",
+          "volcanic",
+          "highlands"
+        ],
+        "radius": 3,
+        "perTile": 0.02,
+        "max": 0.25
+      }
     },
     {
       "id": "bronze_smith",
@@ -739,7 +892,19 @@
         "savanna",
         "tundra",
         "desert"
-      ]
+      ],
+      "adjacency": {
+        "biomes": [
+          "mountains",
+          "snow_peaks",
+          "badlands",
+          "volcanic",
+          "highlands"
+        ],
+        "radius": 3,
+        "perTile": 0.02,
+        "max": 0.25
+      }
     },
     {
       "id": "coal_power_plant",
@@ -847,7 +1012,19 @@
         "snow_peaks",
         "badlands",
         "volcanic"
-      ]
+      ],
+      "adjacency": {
+        "biomes": [
+          "mountains",
+          "snow_peaks",
+          "badlands",
+          "volcanic",
+          "highlands"
+        ],
+        "radius": 2,
+        "perTile": 0.025,
+        "max": 0.35
+      }
     },
     {
       "id": "electronics_fab",
@@ -1046,7 +1223,17 @@
       },
       "allowedBiomes": [
         "beach"
-      ]
+      ],
+      "adjacency": {
+        "biomes": [
+          "shallow_water",
+          "ocean",
+          "coral_reef"
+        ],
+        "radius": 2,
+        "perTile": 0.03,
+        "max": 0.4
+      }
     },
     {
       "id": "hunters_lodge",
@@ -1072,7 +1259,18 @@
         "jungle",
         "mangrove",
         "highlands"
-      ]
+      ],
+      "adjacency": {
+        "biomes": [
+          "forest",
+          "taiga",
+          "jungle",
+          "mangrove"
+        ],
+        "radius": 2,
+        "perTile": 0.025,
+        "max": 0.3
+      }
     },
     {
       "id": "granary",
@@ -1200,7 +1398,18 @@
         "jungle",
         "mangrove",
         "highlands"
-      ]
+      ],
+      "adjacency": {
+        "biomes": [
+          "forest",
+          "taiga",
+          "jungle",
+          "mangrove"
+        ],
+        "radius": 2,
+        "perTile": 0.03,
+        "max": 0.35
+      }
     },
     {
       "id": "machine_shop",
@@ -1348,7 +1557,17 @@
         "tundra",
         "desert"
       ],
-      "buildable": false
+      "buildable": false,
+      "adjacency": {
+        "biomes": [
+          "shallow_water",
+          "ocean",
+          "coral_reef"
+        ],
+        "radius": 2,
+        "perTile": 0.03,
+        "max": 0.4
+      }
     },
     {
       "id": "deep_sea_port",
@@ -1478,7 +1697,8 @@
         "savanna",
         "tundra",
         "desert"
-      ]
+      ],
+      "buildTicks": 4200
     },
     {
       "id": "megacity_spire",
@@ -1507,7 +1727,8 @@
       "upkeep": {
         "electronics": 1
       },
-      "buildable": false
+      "buildable": false,
+      "buildTicks": 2400
     },
     {
       "id": "grand_exchange",
@@ -1548,7 +1769,8 @@
       "upkeep": {
         "steel": 2
       },
-      "buildable": false
+      "buildable": false,
+      "buildTicks": 1800
     },
     {
       "id": "orbital_ring",
@@ -1572,7 +1794,8 @@
         "tundra",
         "desert"
       ],
-      "buildable": false
+      "buildable": false,
+      "buildTicks": 6000
     },
     {
       "id": "world_forge",
@@ -1608,7 +1831,8 @@
         "tundra",
         "desert"
       ],
-      "buildable": false
+      "buildable": false,
+      "buildTicks": 3600
     },
     {
       "id": "manor",
@@ -1727,7 +1951,18 @@
         "mangrove",
         "highlands"
       ],
-      "buildable": false
+      "buildable": false,
+      "adjacency": {
+        "biomes": [
+          "forest",
+          "taiga",
+          "jungle",
+          "mangrove"
+        ],
+        "radius": 2,
+        "perTile": 0.025,
+        "max": 0.35
+      }
     },
     {
       "id": "great_quarry",
@@ -1753,7 +1988,19 @@
         "badlands",
         "volcanic"
       ],
-      "buildable": false
+      "buildable": false,
+      "adjacency": {
+        "biomes": [
+          "mountains",
+          "snow_peaks",
+          "badlands",
+          "volcanic",
+          "highlands"
+        ],
+        "radius": 2,
+        "perTile": 0.025,
+        "max": 0.35
+      }
     },
     {
       "id": "park",

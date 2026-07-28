@@ -76,7 +76,7 @@ public sealed class OfflineSummaryScreen : IScreen
         });
         layout.Widgets.Add(new Label
         {
-            Text = loc.Format("offline.away", FormatDuration(_summary.CreditedSeconds)),
+            Text = loc.Format("offline.away", DurationFormat.Human(_summary.CreditedSeconds)),
             HorizontalAlignment = HorizontalAlignment.Center,
             TextColor = Color.LightGray,
         });
@@ -120,12 +120,4 @@ public sealed class OfflineSummaryScreen : IScreen
         TextColor = new Color(150, 220, 150),
     };
 
-    /// <summary>Trvání jako „3 h 20 min" / „45 min" (jednotky h/min jsou univerzální).</summary>
-    private static string FormatDuration(long seconds)
-    {
-        long minutes = seconds / 60;
-        long hours = minutes / 60;
-        minutes %= 60;
-        return hours > 0 ? $"{hours} h {minutes} min" : $"{minutes} min";
-    }
 }

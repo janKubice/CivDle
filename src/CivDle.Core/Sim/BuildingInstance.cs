@@ -27,4 +27,31 @@ public struct BuildingInstance
     /// pro každou budovu (hot path, CLAUDE.md výkon). Neukládá se: odvodí se z terénu.
     /// </summary>
     public float BiomeMult;
+
+    /// <summary>
+    /// Násobič výroby z okolí (pila u lesa, lom u hor — viz <c>AdjacencyRule</c>).
+    /// Stejně jako <see cref="BiomeMult"/> se cachuje při položení: okolí se
+    /// prohlédne jednou, ne každý tik. 1.0 = budova bez pravidla nebo bez okolí.
+    /// </summary>
+    public float AdjacencyMult;
+
+    /// <summary>
+    /// Násobič výroby ze vzdálenosti k nejbližšímu skladu (viz <c>HaulSystem</c>).
+    /// Na rozdíl od <see cref="BiomeMult"/> se může měnit i bez zásahu do budovy —
+    /// stačí, že hráč postaví sklad opodál. Přepočet je proto rozložený do ticků,
+    /// ne v hot path.
+    /// </summary>
+    public float HaulMult;
+
+    /// <summary>
+    /// Kolik tiků zbývá do dokončení stavby. 0 = budova stojí a funguje.
+    ///
+    /// <para>Rozestavěná budova nevyrábí a nedává žádné bonusy (bydlení, pracovní
+    /// místa, sklad, proud) — ty se připíšou až při dokončení. Divy světa se tím
+    /// mění z drahého kliknutí na událost.</para>
+    /// </summary>
+    public int BuildTicksRemaining;
+
+    /// <summary>Je budova hotová a v provozu?</summary>
+    public readonly bool IsComplete => BuildTicksRemaining <= 0;
 }

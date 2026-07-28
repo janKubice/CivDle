@@ -1,3 +1,4 @@
+using System.Text;
 using CivDle.Audio;
 using CivDle.Core.Content;
 using CivDle.Core.Save;
@@ -54,6 +55,9 @@ public sealed class GameplayScreen : IScreen
     private readonly FixedStepLoop _simLoop = new(Simulation.TicksPerSecond);
     private readonly ParticleSystem _particles = new();
     private readonly FloatingTextRenderer _floatingText = new();
+    private CityPulseRenderer _cityPulse = null!;
+    private RollingNumbers _rolling = null!;
+    private readonly CelebrationRenderer _celebration = new();
     private readonly GameSounds _sounds = new();
     private readonly AmbientMusic _ambient = new();
     private readonly AmbientSoundscape _soundscape;
@@ -62,6 +66,7 @@ public sealed class GameplayScreen : IScreen
     private readonly CityScaleRenderer _cityScale;
     private readonly VignetteRenderer _vignette;
     private readonly BubbleSystem _bubbles;
+    private readonly CaravanSystem _caravans;
     private readonly GoldenSpawnSystem _golden;
     private readonly DiscoveryRenderer _discoveries;
     private readonly SpriteFontBase _popupFont;
@@ -75,6 +80,9 @@ public sealed class GameplayScreen : IScreen
     private double[] _ratePrev = Array.Empty<double>();
     private double[] _perSecond = Array.Empty<double>();
     private float _rateTimer;
+
+    /// <summary>Kolik sekund ještě mlčet o přetékajícím skladu dané suroviny.</summary>
+    private float[] _fullStorageCooldown = Array.Empty<float>();
     private Label _populationLabel = null!;
     private Label _idleLabel = null!;
     private Label _eraLabel = null!;
@@ -82,6 +90,11 @@ public sealed class GameplayScreen : IScreen
     private Label _tierLabel = null!;
     private Label _powerLabel = null!;
     private Label _weatherLabel = null!;
+    private Label _seasonLabel = null!;
+    private Label _toolsLabel = null!;
+
+    /// <summary>Poslední ohlášené období — změna se hlásí jednou, ne každý snímek.</summary>
+    private int _lastSeasonIndex = -1;
     private Label _dayLabel = null!;
     private Label _cursorLabel = null!;
     private Label _happinessLabel = null!;
@@ -151,6 +164,9 @@ public sealed class GameplayScreen : IScreen
         _soundscape = new AmbientSoundscape(screens.Content);
         _tools = new MapTools(simulation, _camera, _input, screens.Content);
         _weatherRenderer = new WeatherRenderer(screens.WhitePixel, screens.Content);
+        _cityPulse = new CityPulseRenderer(screens.WhitePixel, screens.Content);
+        _rolling = new RollingNumbers(screens.Content.Resources.Count);
+        _rolling.SnapTo(simulation.GetResource); // na startu (i po načtení savu) žádné dojíždění
         _buildingRenderer = new BuildingRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
         _lightsRenderer = new LightsRenderer(screens.WhitePixel, screens.Content);
         _fauna = new FaunaSystem(screens.Content);
@@ -158,6 +174,7 @@ public sealed class GameplayScreen : IScreen
         _minimap = new MinimapRenderer(screens.GraphicsDevice, screens.Content.Biomes, screens.WhitePixel);
         _vignette = new VignetteRenderer(screens.GraphicsDevice);
         _bubbles = new BubbleSystem(screens.Sprites, screens.Content);
+        _caravans = new CaravanSystem(screens.Sprites, screens.Content);
         _golden = new GoldenSpawnSystem(screens.Sprites, screens.Content);
         _discoveries = new DiscoveryRenderer(screens.Sprites);
         _popupFont = Stylesheet.Current.LabelStyle.Font;
@@ -171,6 +188,7 @@ public sealed class GameplayScreen : IScreen
 
         _ratePrev = new double[_simulation.ResourceCount];
         _perSecond = new double[_simulation.ResourceCount];
+        _fullStorageCooldown = new float[_simulation.ResourceCount];
         for (int i = 0; i < _ratePrev.Length; i++)
         {
             _ratePrev[i] = _simulation.GetResource(i);
@@ -263,6 +281,9 @@ public sealed class GameplayScreen : IScreen
         _harvestables.Update(dt);
         _particles.Update(dt);
         _floatingText.Update(dt);
+        _cityPulse.Update(dt, _simulation);
+        _rolling.Update(dt, _simulation.GetResource);
+        _celebration.Update(dt);
         // Při velkém oddálení chodce/faunu neaktualizuj — nespawnovali by se přes
         // obří viditelnou plochu (a stejně se nekreslí; z výšky vidíš hustotu).
         if (_camera.Zoom >= CityScaleRenderer.ThresholdZoom)
@@ -270,6 +291,7 @@ public sealed class GameplayScreen : IScreen
             _fauna.Update(dt, _camera, _simulation);
             _agents.Update(dt, _camera, _simulation);
             _bubbles.Update(dt, _simulation);
+            UpdateCaravan(dt);
             _golden.Update(dt, _camera, _simulation);
             _discoveries.Update(dt);
         }
@@ -305,6 +327,7 @@ public sealed class GameplayScreen : IScreen
             _agents.Draw(spriteBatch, _camera);
             _fauna.Draw(spriteBatch, _screens.WhitePixel, _camera);
             _bubbles.Draw(spriteBatch, _camera);
+            _caravans.Draw(spriteBatch, _camera);
             _golden.Draw(spriteBatch, _camera);
         }
         else
@@ -317,6 +340,16 @@ public sealed class GameplayScreen : IScreen
         _ufoRenderer.Draw(spriteBatch, _camera, _simulation, (float)gameTime.TotalGameTime.TotalSeconds);
 
         _particles.Draw(spriteBatch, _screens.WhitePixel, _camera);
+
+        // Odezva na práci simulace (jiskry výroby, naskakující stavby) nad mapou,
+        // ale pod denním/nočním překryvem — patří do světa, ne do UI.
+        spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.Transform);
+        _cityPulse.Draw(spriteBatch);
+        spriteBatch.End();
+
+        // Nádech období pod den/noc — hráč pozná zimu dřív, než se podívá do HUD.
+        DayNightCycle.DrawSeasonTint(
+            spriteBatch, _screens.WhitePixel, _screens.GraphicsDevice.Viewport, _simulation.CurrentSeason);
 
         // Den/noc: ztmavení scény a pak aditivní světla, ať září skrz tmu.
         double timeOfDay = _simulation.TimeOfDay01;
@@ -402,6 +435,11 @@ public sealed class GameplayScreen : IScreen
         DrawSettlementLabels(spriteBatch);
         DrawTileTooltip(spriteBatch);
         _toasts.Draw(spriteBatch, _screens.GraphicsDevice.Viewport);
+
+        // Oslava milníku úplně navrchu — je to ta nejdůležitější zpráva na obrazovce.
+        spriteBatch.Begin();
+        _celebration.Draw(spriteBatch, _screens.WhitePixel, _popupFont, _screens.GraphicsDevice.Viewport);
+        spriteBatch.End();
     }
 
     /// <summary>
@@ -578,6 +616,16 @@ public sealed class GameplayScreen : IScreen
         int tileY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
 
         // Sběrné bubliny a zlaté spawny mají přednost před budovou i těžbou.
+        // Karavana má přednost před těžbou i bublinou — je na ní vidět, že se
+        // na ni klika, a hráč po ní klika záměrně.
+        if (_caravans.TryEscort(world, out var caravanPos))
+        {
+            _floatingText.Add(caravanPos - new Vector2(0f, TerrainRenderer.TileSize * 0.5f),
+                _screens.Loc["hud.escort"], new Color(255, 220, 140));
+            _particles.SpawnBurst(caravanPos, new Color(255, 220, 140), 8, 40f, 130f);
+            return;
+        }
+
         if (_bubbles.TryCollect(world, _simulation, out int bubbleRes, out int bubbleAmt, out var bubblePos))
         {
             CollectFeedback(bubbleRes, bubbleAmt, bubblePos);
@@ -644,6 +692,18 @@ public sealed class GameplayScreen : IScreen
             default:
                 _floatingText.Add(tileCenter, PopupText(resourceIndex, amount), resourceColor);
                 break;
+        }
+
+        // Kombo: série rychlých kliků zvedá výnos. Ukazuje se až od druhého
+        // v řadě — u prvního by „×1" jen mátlo. Číslo letí nad popupem výnosu,
+        // aby bylo vidět, že to spolu souvisí.
+        int streak = _simulation.ComboStreak;
+        if (streak > 1)
+        {
+            _floatingText.Add(
+                tileCenter - new Vector2(0f, TerrainRenderer.TileSize * 0.7f),
+                _screens.Loc.Format("hud.combo", streak),
+                Color.Lerp(new Color(255, 235, 180), new Color(255, 140, 60), Math.Min(1f, (streak - 1) / 10f)));
         }
 
         _sounds.PlayChop();
@@ -718,15 +778,105 @@ public sealed class GameplayScreen : IScreen
         return Vector2.Zero;
     }
 
+    /// <summary>
+    /// Roční období v HUD. Barvu si nese období samo (nádech z dat), takže se
+    /// dá číst koutkem oka; zima bez dřeva navíc zčervená a řekne proč — mrznoucí
+    /// město je jediná situace, kdy období hráče skutečně brzdí.
+    /// </summary>
+    private void UpdateSeasonLabel(Localization loc)
+    {
+        if (_simulation.CurrentSeason is not { } season)
+        {
+            _seasonLabel.Text = string.Empty;
+            return;
+        }
+
+        bool freezing = season.NeedsHeating && !_simulation.HasFuelForHeating;
+        _seasonLabel.Text = loc.Format("hud.season", loc[season.NameKey]);
+        _seasonLabel.TextColor = freezing ? new Color(235, 140, 120) : season.TintColor.ToXna();
+        _seasonLabel.Tooltip = freezing
+            ? loc["hud.season.freezing"]
+            : loc.Format("hud.season.tip", loc[season.NameKey], loc[season.DescriptionKey]);
+
+        // Změna období je událost, ne stav — ohlásí se jednou, když nastane.
+        int index = _simulation.CurrentSeasonIndex;
+        if (_lastSeasonIndex >= 0 && index != _lastSeasonIndex)
+        {
+            _toasts.Add(loc.Format("toast.season", loc[season.NameKey]), season.TintColor.ToXna());
+        }
+
+        _lastSeasonIndex = index;
+    }
+
+    /// <summary>Spokojenost rozepsaná na sčítance („Základ 60 · služby +25 · přelidnění −12").</summary>
+    private string DescribeHappiness(Localization loc)
+    {
+        var parts = _simulation.HappinessParts;
+        string text = loc.Format("hud.happinessParts",
+            Points(parts.Base), Points(parts.Services), Points(parts.Crowding));
+
+        // Vláda se zmiňuje, jen když nějaká je — jinak by to byl řádek o nule.
+        if (Math.Abs(parts.Government) > 0.0005)
+        {
+            text += loc.Format("hud.happinessGovernment", Points(parts.Government));
+        }
+
+        return text;
+    }
+
+    /// <summary>Položka spokojenosti jako body se znaménkem (0.25 → „+25").</summary>
+    private static string Points(double value)
+    {
+        int points = (int)Math.Round(value * 100);
+        return points > 0 ? $"+{points}" : points.ToString();
+    }
+
+    /// <summary>
+    /// Vybavenost nástroji v HUD. Ukazuje se, teprve až hráč nějaké nástroje má —
+    /// dřív by to byl řádek o mechanice, kterou ještě nepotkal.
+    /// </summary>
+    private void UpdateToolsLabel(Localization loc)
+    {
+        var tools = _screens.Content.Gameplay.Tools;
+        if (!tools.IsEnabled || !_simulation.IsResourceKnown(tools.ResourceIndex))
+        {
+            _toolsLabel.Text = string.Empty;
+            return;
+        }
+
+        double coverage = _simulation.ToolCoverage;
+        _toolsLabel.Text = loc.Format("hud.tools", (int)Math.Round(coverage * 100));
+        _toolsLabel.TextColor = coverage >= 0.75 ? new Color(150, 220, 150)
+            : coverage >= 0.35 ? new Color(230, 210, 130)
+            : new Color(200, 195, 180);
+    }
+
     /// <summary>Vyzvedne oznámení ze simulace (splněné úkoly, achievementy, milníky) a udělá z nich toasty.</summary>
     private void DrainNotifications()
     {
         var loc = _screens.Loc;
         while (_simulation.TryDequeueNotification(out var note))
         {
-            string text = $"{loc[note.TitleKey]}: {loc[note.SubjectKey]}";
-            _toasts.Add(text, NotificationColor(note.Kind));
-            _sounds.PlayChime(); // dobrá zpráva → příjemné cinknutí
+            string subject = note.HasSubjectArg ? loc.Format(note.SubjectKey, note.SubjectArg) : loc[note.SubjectKey];
+            if (!_captureMode)
+            {
+                _toasts.Add($"{loc[note.TitleKey]}: {subject}", NotificationColor(note.Kind));
+                _sounds.PlayChime(); // dobrá zpráva → příjemné cinknutí
+            }
+
+            // Milník a Vzestup dostanou navíc oslavu přes obrazovku. Tisící
+            // obyvatel se nemá ztratit v rohu vedle „sklad je plný".
+            if (!_captureMode && note.Kind is NotificationKind.Milestone or NotificationKind.Ascended)
+            {
+                _celebration.Show(subject, NotificationColor(note.Kind));
+            }
+
+            // Div světa se stavěl minuty — dokončení nesmí skončit jako řádek
+            // v rohu vedle „sklad je plný".
+            if (!_captureMode && note.TitleKey == "toast.wonderDone")
+            {
+                _celebration.Show(subject, new Color(240, 200, 90));
+            }
 
             // Splněný úkol / Vzestup mění seznam aktivních cílů — přestav sledovač.
             if (note.Kind is NotificationKind.QuestCompleted or NotificationKind.Ascended)
@@ -811,11 +961,27 @@ public sealed class GameplayScreen : IScreen
     /// </summary>
     private float NextEventGap() => 540f + (float)_eventRng.NextDouble() * 420f; // ~9–16 min
 
-    /// <summary>Jednou za sekundu spočítá čistý přírůstek surovin za sekundu (HUD ticker).</summary>
+    /// <summary>Jak často se odečítá přírůstek surovin (s). Krátký vzorek + vyhlazení.</summary>
+    private const float RateSampleSeconds = 0.25f;
+
+    /// <summary>
+    /// Jak rychle vyhlazená rychlost dojíždí k naměřené (0–1 na vzorek). Nízké
+    /// číslo = klidný ukazatel, který neposkakuje po každém dokončeném cyklu.
+    /// </summary>
+    private const double RateSmoothing = 0.25;
+
+    /// <summary>
+    /// Přírůstek surovin za sekundu pro HUD.
+    ///
+    /// <para>Dřív se odečítalo jednou za sekundu a číslo skákalo: výroba je po
+    /// dávkách, takže se v jedné sekundě dokončilo pět cyklů a v další žádný.
+    /// Teď se vzorkuje čtyřikrát častěji a hodnota se k naměřené jen přibližuje —
+    /// ukazatel tím dýchá místo blikání a dá se z něj číst trend.</para>
+    /// </summary>
     private void SampleRates(float dt)
     {
         _rateTimer += dt;
-        if (_rateTimer < 1f)
+        if (_rateTimer < RateSampleSeconds)
         {
             return;
         }
@@ -823,12 +989,58 @@ public sealed class GameplayScreen : IScreen
         for (int i = 0; i < _perSecond.Length; i++)
         {
             double now = _simulation.GetResource(i);
-            _perSecond[i] = (now - _ratePrev[i]) / _rateTimer;
+            double measured = (now - _ratePrev[i]) / _rateTimer;
+            _perSecond[i] += (measured - _perSecond[i]) * RateSmoothing;
             _ratePrev[i] = now;
         }
 
         _rateTimer = 0f;
+        WarnAboutFullStorage(dt);
     }
+
+    /// <summary>
+    /// Upozorní, že sklad přetéká a výroba propadá. Idle konvence je nechat
+    /// přebytek propadnout bez trestu — jenže pak se hráč nedozví, že už hodinu
+    /// vyrábí do prázdna. Hláška chodí nejvýš jednou za
+    /// <see cref="FullStorageCooldownSeconds"/> a jen u surovin, které opravdu
+    /// tečou; jinak by z ní byl otravný budík.
+    /// </summary>
+    private void WarnAboutFullStorage(float dt)
+    {
+        _ = dt;
+        for (int i = 0; i < _perSecond.Length; i++)
+        {
+            if (_fullStorageCooldown[i] > 0)
+            {
+                _fullStorageCooldown[i] -= RateSampleSeconds;
+                continue;
+            }
+
+            if (!_simulation.IsResourceKnown(i) || _perSecond[i] <= 0.01)
+            {
+                continue;
+            }
+
+            double cap = _simulation.GetStorageCap(i);
+            if (cap <= 0 || _simulation.GetResource(i) < cap - 0.001)
+            {
+                continue;
+            }
+
+            _fullStorageCooldown[i] = FullStorageCooldownSeconds;
+            if (_captureMode)
+            {
+                continue;
+            }
+
+            _toasts.Add(
+                _screens.Loc.Format("toast.storageFull", _screens.Loc[_screens.Content.Resources[i].NameKey]),
+                new Color(230, 200, 120));
+        }
+    }
+
+    /// <summary>Jak dlouho mlčet o jedné a téže přetékající surovině (s).</summary>
+    private const float FullStorageCooldownSeconds = 120f;
 
     /// <summary>Vyhodnotí a udělí denní odměnu (účet-wide, roste se sérií dní).</summary>
     private void GrantDailyReward()
@@ -975,6 +1187,8 @@ public sealed class GameplayScreen : IScreen
         _tierLabel = new Label { TextColor = new Color(190, 160, 230), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.tier"] };
         _powerLabel = new Label { TextColor = new Color(120, 200, 240), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.power"] };
         _weatherLabel = new Label { TextColor = new Color(170, 200, 220), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.weather"] };
+        _seasonLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right };
+        _toolsLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.tools"] };
         _happinessLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.happiness"] };
         _dayLabel = new Label { TextColor = UiFactory.Accent, Tooltip = loc["tip.day"] };
         _cursorLabel = new Label { TextColor = Color.LightGray };
@@ -984,6 +1198,15 @@ public sealed class GameplayScreen : IScreen
         worldInfoStack.Widgets.Add(_tierLabel);
         worldInfoStack.Widgets.Add(_powerLabel);
         worldInfoStack.Widgets.Add(_weatherLabel);
+        if (_screens.Content.Seasons.IsEnabled)
+        {
+            worldInfoStack.Widgets.Add(_seasonLabel);
+        }
+
+        if (_screens.Content.Gameplay.Tools.IsEnabled)
+        {
+            worldInfoStack.Widgets.Add(_toolsLabel);
+        }
         if (_screens.Content.Gameplay.Happiness.IsEnabled)
         {
             worldInfoStack.Widgets.Add(_happinessLabel);
@@ -1365,12 +1588,33 @@ public sealed class GameplayScreen : IScreen
     private void RefreshChallengeDay() =>
         _simulation.SetChallengeDay(DailyReward.TodayKey(DateTime.UtcNow));
 
+    /// <summary>
+    /// Posune karavanu a vyplatí ji, když dorazí. Odemyká se stejnou funkcí jako
+    /// ruční silnice — bez sítě není kudy jezdit.
+    /// </summary>
+    private void UpdateCaravan(float dt)
+    {
+        if (!_simulation.IsFeatureUnlocked("roads"))
+        {
+            return;
+        }
+
+        _caravans.Update(dt, _simulation);
+        if (_caravans.TryCollectArrival(_simulation, out int resourceIndex, out int amount, out var position))
+        {
+            _simulation.AddResource(resourceIndex, amount);
+            CollectFeedback(resourceIndex, amount, position);
+        }
+    }
+
     /// <summary>Promítne přístupnostní volbu „omezit pohyb" do vizuálních efektů.</summary>
     private void ApplyMotionSettings()
     {
         bool motion = !_screens.Settings.ReduceMotion;
         _particles.Enabled = motion;
         _floatingText.Enabled = motion;
+        _cityPulse.Enabled = motion;
+        _celebration.Enabled = motion;
     }
 
     /// <summary>
@@ -1558,9 +1802,15 @@ public sealed class GameplayScreen : IScreen
 
             double amount = _simulation.GetResource(i);
             double cap = _simulation.GetStorageCap(i);
-            _resourceLabels[i].Text = CivDle.Core.Numbers.FormatRatio(amount, cap);
-            // Přeteklý sklad zežloutne (výzva rozšířit), jinak neutrální.
-            _resourceLabels[i].TextColor = amount >= cap - 0.5 ? new Color(240, 200, 90) : Color.White;
+
+            // Vypisuje se DOJÍŽDĚJÍCÍ hodnota, ne skutečná — číslo se plynule
+            // dotáčí nahoru místo skoku. Barva a strop se přitom řídí skutečnou
+            // hodnotou, aby varování o plném skladu nepřišlo se zpožděním.
+            _resourceLabels[i].Text = CivDle.Core.Numbers.FormatRatio(_rolling.Shown(i), cap);
+
+            // Přeteklý sklad zežloutne (výzva rozšířit); přírůstek krátce rozsvítí.
+            var baseColor = amount >= cap - 0.5 ? new Color(240, 200, 90) : Color.White;
+            _resourceLabels[i].TextColor = Color.Lerp(baseColor, new Color(190, 255, 190), _rolling.Flash(i));
 
             // Ticker přírůstku za sekundu (jen znatelný nárůst).
             double rate = i < _perSecond.Length ? _perSecond[i] : 0.0;
@@ -1620,6 +1870,9 @@ public sealed class GameplayScreen : IScreen
             _weatherLabel.Text = string.Empty;
         }
 
+        UpdateSeasonLabel(loc);
+        UpdateToolsLabel(loc);
+
         // Spokojenost: barva nese stav, ať se to dá číst koutkem oka.
         if (_screens.Content.Gameplay.Happiness.IsEnabled)
         {
@@ -1628,6 +1881,11 @@ public sealed class GameplayScreen : IScreen
             _happinessLabel.TextColor = happiness >= 0.75 ? new Color(150, 220, 150)
                 : happiness >= 0.45 ? new Color(230, 210, 130)
                 : new Color(235, 140, 120);
+
+            // Rozpad v bublině: spokojenost je jediná vrstva, kde se dá udělat
+            // chyba, takže hráč musí vidět, KVŮLI ČEMU je zrovna taková. Jedno
+            // číslo, které samo klesne, je nespravedlivé.
+            _happinessLabel.Tooltip = DescribeHappiness(loc);
         }
 
         // Rozvodná síť: zobraz se až když má město spotřebiče; červená = nedostatek.
@@ -1752,9 +2010,79 @@ public sealed class GameplayScreen : IScreen
         }
         else
         {
-            _statusLabel.Text = loc.Format("build.placing", loc[def.NameKey]);
+            _statusLabel.Text = loc.Format("build.placing", loc[def.NameKey]) + PlacementHints(loc, def);
             _statusLabel.TextColor = Color.White;
         }
+    }
+
+    /// <summary>
+    /// Postaví kameru pro režim focení do obchodu (<c>--capture</c>). Existuje
+    /// proto, aby snímky procházely skutečným renderem hry — vyfotit jde jen to,
+    /// na co se dá namířit.
+    /// </summary>
+    internal void FocusForCapture(Vector2 world, float zoom)
+    {
+        _camera.SetViewport(_screens.GraphicsDevice.Viewport.Width, _screens.GraphicsDevice.Viewport.Height);
+        _camera.CenterOn(world, zoom);
+
+        // Uvítací okna (denní odměna, souhrn offline) patří hráči, ne fotografovi —
+        // na snímku by jen zakryly město.
+        _pendingIntros.Clear();
+
+        // Hromada toastů z rychle nasimulovaného města taky ne: hráč je vidí po
+        // jednom, jak přicházejí, ne jako zeď přes půl obrazovky.
+        while (_simulation.TryDequeueNotification(out _))
+        {
+        }
+
+        _toasts.Clear();
+        _objectives.MarkDirty();
+        _captureMode = true;
+    }
+
+    /// <summary>
+    /// Focení do obchodu: oznámení se zpracují (achievementy se zapíšou), ale
+    /// toasty a oslavy se nekreslí. Zrychlená simulace jich vyrobí desítky naráz
+    /// a na snímku by z nich byla zeď přes půl obrazovky.
+    /// </summary>
+    private bool _captureMode;
+
+    /// <summary>
+    /// Živé dopady místa pod kurzorem („+18 % za okolí", „svoz 60 %"). Bez tohohle
+    /// by se hráč o obou pravidlech nedozvěděl — projeví se až v číslech za deset
+    /// minut. Ukazuje se jen to, co zrovna něco dělá; mlčení znamená „na tomhle
+    /// místě nic zvláštního".
+    /// </summary>
+    private string PlacementHints(Localization loc, BuildingDef def)
+    {
+        if (!_tools.GhostVisible || (def.Recipe is null && !def.TakesTimeToBuild))
+        {
+            return string.Empty;
+        }
+
+        var hints = new StringBuilder();
+
+        if (def.TakesTimeToBuild)
+        {
+            hints.Append("  ").Append(loc.Format("tip.build.buildTime", DurationFormat.FromTicks(def.BuildTicks)));
+        }
+
+        if (def.HasAdjacencyBonus)
+        {
+            double bonus = _simulation.AdjacencyMultiplierAt(_tools.SelectedBuilding, _tools.GhostX, _tools.GhostY) - 1.0;
+            if (bonus > 0)
+            {
+                hints.Append("  ").Append(loc.Format("build.adjacencyBonus", BuildingSummary.Percent(bonus)));
+            }
+        }
+
+        double haul = def.Recipe is null ? 1.0 : _simulation.HaulMultiplierAt(_tools.GhostX, _tools.GhostY);
+        if (haul < 0.995)
+        {
+            hints.Append("  ").Append(loc.Format("build.haulPenalty", BuildingSummary.Percent(haul)));
+        }
+
+        return hints.ToString();
     }
 
     private static string ErrorKey(PlacementResult result) => result switch

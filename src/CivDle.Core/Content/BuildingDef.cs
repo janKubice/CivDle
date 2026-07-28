@@ -58,8 +58,28 @@ public sealed record BuildingDef(
     int ServiceValue = 0,
     IReadOnlyList<ResourceAmount>? UpkeepOrNull = null,
     int MergesToIndex = -1,
-    IReadOnlyList<ResourceAmount>? MergeCostOrNull = null)
+    IReadOnlyList<ResourceAmount>? MergeCostOrNull = null,
+    AdjacencyRule? AdjacencyOrNull = null,
+    int BuildTicks = 0)
 {
+    /// <summary>
+    /// Jak dlouho se budova staví (v ticích). 0 = stojí hned, jako všechno ostatní.
+    ///
+    /// <para>Existuje kvůli divům světa: megastruktura, která vyroste jedním
+    /// kliknutím, je jen drahá budova. S odpočtem je z ní událost — na mapě stojí
+    /// staveniště, hráč se k němu vrací a dokončení něco znamená.</para>
+    /// </summary>
+    public bool TakesTimeToBuild => BuildTicks > 0;
+
+    /// <summary>
+    /// Pravidlo bonusu za okolí (pila u lesa, lom u hor); <c>null</c> = budově
+    /// na okolí nezáleží a vyrábí všude stejně.
+    /// </summary>
+    public AdjacencyRule? Adjacency => AdjacencyOrNull;
+
+    /// <summary>Záleží téhle budově na tom, co má kolem sebe?</summary>
+    public bool HasAdjacencyBonus => AdjacencyOrNull is not null;
+
     /// <summary>
     /// Cena za sloučení bloku 2×2 do jedné velké budovy. Doplácí se k tomu, co už
     /// stojí — hráč čtyři domy nestaví znovu, jen je přestaví na jeden velký.
