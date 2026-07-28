@@ -375,47 +375,36 @@ public sealed class GameplayScreen : IScreen
 
         if (_tools.PlantGhostActive && _screens.Sprites.Get("node.tree") is { } plantSprite)
         {
-            const int ts = TerrainRenderer.TileSize;
-            var tint = (_tools.PlantGhostResult == PlacementResult.Ok
-                ? new Color(120, 240, 140)
-                : new Color(240, 110, 100)) * 0.7f;
-            spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.Transform);
-            spriteBatch.Draw(plantSprite, new Rectangle(_tools.PlantGhostX * ts, _tools.PlantGhostY * ts, ts, ts), tint);
-            spriteBatch.End();
+            DrawTileOverlay(spriteBatch, plantSprite, _tools.PlantGhostX, _tools.PlantGhostY, 1,
+                (_tools.PlantGhostResult == PlacementResult.Ok
+                    ? new Color(120, 240, 140)
+                    : new Color(240, 110, 100)) * 0.7f);
         }
 
         if (_tools.TerraformGhostActive)
         {
-            const int ts = TerrainRenderer.TileSize;
-            var tint = (_tools.TerraformGhostResult == PlacementResult.Ok
-                ? new Color(140, 230, 200)
-                : new Color(240, 110, 100)) * 0.55f;
-            spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.Transform);
-            spriteBatch.Draw(_screens.WhitePixel,
-                new Rectangle(_tools.TerraformGhostX * ts, _tools.TerraformGhostY * ts, ts, ts), tint);
-            spriteBatch.End();
+            DrawTileOverlay(spriteBatch, _screens.WhitePixel, _tools.TerraformGhostX, _tools.TerraformGhostY, 1,
+                (_tools.TerraformGhostResult == PlacementResult.Ok
+                    ? new Color(140, 230, 200)
+                    : new Color(240, 110, 100)) * 0.55f);
         }
 
         // Náhled slučování: obtáhne celý čtverec 2×2, ne jednu dlaždici — hráč
         // musí vidět, které čtyři budovy zmizí.
         if (_tools.MergeGhostActive)
         {
-            int ts = TerrainRenderer.TileSize;
-            var tint = (_tools.MergeGhostResult == PlacementResult.Ok
-                ? new Color(150, 235, 150)
-                : new Color(235, 120, 110)) * 0.45f;
-            spriteBatch.Draw(_screens.WhitePixel,
-                new Rectangle(_tools.MergeGhostX * ts, _tools.MergeGhostY * ts, ts * 2, ts * 2), tint);
+            DrawTileOverlay(spriteBatch, _screens.WhitePixel, _tools.MergeGhostX, _tools.MergeGhostY, 2,
+                (_tools.MergeGhostResult == PlacementResult.Ok
+                    ? new Color(150, 235, 150)
+                    : new Color(235, 120, 110)) * 0.45f);
         }
 
         if (_tools.RoadGhostActive)
         {
-            int ts = TerrainRenderer.TileSize;
-            var tint = (_tools.RoadGhostResult != PlacementResult.Ok
-                ? new Color(235, 120, 110)
-                : _tools.RoadGhostErasing ? new Color(240, 190, 90) : new Color(200, 200, 190)) * 0.55f;
-            spriteBatch.Draw(_screens.WhitePixel,
-                new Rectangle(_tools.RoadGhostX * ts, _tools.RoadGhostY * ts, ts, ts), tint);
+            DrawTileOverlay(spriteBatch, _screens.WhitePixel, _tools.RoadGhostX, _tools.RoadGhostY, 1,
+                (_tools.RoadGhostResult != PlacementResult.Ok
+                    ? new Color(235, 120, 110)
+                    : _tools.RoadGhostErasing ? new Color(240, 190, 90) : new Color(200, 200, 190)) * 0.55f);
         }
 
         if (_tools.ZonePreviewActive)
@@ -2012,6 +2001,39 @@ public sealed class GameplayScreen : IScreen
         {
             _statusLabel.Text = loc.Format("build.placing", loc[def.NameKey]) + PlacementHints(loc, def);
             _statusLabel.TextColor = Color.White;
+        }
+    }
+
+    /// <summary>
+    /// Nakreslí barevný čtverec přes dlaždice mapy — náhled nástroje pod kurzorem.
+    ///
+    /// <para>Existuje kvůli konkrétnímu pádu: náhledy silnice a slučování volaly
+    /// <c>spriteBatch.Draw</c> bez <c>Begin()</c>, protože se psaly po vzoru
+    /// sousedního bloku, kde <c>Begin()</c> zůstal o pár řádků výš. Hra spadla
+    /// hned, jak hráč nástroj zapnul. Metoda, která si dávku otevře i zavře sama,
+    /// tuhle třídu chyb odstraňuje.</para>
+    /// </summary>
+    private void DrawTileOverlay(SpriteBatch spriteBatch, Texture2D texture, int tileX, int tileY, int tiles, Color tint)
+    {
+        const int ts = TerrainRenderer.TileSize;
+        spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.Transform);
+        spriteBatch.Draw(texture, new Rectangle(tileX * ts, tileY * ts, ts * tiles, ts * tiles), tint);
+        spriteBatch.End();
+    }
+
+    /// <summary>
+    /// Zapne nástroj pro smoke test (<c>--smoke</c>). Nástroje jinak zapíná
+    /// jen kliknutí na tlačítko, které se bez okna a myši nedá simulovat.
+    /// </summary>
+    internal void ActivateToolForSmoke(Capture.SmokeTool tool)
+    {
+        _tools.Clear();
+        switch (tool)
+        {
+            case Capture.SmokeTool.Road: _tools.ToggleRoad(); break;
+            case Capture.SmokeTool.RoadErase: _tools.ToggleRoadErase(); break;
+            case Capture.SmokeTool.Merge: _tools.ToggleMerge(); break;
+            case Capture.SmokeTool.Plant: _tools.TogglePlant(); break;
         }
     }
 
