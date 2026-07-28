@@ -58,7 +58,7 @@ internal sealed class ProductionSystem
         // Počasí i bonusy jsou pro celý tik konstantní — spočítej jednou, ne u každé
         // budovy (CurrentWeatherIndex je hash, v tikové smyčce by se zbytečně opakoval).
         double productionMult = sim.Bonuses.ProductionMult * sim.BoostMultiplier * sim.WeatherProductionMult
-            * sim.ElectionProductionMult;
+            * sim.ElectionProductionMult * sim.ToolProductionMult;
 
         // Roční období sahá jen na jídlo — zima podvazuje pole, ne hutě. Index
         // jídla i násobič se čtou jednou za tik, ne u každé budovy.
@@ -159,8 +159,13 @@ internal sealed class ProductionSystem
         RefreshScarcity(sim);
 
         Array.Clear(_assigned, 0, buildings.Length);
-        long workersLeft = AssignPass(buildings, (long)Math.Floor(sim.Population), scarceOnly: true);
-        AssignPass(buildings, workersLeft, scarceOnly: false);
+        long workforce = (long)Math.Floor(sim.Population);
+        long workersLeft = AssignPass(buildings, workforce, scarceOnly: true);
+        workersLeft = AssignPass(buildings, workersLeft, scarceOnly: false);
+
+        // Kolik lidí opravdu pracuje — podle toho se opotřebovávají nástroje.
+        // Tady je to zadarmo, jinde by se to muselo počítat znovu.
+        sim.EmployedWorkers = workforce - workersLeft;
 
         int idle = 0;
         for (int i = 0; i < buildings.Length; i++)

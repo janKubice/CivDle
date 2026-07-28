@@ -88,13 +88,22 @@ public sealed record GameplayFileDto(
     PlantingDto? Planting,
     HappinessDto? Happiness,
     StaffingDto? Staffing,
-    HaulDto? Haul);
+    HaulDto? Haul,
+    ToolsDto? Tools);
 
 /// <summary>Přidělování dělníků tak, jak leží v JSON.</summary>
 public sealed record StaffingDto(double ScarcityThreshold);
 
 /// <summary>Svoz zboží do skladu tak, jak leží v JSON.</summary>
 public sealed record HaulDto(int FreeDistance, int Range, double MinMultiplier);
+
+/// <summary>Nástroje jako živá surovina tak, jak leží v JSON.</summary>
+public sealed record ToolsDto(
+    string? Resource,
+    double PerPerson,
+    double WearPerWorkerPerSecond,
+    double ProductionBonus,
+    double HarvestBonus);
 
 /// <summary>Obsah souboru <c>data/seasons.json</c>.</summary>
 public sealed record SeasonsFileDto(

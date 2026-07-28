@@ -69,5 +69,12 @@
     "freeDistance": 14,
     "range": 30,
     "minMultiplier": 0.35
+  },
+  "tools": {
+    "resource": "tools",
+    "perPerson": 0.5,
+    "wearPerWorkerPerSecond": 0.006,
+    "productionBonus": 0.2,
+    "harvestBonus": 0.5
   }
 }

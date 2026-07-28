@@ -1972,7 +1972,50 @@ public sealed class ContentLoader
             planting,
             ParseHappiness(path, file.Happiness),
             ParseStaffing(path, file.Staffing),
-            ParseHaul(path, file.Haul));
+            ParseHaul(path, file.Haul),
+            ParseTools(path, file.Tools, resources));
+    }
+
+    /// <summary>
+    /// Nastavení nástrojů. Chybí-li blok, je vrstva vypnutá a nástroje zůstávají
+    /// jednorázovou měnou jako dřív — starší data se načtou beze změny chování.
+    /// </summary>
+    private static ToolsConfig? ParseTools(string path, ToolsDto? dto, DefRegistry<Resource> resources)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Resource) || !resources.TryIndexOf(dto.Resource.Trim(), out int index))
+        {
+            throw new ContentLoadException(path, $"'tools.resource' odkazuje na neexistující surovinu '{dto.Resource}'.");
+        }
+
+        if (dto.PerPerson <= 0)
+        {
+            throw new ContentLoadException(path, $"'tools.perPerson' musí být kladné, je {dto.PerPerson}.");
+        }
+
+        if (dto.WearPerWorkerPerSecond < 0)
+        {
+            throw new ContentLoadException(path, "'tools.wearPerWorkerPerSecond' nesmí být záporné.");
+        }
+
+        // Bonus bez opotřebení by znamenal, že se nástroje jednou vyrobí a navždy
+        // platí — přesně ta slepá větev, kvůli které tahle vrstva vznikla.
+        if (dto.WearPerWorkerPerSecond <= 0 && (dto.ProductionBonus > 0 || dto.HarvestBonus > 0))
+        {
+            throw new ContentLoadException(path,
+                "'tools' dávají bonus, ale nemají opotřebení — nástroje by se vyrobily jednou a platily navždy.");
+        }
+
+        if (dto.ProductionBonus is < 0 or > 10 || dto.HarvestBonus is < 0 or > 10)
+        {
+            throw new ContentLoadException(path, "'tools.productionBonus' i 'tools.harvestBonus' musí být 0–10.");
+        }
+
+        return new ToolsConfig(index, dto.PerPerson, dto.WearPerWorkerPerSecond, dto.ProductionBonus, dto.HarvestBonus);
     }
 
     /// <summary>

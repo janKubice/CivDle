@@ -1054,6 +1054,8 @@
     "hud.season": "{0}",
     "hud.season.tip": "{0} — {1}",
     "hud.season.freezing": "Došlo dřevo na topení: město mrzne a skoro neroste",
-    "toast.season": "Nastalo období: {0}"
+    "toast.season": "Nastalo období: {0}",
+    "hud.tools": "Vybavenost {0} %",
+    "tip.tools": "Kolik lidí má nástroje. Vybavení pracují rychleji a sbírají víc — nástroje se ale prací ohladí, takže je potřeba pořád vyrábět."
   }
 }

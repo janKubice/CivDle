@@ -150,6 +150,52 @@ public sealed record HaulConfig(int FreeDistance, int Range, double MinMultiplie
     }
 }
 
+/// <summary>
+/// Nástroje jako živá surovina, ne jednorázová měna.
+///
+/// <para>Proč to v hře je: nástroje se do téhle chvíle vyráběly, jednou dvakrát
+/// utratily za stavbu a pak se jen hromadily do stropu skladu. Tím pádem byla
+/// celá jejich větev slepá. S opotřebením a pokrytím mají trvalý odbyt: čím
+/// větší město, tím víc nástrojů potřebuje, a dobře vybavení lidé odvedou víc
+/// práce.</para>
+///
+/// <para>Je to čistě bonusová vrstva — bez nástrojů se hraje jako dřív, jen bez
+/// bonusu. Žádný trest za to, že je hráč ještě neobjevil.</para>
+/// </summary>
+/// <param name="ResourceIndex">Která surovina jsou „nástroje"; −1 = vrstva vypnutá.</param>
+/// <param name="PerPerson">Kolik nástrojů na obyvatele znamená plné pokrytí.</param>
+/// <param name="WearPerWorkerPerSecond">Kolik nástrojů za sekundu ohladí jeden pracující člověk.</param>
+/// <param name="ProductionBonus">O kolik zvedne výrobu plné pokrytí (0.2 = +20 %).</param>
+/// <param name="HarvestBonus">O kolik zvedne ruční sběr plné pokrytí (0.5 = +50 %).</param>
+public sealed record ToolsConfig(
+    int ResourceIndex,
+    double PerPerson,
+    double WearPerWorkerPerSecond,
+    double ProductionBonus,
+    double HarvestBonus)
+{
+    /// <summary>Vypnuté nástroje — hra bez téhle vrstvy (výchozí pro starší data).</summary>
+    public static ToolsConfig Disabled { get; } = new(-1, 0, 0, 0, 0);
+
+    /// <summary>Má smysl nástroje vůbec počítat?</summary>
+    public bool IsEnabled => ResourceIndex >= 0 && PerPerson > 0;
+
+    /// <summary>
+    /// Pokrytí 0–1: kolik lidí má nástroje. Nad plné pokrytí se nesčítá —
+    /// hromada nástrojů navíc už nikomu nepřidá a jinak by šlo bonus škálovat
+    /// donekonečna jednou surovinou.
+    /// </summary>
+    public double Coverage(double tools, double population)
+    {
+        if (!IsEnabled || population <= 0)
+        {
+            return 0;
+        }
+
+        return Math.Clamp(tools / (population * PerPerson), 0, 1);
+    }
+}
+
 /// <summary>Ruční sběr: šance na „krit" (velký výnos) — aktivní klikání se vyplatí.</summary>
 /// <param name="CritChance">Pravděpodobnost kritu (0–1) na jeden sběr.</param>
 /// <param name="CritMultiplier">Násobič výnosu při kritu.</param>
@@ -193,8 +239,12 @@ public sealed record GameplayConfig(
     PlantingConfig Planting,
     HappinessConfig? HappinessOrNull = null,
     StaffingConfig? StaffingOrNull = null,
-    HaulConfig? HaulOrNull = null)
+    HaulConfig? HaulOrNull = null,
+    ToolsConfig? ToolsOrNull = null)
 {
+    /// <summary>Nastavení nástrojů; chybí-li v datech, je vrstva vypnutá.</summary>
+    public ToolsConfig Tools => ToolsOrNull ?? ToolsConfig.Disabled;
+
     /// <summary>Nastavení spokojenosti; chybí-li v datech, je vrstva vypnutá.</summary>
     public HappinessConfig Happiness => HappinessOrNull ?? HappinessConfig.Disabled;
 

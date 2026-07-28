@@ -30,6 +30,7 @@ public sealed class Simulation
     private readonly ProductionSystem _production;
     private readonly HaulSystem _haulSystem;
     private readonly SeasonSystem _seasonSystem;
+    private readonly ToolsSystem _toolsSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
     private readonly ZoneFillSystem _zoneFill;
@@ -122,6 +123,7 @@ public sealed class Simulation
         _production = new ProductionSystem(content);
         _haulSystem = new HaulSystem(content);
         _seasonSystem = new SeasonSystem(content);
+        _toolsSystem = new ToolsSystem(content);
         _populationSystem = new PopulationSystem(content.Gameplay);
         _autoBuild = new AutoBuildSystem(content, seed);
         _zoneFill = new ZoneFillSystem(content, seed);
@@ -209,6 +211,31 @@ public sealed class Simulation
     /// <see cref="SeasonDef.ColdGrowthMult"/> — mimo zimu je to vždy true.
     /// </summary>
     public bool HasFuelForHeating { get; internal set; } = true;
+
+    /// <summary>
+    /// Kolik lidí ve městě má nástroje (0–1). Nad plné pokrytí se nesčítá —
+    /// hromada nástrojů navíc už nikomu nepřidá.
+    /// </summary>
+    public double ToolCoverage
+    {
+        get
+        {
+            var tools = _content.Gameplay.Tools;
+            return tools.IsEnabled ? tools.Coverage(_resources[tools.ResourceIndex], Population) : 0;
+        }
+    }
+
+    /// <summary>Násobič výroby od vybavenosti nástroji (1.0 bez nástrojů — bonus, ne daň).</summary>
+    public double ToolProductionMult => 1.0 + _content.Gameplay.Tools.ProductionBonus * ToolCoverage;
+
+    /// <summary>Násobič ručního sběru od vybavenosti nástroji.</summary>
+    public double ToolHarvestMult => 1.0 + _content.Gameplay.Tools.HarvestBonus * ToolCoverage;
+
+    /// <summary>
+    /// Kolik lidí zrovna pracuje v budovách. Počítá se při rozdělování dělníků,
+    /// takže je zadarmo — a nástroje se podle toho opotřebovávají.
+    /// </summary>
+    public long EmployedWorkers { get; internal set; }
 
     /// <summary>Násobič výroby jídla od ročního období (1.0 bez období).</summary>
     public double SeasonFoodMult => CurrentSeason?.FoodProductionMult ?? 1.0;
@@ -885,6 +912,7 @@ public sealed class Simulation
         // jestli je zima a jestli je čím topit.
         _seasonSystem.Tick(this);
         _production.Tick(this);
+        _toolsSystem.Tick(this); // až po výrobě: ohladí se to, čím se právě pracovalo
         _haulSystem.Tick(this);
         _populationSystem.Tick(this);
         _autoBuild.Tick(this);
@@ -1120,7 +1148,7 @@ public sealed class Simulation
         // moc není. Podlaha na původní hodnotě drží ruční sběr užitečný i v zimě.
         int gained = Math.Max(yield.Amount,
             (int)Math.Round(yield.Amount * _bonuses.HarvestMult * BoostMultiplier
-                * ElectionHarvestMult * SeasonHarvestMult));
+                * ElectionHarvestMult * SeasonHarvestMult * ToolHarvestMult));
 
         // Deterministický krit (aktivní klikání se vyplatí). Nejdřív se zkouší
         // vzácný „úlovek života" — má přednost, aby se s kritem nesčítal do absurdna.

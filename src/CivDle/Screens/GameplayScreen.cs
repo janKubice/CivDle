@@ -88,6 +88,7 @@ public sealed class GameplayScreen : IScreen
     private Label _powerLabel = null!;
     private Label _weatherLabel = null!;
     private Label _seasonLabel = null!;
+    private Label _toolsLabel = null!;
 
     /// <summary>Poslední ohlášené období — změna se hlásí jednou, ne každý snímek.</summary>
     private int _lastSeasonIndex = -1;
@@ -791,6 +792,26 @@ public sealed class GameplayScreen : IScreen
         _lastSeasonIndex = index;
     }
 
+    /// <summary>
+    /// Vybavenost nástroji v HUD. Ukazuje se, teprve až hráč nějaké nástroje má —
+    /// dřív by to byl řádek o mechanice, kterou ještě nepotkal.
+    /// </summary>
+    private void UpdateToolsLabel(Localization loc)
+    {
+        var tools = _screens.Content.Gameplay.Tools;
+        if (!tools.IsEnabled || !_simulation.IsResourceKnown(tools.ResourceIndex))
+        {
+            _toolsLabel.Text = string.Empty;
+            return;
+        }
+
+        double coverage = _simulation.ToolCoverage;
+        _toolsLabel.Text = loc.Format("hud.tools", (int)Math.Round(coverage * 100));
+        _toolsLabel.TextColor = coverage >= 0.75 ? new Color(150, 220, 150)
+            : coverage >= 0.35 ? new Color(230, 210, 130)
+            : new Color(200, 195, 180);
+    }
+
     /// <summary>Vyzvedne oznámení ze simulace (splněné úkoly, achievementy, milníky) a udělá z nich toasty.</summary>
     private void DrainNotifications()
     {
@@ -1056,6 +1077,7 @@ public sealed class GameplayScreen : IScreen
         _powerLabel = new Label { TextColor = new Color(120, 200, 240), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.power"] };
         _weatherLabel = new Label { TextColor = new Color(170, 200, 220), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.weather"] };
         _seasonLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right };
+        _toolsLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.tools"] };
         _happinessLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.happiness"] };
         _dayLabel = new Label { TextColor = UiFactory.Accent, Tooltip = loc["tip.day"] };
         _cursorLabel = new Label { TextColor = Color.LightGray };
@@ -1068,6 +1090,11 @@ public sealed class GameplayScreen : IScreen
         if (_screens.Content.Seasons.IsEnabled)
         {
             worldInfoStack.Widgets.Add(_seasonLabel);
+        }
+
+        if (_screens.Content.Gameplay.Tools.IsEnabled)
+        {
+            worldInfoStack.Widgets.Add(_toolsLabel);
         }
         if (_screens.Content.Gameplay.Happiness.IsEnabled)
         {
@@ -1733,6 +1760,7 @@ public sealed class GameplayScreen : IScreen
         }
 
         UpdateSeasonLabel(loc);
+        UpdateToolsLabel(loc);
 
         // Spokojenost: barva nese stav, ať se to dá číst koutkem oka.
         if (_screens.Content.Gameplay.Happiness.IsEnabled)
