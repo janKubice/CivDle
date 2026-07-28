@@ -218,6 +218,17 @@
       "reward": {
         "stone": 80
       }
+    },
+    {
+      "id": "raise_a_wonder",
+      "condition": {
+        "metric": "wonders",
+        "target": 1
+      },
+      "reward": {
+        "steel": 200,
+        "electronics": 100
+      }
     }
   ],
   "dynamic": {

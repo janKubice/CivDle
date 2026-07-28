@@ -42,6 +42,9 @@ public enum MetricKind
 
     /// <summary>Kolik bloků 2×2 hráč sloučil v jednu velkou budovu.</summary>
     MergedBuildings,
+
+    /// <summary>Kolik divů světa už město dostavělo.</summary>
+    WondersCompleted,
 }
 
 /// <summary>

@@ -1056,6 +1056,16 @@
     "hud.season.freezing": "Došlo dřevo na topení: město mrzne a skoro neroste",
     "toast.season": "Nastalo období: {0}",
     "hud.tools": "Vybavenost {0} %",
-    "tip.tools": "Kolik lidí má nástroje. Vybavení pracují rychleji a sbírají víc — nástroje se ale prací ohladí, takže je potřeba pořád vyrábět."
+    "tip.tools": "Kolik lidí má nástroje. Vybavení pracují rychleji a sbírají víc — nástroje se ale prací ohladí, takže je potřeba pořád vyrábět.",
+    "toast.wonderDone": "Div světa dostavěn",
+    "building.underConstruction": "Ve stavbě — hotovo z {0} %",
+    "building.buildTimeLeft": "Zbývá {0}",
+    "tip.build.buildTime": "Staví se {0} — než bude hotovo, nic nedává",
+    "achievement.first_wonder": "Základní kámen",
+    "achievement.first_wonder.desc": "Dostav svůj první div světa",
+    "achievement.wonder_age": "Věk divů",
+    "achievement.wonder_age.desc": "Dostav pět divů světa",
+    "quest.raise_a_wonder": "Postav div světa",
+    "quest.raise_a_wonder.desc": "Divy se staví minuty, ne kliknutím — začni a nech je růst"
   }
 }

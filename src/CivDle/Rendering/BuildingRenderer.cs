@@ -49,6 +49,15 @@ public sealed class BuildingRenderer
                 continue;
             }
 
+            // Staveniště (divy světa): budova je vidět jen zpola vztyčená a nad ní
+            // roste pruh postupu. Bez toho by rozestavěný div vypadal jako hotový,
+            // který se z neznámého důvodu fláká.
+            if (!building.IsComplete)
+            {
+                DrawConstructionSite(spriteBatch, def, x, y, width, height, simulation.ConstructionProgress01(i));
+                continue;
+            }
+
             var sprite = _sprites.Get($"building.{def.Id}");
             if (sprite is not null)
             {
@@ -73,6 +82,49 @@ public sealed class BuildingRenderer
         }
 
         spriteBatch.End();
+    }
+
+    /// <summary>
+    /// Staveniště: budova vyrůstá zdola nahoru podle postupu, nahoře pruh
+    /// s procenty. Roste zdola schválně — je to čitelné i na malém zoomu,
+    /// kdy pruh splývá.
+    /// </summary>
+    private void DrawConstructionSite(
+        SpriteBatch spriteBatch, BuildingDef def, int x, int y, int width, int height, double progress)
+    {
+        spriteBatch.Draw(_pixel, new Rectangle(x + 2, y + height - 3, width - 2, 3), Color.Black * 0.25f);
+
+        // Základy: obrys rozestavěné budovy, ať je vidět, kolik místa zabere.
+        spriteBatch.Draw(_pixel, new Rectangle(x, y, width, height), new Color(60, 55, 45) * 0.45f);
+
+        int risen = Math.Max(1, (int)(height * progress));
+        var sprite = _sprites.Get($"building.{def.Id}");
+        var partial = new Rectangle(x, y + height - risen, width, risen);
+        if (sprite is not null)
+        {
+            // Výřez spodní části spritu — budova doslova roste ze země.
+            var source = new Rectangle(
+                0, sprite.Height - Math.Max(1, (int)(sprite.Height * progress)),
+                sprite.Width, Math.Max(1, (int)(sprite.Height * progress)));
+            spriteBatch.Draw(sprite, partial, source, Color.White * 0.85f);
+        }
+        else
+        {
+            spriteBatch.Draw(_pixel, partial, def.MapColor.ToXna() * 0.85f);
+        }
+
+        // Lešení: dvě vodorovné linky přes celý půdorys.
+        var scaffold = new Color(220, 190, 120) * 0.8f;
+        spriteBatch.Draw(_pixel, new Rectangle(x, y + height / 3, width, 1), scaffold);
+        spriteBatch.Draw(_pixel, new Rectangle(x, y + 2 * height / 3, width, 1), scaffold);
+
+        // Pruh postupu nad staveništěm.
+        const int barHeight = 3;
+        int barY = y - barHeight - 2;
+        spriteBatch.Draw(_pixel, new Rectangle(x, barY, width, barHeight), Color.Black * 0.55f);
+        spriteBatch.Draw(_pixel,
+            new Rectangle(x, barY, Math.Max(1, (int)(width * progress)), barHeight),
+            new Color(240, 200, 90));
     }
 
     /// <summary>Poloprůhledný náhled budovy pod kurzorem — zelenkavý lze / červený nelze.</summary>

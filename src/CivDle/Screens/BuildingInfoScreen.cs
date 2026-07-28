@@ -116,6 +116,25 @@ public sealed class BuildingInfoScreen : IScreen
             });
         }
 
+        // Rozestavěný div: postup a zbývající čas. Dokud se staví, nemá smysl
+        // nabízet vylepšení ani mluvit o výrobě — ještě nic nedělá.
+        if (!instance.IsComplete)
+        {
+            double progress = _simulation.ConstructionProgress01(_buildingIndex);
+            layout.Widgets.Add(new Label
+            {
+                Text = loc.Format("building.underConstruction", (int)Math.Round(progress * 100)),
+                TextColor = new Color(240, 200, 90),
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+            layout.Widgets.Add(new Label
+            {
+                Text = loc.Format("building.buildTimeLeft", DurationFormat.FromTicks(instance.BuildTicksRemaining)),
+                TextColor = Color.LightGray,
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+        }
+
         // Bonus za okolí konkrétní budovy — hráč po letech nepamatuje, proč tahle
         // pila táhne a ta o kus dál ne. Ukazuje se, i když je nulový: „stojí špatně"
         // je stejně užitečná informace jako „stojí dobře".
@@ -144,7 +163,10 @@ public sealed class BuildingInfoScreen : IScreen
             });
         }
 
-        layout.Widgets.Add(UpgradeSection(instance.DefIndex));
+        if (instance.IsComplete)
+        {
+            layout.Widgets.Add(UpgradeSection(instance.DefIndex));
+        }
 
         // Agency: přesunout jinam nebo zbourat (vrátí půl ceny). Obojí se ODEMYKÁ —
         // na začátku hráč jen staví, zásahy do hotového města přijdou později.

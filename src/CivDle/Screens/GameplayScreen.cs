@@ -829,6 +829,13 @@ public sealed class GameplayScreen : IScreen
                 _celebration.Show(loc[note.SubjectKey], NotificationColor(note.Kind));
             }
 
+            // Div světa se stavěl minuty — dokončení nesmí skončit jako řádek
+            // v rohu vedle „sklad je plný".
+            if (note.TitleKey == "toast.wonderDone")
+            {
+                _celebration.Show(loc[note.SubjectKey], new Color(240, 200, 90));
+            }
+
             // Splněný úkol / Vzestup mění seznam aktivních cílů — přestav sledovač.
             if (note.Kind is NotificationKind.QuestCompleted or NotificationKind.Ascended)
             {
@@ -1907,12 +1914,17 @@ public sealed class GameplayScreen : IScreen
     /// </summary>
     private string PlacementHints(Localization loc, BuildingDef def)
     {
-        if (!_tools.GhostVisible || def.Recipe is null)
+        if (!_tools.GhostVisible || (def.Recipe is null && !def.TakesTimeToBuild))
         {
             return string.Empty;
         }
 
         var hints = new StringBuilder();
+
+        if (def.TakesTimeToBuild)
+        {
+            hints.Append("  ").Append(loc.Format("tip.build.buildTime", DurationFormat.FromTicks(def.BuildTicks)));
+        }
 
         if (def.HasAdjacencyBonus)
         {
@@ -1923,7 +1935,7 @@ public sealed class GameplayScreen : IScreen
             }
         }
 
-        double haul = _simulation.HaulMultiplierAt(_tools.GhostX, _tools.GhostY);
+        double haul = def.Recipe is null ? 1.0 : _simulation.HaulMultiplierAt(_tools.GhostX, _tools.GhostY);
         if (haul < 0.995)
         {
             hints.Append("  ").Append(loc.Format("build.haulPenalty", BuildingSummary.Percent(haul)));

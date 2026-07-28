@@ -1056,6 +1056,16 @@
     "hud.season.freezing": "Out of firewood: the city is freezing and barely grows",
     "toast.season": "A new season: {0}",
     "hud.tools": "Equipment {0} %",
-    "tip.tools": "How many people have tools. Equipped workers produce faster and gather more — but tools wear out with work, so they have to keep being made."
+    "tip.tools": "How many people have tools. Equipped workers produce faster and gather more — but tools wear out with work, so they have to keep being made.",
+    "toast.wonderDone": "Wonder completed",
+    "building.underConstruction": "Under construction — {0} % done",
+    "building.buildTimeLeft": "{0} left",
+    "tip.build.buildTime": "Takes {0} to build — gives nothing until finished",
+    "achievement.first_wonder": "Cornerstone",
+    "achievement.first_wonder.desc": "Complete your first wonder",
+    "achievement.wonder_age": "Age of Wonders",
+    "achievement.wonder_age.desc": "Complete five wonders",
+    "quest.raise_a_wonder": "Raise a wonder",
+    "quest.raise_a_wonder.desc": "Wonders take minutes, not a click — start one and let it rise"
   }
 }

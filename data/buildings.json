@@ -1697,7 +1697,8 @@
         "savanna",
         "tundra",
         "desert"
-      ]
+      ],
+      "buildTicks": 4200
     },
     {
       "id": "megacity_spire",
@@ -1726,7 +1727,8 @@
       "upkeep": {
         "electronics": 1
       },
-      "buildable": false
+      "buildable": false,
+      "buildTicks": 2400
     },
     {
       "id": "grand_exchange",
@@ -1767,7 +1769,8 @@
       "upkeep": {
         "steel": 2
       },
-      "buildable": false
+      "buildable": false,
+      "buildTicks": 1800
     },
     {
       "id": "orbital_ring",
@@ -1791,7 +1794,8 @@
         "tundra",
         "desert"
       ],
-      "buildable": false
+      "buildable": false,
+      "buildTicks": 6000
     },
     {
       "id": "world_forge",
@@ -1827,7 +1831,8 @@
         "tundra",
         "desert"
       ],
-      "buildable": false
+      "buildable": false,
+      "buildTicks": 3600
     },
     {
       "id": "manor",

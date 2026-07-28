@@ -1353,12 +1353,19 @@ public sealed class ContentLoader
 
         var adjacency = ParseAdjacency(path, id, dto.Adjacency, recipe, biomes);
 
+        // Doba stavby: strop je tu proto, aby překlep v datech neudělal budovu,
+        // která se staví déle, než kdo kdy bude hrát.
+        if (dto.BuildTicks is < 0 or > 1_000_000)
+        {
+            throw new ContentLoadException(path, $"Budova '{id}': 'buildTicks' musí být 0–1000000, je {dto.BuildTicks}.");
+        }
+
         return new BuildingDef(
             id, category, color, dto.Footprint[0], dto.Footprint[1],
             dto.WorkerSlots, dto.HousingCapacity, buildCost, recipe, mask,
             storageBonus, dto.AutoBuild, dto.Buildable ?? true, upgradesToIndex, upgradeCost,
             dto.PowerSupply, dto.PowerDemand, dto.RequiresAdjacentWater,
-            dto.ServiceValue, upkeep, mergesToIndex, mergeCost, adjacency);
+            dto.ServiceValue, upkeep, mergesToIndex, mergeCost, adjacency, dto.BuildTicks);
     }
 
     /// <summary>
@@ -1739,6 +1746,7 @@ public sealed class ContentLoader
             case "planted": return (MetricKind.PlantedNodes, -1);
             case "terraformed": return (MetricKind.TerraformedTiles, -1);
             case "merged": return (MetricKind.MergedBuildings, -1);
+            case "wonders": return (MetricKind.WondersCompleted, -1);
             case "harvested": return (MetricKind.Harvested, ResolveRef(path, owner, "resource", resource, resources));
             case "resource": return (MetricKind.ResourceStock, ResolveRef(path, owner, "resource", resource, resources));
             case "building": return (MetricKind.BuildingOfType, ResolveRef(path, owner, "building", building, buildings));

@@ -83,6 +83,11 @@ internal static class BuildingSummary
             text.Append('\n').Append(loc["tip.build.haul"]);
         }
 
+        if (def.TakesTimeToBuild)
+        {
+            text.Append('\n').Append(loc.Format("tip.build.buildTime", DurationFormat.FromTicks(def.BuildTicks)));
+        }
+
         if (def.Adjacency is { } adjacency)
         {
             text.Append('\n').Append(loc.Format("tip.build.adjacency",

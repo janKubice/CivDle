@@ -60,6 +60,7 @@ public sealed class SaveGameSerializer
     private const string SectionChallenges = "challenges";
     private const string SectionElection = "election";
     private const string SectionMilestones = "milestones";
+    private const string SectionConstruction = "construction";
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -104,6 +105,7 @@ public sealed class SaveGameSerializer
         WriteSection(writer, SectionTutorial, w => w.Write(simulation.TutorialStep));
         WriteSection(writer, SectionChallenges, w => WriteChallenges(w, simulation));
         WriteSection(writer, SectionMilestones, w => WriteMilestones(w, simulation));
+        WriteSection(writer, SectionConstruction, w => WriteConstruction(w, simulation));
         WriteSection(writer, SectionElection, w =>
         {
             w.Write(simulation.ElectionTerm);
@@ -318,6 +320,7 @@ public sealed class SaveGameSerializer
             case SectionWorldChanges: ReadWorldChanges(section, content, simulation); break;
             case SectionTutorial: simulation.RestoreTutorialStep(section.ReadInt32()); break;
             case SectionChallenges: ReadChallenges(section, simulation); break;
+            case SectionConstruction: ReadConstruction(section, simulation); break;
             case SectionElection: simulation.RestoreElection(section.ReadInt64(), section.ReadInt32()); break;
             case SectionMilestones: ReadMilestones(section, content, simulation); break;
             default: break; // neznámá sekce z novější hry — přeskočit, ne spadnout
@@ -424,6 +427,54 @@ public sealed class SaveGameSerializer
         }
 
         return amounts;
+    }
+
+    /// <summary>
+    /// Rozestavěné budovy: jen ty, které zrovna stojí na lešení, a jako index do
+    /// pořadí ze sekce budov. Vlastní sekce místo dalšího pole u každé budovy —
+    /// staré savy ji prostě nemají a jejich města se načtou hotová, což je
+    /// správně (dřív se stavělo okamžitě).
+    /// </summary>
+    private static void WriteConstruction(BinaryWriter writer, Simulation simulation)
+    {
+        var buildings = simulation.Buildings;
+        int count = 0;
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            if (!buildings[i].IsComplete)
+            {
+                count++;
+            }
+        }
+
+        writer.Write(count);
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            if (!buildings[i].IsComplete)
+            {
+                writer.Write(i);
+                writer.Write(buildings[i].BuildTicksRemaining);
+            }
+        }
+
+        writer.Write(simulation.WondersCompleted);
+    }
+
+    private static void ReadConstruction(BinaryReader reader, Simulation simulation)
+    {
+        int count = ReadCount(reader, max: 5_000_000, what: "staveniště");
+        for (int i = 0; i < count; i++)
+        {
+            int buildingIndex = reader.ReadInt32();
+            int remaining = reader.ReadInt32();
+            simulation.RestoreConstruction(buildingIndex, remaining);
+        }
+
+        // Počet dostavěných divů dorazil do sekce později — starší savy ho nemají.
+        if (reader.BaseStream.Position < reader.BaseStream.Length)
+        {
+            simulation.RestoreWondersCompleted(reader.ReadInt64());
+        }
     }
 
     private static void ReadBuildings(BinaryReader reader, GameContent content, Simulation simulation)

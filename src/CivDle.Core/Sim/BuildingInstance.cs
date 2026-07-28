@@ -42,4 +42,16 @@ public struct BuildingInstance
     /// ne v hot path.
     /// </summary>
     public float HaulMult;
+
+    /// <summary>
+    /// Kolik tiků zbývá do dokončení stavby. 0 = budova stojí a funguje.
+    ///
+    /// <para>Rozestavěná budova nevyrábí a nedává žádné bonusy (bydlení, pracovní
+    /// místa, sklad, proud) — ty se připíšou až při dokončení. Divy světa se tím
+    /// mění z drahého kliknutí na událost.</para>
+    /// </summary>
+    public int BuildTicksRemaining;
+
+    /// <summary>Je budova hotová a v provozu?</summary>
+    public readonly bool IsComplete => BuildTicksRemaining <= 0;
 }

@@ -31,6 +31,7 @@ public sealed class Simulation
     private readonly HaulSystem _haulSystem;
     private readonly SeasonSystem _seasonSystem;
     private readonly ToolsSystem _toolsSystem;
+    private readonly ConstructionSystem _constructionSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
     private readonly ZoneFillSystem _zoneFill;
@@ -124,6 +125,7 @@ public sealed class Simulation
         _haulSystem = new HaulSystem(content);
         _seasonSystem = new SeasonSystem(content);
         _toolsSystem = new ToolsSystem(content);
+        _constructionSystem = new ConstructionSystem(content);
         _populationSystem = new PopulationSystem(content.Gameplay);
         _autoBuild = new AutoBuildSystem(content, seed);
         _zoneFill = new ZoneFillSystem(content, seed);
@@ -619,6 +621,76 @@ public sealed class Simulation
     /// <summary>Osady k přepsání systémem detekce.</summary>
     internal List<Settlement> SettlementsMutable => _settlements;
 
+    /// <summary>Jak často se sahá na staveniště (tiky) — viz <c>ConstructionSystem</c>.</summary>
+    public const int ConstructionIntervalTicks = ConstructionSystem.IntervalTicks;
+
+    /// <summary>
+    /// Kolik budov se zrovna staví. Dokud je nula, nemá stavební systém co dělat
+    /// a pole budov se kvůli němu vůbec neprochází.
+    /// </summary>
+    public int BuildingsUnderConstruction { get; private set; }
+
+    /// <summary>
+    /// Postup stavby budovy 0–1 (1 = hotovo). Pro ukazatel nad staveništěm —
+    /// div světa, u kterého není vidět, jak daleko je, není událost, ale čekání.
+    /// </summary>
+    public double ConstructionProgress01(int buildingIndex)
+    {
+        if (buildingIndex < 0 || buildingIndex >= _buildingCount)
+        {
+            return 1.0;
+        }
+
+        ref readonly var building = ref _buildings[buildingIndex];
+        int total = _content.Buildings[building.DefIndex].BuildTicks;
+        return total <= 0 ? 1.0 : 1.0 - Math.Clamp(building.BuildTicksRemaining / (double)total, 0, 1);
+    }
+
+    /// <summary>
+    /// Dostavěno: budova se zapne, připíše bonusy a hráč se to dozví. Volá
+    /// stavební systém; dokončení je jediný okamžik, kdy div světa začne platit.
+    /// </summary>
+    internal void CompleteConstruction(int buildingIndex, BuildingDef def)
+    {
+        BuildingsUnderConstruction = Math.Max(0, BuildingsUnderConstruction - 1);
+        ApplyBuildingBonuses(def);
+        WondersCompleted++;
+        SettlementsDirty = true;
+        _roadLinksDirty = true;
+        ReportVisual(VisualEventKind.BuildingUpgraded, _buildings[buildingIndex].X, _buildings[buildingIndex].Y);
+        EnqueueNotification(new GameNotification(NotificationKind.Milestone, "toast.wonderDone", def.NameKey));
+    }
+
+    /// <summary>Kolik divů světa už město dostavělo (metrika pro cíle a achievementy).</summary>
+    public long WondersCompleted { get; internal set; }
+
+    /// <summary>Obnoví počet dostavěných divů ze savu.</summary>
+    internal void RestoreWondersCompleted(long count) => WondersCompleted = count;
+
+    /// <summary>
+    /// Vrátí budovu ze savu zpět na staveniště. Volá se až po načtení budov,
+    /// protože sav nese odpočet zvlášť — půlka rozestavěného divu se po načtení
+    /// nesmí tvářit jako hotová.
+    /// </summary>
+    internal void RestoreConstruction(int buildingIndex, int remainingTicks)
+    {
+        if (buildingIndex < 0 || buildingIndex >= _buildingCount || remainingTicks <= 0)
+        {
+            return;
+        }
+
+        ref var building = ref _buildings[buildingIndex];
+        var def = _content.Buildings[building.DefIndex];
+        if (!def.TakesTimeToBuild)
+        {
+            return; // typ se mezitím v datech změnil na okamžitý — nech budovu stát
+        }
+
+        building.BuildTicksRemaining = Math.Min(remainingTicks, def.BuildTicks);
+        BuildingsUnderConstruction++;
+        RemoveBuildingBonuses(def); // obnova je připsala, staveniště je zase nemá
+    }
+
     /// <summary>Zástavba se změnila — osady čekají na přepočet.</summary>
     internal bool SettlementsDirty { get; set; }
 
@@ -787,7 +859,15 @@ public sealed class Simulation
             return result;
         }
 
-        RestoreBuilding(defIndex, x, y, progress: 0f);
+        var def = _content.Buildings[defIndex];
+        AddBuilding(defIndex, x, y, progress: 0f);
+        if (!def.TakesTimeToBuild)
+        {
+            ApplyBuildingBonuses(def); // „zdarma" znamená bez ceny, ne okamžitě
+        }
+
+        SettlementsDirty = true;
+        _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
 
@@ -911,6 +991,7 @@ public sealed class Simulation
         // Období napřed: výroba i růst v tomhle tiku už mají počítat s tím,
         // jestli je zima a jestli je čím topit.
         _seasonSystem.Tick(this);
+        _constructionSystem.Tick(this); // staveniště napřed: co se dnes dostavělo, dnes i vyrábí
         _production.Tick(this);
         _toolsSystem.Tick(this); // až po výrobě: ohladí se to, čím se právě pracovalo
         _haulSystem.Tick(this);
@@ -1093,7 +1174,11 @@ public sealed class Simulation
         }
 
         AddBuilding(defIndex, x, y, progress: 0f);
-        ApplyBuildingBonuses(def);
+        if (!def.TakesTimeToBuild)
+        {
+            ApplyBuildingBonuses(def); // staveniště nic nedává, dokud nestojí
+        }
+
         ReportVisual(VisualEventKind.BuildingPlaced, x, y);
         _roadBuilder.ConnectLastBuilding(this);
         SettlementsDirty = true;
@@ -1951,6 +2036,7 @@ public sealed class Simulation
         MetricKind.PlantedNodes => _plantedNodes.Count,
         MetricKind.TerraformedTiles => TerraformedTiles,
         MetricKind.MergedBuildings => MergedBuildings,
+        MetricKind.WondersCompleted => WondersCompleted,
         _ => 0,
     };
 
@@ -2449,7 +2535,8 @@ public sealed class Simulation
         RemoveBuildingSilently(third);
         RemoveBuildingSilently(fourth);
 
-        AddBuilding(def.MergesToIndex, group.X, group.Y, progress: 0f);
+        // Sloučení není nová stavba: čtyři domy už stojí, jen se přestaví.
+        AddBuilding(def.MergesToIndex, group.X, group.Y, progress: 0f, asConstructionSite: false);
         ApplyBuildingBonuses(_content.Buildings[def.MergesToIndex]);
         ReportVisual(VisualEventKind.BuildingMerged, group.X, group.Y);
         _roadLinksDirty = true; // napojení se musí přepočítat, než se zeptáme na cestu
@@ -2484,7 +2571,7 @@ public sealed class Simulation
             }
         }
 
-        RemoveBuildingBonuses(def);
+        ForgetBuilding(buildingIndex, def);
 
         int last = _buildingCount - 1;
         if (buildingIndex != last)
@@ -2575,7 +2662,7 @@ public sealed class Simulation
             }
         }
 
-        RemoveBuildingBonuses(def);
+        ForgetBuilding(buildingIndex, def);
         var cost = def.BuildCost;
         for (int i = 0; i < cost.Count; i++)
         {
@@ -2803,13 +2890,18 @@ public sealed class Simulation
     /// </summary>
     internal void RestoreBuilding(int defIndex, int x, int y, float progress)
     {
-        AddBuilding(defIndex, x, y, progress);
+        AddBuilding(defIndex, x, y, progress, asConstructionSite: false);
         ApplyBuildingBonuses(_content.Buildings[defIndex]);
         SettlementsDirty = true;
         _roadLinksDirty = true; // silnice ze savu chodí zvlášť, přepočet osad ale spustit musíme
     }
 
-    private void AddBuilding(int defIndex, int x, int y, float progress)
+    /// <summary>
+    /// Vloží budovu do plochého pole. <paramref name="asConstructionSite"/> říká,
+    /// jestli se teprve staví (nová stavba), nebo už stojí (obnova ze savu) —
+    /// odpočet stavby je stav budovy, ne vlastnost jejího typu.
+    /// </summary>
+    private void AddBuilding(int defIndex, int x, int y, float progress, bool asConstructionSite = true)
     {
         var def = _content.Buildings[defIndex];
         if (_buildingCount == _buildings.Length)
@@ -2838,8 +2930,13 @@ public sealed class Simulation
             BiomeMult = (float)_content.Biomes[Terrain.BiomeAt(x, y)].Production,
             AdjacencyMult = (float)AdjacencyMultiplier(def, x, y),
             HaulMult = (float)_haulSystem.MultiplierAt(x, y),
+            BuildTicksRemaining = asConstructionSite ? def.BuildTicks : 0,
         };
         _buildingCount++;
+        if (asConstructionSite && def.TakesTimeToBuild)
+        {
+            BuildingsUnderConstruction++;
+        }
 
         // Nový sklad mění svoz i budovám, které stojí dávno — ty se přepočítají
         // rozloženě, tahle jedna to má správně hned.
@@ -2868,6 +2965,23 @@ public sealed class Simulation
         {
             _storageCaps[def.StorageBonus[i].ResourceIndex] += def.StorageBonus[i].Amount * _bonuses.StorageMult;
         }
+    }
+
+    /// <summary>
+    /// Odepíše budovu ze všech evidencí, než zmizí z pole. Rozestavěná budova
+    /// žádné bonusy nedostala, takže se jí ani neodebírají — jen se odečte
+    /// ze staveniště, jinak by počítadlo zůstalo viset a stavební systém by
+    /// nadarmo procházel celé město.
+    /// </summary>
+    private void ForgetBuilding(int buildingIndex, BuildingDef def)
+    {
+        if (_buildings[buildingIndex].IsComplete)
+        {
+            RemoveBuildingBonuses(def);
+            return;
+        }
+
+        BuildingsUnderConstruction = Math.Max(0, BuildingsUnderConstruction - 1);
     }
 
     /// <summary>Odebere globální bonusy budovy (vylepšení nahrazuje starou úroveň novou).</summary>
@@ -3043,7 +3157,10 @@ public sealed class Simulation
 
         for (int i = 0; i < _buildingCount; i++)
         {
-            ApplyBuildingBonuses(_content.Buildings[_buildings[i].DefIndex]);
+            if (_buildings[i].IsComplete)
+            {
+                ApplyBuildingBonuses(_content.Buildings[_buildings[i].DefIndex]);
+            }
         }
 
         for (int i = 0; i < _resources.Length; i++)

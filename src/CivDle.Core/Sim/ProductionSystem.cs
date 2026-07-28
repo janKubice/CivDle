@@ -70,9 +70,9 @@ internal sealed class ProductionSystem
             ref var building = ref buildings[i];
             var def = _defs[building.DefIndex];
             var recipe = def.Recipe;
-            if (recipe is null)
+            if (recipe is null || !building.IsComplete)
             {
-                continue;
+                continue; // staveniště nevyrábí, dokud nestojí
             }
 
             float staffing = def.WorkerSlots > 0 ? _assigned[i] / (float)def.WorkerSlots : 1f;
