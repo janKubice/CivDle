@@ -1070,6 +1070,14 @@
     "toast.storageFull": "Sklad je plný: {0} se vyrábí do prázdna",
     "hud.combo": "×{0}",
     "hud.happinessParts": "Základ {0} · služby {1} · přelidnění {2}",
-    "hud.happinessGovernment": " · vláda {0}"
+    "hud.happinessGovernment": " · vláda {0}",
+    "building.merge": "Sloučit na {0}",
+    "building.mergeNoBlock": "Sloučit jde jen blok 2×2 stejných budov",
+    "building.mergeNoResources": "Na sloučení chybí suroviny",
+    "building.mergeLocked": "Cíl sloučení ještě není vyzkoumaný",
+    "building.upgradeNoResources": "Na vylepšení chybí suroviny",
+    "building.upgradeLocked": "Vylepšení ještě není vyzkoumané",
+    "building.upgradeUnavailable": "Vylepšit teď nejde",
+    "hud.mergeHint": "Zvýrazněné bloky jdou sloučit"
   }
 }

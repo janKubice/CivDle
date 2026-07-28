@@ -1070,6 +1070,14 @@
     "toast.storageFull": "Storage full: {0} is being produced into the void",
     "hud.combo": "×{0}",
     "hud.happinessParts": "Base {0} · services {1} · crowding {2}",
-    "hud.happinessGovernment": " · government {0}"
+    "hud.happinessGovernment": " · government {0}",
+    "building.merge": "Merge into {0}",
+    "building.mergeNoBlock": "Only a 2×2 block of identical buildings can merge",
+    "building.mergeNoResources": "Not enough resources to merge",
+    "building.mergeLocked": "The merge target isn't researched yet",
+    "building.upgradeNoResources": "Not enough resources to upgrade",
+    "building.upgradeLocked": "The upgrade isn't researched yet",
+    "building.upgradeUnavailable": "Can't upgrade right now",
+    "hud.mergeHint": "Highlighted blocks can be merged"
   }
 }

@@ -112,6 +112,9 @@ public sealed class GameplayScreen : IScreen
     private Button _buildMenuButton = null!;
     private Widget _buildMenuPanel = null!;
     private Widget _statusPanel = null!;
+    private HorizontalStackPanel _roadModePanel = null!;
+    private Button _roadAddButton = null!;
+    private Button _roadEraseButton = null!;
     private bool _buildMenuOpen;
     private int _unlockedFeatureCount = -1;
 
@@ -387,6 +390,14 @@ public sealed class GameplayScreen : IScreen
                 (_tools.TerraformGhostResult == PlacementResult.Ok
                     ? new Color(140, 230, 200)
                     : new Color(240, 110, 100)) * 0.55f);
+        }
+
+        // V režimu slučování se rozsvítí VŠECHNY bloky, které jdou sloučit —
+        // hráč jinak musí objíždět město myší a hádat, kde se čtyři stejné domy
+        // potkaly. Kreslí se jen to, co je vidět, a jen v tomhle režimu.
+        if (_tools.MergeMode)
+        {
+            DrawMergeCandidates(spriteBatch);
         }
 
         // Náhled slučování: obtáhne celý čtverec 2×2, ne jednu dlaždici — hráč
@@ -1221,8 +1232,27 @@ public sealed class GameplayScreen : IScreen
 
         // Stavový řádek zůstává vidět i se zavřeným menu — nese hlášky režimů
         // („sázíš", „sem to nejde") a bez nich by hráč tápal.
-        _statusLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
-        _statusPanel = UiFactory.DarkPanel(_statusLabel);
+        _statusLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+
+        // Silnice: „stavět" a „bourat" jsou dva režimy jednoho nástroje, ne dvě
+        // tlačítka v liště. Přepínač je proto tady — objeví se, teprve když ho
+        // hráč potřebuje, a jinak nezabírá místo.
+        _roadAddButton = UiFactory.SmallButton("+", () => _tools.SetRoadErasing(false), loc["tip.road"]);
+        _roadEraseButton = UiFactory.SmallButton("−", () => _tools.SetRoadErasing(true), loc["tip.roadErase"]);
+        _roadModePanel = new HorizontalStackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
+        _roadModePanel.Widgets.Add(_roadAddButton);
+        _roadModePanel.Widgets.Add(_roadEraseButton);
+        _roadModePanel.Visible = false;
+
+        var statusRow = new HorizontalStackPanel
+        {
+            Spacing = 10,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        statusRow.Widgets.Add(_statusLabel);
+        statusRow.Widgets.Add(_roadModePanel);
+
+        _statusPanel = UiFactory.DarkPanel(statusRow);
         _statusPanel.HorizontalAlignment = HorizontalAlignment.Center;
 
         // Levý střed: „co teď" — hlavní cíl s návodem, pod ním ostatní úkoly.
@@ -1282,7 +1312,6 @@ public sealed class GameplayScreen : IScreen
         if (_simulation.IsFeatureUnlocked("roads"))
         {
             stack.Widgets.Add(UiFactory.SmallButton(loc["hud.road"], _tools.ToggleRoad, loc["tip.road"]));
-            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.roadErase"], _tools.ToggleRoadErase, loc["tip.roadErase"]));
         }
 
         // Slučování bloků 2×2 v jednu velkou budovu.
@@ -1940,6 +1969,15 @@ public sealed class GameplayScreen : IScreen
         // Proužek se stavem se ukazuje, jen když má co říct — prázdný panel
         // uprostřed spodku obrazovky by byl jen šum.
         _statusPanel.Visible = _tools.AnyActive;
+        _roadModePanel.Visible = _tools.RoadToolActive;
+        if (_tools.RoadToolActive)
+        {
+            // Aktivní režim je vidět na tlačítku, ne jen v textu — přepínač má
+            // sám ukazovat, v čem zrovna jsi.
+            _roadAddButton.Background = new SolidBrush(_tools.RoadEraseMode ? UiFactory.ButtonFill : UiFactory.Accent);
+            _roadEraseButton.Background = new SolidBrush(_tools.RoadEraseMode ? UiFactory.Accent : UiFactory.ButtonFill);
+        }
+
         if (!_statusPanel.Visible)
         {
             return;
@@ -1949,17 +1987,19 @@ public sealed class GameplayScreen : IScreen
         {
             // Bez bloku pod kurzorem se řekne proč — jinak hráč klika naprázdno
             // a neví, jestli je rozbitý nástroj, nebo jeho zástavba.
-            _statusLabel.Text = loc[_tools.MergeGhostActive ? "status.merge" : "status.mergeNoBlock"];
+            _statusLabel.Text = _tools.MergeGhostActive ? loc["status.merge"] : loc["hud.mergeHint"];
             _statusLabel.TextColor = _tools.MergeGhostActive
                 ? new Color(150, 220, 150)
                 : new Color(220, 190, 120);
             return;
         }
 
-        if (_tools.RoadMode || _tools.RoadEraseMode)
+        if (_tools.RoadToolActive)
         {
             _statusLabel.Text = loc[_tools.RoadEraseMode ? "status.roadErase" : "status.road"];
-            _statusLabel.TextColor = new Color(210, 205, 190);
+            _statusLabel.TextColor = _tools.RoadEraseMode
+                ? new Color(240, 190, 90)
+                : new Color(210, 205, 190);
             return;
         }
 
@@ -2005,6 +2045,44 @@ public sealed class GameplayScreen : IScreen
     }
 
     /// <summary>
+    /// Zvýrazní bloky 2×2, které jdou sloučit.
+    ///
+    /// <para>Prochází jen budovy ve výřezu a bere z nich vždy tu levou horní
+    /// (aby se každý blok nakreslil jednou). Běží výhradně v režimu slučování,
+    /// takže mimo něj nestojí nic.</para>
+    /// </summary>
+    private void DrawMergeCandidates(SpriteBatch spriteBatch)
+    {
+        const int ts = TerrainRenderer.TileSize;
+        var (min, max) = _camera.VisibleWorldBounds();
+        var buildings = _simulation.Buildings;
+
+        spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.Transform);
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            ref readonly var building = ref buildings[i];
+            int x = building.X * ts;
+            int y = building.Y * ts;
+            if (x + ts < min.X || x > max.X || y + ts < min.Y || y > max.Y)
+            {
+                continue;
+            }
+
+            if (!_simulation.TryFindMergeGroup(building.X, building.Y, out var group)
+                || group.X != building.X || group.Y != building.Y)
+            {
+                continue; // kreslí jen levý horní roh bloku, ať se nepřekrývá čtyřikrát
+            }
+
+            bool affordable = _simulation.CanMerge(group) == PlacementResult.Ok;
+            var tint = (affordable ? new Color(150, 235, 150) : new Color(220, 200, 120)) * 0.28f;
+            spriteBatch.Draw(_screens.WhitePixel, new Rectangle(x, y, ts * 2, ts * 2), tint);
+        }
+
+        spriteBatch.End();
+    }
+
+    /// <summary>
     /// Nakreslí barevný čtverec přes dlaždice mapy — náhled nástroje pod kurzorem.
     ///
     /// <para>Existuje kvůli konkrétnímu pádu: náhledy silnice a slučování volaly
@@ -2031,7 +2109,10 @@ public sealed class GameplayScreen : IScreen
         switch (tool)
         {
             case Capture.SmokeTool.Road: _tools.ToggleRoad(); break;
-            case Capture.SmokeTool.RoadErase: _tools.ToggleRoadErase(); break;
+            case Capture.SmokeTool.RoadErase:
+                _tools.ToggleRoad();
+                _tools.SetRoadErasing(true);
+                break;
             case Capture.SmokeTool.Merge: _tools.ToggleMerge(); break;
             case Capture.SmokeTool.Plant: _tools.TogglePlant(); break;
         }

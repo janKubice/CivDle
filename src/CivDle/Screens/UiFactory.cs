@@ -20,7 +20,8 @@ internal static class UiFactory
     public static readonly Color Accent = new(96, 196, 220);
 
     private static readonly Color PanelFill = new(18, 22, 30, 205);
-    private static readonly Color ButtonFill = new(38, 48, 64, 235);
+    /// <summary>Výplň tlačítek. Veřejná kvůli přepínačům, které si zvýrazňují aktivní volbu.</summary>
+    public static readonly Color ButtonFill = new(38, 48, 64, 235);
 
     /// <summary>Standardní menu tlačítko s akcí a decentním pozadím.</summary>
     /// <param name="tooltip">Vysvětlení u kurzoru (Myra ho kreslí u myši); null = bez popisku.</param>
@@ -41,6 +42,34 @@ internal static class UiFactory
 
     /// <summary>Malé tlačítko (šipky přepínačů, „Náhodný"…).</summary>
     /// <param name="tooltip">Vysvětlení u kurzoru (Myra ho kreslí u myši); null = bez popisku.</param>
+    /// <summary>
+    /// Tlačítko s ikonkou a textem. Ikonka nese význam rychleji než slovo —
+    /// v panelu budovy je „šipka nahoru" a „čtyři čtverce v jeden" poznat na
+    /// první pohled, kdežto dvě podobně dlouhá slova se musí číst.
+    /// </summary>
+    public static Button IconButton(Texture2D? icon, string text, Action onClick, string? tooltip = null)
+    {
+        var row = new HorizontalStackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
+        if (icon is not null)
+        {
+            row.Widgets.Add(Icon(icon, 22));
+        }
+
+        row.Widgets.Add(new Label { Text = text, VerticalAlignment = VerticalAlignment.Center });
+
+        var button = new Button
+        {
+            Content = row,
+            Height = 38,
+            Padding = new Thickness(14, 0),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Background = new SolidBrush(ButtonFill),
+            Tooltip = tooltip,
+        };
+        button.Click += (_, _) => onClick();
+        return button;
+    }
+
     public static Button SmallButton(string text, Action onClick, string? tooltip = null)
     {
         var button = new Button

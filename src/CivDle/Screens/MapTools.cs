@@ -155,21 +155,34 @@ public sealed class MapTools
         MergeMode = !was;
     }
 
-    /// <summary>Zapne kladení silnic; podruhé vypne.</summary>
+    /// <summary>
+    /// Zapne práci se silnicemi; podruhé vypne.
+    ///
+    /// <para>Jedno tlačítko místo dvou: „stavět" a „bourat" jsou dva režimy
+    /// jednoho nástroje, ne dva nástroje. Ve spodní liště je tak o tlačítko míň
+    /// a přepíná se až uvnitř, kde to hráč zrovna řeší.</para>
+    /// </summary>
     public void ToggleRoad()
     {
-        bool was = RoadMode;
+        bool was = RoadMode || RoadEraseMode;
         Clear();
         RoadMode = !was;
     }
 
-    /// <summary>Zapne bourání silnic; podruhé vypne.</summary>
-    public void ToggleRoadErase()
+    /// <summary>Přepne mezi kladením (+) a bouráním (−). Mimo režim silnic nedělá nic.</summary>
+    public void SetRoadErasing(bool erasing)
     {
-        bool was = RoadEraseMode;
-        Clear();
-        RoadEraseMode = !was;
+        if (!RoadMode && !RoadEraseMode)
+        {
+            return;
+        }
+
+        RoadMode = !erasing;
+        RoadEraseMode = erasing;
     }
+
+    /// <summary>Je zapnutý nástroj silnic (v kterémkoli z obou režimů)?</summary>
+    public bool RoadToolActive => RoadMode || RoadEraseMode;
 
     /// <summary>Začne přesouvat budovu.</summary>
     public void StartMove(int buildingIndex)

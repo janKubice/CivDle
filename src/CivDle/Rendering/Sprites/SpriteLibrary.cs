@@ -45,6 +45,11 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "icon.computer", IconSize, ComputerIcon);
         Add(device, "icon.robot", IconSize, RobotIcon);
 
+        // Akce nad budovou. Ikonka nese význam rychleji než slovo — v panelu jsou
+        // „šipka nahoru" a „čtyři čtverce v jeden" poznat na první pohled.
+        Add(device, "icon.upgrade", IconSize, UpgradeIcon);
+        Add(device, "icon.merge", IconSize, MergeIcon);
+
         // Těžitelné objekty na terénu.
         Add(device, "node.tree", SpriteSize, Tree);
         Add(device, "node.rock", SpriteSize, Rock);
@@ -992,6 +997,32 @@ public sealed class SpriteLibrary : IDisposable
             float angle = i * MathF.PI / 4f;
             c.FillRect((int)(12 + MathF.Cos(angle) * 8) - 1, (int)(12 + MathF.Sin(angle) * 8) - 1, 3, 3, metal);
         }
+    }
+
+    /// <summary>Vylepšení: šipka nahoru nad základnou — „tahle budova povyroste".</summary>
+    private static void UpgradeIcon(PixelCanvas c)
+    {
+        var glow = new Color(150, 220, 150);
+        for (int i = 0; i < 7; i++)
+        {
+            c.FillRect(12 - i, 6 + i, 1 + i * 2, 2, glow);
+        }
+
+        c.FillRect(9, 13, 6, 6, glow);
+        c.FillRect(5, 19, 14, 2, new Color(90, 140, 95));
+    }
+
+    /// <summary>Sloučení: čtyři čtverce, které se stáhnou do jednoho většího.</summary>
+    private static void MergeIcon(PixelCanvas c)
+    {
+        var small = new Color(120, 160, 210);
+        c.FillRect(3, 3, 6, 6, small);
+        c.FillRect(15, 3, 6, 6, small);
+        c.FillRect(3, 15, 6, 6, small);
+        c.FillRect(15, 15, 6, 6, small);
+
+        // Velký uprostřed překryje rohy — je vidět, že z nich vzniká.
+        c.FillRect(8, 8, 8, 8, new Color(230, 200, 110));
     }
 
     private static void ChipIcon(PixelCanvas c)
