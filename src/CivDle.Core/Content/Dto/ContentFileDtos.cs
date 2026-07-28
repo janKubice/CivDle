@@ -21,7 +21,7 @@ public sealed record BiomeDto(
     double ProductionMult);
 
 /// <summary>Výnos ručního kliknutí na biom tak, jak leží v JSON.</summary>
-public sealed record ClickYieldDto(string? Resource, int Amount);
+public sealed record ClickYieldDto(string? Resource, int Amount, int Charges, double RegrowSeconds);
 
 /// <summary>Obsah souboru <c>data/resources.json</c>.</summary>
 public sealed record ResourcesFileDto(int SchemaVersion, List<ResourceDto>? Resources);
@@ -56,7 +56,8 @@ public sealed record BuildingDto(
     string? MergesTo,
     Dictionary<string, int>? MergeCost,
     AdjacencyDto? Adjacency,
-    int BuildTicks);
+    int BuildTicks,
+    int TerrainHarvestRadius);
 
 /// <summary>Pravidlo bonusu za okolí budovy tak, jak leží v JSON.</summary>
 public sealed record AdjacencyDto(

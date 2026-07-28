@@ -60,8 +60,20 @@ public sealed record BuildingDef(
     int MergesToIndex = -1,
     IReadOnlyList<ResourceAmount>? MergeCostOrNull = null,
     AdjacencyRule? AdjacencyOrNull = null,
-    int BuildTicks = 0)
+    int BuildTicks = 0,
+    int TerrainHarvestRadius = 0)
 {
+    /// <summary>
+    /// Bere budova surovinu přímo z krajiny? &gt;0 = dosah v dlaždicích, ve kterém
+    /// těží uzly (les, ložisko). 0 = budova zpracovává dovezené vstupy a na
+    /// okolní krajině jí nezáleží.
+    ///
+    /// <para>Tohle je ten rozdíl mezi „klikáním ubývá les" a „ubývá les". Pila
+    /// nekácí proto, že na ni hráč klikne — kácí proto, že v ní pracují lidé.
+    /// Čím větší město, tím víc lidí, tím rychleji mizí okolní porost.</para>
+    /// </summary>
+    public bool HarvestsTerrain => TerrainHarvestRadius > 0;
+
     /// <summary>
     /// Jak dlouho se budova staví (v ticích). 0 = stojí hned, jako všechno ostatní.
     ///

@@ -52,6 +52,18 @@ public struct BuildingInstance
     /// </summary>
     public int BuildTicksRemaining;
 
+    /// <summary>
+    /// Kam došla budova při těžbě okolí (pořadí dlaždice ve spirále kolem ní).
+    ///
+    /// <para>Bez tohohle by se při každém výrobním cyklu prohledávalo celé okolí
+    /// od začátku. Takhle se kurzor posune, teprve až dlaždice dojde — hledání
+    /// je proto amortizovaně konstantní i pro statisíce budov.</para>
+    /// </summary>
+    public int HarvestCursor;
+
+    /// <summary>Došly budově v dosahu zdroje? (Render i UI to hlásí hráči.)</summary>
+    public bool OutOfResources;
+
     /// <summary>Je budova hotová a v provozu?</summary>
     public readonly bool IsComplete => BuildTicksRemaining <= 0;
 }

@@ -147,19 +147,30 @@ public sealed class HarvestableRenderer
                     continue;
                 }
 
-                DrawNode(spriteBatch, x, y, spriteKey);
+                // Vytěžená dlaždice je prázdná, dokud nedoroste — a čím míň
+                // v uzlu zbývá, tím je menší. Hráč tak vidí, kde už bral,
+                // a nemusí to zkoušet naslepo.
+                int charges = simulation.NodeChargesLeft(x, y);
+                if (charges == 0)
+                {
+                    continue;
+                }
+
+                int capacity = simulation.NodeMaxCharges(x, y);
+                float fullness = capacity > 0 ? Math.Clamp(charges / (float)capacity, 0.45f, 1f) : 1f;
+                DrawNode(spriteBatch, x, y, spriteKey, fullness);
             }
         }
 
         spriteBatch.End();
     }
 
-    private void DrawNode(SpriteBatch spriteBatch, int tileX, int tileY, string spriteKey)
+    private void DrawNode(SpriteBatch spriteBatch, int tileX, int tileY, string spriteKey, float fullness)
     {
         const int tileSize = TerrainRenderer.TileSize;
         // Jemný jitter velikosti/pozice per dlaždice, ať to není mřížka.
         ulong h = Hash(tileX, tileY);
-        float sizeJitter = 0.82f + (h & 0xFF) / 255f * 0.36f;
+        float sizeJitter = (0.82f + (h & 0xFF) / 255f * 0.36f) * fullness;
         int drawSize = (int)(tileSize * sizeJitter) + 2;
         int offsetX = (int)((h >> 8) % 5) - 2;
 

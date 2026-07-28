@@ -112,7 +112,8 @@
         "radius": 2,
         "perTile": 0.025,
         "max": 0.35
-      }
+      },
+      "terrainHarvestRadius": 5
     },
     {
       "id": "lumberyard",
@@ -151,7 +152,8 @@
         "radius": 2,
         "perTile": 0.025,
         "max": 0.35
-      }
+      },
+      "terrainHarvestRadius": 5
     },
     {
       "id": "sawmill",
@@ -240,7 +242,8 @@
         "radius": 2,
         "perTile": 0.025,
         "max": 0.35
-      }
+      },
+      "terrainHarvestRadius": 5
     },
     {
       "id": "mine",
@@ -279,7 +282,8 @@
         "radius": 2,
         "perTile": 0.025,
         "max": 0.35
-      }
+      },
+      "terrainHarvestRadius": 5
     },
     {
       "id": "farm",
@@ -605,7 +609,8 @@
         "radius": 2,
         "perTile": 0.025,
         "max": 0.35
-      }
+      },
+      "terrainHarvestRadius": 5
     },
     {
       "id": "coal_mine",
@@ -643,7 +648,8 @@
         "radius": 2,
         "perTile": 0.025,
         "max": 0.35
-      }
+      },
+      "terrainHarvestRadius": 5
     },
     {
       "id": "blast_furnace",
@@ -757,7 +763,8 @@
         "radius": 2,
         "perTile": 0.025,
         "max": 0.35
-      }
+      },
+      "terrainHarvestRadius": 5
     },
     {
       "id": "smeltery",
@@ -1024,7 +1031,8 @@
         "radius": 2,
         "perTile": 0.025,
         "max": 0.35
-      }
+      },
+      "terrainHarvestRadius": 5
     },
     {
       "id": "electronics_fab",
@@ -1270,7 +1278,8 @@
         "radius": 2,
         "perTile": 0.025,
         "max": 0.3
-      }
+      },
+      "terrainHarvestRadius": 6
     },
     {
       "id": "granary",
@@ -1962,7 +1971,8 @@
         "radius": 2,
         "perTile": 0.025,
         "max": 0.35
-      }
+      },
+      "terrainHarvestRadius": 6
     },
     {
       "id": "great_quarry",
@@ -2000,7 +2010,8 @@
         "radius": 2,
         "perTile": 0.025,
         "max": 0.35
-      }
+      },
+      "terrainHarvestRadius": 6
     },
     {
       "id": "park",

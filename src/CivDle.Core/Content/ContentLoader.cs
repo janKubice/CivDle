@@ -1043,7 +1043,26 @@ public sealed class ContentLoader
                 throw new ContentLoadException(path, $"Biom '{id}': 'clickYield.amount' musí být 1–1000, je {dto.ClickYield.Amount}.");
             }
 
-            clickYield = new ClickYield(resourceIndex, dto.ClickYield.Amount);
+            if (dto.ClickYield.Charges is < 0 or > 10_000)
+            {
+                throw new ContentLoadException(path, $"Biom '{id}': 'clickYield.charges' musí být 0–10000, je {dto.ClickYield.Charges}.");
+            }
+
+            if (dto.ClickYield.RegrowSeconds is < 0 or > 100_000)
+            {
+                throw new ContentLoadException(path, $"Biom '{id}': 'clickYield.regrowSeconds' musí být 0–100000.");
+            }
+
+            // Dorůstání bez vyčerpatelnosti nedává smysl — uzel, který nezmizí,
+            // nemá co dorůstat. Tichá past v datech, ne drobnost.
+            if (dto.ClickYield.RegrowSeconds > 0 && dto.ClickYield.Charges <= 0)
+            {
+                throw new ContentLoadException(path,
+                    $"Biom '{id}': 'clickYield.regrowSeconds' bez 'charges' — uzel se nevyčerpá, tak nemá co dorůstat.");
+            }
+
+            clickYield = new ClickYield(
+                resourceIndex, dto.ClickYield.Amount, dto.ClickYield.Charges, dto.ClickYield.RegrowSeconds);
         }
 
         // Výchozí 1.0 = neutrální biom. Rozsah drží identitu biomů v rozumných mezích
@@ -1353,6 +1372,20 @@ public sealed class ContentLoader
 
         var adjacency = ParseAdjacency(path, id, dto.Adjacency, recipe, biomes);
 
+        if (dto.TerrainHarvestRadius is < 0 or > 32)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': 'terrainHarvestRadius' musí být 0–32, je {dto.TerrainHarvestRadius}.");
+        }
+
+        // Těžit z krajiny může jen budova, která něco vyrábí bez dovezených vstupů.
+        // Jinak by data slibovala mechaniku, která se nemá čeho chytit.
+        if (dto.TerrainHarvestRadius > 0 && recipe is null)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}' má 'terrainHarvestRadius', ale nic nevyrábí — nemá co z krajiny brát.");
+        }
+
         // Doba stavby: strop je tu proto, aby překlep v datech neudělal budovu,
         // která se staví déle, než kdo kdy bude hrát.
         if (dto.BuildTicks is < 0 or > 1_000_000)
@@ -1365,7 +1398,8 @@ public sealed class ContentLoader
             dto.WorkerSlots, dto.HousingCapacity, buildCost, recipe, mask,
             storageBonus, dto.AutoBuild, dto.Buildable ?? true, upgradesToIndex, upgradeCost,
             dto.PowerSupply, dto.PowerDemand, dto.RequiresAdjacentWater,
-            dto.ServiceValue, upkeep, mergesToIndex, mergeCost, adjacency, dto.BuildTicks);
+            dto.ServiceValue, upkeep, mergesToIndex, mergeCost, adjacency, dto.BuildTicks,
+            dto.TerrainHarvestRadius);
     }
 
     /// <summary>
