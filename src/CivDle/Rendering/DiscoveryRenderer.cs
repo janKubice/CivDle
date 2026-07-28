@@ -12,7 +12,6 @@ namespace CivDle.Rendering;
 /// </summary>
 public sealed class DiscoveryRenderer
 {
-    private const float MinZoom = 0.5f;
     private static readonly Color Tint = new(120, 220, 255);
 
     private readonly SpriteLibrary _sprites;
@@ -27,7 +26,7 @@ public sealed class DiscoveryRenderer
 
     public void Draw(SpriteBatch spriteBatch, Camera2D camera, Simulation simulation)
     {
-        if (camera.Zoom < MinZoom)
+        if (camera.Zoom < DetailLevel.Creatures)
         {
             return;
         }

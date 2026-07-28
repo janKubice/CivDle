@@ -18,7 +18,6 @@ public sealed class HarvestableRenderer
     private const int ClicksToFell = 4;
     private const float FallSeconds = 0.5f;
     private const float RegrowSeconds = 6f;
-    private const float MinZoom = 0.5f;
 
     private sealed class ChopState
     {
@@ -116,7 +115,7 @@ public sealed class HarvestableRenderer
 
     public void Draw(SpriteBatch spriteBatch, Camera2D camera, Simulation simulation)
     {
-        if (camera.Zoom < MinZoom)
+        if (camera.Zoom < DetailLevel.Harvestables)
         {
             return;
         }
@@ -127,6 +126,10 @@ public sealed class HarvestableRenderer
         int startY = (int)MathF.Floor(min.Y / tileSize);
         int endX = (int)MathF.Ceiling(max.X / tileSize);
         int endY = (int)MathF.Ceiling(max.Y / tileSize);
+        if (!DetailLevel.FitsBudget(startX, startY, endX, endY))
+        {
+            return;
+        }
 
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
         for (int y = startY; y <= endY; y++)

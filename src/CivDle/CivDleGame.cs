@@ -32,6 +32,8 @@ public sealed class CivDleGame : Game
     private readonly CaptureDirector? _capture;
     private readonly string? _capsuleDirectory;
     private readonly bool _smoke;
+    private readonly bool _perf;
+    private PerfRun? _perfRun;
     private SmokeRun? _smokeRun;
     private GameplayScreen? _smokeScreen;
     private Simulation? _smokeSimulation;
@@ -49,9 +51,15 @@ public sealed class CivDleGame : Game
     /// Projet všechny nástroje herní obrazovky a skončit. Chytá pády, které se
     /// projeví až po kliknutí na nástroj — testy simulace na ně nedosáhnou.
     /// </param>
-    public CivDleGame(string? captureDirectory = null, string? capsuleDirectory = null, bool smoke = false)
+    /// <param name="perf">Změřit dobu vykreslení snímku při různém přiblížení a skončit.</param>
+    public CivDleGame(
+        string? captureDirectory = null,
+        string? capsuleDirectory = null,
+        bool smoke = false,
+        bool perf = false)
     {
         _smoke = smoke;
+        _perf = perf;
         _capture = captureDirectory is null ? null : new CaptureDirector(captureDirectory);
         _capsuleDirectory = capsuleDirectory;
         _settingsStore = new SettingsStore(GetSettingsPath());
@@ -111,7 +119,7 @@ public sealed class CivDleGame : Game
         var content = new ContentLoader().LoadFrom(Path.Combine(AppContext.BaseDirectory, "data"));
         // Obchod je anglicky: snímky do Steamu musí být v jazyce, kterému rozumí
         // každý, kdo si stránku otevře — ne v tom, který má vývojář nastavený.
-        bool storeMode = _capture is not null || _capsuleDirectory is not null || _smoke;
+        bool storeMode = _capture is not null || _capsuleDirectory is not null || _smoke || _perf;
         var localization = new Localization(content.Languages, storeMode ? "en" : Settings.Language);
         var saves = new SaveStore(Path.Combine(GetProfileDirectory(), "saves", "save.civdle"));
 
@@ -126,9 +134,9 @@ public sealed class CivDleGame : Game
         }
 
         _screens = screens;
-        if (_smoke)
+        if (_smoke || _perf)
         {
-            _smokeSimulation = SmokeRun.BuildScene(screens);
+            _smokeSimulation = _perf ? PerfRun.BuildScene(screens) : SmokeRun.BuildScene(screens);
             _smokeScreen = new GameplayScreen(screens, _smokeSimulation, new WorldInfo(20260728, "medium", "continents"));
             _smokeScreen.FocusForCapture(
                 new Vector2(
@@ -136,7 +144,15 @@ public sealed class CivDleGame : Game
                     (_smokeSimulation.CityCenterY + 0.5f) * Rendering.TerrainRenderer.TileSize),
                 zoom: 2.5f);
             _screens.ReplaceAll(_smokeScreen);
-            _smokeRun = new SmokeRun();
+            if (_perf)
+            {
+                _perfRun = new PerfRun();
+            }
+            else
+            {
+                _smokeRun = new SmokeRun();
+            }
+
             return;
         }
 
@@ -158,6 +174,15 @@ public sealed class CivDleGame : Game
 
     protected override void Update(GameTime gameTime)
     {
+        if (_perfRun is not null)
+        {
+            var perfRun = _perfRun;
+            _perfRun = null;
+            perfRun.Run(_smokeScreen!, _smokeSimulation!, gameTime);
+            Exit();
+            return;
+        }
+
         if (_smokeRun is not null)
         {
             var run = _smokeRun;
@@ -209,7 +234,7 @@ public sealed class CivDleGame : Game
     {
         // Focení do obchodu má pevné rozlišení: Steam chce 1920×1080 a snímky
         // nesmí záviset na tom, jak měl kdo naposled nastavené okno.
-        bool capturing = _capture is not null || _capsuleDirectory is not null || _smoke;
+        bool capturing = _capture is not null || _capsuleDirectory is not null || _smoke || _perf;
         _graphics.PreferredBackBufferWidth = capturing ? CaptureWidth : settings.ResolutionWidth;
         _graphics.PreferredBackBufferHeight = capturing ? CaptureHeight : settings.ResolutionHeight;
         _graphics.SynchronizeWithVerticalRetrace = settings.VSync;

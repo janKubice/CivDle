@@ -21,8 +21,9 @@ try
     }
 
     bool smoke = args.Contains("--smoke");
+    bool perf = args.Contains("--perf");
 
-    using var game = new CivDleGame(captureDirectory, capsuleDirectory, smoke);
+    using var game = new CivDleGame(captureDirectory, capsuleDirectory, smoke, perf);
     game.Run();
     return 0;
 }

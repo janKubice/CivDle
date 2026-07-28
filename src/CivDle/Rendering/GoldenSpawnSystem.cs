@@ -20,7 +20,6 @@ public sealed class GoldenSpawnSystem
     private const float MaxSpawnGap = 120f;
     private const float LifeSeconds = 7f;
     private const float CollectRadiusTiles = 1.1f;
-    private const float MinZoom = 0.5f;
 
     private readonly SpriteLibrary _sprites;
     private readonly GameContent _content;
@@ -54,7 +53,7 @@ public sealed class GoldenSpawnSystem
         }
 
         _nextSpawnTimer -= dt;
-        if (_nextSpawnTimer <= 0f && camera.Zoom >= MinZoom)
+        if (_nextSpawnTimer <= 0f && camera.Zoom >= DetailLevel.Creatures)
         {
             Spawn(camera, simulation);
         }
@@ -89,7 +88,7 @@ public sealed class GoldenSpawnSystem
 
     public void Draw(SpriteBatch spriteBatch, Camera2D camera)
     {
-        if (!_active || camera.Zoom < MinZoom)
+        if (!_active || camera.Zoom < DetailLevel.Creatures)
         {
             return;
         }
