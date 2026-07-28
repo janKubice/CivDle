@@ -30,6 +30,13 @@ internal sealed class RoadBuilder
     /// <summary>Kolik vodních dlaždic v řadě už cesta k danému místu překlenula (délka mostu).</summary>
     private readonly Dictionary<long, int> _waterRun = new();
 
+    /// <summary>
+    /// Vyhýbá se hledání dlažebním „plackám" 2×2? V prvním pokusu ano — z toho
+    /// vznikají ulice místo vyasfaltovaných ploch. Když se ale kvůli tomu cesta
+    /// nenajde, druhý pokus pravidlo pustí: napojení je důležitější než vzhled.
+    /// </summary>
+    private bool _avoidBlocks = true;
+
     public RoadBuilder(GameContent content)
     {
         _content = content;
@@ -64,13 +71,39 @@ internal sealed class RoadBuilder
             return;
         }
 
+        ResetSearch(sim, buildings);
+
+        _avoidBlocks = true;
+        long found = Search(sim);
+        if (found == -1)
+        {
+            // Druhý pokus bez estetického pravidla — nenapojená budova vyrábí
+            // hůř, a to je horší než ošklivý kus dlažby.
+            ResetSearch(sim, buildings);
+            _avoidBlocks = false;
+            found = Search(sim);
+        }
+
+        if (found == -1)
+        {
+            return; // příliš daleko nebo bez suchozemské cesty — nechá se bez napojení
+        }
+
+        for (long key = found; key != -1; key = _cameFrom[key])
+        {
+            sim.AddRoadTile(TileKey.X(key), TileKey.Y(key));
+        }
+    }
+
+    /// <summary>Připraví hledání cesty: cíle (silnice a starší budovy) a starty (nová budova).</summary>
+    private void ResetSearch(Simulation sim, ReadOnlySpan<BuildingInstance> buildings)
+    {
         _targets.Clear();
         _visited.Clear();
         _cameFrom.Clear();
         _queue.Clear();
         _waterRun.Clear();
 
-        // Cíle: existující silnice + průchozí obvod všech starších budov.
         foreach (var road in sim.RoadTiles)
         {
             _targets.Add(TileKey.Pack(road.X, road.Y));
@@ -81,7 +114,6 @@ internal sealed class RoadBuilder
             MarkPerimeter(sim, buildings[i], key => _targets.Add(key));
         }
 
-        // Starty: průchozí obvod nové budovy.
         MarkPerimeter(sim, buildings[^1], key =>
         {
             if (_visited.Add(key))
@@ -91,17 +123,6 @@ internal sealed class RoadBuilder
                 _queue.Enqueue(key);
             }
         });
-
-        long found = Search(sim);
-        if (found == -1)
-        {
-            return; // příliš daleko nebo bez suchozemské cesty — nechá se bez napojení
-        }
-
-        for (long key = found; key != -1; key = _cameFrom[key])
-        {
-            sim.AddRoadTile(TileKey.X(key), TileKey.Y(key));
-        }
     }
 
     /// <summary>Dotýká se půdorys budovy hranou jiné budovy? (Roh se nepočítá.)</summary>
@@ -164,14 +185,47 @@ internal sealed class RoadBuilder
 
             int x = TileKey.X(current);
             int y = TileKey.Y(current);
-            // Pevné pořadí sousedů → deterministický tvar sítě.
-            if (Visit(sim, x + 1, y, current, out long hit)) return hit;
-            if (Visit(sim, x - 1, y, current, out hit)) return hit;
-            if (Visit(sim, x, y + 1, current, out hit)) return hit;
-            if (Visit(sim, x, y - 1, current, out hit)) return hit;
+
+            // Rovně napřed: BFS s pevným pořadím sousedů dělal ze stejně dlouhých
+            // cest klikaté schodiště. Když se nejdřív zkusí směr, kterým se sem
+            // došlo, vyjde z toho ulice s pár zatáčkami — stejně dlouhá, ale
+            // vypadá jako cesta, ne jako rozsypaný čaj. Pořadí zůstává pevné,
+            // takže síť je pořád deterministická.
+            if (VisitStraightFirst(sim, x, y, current, out long hit))
+            {
+                return hit;
+            }
         }
 
         return -1;
+    }
+
+    /// <summary>
+    /// Projde čtyři sousedy, ale ten ve směru dosavadní jízdy vezme jako první.
+    /// Zbylé tři pak v pevném pořadí, aby síť zůstala deterministická.
+    /// </summary>
+    private bool VisitStraightFirst(Simulation sim, int x, int y, long current, out long hit)
+    {
+        long previous = _cameFrom.GetValueOrDefault(current, -1);
+        int dx = 0, dy = 0;
+        if (previous != -1)
+        {
+            dx = Math.Sign(x - TileKey.X(previous));
+            dy = Math.Sign(y - TileKey.Y(previous));
+        }
+
+        if ((dx != 0 || dy != 0) && Visit(sim, x + dx, y + dy, current, out hit))
+        {
+            return true;
+        }
+
+        if (!(dx == 1 && dy == 0) && Visit(sim, x + 1, y, current, out hit)) return true;
+        if (!(dx == -1 && dy == 0) && Visit(sim, x - 1, y, current, out hit)) return true;
+        if (!(dx == 0 && dy == 1) && Visit(sim, x, y + 1, current, out hit)) return true;
+        if (!(dx == 0 && dy == -1) && Visit(sim, x, y - 1, current, out hit)) return true;
+
+        hit = -1;
+        return false;
     }
 
     private bool Visit(Simulation sim, int x, int y, long from, out long foundTarget)
@@ -179,6 +233,15 @@ internal sealed class RoadBuilder
         foundTarget = -1;
         long key = TileKey.Pack(x, y);
         if (_visited.Contains(key) || sim.IsOccupied(x, y))
+        {
+            return false;
+        }
+
+        // Dlažební placky 2×2 dělají z ulic parkoviště. Kontroluje se každá
+        // dlaždice, kterou bychom POLOŽILI — tedy i cíl, pokud to zatím silnice
+        // není (obvod starší budovy). Na existující silnici se jen napojujeme,
+        // ta se neklade a nic nezhorší.
+        if (_avoidBlocks && !sim.IsRoad(x, y) && WouldFormRoadBlock(sim, x, y, from))
         {
             return false;
         }
@@ -204,6 +267,61 @@ internal sealed class RoadBuilder
 
         _queue.Enqueue(key);
         return false;
+    }
+
+    /// <summary>
+    /// Vznikla by položením dlaždice souvislá plocha silnice 2×2? Kontrolují se
+    /// čtyři čtverce, jejichž rohem tahle dlaždice je.
+    ///
+    /// <para>Za silnici se počítají i dlaždice cesty, kterou zrovna hledáme —
+    /// ty ještě položené nejsou, ale budou. Stačí se dívat pár kroků zpět: do
+    /// čtverce 2×2 se z jedné cesty nevejdou vzdálenější dlaždice.</para>
+    /// </summary>
+    private bool WouldFormRoadBlock(Simulation sim, int x, int y, long from)
+    {
+        Span<long> pending = stackalloc long[PendingLookback + 1];
+        pending[0] = TileKey.Pack(x, y);
+        int count = 1;
+        for (long step = from; step != -1 && count <= PendingLookback; step = _cameFrom.GetValueOrDefault(step, -1))
+        {
+            pending[count++] = step;
+        }
+
+        for (int cornerY = -1; cornerY <= 0; cornerY++)
+        {
+            for (int cornerX = -1; cornerX <= 0; cornerX++)
+            {
+                if (IsRoadOrPending(sim, x + cornerX, y + cornerY, pending[..count])
+                    && IsRoadOrPending(sim, x + cornerX + 1, y + cornerY, pending[..count])
+                    && IsRoadOrPending(sim, x + cornerX, y + cornerY + 1, pending[..count])
+                    && IsRoadOrPending(sim, x + cornerX + 1, y + cornerY + 1, pending[..count]))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Kolik dlaždic zpět po rozpracované cestě se počítá za „už silnici".
+    /// Tři stačí: čtvrtý roh čtverce 2×2 je od prvního nejvýš tři kroky daleko.
+    /// </summary>
+    private const int PendingLookback = 3;
+
+    private static bool IsRoadOrPending(Simulation sim, int x, int y, ReadOnlySpan<long> pending)
+    {
+        long key = TileKey.Pack(x, y);
+        foreach (long tile in pending)
+        {
+            if (tile == key)
+            {
+                return true;
+            }
+        }
+
+        return sim.IsRoad(x, y);
     }
 
     /// <summary>Suchá průchozí dlaždice — start i konec cesty musí stát na souši.</summary>

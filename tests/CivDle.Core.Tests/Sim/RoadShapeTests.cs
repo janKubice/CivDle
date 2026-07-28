@@ -95,6 +95,84 @@ public class RoadShapeTests
     }
 
     [Fact]
+    public void RoadNetwork_NeverFormsPavedPatches()
+    {
+        // Dlažební placka 2×2 dělá z ulice parkoviště. Auto-silnice se jí vyhýbá.
+        var sim = GrassSim(out var content);
+        int house = content.Buildings.IndexOf("house");
+
+        // Rozházená zástavba: hodně napojování, hodně příležitostí udělat placku.
+        for (int i = 0; i < 60; i++)
+        {
+            for (int r = 0; r < content.Resources.Count; r++)
+            {
+                sim.AddResource(r, sim.GetStorageCap(r));
+            }
+
+            int x = (i * 7) % 23;
+            int y = (i * 11) % 19;
+            sim.TryPlaceBuilding(house, x, y);
+        }
+
+        Assert.NotEmpty(sim.RoadTiles);
+        Assert.Empty(PavedPatches(sim));
+    }
+
+    /// <summary>Levé horní rohy všech souvislých ploch silnice 2×2.</summary>
+    private static List<(int X, int Y)> PavedPatches(Simulation sim)
+    {
+        var found = new List<(int X, int Y)>();
+        foreach (var tile in sim.RoadTiles)
+        {
+            if (sim.IsRoad(tile.X + 1, tile.Y)
+                && sim.IsRoad(tile.X, tile.Y + 1)
+                && sim.IsRoad(tile.X + 1, tile.Y + 1))
+            {
+                found.Add((tile.X, tile.Y));
+            }
+        }
+
+        return found;
+    }
+
+    [Fact]
+    public void ConnectingATown_PrefersStraightStreets()
+    {
+        // Stejně dlouhá cesta jde vést jako schodiště nebo jako ulice se zatáčkou.
+        // Chceme to druhé — proto se počítají zatáčky, ne délka.
+        var sim = GrassSim(out var content);
+        int house = content.Buildings.IndexOf("house");
+
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuildingFree(house, 0, 0));
+        for (int r = 0; r < content.Resources.Count; r++)
+        {
+            sim.AddResource(r, sim.GetStorageCap(r));
+        }
+
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(house, 9, 7));
+
+        int turns = CountTurns(sim);
+        Assert.True(turns <= 3, $"cesta má být ulice s pár zatáčkami, ne schodiště ({turns} zatáček)");
+    }
+
+    /// <summary>Kolikrát síť mění směr — schodiště jich má tolik co dlaždic.</summary>
+    private static int CountTurns(Simulation sim)
+    {
+        int turns = 0;
+        foreach (var tile in sim.RoadTiles)
+        {
+            bool horizontal = sim.IsRoad(tile.X - 1, tile.Y) || sim.IsRoad(tile.X + 1, tile.Y);
+            bool vertical = sim.IsRoad(tile.X, tile.Y - 1) || sim.IsRoad(tile.X, tile.Y + 1);
+            if (horizontal && vertical)
+            {
+                turns++;
+            }
+        }
+
+        return turns;
+    }
+
+    [Fact]
     public void DistantBuilding_StillGetsARoad()
     {
         // Zrušit dláždění úplně by rozbilo smysl silnic — vzdálená budova ho pořád potřebuje.
