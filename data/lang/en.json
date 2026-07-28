@@ -1042,6 +1042,18 @@
     "building.adjacencyNone": "The surroundings add nothing here",
     "build.haulPenalty": "hauling {0} %",
     "building.haulPenalty": "Far from storage: producing at {0} %",
-    "tip.build.haul": "Produces less far from storage — build one closer"
+    "tip.build.haul": "Produces less far from storage — build one closer",
+    "season.spring": "Spring",
+    "season.spring.desc": "The city grows faster, the fields wake up",
+    "season.summer": "Summer",
+    "season.summer.desc": "The most generous harvest of the year",
+    "season.autumn": "Autumn",
+    "season.autumn.desc": "Time to gather — hand harvesting yields more",
+    "season.winter": "Winter",
+    "season.winter.desc": "Fields yield less and wood is burned for heat",
+    "hud.season": "{0}",
+    "hud.season.tip": "{0} — {1}",
+    "hud.season.freezing": "Out of firewood: the city is freezing and barely grows",
+    "toast.season": "A new season: {0}"
   }
 }

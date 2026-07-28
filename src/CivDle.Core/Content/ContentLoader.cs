@@ -53,18 +53,114 @@ public sealed class ContentLoader
         var milestones = LoadMilestones(Path.Combine(dataDirectory, "milestones.json"), resources, buildings, techs);
         var elections = LoadElections(Path.Combine(dataDirectory, "elections.json"));
         var challenges = LoadChallenges(Path.Combine(dataDirectory, "challenges.json"), resources, buildings, techs);
+        var seasons = LoadSeasons(Path.Combine(dataDirectory, "seasons.json"), resources);
         var tutorial = LoadTutorial(Path.Combine(dataDirectory, "tutorial.json"), resources, buildings, techs);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, elections, milestones);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, elections, milestones, seasons);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, elections, milestones);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, elections, milestones, seasons);
+    }
+
+    // ----- roční období -----
+
+    /// <summary>
+    /// Načte kalendář ročních období. Volitelný soubor — bez něj hra běží
+    /// v jednom nekonečném létě jako dřív.
+    /// </summary>
+    private static SeasonCalendar LoadSeasons(string path, DefRegistry<Resource> resources)
+    {
+        if (!File.Exists(path))
+        {
+            return SeasonCalendar.Disabled;
+        }
+
+        var file = ReadFile<SeasonsFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Seasons ?? new List<SeasonDto>();
+        if (dtos.Count == 0)
+        {
+            return SeasonCalendar.Disabled;
+        }
+
+        if (file.DaysPerSeason <= 0)
+        {
+            throw new ContentLoadException(path, $"'daysPerSeason' musí být kladný, je {file.DaysPerSeason}.");
+        }
+
+        // Palivo je povinné, jen když se v některém období topí — jinak by data
+        // slibovala mechaniku, kterou nemají čím zaplatit.
+        int fuelIndex = -1;
+        if (!string.IsNullOrWhiteSpace(file.FuelResource))
+        {
+            if (!resources.TryIndexOf(file.FuelResource.Trim(), out fuelIndex))
+            {
+                throw new ContentLoadException(path, $"'fuelResource' odkazuje na neexistující surovinu '{file.FuelResource}'.");
+            }
+        }
+
+        var seasons = new List<SeasonDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Období na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID období '{id}'.");
+            }
+
+            CheckSeasonMultiplier(path, id, "foodProductionMult", dto.FoodProductionMult);
+            CheckSeasonMultiplier(path, id, "harvestMult", dto.HarvestMult);
+            CheckSeasonMultiplier(path, id, "growthMult", dto.GrowthMult);
+            CheckSeasonMultiplier(path, id, "coldGrowthMult", dto.ColdGrowthMult);
+
+            if (dto.FuelPerPersonPerSecond < 0)
+            {
+                throw new ContentLoadException(path, $"Období '{id}': 'fuelPerPersonPerSecond' nesmí být záporná.");
+            }
+
+            if (dto.FuelPerPersonPerSecond > 0 && fuelIndex < 0)
+            {
+                throw new ContentLoadException(path,
+                    $"Období '{id}' topí, ale soubor nemá 'fuelResource' — není čím.");
+            }
+
+            if (dto.TintAlpha is < 0 or > 1)
+            {
+                throw new ContentLoadException(path, $"Období '{id}': 'tintAlpha' musí být 0–1, je {dto.TintAlpha}.");
+            }
+
+            var tint = dto.TintAlpha > 0
+                ? ParseColor(path, dto.TintColor, $"Období '{id}' ('tintColor')")
+                : new RgbColor(0, 0, 0);
+
+            seasons.Add(new SeasonDef(
+                id, tint, dto.TintAlpha,
+                dto.FoodProductionMult, dto.HarvestMult, dto.GrowthMult,
+                dto.FuelPerPersonPerSecond, dto.ColdGrowthMult));
+        }
+
+        return new SeasonCalendar(seasons, file.DaysPerSeason, fuelIndex);
+    }
+
+    /// <summary>
+    /// Násobič období musí být kladný. Nula by znamenala „úplně vypnuto", což je
+    /// tvrdý trest — a ten hra zásadně nedělá (soft pressure).
+    /// </summary>
+    private static void CheckSeasonMultiplier(string path, string id, string field, double value)
+    {
+        if (value is <= 0 or > 10)
+        {
+            throw new ContentLoadException(path, $"Období '{id}': '{field}' musí být větší než 0 a nejvýš 10, je {value}.");
+        }
     }
 
     // ----- milníky -----
@@ -2164,7 +2260,8 @@ public sealed class ContentLoader
         IReadOnlyList<TutorialStepDef> tutorial,
         ChallengeCatalog challenges,
         ElectionConfig elections,
-        IReadOnlyList<MilestoneDef> milestones)
+        IReadOnlyList<MilestoneDef> milestones,
+        SeasonCalendar seasons)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -2198,7 +2295,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, elections, milestones);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, elections, milestones, seasons);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -2228,7 +2325,8 @@ public sealed class ContentLoader
         IReadOnlyList<TutorialStepDef> tutorial,
         ChallengeCatalog challenges,
         ElectionConfig elections,
-        IReadOnlyList<MilestoneDef> milestones)
+        IReadOnlyList<MilestoneDef> milestones,
+        SeasonCalendar seasons)
     {
         var required = new List<string>();
         required.AddRange(biomes.All.Select(b => b.NameKey));
@@ -2276,6 +2374,8 @@ public sealed class ContentLoader
         required.AddRange(elections.Candidates.Select(c => c.NameKey));
         required.AddRange(elections.Candidates.Select(c => c.DescriptionKey));
         required.AddRange(milestones.Select(m => m.NameKey));
+        required.AddRange(seasons.Seasons.Select(x => x.NameKey));
+        required.AddRange(seasons.Seasons.Select(x => x.DescriptionKey));
 
         var missing = required.Where(key => !language.Strings.ContainsKey(key)).ToList();
         if (missing.Count > 0)

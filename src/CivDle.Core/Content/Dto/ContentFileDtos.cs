@@ -96,6 +96,24 @@ public sealed record StaffingDto(double ScarcityThreshold);
 /// <summary>Svoz zboží do skladu tak, jak leží v JSON.</summary>
 public sealed record HaulDto(int FreeDistance, int Range, double MinMultiplier);
 
+/// <summary>Obsah souboru <c>data/seasons.json</c>.</summary>
+public sealed record SeasonsFileDto(
+    int SchemaVersion,
+    int DaysPerSeason,
+    string? FuelResource,
+    List<SeasonDto>? Seasons);
+
+/// <summary>Jedno roční období tak, jak leží v JSON.</summary>
+public sealed record SeasonDto(
+    string? Id,
+    string? TintColor,
+    double TintAlpha,
+    double FoodProductionMult,
+    double HarvestMult,
+    double GrowthMult,
+    double FuelPerPersonPerSecond,
+    double ColdGrowthMult);
+
 /// <summary>Nastavení spokojenosti tak, jak leží v JSON.</summary>
 public sealed record HappinessDto(
     int IntervalTicks,

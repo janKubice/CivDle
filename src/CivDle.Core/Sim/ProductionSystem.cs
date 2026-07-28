@@ -59,6 +59,11 @@ internal sealed class ProductionSystem
         // budovy (CurrentWeatherIndex je hash, v tikové smyčce by se zbytečně opakoval).
         double productionMult = sim.Bonuses.ProductionMult * sim.BoostMultiplier * sim.WeatherProductionMult
             * sim.ElectionProductionMult;
+
+        // Roční období sahá jen na jídlo — zima podvazuje pole, ne hutě. Index
+        // jídla i násobič se čtou jednou za tik, ne u každé budovy.
+        int foodIndex = _content.Gameplay.FoodResourceIndex;
+        double seasonFoodMult = sim.SeasonFoodMult;
         double disconnectedMult = _content.Gameplay.Roads.DisconnectedProductionMult;
         for (int i = 0; i < buildings.Length; i++)
         {
@@ -112,10 +117,14 @@ internal sealed class ProductionSystem
                 sim.MarkResourceKnown(index); // první vyrobený kus surovinu odhalí v UI
                 // Plný sklad výrobu nezastaví, přebytek propadá (idle konvence) —
                 // motivace stavět sklady, žádný trest. Trvalý bonus Vzestupu zvedá výstup.
-                resources[index] = Math.Min(
-                    resources[index] + recipe.Outputs[j].Amount * productionMult
-                        * building.BiomeMult * building.AdjacencyMult * building.HaulMult,
-                    storageCaps[index]);
+                double yield = recipe.Outputs[j].Amount * productionMult
+                    * building.BiomeMult * building.AdjacencyMult * building.HaulMult;
+                if (index == foodIndex)
+                {
+                    yield *= seasonFoodMult;
+                }
+
+                resources[index] = Math.Min(resources[index] + yield, storageCaps[index]);
             }
 
             // Ohlas dokončený cyklus renderu — bez tohohle je město opticky mrtvé,

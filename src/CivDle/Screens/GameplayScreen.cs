@@ -87,6 +87,10 @@ public sealed class GameplayScreen : IScreen
     private Label _tierLabel = null!;
     private Label _powerLabel = null!;
     private Label _weatherLabel = null!;
+    private Label _seasonLabel = null!;
+
+    /// <summary>Poslední ohlášené období — změna se hlásí jednou, ne každý snímek.</summary>
+    private int _lastSeasonIndex = -1;
     private Label _dayLabel = null!;
     private Label _cursorLabel = null!;
     private Label _happinessLabel = null!;
@@ -337,6 +341,10 @@ public sealed class GameplayScreen : IScreen
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.Transform);
         _cityPulse.Draw(spriteBatch);
         spriteBatch.End();
+
+        // Nádech období pod den/noc — hráč pozná zimu dřív, než se podívá do HUD.
+        DayNightCycle.DrawSeasonTint(
+            spriteBatch, _screens.WhitePixel, _screens.GraphicsDevice.Viewport, _simulation.CurrentSeason);
 
         // Den/noc: ztmavení scény a pak aditivní světla, ať září skrz tmu.
         double timeOfDay = _simulation.TimeOfDay01;
@@ -753,6 +761,36 @@ public sealed class GameplayScreen : IScreen
         return Vector2.Zero;
     }
 
+    /// <summary>
+    /// Roční období v HUD. Barvu si nese období samo (nádech z dat), takže se
+    /// dá číst koutkem oka; zima bez dřeva navíc zčervená a řekne proč — mrznoucí
+    /// město je jediná situace, kdy období hráče skutečně brzdí.
+    /// </summary>
+    private void UpdateSeasonLabel(Localization loc)
+    {
+        if (_simulation.CurrentSeason is not { } season)
+        {
+            _seasonLabel.Text = string.Empty;
+            return;
+        }
+
+        bool freezing = season.NeedsHeating && !_simulation.HasFuelForHeating;
+        _seasonLabel.Text = loc.Format("hud.season", loc[season.NameKey]);
+        _seasonLabel.TextColor = freezing ? new Color(235, 140, 120) : season.TintColor.ToXna();
+        _seasonLabel.Tooltip = freezing
+            ? loc["hud.season.freezing"]
+            : loc.Format("hud.season.tip", loc[season.NameKey], loc[season.DescriptionKey]);
+
+        // Změna období je událost, ne stav — ohlásí se jednou, když nastane.
+        int index = _simulation.CurrentSeasonIndex;
+        if (_lastSeasonIndex >= 0 && index != _lastSeasonIndex)
+        {
+            _toasts.Add(loc.Format("toast.season", loc[season.NameKey]), season.TintColor.ToXna());
+        }
+
+        _lastSeasonIndex = index;
+    }
+
     /// <summary>Vyzvedne oznámení ze simulace (splněné úkoly, achievementy, milníky) a udělá z nich toasty.</summary>
     private void DrainNotifications()
     {
@@ -1017,6 +1055,7 @@ public sealed class GameplayScreen : IScreen
         _tierLabel = new Label { TextColor = new Color(190, 160, 230), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.tier"] };
         _powerLabel = new Label { TextColor = new Color(120, 200, 240), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.power"] };
         _weatherLabel = new Label { TextColor = new Color(170, 200, 220), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.weather"] };
+        _seasonLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right };
         _happinessLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.happiness"] };
         _dayLabel = new Label { TextColor = UiFactory.Accent, Tooltip = loc["tip.day"] };
         _cursorLabel = new Label { TextColor = Color.LightGray };
@@ -1026,6 +1065,10 @@ public sealed class GameplayScreen : IScreen
         worldInfoStack.Widgets.Add(_tierLabel);
         worldInfoStack.Widgets.Add(_powerLabel);
         worldInfoStack.Widgets.Add(_weatherLabel);
+        if (_screens.Content.Seasons.IsEnabled)
+        {
+            worldInfoStack.Widgets.Add(_seasonLabel);
+        }
         if (_screens.Content.Gameplay.Happiness.IsEnabled)
         {
             worldInfoStack.Widgets.Add(_happinessLabel);
@@ -1688,6 +1731,8 @@ public sealed class GameplayScreen : IScreen
         {
             _weatherLabel.Text = string.Empty;
         }
+
+        UpdateSeasonLabel(loc);
 
         // Spokojenost: barva nese stav, ať se to dá číst koutkem oka.
         if (_screens.Content.Gameplay.Happiness.IsEnabled)

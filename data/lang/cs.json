@@ -1042,6 +1042,18 @@
     "building.adjacencyNone": "Okolí téhle budově nic nepřidává",
     "build.haulPenalty": "svoz {0} %",
     "building.haulPenalty": "Daleko od skladu: výroba na {0} %",
-    "tip.build.haul": "Daleko od skladu vyrábí míň — postav sklad blíž"
+    "tip.build.haul": "Daleko od skladu vyrábí míň — postav sklad blíž",
+    "season.spring": "Jaro",
+    "season.spring.desc": "Město roste rychleji, pole se probouzejí",
+    "season.summer": "Léto",
+    "season.summer.desc": "Nejštědřejší úroda v roce",
+    "season.autumn": "Podzim",
+    "season.autumn.desc": "Čas sbírat — ruční sběr nese víc",
+    "season.winter": "Zima",
+    "season.winter.desc": "Pole nesou míň a topí se dřevem",
+    "hud.season": "{0}",
+    "hud.season.tip": "{0} — {1}",
+    "hud.season.freezing": "Došlo dřevo na topení: město mrzne a skoro neroste",
+    "toast.season": "Nastalo období: {0}"
   }
 }
