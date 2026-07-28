@@ -23,10 +23,12 @@ public sealed record BalanceSample(
 /// <param name="Samples">Odečty v čase.</param>
 /// <param name="MinutesToFirstAscension">Za jak dlouho šlo poprvé Vzestoupit (null = nedosaženo).</param>
 /// <param name="StalledAtMinutes">Kdy se růst zastavil na zbytek běhu (null = rostlo pořád).</param>
+/// <param name="FinalBuildings">Z čeho se město nakonec skládá (ID budovy → počet), od nejčetnějších.</param>
 public sealed record BalanceResult(
     IReadOnlyList<BalanceSample> Samples,
     double? MinutesToFirstAscension,
-    double? StalledAtMinutes);
+    double? StalledAtMinutes,
+    IReadOnlyList<(string Id, int Count)> FinalBuildings);
 
 /// <summary>
 /// Odsimuluje hru bez okna a posbírá křivky. Simulace je deterministická, takže
@@ -90,7 +92,32 @@ public sealed class BalanceRun
             }
         }
 
-        return new BalanceResult(samples, firstAscension, stalled);
+        return new BalanceResult(samples, firstAscension, stalled, CountBuildings(sim));
+    }
+
+    /// <summary>
+    /// Z čeho se město nakonec skládá. Bez tohohle je zaseknutá křivka němá:
+    /// „populace stojí na deseti" neřekne, jestli chybí pila, domy, nebo dělníci.
+    /// </summary>
+    private IReadOnlyList<(string Id, int Count)> CountBuildings(Simulation sim)
+    {
+        var counts = new int[_content.Buildings.Count];
+        foreach (var building in sim.Buildings)
+        {
+            counts[building.DefIndex]++;
+        }
+
+        var result = new List<(string Id, int Count)>();
+        for (int i = 0; i < counts.Length; i++)
+        {
+            if (counts[i] > 0)
+            {
+                result.Add((_content.Buildings[i].Id, counts[i]));
+            }
+        }
+
+        result.Sort((a, b) => b.Count.CompareTo(a.Count));
+        return result;
     }
 
     private static double Minutes(long tick) => tick / Simulation.TicksPerSecond / 60.0;
