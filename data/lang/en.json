@@ -1117,6 +1117,11 @@
     "contract.electronics_batch": "Electronics batch",
     "contract.compute_cluster": "Compute cluster",
     "contract.nano_consignment": "Nanomaterial consignment",
-    "contract.robot_levy": "Robot levy"
+    "contract.robot_levy": "Robot levy",
+    "hint.contractReady": "A contract on the board is ready — just hand it over.",
+    "hint.idleBuildings": "Some buildings sit empty. Build housing, or tear them down.",
+    "hint.storageFull": "Storage is overflowing and output is being wasted. Build storage, or spend it.",
+    "hint.smog": "Smog hangs over the city. Cleanup plants take it back — or move industry further out.",
+    "hint.unhappy": "People are unhappy. Either services are missing, or it is too crowded."
   }
 }

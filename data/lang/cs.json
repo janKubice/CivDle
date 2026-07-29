@@ -1117,6 +1117,11 @@
     "contract.electronics_batch": "Dávka elektroniky",
     "contract.compute_cluster": "Výpočetní klastr",
     "contract.nano_consignment": "Zásilka nanomateriálu",
-    "contract.robot_levy": "Odvod robotů"
+    "contract.robot_levy": "Odvod robotů",
+    "hint.contractReady": "Na nástěnce čeká hotová zakázka — stačí odevzdat.",
+    "hint.idleBuildings": "Některé budovy stojí bez lidí. Postav domy, nebo je zbourej.",
+    "hint.storageFull": "Sklad přetéká a výroba propadá. Postav sklad, nebo suroviny utrať.",
+    "hint.smog": "Nad městem visí smog. Čističky ho vezmou zpátky — nebo přesuň průmysl dál.",
+    "hint.unhappy": "Lidé nejsou spokojení. Chybí služby, nebo je moc těsno."
   }
 }

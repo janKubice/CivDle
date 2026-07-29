@@ -108,7 +108,12 @@ public sealed class GameplayScreen : IScreen
     private ObjectiveTracker _objectives = null!;
     private readonly Queue<IScreen> _pendingIntros = new(); // uvítací overlaye (offline, denní odměna)
     private readonly Random _eventRng = new();
-    private float _eventTimer;
+
+    /// <summary>
+    /// Vybírá, co hráči ukázat a kdy. Nahradil pevný časovač událostí — obsah tím
+    /// začal reagovat na to, co se ve městě zrovna děje.
+    /// </summary>
+    private ContentDirector _director = null!;
     private Label _festivalLabel = null!;
     private Button _festivalButton = null!;
     private Button _buildMenuButton = null!;
@@ -207,7 +212,7 @@ public sealed class GameplayScreen : IScreen
         _screens.Loc.LanguageChanged += BuildUi;
         _screens.UiSettingsChanged += BuildUi;
         _ambient.Play(); // klidná smyčka pro relaxační jádro
-        _eventTimer = NextEventGap();
+        _director = new ContentDirector(screens.Content, _simulation.Seed);
         RefreshChallengeDay();
     }
 
@@ -283,7 +288,7 @@ public sealed class GameplayScreen : IScreen
             _simulation.Tick();
         }
 
-        UpdateEventScheduler(dt);
+        UpdateDirector(dt);
         SampleRates(dt);
 
         EmitNewBuildingJuice();
@@ -974,69 +979,35 @@ public sealed class GameplayScreen : IScreen
         }
     }
 
-    /// <summary>Občas spustí náhodnou událost s volbami (mikro-rozhodnutí).</summary>
-    private void UpdateEventScheduler(float dt)
-    {
-        if (_screens.Content.Events.Count == 0)
-        {
-            return;
-        }
-
-        _eventTimer -= dt;
-        if (_eventTimer > 0f)
-        {
-            return;
-        }
-
-        _eventTimer = NextEventGap();
-        if (PickEligibleEvent() is { } chosen)
-        {
-            _screens.Push(new EventScreen(_screens, _simulation, chosen));
-        }
-    }
-
     /// <summary>
-    /// Vybere náhodnou událost, na kterou už město dorostlo. Bez filtru by nabízel
-    /// kupec ocel osadě, která ještě neumí bronz — a nabídka, kterou hráč nemůže
-    /// využít, je horší než žádná událost.
+    /// Nechá ředitele rozhodnout, jestli je zrovna něco na řadě — a zobrazí to.
     ///
-    /// <para>Reservoir sampling: rovnoměrný výběr jedním průchodem, bez pomocného
-    /// seznamu (událostí jsou desítky a tohle běží jednou za ~10 minut, ale je to
-    /// stejně krátké jako alokovat).</para>
+    /// <para>Obrazovka jen prezentuje; <b>co</b> a <b>kdy</b> řeší
+    /// <see cref="ContentDirector"/> v Core, aby se to dalo testovat bez grafiky
+    /// (CLAUDE.md, vrstvy).</para>
     /// </summary>
-    private EventDef? PickEligibleEvent()
+    private void UpdateDirector(float dt)
     {
-        var events = _screens.Content.Events;
-        EventDef? chosen = null;
-        int seen = 0;
-        for (int i = 0; i < events.Count; i++)
+        // Při focení a při běžícím overlayi ředitele umlčíme: vyskakovací okno
+        // přes screenshot je poslední, co kdo chce, a toast přes menu taky ne.
+        if (_captureMode)
         {
-            var candidate = events[i];
-            if (candidate.Requirement is { } requirement
-                && _simulation.EvaluateMetric(requirement.Kind, requirement.Param) < requirement.Target)
-            {
-                continue;
-            }
-
-            seen++;
-            if (_eventRng.Next(seen) == 0)
-            {
-                chosen = candidate;
-            }
+            return;
         }
 
-        return chosen;
-    }
+        var decision = _director.Advance(_simulation, dt);
+        switch (decision.Cue)
+        {
+            case DirectorCue.Event when decision.EventIndex >= 0:
+                _screens.Push(new EventScreen(
+                    _screens, _simulation, _screens.Content.Events[decision.EventIndex]));
+                break;
 
-    /// <summary>
-    /// Rozestup náhodných událostí. Záměrně řídký: událost má být milé vyrušení,
-    /// ne přerušování každou minutu — vyskakovací okno bere hráči kontrolu.
-    /// </summary>
-    /// <summary>
-    /// Rozestup náhodných událostí. Původní ~4–7 min bylo na relaxační hru moc —
-    /// vyskakovací okno každou chvíli ruší, místo aby bylo zpestřením.
-    /// </summary>
-    private float NextEventGap() => 540f + (float)_eventRng.NextDouble() * 420f; // ~9–16 min
+            case DirectorCue.Hint:
+                _toasts.Add(_screens.Loc[decision.HintKey], new Color(210, 200, 150));
+                break;
+        }
+    }
 
     /// <summary>Jak často se odečítá přírůstek surovin (s). Krátký vzorek + vyhlazení.</summary>
     private const float RateSampleSeconds = 0.25f;
