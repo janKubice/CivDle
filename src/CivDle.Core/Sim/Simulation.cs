@@ -33,6 +33,7 @@ public sealed class Simulation
     private readonly ToolsSystem _toolsSystem;
     private readonly PollutionSystem _pollutionSystem;
     private readonly ContractSystem _contractSystem;
+    private readonly DistrictSystem _districtSystem;
     private readonly ConstructionSystem _constructionSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
@@ -72,6 +73,7 @@ public sealed class Simulation
     private readonly NodeLedger _nodes = new(); // co už se v krajině vytěžilo (jen dotčené dlaždice)
     private readonly PollutionGrid _pollution = new(); // stopa průmyslu v krajině (hrubá mřížka)
     private ContractSlot[] _contractSlots = Array.Empty<ContractSlot>(); // nástěnka zakázek
+    private readonly List<District> _districts = new(); // rozpoznané čtvrti (odvozený stav)
     private readonly Dictionary<long, byte> _biomeOverrides = new(); // terraformované dlaždice (UFO)
     private readonly Queue<GameNotification> _notifications = new();
     private PrestigeBonuses _bonuses = PrestigeBonuses.None;
@@ -134,6 +136,7 @@ public sealed class Simulation
         _toolsSystem = new ToolsSystem(content);
         _pollutionSystem = new PollutionSystem(content);
         _contractSystem = new ContractSystem(content, seed);
+        _districtSystem = new DistrictSystem(content);
         _constructionSystem = new ConstructionSystem(content);
         ResetContractBoard();
         _populationSystem = new PopulationSystem(content.Gameplay);
@@ -270,6 +273,33 @@ public sealed class Simulation
     /// zapisuje do ní jen <c>PollutionSystem</c>.
     /// </summary>
     public PollutionGrid PollutionMap => _pollution;
+
+    /// <summary>Rozpoznané čtvrti pro render a UI (odvozený stav, neukládá se).</summary>
+    public IReadOnlyList<District> Districts => _districts;
+
+    /// <summary>Čtvrti pro systémy simulace.</summary>
+    internal List<District> DistrictsMutable => _districts;
+
+    /// <summary>
+    /// Změnila se zástavba tak, že se vyplatí čtvrti přepočítat? Stejný trik jako
+    /// u osad — hledat shluky každý tik by bylo plýtvání.
+    /// </summary>
+    internal bool DistrictsDirty { get; set; } = true;
+
+    /// <summary>
+    /// Čtvrť, ve které budova stojí, nebo <c>null</c>. UI z toho píše „Průmyslová
+    /// čtvrť (7 budov)" do panelu budovy.
+    /// </summary>
+    public District? DistrictOf(int buildingIndex)
+    {
+        if (buildingIndex < 0 || buildingIndex >= _buildingCount)
+        {
+            return null;
+        }
+
+        int index = _buildings[buildingIndex].DistrictIndex;
+        return index >= 0 && index < _districts.Count ? _districts[index] : null;
+    }
 
     /// <summary>Nástěnka zakázek pro UI (jen ke čtení — měnit ji smí systém).</summary>
     public ReadOnlySpan<ContractSlot> ContractSlots => _contractSlots;
@@ -823,6 +853,7 @@ public sealed class Simulation
         ApplyBuildingBonuses(def);
         WondersCompleted++;
         SettlementsDirty = true;
+        DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
         ReportVisual(VisualEventKind.BuildingUpgraded, _buildings[buildingIndex].X, _buildings[buildingIndex].Y);
         EnqueueNotification(new GameNotification(NotificationKind.Milestone, "toast.wonderDone", def.NameKey));
@@ -1034,6 +1065,7 @@ public sealed class Simulation
         }
 
         SettlementsDirty = true;
+        DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
@@ -1168,6 +1200,7 @@ public sealed class Simulation
         _zoneFill.Tick(this);
         _colonySystem.Tick(this); // guvernér: expanze do nových kolonií
         _settlementSystem.Tick(this);
+        _districtSystem.Tick(this);
         _happinessSystem.Tick(this);
         _contractSystem.Tick(this);
         _questSystem.Tick(this);
@@ -1351,6 +1384,7 @@ public sealed class Simulation
         ReportVisual(VisualEventKind.BuildingPlaced, x, y);
         _roadBuilder.ConnectLastBuilding(this);
         SettlementsDirty = true;
+        DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
@@ -2825,6 +2859,7 @@ public sealed class Simulation
         _roadBuilder.ConnectLastBuilding(this);
         MergedBuildings++;
         SettlementsDirty = true;
+        DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
         EnqueueNotification(new GameNotification(
             NotificationKind.Milestone, "toast.merged", _content.Buildings[def.MergesToIndex].NameKey));
@@ -2918,6 +2953,7 @@ public sealed class Simulation
         ReportVisual(VisualEventKind.BuildingUpgraded, instance.X, instance.Y);
         ApplyBuildingBonuses(_content.Buildings[instance.DefIndex]);
         SettlementsDirty = true;
+        DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
@@ -2962,6 +2998,7 @@ public sealed class Simulation
 
         _buildingCount--;
         SettlementsDirty = true;
+        DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
@@ -3026,6 +3063,8 @@ public sealed class Simulation
         building.AdjacencyMult = (float)AdjacencyMultiplier(def, x, y);
         building.HaulMult = (float)_haulSystem.MultiplierAt(x, y);
         building.PollutionMult = (float)_pollutionSystem.MultiplierAt(this, building.DefIndex, x, y);
+        building.DistrictMult = 1f; // přesunutá budova ze čtvrti vypadla, než se pozná nová
+        building.DistrictIndex = -1;
         if (def.StorageBonus.Count > 0)
         {
             HaulDirty = true; // přesunutý sklad mění svoz na obou koncích
@@ -3039,6 +3078,7 @@ public sealed class Simulation
         }
 
         SettlementsDirty = true;
+        DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
@@ -3176,6 +3216,7 @@ public sealed class Simulation
         AddBuilding(defIndex, x, y, progress, asConstructionSite: false);
         ApplyBuildingBonuses(_content.Buildings[defIndex]);
         SettlementsDirty = true;
+        DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true; // silnice ze savu chodí zvlášť, přepočet osad ale spustit musíme
     }
 
@@ -3216,6 +3257,10 @@ public sealed class Simulation
             // Čistá 1.0, ne 0 — jinak by nová budova nevyráběla nic, dokud kolem ní
             // poprvé neproběhne pomalý přepočet znečištění.
             PollutionMult = (float)_pollutionSystem.MultiplierAt(this, defIndex, x, y),
+            // Čistá 1.0: čtvrť se pozná až při nejbližším přepočtu, a do té doby
+            // (i navždy, když jsou čtvrti vypnuté) musí budova vyrábět normálně.
+            DistrictMult = 1f,
+            DistrictIndex = -1,
             BuildTicksRemaining = asConstructionSite ? def.BuildTicks : 0,
         };
         _buildingCount++;
@@ -3464,6 +3509,7 @@ public sealed class Simulation
         _zones.Clear(); // zóny řídí přestavbu — po Vzestupu (nové měřítko) začínáš nanovo
         _nodes.Clear(); // nový svět má nedotčenou krajinu, ne vytěžené paseky po předchůdcích
         _pollution.Clear(); // ani smog po továrnách, které v novém měřítku ještě nestojí
+        _districts.Clear(); // čtvrti se poznají znovu, až nová zástavba doroste
         ResetContractBoard(); // zákazníci z minulého měřítka na novou nástěnku nepatří
         ContractsCompleted = 0; // a v novém měřítku začínají objednávky zas malé
         _buildingCount = 0;
@@ -3489,6 +3535,7 @@ public sealed class Simulation
         Population = _content.Gameplay.StartingPopulation;
         TickCount = 0;
         SettlementsDirty = true;
+        DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
     }
 

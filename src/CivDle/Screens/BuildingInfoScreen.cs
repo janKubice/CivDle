@@ -1,5 +1,6 @@
 using CivDle.Core.Sim;
 using CivDle.Input;
+using CivDle.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Myra.Graphics2D;
@@ -161,6 +162,42 @@ public sealed class BuildingInfoScreen : IScreen
                 TextColor = new Color(235, 170, 110),
                 HorizontalAlignment = HorizontalAlignment.Center,
             });
+        }
+
+        // Čtvrť: kam budova patří a co jí to přináší. Bez tohohle by se synergie
+        // projevila jen v číslech a hráč by netušil, že za ni může sousedství.
+        if (_simulation.DistrictOf(_buildingIndex) is { } district)
+        {
+            var type = content.Districts.Types[district.TypeIndex];
+            layout.Widgets.Add(new Label
+            {
+                Text = loc.Format("building.inDistrict", loc[type.NameKey], district.BuildingCount),
+                TextColor = type.MapColor.ToXna(),
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+
+            if (instance.DistrictMult > 1.001f)
+            {
+                layout.Widgets.Add(new Label
+                {
+                    Text = loc.Format("building.districtBonus", BuildingSummary.Percent(instance.DistrictMult - 1f)),
+                    TextColor = new Color(150, 220, 150),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                });
+            }
+
+            // Stinná stránka se musí říct nahlas, jinak vypadá synergie jako
+            // čistý zisk a hráč nechápe, proč mu zrovna tady houstne smog.
+            if (type.PollutionMult > 1.001 && def.AffectsPollution && !def.Pollution.IsCleaner)
+            {
+                layout.Widgets.Add(new Label
+                {
+                    Text = loc["building.districtSmog"],
+                    TextColor = new Color(210, 170, 130),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Tooltip = loc["tip.district"],
+                });
+            }
         }
 
         // Zamoření pod budovou: proč zrovna tahle farma sotva rodí. Bez tohohle

@@ -78,6 +78,20 @@ public sealed record RecipeDto(
     Dictionary<string, int>? Output,
     int TimeTicks);
 
+/// <summary>Obsah souboru <c>data/districts.json</c>.</summary>
+public sealed record DistrictsFileDto(int SchemaVersion, List<DistrictTypeDto>? Districts);
+
+/// <summary>Jeden druh čtvrti tak, jak leží v JSON.</summary>
+public sealed record DistrictTypeDto(
+    string? Id,
+    string[]? Categories,
+    int MinBuildings,
+    int ClusterDistance,
+    double SynergyPerBuilding,
+    double SynergyMax,
+    double PollutionMult,
+    string? MapColor);
+
 /// <summary>Obsah souboru <c>data/contracts.json</c>.</summary>
 public sealed record ContractsFileDto(int SchemaVersion, ContractBoardDto? Board, List<ContractDto>? Contracts);
 

@@ -52,7 +52,8 @@ internal static class TestContent
         ElectionConfig? elections = null,
         IReadOnlyList<MilestoneDef>? milestones = null,
         SeasonCalendar? seasons = null,
-        ContractCatalog? contracts = null)
+        ContractCatalog? contracts = null,
+        DistrictCatalog? districts = null)
     {
         biomes ??= new[] { WaterBiome(), LandBiome("grass") };
         resources ??= new[] { new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 10, BaseStorage: 1000) };
@@ -109,6 +110,7 @@ internal static class TestContent
             tutorial ?? Array.Empty<TutorialStepDef>(),
             challenges ?? ChallengeCatalog.Empty,
             contracts ?? ContractCatalog.Empty,
+            districts ?? DistrictCatalog.Empty,
             elections ?? ElectionConfig.Disabled,
             milestones ?? Array.Empty<MilestoneDef>(),
             seasons ?? SeasonCalendar.Disabled);

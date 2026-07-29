@@ -1122,6 +1122,15 @@
     "hint.idleBuildings": "Některé budovy stojí bez lidí. Postav domy, nebo je zbourej.",
     "hint.storageFull": "Sklad přetéká a výroba propadá. Postav sklad, nebo suroviny utrať.",
     "hint.smog": "Nad městem visí smog. Čističky ho vezmou zpátky — nebo přesuň průmysl dál.",
-    "hint.unhappy": "Lidé nejsou spokojení. Chybí služby, nebo je moc těsno."
+    "hint.unhappy": "Lidé nejsou spokojení. Chybí služby, nebo je moc těsno.",
+    "district.industrial": "Průmyslová čtvrť",
+    "district.residential": "Rezidenční čtvrť",
+    "district.civic": "Občanská čtvrť",
+    "district.logistics": "Skladištní čtvrť",
+    "district.power": "Energetická čtvrť",
+    "building.inDistrict": "{0} ({1} budov)",
+    "building.districtBonus": "Synergie čtvrti: výroba {0}",
+    "building.districtSmog": "Soustředěný průmysl dýmá víc",
+    "tip.district": "Shluk budov stejného ražení se sám pozná jako čtvrť. Vyrábí se v ní líp, ale u průmyslu a elektráren se tam i víc kouří — proto k nim patří parky a čističky."
   }
 }

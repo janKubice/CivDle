@@ -325,6 +325,73 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadFrom_RealGameData_HasDistrictTypes()
+    {
+        var content = TestData.LoadRealContent();
+
+        Assert.True(content.Districts.IsEnabled);
+        Assert.Contains(content.Districts.Types.All, d => d.Id == "industrial");
+
+        // Průmyslová čtvrť musí mít obě strany: bonus i stinnou stránku. Bez toho
+        // by shlukování byla jen správná odpověď, ne rozhodnutí.
+        var industrial = content.Districts.Types[content.Districts.Types.IndexOf("industrial")];
+        Assert.True(industrial.SynergyMax > 0);
+        Assert.True(industrial.PollutionMult > 1.0);
+    }
+
+    [Fact]
+    public void LoadFrom_DistrictWithUnknownCategory_ReportsIt()
+    {
+        // Překlep v kategorii by jinak jen tiše znamenal, že čtvrť nikdy nevznikne.
+        WriteAllValid();
+        Write("districts.json", """
+        {
+          "schemaVersion": 1,
+          "districts": [
+            { "id": "ghost", "categories": ["neexistuje"], "minBuildings": 3,
+              "clusterDistance": 2, "synergyPerBuilding": 0.02, "synergyMax": 0.2,
+              "pollutionMult": 1.0, "mapColor": "#808080" }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("neexistuje", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_DistrictOfOneBuilding_Throws()
+    {
+        // Čtvrť o jedné budově není čtvrť, je to budova.
+        WriteAllValid();
+        Write("districts.json", """
+        {
+          "schemaVersion": 1,
+          "districts": [
+            { "id": "solo", "categories": ["other"], "minBuildings": 1,
+              "clusterDistance": 2, "synergyPerBuilding": 0.02, "synergyMax": 0.2,
+              "pollutionMult": 1.0, "mapColor": "#808080" }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("minBuildings", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_WithoutDistrictsFile_LeavesThemOff()
+    {
+        WriteAllValid();
+
+        var content = Load();
+
+        Assert.False(content.Districts.IsEnabled);
+    }
+
+    [Fact]
     public void LoadFrom_RealGameData_HasAContractBoard()
     {
         // Zakázky jsou krátká smyčka hry — když v datech nejsou, hráč mezi

@@ -54,19 +54,20 @@ public sealed class ContentLoader
         var elections = LoadElections(Path.Combine(dataDirectory, "elections.json"));
         var challenges = LoadChallenges(Path.Combine(dataDirectory, "challenges.json"), resources, buildings, techs);
         var contracts = LoadContracts(Path.Combine(dataDirectory, "contracts.json"), resources, buildings, techs);
+        var districts = LoadDistricts(Path.Combine(dataDirectory, "districts.json"), buildings);
         var seasons = LoadSeasons(Path.Combine(dataDirectory, "seasons.json"), resources);
         var tutorial = LoadTutorial(Path.Combine(dataDirectory, "tutorial.json"), resources, buildings, techs);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, elections, milestones, seasons);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, elections, milestones, seasons);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, elections, milestones, seasons);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, elections, milestones, seasons);
     }
 
     // ----- roční období -----
@@ -271,6 +272,98 @@ public sealed class ContentLoader
     /// <summary>
     /// Načte fond denních výzev. Volitelný soubor — bez něj hra běží bez výzev.
     /// </summary>
+    /// <summary>
+    /// Druhy čtvrtí. Soubor je volitelný — bez něj se shluky budov nijak
+    /// nerozpoznávají a hraje se jako dřív.
+    /// </summary>
+    private static DistrictCatalog LoadDistricts(string path, DefRegistry<BuildingDef> buildings)
+    {
+        if (!File.Exists(path))
+        {
+            return DistrictCatalog.Empty;
+        }
+
+        var file = ReadFile<DistrictsFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Districts ?? new List<DistrictTypeDto>();
+        if (dtos.Count == 0)
+        {
+            return DistrictCatalog.Empty;
+        }
+
+        // Kategorie nejsou samostatná data, jsou to řetězce na budovách. Ověřit,
+        // že aspoň jedna budova takovou kategorii má, je jediný způsob, jak
+        // odhalit překlep dřív, než se čtvrť tiše nikdy nevytvoří.
+        var knownCategories = new HashSet<string>(buildings.All.Select(b => b.Category), StringComparer.Ordinal);
+
+        var result = new List<DistrictTypeDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Čtvrť na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID čtvrti '{id}'.");
+            }
+
+            var categories = dto.Categories ?? Array.Empty<string>();
+            if (categories.Length == 0)
+            {
+                throw new ContentLoadException(path, $"Čtvrť '{id}' nemá 'categories' — nemá z čeho vzniknout.");
+            }
+
+            foreach (string category in categories)
+            {
+                if (!knownCategories.Contains(category))
+                {
+                    throw new ContentLoadException(path,
+                        $"Čtvrť '{id}' čeká kategorii '{category}', kterou nemá žádná budova.");
+                }
+            }
+
+            // Čtvrť o jedné budově není čtvrť; o padesáti se nikdy nesejde.
+            if (dto.MinBuildings is < 2 or > 50)
+            {
+                throw new ContentLoadException(path,
+                    $"Čtvrť '{id}': 'minBuildings' musí být 2–50, je {dto.MinBuildings}.");
+            }
+
+            if (dto.ClusterDistance is < 1 or > 20)
+            {
+                throw new ContentLoadException(path,
+                    $"Čtvrť '{id}': 'clusterDistance' musí být 1–20, je {dto.ClusterDistance}.");
+            }
+
+            if (dto.SynergyPerBuilding < 0 || dto.SynergyMax < 0)
+            {
+                throw new ContentLoadException(path,
+                    $"Čtvrť '{id}': synergie nesmí být záporná — čtvrť má odměňovat, ne trestat.");
+            }
+
+            // Bonus bez stropu se dá škálovat donekonečna jedním obřím blokem.
+            if (dto.SynergyMax > 5)
+            {
+                throw new ContentLoadException(path,
+                    $"Čtvrť '{id}': 'synergyMax' musí být nejvýš 5, je {dto.SynergyMax}.");
+            }
+
+            if (dto.PollutionMult is < 1 or > 5)
+            {
+                throw new ContentLoadException(path,
+                    $"Čtvrť '{id}': 'pollutionMult' musí být 1–5, je {dto.PollutionMult}.");
+            }
+
+            var color = ParseColor(path, dto.MapColor, $"čtvrť '{id}'");
+            result.Add(new DistrictTypeDef(
+                id, categories, dto.MinBuildings, dto.ClusterDistance,
+                dto.SynergyPerBuilding, dto.SynergyMax, dto.PollutionMult, color));
+        }
+
+        return new DistrictCatalog(new DefRegistry<DistrictTypeDef>(result, d => d.Id, "druh čtvrti"));
+    }
+
     /// <summary>
     /// Nástěnka zakázek. Soubor je volitelný — bez něj se hraje jako dřív, jen
     /// bez krátkých objednávek.
@@ -2573,6 +2666,7 @@ public sealed class ContentLoader
         IReadOnlyList<TutorialStepDef> tutorial,
         ChallengeCatalog challenges,
         ContractCatalog contracts,
+        DistrictCatalog districts,
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
         SeasonCalendar seasons)
@@ -2609,7 +2703,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, elections, milestones, seasons);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, elections, milestones, seasons);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -2639,6 +2733,7 @@ public sealed class ContentLoader
         IReadOnlyList<TutorialStepDef> tutorial,
         ChallengeCatalog challenges,
         ContractCatalog contracts,
+        DistrictCatalog districts,
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
         SeasonCalendar seasons)
@@ -2687,6 +2782,7 @@ public sealed class ContentLoader
         required.AddRange(challenges.Challenges.Select(c => c.NameKey));
         required.AddRange(challenges.Challenges.Select(c => c.DescriptionKey));
         required.AddRange(contracts.Contracts.All.Select(c => c.NameKey));
+        required.AddRange(districts.Types.All.Select(d => d.NameKey));
         required.AddRange(elections.Candidates.Select(c => c.NameKey));
         required.AddRange(elections.Candidates.Select(c => c.DescriptionKey));
         required.AddRange(milestones.Select(m => m.NameKey));

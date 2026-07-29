@@ -45,6 +45,7 @@ public sealed class GameplayScreen : IScreen
     private readonly RoadRenderer _roadRenderer;
     private readonly ZoneRenderer _zoneRenderer;
     private readonly PollutionRenderer _pollutionRenderer;
+    private readonly DistrictRenderer _districtRenderer;
     private readonly LandmarkRenderer _landmarkRenderer;
     private readonly UfoRenderer _ufoRenderer;
     private readonly WeatherRenderer _weatherRenderer;
@@ -194,6 +195,7 @@ public sealed class GameplayScreen : IScreen
         _popupFont = Stylesheet.Current.LabelStyle.Font;
         _toasts = new ToastRenderer(screens.WhitePixel, _popupFont);
         _cityScale = new CityScaleRenderer(screens.WhitePixel, _popupFont);
+        _districtRenderer = new DistrictRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont);
 
         var viewport = screens.GraphicsDevice.Viewport;
         _camera.SetViewport(viewport.Width, viewport.Height);
@@ -323,6 +325,7 @@ public sealed class GameplayScreen : IScreen
         _terrainRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
         _decorationRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
         _zoneRenderer.Draw(spriteBatch, _camera, _simulation); // tint zón na zemi, pod budovami
+        _districtRenderer.Draw(spriteBatch, _camera, _simulation); // tvář čtvrtí, taky na zemi
         // Landmarky jen zblízka (LOD): z výšky jsou stejně pod rozlišením a dotaz
         // na desítky tisíc dlaždic by zbytečně žral snímky.
         if (_camera.Zoom >= LandmarkRenderer.MinZoom)
@@ -353,6 +356,10 @@ public sealed class GameplayScreen : IScreen
         // Závoj zamoření nad městem, ale pod událostmi a efekty: špína leží
         // na krajině, nemá zakrývat, co se zrovna děje.
         _pollutionRenderer.Draw(spriteBatch, _camera, _simulation);
+
+        // Cedule čtvrtí až nad zástavbu — jméno místa má být čitelné i tam,
+        // kde je pod ním nejhustěji postaveno.
+        _districtRenderer.DrawLabels(spriteBatch, _camera, _simulation);
 
         // UFO letí nad vším na mapě — je to událost, ne kulisa.
         _ufoRenderer.Draw(spriteBatch, _camera, _simulation, (float)gameTime.TotalGameTime.TotalSeconds);
