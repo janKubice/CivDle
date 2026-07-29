@@ -127,9 +127,14 @@ public sealed class SettlementsScreen : IScreen
             Text = names[settlement.NameIndex],
             TextColor = UiFactory.Accent,
         });
+        // Stupeň před počtem: „Městečko · 24 budov" je čitelnější než holé číslo
+        // a je to jediné místo, kde hráč vidí hierarchii sídel pohromadě.
+        var rank = _screens.Content.SettlementRanks.At(settlement.RankIndex);
         caption.Widgets.Add(new Label
         {
-            Text = loc.Format("panel.settlements.count", settlement.BuildingCount),
+            Text = rank is null
+                ? loc.Format("panel.settlements.count", settlement.BuildingCount)
+                : loc.Format("panel.settlements.rank", loc[rank.NameKey], settlement.BuildingCount),
             TextColor = Color.Gray,
         });
 

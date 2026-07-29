@@ -34,7 +34,10 @@ public sealed class ContentLoader
         // Suroviny první — odkazují na ně biomy (clickYield) i budovy (ceny, recepty).
         var resources = LoadResources(Path.Combine(dataDirectory, "resources.json"));
         var biomes = LoadBiomes(Path.Combine(dataDirectory, "biomes.json"), resources);
-        var buildings = LoadBuildings(Path.Combine(dataDirectory, "buildings.json"), biomes, resources);
+        // Žebříček sídel před budovami: budova může vyžadovat stupeň sídla,
+        // takže loader musí znát ID stupňů dřív, než je začne překládat.
+        var settlementRanks = LoadSettlementRanks(Path.Combine(dataDirectory, "settlement-ranks.json"));
+        var buildings = LoadBuildings(Path.Combine(dataDirectory, "buildings.json"), biomes, resources, settlementRanks);
         var techs = LoadTech(Path.Combine(dataDirectory, "tech.json"), buildings, resources);
         var (prestige, prestigeUpgrades) = LoadPrestige(Path.Combine(dataDirectory, "prestige.json"), resources, buildings, techs);
         var (quests, questsDynamic) = LoadQuests(Path.Combine(dataDirectory, "quests.json"), resources, buildings, techs);
@@ -60,14 +63,14 @@ public sealed class ContentLoader
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, elections, milestones, seasons);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, elections, milestones, seasons);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, elections, milestones, seasons);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, elections, milestones, seasons);
     }
 
     // ----- roční období -----
@@ -272,6 +275,60 @@ public sealed class ContentLoader
     /// <summary>
     /// Načte fond denních výzev. Volitelný soubor — bez něj hra běží bez výzev.
     /// </summary>
+    /// <summary>
+    /// Stupně sídel. Soubor je volitelný — bez něj sídla stupně nemají a hraje
+    /// se jako dřív. Pořadí v souboru je pořadím hierarchie, takže se hlídá, že
+    /// prahy rostou: sestupný žebříček by tiše znamenal, že vyšší stupeň nikdy
+    /// nenastane.
+    /// </summary>
+    private static SettlementRankLadder LoadSettlementRanks(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return SettlementRankLadder.Empty;
+        }
+
+        var file = ReadFile<SettlementRanksFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Ranks ?? new List<SettlementRankDto>();
+        if (dtos.Count == 0)
+        {
+            return SettlementRankLadder.Empty;
+        }
+
+        var result = new List<SettlementRankDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        int previousThreshold = 0;
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Stupeň sídla na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID stupně sídla '{id}'.");
+            }
+
+            if (dto.MinBuildings < 1)
+            {
+                throw new ContentLoadException(path,
+                    $"Stupeň '{id}': 'minBuildings' musí být aspoň 1, je {dto.MinBuildings}.");
+            }
+
+            if (i > 0 && dto.MinBuildings <= previousThreshold)
+            {
+                throw new ContentLoadException(path,
+                    $"Stupeň '{id}' má práh {dto.MinBuildings}, což není víc než předchozí ({previousThreshold}) — " +
+                    "žebříček musí růst, jinak se na vyšší stupeň nikdy nedojde.");
+            }
+
+            previousThreshold = dto.MinBuildings;
+            result.Add(new SettlementRankDef(id, dto.MinBuildings));
+        }
+
+        return new SettlementRankLadder(result);
+    }
+
     /// <summary>
     /// Druhy čtvrtí. Soubor je volitelný — bez něj se shluky budov nijak
     /// nerozpoznávají a hraje se jako dřív.
@@ -1377,7 +1434,8 @@ public sealed class ContentLoader
 
     // ----- budovy -----
 
-    private static DefRegistry<BuildingDef> LoadBuildings(string path, BiomeRegistry biomes, DefRegistry<Resource> resources)
+    private static DefRegistry<BuildingDef> LoadBuildings(
+        string path, BiomeRegistry biomes, DefRegistry<Resource> resources, SettlementRankLadder ranks)
     {
         var file = ReadFile<BuildingsFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -1401,7 +1459,7 @@ public sealed class ContentLoader
         var buildings = new List<BuildingDef>(file.Buildings.Count);
         for (int i = 0; i < file.Buildings.Count; i++)
         {
-            buildings.Add(ValidateBuilding(path, file.Buildings[i], i, biomes, resources, idToIndex));
+            buildings.Add(ValidateBuilding(path, file.Buildings[i], i, biomes, resources, idToIndex, ranks));
         }
 
         // Vylepšení musí mít stejný půdorys (mění se na místě) — kontrola po sestavení.
@@ -1438,7 +1496,7 @@ public sealed class ContentLoader
 
     private static BuildingDef ValidateBuilding(
         string path, BuildingDto dto, int index, BiomeRegistry biomes, DefRegistry<Resource> resources,
-        Dictionary<string, int> idToIndex)
+        Dictionary<string, int> idToIndex, SettlementRankLadder ranks)
     {
         string id = RequireId(path, dto.Id, $"Budova na pozici {index}");
         var color = ParseColor(path, dto.MapColor, $"Budova '{id}'");
@@ -1599,7 +1657,28 @@ public sealed class ContentLoader
             storageBonus, dto.AutoBuild, dto.Buildable ?? true, upgradesToIndex, upgradeCost,
             dto.PowerSupply, dto.PowerDemand, dto.RequiresAdjacentWater,
             dto.ServiceValue, upkeep, mergesToIndex, mergeCost, adjacency, dto.BuildTicks,
-            dto.TerrainHarvestRadius, pollution);
+            dto.TerrainHarvestRadius, pollution, ParseMinSettlementRank(path, id, dto.MinSettlementRank, ranks));
+    }
+
+    /// <summary>
+    /// Přeloží požadovaný stupeň sídla z ID na index. Neznámé ID je tichá chyba
+    /// obsahu — budova by se dala postavit kdekoli, i když data slibují opak.
+    /// </summary>
+    private static int ParseMinSettlementRank(string path, string id, string? rankId, SettlementRankLadder ranks)
+    {
+        if (string.IsNullOrWhiteSpace(rankId))
+        {
+            return -1;
+        }
+
+        int index = ranks.IndexOf(rankId.Trim());
+        if (index < 0)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}' vyžaduje stupeň sídla '{rankId}', který v settlement-ranks.json neexistuje.");
+        }
+
+        return index;
     }
 
     /// <summary>
@@ -2667,6 +2746,7 @@ public sealed class ContentLoader
         ChallengeCatalog challenges,
         ContractCatalog contracts,
         DistrictCatalog districts,
+        SettlementRankLadder settlementRanks,
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
         SeasonCalendar seasons)
@@ -2703,7 +2783,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, elections, milestones, seasons);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, elections, milestones, seasons);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -2734,6 +2814,7 @@ public sealed class ContentLoader
         ChallengeCatalog challenges,
         ContractCatalog contracts,
         DistrictCatalog districts,
+        SettlementRankLadder settlementRanks,
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
         SeasonCalendar seasons)
@@ -2783,6 +2864,7 @@ public sealed class ContentLoader
         required.AddRange(challenges.Challenges.Select(c => c.DescriptionKey));
         required.AddRange(contracts.Contracts.All.Select(c => c.NameKey));
         required.AddRange(districts.Types.All.Select(d => d.NameKey));
+        required.AddRange(settlementRanks.Ranks.Select(r => r.NameKey));
         required.AddRange(elections.Candidates.Select(c => c.NameKey));
         required.AddRange(elections.Candidates.Select(c => c.DescriptionKey));
         required.AddRange(milestones.Select(m => m.NameKey));

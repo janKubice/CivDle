@@ -274,6 +274,42 @@ public sealed class Simulation
     /// </summary>
     public PollutionGrid PollutionMap => _pollution;
 
+    /// <summary>
+    /// Nejvyšší stupeň sídla, jakého už město dosáhlo. Existuje jen kvůli tomu,
+    /// aby se povýšení hlásilo jednou, a ne u každého shluku znovu.
+    /// </summary>
+    public int HighestSettlementRank { get; internal set; } = -1;
+
+    /// <summary>
+    /// Jak velké je sídlo nejblíž danému místu (index stupně; −1 = žádné v dosahu).
+    ///
+    /// <para>Používá se u budov, které potřebují velké sídlo — letiště nepatří
+    /// do osady o třech chalupách. „V dosahu" je schválně velkorysé: hráč staví
+    /// na kraji města a nemá být trestán za to, že netrefil přesný střed.</para>
+    /// </summary>
+    public int NearestSettlementRank(int x, int y)
+    {
+        int best = -1;
+        double bestDistance = double.MaxValue;
+        for (int i = 0; i < _settlements.Count; i++)
+        {
+            var settlement = _settlements[i];
+            double dx = settlement.CenterX - x;
+            double dy = settlement.CenterY - y;
+            double distance = dx * dx + dy * dy;
+            if (distance < bestDistance && distance <= SettlementReach * SettlementReach)
+            {
+                bestDistance = distance;
+                best = settlement.RankIndex;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>Do jaké vzdálenosti (dlaždice) od těžiště sídla se ještě staví „v něm".</summary>
+    private const int SettlementReach = 40;
+
     /// <summary>Rozpoznané čtvrti pro render a UI (odvozený stav, neukládá se).</summary>
     public IReadOnlyList<District> Districts => _districts;
 
@@ -1237,6 +1273,11 @@ public sealed class Simulation
         if (!IsBuildingBuildable(defIndex))
         {
             return PlacementResult.NotUnlocked;
+        }
+
+        if (def.NeedsSettlementRank && NearestSettlementRank(x, y) < def.MinSettlementRank)
+        {
+            return PlacementResult.SettlementTooSmall;
         }
 
         for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
@@ -3510,6 +3551,7 @@ public sealed class Simulation
         _nodes.Clear(); // nový svět má nedotčenou krajinu, ne vytěžené paseky po předchůdcích
         _pollution.Clear(); // ani smog po továrnách, které v novém měřítku ještě nestojí
         _districts.Clear(); // čtvrti se poznají znovu, až nová zástavba doroste
+        HighestSettlementRank = -1; // v novém měřítku je i první osada zas událost
         ResetContractBoard(); // zákazníci z minulého měřítka na novou nástěnku nepatří
         ContractsCompleted = 0; // a v novém měřítku začínají objednávky zas malé
         _buildingCount = 0;

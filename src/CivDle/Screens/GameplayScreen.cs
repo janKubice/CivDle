@@ -536,11 +536,22 @@ public sealed class GameplayScreen : IScreen
         }
 
         var names = _screens.Content.SettlementNames;
+        var ranks = _screens.Content.SettlementRanks;
+        var loc = _screens.Loc;
         spriteBatch.Begin();
         for (int i = 0; i < settlements.Count; i++)
         {
             var settlement = settlements[i];
+
+            // Jméno i stupeň: „Zkouškovice · Městečko". Bez stupně je na mapě
+            // vidět jen jméno a hráč nepozná, jestli roste — a přesně tohle
+            // z hromady budov dělá místo.
             string name = names[settlement.NameIndex];
+            if (ranks.At(settlement.RankIndex) is { } rank)
+            {
+                name = $"{name} · {loc[rank.NameKey]}";
+            }
+
             var world = new Vector2(settlement.CenterX * TerrainRenderer.TileSize, settlement.CenterY * TerrainRenderer.TileSize);
             var screen = _camera.WorldToScreen(world);
             var size = _popupFont.MeasureString(name);
@@ -2267,6 +2278,7 @@ public sealed class GameplayScreen : IScreen
         PlacementResult.WrongBiome => "build.error.wrongBiome",
         PlacementResult.NotEnoughResources => "build.error.resources",
         PlacementResult.NeedsWaterAccess => "build.error.waterAccess",
+        PlacementResult.SettlementTooSmall => "build.error.settlementTooSmall",
         _ => "build.title",
     };
 }

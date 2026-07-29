@@ -1131,6 +1131,15 @@
     "building.inDistrict": "{0} ({1} buildings)",
     "building.districtBonus": "District synergy: output {0}",
     "building.districtSmog": "Concentrated industry fouls more",
-    "tip.district": "A cluster of like buildings recognises itself as a quarter. Output there is better — but industry and power plants also foul more, which is why parks and cleanup plants belong next to them."
+    "tip.district": "A cluster of like buildings recognises itself as a quarter. Output there is better — but industry and power plants also foul more, which is why parks and cleanup plants belong next to them.",
+    "rank.hamlet": "Hamlet",
+    "rank.village": "Village",
+    "rank.town": "Town",
+    "rank.city": "City",
+    "rank.large_city": "Large City",
+    "rank.metropolis": "Metropolis",
+    "toast.settlementRank": "Settlement grew",
+    "panel.settlements.rank": "{0} · {1} buildings",
+    "build.error.settlementTooSmall": "The settlement is too small for this"
   }
 }

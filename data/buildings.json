@@ -1157,7 +1157,8 @@
         "tundra",
         "desert"
       ],
-      "buildable": false
+      "buildable": false,
+      "minSettlementRank": "large_city"
     },
     {
       "id": "fusion_plant",
@@ -1661,7 +1662,8 @@
       "buildable": false,
       "pollution": {
         "water": 0.5
-      }
+      },
+      "minSettlementRank": "town"
     },
     {
       "id": "airfield",
@@ -1728,7 +1730,8 @@
       ],
       "pollution": {
         "air": 0.8
-      }
+      },
+      "minSettlementRank": "city"
     },
     {
       "id": "spaceport",
@@ -1767,7 +1770,8 @@
       "buildTicks": 4200,
       "pollution": {
         "air": 1.5
-      }
+      },
+      "minSettlementRank": "metropolis"
     },
     {
       "id": "megacity_spire",
@@ -1797,7 +1801,8 @@
         "electronics": 1
       },
       "buildable": false,
-      "buildTicks": 2400
+      "buildTicks": 2400,
+      "minSettlementRank": "large_city"
     },
     {
       "id": "grand_exchange",
@@ -1839,7 +1844,8 @@
         "steel": 2
       },
       "buildable": false,
-      "buildTicks": 1800
+      "buildTicks": 1800,
+      "minSettlementRank": "city"
     },
     {
       "id": "orbital_ring",
@@ -1864,7 +1870,8 @@
         "desert"
       ],
       "buildable": false,
-      "buildTicks": 6000
+      "buildTicks": 6000,
+      "minSettlementRank": "metropolis"
     },
     {
       "id": "world_forge",
@@ -1905,7 +1912,8 @@
       "pollution": {
         "air": 2.0,
         "soil": 1.0
-      }
+      },
+      "minSettlementRank": "metropolis"
     },
     {
       "id": "manor",

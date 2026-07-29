@@ -92,8 +92,18 @@ public sealed record BuildingDef(
     AdjacencyRule? AdjacencyOrNull = null,
     int BuildTicks = 0,
     int TerrainHarvestRadius = 0,
-    PollutionOutput? PollutionOrNull = null)
+    PollutionOutput? PollutionOrNull = null,
+    int MinSettlementRank = -1)
 {
+    /// <summary>
+    /// Jak velké sídlo budova potřebuje (index stupně); −1 = kdekoli.
+    ///
+    /// <para>Existuje kvůli tomu, aby velikost místa něco znamenala: letiště
+    /// nepatří do osady o třech chalupách. Drtivá většina budov požadavek nemá,
+    /// takže rané hry se to vůbec netýká.</para>
+    /// </summary>
+    public bool NeedsSettlementRank => MinSettlementRank >= 0;
+
     /// <summary>
     /// Co budova dělá s okolím (špiní, čistí, nebo nic). Chybí-li v datech, je
     /// budova k okolí neutrální — starší obsah se tím chová jako dřív.

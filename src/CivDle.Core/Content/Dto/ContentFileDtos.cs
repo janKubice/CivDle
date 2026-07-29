@@ -58,7 +58,8 @@ public sealed record BuildingDto(
     AdjacencyDto? Adjacency,
     int BuildTicks,
     int TerrainHarvestRadius,
-    BuildingPollutionDto? Pollution);
+    BuildingPollutionDto? Pollution,
+    string? MinSettlementRank);
 
 /// <summary>
 /// Dopad budovy na okolí tak, jak leží v JSON. Záporná čísla = čistička.
@@ -77,6 +78,12 @@ public sealed record RecipeDto(
     Dictionary<string, int>? Input,
     Dictionary<string, int>? Output,
     int TimeTicks);
+
+/// <summary>Obsah souboru <c>data/settlement-ranks.json</c>.</summary>
+public sealed record SettlementRanksFileDto(int SchemaVersion, List<SettlementRankDto>? Ranks);
+
+/// <summary>Jeden stupeň sídla tak, jak leží v JSON.</summary>
+public sealed record SettlementRankDto(string? Id, int MinBuildings);
 
 /// <summary>Obsah souboru <c>data/districts.json</c>.</summary>
 public sealed record DistrictsFileDto(int SchemaVersion, List<DistrictTypeDto>? Districts);

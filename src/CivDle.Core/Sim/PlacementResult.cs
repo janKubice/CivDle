@@ -23,4 +23,10 @@ public enum PlacementResult
 
     /// <summary>Budova potřebuje sousedit s vodou (přístav, rybolov), ale břeh tam není.</summary>
     NeedsWaterAccess,
+
+    /// <summary>
+    /// Sídlo v okolí je na tuhle stavbu moc malé (letiště nepatří do osady o třech
+    /// chalupách). Roste s hierarchií sídel — stačí kolem dostavět.
+    /// </summary>
+    SettlementTooSmall,
 }

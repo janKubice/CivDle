@@ -1131,6 +1131,15 @@
     "building.inDistrict": "{0} ({1} budov)",
     "building.districtBonus": "Synergie čtvrti: výroba {0}",
     "building.districtSmog": "Soustředěný průmysl dýmá víc",
-    "tip.district": "Shluk budov stejného ražení se sám pozná jako čtvrť. Vyrábí se v ní líp, ale u průmyslu a elektráren se tam i víc kouří — proto k nim patří parky a čističky."
+    "tip.district": "Shluk budov stejného ražení se sám pozná jako čtvrť. Vyrábí se v ní líp, ale u průmyslu a elektráren se tam i víc kouří — proto k nim patří parky a čističky.",
+    "rank.hamlet": "Osada",
+    "rank.village": "Vesnice",
+    "rank.town": "Městečko",
+    "rank.city": "Město",
+    "rank.large_city": "Velkoměsto",
+    "rank.metropolis": "Metropole",
+    "toast.settlementRank": "Nový stupeň sídla",
+    "panel.settlements.rank": "{0} · {1} budov",
+    "build.error.settlementTooSmall": "Sídlo je na tuhle stavbu moc malé"
   }
 }

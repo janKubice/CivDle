@@ -39,6 +39,7 @@ public sealed class GameContent
         ChallengeCatalog challenges,
         ContractCatalog contracts,
         DistrictCatalog districts,
+        SettlementRankLadder settlementRanks,
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
         SeasonCalendar seasons)
@@ -74,10 +75,14 @@ public sealed class GameContent
         Challenges = challenges;
         Contracts = contracts;
         Districts = districts;
+        SettlementRanks = settlementRanks;
         Elections = elections;
         Milestones = milestones;
         Seasons = seasons;
     }
+
+    /// <summary>Stupně sídel z <c>data/settlement-ranks.json</c> (smí být prázdné).</summary>
+    public SettlementRankLadder SettlementRanks { get; }
 
     /// <summary>Druhy čtvrtí z <c>data/districts.json</c> (smí být prázdné).</summary>
     public DistrictCatalog Districts { get; }
@@ -148,7 +153,7 @@ public sealed class GameContent
         Biomes, Resources, Buildings, Techs, Prestige, PrestigeUpgrades, Quests, QuestsDynamic,
         Achievements, Events, Eras, WorldGen, gameplay, Languages, SettlementNames, Decorations,
         Fauna, Devlog, ZoneTypes, Policies, AscensionTiers, Weather, Landmarks, Features, Ufo,
-        Ambience, Terraform, Tutorial, Challenges, Contracts, Districts, Elections, Milestones, Seasons);
+        Ambience, Terraform, Tutorial, Challenges, Contracts, Districts, SettlementRanks, Elections, Milestones, Seasons);
 
     /// <summary>Milníky postupu z <c>data/milestones.json</c> (smí být prázdné).</summary>
     public IReadOnlyList<MilestoneDef> Milestones { get; }

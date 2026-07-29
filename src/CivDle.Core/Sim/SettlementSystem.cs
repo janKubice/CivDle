@@ -4,10 +4,17 @@ using CivDle.Core.WorldGen;
 namespace CivDle.Core.Sim;
 
 /// <summary>
-/// Jedna rozpoznaná osada: střed shluku (v dlaždicích), velikost a index jména
-/// v <c>GameContent.SettlementNames</c>. Odvozený stav — neukládá se, přepočítává se.
+/// Jedna rozpoznaná osada: střed shluku (v dlaždicích), velikost, index jména
+/// v <c>GameContent.SettlementNames</c> a stupeň v hierarchii sídel.
+/// Odvozený stav — neukládá se, přepočítává se.
 /// </summary>
-public readonly record struct Settlement(float CenterX, float CenterY, int BuildingCount, int NameIndex);
+/// <param name="CenterX">Těžiště shluku v dlaždicích.</param>
+/// <param name="CenterY">Těžiště shluku v dlaždicích.</param>
+/// <param name="BuildingCount">Kolik budov sídlo tvoří.</param>
+/// <param name="NameIndex">Index jména v katalogu jmen.</param>
+/// <param name="RankIndex">Stupeň v hierarchii sídel; −1 = žebříček je vypnutý.</param>
+public readonly record struct Settlement(
+    float CenterX, float CenterY, int BuildingCount, int NameIndex, int RankIndex = -1);
 
 /// <summary>
 /// Detekce osad (fáze 4: „shluk se pozná jako osada s jménem"). Union-find nad
@@ -105,7 +112,20 @@ internal sealed class SettlementSystem
 
             var rng = new SplitMix64(unchecked((ulong)_seed ^ ((ulong)oldest * 0xBF58476D1CE4E5B9UL)));
             int nameIndex = (int)(rng.Next() % (ulong)_content.SettlementNames.Count);
-            result.Add(new Settlement(sumX / count, sumY / count, count, nameIndex));
+            int rankIndex = _content.SettlementRanks.RankFor(count);
+            result.Add(new Settlement(sumX / count, sumY / count, count, nameIndex, rankIndex));
+
+            // Povýšení se hlásí jen tehdy, když je to pro celou hru poprvé.
+            // Kdyby se ohlašovalo u každého sídla zvlášť, hráč by při rozrůstání
+            // dostal deset stejných hlášek za sebou — a z události by byl šum.
+            if (rankIndex > sim.HighestSettlementRank)
+            {
+                sim.HighestSettlementRank = rankIndex;
+                sim.EnqueueNotification(new GameNotification(
+                    NotificationKind.Milestone,
+                    "toast.settlementRank",
+                    _content.SettlementRanks.Ranks[rankIndex].NameKey));
+            }
         }
     }
 
