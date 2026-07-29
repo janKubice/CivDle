@@ -1700,10 +1700,13 @@ public sealed class GameplayScreen : IScreen
         }
 
         _caravans.Update(dt, _simulation);
-        if (_caravans.TryCollectArrival(_simulation, out int resourceIndex, out int amount, out var position))
+        if (_caravans.TryCollectArrival(
+            _simulation, out int resourceIndex, out int amount, out var position, out int neighbourIndex))
         {
-            _simulation.AddResource(resourceIndex, amount);
-            CollectFeedback(resourceIndex, amount, position);
+            // Výplatu i vztah řeší simulace — obrazovka jen hlásí, že karavana
+            // dojela, a ukáže výsledek (CLAUDE.md, vrstvy).
+            int paid = _simulation.CompleteCaravan(neighbourIndex, resourceIndex, amount);
+            CollectFeedback(resourceIndex, paid, position);
         }
     }
 

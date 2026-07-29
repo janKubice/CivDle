@@ -1162,6 +1162,16 @@
     "citizen.request.park": "prosí o park — prý je tu samý kámen a málo stínu.",
     "citizen.request.machine_shop": "chce otevřít strojírnu a dělat součástky sám.",
     "citizen.request.charcoal": "by rád pálil dřevěné uhlí, než ho někdo předběhne.",
-    "citizen.request.fishing_hut": "si chce postavit rybářskou boudu u vody."
+    "citizen.request.fishing_hut": "si chce postavit rybářskou boudu u vody.",
+    "toast.neighbourLevel": "Vztah se sousedem se utužil",
+    "panel.neighbours": "Sousedé",
+    "neighbour.level": "Vztah {0} · {1} obchodů",
+    "neighbour.stranger": "Zatím cizinci",
+    "tip.neighbours": "Sousedé posílají karavany po tvých silnicích. Čím víc jich doprovodíš, tím lepší vztah — a tím líp platí. Přednost dostává ten, se kterým se dlouho neobchodovalo.",
+    "neighbour.stone_bay": "Kamenná zátoka",
+    "neighbour.upper_forges": "Horní hutě",
+    "neighbour.green_hollow": "Zelený úval",
+    "neighbour.salt_road": "Solná stezka",
+    "neighbour.north_reach": "Severní výběžek"
   }
 }

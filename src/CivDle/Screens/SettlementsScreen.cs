@@ -88,6 +88,8 @@ public sealed class SettlementsScreen : IScreen
             }
         }
 
+        AddNeighbours(list);
+
         var scroll = new ScrollViewer
         {
             Content = list,
@@ -116,6 +118,52 @@ public sealed class SettlementsScreen : IScreen
         var root = new Panel();
         root.Widgets.Add(panel);
         _desktop = _screens.NewDesktop(root);
+    }
+
+    /// <summary>
+    /// Sousedé pod vlastními sídly: cizí města, se kterými se obchoduje.
+    /// Vztah je dlouhá veličina — roste desítky minut — takže patří sem, kde se
+    /// hráč dívá na mapu jako celek, ne do rychlého HUD.
+    /// </summary>
+    private void AddNeighbours(VerticalStackPanel list)
+    {
+        var loc = _screens.Loc;
+        var catalog = _screens.Content.Neighbours;
+        if (!_simulation.NeighboursEnabled)
+        {
+            return;
+        }
+
+        list.Widgets.Add(new Label
+        {
+            Text = loc["panel.neighbours"],
+            TextColor = UiFactory.Accent,
+            Tooltip = loc["tip.neighbours"],
+        });
+
+        for (int i = 0; i < catalog.Neighbours.Count; i++)
+        {
+            var neighbour = catalog.Neighbours[i];
+            long trades = _simulation.NeighbourTrades(i);
+            int level = _simulation.NeighbourLevel(i);
+
+            var row = new VerticalStackPanel { Spacing = 2 };
+            row.Widgets.Add(new Label
+            {
+                Text = loc[neighbour.NameKey],
+                TextColor = neighbour.MapColor.ToXna(),
+            });
+            row.Widgets.Add(new Label
+            {
+                // Nula obchodů se nepíše jako „Vztah 0" — to zní jako chyba,
+                // ne jako „ještě jste se nepotkali".
+                Text = trades == 0
+                    ? loc["neighbour.stranger"]
+                    : loc.Format("neighbour.level", level, trades),
+                TextColor = Color.Gray,
+            });
+            list.Widgets.Add(row);
+        }
     }
 
     private Button SettlementRow(Settlement settlement, IReadOnlyList<string> names)

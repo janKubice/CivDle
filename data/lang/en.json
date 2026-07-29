@@ -1162,6 +1162,16 @@
     "citizen.request.park": "is asking for a park — says it is all stone and no shade here.",
     "citizen.request.machine_shop": "wants to open a machine shop and make parts locally.",
     "citizen.request.charcoal": "would like to burn charcoal before someone else does.",
-    "citizen.request.fishing_hut": "wants to put up a fishing hut by the water."
+    "citizen.request.fishing_hut": "wants to put up a fishing hut by the water.",
+    "toast.neighbourLevel": "A neighbour warmed to you",
+    "panel.neighbours": "Neighbours",
+    "neighbour.level": "Standing {0} · {1} trades",
+    "neighbour.stranger": "Strangers so far",
+    "tip.neighbours": "Neighbours send caravans along your roads. The more you escort, the better the standing — and the better they pay. Whoever you have traded with least goes first.",
+    "neighbour.stone_bay": "Stone Bay",
+    "neighbour.upper_forges": "Upper Forges",
+    "neighbour.green_hollow": "Green Hollow",
+    "neighbour.salt_road": "Salt Road",
+    "neighbour.north_reach": "North Reach"
   }
 }

@@ -1,4 +1,5 @@
 using CivDle.Core.Content;
+using CivDle.Core.Save;
 using CivDle.Core.Sim;
 using CivDle.Core.Tests.Support;
 using CivDle.Core.World;
@@ -32,7 +33,7 @@ public class CitizenTests
             gapSeconds);
     }
 
-    private static Simulation NewSim(CitizenCatalog? catalog = null, double startingWood = 500)
+    private static GameContent ContentFor(CitizenCatalog? catalog = null, double startingWood = 500)
     {
         var biomes = new[] { TestContent.WaterBiome(), TestContent.LandBiome("plain") };
         var resources = new[]
@@ -51,11 +52,13 @@ public class CitizenTests
         var prestige = new PrestigeConfig(
             new GoalCondition(MetricKind.Population, -1, 1), MetricKind.Population, -1, 5);
 
-        var content = TestContent.Build(
+        return TestContent.Build(
             biomes, 1, resources, gameplay: gameplay, prestige: prestige,
             citizens: catalog ?? Catalog());
-        return new Simulation(content, new UniformTerrain(1));
     }
+
+    private static Simulation NewSim(CitizenCatalog? catalog = null, double startingWood = 500) =>
+        new(ContentFor(catalog, startingWood), new UniformTerrain(1));
 
     private static void Tick(Simulation sim, int ticks)
     {
@@ -172,6 +175,31 @@ public class CitizenTests
 
         Assert.Equal(string.Empty, sim.FounderOf(founded.X, founded.Y));
         Assert.False(sim.PendingCitizenRequest.IsActive);
+    }
+
+    [Fact]
+    public void TheFounderSurvivesSaveAndLoad()
+    {
+        // Jméno na budově je celá odměna téhle mechaniky. Kdyby ho vypnutí hry
+        // smazalo, nemělo by smysl komu pomáhat.
+        var content = ContentFor();
+        var sim = new Simulation(content, new UniformTerrain(1), seed: 1);
+        Tick(sim, 20);
+        Assert.True(sim.TryHelpCitizen());
+
+        var founded = sim.Buildings[^1];
+        string founder = sim.FounderOf(founded.X, founded.Y);
+        Assert.NotEmpty(founder);
+
+        var metadata = new SaveMetadata(
+            Seed: 1, SizeId: "s", PresetId: "test", SavedAtUtc: DateTime.UnixEpoch);
+        using var stream = new MemoryStream();
+        new SaveGameSerializer().Write(stream, sim, metadata);
+        stream.Position = 0;
+        var (loaded, _) = new SaveGameSerializer().Read(stream, content);
+
+        Assert.Equal(founder, loaded.FounderOf(founded.X, founded.Y));
+        Assert.Equal(1, loaded.FoundedByCitizens);
     }
 
     [Fact]

@@ -76,6 +76,7 @@ public sealed class Simulation
     private ContractSlot[] _contractSlots = Array.Empty<ContractSlot>(); // nástěnka zakázek
     private readonly List<District> _districts = new(); // rozpoznané čtvrti (odvozený stav)
     private readonly Dictionary<long, long> _founders = new(); // kdo kterou budovu založil (dlaždice → jméno)
+    private long[] _neighbourTrades = Array.Empty<long>(); // kolik obchodů už s kterým sousedem proběhlo
     private readonly Dictionary<long, byte> _biomeOverrides = new(); // terraformované dlaždice (UFO)
     private readonly Queue<GameNotification> _notifications = new();
     private PrestigeBonuses _bonuses = PrestigeBonuses.None;
@@ -140,6 +141,7 @@ public sealed class Simulation
         _contractSystem = new ContractSystem(content, seed);
         _districtSystem = new DistrictSystem(content);
         _citizenSystem = new CitizenSystem(content, seed);
+        _neighbourTrades = new long[content.Neighbours.Neighbours.Count];
         _constructionSystem = new ConstructionSystem(content);
         ResetContractBoard();
         _populationSystem = new PopulationSystem(content.Gameplay);
@@ -285,6 +287,97 @@ public sealed class Simulation
 
     /// <summary>Kolik tiků zbývá, než se ozve někdo další.</summary>
     internal int CitizenCooldownTicks { get; set; }
+
+    /// <summary>Jsou sousedé v datech zapnutí? (UI podle toho skrývá seznam.)</summary>
+    public bool NeighboursEnabled => _content.Neighbours.IsEnabled;
+
+    /// <summary>Kolik obchodů už s daným sousedem proběhlo.</summary>
+    public long NeighbourTrades(int neighbourIndex) =>
+        neighbourIndex >= 0 && neighbourIndex < _neighbourTrades.Length ? _neighbourTrades[neighbourIndex] : 0;
+
+    /// <summary>Stupeň vztahu s daným sousedem (0 = cizinci).</summary>
+    public int NeighbourLevel(int neighbourIndex) =>
+        _content.Neighbours.LevelFor(NeighbourTrades(neighbourIndex));
+
+    /// <summary>
+    /// Kdo pošle příští karavanu. Vybírá se deterministicky z tiku, takže render
+    /// nemusí držet vlastní náhodu — a soused, se kterým se dlouho neobchodovalo,
+    /// dostane přednost.
+    ///
+    /// <para>Proč přednost: bez ní by hráč obchodoval pořád s tím samým a ostatní
+    /// sousedé by zůstali navždy cizinci. Takhle se vztahy rozvíjejí do šířky
+    /// a hráč pozná celé okolí.</para>
+    /// </summary>
+    public int PickNeighbour()
+    {
+        if (!_content.Neighbours.IsEnabled)
+        {
+            return -1;
+        }
+
+        int best = 0;
+        for (int i = 1; i < _neighbourTrades.Length; i++)
+        {
+            if (_neighbourTrades[i] < _neighbourTrades[best])
+            {
+                best = i;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>
+    /// Karavana dorazila: připíše obchod, vyplatí (s bonusem za vztah) a ohlásí
+    /// případné utužení vztahu.
+    ///
+    /// <para>Pravidla vztahu i výplata jsou tady, ne v renderu, který karavanu
+    /// kreslí — obrazovka jen hlásí, že dojela (CLAUDE.md, vrstvy).</para>
+    /// </summary>
+    /// <param name="neighbourIndex">Kdo karavanu poslal; −1 = anonymní (staré chování).</param>
+    /// <param name="resourceIndex">Čím se platí.</param>
+    /// <param name="basePayout">Základní výplata před bonusem za vztah.</param>
+    /// <returns>Kolik se nakonec vyplatilo.</returns>
+    public int CompleteCaravan(int neighbourIndex, int resourceIndex, int basePayout)
+    {
+        double multiplier = 1.0;
+        if (neighbourIndex >= 0 && neighbourIndex < _neighbourTrades.Length)
+        {
+            int levelBefore = NeighbourLevel(neighbourIndex);
+            _neighbourTrades[neighbourIndex]++;
+            multiplier = _content.Neighbours.PayoutMultiplier(_neighbourTrades[neighbourIndex]);
+
+            if (NeighbourLevel(neighbourIndex) > levelBefore)
+            {
+                EnqueueNotification(new GameNotification(
+                    NotificationKind.NeighbourFriendlier,
+                    "toast.neighbourLevel",
+                    _content.Neighbours.Neighbours[neighbourIndex].NameKey));
+            }
+        }
+
+        int payout = Math.Max(1, (int)Math.Round(basePayout * multiplier));
+        AddResource(resourceIndex, payout);
+        return payout;
+    }
+
+    /// <summary>ID sousedů v pořadí indexů — save je ukládá přes ID, ne index.</summary>
+    public IEnumerable<string> NeighbourIds()
+    {
+        for (int i = 0; i < _content.Neighbours.Neighbours.Count; i++)
+        {
+            yield return _content.Neighbours.Neighbours[i].Id;
+        }
+    }
+
+    /// <summary>Obnoví počet obchodů se sousedem ze savu.</summary>
+    internal void RestoreNeighbourTrades(int neighbourIndex, long trades)
+    {
+        if (neighbourIndex >= 0 && neighbourIndex < _neighbourTrades.Length)
+        {
+            _neighbourTrades[neighbourIndex] = Math.Max(0, trades);
+        }
+    }
 
     /// <summary>Jsou pojmenovaní obyvatelé v datech zapnutí? (UI podle toho skrývá panel.)</summary>
     public bool CitizensEnabled => _content.Citizens.IsEnabled;
@@ -3713,6 +3806,7 @@ public sealed class Simulation
         _districts.Clear(); // čtvrti se poznají znovu, až nová zástavba doroste
         HighestSettlementRank = -1; // v novém měřítku je i první osada zas událost
         _founders.Clear(); // zakladatelé patří ke světu, který právě skončil
+        Array.Clear(_neighbourTrades); // sousedi nového měřítka hráče ještě neznají
         PendingCitizenRequest = CitizenRequest.None;
         CitizenCooldownTicks = 0;
         ResetContractBoard(); // zákazníci z minulého měřítka na novou nástěnku nepatří

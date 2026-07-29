@@ -65,6 +65,7 @@ public sealed class SaveGameSerializer
     private const string SectionPollution = "pollution";
     private const string SectionContracts = "contracts";
     private const string SectionCitizens = "citizens";
+    private const string SectionNeighbours = "neighbours";
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -114,6 +115,7 @@ public sealed class SaveGameSerializer
         WriteSection(writer, SectionPollution, w => WritePollution(w, simulation));
         WriteSection(writer, SectionContracts, w => WriteContracts(w, simulation));
         WriteSection(writer, SectionCitizens, w => WriteCitizens(w, simulation));
+        WriteSection(writer, SectionNeighbours, w => WriteNeighbours(w, content: null, simulation));
         WriteSection(writer, SectionElection, w =>
         {
             w.Write(simulation.ElectionTerm);
@@ -333,6 +335,7 @@ public sealed class SaveGameSerializer
             case SectionPollution: ReadPollution(section, simulation); break;
             case SectionContracts: ReadContracts(section, content, simulation); break;
             case SectionCitizens: ReadCitizens(section, simulation); break;
+            case SectionNeighbours: ReadNeighbours(section, content, simulation); break;
             case SectionElection: simulation.RestoreElection(section.ReadInt64(), section.ReadInt32()); break;
             case SectionMilestones: ReadMilestones(section, content, simulation); break;
             default: break; // neznámá sekce z novější hry — přeskočit, ne spadnout
@@ -625,6 +628,40 @@ public sealed class SaveGameSerializer
             int x = reader.ReadInt32();
             int y = reader.ReadInt32();
             simulation.RestoreFounder(x, y, reader.ReadInt32(), reader.ReadInt32());
+        }
+    }
+
+    /// <summary>
+    /// Vztahy se sousedy. Ukládají se přes stabilní ID, ne index — přidání
+    /// souseda do dat tak nepřehází, s kým už město obchodovalo. Starší savy
+    /// sekci nemají a začnou jako cizinci, což je správně.
+    /// </summary>
+    private static void WriteNeighbours(BinaryWriter writer, GameContent? content, Simulation simulation)
+    {
+        _ = content; // katalog se bere ze simulace, parametr drží tvar ostatních zapisovačů
+        var ids = simulation.NeighbourIds().ToList();
+        writer.Write(ids.Count);
+        for (int i = 0; i < ids.Count; i++)
+        {
+            writer.Write(ids[i]);
+            writer.Write(simulation.NeighbourTrades(i));
+        }
+    }
+
+    private static void ReadNeighbours(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        int count = ReadCount(reader, max: 1000, what: "sousedů");
+        for (int i = 0; i < count; i++)
+        {
+            string id = reader.ReadString();
+            long trades = reader.ReadInt64();
+
+            // Soused, který z dat zmizel, se tiše přeskočí — padat kvůli obsahu,
+            // co se mezi verzemi mění, by byla krutost.
+            if (content.Neighbours.Neighbours.TryIndexOf(id, out int index))
+            {
+                simulation.RestoreNeighbourTrades(index, trades);
+            }
         }
     }
 

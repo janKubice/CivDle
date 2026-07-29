@@ -35,6 +35,9 @@ public enum NotificationKind
 
     /// <summary>Obyvatel to vzdal a odešel (bez trestu).</summary>
     CitizenLeft,
+
+    /// <summary>Vztah se sousedem se utužil — bude platit líp.</summary>
+    NeighbourFriendlier,
 }
 
 /// <summary>

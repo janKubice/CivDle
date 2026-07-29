@@ -59,19 +59,20 @@ public sealed class ContentLoader
         var contracts = LoadContracts(Path.Combine(dataDirectory, "contracts.json"), resources, buildings, techs);
         var districts = LoadDistricts(Path.Combine(dataDirectory, "districts.json"), buildings);
         var citizens = LoadCitizens(Path.Combine(dataDirectory, "citizens.json"), resources, buildings, techs);
+        var neighbours = LoadNeighbours(Path.Combine(dataDirectory, "neighbours.json"));
         var seasons = LoadSeasons(Path.Combine(dataDirectory, "seasons.json"), resources);
         var tutorial = LoadTutorial(Path.Combine(dataDirectory, "tutorial.json"), resources, buildings, techs);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, neighbours, elections, milestones, seasons);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, neighbours, elections, milestones, seasons);
     }
 
     // ----- roční období -----
@@ -276,6 +277,63 @@ public sealed class ContentLoader
     /// <summary>
     /// Načte fond denních výzev. Volitelný soubor — bez něj hra běží bez výzev.
     /// </summary>
+    /// <summary>
+    /// Sousedé a pravidla vztahu. Soubor je volitelný — bez něj zůstanou karavany
+    /// anonymní jako dřív.
+    /// </summary>
+    private static NeighbourCatalog LoadNeighbours(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return NeighbourCatalog.Empty;
+        }
+
+        var file = ReadFile<NeighboursFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Neighbours ?? new List<NeighbourDto>();
+        if (dtos.Count == 0)
+        {
+            return NeighbourCatalog.Empty;
+        }
+
+        if (file.TradesPerLevel < 1)
+        {
+            throw new ContentLoadException(path,
+                $"'tradesPerLevel' musí být aspoň 1, je {file.TradesPerLevel}.");
+        }
+
+        // Vztah nesmí ubírat: nejhorší, co se smí stát, je, že soused platí základ.
+        if (file.BonusPerLevel < 0 || file.BonusPerLevel > 2)
+        {
+            throw new ContentLoadException(path,
+                $"'bonusPerLevel' musí být 0–2, je {file.BonusPerLevel}.");
+        }
+
+        if (file.MaxLevel is < 1 or > 20)
+        {
+            throw new ContentLoadException(path, $"'maxLevel' musí být 1–20, je {file.MaxLevel}.");
+        }
+
+        var result = new List<NeighbourDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Soused na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID souseda '{id}'.");
+            }
+
+            result.Add(new NeighbourDef(id, ParseColor(path, dto.MapColor, $"soused '{id}'")));
+        }
+
+        return new NeighbourCatalog(
+            new DefRegistry<NeighbourDef>(result, n => n.Id, "soused"),
+            file.TradesPerLevel, file.BonusPerLevel, file.MaxLevel);
+    }
+
     /// <summary>
     /// Pojmenovaní obyvatelé a jejich prosby. Soubor je volitelný — bez něj se
     /// nikdo neozve a hraje se jako dřív.
@@ -2829,6 +2887,7 @@ public sealed class ContentLoader
         DistrictCatalog districts,
         SettlementRankLadder settlementRanks,
         CitizenCatalog citizens,
+        NeighbourCatalog neighbours,
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
         SeasonCalendar seasons)
@@ -2865,7 +2924,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, neighbours, elections, milestones, seasons);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -2898,6 +2957,7 @@ public sealed class ContentLoader
         DistrictCatalog districts,
         SettlementRankLadder settlementRanks,
         CitizenCatalog citizens,
+        NeighbourCatalog neighbours,
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
         SeasonCalendar seasons)
@@ -2949,6 +3009,7 @@ public sealed class ContentLoader
         required.AddRange(districts.Types.All.Select(d => d.NameKey));
         required.AddRange(settlementRanks.Ranks.Select(r => r.NameKey));
         required.AddRange(citizens.Requests.All.Select(r => r.TextKey));
+        required.AddRange(neighbours.Neighbours.All.Select(n => n.NameKey));
         required.AddRange(elections.Candidates.Select(c => c.NameKey));
         required.AddRange(elections.Candidates.Select(c => c.DescriptionKey));
         required.AddRange(milestones.Select(m => m.NameKey));

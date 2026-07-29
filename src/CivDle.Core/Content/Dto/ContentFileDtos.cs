@@ -79,6 +79,17 @@ public sealed record RecipeDto(
     Dictionary<string, int>? Output,
     int TimeTicks);
 
+/// <summary>Obsah souboru <c>data/neighbours.json</c>.</summary>
+public sealed record NeighboursFileDto(
+    int SchemaVersion,
+    int TradesPerLevel,
+    double BonusPerLevel,
+    int MaxLevel,
+    List<NeighbourDto>? Neighbours);
+
+/// <summary>Jeden soused tak, jak leží v JSON.</summary>
+public sealed record NeighbourDto(string? Id, string? MapColor);
+
 /// <summary>Obsah souboru <c>data/citizens.json</c>.</summary>
 public sealed record CitizensFileDto(
     int SchemaVersion,
