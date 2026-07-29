@@ -61,6 +61,75 @@ public sealed class QuestsScreen : IScreen
     }
 
     /// <summary>
+    /// Prosba obyvatele úplně nahoře — nad zakázkami i výzvami.
+    ///
+    /// <para>Je to jediná položka, za kterou stojí konkrétní člověk, a zároveň
+    /// jediná, která se dá minout nadobro. Zakázka se vrátí, výzva bude i zítra;
+    /// Marek Kovář, kterému hráč nepomohl, ne.</para>
+    /// </summary>
+    private void AddCitizenRequest(VerticalStackPanel list)
+    {
+        var loc = _screens.Loc;
+        if (!_simulation.CitizensEnabled)
+        {
+            return;
+        }
+
+        list.Widgets.Add(Header(loc["citizen.request.title"]));
+
+        if (_simulation.PendingCitizenDef is not { } def)
+        {
+            list.Widgets.Add(new Label
+            {
+                Text = loc["citizen.waiting"],
+                TextColor = new Color(150, 160, 175),
+            });
+            return;
+        }
+
+        var content = _screens.Content;
+        var stack = new VerticalStackPanel { Spacing = 3 };
+
+        // Jméno a prosba jako jedna věta: „Marek Kovář by rád mlel mouku."
+        stack.Widgets.Add(new Label
+        {
+            Text = loc.Format("citizen.line", _simulation.PendingCitizenName, loc[def.TextKey]),
+            TextColor = new Color(255, 224, 168),
+        });
+        stack.Widgets.Add(new Label
+        {
+            Text = loc.Format("citizen.needs", CostFormat.Line(content, loc, def.Cost)),
+            TextColor = new Color(214, 222, 232),
+        });
+        stack.Widgets.Add(new Label
+        {
+            Text = loc.Format("citizen.timeLeft",
+                DurationFormat.FromTicks(_simulation.PendingCitizenRequest.TicksLeft)),
+            TextColor = new Color(186, 198, 214),
+        });
+
+        if (_simulation.CanHelpCitizen())
+        {
+            stack.Widgets.Add(UiFactory.SmallButton(loc["citizen.help"], () =>
+            {
+                _simulation.TryHelpCitizen();
+                BuildUi();
+            }));
+        }
+
+        var panel = new Panel
+        {
+            Background = new SolidBrush(new Color(42, 38, 30, 210)),
+            Border = new SolidBrush(new Color(255, 224, 168) * 0.5f),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(10, 8),
+            Tooltip = loc["tip.citizens"],
+        };
+        panel.Widgets.Add(stack);
+        list.Widgets.Add(panel);
+    }
+
+    /// <summary>
     /// Nástěnka zakázek úplně nahoře. Je to nejkratší smyčka ve hře — objednávka
     /// běží minuty, výzva den, úkol klidně hodinu — takže patří první.
     /// </summary>
@@ -232,6 +301,7 @@ public sealed class QuestsScreen : IScreen
 
         var list = new VerticalStackPanel { Spacing = 8 };
 
+        AddCitizenRequest(list);
         AddContracts(list);
         AddDailyChallenges(list);
 

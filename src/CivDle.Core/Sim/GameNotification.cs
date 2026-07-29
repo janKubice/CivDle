@@ -26,6 +26,15 @@ public enum NotificationKind
 
     /// <summary>Hráč zakázku odevzdal a dostal zaplaceno.</summary>
     ContractFulfilled,
+
+    /// <summary>Ozval se obyvatel s prosbou.</summary>
+    CitizenAsks,
+
+    /// <summary>Hráč obyvateli pomohl a vznikla jeho živnost.</summary>
+    CitizenHelped,
+
+    /// <summary>Obyvatel to vzdal a odešel (bez trestu).</summary>
+    CitizenLeft,
 }
 
 /// <summary>

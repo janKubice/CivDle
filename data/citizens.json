@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Pojmenovani obyvatele: obcas se ozve nekdo konkretni, ze si chce otevrit zivnost. Kdyz hrac pomuze, budova vznikne a nese jeho jmeno navzdy. Jmena se skladaji ze dvou seznamu, takze desitka sablon da stovky ruznych proseb.",
+  "gapSeconds": 200,
+  "firstNames": [
+    "Marek", "Anna", "Vojtěch", "Ludmila", "Jakub", "Barbora", "Tomáš", "Kateřina",
+    "Ondřej", "Marie", "Štěpán", "Dorota", "Vít", "Alžběta", "Radek", "Johana",
+    "Bohuslav", "Klára", "Matěj", "Terezie"
+  ],
+  "surnames": [
+    "Kovář", "Dvořák", "Mlynář", "Zahradník", "Bednář", "Tesař", "Rybář", "Sedlák",
+    "Hrnčíř", "Truhlář", "Pekař", "Švec", "Kameník", "Uhlíř", "Soukeník", "Vozka"
+  ],
+  "requests": [
+    {
+      "id": "bakery",
+      "building": "windmill",
+      "cost": { "planks": 20, "stone": 15 },
+      "durationSeconds": 240,
+      "requires": { "metric": "population", "target": 20 }
+    },
+    {
+      "id": "sawmill",
+      "building": "sawmill",
+      "cost": { "wood": 30, "tools": 5 },
+      "durationSeconds": 240,
+      "requires": { "metric": "population", "target": 15 }
+    },
+    {
+      "id": "workshop",
+      "building": "workshop",
+      "cost": { "planks": 25, "stone": 20 },
+      "durationSeconds": 260,
+      "requires": { "metric": "population", "target": 25 }
+    },
+    {
+      "id": "market_stall",
+      "building": "market",
+      "cost": { "planks": 30, "food": 40 },
+      "durationSeconds": 280,
+      "requires": { "metric": "population", "target": 35 }
+    },
+    {
+      "id": "smithy",
+      "building": "toolmaker",
+      "cost": { "iron": 15, "planks": 25 },
+      "durationSeconds": 280,
+      "requires": { "metric": "population", "target": 50 }
+    },
+    {
+      "id": "granary",
+      "building": "granary",
+      "cost": { "planks": 35, "stone": 30 },
+      "durationSeconds": 300,
+      "requires": { "metric": "population", "target": 60 }
+    },
+    {
+      "id": "park",
+      "building": "park",
+      "cost": { "wood": 20, "food": 30 },
+      "durationSeconds": 240,
+      "requires": { "metric": "population", "target": 40 }
+    },
+    {
+      "id": "machine_shop",
+      "building": "machine_shop",
+      "cost": { "steel": 20, "machine_parts": 8 },
+      "durationSeconds": 320,
+      "requires": { "metric": "population", "target": 200 }
+    },
+    {
+      "id": "charcoal",
+      "building": "charcoal_kiln",
+      "cost": { "wood": 40, "stone": 25 },
+      "durationSeconds": 260,
+      "requires": { "metric": "population", "target": 45 }
+    },
+    {
+      "id": "fishing_hut",
+      "building": "fishing_hut",
+      "cost": { "planks": 20, "tools": 4 },
+      "durationSeconds": 240,
+      "requires": { "metric": "population", "target": 20 }
+    }
+  ]
+}

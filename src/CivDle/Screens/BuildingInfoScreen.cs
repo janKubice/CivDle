@@ -164,6 +164,19 @@ public sealed class BuildingInfoScreen : IScreen
             });
         }
 
+        // Kdo budovu založil. Tenhle jeden řádek je celý smysl pojmenovaných
+        // obyvatel — bez něj je to jen další budova.
+        if (_simulation.FounderOf(instance.X, instance.Y) is { Length: > 0 } founder)
+        {
+            layout.Widgets.Add(new Label
+            {
+                Text = loc.Format("citizen.founder", founder),
+                TextColor = new Color(255, 224, 168),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Tooltip = loc["tip.citizens"],
+            });
+        }
+
         // Čtvrť: kam budova patří a co jí to přináší. Bez tohohle by se synergie
         // projevila jen v číslech a hráč by netušil, že za ni může sousedství.
         if (_simulation.DistrictOf(_buildingIndex) is { } district)

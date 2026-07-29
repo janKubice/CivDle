@@ -58,19 +58,20 @@ public sealed class ContentLoader
         var challenges = LoadChallenges(Path.Combine(dataDirectory, "challenges.json"), resources, buildings, techs);
         var contracts = LoadContracts(Path.Combine(dataDirectory, "contracts.json"), resources, buildings, techs);
         var districts = LoadDistricts(Path.Combine(dataDirectory, "districts.json"), buildings);
+        var citizens = LoadCitizens(Path.Combine(dataDirectory, "citizens.json"), resources, buildings, techs);
         var seasons = LoadSeasons(Path.Combine(dataDirectory, "seasons.json"), resources);
         var tutorial = LoadTutorial(Path.Combine(dataDirectory, "tutorial.json"), resources, buildings, techs);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, elections, milestones, seasons);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, elections, milestones, seasons);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons);
     }
 
     // ----- roční období -----
@@ -275,6 +276,86 @@ public sealed class ContentLoader
     /// <summary>
     /// Načte fond denních výzev. Volitelný soubor — bez něj hra běží bez výzev.
     /// </summary>
+    /// <summary>
+    /// Pojmenovaní obyvatelé a jejich prosby. Soubor je volitelný — bez něj se
+    /// nikdo neozve a hraje se jako dřív.
+    /// </summary>
+    private static CitizenCatalog LoadCitizens(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        if (!File.Exists(path))
+        {
+            return CitizenCatalog.Empty;
+        }
+
+        var file = ReadFile<CitizensFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var firstNames = file.FirstNames ?? new List<string>();
+        var surnames = file.Surnames ?? new List<string>();
+        var dtos = file.Requests ?? new List<CitizenRequestDto>();
+        if (dtos.Count == 0)
+        {
+            return CitizenCatalog.Empty;
+        }
+
+        // Prosby bez jmen by byly anonymní — a to je přesně to, co tahle
+        // mechanika měla odstranit.
+        if (firstNames.Count == 0 || surnames.Count == 0)
+        {
+            throw new ContentLoadException(path,
+                "Obyvatelé mají prosby, ale chybí jim jména ('firstNames' nebo 'surnames').");
+        }
+
+        if (file.GapSeconds < 5)
+        {
+            throw new ContentLoadException(path,
+                $"'gapSeconds' musí být aspoň 5, je {file.GapSeconds} — jinak by se lidé ozývali bez přestání.");
+        }
+
+        var result = new List<CitizenRequestDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Prosba obyvatele na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID prosby '{id}'.");
+            }
+
+            if (!buildings.TryIndexOf(dto.Building ?? string.Empty, out int buildingIndex))
+            {
+                throw new ContentLoadException(path,
+                    $"Prosba '{id}' chce budovu '{dto.Building}', která neexistuje.");
+            }
+
+            var cost = ParseResourceAmounts(path, id, "cost", dto.Cost, resources);
+            if (cost.Count == 0)
+            {
+                throw new ContentLoadException(path,
+                    $"Prosba '{id}' nic nestojí — pak to není prosba, ale dárek.");
+            }
+
+            if (dto.DurationSeconds < 10 || dto.DurationSeconds > 3600)
+            {
+                throw new ContentLoadException(path,
+                    $"Prosba '{id}': 'durationSeconds' musí být 10–3600, je {dto.DurationSeconds}.");
+            }
+
+            var requirement = dto.Requires is null
+                ? (GoalCondition?)null
+                : ParseCondition(path, $"prosba '{id}'", dto.Requires, resources, buildings, techs);
+
+            result.Add(new CitizenRequestDef(id, buildingIndex, cost, dto.DurationSeconds, requirement));
+        }
+
+        return new CitizenCatalog(
+            firstNames, surnames,
+            new DefRegistry<CitizenRequestDef>(result, r => r.Id, "prosba obyvatele"),
+            file.GapSeconds);
+    }
+
     /// <summary>
     /// Stupně sídel. Soubor je volitelný — bez něj sídla stupně nemají a hraje
     /// se jako dřív. Pořadí v souboru je pořadím hierarchie, takže se hlídá, že
@@ -2747,6 +2828,7 @@ public sealed class ContentLoader
         ContractCatalog contracts,
         DistrictCatalog districts,
         SettlementRankLadder settlementRanks,
+        CitizenCatalog citizens,
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
         SeasonCalendar seasons)
@@ -2783,7 +2865,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, elections, milestones, seasons);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -2815,6 +2897,7 @@ public sealed class ContentLoader
         ContractCatalog contracts,
         DistrictCatalog districts,
         SettlementRankLadder settlementRanks,
+        CitizenCatalog citizens,
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
         SeasonCalendar seasons)
@@ -2865,6 +2948,7 @@ public sealed class ContentLoader
         required.AddRange(contracts.Contracts.All.Select(c => c.NameKey));
         required.AddRange(districts.Types.All.Select(d => d.NameKey));
         required.AddRange(settlementRanks.Ranks.Select(r => r.NameKey));
+        required.AddRange(citizens.Requests.All.Select(r => r.TextKey));
         required.AddRange(elections.Candidates.Select(c => c.NameKey));
         required.AddRange(elections.Candidates.Select(c => c.DescriptionKey));
         required.AddRange(milestones.Select(m => m.NameKey));

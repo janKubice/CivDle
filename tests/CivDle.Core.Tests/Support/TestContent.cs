@@ -54,7 +54,8 @@ internal static class TestContent
         SeasonCalendar? seasons = null,
         ContractCatalog? contracts = null,
         DistrictCatalog? districts = null,
-        SettlementRankLadder? settlementRanks = null)
+        SettlementRankLadder? settlementRanks = null,
+        CitizenCatalog? citizens = null)
     {
         biomes ??= new[] { WaterBiome(), LandBiome("grass") };
         resources ??= new[] { new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 10, BaseStorage: 1000) };
@@ -113,6 +114,7 @@ internal static class TestContent
             contracts ?? ContractCatalog.Empty,
             districts ?? DistrictCatalog.Empty,
             settlementRanks ?? SettlementRankLadder.Empty,
+            citizens ?? CitizenCatalog.Empty,
             elections ?? ElectionConfig.Disabled,
             milestones ?? Array.Empty<MilestoneDef>(),
             seasons ?? SeasonCalendar.Disabled);

@@ -34,6 +34,7 @@ public sealed class Simulation
     private readonly PollutionSystem _pollutionSystem;
     private readonly ContractSystem _contractSystem;
     private readonly DistrictSystem _districtSystem;
+    private readonly CitizenSystem _citizenSystem;
     private readonly ConstructionSystem _constructionSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
@@ -74,6 +75,7 @@ public sealed class Simulation
     private readonly PollutionGrid _pollution = new(); // stopa průmyslu v krajině (hrubá mřížka)
     private ContractSlot[] _contractSlots = Array.Empty<ContractSlot>(); // nástěnka zakázek
     private readonly List<District> _districts = new(); // rozpoznané čtvrti (odvozený stav)
+    private readonly Dictionary<long, long> _founders = new(); // kdo kterou budovu založil (dlaždice → jméno)
     private readonly Dictionary<long, byte> _biomeOverrides = new(); // terraformované dlaždice (UFO)
     private readonly Queue<GameNotification> _notifications = new();
     private PrestigeBonuses _bonuses = PrestigeBonuses.None;
@@ -137,6 +139,7 @@ public sealed class Simulation
         _pollutionSystem = new PollutionSystem(content);
         _contractSystem = new ContractSystem(content, seed);
         _districtSystem = new DistrictSystem(content);
+        _citizenSystem = new CitizenSystem(content, seed);
         _constructionSystem = new ConstructionSystem(content);
         ResetContractBoard();
         _populationSystem = new PopulationSystem(content.Gameplay);
@@ -273,6 +276,162 @@ public sealed class Simulation
     /// zapisuje do ní jen <c>PollutionSystem</c>.
     /// </summary>
     public PollutionGrid PollutionMap => _pollution;
+
+    /// <summary>
+    /// Prosba obyvatele, která zrovna čeká na odpověď. Vždycky nejvýš jedna —
+    /// zakázka je obchod, tohle je moment, a tři momenty naráz jsou seznam úkolů.
+    /// </summary>
+    public CitizenRequest PendingCitizenRequest { get; internal set; } = CitizenRequest.None;
+
+    /// <summary>Kolik tiků zbývá, než se ozve někdo další.</summary>
+    internal int CitizenCooldownTicks { get; set; }
+
+    /// <summary>Jsou pojmenovaní obyvatelé v datech zapnutí? (UI podle toho skrývá panel.)</summary>
+    public bool CitizensEnabled => _content.Citizens.IsEnabled;
+
+    /// <summary>Jméno obyvatele, který zrovna prosí; prázdné, když nikdo neprosí.</summary>
+    public string PendingCitizenName => PendingCitizenRequest.IsActive
+        ? _content.Citizens.NameOf(
+            PendingCitizenRequest.FirstNameIndex, PendingCitizenRequest.SurnameIndex)
+        : string.Empty;
+
+    /// <summary>Definice běžící prosby, nebo <c>null</c>.</summary>
+    public CitizenRequestDef? PendingCitizenDef => PendingCitizenRequest.IsActive
+        ? _content.Citizens.Requests[PendingCitizenRequest.DefIndex]
+        : null;
+
+    /// <summary>Má město na to, oč obyvatel prosí?</summary>
+    public bool CanHelpCitizen()
+    {
+        if (PendingCitizenDef is not { } def)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < def.Cost.Count; i++)
+        {
+            if (_resources[def.Cost[i].ResourceIndex] < def.Cost[i].Amount)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Příkaz hráče: pomoct obyvateli. Strhne materiál a založí mu jeho živnost —
+    /// budova od té chvíle nese jeho jméno.
+    ///
+    /// <para>Místo hledá hra sama ve spirále od těžiště města: hráč pomáhá
+    /// člověku, ne že si vybírá parcelu. Když se nikde nevejde, pomoc se
+    /// neuskuteční a materiál zůstane — tichý neúspěch, žádná ztráta.</para>
+    /// </summary>
+    public bool TryHelpCitizen()
+    {
+        if (!CanHelpCitizen() || PendingCitizenDef is not { } def)
+        {
+            return false;
+        }
+
+        if (!TryFoundNearCity(def.BuildingIndex, out int x, out int y))
+        {
+            return false;
+        }
+
+        for (int i = 0; i < def.Cost.Count; i++)
+        {
+            _resources[def.Cost[i].ResourceIndex] -= def.Cost[i].Amount;
+        }
+
+        var request = PendingCitizenRequest;
+        _founders[TileKey.Pack(x, y)] = PackName(request.FirstNameIndex, request.SurnameIndex);
+        PendingCitizenRequest = CitizenRequest.None;
+        CitizenCooldownTicks = _content.Citizens.GapTicks;
+        FoundedByCitizens++;
+
+        EnqueueNotification(new GameNotification(
+            NotificationKind.CitizenHelped, "toast.citizenHelped", def.TextKey));
+        return true;
+    }
+
+    /// <summary>Kolik živností už hráč obyvatelům založil (metrika do cílů a statistik).</summary>
+    public long FoundedByCitizens { get; internal set; }
+
+    /// <summary>
+    /// Jméno zakladatele budovy na dané dlaždici, nebo prázdný řetězec.
+    /// Panel budovy z toho píše „Založil: Marek Kovář".
+    /// </summary>
+    public string FounderOf(int x, int y)
+    {
+        if (!_founders.TryGetValue(TileKey.Pack(x, y), out long packed))
+        {
+            return string.Empty;
+        }
+
+        return _content.Citizens.NameOf((int)(packed >> 32), (int)(packed & 0xFFFFFFFF));
+    }
+
+    /// <summary>Zakladatelé k uložení do savu.</summary>
+    public IEnumerable<(int X, int Y, int FirstNameIndex, int SurnameIndex)> Founders()
+    {
+        foreach (var (key, packed) in _founders)
+        {
+            yield return (TileKey.X(key), TileKey.Y(key), (int)(packed >> 32), (int)(packed & 0xFFFFFFFF));
+        }
+    }
+
+    /// <summary>Obnoví zakladatele ze savu.</summary>
+    internal void RestoreFounder(int x, int y, int firstNameIndex, int surnameIndex) =>
+        _founders[TileKey.Pack(x, y)] = PackName(firstNameIndex, surnameIndex);
+
+    /// <summary>Obnoví počet založených živností ze savu.</summary>
+    internal void RestoreFoundedByCitizens(long count) => FoundedByCitizens = Math.Max(0, count);
+
+    /// <summary>Obnoví běžící prosbu ze savu.</summary>
+    internal void RestoreCitizenRequest(int defIndex, int first, int surname, int ticksLeft, int cooldown)
+    {
+        PendingCitizenRequest = defIndex >= 0 && defIndex < _content.Citizens.Requests.Count
+            ? new CitizenRequest(defIndex, first, surname, ticksLeft)
+            : CitizenRequest.None;
+        CitizenCooldownTicks = Math.Max(0, cooldown);
+    }
+
+    private static long PackName(int firstIndex, int surnameIndex) =>
+        ((long)firstIndex << 32) | (uint)surnameIndex;
+
+    /// <summary>
+    /// Najde místo pro živnost ve spirále od těžiště města a postaví ji zdarma.
+    /// Spirála je stejná úvaha jako u auto-stavby: nová budova má vyrůst tam, kde
+    /// se žije, ne na druhém konci mapy.
+    /// </summary>
+    private bool TryFoundNearCity(int defIndex, out int x, out int y)
+    {
+        for (int radius = 1; radius <= 24; radius++)
+        {
+            for (int dy = -radius; dy <= radius; dy++)
+            {
+                for (int dx = -radius; dx <= radius; dx++)
+                {
+                    if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != radius)
+                    {
+                        continue; // jen okraj prstence, ať se místa neopakují
+                    }
+
+                    x = CityCenterX + dx;
+                    y = CityCenterY + dy;
+                    if (TryPlaceBuildingFree(defIndex, x, y) == PlacementResult.Ok)
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        x = 0;
+        y = 0;
+        return false;
+    }
 
     /// <summary>
     /// Nejvyšší stupeň sídla, jakého už město dosáhlo. Existuje jen kvůli tomu,
@@ -1239,6 +1398,7 @@ public sealed class Simulation
         _districtSystem.Tick(this);
         _happinessSystem.Tick(this);
         _contractSystem.Tick(this);
+        _citizenSystem.Tick(this);
         _questSystem.Tick(this);
         _tutorialSystem.Tick(this);
         _challengeSystem.Tick(this);
@@ -3552,6 +3712,9 @@ public sealed class Simulation
         _pollution.Clear(); // ani smog po továrnách, které v novém měřítku ještě nestojí
         _districts.Clear(); // čtvrti se poznají znovu, až nová zástavba doroste
         HighestSettlementRank = -1; // v novém měřítku je i první osada zas událost
+        _founders.Clear(); // zakladatelé patří ke světu, který právě skončil
+        PendingCitizenRequest = CitizenRequest.None;
+        CitizenCooldownTicks = 0;
         ResetContractBoard(); // zákazníci z minulého měřítka na novou nástěnku nepatří
         ContractsCompleted = 0; // a v novém měřítku začínají objednávky zas malé
         _buildingCount = 0;

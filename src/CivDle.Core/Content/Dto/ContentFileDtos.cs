@@ -79,6 +79,22 @@ public sealed record RecipeDto(
     Dictionary<string, int>? Output,
     int TimeTicks);
 
+/// <summary>Obsah souboru <c>data/citizens.json</c>.</summary>
+public sealed record CitizensFileDto(
+    int SchemaVersion,
+    List<string>? FirstNames,
+    List<string>? Surnames,
+    double GapSeconds,
+    List<CitizenRequestDto>? Requests);
+
+/// <summary>Jedna šablona prosby obyvatele tak, jak leží v JSON.</summary>
+public sealed record CitizenRequestDto(
+    string? Id,
+    string? Building,
+    Dictionary<string, int>? Cost,
+    double DurationSeconds,
+    GoalConditionDto? Requires);
+
 /// <summary>Obsah souboru <c>data/settlement-ranks.json</c>.</summary>
 public sealed record SettlementRanksFileDto(int SchemaVersion, List<SettlementRankDto>? Ranks);
 

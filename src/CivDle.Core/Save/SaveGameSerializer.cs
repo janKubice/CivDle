@@ -64,6 +64,7 @@ public sealed class SaveGameSerializer
     private const string SectionNodes = "nodes";
     private const string SectionPollution = "pollution";
     private const string SectionContracts = "contracts";
+    private const string SectionCitizens = "citizens";
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -112,6 +113,7 @@ public sealed class SaveGameSerializer
         WriteSection(writer, SectionNodes, w => WriteNodes(w, simulation));
         WriteSection(writer, SectionPollution, w => WritePollution(w, simulation));
         WriteSection(writer, SectionContracts, w => WriteContracts(w, simulation));
+        WriteSection(writer, SectionCitizens, w => WriteCitizens(w, simulation));
         WriteSection(writer, SectionElection, w =>
         {
             w.Write(simulation.ElectionTerm);
@@ -330,6 +332,7 @@ public sealed class SaveGameSerializer
             case SectionNodes: ReadNodes(section, simulation); break;
             case SectionPollution: ReadPollution(section, simulation); break;
             case SectionContracts: ReadContracts(section, content, simulation); break;
+            case SectionCitizens: ReadCitizens(section, simulation); break;
             case SectionElection: simulation.RestoreElection(section.ReadInt64(), section.ReadInt32()); break;
             case SectionMilestones: ReadMilestones(section, content, simulation); break;
             default: break; // neznámá sekce z novější hry — přeskočit, ne spadnout
@@ -579,6 +582,49 @@ public sealed class SaveGameSerializer
             }
 
             simulation.RestoreContractSlot(i, defIndex, demand, ticksLeft, scale);
+        }
+    }
+
+    /// <summary>
+    /// Obyvatelé: běžící prosba a zakladatelé budov. Jména se ukládají jako dvojice
+    /// indexů do seznamů — kratší než řetězec a odolné vůči přeložení hry.
+    /// Starší savy sekci nemají a načtou se bez zakladatelů, což je správně.
+    /// </summary>
+    private static void WriteCitizens(BinaryWriter writer, Simulation simulation)
+    {
+        var request = simulation.PendingCitizenRequest;
+        writer.Write(request.DefIndex);
+        writer.Write(request.FirstNameIndex);
+        writer.Write(request.SurnameIndex);
+        writer.Write(request.TicksLeft);
+        writer.Write(simulation.FoundedByCitizens);
+
+        var founders = simulation.Founders().ToList();
+        writer.Write(founders.Count);
+        foreach (var (x, y, first, surname) in founders)
+        {
+            writer.Write(x);
+            writer.Write(y);
+            writer.Write(first);
+            writer.Write(surname);
+        }
+    }
+
+    private static void ReadCitizens(BinaryReader reader, Simulation simulation)
+    {
+        int defIndex = reader.ReadInt32();
+        int first = reader.ReadInt32();
+        int surname = reader.ReadInt32();
+        int ticksLeft = reader.ReadInt32();
+        simulation.RestoreCitizenRequest(defIndex, first, surname, ticksLeft, cooldown: 0);
+        simulation.RestoreFoundedByCitizens(reader.ReadInt64());
+
+        int count = ReadCount(reader, max: 5_000_000, what: "zakladatelů budov");
+        for (int i = 0; i < count; i++)
+        {
+            int x = reader.ReadInt32();
+            int y = reader.ReadInt32();
+            simulation.RestoreFounder(x, y, reader.ReadInt32(), reader.ReadInt32());
         }
     }
 
