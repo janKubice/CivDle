@@ -17,6 +17,15 @@ public enum NotificationKind
 
     /// <summary>Zásah do světa, který nespustil hráč (návštěva UFO).</summary>
     WorldEvent,
+
+    /// <summary>Na nástěnku přibyla nová zakázka.</summary>
+    ContractOffered,
+
+    /// <summary>Zakázka vypršela, aniž ji hráč splnil (žádný trest, jen odešla).</summary>
+    ContractExpired,
+
+    /// <summary>Hráč zakázku odevzdal a dostal zaplaceno.</summary>
+    ContractFulfilled,
 }
 
 /// <summary>

@@ -112,6 +112,9 @@ public sealed class GameplayScreen : IScreen
     private Label _festivalLabel = null!;
     private Button _festivalButton = null!;
     private Button _buildMenuButton = null!;
+
+    /// <summary>Tlačítko zakázek; <c>null</c>, když jsou v datech vypnuté.</summary>
+    private Button? _contractsButton;
     private Widget _buildMenuPanel = null!;
     private Widget _statusPanel = null!;
     private HorizontalStackPanel _roadModePanel = null!;
@@ -884,6 +887,47 @@ public sealed class GameplayScreen : IScreen
             : new Color(180, 190, 170);
     }
 
+    /// <summary>
+    /// Tlačítko zakázek: kolik jich visí a jestli je něco k odevzdání.
+    ///
+    /// <para>Zelená je celé to „pojď se podívat" — hráč nemusí nic otevírat, aby
+    /// věděl, že si může přijít pro odměnu. Bez toho by nástěnka existovala jen
+    /// pro toho, kdo si na ni vzpomene.</para>
+    /// </summary>
+    private void UpdateContractsButton(Localization loc)
+    {
+        if (_contractsButton is null)
+        {
+            return;
+        }
+
+        int offers = 0;
+        int ready = 0;
+        for (int slot = 0; slot < _simulation.ContractSlots.Length; slot++)
+        {
+            if (!_simulation.ContractSlots[slot].IsActive)
+            {
+                continue;
+            }
+
+            offers++;
+            if (_simulation.CanFulfilContract(slot))
+            {
+                ready++;
+            }
+        }
+
+        if (_contractsButton.Content is not Label label)
+        {
+            return;
+        }
+
+        label.Text = ready > 0
+            ? $"{loc["hud.contracts"]} {ready}/{offers} ✓"
+            : $"{loc["hud.contracts"]} {offers}";
+        label.TextColor = ready > 0 ? new Color(150, 220, 150) : Color.White;
+    }
+
     /// <summary>Vyzvedne oznámení ze simulace (splněné úkoly, achievementy, milníky) a udělá z nich toasty.</summary>
     private void DrainNotifications()
     {
@@ -1339,6 +1383,17 @@ public sealed class GameplayScreen : IScreen
 
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.quests"],
             () => _screens.Push(new QuestsScreen(_screens, _simulation)), loc["tip.quests"]));
+
+        // Zakázky mají vlastní tlačítko, i když bydlí na obrazovce úkolů: je to
+        // nejkratší smyčka ve hře a schovaná o dvě kliknutí by prostě zanikla.
+        // Popisek se rozsvítí, jakmile je co odevzdat — to je to „pojď se
+        // podívat", kvůli kterému se hráč vrátí.
+        if (_simulation.ContractsEnabled)
+        {
+            _contractsButton = UiFactory.SmallButton(loc["hud.contracts"],
+                () => _screens.Push(new QuestsScreen(_screens, _simulation)), loc["tip.contracts"]);
+            stack.Widgets.Add(_contractsButton);
+        }
 
         // Každá funkce se objeví, teprve až si ji hráč odemkne (data/features.json).
         if (_simulation.IsFeatureUnlocked("plant"))
@@ -1929,6 +1984,7 @@ public sealed class GameplayScreen : IScreen
         UpdateSeasonLabel(loc);
         UpdateToolsLabel(loc);
         UpdatePollutionLabel(loc);
+        UpdateContractsButton(loc);
 
         // Spokojenost: barva nese stav, ať se to dá číst koutkem oka.
         if (_screens.Content.Gameplay.Happiness.IsEnabled)

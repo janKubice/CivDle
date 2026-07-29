@@ -61,6 +61,102 @@ public sealed class QuestsScreen : IScreen
     }
 
     /// <summary>
+    /// Nástěnka zakázek úplně nahoře. Je to nejkratší smyčka ve hře — objednávka
+    /// běží minuty, výzva den, úkol klidně hodinu — takže patří první.
+    /// </summary>
+    private void AddContracts(VerticalStackPanel list)
+    {
+        var loc = _screens.Loc;
+        if (!_simulation.ContractsEnabled)
+        {
+            return;
+        }
+
+        list.Widgets.Add(Header(loc["contract.board"]));
+
+        bool anyOffer = false;
+        for (int slot = 0; slot < _simulation.ContractSlots.Length; slot++)
+        {
+            if (_simulation.ContractAt(slot) is { } def)
+            {
+                anyOffer = true;
+                list.Widgets.Add(ContractRow(slot, def));
+            }
+        }
+
+        // Prázdná nástěnka musí říct proč, jinak vypadá jako rozbitá funkce.
+        if (!anyOffer)
+        {
+            list.Widgets.Add(new Label
+            {
+                Text = loc["contract.waiting"],
+                TextColor = new Color(150, 160, 175),
+            });
+        }
+    }
+
+    /// <summary>Řádek zakázky: co chce, co za to dá, kolik zbývá času a tlačítko odevzdat.</summary>
+    private Widget ContractRow(int slot, ContractDef def)
+    {
+        var loc = _screens.Loc;
+        var content = _screens.Content;
+        var state = _simulation.ContractSlots[slot];
+        bool canDeliver = _simulation.CanFulfilContract(slot);
+
+        var stack = new VerticalStackPanel { Spacing = 3 };
+        stack.Widgets.Add(new Label { Text = loc[def.NameKey], TextColor = new Color(255, 214, 120) });
+        stack.Widgets.Add(new Label
+        {
+            Text = loc.Format("contract.demand",
+                loc[content.Resources[def.DemandResourceIndex].NameKey], state.DemandAmount),
+            TextColor = new Color(214, 222, 232),
+        });
+        stack.Widgets.Add(new Label
+        {
+            Text = loc.Format("contract.rewardLabel",
+                CostFormat.Line(content, loc, _simulation.ContractReward(slot))),
+            TextColor = new Color(150, 220, 150),
+        });
+
+        // Termín barvou: poslední čtvrtina červená, ať se to dá číst koutkem oka.
+        double left = def.DurationTicks > 0 ? state.TicksLeft / (double)def.DurationTicks : 0;
+        stack.Widgets.Add(new Label
+        {
+            Text = loc.Format("contract.timeLeft", DurationFormat.FromTicks(state.TicksLeft)),
+            TextColor = left < 0.25 ? new Color(235, 130, 110) : new Color(186, 198, 214),
+        });
+
+        if (canDeliver)
+        {
+            stack.Widgets.Add(UiFactory.SmallButton(loc["contract.deliver"], () =>
+            {
+                _simulation.TryFulfilContract(slot);
+                BuildUi(); // nabídka zmizela, nástěnka se musí překreslit
+            }));
+        }
+        else
+        {
+            long missing = state.DemandAmount - (long)_simulation.GetResource(def.DemandResourceIndex);
+            stack.Widgets.Add(new Label
+            {
+                Text = loc.Format("contract.notEnough", Math.Max(1, missing)),
+                TextColor = new Color(235, 170, 110),
+            });
+        }
+
+        var panel = new Panel
+        {
+            Background = new SolidBrush(new Color(32, 42, 58, 200)),
+            Border = new SolidBrush((canDeliver ? new Color(150, 220, 150) : UiFactory.Accent) * 0.55f),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(10, 8),
+            Tooltip = loc["tip.contracts"],
+        };
+        panel.Widgets.Add(stack);
+        return panel;
+    }
+
+    /// <summary>
     /// Dnešní výzvy nad úkoly. Jsou nahoře schválně: úkoly čekají, výzvy platí
     /// jen dnes, takže je hráč má vidět první.
     /// </summary>
@@ -136,6 +232,7 @@ public sealed class QuestsScreen : IScreen
 
         var list = new VerticalStackPanel { Spacing = 8 };
 
+        AddContracts(list);
         AddDailyChallenges(list);
 
         list.Widgets.Add(Header(loc["panel.quests.active"]));

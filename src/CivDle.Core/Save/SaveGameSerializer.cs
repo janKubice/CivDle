@@ -63,6 +63,7 @@ public sealed class SaveGameSerializer
     private const string SectionConstruction = "construction";
     private const string SectionNodes = "nodes";
     private const string SectionPollution = "pollution";
+    private const string SectionContracts = "contracts";
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -110,6 +111,7 @@ public sealed class SaveGameSerializer
         WriteSection(writer, SectionConstruction, w => WriteConstruction(w, simulation));
         WriteSection(writer, SectionNodes, w => WriteNodes(w, simulation));
         WriteSection(writer, SectionPollution, w => WritePollution(w, simulation));
+        WriteSection(writer, SectionContracts, w => WriteContracts(w, simulation));
         WriteSection(writer, SectionElection, w =>
         {
             w.Write(simulation.ElectionTerm);
@@ -327,6 +329,7 @@ public sealed class SaveGameSerializer
             case SectionConstruction: ReadConstruction(section, simulation); break;
             case SectionNodes: ReadNodes(section, simulation); break;
             case SectionPollution: ReadPollution(section, simulation); break;
+            case SectionContracts: ReadContracts(section, content, simulation); break;
             case SectionElection: simulation.RestoreElection(section.ReadInt64(), section.ReadInt32()); break;
             case SectionMilestones: ReadMilestones(section, content, simulation); break;
             default: break; // neznámá sekce z novější hry — přeskočit, ne spadnout
@@ -531,6 +534,51 @@ public sealed class SaveGameSerializer
             double water = reader.ReadDouble();
             double soil = reader.ReadDouble();
             simulation.PollutionMap.RestoreCell(cellX, cellY, air, water, soil);
+        }
+    }
+
+    /// <summary>
+    /// Nástěnka zakázek. Ukládá se přes stabilní ID šablony, ne přes index —
+    /// aby přidání nové zakázky do dat nepřeházelo rozehrané nabídky.
+    /// Starší savy sekci nemají a načtou se s prázdnou nástěnkou, která se sama
+    /// zaplní; o nic se tím nepřijde.
+    /// </summary>
+    private static void WriteContracts(BinaryWriter writer, Simulation simulation)
+    {
+        writer.Write(simulation.ContractsCompleted);
+
+        var slots = simulation.ContractSlots;
+        writer.Write(slots.Length);
+        for (int i = 0; i < slots.Length; i++)
+        {
+            var def = simulation.ContractAt(i);
+            writer.Write(def?.Id ?? string.Empty); // prázdný řetězec = volné místo
+            writer.Write(slots[i].DemandAmount);
+            writer.Write(slots[i].TicksLeft);
+            writer.Write(slots[i].RewardScale);
+        }
+    }
+
+    private static void ReadContracts(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        simulation.RestoreContractsCompleted(reader.ReadInt64());
+
+        int count = ReadCount(reader, max: 64, what: "míst na nástěnce zakázek");
+        for (int i = 0; i < count; i++)
+        {
+            string id = reader.ReadString();
+            long demand = reader.ReadInt64();
+            int ticksLeft = reader.ReadInt32();
+            double scale = reader.ReadDouble();
+
+            // Zakázka, která z dat zmizela, se tiše zahodí — místo se doplní samo.
+            // Padat kvůli obsahu, který se mezi verzemi mění, by byla krutost.
+            if (id.Length == 0 || !content.Contracts.Contracts.TryIndexOf(id, out int defIndex))
+            {
+                continue;
+            }
+
+            simulation.RestoreContractSlot(i, defIndex, demand, ticksLeft, scale);
         }
     }
 

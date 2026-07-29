@@ -51,7 +51,8 @@ internal static class TestContent
         ChallengeCatalog? challenges = null,
         ElectionConfig? elections = null,
         IReadOnlyList<MilestoneDef>? milestones = null,
-        SeasonCalendar? seasons = null)
+        SeasonCalendar? seasons = null,
+        ContractCatalog? contracts = null)
     {
         biomes ??= new[] { WaterBiome(), LandBiome("grass") };
         resources ??= new[] { new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 10, BaseStorage: 1000) };
@@ -107,6 +108,7 @@ internal static class TestContent
             new DefRegistry<TerraformDef>(Array.Empty<TerraformDef>(), t => t.Id, "terraformace", allowEmpty: true),
             tutorial ?? Array.Empty<TutorialStepDef>(),
             challenges ?? ChallengeCatalog.Empty,
+            contracts ?? ContractCatalog.Empty,
             elections ?? ElectionConfig.Disabled,
             milestones ?? Array.Empty<MilestoneDef>(),
             seasons ?? SeasonCalendar.Disabled);

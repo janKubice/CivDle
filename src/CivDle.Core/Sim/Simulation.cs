@@ -32,6 +32,7 @@ public sealed class Simulation
     private readonly SeasonSystem _seasonSystem;
     private readonly ToolsSystem _toolsSystem;
     private readonly PollutionSystem _pollutionSystem;
+    private readonly ContractSystem _contractSystem;
     private readonly ConstructionSystem _constructionSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
@@ -70,6 +71,7 @@ public sealed class Simulation
     private readonly Dictionary<long, ClickYield> _plantedNodes = new(); // hráčem zasazené obnovitelné zdroje
     private readonly NodeLedger _nodes = new(); // co už se v krajině vytěžilo (jen dotčené dlaždice)
     private readonly PollutionGrid _pollution = new(); // stopa průmyslu v krajině (hrubá mřížka)
+    private ContractSlot[] _contractSlots = Array.Empty<ContractSlot>(); // nástěnka zakázek
     private readonly Dictionary<long, byte> _biomeOverrides = new(); // terraformované dlaždice (UFO)
     private readonly Queue<GameNotification> _notifications = new();
     private PrestigeBonuses _bonuses = PrestigeBonuses.None;
@@ -131,7 +133,9 @@ public sealed class Simulation
         _seasonSystem = new SeasonSystem(content);
         _toolsSystem = new ToolsSystem(content);
         _pollutionSystem = new PollutionSystem(content);
+        _contractSystem = new ContractSystem(content, seed);
         _constructionSystem = new ConstructionSystem(content);
+        ResetContractBoard();
         _populationSystem = new PopulationSystem(content.Gameplay);
         _autoBuild = new AutoBuildSystem(content, seed);
         _zoneFill = new ZoneFillSystem(content, seed);
@@ -266,6 +270,123 @@ public sealed class Simulation
     /// zapisuje do ní jen <c>PollutionSystem</c>.
     /// </summary>
     public PollutionGrid PollutionMap => _pollution;
+
+    /// <summary>Nástěnka zakázek pro UI (jen ke čtení — měnit ji smí systém).</summary>
+    public ReadOnlySpan<ContractSlot> ContractSlots => _contractSlots;
+
+    /// <summary>Nástěnka pro systémy simulace (odpočet termínů, vypisování nabídek).</summary>
+    internal Span<ContractSlot> ContractSlotsMutable => _contractSlots;
+
+    /// <summary>Kolik zakázek už město splnilo. Řídí, jak velké nabídky chodí.</summary>
+    public long ContractsCompleted { get; internal set; }
+
+    /// <summary>Jsou zakázky v datech vůbec zapnuté? (UI podle toho skrývá nástěnku.)</summary>
+    public bool ContractsEnabled => _content.Contracts.IsEnabled;
+
+    /// <summary>Definice zakázky na daném místě nástěnky, nebo <c>null</c> u prázdného.</summary>
+    public ContractDef? ContractAt(int slot) =>
+        slot >= 0 && slot < _contractSlots.Length && _contractSlots[slot].IsActive
+            ? _content.Contracts.Contracts[_contractSlots[slot].DefIndex]
+            : null;
+
+    /// <summary>
+    /// Odměna za zakázku na daném místě, už přepočtená škálováním. Vrací prázdno
+    /// u prázdného místa. UI ji potřebuje vypsat dřív, než hráč klikne.
+    /// </summary>
+    public IReadOnlyList<ResourceAmount> ContractReward(int slot)
+    {
+        if (ContractAt(slot) is not { } def)
+        {
+            return Array.Empty<ResourceAmount>();
+        }
+
+        double scale = _contractSlots[slot].RewardScale;
+        var reward = new ResourceAmount[def.Reward.Count];
+        for (int i = 0; i < reward.Length; i++)
+        {
+            reward[i] = def.Reward[i] with
+            {
+                Amount = Math.Max(1, (int)Math.Round(def.Reward[i].Amount * scale)),
+            };
+        }
+
+        return reward;
+    }
+
+    /// <summary>Má město dost suroviny, aby zakázku na daném místě odevzdalo?</summary>
+    public bool CanFulfilContract(int slot)
+    {
+        if (ContractAt(slot) is not { } def)
+        {
+            return false;
+        }
+
+        return _resources[def.DemandResourceIndex] >= _contractSlots[slot].DemandAmount;
+    }
+
+    /// <summary>
+    /// Příkaz hráče: odevzdat zakázku. Strhne objednanou surovinu, vyplatí odměnu
+    /// a místo uvolní pro dalšího zákazníka.
+    ///
+    /// <para>Je to schválně akce, ne automatika: surovina, kterou odevzdáš, ti
+    /// zrovna chybí na stavbu — v tom je celé to malé rozhodnutí.</para>
+    /// </summary>
+    public bool TryFulfilContract(int slot)
+    {
+        if (!CanFulfilContract(slot) || ContractAt(slot) is not { } def)
+        {
+            return false;
+        }
+
+        var reward = ContractReward(slot);
+        _resources[def.DemandResourceIndex] -= _contractSlots[slot].DemandAmount;
+        for (int i = 0; i < reward.Count; i++)
+        {
+            AddResource(reward[i].ResourceIndex, reward[i].Amount);
+        }
+
+        ContractsCompleted++;
+        _contractSlots[slot] = ContractSlot.Empty(_content.Contracts.Board.RestockTicks);
+        EnqueueNotification(new GameNotification(
+            NotificationKind.ContractFulfilled, "toast.contractDone", def.NameKey));
+        return true;
+    }
+
+    /// <summary>
+    /// Postaví prázdnou nástěnku podle dat. Volá se při startu, po Vzestupu
+    /// i před načtením savu, aby měla vždycky správný počet míst.
+    /// </summary>
+    private void ResetContractBoard()
+    {
+        var board = _content.Contracts.Board;
+        _contractSlots = new ContractSlot[Math.Max(0, board.Slots)];
+        for (int i = 0; i < _contractSlots.Length; i++)
+        {
+            // Rozestupem se nabídky nevypíšou naráz — nástěnka se plní postupně,
+            // což vypadá živěji než tři zakázky, které se objeví v tomtéž tiku.
+            _contractSlots[i] = ContractSlot.Empty(board.RestockTicks / Math.Max(1, _contractSlots.Length) * i);
+        }
+    }
+
+    /// <summary>Obnoví počet splněných zakázek ze savu (řídí velikost nabídek).</summary>
+    internal void RestoreContractsCompleted(long completed) => ContractsCompleted = Math.Max(0, completed);
+
+    /// <summary>Obnoví místo na nástěnce ze savu.</summary>
+    internal void RestoreContractSlot(int slot, int defIndex, long demand, int ticksLeft, double rewardScale)
+    {
+        if (slot < 0 || slot >= _contractSlots.Length)
+        {
+            return; // save z jiného nastavení nástěnky — přebytek se tiše zahodí
+        }
+
+        _contractSlots[slot] = new ContractSlot
+        {
+            DefIndex = defIndex,
+            DemandAmount = demand,
+            TicksLeft = ticksLeft,
+            RewardScale = rewardScale,
+        };
+    }
 
     /// <summary>
     /// Kolik je kouře přímo nad městem. Právě tohle číslo cítí obyvatelé — ne
@@ -1048,6 +1169,7 @@ public sealed class Simulation
         _colonySystem.Tick(this); // guvernér: expanze do nových kolonií
         _settlementSystem.Tick(this);
         _happinessSystem.Tick(this);
+        _contractSystem.Tick(this);
         _questSystem.Tick(this);
         _tutorialSystem.Tick(this);
         _challengeSystem.Tick(this);
@@ -3342,6 +3464,8 @@ public sealed class Simulation
         _zones.Clear(); // zóny řídí přestavbu — po Vzestupu (nové měřítko) začínáš nanovo
         _nodes.Clear(); // nový svět má nedotčenou krajinu, ne vytěžené paseky po předchůdcích
         _pollution.Clear(); // ani smog po továrnách, které v novém měřítku ještě nestojí
+        ResetContractBoard(); // zákazníci z minulého měřítka na novou nástěnku nepatří
+        ContractsCompleted = 0; // a v novém měřítku začínají objednávky zas malé
         _buildingCount = 0;
 
         Array.Clear(_techResearched);

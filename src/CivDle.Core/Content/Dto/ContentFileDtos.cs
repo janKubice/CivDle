@@ -78,6 +78,21 @@ public sealed record RecipeDto(
     Dictionary<string, int>? Output,
     int TimeTicks);
 
+/// <summary>Obsah souboru <c>data/contracts.json</c>.</summary>
+public sealed record ContractsFileDto(int SchemaVersion, ContractBoardDto? Board, List<ContractDto>? Contracts);
+
+/// <summary>Nastavení nástěnky zakázek tak, jak leží v JSON.</summary>
+public sealed record ContractBoardDto(int Slots, double RestockSeconds, double ScaleGrowth, double MaxScale);
+
+/// <summary>Jedna šablona zakázky tak, jak leží v JSON.</summary>
+public sealed record ContractDto(
+    string? Id,
+    string? Resource,
+    int Amount,
+    Dictionary<string, int>? Reward,
+    double DurationSeconds,
+    GoalConditionDto? Requires);
+
 /// <summary>Obsah souboru <c>data/gameplay.json</c>.</summary>
 public sealed record GameplayFileDto(
     int SchemaVersion,

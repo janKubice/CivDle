@@ -53,19 +53,20 @@ public sealed class ContentLoader
         var milestones = LoadMilestones(Path.Combine(dataDirectory, "milestones.json"), resources, buildings, techs);
         var elections = LoadElections(Path.Combine(dataDirectory, "elections.json"));
         var challenges = LoadChallenges(Path.Combine(dataDirectory, "challenges.json"), resources, buildings, techs);
+        var contracts = LoadContracts(Path.Combine(dataDirectory, "contracts.json"), resources, buildings, techs);
         var seasons = LoadSeasons(Path.Combine(dataDirectory, "seasons.json"), resources);
         var tutorial = LoadTutorial(Path.Combine(dataDirectory, "tutorial.json"), resources, buildings, techs);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, elections, milestones, seasons);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, elections, milestones, seasons);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, elections, milestones, seasons);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, elections, milestones, seasons);
     }
 
     // ----- roční období -----
@@ -270,6 +271,107 @@ public sealed class ContentLoader
     /// <summary>
     /// Načte fond denních výzev. Volitelný soubor — bez něj hra běží bez výzev.
     /// </summary>
+    /// <summary>
+    /// Nástěnka zakázek. Soubor je volitelný — bez něj se hraje jako dřív, jen
+    /// bez krátkých objednávek.
+    /// </summary>
+    private static ContractCatalog LoadContracts(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        if (!File.Exists(path))
+        {
+            return ContractCatalog.Empty;
+        }
+
+        var file = ReadFile<ContractsFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Contracts ?? new List<ContractDto>();
+        var result = new List<ContractDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Zakázka na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID zakázky '{id}'.");
+            }
+
+            if (!resources.TryIndexOf(dto.Resource ?? string.Empty, out int demandIndex))
+            {
+                throw new ContentLoadException(path,
+                    $"Zakázka '{id}' chce surovinu '{dto.Resource}', která neexistuje.");
+            }
+
+            if (dto.Amount < 1)
+            {
+                throw new ContentLoadException(path,
+                    $"Zakázka '{id}': 'amount' musí být aspoň 1, je {dto.Amount}.");
+            }
+
+            var reward = ParseResourceAmounts(path, id, "reward", dto.Reward, resources);
+            if (reward.Count == 0)
+            {
+                throw new ContentLoadException(path, $"Zakázka '{id}' nemá odměnu — pak nemá proč existovat.");
+            }
+
+            // Zakázka placená tím, co si objednala, je jen složitý způsob, jak
+            // nedat nic. Tohle je tichá chyba obsahu, ne „skoro správně".
+            if (reward.Count == 1 && reward[0].ResourceIndex == demandIndex)
+            {
+                throw new ContentLoadException(path,
+                    $"Zakázka '{id}' platí toutéž surovinou, kterou chce — to hráči nic nedá.");
+            }
+
+            if (dto.DurationSeconds < 5 || dto.DurationSeconds > 3600)
+            {
+                throw new ContentLoadException(path,
+                    $"Zakázka '{id}': 'durationSeconds' musí být 5–3600, je {dto.DurationSeconds}.");
+            }
+
+            var requirement = dto.Requires is null
+                ? (GoalCondition?)null
+                : ParseCondition(path, $"zakázka '{id}'", dto.Requires, resources, buildings, techs);
+
+            result.Add(new ContractDef(id, demandIndex, dto.Amount, reward, dto.DurationSeconds, requirement));
+        }
+
+        var boardDto = file.Board;
+        if (result.Count == 0 || boardDto is null)
+        {
+            return ContractCatalog.Empty;
+        }
+
+        if (boardDto.Slots is < 1 or > 12)
+        {
+            throw new ContentLoadException(path, $"'board.slots' musí být 1–12, je {boardDto.Slots}.");
+        }
+
+        if (boardDto.RestockSeconds < 1)
+        {
+            throw new ContentLoadException(path,
+                $"'board.restockSeconds' musí být aspoň 1, je {boardDto.RestockSeconds}.");
+        }
+
+        // Růst pod 1 by nabídky s hraním zmenšoval; nad 1.5 by za deset zakázek
+        // vyletěly do nesmyslů. Obojí je překlep, ne záměr.
+        if (boardDto.ScaleGrowth is < 1.0 or > 1.5)
+        {
+            throw new ContentLoadException(path,
+                $"'board.scaleGrowth' musí být 1.0–1.5, je {boardDto.ScaleGrowth}.");
+        }
+
+        if (boardDto.MaxScale < 1.0)
+        {
+            throw new ContentLoadException(path, $"'board.maxScale' musí být aspoň 1, je {boardDto.MaxScale}.");
+        }
+
+        var board = new ContractBoardConfig(
+            boardDto.Slots, boardDto.RestockSeconds, boardDto.ScaleGrowth, boardDto.MaxScale);
+        return new ContractCatalog(board, new DefRegistry<ContractDef>(result, c => c.Id, "zakázka"));
+    }
+
     private static ChallengeCatalog LoadChallenges(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
@@ -2470,6 +2572,7 @@ public sealed class ContentLoader
         DefRegistry<TerraformDef> terraform,
         IReadOnlyList<TutorialStepDef> tutorial,
         ChallengeCatalog challenges,
+        ContractCatalog contracts,
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
         SeasonCalendar seasons)
@@ -2506,7 +2609,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, elections, milestones, seasons);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, elections, milestones, seasons);
         ValidateKeySetsMatch(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -2535,6 +2638,7 @@ public sealed class ContentLoader
         DefRegistry<TerraformDef> terraform,
         IReadOnlyList<TutorialStepDef> tutorial,
         ChallengeCatalog challenges,
+        ContractCatalog contracts,
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
         SeasonCalendar seasons)
@@ -2582,6 +2686,7 @@ public sealed class ContentLoader
         required.AddRange(tutorial.Select(t => t.HintKey));
         required.AddRange(challenges.Challenges.Select(c => c.NameKey));
         required.AddRange(challenges.Challenges.Select(c => c.DescriptionKey));
+        required.AddRange(contracts.Contracts.All.Select(c => c.NameKey));
         required.AddRange(elections.Candidates.Select(c => c.NameKey));
         required.AddRange(elections.Candidates.Select(c => c.DescriptionKey));
         required.AddRange(milestones.Select(m => m.NameKey));

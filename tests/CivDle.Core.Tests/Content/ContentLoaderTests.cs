@@ -325,6 +325,91 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadFrom_RealGameData_HasAContractBoard()
+    {
+        // Zakázky jsou krátká smyčka hry — když v datech nejsou, hráč mezi
+        // událostmi jen kouká na čísla.
+        var content = TestData.LoadRealContent();
+
+        Assert.True(content.Contracts.IsEnabled);
+        Assert.True(content.Contracts.Contracts.Count >= 5);
+        Assert.True(content.Contracts.Board.Slots >= 1);
+    }
+
+    [Fact]
+    public void LoadFrom_ContractPayingWithWhatItWants_Throws()
+    {
+        // „Dej mi 20 dřeva, dostaneš 20 dřeva" je jen složitý způsob, jak nedat nic.
+        WriteAllValid();
+        Write("contracts.json", """
+        {
+          "schemaVersion": 1,
+          "board": { "slots": 2, "restockSeconds": 30, "scaleGrowth": 1.05, "maxScale": 20 },
+          "contracts": [
+            { "id": "silly", "resource": "wood", "amount": 20,
+              "reward": { "wood": 20 }, "durationSeconds": 120 }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("silly", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_ContractWithUnknownResource_ReportsIt()
+    {
+        WriteAllValid();
+        Write("contracts.json", """
+        {
+          "schemaVersion": 1,
+          "board": { "slots": 2, "restockSeconds": 30, "scaleGrowth": 1.05, "maxScale": 20 },
+          "contracts": [
+            { "id": "mystery", "resource": "mithril", "amount": 20,
+              "reward": { "food": 10 }, "durationSeconds": 120 }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("mithril", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_ContractScaleShrinkingOverTime_Throws()
+    {
+        // Růst pod 1 by nabídky s hraním zmenšoval — to je překlep, ne záměr.
+        WriteAllValid();
+        Write("contracts.json", """
+        {
+          "schemaVersion": 1,
+          "board": { "slots": 2, "restockSeconds": 30, "scaleGrowth": 0.8, "maxScale": 20 },
+          "contracts": [
+            { "id": "ok", "resource": "wood", "amount": 20,
+              "reward": { "food": 10 }, "durationSeconds": 120 }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("scaleGrowth", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_WithoutContractsFile_LeavesBoardOff()
+    {
+        // Soubor je volitelný: starší data se musí načíst a hrát jako dřív.
+        WriteAllValid();
+
+        var content = Load();
+
+        Assert.False(content.Contracts.IsEnabled);
+    }
+
+    [Fact]
     public void LoadFrom_EmptyPollutionBlock_Throws()
     {
         // Blok samých nul slibuje mechaniku, která se nikdy neprojeví — tichá
