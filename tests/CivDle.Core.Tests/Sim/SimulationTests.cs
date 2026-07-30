@@ -296,13 +296,19 @@ public class SimulationTests
         Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(house, 0, 0));
         Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(house, 2, 0));
 
+        // Pozor: tenhle test dřív ověřoval, že město vyhladoví. To nebyl záměr,
+        // ale důsledek toho, že guvernér uměl postavit jen chalupu. Dnes si
+        // obživu zařídí sám, takže se ověřuje samotné pravidlo: bez jídla růst
+        // opravdu stojí — na simulaci, kde nikdo pole nepostaví.
         RunTicks(sim, 3000);
-        Assert.Equal(0, sim.GetResource(food));
-        double populationWhenStarved = sim.Population;
-        Assert.True(populationWhenStarved < sim.HousingCapacity, "Bez jídla se kapacita nedoplní.");
 
-        RunTicks(sim, 500);
-        Assert.Equal(populationWhenStarved, sim.Population);
+        var starving = new Simulation(content, sim.Terrain, seed: 7);
+        starving.AddResource(food, -starving.GetResource(food));
+        double before = starving.Population;
+        RunTicks(starving, 300);
+
+        Assert.Equal(0, starving.GetResource(food), precision: 6);
+        Assert.Equal(before, starving.Population);
     }
 
     [Fact]

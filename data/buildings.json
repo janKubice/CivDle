@@ -113,7 +113,8 @@
         "perTile": 0.025,
         "max": 0.35
       },
-      "terrainHarvestRadius": 5
+      "terrainHarvestRadius": 5,
+      "autoBuild": true
     },
     {
       "id": "lumberyard",
@@ -195,7 +196,8 @@
         "radius": 2,
         "perTile": 0.03,
         "max": 0.35
-      }
+      },
+      "autoBuild": true
     },
     {
       "id": "quarry",
@@ -243,7 +245,8 @@
         "perTile": 0.025,
         "max": 0.35
       },
-      "terrainHarvestRadius": 5
+      "terrainHarvestRadius": 5,
+      "autoBuild": true
     },
     {
       "id": "mine",
@@ -325,7 +328,8 @@
         "radius": 2,
         "perTile": 0.025,
         "max": 0.3
-      }
+      },
+      "autoBuild": true
     },
     {
       "id": "plantation",
@@ -473,7 +477,8 @@
       "serviceValue": 6,
       "upkeep": {
         "food": 1
-      }
+      },
+      "autoBuild": true
     },
     {
       "id": "toolmaker",
@@ -1287,7 +1292,8 @@
         "radius": 2,
         "perTile": 0.03,
         "max": 0.4
-      }
+      },
+      "autoBuild": true
     },
     {
       "id": "hunters_lodge",
@@ -1325,7 +1331,8 @@
         "perTile": 0.025,
         "max": 0.3
       },
-      "terrainHarvestRadius": 6
+      "terrainHarvestRadius": 6,
+      "autoBuild": true
     },
     {
       "id": "granary",
@@ -1353,7 +1360,8 @@
       "serviceValue": 4,
       "upkeep": {
         "wood": 1
-      }
+      },
+      "autoBuild": true
     },
     {
       "id": "depot",
@@ -2110,7 +2118,8 @@
         "forest",
         "taiga",
         "highlands"
-      ]
+      ],
+      "autoBuild": true
     },
     {
       "id": "fountain_square",

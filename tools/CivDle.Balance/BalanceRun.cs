@@ -42,11 +42,15 @@ public sealed record BalanceResult(
 public sealed class BalanceRun
 {
     private readonly GameContent _content;
+
+    /// <summary>Totéž posouzení potřeb, jaké používá guvernér ve hře.</summary>
+    private readonly GovernorNeeds _needs;
     private readonly BalanceOptions _options;
 
     public BalanceRun(GameContent content, BalanceOptions options)
     {
         _content = content;
+        _needs = new GovernorNeeds(content);
         _options = options;
     }
 
@@ -180,13 +184,28 @@ public sealed class BalanceRun
         // nikam nevejde (špatný biom v okolí), musí přijít na řadu další — jinak
         // se běh zasekne a vypadá to jako chyba balancu, i když jde o hloupou
         // strategii náhradního hráče.
+        var need = _needs.Assess(sim);
+        int missingInput = need == CityNeed.Inputs ? _needs.DriedUpInput(sim) : -1;
+
+        // Rozumný hráč nestaví dvacátou pilu pro osm lidí. Bez tohohle stropu
+        // náhradní hráč zastavěl mapu a měření pak měřilo jeho hloupost, ne hru.
+        bool overbuilt = sim.TotalWorkerSlots > sim.Population * 3;
+
         var candidates = new List<(int Index, int Score)>();
         for (int defIndex = 0; defIndex < _content.Buildings.Count; defIndex++)
         {
-            if (sim.IsBuildingBuildable(defIndex) && sim.CanAfford(defIndex))
+            if (!sim.IsBuildingBuildable(defIndex) || !sim.CanAfford(defIndex))
             {
-                candidates.Add((defIndex, Score(sim, _content.Buildings[defIndex])));
+                continue;
             }
+
+            int score = Score(sim, _content.Buildings[defIndex], need, missingInput);
+            if (score <= 0 || (overbuilt && _content.Buildings[defIndex].WorkerSlots > 0 && need != CityNeed.Food))
+            {
+                continue;
+            }
+
+            candidates.Add((defIndex, score));
         }
 
         candidates.Sort((a, b) => b.Score.CompareTo(a.Score));
@@ -206,34 +225,75 @@ public sealed class BalanceRun
         }
     }
 
-    private int Score(Simulation sim, BuildingDef def)
+    /// <summary>
+    /// Jak moc by tuhle budovu město teď chtělo.
+    ///
+    /// <para>Dřív dostaly všechny výrobny stejných 40 bodů, takže o pořadí
+    /// rozhodovalo pořadí v souboru — náhradní hráč pak postavil šedesát pil
+    /// a čtyřicet sýpek a měření vypadalo, že je rozbitý balanc. Teď se řídí
+    /// týmž posouzením potřeb jako guvernér ve hře
+    /// (<see cref="GovernorNeeds"/>), takže referenční křivka odpovídá tomu,
+    /// jak se hra doopravdy chová.</para>
+    /// </summary>
+    private int Score(Simulation sim, BuildingDef def, CityNeed need, int missingInput)
     {
         int food = _content.Gameplay.FoodResourceIndex;
-        bool hungry = sim.GetResource(food) < sim.Population * 2;
-        bool crowded = sim.Population >= sim.HousingCapacity * 0.8;
 
-        if (hungry && ProducesFood(def, food))
+        switch (need)
         {
-            return 100;
+            case CityNeed.Food:
+                return ProducesFood(def, food) ? 100 : 0;
+
+            case CityNeed.Inputs:
+                return missingInput >= 0 && Produces(def, missingInput) && !Consumes(def, missingInput) ? 90 : 0;
+
+            case CityNeed.Services:
+                return def.Services;
+
+            case CityNeed.Housing:
+                return def.HousingCapacity;
+
+            default:
+                // Nic akutního: rozšiřovat výrobu je legitimní, ale opatrně —
+                // město bez lidí neutáhne ani to, co už stojí.
+                return def.Recipe is { Outputs.Count: > 0 } ? 10 : 0;
+        }
+    }
+
+    private static bool Produces(BuildingDef def, int resourceIndex)
+    {
+        if (def.Recipe is not { } recipe)
+        {
+            return false;
         }
 
-        if (crowded && def.HousingCapacity > 0)
+        for (int i = 0; i < recipe.Outputs.Count; i++)
         {
-            return 80;
+            if (recipe.Outputs[i].ResourceIndex == resourceIndex)
+            {
+                return true;
+            }
         }
 
-        // Služby drží spokojenost, jakmile město přeroste práh soběstačnosti.
-        if (def.Services > 0 && sim.Population > _content.Gameplay.Happiness.FreePopulation)
+        return false;
+    }
+
+    private static bool Consumes(BuildingDef def, int resourceIndex)
+    {
+        if (def.Recipe is not { } recipe)
         {
-            return 60;
+            return false;
         }
 
-        if (def.Recipe is { Outputs.Count: > 0 })
+        for (int i = 0; i < recipe.Inputs.Count; i++)
         {
-            return 40;
+            if (recipe.Inputs[i].ResourceIndex == resourceIndex)
+            {
+                return true;
+            }
         }
 
-        return def.HousingCapacity > 0 ? 20 : 10;
+        return false;
     }
 
     private static bool ProducesFood(BuildingDef def, int foodIndex)
