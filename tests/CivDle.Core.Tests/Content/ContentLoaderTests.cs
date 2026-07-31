@@ -524,7 +524,7 @@ public class ContentLoaderTests : IDisposable
         // Plný trest by zamořenou budovu úplně zastavil. Znečištění má brzdit,
         // ne zabíjet — jinak hráč přijde o výrobu dřív, než postaví čističku.
         WriteAllValid();
-        WriteGameplayWithPollution("""
+        WriteGameplayWith("""
           "pollution": { "intervalTicks": 50, "spreadRate": 0.08, "decayRate": 0.02,
                          "fullEffectAt": 60, "happinessPenalty": 0.25, "productionPenalty": 1.0 }
         """);
@@ -538,7 +538,7 @@ public class ContentLoaderTests : IDisposable
     public void LoadFrom_PollutionSpreadAboveOne_Throws()
     {
         WriteAllValid();
-        WriteGameplayWithPollution("""
+        WriteGameplayWith("""
           "pollution": { "intervalTicks": 50, "spreadRate": 1.5, "decayRate": 0.02,
                          "fullEffectAt": 60, "happinessPenalty": 0.25, "productionPenalty": 0.35 }
         """);
@@ -557,6 +557,61 @@ public class ContentLoaderTests : IDisposable
         var content = Load();
 
         Assert.False(content.Gameplay.Pollution.IsEnabled);
+    }
+
+    // ----- hromadná stavba -----
+
+    [Fact]
+    public void LoadFrom_GameplayWithoutBulkBuild_UsesDefaults()
+    {
+        // Starší data blok neznají — hráč o hromadnou stavbu přijít nesmí.
+        WriteAllValid();
+
+        var config = Load().Gameplay.BulkBuild;
+
+        Assert.True(config.HasBatches);
+        Assert.True(config.MaxPerAction > 0);
+    }
+
+    [Fact]
+    public void LoadFrom_UnsortedBatches_Throws()
+    {
+        // Lišta násobičů se čte zleva doprava; přeházená čísla by z ní udělala hádanku.
+        WriteAllValid();
+        WriteGameplayWith("""
+          "bulkBuild": { "batches": [1, 25, 5], "maxPerAction": 400 }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("batches", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_EmptyBatches_Throws()
+    {
+        WriteAllValid();
+        WriteGameplayWith("""
+          "bulkBuild": { "batches": [], "maxPerAction": 400 }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("batches", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_BulkBuildWithoutCap_Throws()
+    {
+        // Bez stropu by jedno tažení přes mapu položilo tisíce budov naráz.
+        WriteAllValid();
+        WriteGameplayWith("""
+          "bulkBuild": { "batches": [1, 5], "maxPerAction": 0 }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("maxPerAction", ex.Message);
     }
 
     // ----- milníky za počet budov -----
@@ -905,7 +960,8 @@ public class ContentLoaderTests : IDisposable
 
     /// <summary>Minimální kompletní validní sada dat; testy pak přepisují jednotlivé soubory.</summary>
     /// <summary>Platný gameplay.json plus dodaný blok navíc — pro testy volitelných vrstev.</summary>
-    private void WriteGameplayWithPollution(string extraBlock)
+    /// <summary>Zapíše gameplay.json s dodaným blokem navíc (znečištění, hromadná stavba…).</summary>
+    private void WriteGameplayWith(string extraBlock)
     {
         Write("gameplay.json", $$"""
         {

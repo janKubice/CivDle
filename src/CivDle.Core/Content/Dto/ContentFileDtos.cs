@@ -166,7 +166,11 @@ public sealed record GameplayFileDto(
     HaulDto? Haul,
     ToolsDto? Tools,
     ComboDto? Combo,
-    PollutionDto? Pollution);
+    PollutionDto? Pollution,
+    BulkBuildDto? BulkBuild);
+
+/// <summary>Hromadná stavba tak, jak leží v JSON.</summary>
+public sealed record BulkBuildDto(List<int>? Batches, int MaxPerAction);
 
 /// <summary>Znečištění tak, jak leží v JSON.</summary>
 public sealed record PollutionDto(

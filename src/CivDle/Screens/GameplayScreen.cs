@@ -126,6 +126,10 @@ public sealed class GameplayScreen : IScreen
     private HorizontalStackPanel _roadModePanel = null!;
     private Button _roadAddButton = null!;
     private Button _roadEraseButton = null!;
+
+    /// <summary>Přepínač násobiče hromadné stavby (×1, ×5, ×25) a jeho tlačítka.</summary>
+    private HorizontalStackPanel _batchPanel = null!;
+    private Button[] _batchButtons = Array.Empty<Button>();
     private bool _buildMenuOpen;
     private int _unlockedFeatureCount = -1;
 
@@ -274,6 +278,13 @@ public sealed class GameplayScreen : IScreen
             }
         }
 
+        // Tab přepíná násobič hromadné stavby — ruka zůstává u WASD a nemusí
+        // pro ×25 přes celou obrazovku na tlačítko.
+        if (_input.WasPressed(Keys.Tab) && _tools.SelectedBuilding >= 0)
+        {
+            _tools.CycleBatchSize();
+        }
+
         bool mouseOverUi = _desktop.IsMouseOverGUI;
         UpdateCamera(dt, mouseOverUi);
 
@@ -387,8 +398,22 @@ public sealed class GameplayScreen : IScreen
         if (_tools.GhostVisible && _tools.SelectedBuilding >= 0)
         {
             var def = _screens.Content.Buildings[_tools.SelectedBuilding];
-            _buildingRenderer.DrawGhost(
-                spriteBatch, _camera, def, _tools.GhostX, _tools.GhostY, _tools.GhostResult == PlacementResult.Ok);
+
+            // Hromadná stavba: duch je celý plán, ne jedna budova. Hráč tak vidí
+            // dopředu i to, kde mu dojdou suroviny (červené kusy se nepostaví).
+            var plan = _tools.BulkPlan;
+            if (plan.Count > 0)
+            {
+                for (int i = 0; i < plan.Count; i++)
+                {
+                    _buildingRenderer.DrawGhost(spriteBatch, _camera, def, plan[i].X, plan[i].Y, plan[i].WillBuild);
+                }
+            }
+            else
+            {
+                _buildingRenderer.DrawGhost(
+                    spriteBatch, _camera, def, _tools.GhostX, _tools.GhostY, _tools.GhostResult == PlacementResult.Ok);
+            }
         }
         else if (_tools.MoveGhostActive && _tools.MovingBuildingIndex < _simulation.Buildings.Length)
         {
@@ -1315,6 +1340,20 @@ public sealed class GameplayScreen : IScreen
         _roadModePanel.Widgets.Add(_roadEraseButton);
         _roadModePanel.Visible = false;
 
+        // Násobič hromadné stavby: stejné místo jako přepínač silnic — objeví se,
+        // teprve když hráč něco staví, a jinak liště nepřekáží.
+        _batchPanel = new HorizontalStackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
+        var sizes = _tools.BatchSizes;
+        _batchButtons = new Button[sizes.Count];
+        for (int i = 0; i < sizes.Count; i++)
+        {
+            int size = sizes[i];
+            _batchButtons[i] = UiFactory.SmallButton($"×{size}", () => _tools.SetBatchSize(size), loc["tip.batch"]);
+            _batchPanel.Widgets.Add(_batchButtons[i]);
+        }
+
+        _batchPanel.Visible = false;
+
         var statusRow = new HorizontalStackPanel
         {
             Spacing = 10,
@@ -1322,6 +1361,7 @@ public sealed class GameplayScreen : IScreen
         };
         statusRow.Widgets.Add(_statusLabel);
         statusRow.Widgets.Add(_roadModePanel);
+        statusRow.Widgets.Add(_batchPanel);
 
         _statusPanel = UiFactory.DarkPanel(statusRow);
         _statusPanel.HorizontalAlignment = HorizontalAlignment.Center;
@@ -1367,7 +1407,8 @@ public sealed class GameplayScreen : IScreen
 
         // „Stavět" vytáhne katalog budov NAD lištu — spodek obrazovky tak zůstává
         // úzký proužek, ne trvale rozložené menu přes půl mapy.
-        _buildMenuButton = UiFactory.SmallButton(loc["hud.build"], ToggleBuildMenu, loc["tip.build"]);
+        _buildMenuButton = UiFactory.SmallButton(loc["hud.build"], ToggleBuildMenu,
+            loc["tip.build"] + "\n" + loc["tip.bulkBuild"]);
         stack.Widgets.Add(_buildMenuButton);
 
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.quests"],
@@ -2065,6 +2106,22 @@ public sealed class GameplayScreen : IScreen
             _roadEraseButton.Background = new SolidBrush(_tools.RoadEraseMode ? UiFactory.Accent : UiFactory.ButtonFill);
         }
 
+        // Násobič dává smysl jen u stavby budov — u silnic, zón ani přesunu ne.
+        _batchPanel.Visible = _tools.SelectedBuilding >= 0 && _screens.Content.Gameplay.BulkBuild.HasBatches;
+        if (_batchPanel.Visible)
+        {
+            var sizes = _tools.BatchSizes;
+            int affordable = _tools.AffordableCount;
+            for (int i = 0; i < _batchButtons.Length; i++)
+            {
+                bool active = sizes[i] == _tools.BatchSize;
+                _batchButtons[i].Background = new SolidBrush(active ? UiFactory.Accent : UiFactory.ButtonFill);
+
+                // Zšedne, na co hráč nemá — ať se nediví, že ×25 položí tři kusy.
+                _batchButtons[i].Opacity = affordable >= sizes[i] ? 1f : 0.45f;
+            }
+        }
+
         if (!_statusPanel.Visible)
         {
             return;
@@ -2119,6 +2176,16 @@ public sealed class GameplayScreen : IScreen
         }
 
         var def = _screens.Content.Buildings[_tools.SelectedBuilding];
+
+        // Při tažení je nejdůležitější číslo to, kolik kusů z toho opravdu vznikne
+        // — hráč tak vidí dopředu, kde mu dojdou suroviny nebo místo.
+        if (_tools.BulkPlan.Count > 0)
+        {
+            _statusLabel.Text = loc.Format("build.bulkCount", _tools.BulkBuildable, _tools.BulkPlan.Count);
+            _statusLabel.TextColor = _tools.BulkBuildable > 0 ? Color.White : new Color(235, 120, 110);
+            return;
+        }
+
         if (_tools.GhostVisible && _tools.GhostResult != PlacementResult.Ok)
         {
             _statusLabel.Text = loc[ErrorKey(_tools.GhostResult)];

@@ -2502,7 +2502,51 @@ public sealed class ContentLoader
             ParseHaul(path, file.Haul),
             ParseTools(path, file.Tools, resources),
             ParseCombo(path, file.Combo),
-            ParsePollution(path, file.Pollution));
+            ParsePollution(path, file.Pollution),
+            ParseBulkBuild(path, file.BulkBuild));
+    }
+
+    /// <summary>
+    /// Nastavení hromadné stavby. Chybí-li blok, platí výchozí násobiče — starší
+    /// data se načtou a hráč o funkci nepřijde.
+    /// </summary>
+    private static BulkBuildConfig? ParseBulkBuild(string path, BulkBuildDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (dto.MaxPerAction is < 1 or > 10_000)
+        {
+            throw new ContentLoadException(path,
+                $"'bulkBuild.maxPerAction' musí být 1–10000, je {dto.MaxPerAction}.");
+        }
+
+        var batches = dto.Batches;
+        if (batches is null || batches.Count == 0)
+        {
+            throw new ContentLoadException(path, "'bulkBuild.batches' nesmí být prázdné.");
+        }
+
+        for (int i = 0; i < batches.Count; i++)
+        {
+            if (batches[i] < 1)
+            {
+                throw new ContentLoadException(path,
+                    $"'bulkBuild.batches' smí obsahovat jen kladná čísla, je tam {batches[i]}.");
+            }
+
+            // Rostoucí řada: lišta násobičů se čte zleva doprava a přeházená čísla
+            // by z ní udělaly hádanku.
+            if (i > 0 && batches[i] <= batches[i - 1])
+            {
+                throw new ContentLoadException(path,
+                    $"'bulkBuild.batches' musí růst, {batches[i]} následuje po {batches[i - 1]}.");
+            }
+        }
+
+        return new BulkBuildConfig(batches.ToArray(), dto.MaxPerAction);
     }
 
     /// <summary>

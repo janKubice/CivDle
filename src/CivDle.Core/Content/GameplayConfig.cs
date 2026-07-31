@@ -301,6 +301,25 @@ public sealed record DailyRewardConfig(IReadOnlyList<ResourceAmount> BaseReward,
 /// <param name="Amount">Výnos jednoho sběru zasazeného uzlu.</param>
 public sealed record PlantingConfig(IReadOnlyList<ResourceAmount> Cost, int ResourceIndex, int Amount);
 
+/// <summary>
+/// Hromadné stavění: násobiče v liště a strop na jedno gesto.
+///
+/// <para>Strop tu není kvůli balancu, ale kvůli hráči i výkonu: jedno tažení
+/// přes půl mapy nesmí položit tisíc budov ani zamrznout snímek počítáním
+/// náhledu. Násobiče jsou v datech, protože je to ladicí knoflík — kolik kusů
+/// naráz dává smysl, se pozná až z hraní.</para>
+/// </summary>
+/// <param name="Batches">Nabídka násobičů v liště (×1, ×5, ×25…).</param>
+/// <param name="MaxPerAction">Kolik kusů nejvýš vznikne jedním gestem.</param>
+public sealed record BulkBuildConfig(IReadOnlyList<int> Batches, int MaxPerAction)
+{
+    /// <summary>Výchozí nastavení pro data, která hromadnou stavbu neznají.</summary>
+    public static BulkBuildConfig Default { get; } = new(new[] { 1, 5, 25 }, 400);
+
+    /// <summary>Je vůbec z čeho vybírat? (Samotné ×1 je „jako dřív".)</summary>
+    public bool HasBatches => Batches.Count > 1;
+}
+
 /// <param name="Settlements">Nastavení detekce osad.</param>
 /// <param name="DayNight">Denní/noční cyklus.</param>
 /// <param name="Boost">Nastavení slavnosti (dočasný boost).</param>
@@ -324,10 +343,14 @@ public sealed record GameplayConfig(
     HaulConfig? HaulOrNull = null,
     ToolsConfig? ToolsOrNull = null,
     ComboConfig? ComboOrNull = null,
-    PollutionConfig? PollutionOrNull = null)
+    PollutionConfig? PollutionOrNull = null,
+    BulkBuildConfig? BulkBuildOrNull = null)
 {
     /// <summary>Nastavení znečištění; chybí-li v datech, je vrstva vypnutá.</summary>
     public PollutionConfig Pollution => PollutionOrNull ?? PollutionConfig.Disabled;
+
+    /// <summary>Nastavení hromadné stavby; chybí-li v datech, platí výchozí násobiče.</summary>
+    public BulkBuildConfig BulkBuild => BulkBuildOrNull ?? BulkBuildConfig.Default;
 
     /// <summary>Nastavení klikacího komba; chybí-li v datech, je vrstva vypnutá.</summary>
     public ComboConfig Combo => ComboOrNull ?? ComboConfig.Disabled;
