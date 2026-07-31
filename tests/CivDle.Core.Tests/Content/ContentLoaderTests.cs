@@ -559,6 +559,45 @@ public class ContentLoaderTests : IDisposable
         Assert.False(content.Gameplay.Pollution.IsEnabled);
     }
 
+    // ----- těžební laser -----
+
+    [Fact]
+    public void LoadFrom_GameplayWithoutLaser_LeavesItOff()
+    {
+        // Starší data laser neznají a ruční sběr musí zůstat klikáním.
+        WriteAllValid();
+
+        Assert.False(Load().Gameplay.Laser.IsEnabled);
+    }
+
+    [Fact]
+    public void LoadFrom_AbsurdLaserRate_Throws()
+    {
+        // Příliš rychlý paprsek by z krajiny udělal jednorázovou zásobárnu.
+        WriteAllValid();
+        WriteGameplayWith("""
+          "laser": { "harvestsPerSecond": 500, "radiusTiles": 1, "feature": "laser" }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("harvestsPerSecond", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_LaserWithoutAGate_Throws()
+    {
+        // Bez brány by laser platil od první minuty.
+        WriteAllValid();
+        WriteGameplayWith("""
+          "laser": { "harvestsPerSecond": 8, "radiusTiles": 1 }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("laser.feature", ex.Message);
+    }
+
     // ----- vozidla -----
 
     [Fact]

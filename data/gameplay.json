@@ -94,5 +94,10 @@
   "bulkBuild": {
     "batches": [1, 5, 25],
     "maxPerAction": 400
+  },
+  "laser": {
+    "harvestsPerSecond": 8,
+    "radiusTiles": 1,
+    "feature": "laser"
   }
 }

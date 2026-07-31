@@ -62,6 +62,10 @@ public sealed class GameplayScreen : IScreen
     private RollingNumbers _rolling = null!;
     private readonly CelebrationRenderer _celebration = new();
     private readonly FireworksRenderer _fireworks = new();
+    private readonly LaserRenderer _laser = new();
+
+    /// <summary>Kolik sekund zbývá do dalšího zásahu těžebního paprsku.</summary>
+    private float _laserCooldown;
     private readonly GameSounds _sounds = new();
     private readonly AmbientMusic _ambient = new();
     private readonly AmbientSoundscape _soundscape;
@@ -295,7 +299,7 @@ public sealed class GameplayScreen : IScreen
         // na ruční těžbu — jediné místo, kde se to rozhoduje.
         if (!_tools.Update(mouseOverUi))
         {
-            UpdateHarvest(mouseOverUi);
+            UpdateHarvest(dt, mouseOverUi);
         }
 
         int ticks = _simLoop.Advance(gameTime.ElapsedGameTime.TotalSeconds);
@@ -314,6 +318,7 @@ public sealed class GameplayScreen : IScreen
         LaunchFireworksForMilestones();
         _cityPulse.Update(dt, _simulation);
         _fireworks.Update(dt);
+        _laser.Update(dt);
         _rolling.Update(dt, _simulation.GetResource);
         _celebration.Update(dt);
         // Při velkém oddálení chodce/faunu neaktualizuj — nespawnovali by se přes
@@ -366,6 +371,7 @@ public sealed class GameplayScreen : IScreen
             _caravans.Draw(spriteBatch, _camera);
             _golden.Draw(spriteBatch, _camera);
             _fireworks.Draw(spriteBatch, _screens.WhitePixel, _camera);
+            _laser.Draw(spriteBatch, _screens.WhitePixel, _camera);
         }
         else
         {
@@ -695,19 +701,100 @@ public sealed class GameplayScreen : IScreen
     }
 
     /// <summary>
+    /// Těžba orbitálním paprskem: dokud hráč drží tlačítko, sbírá se v pravidelném
+    /// rytmu pod kurzorem (a v poloměru z dat).
+    ///
+    /// <para>Vrací true, když paprsek vstup spotřeboval — herní obrazovka pak
+    /// neřeší klik. Nespotřebuje ho hned na první stisk: první klik musí projít
+    /// běžnou cestou, aby šlo pořád rozkliknout budovu nebo sebrat bublinu.</para>
+    /// </summary>
+    private bool UpdateLaser(float dt, int tileX, int tileY)
+    {
+        var config = _screens.Content.Gameplay.Laser;
+        if (!_simulation.LaserUnlocked || !_input.IsLeftDown || _input.WasLeftPressed)
+        {
+            _laserCooldown = 0f;
+            return false;
+        }
+
+        _laser.Aim(new Vector2(
+            (tileX + 0.5f) * TerrainRenderer.TileSize,
+            (tileY + 0.5f) * TerrainRenderer.TileSize));
+
+        _laserCooldown -= dt;
+        if (_laserCooldown > 0f)
+        {
+            return true;
+        }
+
+        _laserCooldown = (float)config.SecondsPerHarvest;
+
+        // Poloměr se prochází celý, ale úroda se hlásí jen tam, kde opravdu byla —
+        // jinak by paprsek nad holou plání sypal popupy do prázdna.
+        int radius = config.RadiusTiles;
+        for (int dy = -radius; dy <= radius; dy++)
+        {
+            for (int dx = -radius; dx <= radius; dx++)
+            {
+                if (_simulation.TryHarvest(tileX + dx, tileY + dy, out int resourceIndex, out int amount, out _))
+                {
+                    LaserHitFeedback(tileX + dx, tileY + dy, resourceIndex, amount);
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Zpětná vazba na jeden zásah paprsku — schválně střídmější než u kliku:
+    /// při osmi zásazích za sekundu by plné popupy a cinkání byly nepoužitelné.
+    /// </summary>
+    private void LaserHitFeedback(int tileX, int tileY, int resourceIndex, int amount)
+    {
+        var center = new Vector2(
+            (tileX + 0.5f) * TerrainRenderer.TileSize,
+            (tileY + 0.5f) * TerrainRenderer.TileSize);
+        var resourceColor = _screens.Content.Resources[resourceIndex].MapColor.ToXna();
+
+        _particles.SpawnBurst(center, resourceColor, 4, 40f, 130f);
+        _harvestables.RegisterChop(tileX, tileY);
+
+        // Číslo jen občas: text u každého zásahu by se slil v nečitelnou kaši.
+        if (_eventRng.Next(4) == 0)
+        {
+            _floatingText.Add(center, PopupText(resourceIndex, amount), resourceColor);
+        }
+    }
+
+    /// <summary>
     /// Ruční těžba: klik na strom/kámen — surovina, popup, třísky, zvuk; strom se
     /// zmenšuje a po pár klicích spadne s velkým efektem (anticipace + payoff).
     /// </summary>
-    private void UpdateHarvest(bool mouseOverUi)
+    private void UpdateHarvest(float dt, bool mouseOverUi)
     {
-        if (_tools.SelectedBuilding >= 0 || mouseOverUi || !_input.WasLeftPressed)
+        if (_tools.SelectedBuilding >= 0 || mouseOverUi)
         {
+            _laser.Clear();
             return;
         }
 
         var world = _camera.ScreenToWorld(_input.MousePosition.ToVector2());
         int tileX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
         int tileY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
+
+        // Držené tlačítko + odemčený laser = paprsek. Klik zůstává klikem, takže
+        // se ani po odemčení nezmění to, co hráč umí — jen přibude, co dokáže
+        // držením.
+        if (UpdateLaser(dt, tileX, tileY))
+        {
+            return;
+        }
+
+        if (!_input.WasLeftPressed)
+        {
+            return;
+        }
 
         // Sběrné bubliny a zlaté spawny mají přednost před budovou i těžbou.
         // Karavana má přednost před těžbou i bublinou — je na ní vidět, že se
@@ -1800,6 +1887,7 @@ public sealed class GameplayScreen : IScreen
         _cityPulse.Enabled = motion;
         _celebration.Enabled = motion;
         _fireworks.Enabled = motion;
+        _laser.Enabled = motion;
         if (!motion)
         {
             _fireworks.Clear();

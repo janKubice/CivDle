@@ -320,6 +320,32 @@ public sealed record BulkBuildConfig(IReadOnlyList<int> Batches, int MaxPerActio
     public bool HasBatches => Batches.Count > 1;
 }
 
+/// <summary>
+/// Orbitální těžební laser: pozdní podoba ručního sběru.
+///
+/// <para>Proč to ve hře je: klikat na jednotlivé stromy je v hodině páté stejná
+/// činnost jako v minutě první — jen míň zajímavá. Laser tu činnost <b>nezruší</b>,
+/// jen ji promění: hráč místo klikání táhne paprsek přes krajinu. Je to odměna
+/// za dojití daleko, ne nová mechanika k naučení.</para>
+///
+/// <para>Sazba je v datech, protože je to ta nejcitlivější věc na balanc —
+/// příliš rychlý paprsek by z krajiny udělal jednorázovou zásobárnu.</para>
+/// </summary>
+/// <param name="HarvestsPerSecond">Kolik sběrů za sekundu paprsek zvládne.</param>
+/// <param name="RadiusTiles">Kolik dlaždic kolem zásahu ještě zachytí (0 = jen ta jedna).</param>
+/// <param name="FeatureId">ID funkce z <c>features.json</c>, která laser odemyká.</param>
+public sealed record LaserConfig(double HarvestsPerSecond, int RadiusTiles, string FeatureId)
+{
+    /// <summary>Vypnutý laser — hra bez téhle vrstvy (výchozí pro starší data).</summary>
+    public static LaserConfig Disabled { get; } = new(0, 0, string.Empty);
+
+    /// <summary>Má laser vůbec smysl počítat?</summary>
+    public bool IsEnabled => HarvestsPerSecond > 0 && FeatureId.Length > 0;
+
+    /// <summary>Jak dlouho trvá jeden zásah paprsku (sekundy).</summary>
+    public double SecondsPerHarvest => HarvestsPerSecond > 0 ? 1.0 / HarvestsPerSecond : double.MaxValue;
+}
+
 /// <param name="Settlements">Nastavení detekce osad.</param>
 /// <param name="DayNight">Denní/noční cyklus.</param>
 /// <param name="Boost">Nastavení slavnosti (dočasný boost).</param>
@@ -344,8 +370,12 @@ public sealed record GameplayConfig(
     ToolsConfig? ToolsOrNull = null,
     ComboConfig? ComboOrNull = null,
     PollutionConfig? PollutionOrNull = null,
-    BulkBuildConfig? BulkBuildOrNull = null)
+    BulkBuildConfig? BulkBuildOrNull = null,
+    LaserConfig? LaserOrNull = null)
 {
+    /// <summary>Nastavení těžebního laseru; chybí-li v datech, je vrstva vypnutá.</summary>
+    public LaserConfig Laser => LaserOrNull ?? LaserConfig.Disabled;
+
     /// <summary>Nastavení znečištění; chybí-li v datech, je vrstva vypnutá.</summary>
     public PollutionConfig Pollution => PollutionOrNull ?? PollutionConfig.Disabled;
 

@@ -2504,7 +2504,41 @@ public sealed class ContentLoader
             ParseTools(path, file.Tools, resources),
             ParseCombo(path, file.Combo),
             ParsePollution(path, file.Pollution),
-            ParseBulkBuild(path, file.BulkBuild));
+            ParseBulkBuild(path, file.BulkBuild),
+            ParseLaser(path, file.Laser));
+    }
+
+    /// <summary>
+    /// Nastavení těžebního laseru. Chybí-li blok, je vrstva vypnutá a ruční sběr
+    /// zůstává klikáním jako dřív.
+    /// </summary>
+    private static LaserConfig? ParseLaser(string path, LaserDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        // Příliš rychlý paprsek by z krajiny udělal jednorázovou zásobárnu —
+        // strop je tu proti tiché chybě obsahu, ne proti hráči.
+        if (dto.HarvestsPerSecond is <= 0 or > 60)
+        {
+            throw new ContentLoadException(path,
+                $"'laser.harvestsPerSecond' musí být v (0, 60], je {dto.HarvestsPerSecond}.");
+        }
+
+        if (dto.RadiusTiles is < 0 or > 8)
+        {
+            throw new ContentLoadException(path, $"'laser.radiusTiles' musí být 0–8, je {dto.RadiusTiles}.");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Feature))
+        {
+            throw new ContentLoadException(path,
+                "'laser.feature' musí odkazovat na funkci z features.json — bez brány by laser platil od první minuty.");
+        }
+
+        return new LaserConfig(dto.HarvestsPerSecond, dto.RadiusTiles, dto.Feature.Trim());
     }
 
     /// <summary>

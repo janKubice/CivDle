@@ -167,7 +167,11 @@ public sealed record GameplayFileDto(
     ToolsDto? Tools,
     ComboDto? Combo,
     PollutionDto? Pollution,
-    BulkBuildDto? BulkBuild);
+    BulkBuildDto? BulkBuild,
+    LaserDto? Laser);
+
+/// <summary>Těžební laser tak, jak leží v JSON.</summary>
+public sealed record LaserDto(double HarvestsPerSecond, int RadiusTiles, string? Feature);
 
 /// <summary>Hromadná stavba tak, jak leží v JSON.</summary>
 public sealed record BulkBuildDto(List<int>? Batches, int MaxPerAction);

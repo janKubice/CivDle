@@ -2354,6 +2354,16 @@ public sealed class Simulation
         return EvaluateMetric(unlock.Kind, unlock.Param) >= unlock.Target;
     }
 
+    /// <summary>
+    /// Smí hráč těžit orbitálním laserem? Je to pozdní podoba ručního sběru:
+    /// místo klikání na jednotlivé stromy táhne paprsek přes krajinu.
+    ///
+    /// <para>Vypnuté v datech i nezpřístupněné funkcí = false, takže starší
+    /// data i začínající hra se chovají jako dřív.</para>
+    /// </summary>
+    public bool LaserUnlocked =>
+        _content.Gameplay.Laser.IsEnabled && IsFeatureUnlocked(_content.Gameplay.Laser.FeatureId);
+
     /// <summary>Kolik funkcí je odemčeno — UI podle změny pozná, že má přestavět lištu.</summary>
     public int UnlockedFeatureCount
     {

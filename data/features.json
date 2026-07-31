@@ -99,6 +99,14 @@
         "metric": "population",
         "target": 150
       }
+    },
+    {
+      "id": "laser",
+      "unlock": {
+        "metric": "research",
+        "tech": "orbital_survey",
+        "target": 1
+      }
     }
   ]
 }
