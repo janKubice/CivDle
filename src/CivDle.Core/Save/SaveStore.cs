@@ -25,6 +25,15 @@ public sealed class SaveStore
     /// <summary>Existuje uložená hra? (Řídí tlačítko „Pokračovat" v menu.)</summary>
     public bool HasSave => File.Exists(_filePath);
 
+    /// <summary>
+    /// Kam ukládat sdílitelné obrázky — vedle savu, ve složce profilu.
+    ///
+    /// <para>Bydlí to tady, protože je to jediné místo, které ví, kde má hra
+    /// právo zapisovat; vedle exe ho mít nemusí.</para>
+    /// </summary>
+    public string ShareDirectory =>
+        Path.Combine(Path.GetDirectoryName(_filePath) ?? ".", "obrazky");
+
     /// <summary>Uloží hru; false = zápis selhal (plný disk, práva…).</summary>
     public bool TrySave(Simulation simulation, SaveMetadata metadata)
     {

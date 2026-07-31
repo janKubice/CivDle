@@ -65,6 +65,12 @@ public sealed class GameplayScreen : IScreen
     private readonly LaserRenderer _laser = new();
     private readonly SpectacleRenderer _spectacles;
 
+    /// <summary>
+    /// Fotorežim: HUD zmizí a zůstane jen město. Existuje proto, že hráč chce
+    /// ukázat, co postavil — ne rozdělané menu a lištu tlačítek.
+    /// </summary>
+    private bool _photoMode;
+
     /// <summary>Kolik sekund zbývá do dalšího zásahu těžebního paprsku.</summary>
     private float _laserCooldown;
     private readonly GameSounds _sounds = new();
@@ -287,6 +293,19 @@ public sealed class GameplayScreen : IScreen
             }
         }
 
+        // F11 schová HUD, F12 uloží sdílitelnou kartu. Obojí je „ukaž to
+        // ostatním", proto vedle sebe.
+        if (_input.WasPressed(Keys.F11))
+        {
+            _photoMode = !_photoMode;
+            _tools.Clear(); // s nástrojem v ruce by ve fotce zůstal duch budovy
+        }
+
+        if (_input.WasPressed(Keys.F12))
+        {
+            SaveShareCard();
+        }
+
         // Start otevře pauzu, Y stavební menu — bez nich by ovladač uměl jen
         // chodit po mapě.
         if (_input.WasPadPressed(GamePadMap.Pause))
@@ -505,6 +524,25 @@ public sealed class GameplayScreen : IScreen
 
         _weatherRenderer.Draw(spriteBatch, _screens.GraphicsDevice.Viewport); // závoj + srážky nad scénou
         _vignette.Draw(spriteBatch, _screens.GraphicsDevice.Viewport); // decentní sevření pohledu, pod HUD
+
+        // Fotorežim: všechno od téhle chvíle je HUD, a ten se do fotky nehodí.
+        // Hra pod ním běží dál — je to jen jiný pohled, ne pauza.
+        if (_photoMode)
+        {
+            // Jediná věta, která zůstane: bez ní hráč neví, jak HUD vrátit.
+            // Do sdílené karty se nedostane, ta se kreslí zvlášť.
+            string hint = _screens.Loc["hud.photoMode"];
+            var size = _popupFont.MeasureString(hint);
+            var viewport = _screens.GraphicsDevice.Viewport;
+            spriteBatch.Begin();
+            spriteBatch.DrawString(
+                _popupFont, hint,
+                new Vector2((viewport.Width - size.X) * 0.5f, viewport.Height - size.Y - 18f),
+                Color.White * 0.35f);
+            spriteBatch.End();
+            return;
+        }
+
         _desktop.Render();
 
         // Minimapa, popupy a toasty až nad UI — hráč je nesmí přehlédnout.
@@ -518,6 +556,24 @@ public sealed class GameplayScreen : IScreen
         spriteBatch.Begin();
         _celebration.Draw(spriteBatch, _screens.WhitePixel, _popupFont, _screens.GraphicsDevice.Viewport);
         spriteBatch.End();
+    }
+
+    /// <summary>
+    /// Uloží sdílitelnou kartu a řekne hráči kam. Bez té hlášky by obrázek
+    /// vznikl někde, kde ho nikdo nenajde.
+    /// </summary>
+    private void SaveShareCard()
+    {
+        try
+        {
+            string path = new Capture.ShareCard(_screens).Save(_simulation, _camera, _screens.Saves.ShareDirectory);
+            _toasts.Add(_screens.Loc.Format("share.saved", Path.GetFileName(path)), new Color(255, 226, 150));
+        }
+        catch (IOException error)
+        {
+            // Plný disk ani zamčená složka nemají shodit rozehranou hru.
+            _toasts.Add(_screens.Loc.Format("share.failed", error.Message), new Color(235, 120, 110));
+        }
     }
 
     /// <summary>
