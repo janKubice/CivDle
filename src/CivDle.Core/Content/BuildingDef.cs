@@ -43,6 +43,45 @@ public sealed record PollutionOutput(double Air, double Water, double Soil)
 }
 
 /// <summary>
+/// Milníky za počet budov jednoho typu: „každá desátá pila zrychlí všechny pily".
+///
+/// <para>Proč to ve hře je: dvacátá farma byla do téhle chvíle stejně zajímavá
+/// jako první — přibyla další porce výroby a nic víc. Tohle je motor, na kterém
+/// stojí celý žánr: stavět tutéž budovu dokola má smysl, protože každý kus
+/// posouvá k viditelnému prahu, a po jeho překročení se zlepší <b>všechny</b>
+/// budovy toho typu naráz.</para>
+///
+/// <para>Práh je „každých N", ne výčet: díky tomu je nekonečný a škáluje
+/// s velkoměstem stejně jako s vesnicí. Strop drží čísla při zemi.</para>
+/// </summary>
+/// <param name="Every">Po kolika budovách přijde další stupeň.</param>
+/// <param name="BonusPerStep">O kolik každý stupeň zvedne výrobu (0.25 = +25 %).</param>
+/// <param name="MaxSteps">Kolik stupňů se nejvýš počítá.</param>
+public sealed record BuildingMilestones(int Every, double BonusPerStep, int MaxSteps)
+{
+    /// <summary>Kolikátý stupeň má město při daném počtu budov (0 = zatím žádný).</summary>
+    public int TierFor(long count) =>
+        Every <= 0 ? 0 : (int)Math.Min(MaxSteps, count / Every);
+
+    /// <summary>Násobič výroby při daném počtu budov.</summary>
+    public double MultiplierFor(long count) => 1.0 + TierFor(count) * BonusPerStep;
+
+    /// <summary>
+    /// Kolik budov ještě chybí do dalšího stupně; 0 = strop je vyčerpaný.
+    /// UI z toho píše „ještě 3 do dalšího stupně" — bez toho je milník neviditelný.
+    /// </summary>
+    public long ToNextTier(long count)
+    {
+        if (Every <= 0 || TierFor(count) >= MaxSteps)
+        {
+            return 0;
+        }
+
+        return Every - count % Every;
+    }
+}
+
+/// <summary>
 /// Zvalidovaná definice budovy z <c>data/buildings.json</c> (typ; instance jsou
 /// struktury v plochém poli simulace). Jméno je v jazykových souborech pod
 /// <c>building.&lt;Id&gt;</c>.
@@ -93,8 +132,18 @@ public sealed record BuildingDef(
     int BuildTicks = 0,
     int TerrainHarvestRadius = 0,
     PollutionOutput? PollutionOrNull = null,
-    int MinSettlementRank = -1)
+    int MinSettlementRank = -1,
+    BuildingMilestones? MilestonesOrNull = null)
 {
+    /// <summary>
+    /// Milníky za počet budov tohoto typu; <c>null</c> = typ milníky nemá
+    /// a chová se jako dřív.
+    /// </summary>
+    public BuildingMilestones? Milestones => MilestonesOrNull;
+
+    /// <summary>Odměňuje se u tohohle typu množství?</summary>
+    public bool HasMilestones => MilestonesOrNull is not null;
+
     /// <summary>
     /// Jak velké sídlo budova potřebuje (index stupně); −1 = kdekoli.
     ///

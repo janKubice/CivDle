@@ -129,7 +129,7 @@ internal sealed class ProductionSystem
                 // motivace stavět sklady, žádný trest. Trvalý bonus Vzestupu zvedá výstup.
                 double yield = recipe.Outputs[j].Amount * productionMult
                     * building.BiomeMult * building.AdjacencyMult * building.HaulMult
-                    * building.PollutionMult * building.DistrictMult;
+                    * building.PollutionMult * building.DistrictMult * building.MilestoneMult;
                 if (index == foodIndex)
                 {
                     yield *= seasonFoodMult;

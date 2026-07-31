@@ -44,6 +44,13 @@ public struct BuildingInstance
     public float HaulMult;
 
     /// <summary>
+    /// Násobič výroby z milníků za počet budov téhož typu (viz
+    /// <c>BuildingMilestoneSystem</c>). 1.0 = typ milníky nemá nebo je ještě
+    /// nedosáhl.
+    /// </summary>
+    public float MilestoneMult;
+
+    /// <summary>
     /// Násobič výroby ze synergie čtvrti (viz <c>DistrictSystem</c>). 1.0 = budova
     /// není v žádné čtvrti, nebo je v ní sama.
     /// </summary>

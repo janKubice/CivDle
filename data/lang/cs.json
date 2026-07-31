@@ -1172,6 +1172,11 @@
     "neighbour.upper_forges": "Horní hutě",
     "neighbour.green_hollow": "Zelený úval",
     "neighbour.salt_road": "Solná stezka",
-    "neighbour.north_reach": "Severní výběžek"
+    "neighbour.north_reach": "Severní výběžek",
+    "building.milestoneTier": "Milník {0}. stupně: výroba {1}",
+    "building.milestoneNext": "Ještě {0} do dalšího stupně ({1} celkem)",
+    "building.milestoneMax": "Nejvyšší stupeň milníku dosažen ({0})",
+    "build.milestoneHint": "Milník: každá {0}. budova zlepší všechny o {1}",
+    "tip.milestones": "Čím víc budov jednoho typu postavíš, tím líp vyrábějí všechny. Každá {0}. je další stupeň — vyplatí se stavět tentýž typ dokola."
   }
 }

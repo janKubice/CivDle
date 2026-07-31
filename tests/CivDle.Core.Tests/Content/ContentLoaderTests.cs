@@ -559,6 +559,84 @@ public class ContentLoaderTests : IDisposable
         Assert.False(content.Gameplay.Pollution.IsEnabled);
     }
 
+    // ----- milníky za počet budov -----
+
+    [Fact]
+    public void LoadFrom_BuildingWithoutMilestones_StaysWithoutThem()
+    {
+        // Blok je volitelný: většina budov milníky mít nemá a starší data je neznají.
+        WriteAllValid();
+
+        var content = Load();
+
+        Assert.All(content.Buildings.All, b => Assert.Null(b.Milestones));
+    }
+
+    [Fact]
+    public void LoadFrom_ValidMilestones_AreParsed()
+    {
+        WriteAllValid();
+        WriteBuildingWithMilestones("""{ "every": 5, "bonusPerStep": 0.1, "maxSteps": 10 }""");
+
+        var milestones = Load().Buildings[0].Milestones;
+
+        Assert.NotNull(milestones);
+        Assert.Equal(5, milestones!.Every);
+        Assert.Equal(0.1, milestones.BonusPerStep, 6);
+        Assert.Equal(10, milestones.MaxSteps);
+    }
+
+    [Fact]
+    public void LoadFrom_MilestoneEveryZero_Throws()
+    {
+        // „Každou nultou budovu" je tichá chyba obsahu — milník by se nikdy neprojevil.
+        WriteAllValid();
+        WriteBuildingWithMilestones("""{ "every": 0, "bonusPerStep": 0.1, "maxSteps": 10 }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("every", ex.Message);
+        Assert.Contains("house", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_MilestoneWithoutBonus_Throws()
+    {
+        WriteAllValid();
+        WriteBuildingWithMilestones("""{ "every": 5, "bonusPerStep": 0, "maxSteps": 10 }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("bonusPerStep", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_MilestoneWithoutCeiling_Throws()
+    {
+        // Bez stropu by šla výroba škálovat donekonečna jedním typem budovy.
+        WriteAllValid();
+        WriteBuildingWithMilestones("""{ "every": 5, "bonusPerStep": 0.1, "maxSteps": 0 }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("maxSteps", ex.Message);
+    }
+
+    /// <summary>Přepíše budovy jedinou budovou s dodaným blokem milníků.</summary>
+    private void WriteBuildingWithMilestones(string milestones)
+    {
+        Write("buildings.json", $$"""
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "house", "mapColor": "#B5651D", "footprint": [1, 1],
+              "buildCost": { "wood": 5 }, "allowedBiomes": ["grass"],
+              "milestones": {{milestones}} }
+          ]
+        }
+        """);
+    }
+
     [Fact]
     public void LoadFrom_GameplayWithUnknownFoodResource_Throws()
     {

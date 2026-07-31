@@ -1796,7 +1796,42 @@ public sealed class ContentLoader
             storageBonus, dto.AutoBuild, dto.Buildable ?? true, upgradesToIndex, upgradeCost,
             dto.PowerSupply, dto.PowerDemand, dto.RequiresAdjacentWater,
             dto.ServiceValue, upkeep, mergesToIndex, mergeCost, adjacency, dto.BuildTicks,
-            dto.TerrainHarvestRadius, pollution, ParseMinSettlementRank(path, id, dto.MinSettlementRank, ranks));
+            dto.TerrainHarvestRadius, pollution, ParseMinSettlementRank(path, id, dto.MinSettlementRank, ranks),
+            ParseMilestones(path, id, dto.Milestones));
+    }
+
+    /// <summary>
+    /// Milníky za počet budov. Blok je volitelný; když v datech je, musí dávat
+    /// smysl — milník „každou nultou budovu" nebo s nulovým bonusem je tichá
+    /// chyba obsahu, ne „skoro správně" (fail-fast, CLAUDE.md).
+    /// </summary>
+    private static BuildingMilestones? ParseMilestones(string path, string id, BuildingMilestonesDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (dto.Every is < 1 or > 10_000)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': 'milestones.every' musí být 1–10000, je {dto.Every}.");
+        }
+
+        if (dto.BonusPerStep <= 0 || dto.BonusPerStep > 5)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': 'milestones.bonusPerStep' musí být větší než 0 a nejvýš 5, je {dto.BonusPerStep}.");
+        }
+
+        // Bez stropu by šla výroba škálovat donekonečna jedním typem budovy.
+        if (dto.MaxSteps is < 1 or > 100)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': 'milestones.maxSteps' musí být 1–100, je {dto.MaxSteps}.");
+        }
+
+        return new BuildingMilestones(dto.Every, dto.BonusPerStep, dto.MaxSteps);
     }
 
     /// <summary>

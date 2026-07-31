@@ -1172,6 +1172,11 @@
     "neighbour.upper_forges": "Upper Forges",
     "neighbour.green_hollow": "Green Hollow",
     "neighbour.salt_road": "Salt Road",
-    "neighbour.north_reach": "North Reach"
+    "neighbour.north_reach": "North Reach",
+    "building.milestoneTier": "Milestone tier {0}: output {1}",
+    "building.milestoneNext": "{0} more to the next tier ({1} built)",
+    "building.milestoneMax": "Top milestone tier reached ({0})",
+    "build.milestoneHint": "Milestone: every {0}th building improves them all by {1}",
+    "tip.milestones": "The more buildings of one type you have, the better they all produce. Every Nth one is another tier — building the same type over and over pays off."
   }
 }

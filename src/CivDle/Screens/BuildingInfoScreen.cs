@@ -164,6 +164,37 @@ public sealed class BuildingInfoScreen : IScreen
             });
         }
 
+        // Milník za počet budov: kolik jich stojí, co to dává a kolik chybí do
+        // dalšího stupně. Bez toho posledního řádku je milník neviditelný — a tím
+        // pádem k ničemu, protože právě ten je ta mrkev.
+        if (def.Milestones is { } milestones)
+        {
+            int tier = _simulation.MilestoneTier(instance.DefIndex);
+            long toNext = _simulation.MilestoneToNextTier(instance.DefIndex);
+            long built = _simulation.MilestoneCount(instance.DefIndex);
+
+            if (tier > 0)
+            {
+                layout.Widgets.Add(new Label
+                {
+                    Text = loc.Format("building.milestoneTier", tier,
+                        BuildingSummary.Percent(_simulation.MilestoneMultiplier(instance.DefIndex) - 1.0)),
+                    TextColor = new Color(150, 220, 150),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                });
+            }
+
+            layout.Widgets.Add(new Label
+            {
+                Text = toNext > 0
+                    ? loc.Format("building.milestoneNext", toNext, built)
+                    : loc.Format("building.milestoneMax", built),
+                TextColor = toNext > 0 ? new Color(255, 214, 120) : new Color(180, 190, 175),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Tooltip = loc.Format("tip.milestones", milestones.Every),
+            });
+        }
+
         // Kdo budovu založil. Tenhle jeden řádek je celý smysl pojmenovaných
         // obyvatel — bez něj je to jen další budova.
         if (_simulation.FounderOf(instance.X, instance.Y) is { Length: > 0 } founder)

@@ -59,7 +59,11 @@ public sealed record BuildingDto(
     int BuildTicks,
     int TerrainHarvestRadius,
     BuildingPollutionDto? Pollution,
-    string? MinSettlementRank);
+    string? MinSettlementRank,
+    BuildingMilestonesDto? Milestones);
+
+/// <summary>Milníky za počet budov tak, jak leží v JSON.</summary>
+public sealed record BuildingMilestonesDto(int Every, double BonusPerStep, int MaxSteps);
 
 /// <summary>
 /// Dopad budovy na okolí tak, jak leží v JSON. Záporná čísla = čistička.

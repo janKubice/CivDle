@@ -35,6 +35,7 @@ public sealed class Simulation
     private readonly ContractSystem _contractSystem;
     private readonly DistrictSystem _districtSystem;
     private readonly CitizenSystem _citizenSystem;
+    private readonly BuildingMilestoneSystem _milestoneBonuses;
     private readonly ConstructionSystem _constructionSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
@@ -141,6 +142,7 @@ public sealed class Simulation
         _contractSystem = new ContractSystem(content, seed);
         _districtSystem = new DistrictSystem(content);
         _citizenSystem = new CitizenSystem(content, seed);
+        _milestoneBonuses = new BuildingMilestoneSystem(content);
         _neighbourTrades = new long[content.Neighbours.Neighbours.Count];
         _constructionSystem = new ConstructionSystem(content);
         ResetContractBoard();
@@ -525,6 +527,24 @@ public sealed class Simulation
         y = 0;
         return false;
     }
+
+    /// <summary>Kolik dostavěných budov daného typu se do milníků počítá.</summary>
+    public long MilestoneCount(int defIndex) => _milestoneBonuses.CountOf(defIndex);
+
+    /// <summary>Násobič výroby, který typ z milníků zrovna má (1.0 = žádný).</summary>
+    public double MilestoneMultiplier(int defIndex) => _milestoneBonuses.MultiplierOf(defIndex);
+
+    /// <summary>
+    /// Kolik budov typu chybí do dalšího stupně; 0 = strop je vyčerpaný nebo typ
+    /// milníky nemá. UI z toho píše „ještě 3 do dalšího stupně" — bez toho by byl
+    /// milník neviditelný a tím pádem k ničemu.
+    /// </summary>
+    public long MilestoneToNextTier(int defIndex) =>
+        _content.Buildings[defIndex].Milestones?.ToNextTier(MilestoneCount(defIndex)) ?? 0;
+
+    /// <summary>Kolikátý stupeň milníku typ má.</summary>
+    public int MilestoneTier(int defIndex) =>
+        _content.Buildings[defIndex].Milestones?.TierFor(MilestoneCount(defIndex)) ?? 0;
 
     /// <summary>
     /// Nejvyšší stupeň sídla, jakého už město dosáhlo. Existuje jen kvůli tomu,
@@ -1489,6 +1509,7 @@ public sealed class Simulation
         _colonySystem.Tick(this); // guvernér: expanze do nových kolonií
         _settlementSystem.Tick(this);
         _districtSystem.Tick(this);
+        _milestoneBonuses.Tick(this);
         _happinessSystem.Tick(this);
         _contractSystem.Tick(this);
         _citizenSystem.Tick(this);
@@ -3555,6 +3576,9 @@ public sealed class Simulation
             // (i navždy, když jsou čtvrti vypnuté) musí budova vyrábět normálně.
             DistrictMult = 1f,
             DistrictIndex = -1,
+            // Milník typu už platí — nová budova ho zdědí hned, ať výroba
+            // nezačne na 1.0 a po pár ticích neposkočila.
+            MilestoneMult = (float)_milestoneBonuses.MultiplierOf(defIndex),
             BuildTicksRemaining = asConstructionSite ? def.BuildTicks : 0,
         };
         _buildingCount++;
@@ -3882,5 +3906,9 @@ public sealed class Simulation
         RecomputeDerivedState();
         RecomputePolicyEffects(); // obnovené politiky → odvozené parametry růstu
         RefreshTierUnlocks();     // obnovená úroveň Vzestupu → odemčené megastruktury
+
+        // Milníky se neukládají (odvodí se z počtu budov), ale platit musí hned
+        // po načtení — jinak by hráč prvních pár tiků vyráběl pod svou úrovní.
+        _milestoneBonuses.Recompute(this);
     }
 }
