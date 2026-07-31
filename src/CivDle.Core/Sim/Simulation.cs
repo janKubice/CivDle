@@ -36,6 +36,7 @@ public sealed class Simulation
     private readonly DistrictSystem _districtSystem;
     private readonly CitizenSystem _citizenSystem;
     private readonly BuildingMilestoneSystem _milestoneBonuses;
+    private readonly HistorySystem _historySystem;
     private readonly ConstructionSystem _constructionSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
@@ -143,6 +144,8 @@ public sealed class Simulation
         _districtSystem = new DistrictSystem(content);
         _citizenSystem = new CitizenSystem(content, seed);
         _milestoneBonuses = new BuildingMilestoneSystem(content);
+        _historySystem = new HistorySystem(content);
+        History = new CityHistory(content.Gameplay.History.MaxFrames);
         _neighbourTrades = new long[content.Neighbours.Neighbours.Count];
         _constructionSystem = new ConstructionSystem(content);
         ResetContractBoard();
@@ -527,6 +530,19 @@ public sealed class Simulation
         y = 0;
         return false;
     }
+
+    /// <summary>
+    /// Časosběr města: hrubý půdorys zaznamenaný co pár minut. Prázdný, dokud
+    /// není vrstva zapnutá v datech.
+    ///
+    /// <para>Je to jediná věc, která z dlouhé tiché práce dělá příběh, na který
+    /// jde ukázat prstem — proto přežívá i to, co Vzestup smaže… až do chvíle,
+    /// kdy začne nový svět.</para>
+    /// </summary>
+    public CityHistory History { get; }
+
+    /// <summary>Zaznamenává se vůbec časosběr?</summary>
+    public bool HistoryEnabled => _content.Gameplay.History.IsEnabled;
 
     /// <summary>Kolik dostavěných budov daného typu se do milníků počítá.</summary>
     public long MilestoneCount(int defIndex) => _milestoneBonuses.CountOf(defIndex);
@@ -1549,6 +1565,7 @@ public sealed class Simulation
         _settlementSystem.Tick(this);
         _districtSystem.Tick(this);
         _milestoneBonuses.Tick(this);
+        _historySystem.Tick(this);
         _happinessSystem.Tick(this);
         _contractSystem.Tick(this);
         _citizenSystem.Tick(this);
@@ -3844,6 +3861,10 @@ public sealed class Simulation
 
         long points = PendingAscensionPoints();
 
+        // Poslední podoba města patří do časosběru — jinak by přehrávka končila
+        // někde uprostřed, u snímku, který padl náhodou na správný tik.
+        _historySystem.Capture(this);
+
         // Bilance se sbírá TEĎ, ještě před resetem — po něm už není z čeho.
         int techs = 0;
         for (int i = 0; i < _techResearched.Length; i++)
@@ -3971,6 +3992,7 @@ public sealed class Simulation
         _districts.Clear(); // čtvrti se poznají znovu, až nová zástavba doroste
         HighestSettlementRank = -1; // v novém měřítku je i první osada zas událost
         _founders.Clear(); // zakladatelé patří ke světu, který právě skončil
+        History.Clear();   // a časosběr taky — nový svět začíná prázdným listem
         Array.Clear(_neighbourTrades); // sousedi nového měřítka hráče ještě neznají
         PendingCitizenRequest = CitizenRequest.None;
         CitizenCooldownTicks = 0;

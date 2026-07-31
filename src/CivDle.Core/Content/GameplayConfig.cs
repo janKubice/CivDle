@@ -346,6 +346,24 @@ public sealed record LaserConfig(double HarvestsPerSecond, int RadiusTiles, stri
     public double SecondsPerHarvest => HarvestsPerSecond > 0 ? 1.0 / HarvestsPerSecond : double.MaxValue;
 }
 
+/// <summary>
+/// Časosběr: jak často se zaznamená podoba města a kolik snímků se drží.
+///
+/// <para>Interval je kompromis mezi plynulostí přehrávky a velikostí savu; strop
+/// snímků drží obojí v mezích i po hodinách hraní (po naplnění se historie
+/// prořídí, ne ořízne — začátek příběhu má zůstat).</para>
+/// </summary>
+/// <param name="IntervalSeconds">Jak často se snímá (herní sekundy).</param>
+/// <param name="MaxFrames">Kolik snímků se nejvýš drží.</param>
+public sealed record HistoryConfig(double IntervalSeconds, int MaxFrames)
+{
+    /// <summary>Vypnutý časosběr — hra bez téhle vrstvy (výchozí pro starší data).</summary>
+    public static HistoryConfig Disabled { get; } = new(0, 0);
+
+    /// <summary>Má smysl vůbec něco zaznamenávat?</summary>
+    public bool IsEnabled => IntervalSeconds > 0 && MaxFrames > 1;
+}
+
 /// <param name="Settlements">Nastavení detekce osad.</param>
 /// <param name="DayNight">Denní/noční cyklus.</param>
 /// <param name="Boost">Nastavení slavnosti (dočasný boost).</param>
@@ -371,8 +389,12 @@ public sealed record GameplayConfig(
     ComboConfig? ComboOrNull = null,
     PollutionConfig? PollutionOrNull = null,
     BulkBuildConfig? BulkBuildOrNull = null,
-    LaserConfig? LaserOrNull = null)
+    LaserConfig? LaserOrNull = null,
+    HistoryConfig? HistoryOrNull = null)
 {
+    /// <summary>Nastavení časosběru; chybí-li v datech, se nic nezaznamenává.</summary>
+    public HistoryConfig History => HistoryOrNull ?? HistoryConfig.Disabled;
+
     /// <summary>Nastavení těžebního laseru; chybí-li v datech, je vrstva vypnutá.</summary>
     public LaserConfig Laser => LaserOrNull ?? LaserConfig.Disabled;
 

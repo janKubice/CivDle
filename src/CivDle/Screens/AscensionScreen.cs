@@ -122,6 +122,15 @@ public sealed class AscensionScreen : IScreen
             var ready = new VerticalStackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
             ready.Widgets.Add(AscendPreviewPanel(_simulation.PreviewAscension()));
 
+            // Poslední pohled na to, co Vzestup smaže. Nabízí se tady, protože
+            // tohle je jediné místo, kde hráč o zmizení světa opravdu ví.
+            if (_simulation.History.Count > 1)
+            {
+                ready.Widgets.Add(UiFactory.SmallButton(
+                    loc["timelapse.beforeAscend"],
+                    () => _screens.Push(new TimelapseScreen(_screens, _simulation.History))));
+            }
+
             var button = new Button
             {
                 Content = new Label

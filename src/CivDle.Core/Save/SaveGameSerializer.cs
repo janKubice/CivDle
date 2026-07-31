@@ -67,6 +67,7 @@ public sealed class SaveGameSerializer
     private const string SectionCitizens = "citizens";
     private const string SectionNeighbours = "neighbours";
     private const string SectionRuns = "runs";
+    private const string SectionHistory = "history";
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -130,6 +131,10 @@ public sealed class SaveGameSerializer
             w.Write(simulation.PeakPopulation);
             w.Write(simulation.BestRunPopulation);
         });
+
+        // Časosběr: bez něj by po restartu zmizel celý příběh běhu. Tělo savu
+        // je gzip, takže si podobné snímky poradí samy.
+        WriteSection(writer, SectionHistory, w => WriteHistory(w, simulation));
     }
 
     /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
@@ -347,6 +352,7 @@ public sealed class SaveGameSerializer
             case SectionNeighbours: ReadNeighbours(section, content, simulation); break;
             case SectionElection: simulation.RestoreElection(section.ReadInt64(), section.ReadInt32()); break;
             case SectionMilestones: ReadMilestones(section, content, simulation); break;
+            case SectionHistory: ReadHistory(section, simulation); break;
             case SectionRuns:
                 simulation.PeakPopulation = section.ReadInt64();  // pořadí musí sedět se zápisem
                 simulation.BestRunPopulation = section.ReadInt64();
@@ -649,6 +655,39 @@ public sealed class SaveGameSerializer
     /// souseda do dat tak nepřehází, s kým už město obchodovalo. Starší savy
     /// sekci nemají a začnou jako cizinci, což je správně.
     /// </summary>
+    private static void WriteHistory(BinaryWriter writer, Simulation simulation)
+    {
+        var history = simulation.History;
+        writer.Write(history.Count);
+        for (int i = 0; i < history.Count; i++)
+        {
+            var frame = history.FrameAt(i);
+            writer.Write(frame.Tick);
+            writer.Write(frame.Population);
+            writer.Write(frame.Buildings);
+            writer.Write(frame.EraIndex);
+            writer.Write(history.MaskAt(i));
+        }
+    }
+
+    private static void ReadHistory(BinaryReader reader, Simulation simulation)
+    {
+        simulation.History.Clear();
+        int count = reader.ReadInt32();
+        for (int i = 0; i < count; i++)
+        {
+            var frame = new HistoryFrame(
+                reader.ReadInt64(), reader.ReadInt64(), reader.ReadInt32(), reader.ReadInt32());
+            var mask = reader.ReadBytes(CityHistory.MaskBytes);
+            if (mask.Length != CityHistory.MaskBytes)
+            {
+                return; // useknutý save — co se přečetlo, to platí; zbytek se zahodí
+            }
+
+            simulation.History.Add(frame, mask);
+        }
+    }
+
     private static void WriteNeighbours(BinaryWriter writer, GameContent? content, Simulation simulation)
     {
         _ = content; // katalog se bere ze simulace, parametr drží tvar ostatních zapisovačů

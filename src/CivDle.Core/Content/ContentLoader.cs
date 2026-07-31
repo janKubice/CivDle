@@ -2539,7 +2539,35 @@ public sealed class ContentLoader
             ParseCombo(path, file.Combo),
             ParsePollution(path, file.Pollution),
             ParseBulkBuild(path, file.BulkBuild),
-            ParseLaser(path, file.Laser));
+            ParseLaser(path, file.Laser),
+            ParseHistory(path, file.History));
+    }
+
+    /// <summary>
+    /// Nastavení časosběru. Chybí-li blok, nic se nezaznamenává a save zůstává
+    /// stejně velký jako dřív.
+    /// </summary>
+    private static HistoryConfig? ParseHistory(string path, HistoryDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        // Příliš hustý záznam by nafoukl save, příliš řídký by přehrávku udělal
+        // trhanou — obojí je tichá chyba obsahu.
+        if (dto.IntervalSeconds is < 1 or > 3600)
+        {
+            throw new ContentLoadException(path,
+                $"'history.intervalSeconds' musí být 1–3600, je {dto.IntervalSeconds}.");
+        }
+
+        if (dto.MaxFrames is < 2 or > 2000)
+        {
+            throw new ContentLoadException(path, $"'history.maxFrames' musí být 2–2000, je {dto.MaxFrames}.");
+        }
+
+        return new HistoryConfig(dto.IntervalSeconds, dto.MaxFrames);
     }
 
     /// <summary>

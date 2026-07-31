@@ -99,5 +99,9 @@
     "harvestsPerSecond": 8,
     "radiusTiles": 1,
     "feature": "laser"
+  },
+  "history": {
+    "intervalSeconds": 20,
+    "maxFrames": 240
   }
 }

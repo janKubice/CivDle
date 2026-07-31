@@ -172,7 +172,11 @@ public sealed record GameplayFileDto(
     ComboDto? Combo,
     PollutionDto? Pollution,
     BulkBuildDto? BulkBuild,
-    LaserDto? Laser);
+    LaserDto? Laser,
+    HistoryDto? History);
+
+/// <summary>Časosběr tak, jak leží v JSON.</summary>
+public sealed record HistoryDto(double IntervalSeconds, int MaxFrames);
 
 /// <summary>Těžební laser tak, jak leží v JSON.</summary>
 public sealed record LaserDto(double HarvestsPerSecond, int RadiusTiles, string? Feature);
