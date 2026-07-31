@@ -741,6 +741,36 @@ public sealed class Simulation
     /// </summary>
     public double AirPollutionSeverity => _content.Gameplay.Pollution.Severity(AirPollutionOverCity);
 
+    /// <summary>
+    /// Jak se místu na mapě daří: 0 = zakouřená bída, 1 = kvetoucí čtvrť.
+    ///
+    /// <para>Proč to je v simulaci a ne v renderu: prosperita je vlastnost světa
+    /// a render ji má jen <b>zobrazit</b>. Skládá se ze spokojenosti (globální —
+    /// jak se ve městě žije) a zamoření pod nohama (místní — jak to tady vypadá).
+    /// Díky té místní složce nevypadá celé město stejně: čisté předměstí kvete,
+    /// i když nad hutěmi visí smog.</para>
+    ///
+    /// <para>Vypnuté vrstvy nic nekazí — bez spokojenosti i bez znečištění
+    /// vychází 1.0 a město prostě vypadá spořádaně.</para>
+    /// </summary>
+    public double ProsperityAt(int x, int y)
+    {
+        double happiness = _content.Gameplay.Happiness.IsEnabled ? Math.Clamp(Happiness, 0.0, 1.0) : 1.0;
+
+        var pollutionConfig = _content.Gameplay.Pollution;
+        double grime = 0.0;
+        if (pollutionConfig.IsEnabled)
+        {
+            // Vzduch i půda dohromady: kouř nad hlavou i otrávená země pod ní
+            // dělají místo stejně nehezkým. Bere se horší z obou.
+            grime = Math.Max(
+                pollutionConfig.Severity(_pollution.At(x, y, PollutionKind.Air)),
+                pollutionConfig.Severity(_pollution.At(x, y, PollutionKind.Soil)));
+        }
+
+        return Math.Clamp(happiness * (1.0 - grime), 0.0, 1.0);
+    }
+
     /// <summary>Je vrstva znečištění v datech vůbec zapnutá? (UI podle toho skrývá readout.)</summary>
     public bool PollutionEnabled => _content.Gameplay.Pollution.IsEnabled;
 
