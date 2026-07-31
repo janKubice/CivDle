@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "vehicles": [
+    {
+      "id": "handcart",
+      "color": "#8A6A44",
+      "width": 3,
+      "length": 5,
+      "speed": 26,
+      "minEra": 0,
+      "maxEra": 2
+    },
+    {
+      "id": "ox_wagon",
+      "color": "#6E5231",
+      "width": 4,
+      "length": 8,
+      "speed": 20,
+      "minEra": 1,
+      "maxEra": 3
+    },
+    {
+      "id": "horse_cart",
+      "color": "#9A7A4E",
+      "width": 4,
+      "length": 7,
+      "speed": 34,
+      "minEra": 2,
+      "maxEra": 4
+    },
+    {
+      "id": "steam_lorry",
+      "color": "#57616B",
+      "width": 5,
+      "length": 10,
+      "speed": 42,
+      "minEra": 4,
+      "maxEra": 5,
+      "glow": true
+    },
+    {
+      "id": "delivery_truck",
+      "color": "#C4C9CE",
+      "width": 5,
+      "length": 11,
+      "speed": 58,
+      "minEra": 5,
+      "maxEra": 6,
+      "glow": true
+    },
+    {
+      "id": "city_bus",
+      "color": "#D9A441",
+      "width": 6,
+      "length": 14,
+      "speed": 48,
+      "minEra": 5,
+      "maxEra": 6,
+      "glow": true
+    },
+    {
+      "id": "hover_pod",
+      "color": "#6FD8E0",
+      "width": 5,
+      "length": 8,
+      "speed": 76,
+      "minEra": 6,
+      "glow": true
+    }
+  ]
+}

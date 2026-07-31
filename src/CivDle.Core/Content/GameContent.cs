@@ -44,8 +44,10 @@ public sealed class GameContent
         NeighbourCatalog neighbours,
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
-        SeasonCalendar seasons)
+        SeasonCalendar seasons,
+        IReadOnlyList<VehicleDef>? vehicles = null)
     {
+        Vehicles = vehicles ?? Array.Empty<VehicleDef>();
         Biomes = biomes;
         Resources = resources;
         Buildings = buildings;
@@ -188,6 +190,12 @@ public sealed class GameContent
 
     /// <summary>Ambientní fauna z <c>data/fauna.json</c> (smí být prázdné).</summary>
     public IReadOnlyList<FaunaDef> Fauna { get; }
+
+    /// <summary>
+    /// Vozidla pro dopravu po silnicích z <c>data/vehicles.json</c> (smí být
+    /// prázdné — bez nich se po silnicích prostě nic nehýbe).
+    /// </summary>
+    public IReadOnlyList<VehicleDef> Vehicles { get; }
 
     /// <summary>Definice biomů z <c>data/biomes.json</c>.</summary>
     public BiomeRegistry Biomes { get; }

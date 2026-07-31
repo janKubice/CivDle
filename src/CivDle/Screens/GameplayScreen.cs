@@ -52,6 +52,7 @@ public sealed class GameplayScreen : IScreen
     private readonly BuildingRenderer _buildingRenderer;
     private readonly LightsRenderer _lightsRenderer;
     private readonly FaunaSystem _fauna;
+    private readonly TrafficSystem _traffic;
     private readonly AgentSystem _agents;
     private readonly InputManager _input = new();
     private readonly FixedStepLoop _simLoop = new(Simulation.TicksPerSecond);
@@ -189,6 +190,7 @@ public sealed class GameplayScreen : IScreen
         _buildingRenderer = new BuildingRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
         _lightsRenderer = new LightsRenderer(screens.WhitePixel, screens.Content);
         _fauna = new FaunaSystem(screens.Content);
+        _traffic = new TrafficSystem(screens.Content);
         _agents = new AgentSystem(screens.Content, screens.Sprites);
         _minimap = new MinimapRenderer(screens.GraphicsDevice, screens.Content.Biomes, screens.WhitePixel);
         _vignette = new VignetteRenderer(screens.GraphicsDevice);
@@ -316,6 +318,7 @@ public sealed class GameplayScreen : IScreen
         if (_camera.Zoom >= CityScaleRenderer.ThresholdZoom)
         {
             _fauna.Update(dt, _camera, _simulation);
+            _traffic.Update(dt, _camera, _simulation);
             _agents.Update(dt, _camera, _simulation);
             _bubbles.Update(dt, _simulation);
             UpdateCaravan(dt);
@@ -351,6 +354,8 @@ public sealed class GameplayScreen : IScreen
             _harvestables.Draw(spriteBatch, _camera, _simulation);
             _discoveries.Draw(spriteBatch, _camera, _simulation);
             _roadRenderer.Draw(spriteBatch, _camera, _simulation);
+            // Provoz patří NAD silnici a POD budovy — auto má zajet za dům, ne přes něj.
+            _traffic.Draw(spriteBatch, _screens.WhitePixel, _camera, DayNightCycle.NightFactor(_simulation.TimeOfDay01));
             _buildingRenderer.Draw(spriteBatch, _camera, _simulation);
             _agents.Draw(spriteBatch, _camera);
             _fauna.Draw(spriteBatch, _screens.WhitePixel, _camera);

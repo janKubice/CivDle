@@ -1384,6 +1384,15 @@ public sealed class Simulation
     /// </summary>
     public void AddRoadTileForTest(int x, int y) => AddRoadTile(x, y);
 
+    /// <summary>
+    /// Nastaví počet obyvatel. Veřejné kvůli testům a nástrojům — ve hře populace
+    /// jen roste podle jídla, bydlení a spokojenosti, nikdo ji nezadává.
+    ///
+    /// <para>Existuje proto, aby se daly zkoušet věci, které závisejí na velikosti
+    /// města (hustota provozu, agregátní pohled), bez odtikání hodin růstu.</para>
+    /// </summary>
+    public void SetPopulationForTest(double population) => Population = Math.Max(0, population);
+
     /// <summary>Označí dlaždici jako silnici (RoadBuilder, načtení savu). Duplicitní volání je no-op.</summary>
     /// <summary>
     /// Je na dlaždici most? Most je silnice vedoucí po vodě — odvozuje se z terénu,

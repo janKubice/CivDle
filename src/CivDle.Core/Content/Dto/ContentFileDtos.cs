@@ -272,6 +272,20 @@ public sealed record FaunaDto(
     string? TimeOfDay,
     bool Glow);
 
+/// <summary>Obsah souboru <c>data/vehicles.json</c>.</summary>
+public sealed record VehiclesFileDto(int SchemaVersion, List<VehicleDto>? Vehicles);
+
+/// <summary>Jedno vozidlo tak, jak leží v JSON.</summary>
+public sealed record VehicleDto(
+    string? Id,
+    string? Color,
+    int Width,
+    int Length,
+    double Speed,
+    int MinEra,
+    int? MaxEra,
+    bool Glow);
+
 /// <summary>Nastavení auto-stavby tak, jak leží v JSON.</summary>
 public sealed record AutoBuildDto(int IntervalTicks, int SearchRadius, int PopulationHeadroom);
 

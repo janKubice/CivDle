@@ -559,6 +559,95 @@ public class ContentLoaderTests : IDisposable
         Assert.False(content.Gameplay.Pollution.IsEnabled);
     }
 
+    // ----- vozidla -----
+
+    [Fact]
+    public void LoadFrom_WithoutVehiclesFile_LoadsAnyway()
+    {
+        // Kulisa nesmí být podmínkou spuštění — bez souboru se prostě nic nehýbe.
+        WriteAllValid();
+
+        Assert.Empty(Load().Vehicles);
+    }
+
+    [Fact]
+    public void LoadFrom_ValidVehicles_AreParsed()
+    {
+        WriteAllValid();
+        Write("vehicles.json", """
+        {
+          "schemaVersion": 1,
+          "vehicles": [
+            { "id": "cart", "color": "#8A6A44", "width": 3, "length": 5, "speed": 26, "minEra": 0, "maxEra": 2 }
+          ]
+        }
+        """);
+
+        var vehicle = Assert.Single(Load().Vehicles);
+
+        Assert.Equal("cart", vehicle.Id);
+        Assert.Equal(26f, vehicle.Speed);
+        Assert.True(vehicle.FitsEra(1));
+        Assert.False(vehicle.FitsEra(3));
+    }
+
+    [Fact]
+    public void LoadFrom_VehicleWithInvertedEraRange_Throws()
+    {
+        // Vozidlo, které nikdy nevyjede, je tichá chyba obsahu.
+        WriteAllValid();
+        Write("vehicles.json", """
+        {
+          "schemaVersion": 1,
+          "vehicles": [
+            { "id": "ghost", "color": "#8A6A44", "width": 3, "length": 5, "speed": 26, "minEra": 4, "maxEra": 2 }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("ghost", ex.Message);
+        Assert.Contains("maxEra", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_MotionlessVehicle_Throws()
+    {
+        WriteAllValid();
+        Write("vehicles.json", """
+        {
+          "schemaVersion": 1,
+          "vehicles": [
+            { "id": "brick", "color": "#8A6A44", "width": 3, "length": 5, "speed": 0, "minEra": 0 }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("speed", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_DuplicateVehicleId_ReportsId()
+    {
+        WriteAllValid();
+        Write("vehicles.json", """
+        {
+          "schemaVersion": 1,
+          "vehicles": [
+            { "id": "cart", "color": "#8A6A44", "width": 3, "length": 5, "speed": 26, "minEra": 0 },
+            { "id": "cart", "color": "#8A6A44", "width": 3, "length": 5, "speed": 26, "minEra": 0 }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("cart", ex.Message);
+    }
+
     // ----- hromadná stavba -----
 
     [Fact]

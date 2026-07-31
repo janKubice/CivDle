@@ -69,10 +69,11 @@ public sealed class ContentLoader
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
+        var vehicles = LoadVehicles(Path.Combine(dataDirectory, "vehicles.json"));
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, neighbours, elections, milestones, seasons);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, neighbours, elections, milestones, seasons, vehicles);
     }
 
     // ----- roční období -----
@@ -2881,6 +2882,66 @@ public sealed class ContentLoader
             result.Add(new FaunaDef(
                 id, ParseBiomeMask(path, $"Fauna '{id}'", dto.Biomes, biomes),
                 color, dto.Size, (float)dto.Speed, time, dto.Glow));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Vozidla pro dopravu po silnicích. Soubor je volitelný — bez něj se prostě
+    /// nic nehýbe a hra běží jako dřív (kulisa nesmí být podmínkou spuštění).
+    /// </summary>
+    private static IReadOnlyList<VehicleDef> LoadVehicles(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return Array.Empty<VehicleDef>();
+        }
+
+        var file = ReadFile<VehiclesFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var result = new List<VehicleDef>();
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var dto in file.Vehicles ?? new List<VehicleDto>())
+        {
+            string id = RequireId(path, dto.Id, "Vozidlo");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID vozidla '{id}'.");
+            }
+
+            var color = ParseColor(path, dto.Color, $"Vozidlo '{id}'");
+            if (dto.Width is < 1 or > 16)
+            {
+                throw new ContentLoadException(path, $"Vozidlo '{id}': 'width' musí být 1–16, je {dto.Width}.");
+            }
+
+            if (dto.Length is < 1 or > 32)
+            {
+                throw new ContentLoadException(path, $"Vozidlo '{id}': 'length' musí být 1–32, je {dto.Length}.");
+            }
+
+            if (dto.Speed is <= 0 or > 500)
+            {
+                throw new ContentLoadException(path, $"Vozidlo '{id}': 'speed' musí být v (0, 500], je {dto.Speed}.");
+            }
+
+            if (dto.MinEra < 0)
+            {
+                throw new ContentLoadException(path, $"Vozidlo '{id}': 'minEra' nesmí být záporná, je {dto.MinEra}.");
+            }
+
+            // Chybějící maxEra = jezdí navždy; převrácený rozsah je tichá chyba
+            // obsahu — vozidlo by se nikdy neobjevilo.
+            int maxEra = dto.MaxEra ?? -1;
+            if (maxEra >= 0 && maxEra < dto.MinEra)
+            {
+                throw new ContentLoadException(path,
+                    $"Vozidlo '{id}': 'maxEra' ({maxEra}) je menší než 'minEra' ({dto.MinEra}) — nikdy by nejezdilo.");
+            }
+
+            result.Add(new VehicleDef(id, color, dto.Width, dto.Length, (float)dto.Speed, dto.MinEra, maxEra, dto.Glow));
         }
 
         return result;
