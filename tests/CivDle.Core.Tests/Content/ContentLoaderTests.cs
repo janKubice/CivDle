@@ -559,6 +559,59 @@ public class ContentLoaderTests : IDisposable
         Assert.False(content.Gameplay.Pollution.IsEnabled);
     }
 
+    // ----- podívané megastruktur -----
+
+    [Fact]
+    public void LoadFrom_UnknownSpectacleEffect_ReportsBuilding()
+    {
+        // Budova by se tvářila, že něco umí, a nikdy nic neudělala.
+        WriteAllValid();
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "wonder", "mapColor": "#B5651D", "footprint": [1, 1],
+              "buildCost": { "wood": 5 }, "allowedBiomes": ["grass"],
+              "spectacle": { "effect": "disco_lights", "intervalSeconds": 10 } }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("wonder", ex.Message);
+        Assert.Contains("spectacle.effect", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_TooFrequentSpectacle_Throws()
+    {
+        // Pod vteřinu už to není podívaná, ale blikání.
+        WriteAllValid();
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "wonder", "mapColor": "#B5651D", "footprint": [1, 1],
+              "buildCost": { "wood": 5 }, "allowedBiomes": ["grass"],
+              "spectacle": { "effect": "rocket_launch", "intervalSeconds": 0.2 } }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("intervalSeconds", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_BuildingWithoutSpectacle_JustStandsThere()
+    {
+        WriteAllValid();
+
+        Assert.All(Load().Buildings.All, b => Assert.False(b.HasSpectacle));
+    }
+
     // ----- těžební laser -----
 
     [Fact]

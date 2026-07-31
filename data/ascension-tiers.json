@@ -1,10 +1,43 @@
 {
   "schemaVersion": 1,
   "tiers": [
-    { "id": "village",     "order": 0, "populationCap": 1000 },
-    { "id": "city",        "order": 1, "populationCap": 25000 },
-    { "id": "metropolis",  "order": 2, "populationCap": 1000000, "unlocks": ["megacity_spire", "grand_exchange"] },
-    { "id": "megaregion",  "order": 3, "populationCap": 100000000, "unlocks": ["orbital_ring", "world_forge", "spaceport"] },
-    { "id": "planetary",   "order": 4, "populationCap": 10000000000 }
+    {
+      "id": "village",
+      "order": 0,
+      "populationCap": 1000
+    },
+    {
+      "id": "city",
+      "order": 1,
+      "populationCap": 25000
+    },
+    {
+      "id": "metropolis",
+      "order": 2,
+      "populationCap": 1000000,
+      "unlocks": [
+        "megacity_spire",
+        "grand_exchange"
+      ]
+    },
+    {
+      "id": "megaregion",
+      "order": 3,
+      "populationCap": 100000000,
+      "unlocks": [
+        "orbital_ring",
+        "world_forge",
+        "spaceport"
+      ]
+    },
+    {
+      "id": "planetary",
+      "order": 4,
+      "populationCap": 10000000000,
+      "unlocks": [
+        "particle_accelerator",
+        "fusion_beacon"
+      ]
+    }
   ]
 }

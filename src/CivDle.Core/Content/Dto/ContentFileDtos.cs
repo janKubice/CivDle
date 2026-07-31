@@ -60,7 +60,11 @@ public sealed record BuildingDto(
     int TerrainHarvestRadius,
     BuildingPollutionDto? Pollution,
     string? MinSettlementRank,
-    BuildingMilestonesDto? Milestones);
+    BuildingMilestonesDto? Milestones,
+    BuildingSpectacleDto? Spectacle);
+
+/// <summary>Podívaná megastruktury tak, jak leží v JSON.</summary>
+public sealed record BuildingSpectacleDto(string? Effect, double IntervalSeconds);
 
 /// <summary>Milníky za počet budov tak, jak leží v JSON.</summary>
 public sealed record BuildingMilestonesDto(int Every, double BonusPerStep, int MaxSteps);

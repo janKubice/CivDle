@@ -1798,7 +1798,41 @@ public sealed class ContentLoader
             dto.PowerSupply, dto.PowerDemand, dto.RequiresAdjacentWater,
             dto.ServiceValue, upkeep, mergesToIndex, mergeCost, adjacency, dto.BuildTicks,
             dto.TerrainHarvestRadius, pollution, ParseMinSettlementRank(path, id, dto.MinSettlementRank, ranks),
-            ParseMilestones(path, id, dto.Milestones));
+            ParseMilestones(path, id, dto.Milestones),
+            ParseSpectacle(path, id, dto.Spectacle));
+    }
+
+    /// <summary>
+    /// Podívaná megastruktury. Blok je volitelný; neznámý efekt je tichá chyba
+    /// obsahu — budova by se tvářila, že něco umí, a nikdy nic neudělala.
+    /// </summary>
+    private static BuildingSpectacle? ParseSpectacle(string path, string id, BuildingSpectacleDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        var effect = dto.Effect?.Trim().ToLowerInvariant() switch
+        {
+            "rocket_launch" => SpectacleEffect.RocketLaunch,
+            "particle_beam" => SpectacleEffect.ParticleBeam,
+            "ring_pulse" => SpectacleEffect.RingPulse,
+            "forge_flare" => SpectacleEffect.ForgeFlare,
+            "spire_beacon" => SpectacleEffect.SpireBeacon,
+            _ => throw new ContentLoadException(path,
+                $"Budova '{id}': 'spectacle.effect' zná jen rocket_launch, particle_beam, ring_pulse, "
+                + $"forge_flare a spire_beacon, je '{dto.Effect}'."),
+        };
+
+        // Příliš častá podívaná přestane být podívanou a stane se blikáním.
+        if (dto.IntervalSeconds is < 1 or > 3600)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': 'spectacle.intervalSeconds' musí být 1–3600, je {dto.IntervalSeconds}.");
+        }
+
+        return new BuildingSpectacle(effect, dto.IntervalSeconds);
     }
 
     /// <summary>

@@ -155,6 +155,8 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.grand_exchange", SpriteSize, GrandExchange);
         Add(device, "building.orbital_ring", SpriteSize, OrbitalRing);
         Add(device, "building.world_forge", SpriteSize, WorldForge);
+        Add(device, "building.particle_accelerator", SpriteSize, ParticleAccelerator);
+        Add(device, "building.fusion_beacon", SpriteSize, FusionBeacon);
 
         // Agenti (živý svět).
         Add(device, "agent.person", 12, Person);
@@ -995,6 +997,37 @@ public sealed class SpriteLibrary : IDisposable
         c.FillCircle(16f, 15f, 3.2f, new Color(180, 220, 245));
         c.FillCircle(6f, 10f, 1.6f, new Color(255, 235, 160)); // moduly na prstenci
         c.FillCircle(26f, 20f, 1.6f, new Color(255, 235, 160));
+    }
+
+    /// <summary>Urychlovač částic: zapuštěný prstenec se svítící drahou uvnitř.</summary>
+    private static void ParticleAccelerator(PixelCanvas c)
+    {
+        c.FillCircle(16f, 17f, 13f, new Color(58, 66, 72));
+        c.FillCircle(16f, 17f, 11f, new Color(88, 98, 104));
+        c.FillCircle(16f, 17f, 8.5f, new Color(46, 54, 60));
+
+        // Svítící dráha uvnitř prstence — to je ta věc, kvůli které se tam kouká.
+        c.FillCircle(16f, 17f, 7f, new Color(127, 227, 196));
+        c.FillCircle(16f, 17f, 5.5f, new Color(24, 32, 38));
+
+        // Injektory na obvodu.
+        c.FillRect(14, 2, 4, 6, new Color(120, 132, 138));
+        c.FillRect(2, 15, 6, 4, new Color(120, 132, 138));
+        c.FillRect(24, 15, 6, 4, new Color(120, 132, 138));
+        c.FillCircle(16f, 4f, 1.6f, new Color(190, 255, 235));
+    }
+
+    /// <summary>Fúzní maják: štíhlá věž s žhnoucím jádrem na vrcholu.</summary>
+    private static void FusionBeacon(PixelCanvas c)
+    {
+        c.FillTriangle(9f, 30f, 23f, 30f, 16f, 6f, new Color(74, 78, 88));
+        c.FillTriangle(11f, 30f, 21f, 30f, 16f, 9f, new Color(104, 110, 122));
+        c.FillRect(6, 28, 20, 3, new Color(62, 66, 74));
+
+        // Jádro nahoře: dvě vrstvy, ať vypadá rozpálené zevnitř.
+        c.FillCircle(16f, 7f, 4.2f, new Color(255, 217, 138));
+        c.FillCircle(16f, 7f, 2.2f, new Color(255, 252, 226));
+        c.FillCircle(16f, 18f, 1.6f, new Color(255, 217, 138) * 0.6f);
     }
 
     private static void WorldForge(PixelCanvas c)

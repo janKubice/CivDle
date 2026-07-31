@@ -63,6 +63,7 @@ public sealed class GameplayScreen : IScreen
     private readonly CelebrationRenderer _celebration = new();
     private readonly FireworksRenderer _fireworks = new();
     private readonly LaserRenderer _laser = new();
+    private readonly SpectacleRenderer _spectacles;
 
     /// <summary>Kolik sekund zbývá do dalšího zásahu těžebního paprsku.</summary>
     private float _laserCooldown;
@@ -196,6 +197,7 @@ public sealed class GameplayScreen : IScreen
         _lightsRenderer = new LightsRenderer(screens.WhitePixel, screens.Content);
         _fauna = new FaunaSystem(screens.Content);
         _traffic = new TrafficSystem(screens.Content);
+        _spectacles = new SpectacleRenderer(screens.Content);
         _agents = new AgentSystem(screens.Content, screens.Sprites);
         _minimap = new MinimapRenderer(screens.GraphicsDevice, screens.Content.Biomes, screens.WhitePixel);
         _vignette = new VignetteRenderer(screens.GraphicsDevice);
@@ -370,6 +372,7 @@ public sealed class GameplayScreen : IScreen
             _bubbles.Draw(spriteBatch, _camera);
             _caravans.Draw(spriteBatch, _camera);
             _golden.Draw(spriteBatch, _camera);
+            _spectacles.Draw(spriteBatch, _screens.WhitePixel, _camera, _simulation);
             _fireworks.Draw(spriteBatch, _screens.WhitePixel, _camera);
             _laser.Draw(spriteBatch, _screens.WhitePixel, _camera);
         }

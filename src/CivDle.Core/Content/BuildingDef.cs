@@ -82,6 +82,43 @@ public sealed record BuildingMilestones(int Every, double BonusPerStep, int MaxS
 }
 
 /// <summary>
+/// Co budova pravidelně předvede. Behavior-ID z JSON (viz data-driven-content.md):
+/// data říkají <b>co a jak často</b>, kód <b>jak to nakreslit</b>.
+/// </summary>
+public enum SpectacleEffect
+{
+    /// <summary>Start rakety: sloup ohně, stoupající tečka, vlečka kouře.</summary>
+    RocketLaunch,
+
+    /// <summary>Urychlovač částic: prstenec, který se roztočí a bliskne.</summary>
+    ParticleBeam,
+
+    /// <summary>Pulz z orbitálního prstence: kruhová vlna přes okolí.</summary>
+    RingPulse,
+
+    /// <summary>Výheň světa: výšleh roztaveného kovu z komína.</summary>
+    ForgeFlare,
+
+    /// <summary>Maják na vrcholu věže: pomalu pulzující světlo.</summary>
+    SpireBeacon,
+}
+
+/// <summary>
+/// Podívaná megastruktury — periodický efekt, kvůli kterému se hráč vrátí
+/// kamerou k tomu, co s takovou námahou postavil.
+///
+/// <para>Proč to ve hře je: div světa se stavěl desítky minut a pak jen stál.
+/// Odměna, která se odehraje jednou při dostavbě, je odměna, kterou hráč zažije
+/// jednou. Tohle z megastruktury dělá místo, kam se vyplatí koukat i potom.</para>
+///
+/// <para>Vrstva: čistě kulisa. Interval a druh jsou v datech, samotné kreslení
+/// v renderu — simulace o podívané neví.</para>
+/// </summary>
+/// <param name="Effect">Který efekt se přehraje.</param>
+/// <param name="IntervalSeconds">Jak často (v sekundách herního času).</param>
+public sealed record BuildingSpectacle(SpectacleEffect Effect, double IntervalSeconds);
+
+/// <summary>
 /// Zvalidovaná definice budovy z <c>data/buildings.json</c> (typ; instance jsou
 /// struktury v plochém poli simulace). Jméno je v jazykových souborech pod
 /// <c>building.&lt;Id&gt;</c>.
@@ -133,8 +170,17 @@ public sealed record BuildingDef(
     int TerrainHarvestRadius = 0,
     PollutionOutput? PollutionOrNull = null,
     int MinSettlementRank = -1,
-    BuildingMilestones? MilestonesOrNull = null)
+    BuildingMilestones? MilestonesOrNull = null,
+    BuildingSpectacle? SpectacleOrNull = null)
 {
+    /// <summary>
+    /// Podívaná, kterou budova pravidelně předvádí; <c>null</c> = jen stojí.
+    /// </summary>
+    public BuildingSpectacle? Spectacle => SpectacleOrNull;
+
+    /// <summary>Dělá tahle budova občas něco, na co stojí za to koukat?</summary>
+    public bool HasSpectacle => SpectacleOrNull is not null;
+
     /// <summary>
     /// Milníky za počet budov tohoto typu; <c>null</c> = typ milníky nemá
     /// a chová se jako dřív.
