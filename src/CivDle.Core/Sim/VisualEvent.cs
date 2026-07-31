@@ -17,6 +17,13 @@ public enum VisualEventKind
 
     /// <summary>Přibyl kus silnice.</summary>
     RoadBuilt,
+
+    /// <summary>
+    /// Civilizace překročila milník, který stojí za oslavu (další stupeň za počet
+    /// budov, Vzestup, dostavěný div). Souřadnice míří na těžiště města — je to
+    /// událost celé civilizace, ne jedné dlaždice.
+    /// </summary>
+    MilestoneReached,
 }
 
 /// <summary>

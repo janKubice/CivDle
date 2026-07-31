@@ -3864,6 +3864,9 @@ public sealed class Simulation
         AscensionLevel++;
         ResetEra(); // uvnitř i RefreshTierUnlocks — nové měřítko může odemknout megastruktury
         EnqueueNotification(new GameNotification(NotificationKind.Ascended, "toast.ascended", "prestige.ascendedSubject"));
+
+        // Největší okamžik ve hře si zaslouží ohňostroj nad novým světem.
+        ReportVisual(VisualEventKind.MilestoneReached, CityCenterX, CityCenterY);
         return PlacementResult.Ok;
     }
 
@@ -4037,6 +4040,7 @@ public sealed class Simulation
 
         // Milníky se neukládají (odvodí se z počtu budov), ale platit musí hned
         // po načtení — jinak by hráč prvních pár tiků vyráběl pod svou úrovní.
-        _milestoneBonuses.Recompute(this);
+        // Bez ohlašování: dosažené prahy hráč oslavil už minule.
+        _milestoneBonuses.Recompute(this, announce: false);
     }
 }

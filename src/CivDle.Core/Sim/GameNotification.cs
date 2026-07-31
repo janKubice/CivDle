@@ -38,6 +38,9 @@ public enum NotificationKind
 
     /// <summary>Vztah se sousedem se utužil — bude platit líp.</summary>
     NeighbourFriendlier,
+
+    /// <summary>Budov jednoho typu přibylo tolik, že všechny dostaly další stupeň.</summary>
+    BuildingMilestone,
 }
 
 /// <summary>

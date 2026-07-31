@@ -32,6 +32,12 @@ internal sealed class BuildingMilestoneSystem
     /// <summary>Násobič pro daný typ, spočítaný z počtu.</summary>
     private readonly float[] _multipliers;
 
+    /// <summary>
+    /// Poslední ohlášený stupeň typu. Bez něj by nešlo poznat, kdy hráč práh
+    /// právě překročil — a překročení je ten okamžik, který stojí za oslavu.
+    /// </summary>
+    private readonly int[] _announcedTiers;
+
     /// <summary>Je vůbec co počítat? Bez milníků v datech systém neudělá nic.</summary>
     private readonly bool _anyMilestones;
 
@@ -42,6 +48,7 @@ internal sealed class BuildingMilestoneSystem
         _milestones = new BuildingMilestones?[defs.Count];
         _counts = new long[defs.Count];
         _multipliers = new float[defs.Count];
+        _announcedTiers = new int[defs.Count];
 
         for (int i = 0; i < defs.Count; i++)
         {
@@ -61,8 +68,13 @@ internal sealed class BuildingMilestoneSystem
         Recompute(sim);
     }
 
-    /// <summary>Přepočítá počty i násobiče a rozdá je budovám.</summary>
-    public void Recompute(Simulation sim)
+    /// <summary>
+    /// Přepočítá počty i násobiče a rozdá je budovám. <paramref name="announce"/>
+    /// říká, jestli se má překročení prahu ohlásit — při načtení savu se ohlašovat
+    /// nesmí, jinak by hráče po každém spuštění zasypaly oslavy věcí, které
+    /// zvládl už minule.
+    /// </summary>
+    public void Recompute(Simulation sim, bool announce = true)
     {
         if (!_anyMilestones)
         {
@@ -92,6 +104,51 @@ internal sealed class BuildingMilestoneSystem
         for (int i = 0; i < buildings.Length; i++)
         {
             buildings[i].MilestoneMult = _multipliers[buildings[i].DefIndex];
+        }
+
+        Announce(sim, announce);
+    }
+
+    /// <summary>
+    /// Ohlásí typy, které právě překročily práh. Bez tohohle byl milník tichý:
+    /// výroba poskočila a hráč se o tom nedozvěděl, dokud sám neotevřel panel
+    /// budovy — přesně ta odměna, kterou nikdo nezažije.
+    ///
+    /// <para>Klesnutí (hráč budovy zbořil) se stejným způsobem <b>nehlásí</b>,
+    /// jen se tiše zapamatuje: hra netrestá a rozhodně o tom nedělá slávu.</para>
+    /// </summary>
+    private void Announce(Simulation sim, bool announce)
+    {
+        for (int i = 0; i < _milestones.Length; i++)
+        {
+            if (_milestones[i] is not { } milestone)
+            {
+                continue;
+            }
+
+            int tier = milestone.TierFor(_counts[i]);
+            if (tier == _announcedTiers[i])
+            {
+                continue;
+            }
+
+            bool climbed = tier > _announcedTiers[i];
+            _announcedTiers[i] = tier;
+            if (!announce || !climbed)
+            {
+                continue;
+            }
+
+            // Přesný stupeň se dočte v panelu budovy; toast má říct jen „tenhle
+            // typ se právě zlepšil", aby se dal přečíst koutkem oka.
+            sim.EnqueueNotification(new GameNotification(
+                NotificationKind.BuildingMilestone,
+                "toast.buildingMilestone",
+                _content.Buildings[i].NameKey));
+
+            // Ohňostroj patří nad město, ne nad tu jednu budovu, která práh
+            // shodou okolností dorazila — je to úspěch celé civilizace.
+            sim.ReportVisual(VisualEventKind.MilestoneReached, sim.CityCenterX, sim.CityCenterY);
         }
     }
 

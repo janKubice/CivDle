@@ -1137,6 +1137,7 @@
     "tip.zone": "Zone: paint a rectangle and the city fills it in for you. Builds: {0}.",
     "toast.achievement": "Achievement",
     "toast.ascended": "Ascension",
+    "toast.buildingMilestone": "Next tier",
     "toast.caravanArrived": "Caravan arrived",
     "toast.challenge": "Challenge complete",
     "toast.citizenAsks": "Someone needs you",

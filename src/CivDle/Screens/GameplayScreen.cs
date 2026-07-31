@@ -61,6 +61,7 @@ public sealed class GameplayScreen : IScreen
     private CityPulseRenderer _cityPulse = null!;
     private RollingNumbers _rolling = null!;
     private readonly CelebrationRenderer _celebration = new();
+    private readonly FireworksRenderer _fireworks = new();
     private readonly GameSounds _sounds = new();
     private readonly AmbientMusic _ambient = new();
     private readonly AmbientSoundscape _soundscape;
@@ -310,7 +311,9 @@ public sealed class GameplayScreen : IScreen
         _harvestables.Update(dt);
         _particles.Update(dt);
         _floatingText.Update(dt);
+        LaunchFireworksForMilestones();
         _cityPulse.Update(dt, _simulation);
+        _fireworks.Update(dt);
         _rolling.Update(dt, _simulation.GetResource);
         _celebration.Update(dt);
         // Při velkém oddálení chodce/faunu neaktualizuj — nespawnovali by se přes
@@ -362,6 +365,7 @@ public sealed class GameplayScreen : IScreen
             _bubbles.Draw(spriteBatch, _camera);
             _caravans.Draw(spriteBatch, _camera);
             _golden.Draw(spriteBatch, _camera);
+            _fireworks.Draw(spriteBatch, _screens.WhitePixel, _camera);
         }
         else
         {
@@ -633,6 +637,33 @@ public sealed class GameplayScreen : IScreen
         {
             float factor = MathF.Pow(ZoomStep, _input.ScrollDelta / 120f);
             _camera.ZoomAt(_input.MousePosition.ToVector2(), factor);
+        }
+    }
+
+    /// <summary>
+    /// Odpálí ohňostroj nad každým milníkem, který simulace ohlásila.
+    ///
+    /// <para>Musí běžet DŘÍV, než frontu vybere pulz města — ten ji vyprazdňuje.
+    /// Obrazovka je jediné místo, které o obou efektech ví, takže se tady
+    /// rozhoduje, ne uvnitř některého z nich (SRP).</para>
+    /// </summary>
+    private void LaunchFireworksForMilestones()
+    {
+        var queue = _simulation.VisualEvents;
+        for (int i = 0; i < queue.Count; i++)
+        {
+            if (queue[i].Kind != VisualEventKind.MilestoneReached)
+            {
+                continue;
+            }
+
+            var center = new Vector2(
+                (queue[i].X + 0.5f) * TerrainRenderer.TileSize,
+                (queue[i].Y + 0.5f) * TerrainRenderer.TileSize);
+
+            // Seed z místa a času: dvě salvy po sobě vypadají jinak, ale tatáž
+            // salva se při přehrání chová stejně (žádné mihotání mezi snímky).
+            _fireworks.Burst(center, HashCode.Combine(queue[i].X, queue[i].Y, _simulation.TickCount));
         }
     }
 
@@ -996,7 +1027,10 @@ public sealed class GameplayScreen : IScreen
 
             // Milník a Vzestup dostanou navíc oslavu přes obrazovku. Tisící
             // obyvatel se nemá ztratit v rohu vedle „sklad je plný".
-            if (!_captureMode && note.Kind is NotificationKind.Milestone or NotificationKind.Ascended)
+            if (!_captureMode
+                && note.Kind is NotificationKind.Milestone
+                    or NotificationKind.Ascended
+                    or NotificationKind.BuildingMilestone)
             {
                 _celebration.Show(subject, NotificationColor(note.Kind));
             }
@@ -1213,6 +1247,7 @@ public sealed class GameplayScreen : IScreen
         NotificationKind.QuestCompleted => new Color(120, 200, 140),
         NotificationKind.AchievementUnlocked => new Color(230, 200, 110),
         NotificationKind.Ascended => new Color(180, 140, 230),
+        NotificationKind.BuildingMilestone => new Color(255, 214, 120), // barva ohňostroje
         _ => new Color(96, 196, 220),
     };
 
@@ -1764,6 +1799,12 @@ public sealed class GameplayScreen : IScreen
         _floatingText.Enabled = motion;
         _cityPulse.Enabled = motion;
         _celebration.Enabled = motion;
+        _fireworks.Enabled = motion;
+        if (!motion)
+        {
+            _fireworks.Clear();
+        }
+
     }
 
     /// <summary>

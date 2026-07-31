@@ -233,6 +233,95 @@ public class BuildingMilestoneTests
             $"Milník se do výroby nepromítl: {boosted:F0} vs {plain:F0}.");
     }
 
+    // ----- ohlášení milníku -----
+
+    /// <summary>Posbírá zprávy, které simulace vyrobila.</summary>
+    private static List<GameNotification> Notifications(Simulation sim)
+    {
+        var result = new List<GameNotification>();
+        while (sim.TryDequeueNotification(out var note))
+        {
+            result.Add(note);
+        }
+
+        return result;
+    }
+
+    private static int MilestoneEvents(Simulation sim)
+    {
+        int count = 0;
+        for (int i = 0; i < sim.VisualEvents.Count; i++)
+        {
+            if (sim.VisualEvents[i].Kind == VisualEventKind.MilestoneReached)
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    [Fact]
+    public void CrossingTheThresholdIsAnnounced()
+    {
+        // Bez tohohle byl milník tichý: výroba poskočila a hráč se to dozvěděl,
+        // jen když si sám otevřel panel budovy.
+        var sim = NewSim();
+        Build(sim, Farm, 3);
+
+        Tick(sim, 60);
+
+        var note = Assert.Single(Notifications(sim), n => n.Kind == NotificationKind.BuildingMilestone);
+        Assert.Equal("building.farm", note.SubjectKey);
+        Assert.True(MilestoneEvents(sim) > 0, "Ohňostroj se má odpálit nad městem.");
+    }
+
+    [Fact]
+    public void TheSameThresholdIsAnnouncedOnlyOnce()
+    {
+        var sim = NewSim();
+        Build(sim, Farm, 3);
+        Tick(sim, 60);
+        Notifications(sim);
+        sim.VisualEvents.Clear();
+
+        Tick(sim, 200);
+
+        Assert.Empty(Notifications(sim));
+        Assert.Equal(0, MilestoneEvents(sim));
+    }
+
+    [Fact]
+    public void StayingBelowTheThresholdSaysNothing()
+    {
+        var sim = NewSim();
+        Build(sim, Farm, 2);
+
+        Tick(sim, 60);
+
+        Assert.DoesNotContain(Notifications(sim), n => n.Kind == NotificationKind.BuildingMilestone);
+    }
+
+    [Fact]
+    public void LosingBuildingsIsNotCelebrated()
+    {
+        // Hra netrestá — a rozhodně o propadu nedělá slávu. Po znovudosažení
+        // se ale práh ohlásit musí, jinak by druhá stavba byla tichá.
+        var sim = NewSim();
+        Build(sim, Farm, 3);
+        Tick(sim, 60);
+        Notifications(sim);
+
+        Assert.Equal(PlacementResult.Ok, sim.TryDemolish(2));
+        Tick(sim, 60);
+        Assert.DoesNotContain(Notifications(sim), n => n.Kind == NotificationKind.BuildingMilestone);
+
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(Farm, 40, 40));
+        Tick(sim, 60);
+
+        Assert.Contains(Notifications(sim), n => n.Kind == NotificationKind.BuildingMilestone);
+    }
+
     // ----- save/load -----
 
     [Fact]
@@ -252,5 +341,23 @@ public class BuildingMilestoneTests
         Assert.Equal(6, loaded.MilestoneCount(Farm));
         Assert.Equal(1.5, loaded.MilestoneMultiplier(Farm), 6);
         Assert.Equal(1.5f, loaded.Buildings[0].MilestoneMult, 3);
+    }
+
+    [Fact]
+    public void LoadingASaveDoesNotReplayOldCelebrations()
+    {
+        // Jinak by hráče po každém spuštění zasypaly oslavy věcí, které zvládl
+        // už minule.
+        var sim = NewSim();
+        Build(sim, Farm, 6);
+        Tick(sim, 60);
+
+        var stream = new MemoryStream();
+        new SaveGameSerializer().Write(stream, sim, new SaveMetadata(1, "s", "test", DateTime.UnixEpoch));
+        stream.Position = 0;
+        var (loaded, _) = new SaveGameSerializer().Read(stream, Content());
+
+        Assert.DoesNotContain(Notifications(loaded), n => n.Kind == NotificationKind.BuildingMilestone);
+        Assert.Equal(0, MilestoneEvents(loaded));
     }
 }
