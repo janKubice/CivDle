@@ -37,6 +37,9 @@ public sealed class CaravanSystem
     private readonly Random _rng = new();
 
     private CaravanRun? _run;
+
+    /// <summary>Který soused tuhle karavanu poslal; −1 = anonymní (data bez sousedů).</summary>
+    private int _neighbourIndex = -1;
     private float _age;
     private float _stepTimer;
     private float _spawnTimer = SpawnIntervalSeconds * 0.4f; // první přijede dřív
@@ -93,11 +96,13 @@ public sealed class CaravanSystem
     /// Doputovala karavana do města? Vrací výplatu a místo, kde se vyplatila —
     /// herní obrazovka z toho udělá popup a připíše suroviny.
     /// </summary>
-    public bool TryCollectArrival(Simulation simulation, out int resourceIndex, out int amount, out Vector2 position)
+    public bool TryCollectArrival(
+        Simulation simulation, out int resourceIndex, out int amount, out Vector2 position, out int neighbourIndex)
     {
         resourceIndex = -1;
         amount = 0;
         position = Vector2.Zero;
+        neighbourIndex = _neighbourIndex;
 
         if (_run is null || !_run.HasArrived(simulation))
         {
@@ -137,6 +142,8 @@ public sealed class CaravanSystem
         }
 
         _run = new CaravanRun(best.X, best.Y);
+        // Kdo ji posílá, rozhoduje simulace: vztahy jsou její stav, ne renderu.
+        _neighbourIndex = simulation.PickNeighbour();
         _age = 0f;
         _stepTimer = 0f;
     }

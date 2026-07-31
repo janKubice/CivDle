@@ -135,6 +135,18 @@ public sealed class CityPulseRenderer
                 // Silnice si nezaslouží prstenec — jen obláček prachu pod nohama.
                 AddPop(center, tileSize * 0.55f, new Color(215, 210, 195), debris: 4);
                 break;
+
+            case VisualEventKind.MilestoneReached:
+                // Pulz celé civilizace: široký prstenec z těžiště města. Doprovází
+                // ohňostroj — ten hraje nahoře, tohle na zemi, ať je vidět, že se
+                // to týká města, ne oblohy.
+                AddPop(center, tileSize * 14f, new Color(255, 226, 150), debris: 0);
+                for (int i = 0; i < 14; i++)
+                {
+                    AddSpark(center, new Color(255, 214, 120));
+                }
+
+                break;
         }
     }
 

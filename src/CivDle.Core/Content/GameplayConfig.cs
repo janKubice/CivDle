@@ -301,6 +301,69 @@ public sealed record DailyRewardConfig(IReadOnlyList<ResourceAmount> BaseReward,
 /// <param name="Amount">Výnos jednoho sběru zasazeného uzlu.</param>
 public sealed record PlantingConfig(IReadOnlyList<ResourceAmount> Cost, int ResourceIndex, int Amount);
 
+/// <summary>
+/// Hromadné stavění: násobiče v liště a strop na jedno gesto.
+///
+/// <para>Strop tu není kvůli balancu, ale kvůli hráči i výkonu: jedno tažení
+/// přes půl mapy nesmí položit tisíc budov ani zamrznout snímek počítáním
+/// náhledu. Násobiče jsou v datech, protože je to ladicí knoflík — kolik kusů
+/// naráz dává smysl, se pozná až z hraní.</para>
+/// </summary>
+/// <param name="Batches">Nabídka násobičů v liště (×1, ×5, ×25…).</param>
+/// <param name="MaxPerAction">Kolik kusů nejvýš vznikne jedním gestem.</param>
+public sealed record BulkBuildConfig(IReadOnlyList<int> Batches, int MaxPerAction)
+{
+    /// <summary>Výchozí nastavení pro data, která hromadnou stavbu neznají.</summary>
+    public static BulkBuildConfig Default { get; } = new(new[] { 1, 5, 25 }, 400);
+
+    /// <summary>Je vůbec z čeho vybírat? (Samotné ×1 je „jako dřív".)</summary>
+    public bool HasBatches => Batches.Count > 1;
+}
+
+/// <summary>
+/// Orbitální těžební laser: pozdní podoba ručního sběru.
+///
+/// <para>Proč to ve hře je: klikat na jednotlivé stromy je v hodině páté stejná
+/// činnost jako v minutě první — jen míň zajímavá. Laser tu činnost <b>nezruší</b>,
+/// jen ji promění: hráč místo klikání táhne paprsek přes krajinu. Je to odměna
+/// za dojití daleko, ne nová mechanika k naučení.</para>
+///
+/// <para>Sazba je v datech, protože je to ta nejcitlivější věc na balanc —
+/// příliš rychlý paprsek by z krajiny udělal jednorázovou zásobárnu.</para>
+/// </summary>
+/// <param name="HarvestsPerSecond">Kolik sběrů za sekundu paprsek zvládne.</param>
+/// <param name="RadiusTiles">Kolik dlaždic kolem zásahu ještě zachytí (0 = jen ta jedna).</param>
+/// <param name="FeatureId">ID funkce z <c>features.json</c>, která laser odemyká.</param>
+public sealed record LaserConfig(double HarvestsPerSecond, int RadiusTiles, string FeatureId)
+{
+    /// <summary>Vypnutý laser — hra bez téhle vrstvy (výchozí pro starší data).</summary>
+    public static LaserConfig Disabled { get; } = new(0, 0, string.Empty);
+
+    /// <summary>Má laser vůbec smysl počítat?</summary>
+    public bool IsEnabled => HarvestsPerSecond > 0 && FeatureId.Length > 0;
+
+    /// <summary>Jak dlouho trvá jeden zásah paprsku (sekundy).</summary>
+    public double SecondsPerHarvest => HarvestsPerSecond > 0 ? 1.0 / HarvestsPerSecond : double.MaxValue;
+}
+
+/// <summary>
+/// Časosběr: jak často se zaznamená podoba města a kolik snímků se drží.
+///
+/// <para>Interval je kompromis mezi plynulostí přehrávky a velikostí savu; strop
+/// snímků drží obojí v mezích i po hodinách hraní (po naplnění se historie
+/// prořídí, ne ořízne — začátek příběhu má zůstat).</para>
+/// </summary>
+/// <param name="IntervalSeconds">Jak často se snímá (herní sekundy).</param>
+/// <param name="MaxFrames">Kolik snímků se nejvýš drží.</param>
+public sealed record HistoryConfig(double IntervalSeconds, int MaxFrames)
+{
+    /// <summary>Vypnutý časosběr — hra bez téhle vrstvy (výchozí pro starší data).</summary>
+    public static HistoryConfig Disabled { get; } = new(0, 0);
+
+    /// <summary>Má smysl vůbec něco zaznamenávat?</summary>
+    public bool IsEnabled => IntervalSeconds > 0 && MaxFrames > 1;
+}
+
 /// <param name="Settlements">Nastavení detekce osad.</param>
 /// <param name="DayNight">Denní/noční cyklus.</param>
 /// <param name="Boost">Nastavení slavnosti (dočasný boost).</param>
@@ -324,10 +387,22 @@ public sealed record GameplayConfig(
     HaulConfig? HaulOrNull = null,
     ToolsConfig? ToolsOrNull = null,
     ComboConfig? ComboOrNull = null,
-    PollutionConfig? PollutionOrNull = null)
+    PollutionConfig? PollutionOrNull = null,
+    BulkBuildConfig? BulkBuildOrNull = null,
+    LaserConfig? LaserOrNull = null,
+    HistoryConfig? HistoryOrNull = null)
 {
+    /// <summary>Nastavení časosběru; chybí-li v datech, se nic nezaznamenává.</summary>
+    public HistoryConfig History => HistoryOrNull ?? HistoryConfig.Disabled;
+
+    /// <summary>Nastavení těžebního laseru; chybí-li v datech, je vrstva vypnutá.</summary>
+    public LaserConfig Laser => LaserOrNull ?? LaserConfig.Disabled;
+
     /// <summary>Nastavení znečištění; chybí-li v datech, je vrstva vypnutá.</summary>
     public PollutionConfig Pollution => PollutionOrNull ?? PollutionConfig.Disabled;
+
+    /// <summary>Nastavení hromadné stavby; chybí-li v datech, platí výchozí násobiče.</summary>
+    public BulkBuildConfig BulkBuild => BulkBuildOrNull ?? BulkBuildConfig.Default;
 
     /// <summary>Nastavení klikacího komba; chybí-li v datech, je vrstva vypnutá.</summary>
     public ComboConfig Combo => ComboOrNull ?? ComboConfig.Disabled;

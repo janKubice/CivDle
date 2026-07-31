@@ -33,35 +33,38 @@ public class AutoBuildTests
         // Populace dorůstá kapacitu (10) kolem tiku 250 → poptávka; interval 60.
         RunTicks(sim, 360);
 
-        Assert.Equal(2, sim.Buildings.Length);
-        var autoHouse = sim.Buildings[1];
-        Assert.Equal(house, autoHouse.DefIndex);
+        // Guvernér dnes řeší i obživu, takže budov přibude víc než jen dům.
+        // Podstatné je, že dům vznikl a že se stavělo U ZÁSTAVBY, ne kdekoli.
+        Assert.True(sim.Buildings.Length > 1, "Auto-stavba měla něco postavit.");
         int radius = content.Gameplay.AutoBuild.SearchRadius;
-        Assert.InRange(Math.Abs(autoHouse.X - 8), 0, radius);
-        Assert.InRange(Math.Abs(autoHouse.Y - 8), 0, radius);
+        bool builtHouse = false;
+        for (int i = 1; i < sim.Buildings.Length; i++)
+        {
+            var placed = sim.Buildings[i];
+            builtHouse |= placed.DefIndex == house;
+            Assert.InRange(Math.Abs(placed.X - 8), 0, radius);
+            Assert.InRange(Math.Abs(placed.Y - 8), 0, radius);
+        }
+
+        Assert.True(builtHouse, "Při tlaku na bydlení měl vzniknout dům.");
     }
 
     [Fact]
-    public void StopsWhenResourcesRunOut()
+    public void LeftAloneTheCityFeedsItself()
     {
+        // Tenhle test dřív tvrdil opak: že město vyhladoví (jídlo přesně 0)
+        // a přestane růst. To ale nebyl záměr, to byla vada — guvernér uměl
+        // postavit jedinou budovu, chalupu, takže rostl počet lidí, které nemá
+        // kdo nakrmit. Teď si město obživu postaví samo.
         var content = TestData.LoadRealContent();
         var sim = new Simulation(content, UniformMap(16, (byte)content.Biomes.IndexOf("grassland")), seed: 7);
         Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(content.Buildings.IndexOf("house"), 8, 8));
 
-        // Bez výroby se řetěz přetrhne: dojde jídlo → populace zamrzne pod stropem
-        // bydlení → není poptávka po domech → auto-stavba se zastaví. Odměny za
-        // úkoly to chvíli oddálí, ale jsou jednorázové.
-        RunTicks(sim, 1000);
-        int stabilized = sim.Buildings.Length;
-        RunTicks(sim, 600);
+        RunTicks(sim, 1600);
 
-        Assert.Equal(stabilized, sim.Buildings.Length); // růst se zastavil
-
-        // A ověř i PROČ: město nemá z čeho růst.
         int food = content.Resources.IndexOf("food");
-        Assert.Equal(0, sim.GetResource(food), precision: 6);
-        Assert.True(sim.Population < sim.HousingCapacity,
-            "Populace měla zamrznout pod stropem bydlení, ne o něj zavadit.");
+        Assert.True(sim.GetResource(food) > 0, "Město se mělo umět nakrmit, ne vyhladovět.");
+        Assert.True(sim.Population > content.Gameplay.StartingPopulation, "A díky tomu i vyrůst.");
     }
 
     [Fact]
@@ -83,10 +86,15 @@ public class AutoBuildTests
         var sim = new Simulation(content, UniformMap(16, (byte)content.Biomes.IndexOf("forest")), seed: 7);
         Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(content.Buildings.IndexOf("lumber_camp"), 8, 8));
 
-        // Dům na les nesmí — v čistém lese se žádný auto-dům nepostaví.
+        // Dům na les nesmí. Jiné auto-budovy (lovecká chata, tábor) tam patří,
+        // takže se hlídá právě ta zakázaná — ne že se nepostaví vůbec nic.
         RunTicks(sim, 600);
 
-        Assert.Equal(1, sim.Buildings.Length);
+        int house = content.Buildings.IndexOf("house");
+        foreach (var building in sim.Buildings)
+        {
+            Assert.NotEqual(house, building.DefIndex);
+        }
     }
 
     [Fact]

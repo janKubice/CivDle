@@ -108,9 +108,19 @@ internal sealed class PollutionSystem
             int y = buildings[i].Y + def.FootprintHeight / 2;
             var output = _emission[defIndex];
 
-            map.Emit(x, y, PollutionKind.Air, output.Air * seconds);
-            map.Emit(x, y, PollutionKind.Water, output.Water * seconds);
-            map.Emit(x, y, PollutionKind.Soil, output.Soil * seconds);
+            // Stinná stránka čtvrti: soustředěný průmysl vyrábí líp, ale i víc
+            // dýmá. Bez tohohle by byla synergie čistý zisk a shlukování by
+            // nebylo rozhodnutí, jen správná odpověď. Čističek se to netýká —
+            // trestat je za to, že stojí u sebe, by bylo obráceně.
+            double districtMult = 1.0;
+            if (!def.Pollution.IsCleaner && sim.DistrictOf(i) is { } district)
+            {
+                districtMult = _content.Districts.Types[district.TypeIndex].PollutionMult;
+            }
+
+            map.Emit(x, y, PollutionKind.Air, output.Air * seconds * districtMult);
+            map.Emit(x, y, PollutionKind.Water, output.Water * seconds * districtMult);
+            map.Emit(x, y, PollutionKind.Soil, output.Soil * seconds * districtMult);
         }
     }
 

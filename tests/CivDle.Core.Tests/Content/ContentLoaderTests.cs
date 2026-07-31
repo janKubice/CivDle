@@ -325,6 +325,158 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadFrom_RealGameData_HasDistrictTypes()
+    {
+        var content = TestData.LoadRealContent();
+
+        Assert.True(content.Districts.IsEnabled);
+        Assert.Contains(content.Districts.Types.All, d => d.Id == "industrial");
+
+        // Průmyslová čtvrť musí mít obě strany: bonus i stinnou stránku. Bez toho
+        // by shlukování byla jen správná odpověď, ne rozhodnutí.
+        var industrial = content.Districts.Types[content.Districts.Types.IndexOf("industrial")];
+        Assert.True(industrial.SynergyMax > 0);
+        Assert.True(industrial.PollutionMult > 1.0);
+    }
+
+    [Fact]
+    public void LoadFrom_DistrictWithUnknownCategory_ReportsIt()
+    {
+        // Překlep v kategorii by jinak jen tiše znamenal, že čtvrť nikdy nevznikne.
+        WriteAllValid();
+        Write("districts.json", """
+        {
+          "schemaVersion": 1,
+          "districts": [
+            { "id": "ghost", "categories": ["neexistuje"], "minBuildings": 3,
+              "clusterDistance": 2, "synergyPerBuilding": 0.02, "synergyMax": 0.2,
+              "pollutionMult": 1.0, "mapColor": "#808080" }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("neexistuje", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_DistrictOfOneBuilding_Throws()
+    {
+        // Čtvrť o jedné budově není čtvrť, je to budova.
+        WriteAllValid();
+        Write("districts.json", """
+        {
+          "schemaVersion": 1,
+          "districts": [
+            { "id": "solo", "categories": ["other"], "minBuildings": 1,
+              "clusterDistance": 2, "synergyPerBuilding": 0.02, "synergyMax": 0.2,
+              "pollutionMult": 1.0, "mapColor": "#808080" }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("minBuildings", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_WithoutDistrictsFile_LeavesThemOff()
+    {
+        WriteAllValid();
+
+        var content = Load();
+
+        Assert.False(content.Districts.IsEnabled);
+    }
+
+    [Fact]
+    public void LoadFrom_RealGameData_HasAContractBoard()
+    {
+        // Zakázky jsou krátká smyčka hry — když v datech nejsou, hráč mezi
+        // událostmi jen kouká na čísla.
+        var content = TestData.LoadRealContent();
+
+        Assert.True(content.Contracts.IsEnabled);
+        Assert.True(content.Contracts.Contracts.Count >= 5);
+        Assert.True(content.Contracts.Board.Slots >= 1);
+    }
+
+    [Fact]
+    public void LoadFrom_ContractPayingWithWhatItWants_Throws()
+    {
+        // „Dej mi 20 dřeva, dostaneš 20 dřeva" je jen složitý způsob, jak nedat nic.
+        WriteAllValid();
+        Write("contracts.json", """
+        {
+          "schemaVersion": 1,
+          "board": { "slots": 2, "restockSeconds": 30, "scaleGrowth": 1.05, "maxScale": 20 },
+          "contracts": [
+            { "id": "silly", "resource": "wood", "amount": 20,
+              "reward": { "wood": 20 }, "durationSeconds": 120 }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("silly", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_ContractWithUnknownResource_ReportsIt()
+    {
+        WriteAllValid();
+        Write("contracts.json", """
+        {
+          "schemaVersion": 1,
+          "board": { "slots": 2, "restockSeconds": 30, "scaleGrowth": 1.05, "maxScale": 20 },
+          "contracts": [
+            { "id": "mystery", "resource": "mithril", "amount": 20,
+              "reward": { "food": 10 }, "durationSeconds": 120 }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("mithril", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_ContractScaleShrinkingOverTime_Throws()
+    {
+        // Růst pod 1 by nabídky s hraním zmenšoval — to je překlep, ne záměr.
+        WriteAllValid();
+        Write("contracts.json", """
+        {
+          "schemaVersion": 1,
+          "board": { "slots": 2, "restockSeconds": 30, "scaleGrowth": 0.8, "maxScale": 20 },
+          "contracts": [
+            { "id": "ok", "resource": "wood", "amount": 20,
+              "reward": { "food": 10 }, "durationSeconds": 120 }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("scaleGrowth", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_WithoutContractsFile_LeavesBoardOff()
+    {
+        // Soubor je volitelný: starší data se musí načíst a hrát jako dřív.
+        WriteAllValid();
+
+        var content = Load();
+
+        Assert.False(content.Contracts.IsEnabled);
+    }
+
+    [Fact]
     public void LoadFrom_EmptyPollutionBlock_Throws()
     {
         // Blok samých nul slibuje mechaniku, která se nikdy neprojeví — tichá
@@ -372,7 +524,7 @@ public class ContentLoaderTests : IDisposable
         // Plný trest by zamořenou budovu úplně zastavil. Znečištění má brzdit,
         // ne zabíjet — jinak hráč přijde o výrobu dřív, než postaví čističku.
         WriteAllValid();
-        WriteGameplayWithPollution("""
+        WriteGameplayWith("""
           "pollution": { "intervalTicks": 50, "spreadRate": 0.08, "decayRate": 0.02,
                          "fullEffectAt": 60, "happinessPenalty": 0.25, "productionPenalty": 1.0 }
         """);
@@ -386,7 +538,7 @@ public class ContentLoaderTests : IDisposable
     public void LoadFrom_PollutionSpreadAboveOne_Throws()
     {
         WriteAllValid();
-        WriteGameplayWithPollution("""
+        WriteGameplayWith("""
           "pollution": { "intervalTicks": 50, "spreadRate": 1.5, "decayRate": 0.02,
                          "fullEffectAt": 60, "happinessPenalty": 0.25, "productionPenalty": 0.35 }
         """);
@@ -405,6 +557,320 @@ public class ContentLoaderTests : IDisposable
         var content = Load();
 
         Assert.False(content.Gameplay.Pollution.IsEnabled);
+    }
+
+    // ----- podívané megastruktur -----
+
+    [Fact]
+    public void LoadFrom_UnknownSpectacleEffect_ReportsBuilding()
+    {
+        // Budova by se tvářila, že něco umí, a nikdy nic neudělala.
+        WriteAllValid();
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "wonder", "mapColor": "#B5651D", "footprint": [1, 1],
+              "buildCost": { "wood": 5 }, "allowedBiomes": ["grass"],
+              "spectacle": { "effect": "disco_lights", "intervalSeconds": 10 } }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("wonder", ex.Message);
+        Assert.Contains("spectacle.effect", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_TooFrequentSpectacle_Throws()
+    {
+        // Pod vteřinu už to není podívaná, ale blikání.
+        WriteAllValid();
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "wonder", "mapColor": "#B5651D", "footprint": [1, 1],
+              "buildCost": { "wood": 5 }, "allowedBiomes": ["grass"],
+              "spectacle": { "effect": "rocket_launch", "intervalSeconds": 0.2 } }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("intervalSeconds", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_BuildingWithoutSpectacle_JustStandsThere()
+    {
+        WriteAllValid();
+
+        Assert.All(Load().Buildings.All, b => Assert.False(b.HasSpectacle));
+    }
+
+    // ----- těžební laser -----
+
+    [Fact]
+    public void LoadFrom_GameplayWithoutLaser_LeavesItOff()
+    {
+        // Starší data laser neznají a ruční sběr musí zůstat klikáním.
+        WriteAllValid();
+
+        Assert.False(Load().Gameplay.Laser.IsEnabled);
+    }
+
+    [Fact]
+    public void LoadFrom_AbsurdLaserRate_Throws()
+    {
+        // Příliš rychlý paprsek by z krajiny udělal jednorázovou zásobárnu.
+        WriteAllValid();
+        WriteGameplayWith("""
+          "laser": { "harvestsPerSecond": 500, "radiusTiles": 1, "feature": "laser" }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("harvestsPerSecond", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_LaserWithoutAGate_Throws()
+    {
+        // Bez brány by laser platil od první minuty.
+        WriteAllValid();
+        WriteGameplayWith("""
+          "laser": { "harvestsPerSecond": 8, "radiusTiles": 1 }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("laser.feature", ex.Message);
+    }
+
+    // ----- vozidla -----
+
+    [Fact]
+    public void LoadFrom_WithoutVehiclesFile_LoadsAnyway()
+    {
+        // Kulisa nesmí být podmínkou spuštění — bez souboru se prostě nic nehýbe.
+        WriteAllValid();
+
+        Assert.Empty(Load().Vehicles);
+    }
+
+    [Fact]
+    public void LoadFrom_ValidVehicles_AreParsed()
+    {
+        WriteAllValid();
+        Write("vehicles.json", """
+        {
+          "schemaVersion": 1,
+          "vehicles": [
+            { "id": "cart", "color": "#8A6A44", "width": 3, "length": 5, "speed": 26, "minEra": 0, "maxEra": 2 }
+          ]
+        }
+        """);
+
+        var vehicle = Assert.Single(Load().Vehicles);
+
+        Assert.Equal("cart", vehicle.Id);
+        Assert.Equal(26f, vehicle.Speed);
+        Assert.True(vehicle.FitsEra(1));
+        Assert.False(vehicle.FitsEra(3));
+    }
+
+    [Fact]
+    public void LoadFrom_VehicleWithInvertedEraRange_Throws()
+    {
+        // Vozidlo, které nikdy nevyjede, je tichá chyba obsahu.
+        WriteAllValid();
+        Write("vehicles.json", """
+        {
+          "schemaVersion": 1,
+          "vehicles": [
+            { "id": "ghost", "color": "#8A6A44", "width": 3, "length": 5, "speed": 26, "minEra": 4, "maxEra": 2 }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("ghost", ex.Message);
+        Assert.Contains("maxEra", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_MotionlessVehicle_Throws()
+    {
+        WriteAllValid();
+        Write("vehicles.json", """
+        {
+          "schemaVersion": 1,
+          "vehicles": [
+            { "id": "brick", "color": "#8A6A44", "width": 3, "length": 5, "speed": 0, "minEra": 0 }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("speed", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_DuplicateVehicleId_ReportsId()
+    {
+        WriteAllValid();
+        Write("vehicles.json", """
+        {
+          "schemaVersion": 1,
+          "vehicles": [
+            { "id": "cart", "color": "#8A6A44", "width": 3, "length": 5, "speed": 26, "minEra": 0 },
+            { "id": "cart", "color": "#8A6A44", "width": 3, "length": 5, "speed": 26, "minEra": 0 }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("cart", ex.Message);
+    }
+
+    // ----- hromadná stavba -----
+
+    [Fact]
+    public void LoadFrom_GameplayWithoutBulkBuild_UsesDefaults()
+    {
+        // Starší data blok neznají — hráč o hromadnou stavbu přijít nesmí.
+        WriteAllValid();
+
+        var config = Load().Gameplay.BulkBuild;
+
+        Assert.True(config.HasBatches);
+        Assert.True(config.MaxPerAction > 0);
+    }
+
+    [Fact]
+    public void LoadFrom_UnsortedBatches_Throws()
+    {
+        // Lišta násobičů se čte zleva doprava; přeházená čísla by z ní udělala hádanku.
+        WriteAllValid();
+        WriteGameplayWith("""
+          "bulkBuild": { "batches": [1, 25, 5], "maxPerAction": 400 }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("batches", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_EmptyBatches_Throws()
+    {
+        WriteAllValid();
+        WriteGameplayWith("""
+          "bulkBuild": { "batches": [], "maxPerAction": 400 }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("batches", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_BulkBuildWithoutCap_Throws()
+    {
+        // Bez stropu by jedno tažení přes mapu položilo tisíce budov naráz.
+        WriteAllValid();
+        WriteGameplayWith("""
+          "bulkBuild": { "batches": [1, 5], "maxPerAction": 0 }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("maxPerAction", ex.Message);
+    }
+
+    // ----- milníky za počet budov -----
+
+    [Fact]
+    public void LoadFrom_BuildingWithoutMilestones_StaysWithoutThem()
+    {
+        // Blok je volitelný: většina budov milníky mít nemá a starší data je neznají.
+        WriteAllValid();
+
+        var content = Load();
+
+        Assert.All(content.Buildings.All, b => Assert.Null(b.Milestones));
+    }
+
+    [Fact]
+    public void LoadFrom_ValidMilestones_AreParsed()
+    {
+        WriteAllValid();
+        WriteBuildingWithMilestones("""{ "every": 5, "bonusPerStep": 0.1, "maxSteps": 10 }""");
+
+        var milestones = Load().Buildings[0].Milestones;
+
+        Assert.NotNull(milestones);
+        Assert.Equal(5, milestones!.Every);
+        Assert.Equal(0.1, milestones.BonusPerStep, 6);
+        Assert.Equal(10, milestones.MaxSteps);
+    }
+
+    [Fact]
+    public void LoadFrom_MilestoneEveryZero_Throws()
+    {
+        // „Každou nultou budovu" je tichá chyba obsahu — milník by se nikdy neprojevil.
+        WriteAllValid();
+        WriteBuildingWithMilestones("""{ "every": 0, "bonusPerStep": 0.1, "maxSteps": 10 }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("every", ex.Message);
+        Assert.Contains("house", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_MilestoneWithoutBonus_Throws()
+    {
+        WriteAllValid();
+        WriteBuildingWithMilestones("""{ "every": 5, "bonusPerStep": 0, "maxSteps": 10 }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("bonusPerStep", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_MilestoneWithoutCeiling_Throws()
+    {
+        // Bez stropu by šla výroba škálovat donekonečna jedním typem budovy.
+        WriteAllValid();
+        WriteBuildingWithMilestones("""{ "every": 5, "bonusPerStep": 0.1, "maxSteps": 0 }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("maxSteps", ex.Message);
+    }
+
+    /// <summary>Přepíše budovy jedinou budovou s dodaným blokem milníků.</summary>
+    private void WriteBuildingWithMilestones(string milestones)
+    {
+        Write("buildings.json", $$"""
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "house", "mapColor": "#B5651D", "footprint": [1, 1],
+              "buildCost": { "wood": 5 }, "allowedBiomes": ["grass"],
+              "milestones": {{milestones}} }
+          ]
+        }
+        """);
     }
 
     [Fact]
@@ -654,16 +1120,34 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
-    public void LoadFrom_LanguageKeySetMismatch_ReportsLanguage()
+    public void LoadFrom_PartialLanguage_FallsBackToTheBaseLanguage()
     {
+        // Dřív musel nový jazyk přinést všechny klíče, jinak hra vůbec nenaběhla.
+        // Rozpracovaný překlad tak buď někdo dotáhl do posledního tooltipu, nebo
+        // nevznikl vůbec — a každý nový řetězec ve hře rozbil všechny hotové.
         WriteAllValid();
-        // Angličtině chybí klíč navíc přítomný v češtině.
         Write(Path.Combine("lang", "en.json"), LangJson("en", "English", includeExtraKey: false));
+
+        var content = Load();
+        var english = content.Languages[content.Languages.IndexOf("en")];
+
+        Assert.False(english.IsComplete);
+        Assert.True(english.Coverage is > 0 and < 1);
+        Assert.True(english.Strings.ContainsKey("ui.hello"), "Chybějící klíč se má doplnit ze základního jazyka.");
+    }
+
+    [Fact]
+    public void LoadFrom_LanguageWithAnUnknownKey_ReportsLanguage()
+    {
+        // Klíč navíc je skoro vždycky překlep: hra si takový řetězec nikdy
+        // nevyžádá, takže by se na něj jinak nepřišlo.
+        WriteAllValid();
+        Write(Path.Combine("lang", "en.json"), LangJson("en", "English") .Replace("\"ui.hello\"", "\"ui.helo\""));
 
         var ex = Assert.Throws<ContentLoadException>(Load);
 
         Assert.Contains("'en'", ex.Message);
-        Assert.Contains("ui.hello", ex.Message);
+        Assert.Contains("ui.helo", ex.Message);
     }
 
     // ----- pomůcky -----
@@ -675,7 +1159,8 @@ public class ContentLoaderTests : IDisposable
 
     /// <summary>Minimální kompletní validní sada dat; testy pak přepisují jednotlivé soubory.</summary>
     /// <summary>Platný gameplay.json plus dodaný blok navíc — pro testy volitelných vrstev.</summary>
-    private void WriteGameplayWithPollution(string extraBlock)
+    /// <summary>Zapíše gameplay.json s dodaným blokem navíc (znečištění, hromadná stavba…).</summary>
+    private void WriteGameplayWith(string extraBlock)
     {
         Write("gameplay.json", $$"""
         {

@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Ctvrti (living-city.md §5): shluk budov stejneho razeni dostane jmeno, tvar na mape a synergii. Synergie neni zadarmo — pollutionMult je stinna stranka soustredeneho prumyslu. Kategorie odkazuji na 'category' v buildings.json.",
+  "districts": [
+    {
+      "id": "industrial",
+      "categories": ["production"],
+      "minBuildings": 5,
+      "clusterDistance": 2,
+      "synergyPerBuilding": 0.03,
+      "synergyMax": 0.35,
+      "pollutionMult": 1.5,
+      "mapColor": "#8A6A4A"
+    },
+    {
+      "id": "residential",
+      "categories": ["housing"],
+      "minBuildings": 6,
+      "clusterDistance": 2,
+      "synergyPerBuilding": 0.0,
+      "synergyMax": 0.0,
+      "pollutionMult": 1.0,
+      "mapColor": "#7A6A8A"
+    },
+    {
+      "id": "civic",
+      "categories": ["civic", "monument"],
+      "minBuildings": 4,
+      "clusterDistance": 3,
+      "synergyPerBuilding": 0.02,
+      "synergyMax": 0.2,
+      "pollutionMult": 1.0,
+      "mapColor": "#4A7A8A"
+    },
+    {
+      "id": "logistics",
+      "categories": ["storage"],
+      "minBuildings": 3,
+      "clusterDistance": 2,
+      "synergyPerBuilding": 0.04,
+      "synergyMax": 0.24,
+      "pollutionMult": 1.0,
+      "mapColor": "#6A7A5A"
+    },
+    {
+      "id": "power",
+      "categories": ["power"],
+      "minBuildings": 3,
+      "clusterDistance": 2,
+      "synergyPerBuilding": 0.03,
+      "synergyMax": 0.18,
+      "pollutionMult": 1.6,
+      "mapColor": "#8A7A3A"
+    }
+  ]
+}

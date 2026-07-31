@@ -87,6 +87,19 @@ public sealed class PauseScreen : IScreen
         layout.Widgets.Add(UiFactory.MenuButton(loc["pause.resume"], _screens.Pop));
         layout.Widgets.Add(UiFactory.MenuButton(loc["pause.save"], SaveGame));
         layout.Widgets.Add(UiFactory.MenuButton(loc["menu.howto"], () => _screens.Push(new HowToPlayScreen(_screens))));
+
+        // Časosběr i grafy se nabízí, jen když už je co ukazovat — prázdné
+        // tlačítko v pauze by bylo jen slib, který hra hned nesplní.
+        if (_simulation.HistoryEnabled && _simulation.History.Count > 1)
+        {
+            layout.Widgets.Add(UiFactory.MenuButton(
+                loc["timelapse.title"],
+                () => _screens.Push(new TimelapseScreen(_screens, _simulation.History))));
+            layout.Widgets.Add(UiFactory.MenuButton(
+                loc["stats.title"],
+                () => _screens.Push(new StatsScreen(_screens, _simulation.History))));
+        }
+
         layout.Widgets.Add(UiFactory.MenuButton(loc["pause.settings"], () => _screens.Push(new SettingsScreen(_screens, showBackground: false))));
         // Odchod z rozehrané hry vždycky uloží — hráč nemá o postup přijít proto,
         // že zapomněl kliknout na „Uložit".

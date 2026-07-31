@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Sousedni sidla, se kterymi mesto obchoduje. Karavany prestaly byt anonymni: soused se vraci, pamatuje si pocet obchodu a s rostoucim vztahem plati lip. Prednost dostava ten, se kterym se dlouho neobchodovalo, aby hrac poznal cele okoli.",
+  "tradesPerLevel": 4,
+  "bonusPerLevel": 0.15,
+  "maxLevel": 5,
+  "neighbours": [
+    { "id": "stone_bay", "mapColor": "#7FA9C4" },
+    { "id": "upper_forges", "mapColor": "#C4835F" },
+    { "id": "green_hollow", "mapColor": "#7FB56A" },
+    { "id": "salt_road", "mapColor": "#D6C88A" },
+    { "id": "north_reach", "mapColor": "#9AA7C4" }
+  ]
+}

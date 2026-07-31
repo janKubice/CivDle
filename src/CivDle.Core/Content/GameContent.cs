@@ -37,10 +37,19 @@ public sealed class GameContent
         DefRegistry<TerraformDef> terraform,
         IReadOnlyList<TutorialStepDef> tutorial,
         ChallengeCatalog challenges,
+        ContractCatalog contracts,
+        DistrictCatalog districts,
+        SettlementRankLadder settlementRanks,
+        CitizenCatalog citizens,
+        NeighbourCatalog neighbours,
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
-        SeasonCalendar seasons)
+        SeasonCalendar seasons,
+        IReadOnlyList<VehicleDef>? vehicles = null,
+        IReadOnlyList<Mods.ModPackage>? mods = null)
     {
+        Vehicles = vehicles ?? Array.Empty<VehicleDef>();
+        Mods = mods ?? Array.Empty<Mods.ModPackage>();
         Biomes = biomes;
         Resources = resources;
         Buildings = buildings;
@@ -70,10 +79,30 @@ public sealed class GameContent
         Terraform = terraform;
         Tutorial = tutorial;
         Challenges = challenges;
+        Contracts = contracts;
+        Districts = districts;
+        SettlementRanks = settlementRanks;
+        Citizens = citizens;
+        Neighbours = neighbours;
         Elections = elections;
         Milestones = milestones;
         Seasons = seasons;
     }
+
+    /// <summary>Sousedé a vztahy s nimi z <c>data/neighbours.json</c> (smí být prázdné).</summary>
+    public NeighbourCatalog Neighbours { get; }
+
+    /// <summary>Pojmenovaní obyvatelé a jejich prosby z <c>data/citizens.json</c> (smí být prázdné).</summary>
+    public CitizenCatalog Citizens { get; }
+
+    /// <summary>Stupně sídel z <c>data/settlement-ranks.json</c> (smí být prázdné).</summary>
+    public SettlementRankLadder SettlementRanks { get; }
+
+    /// <summary>Druhy čtvrtí z <c>data/districts.json</c> (smí být prázdné).</summary>
+    public DistrictCatalog Districts { get; }
+
+    /// <summary>Nástěnka zakázek z <c>data/contracts.json</c> (smí být prázdná).</summary>
+    public ContractCatalog Contracts { get; }
 
     /// <summary>Roční období z <c>data/seasons.json</c> (smí být vypnutá).</summary>
     public SeasonCalendar Seasons { get; }
@@ -138,7 +167,7 @@ public sealed class GameContent
         Biomes, Resources, Buildings, Techs, Prestige, PrestigeUpgrades, Quests, QuestsDynamic,
         Achievements, Events, Eras, WorldGen, gameplay, Languages, SettlementNames, Decorations,
         Fauna, Devlog, ZoneTypes, Policies, AscensionTiers, Weather, Landmarks, Features, Ufo,
-        Ambience, Terraform, Tutorial, Challenges, Elections, Milestones, Seasons);
+        Ambience, Terraform, Tutorial, Challenges, Contracts, Districts, SettlementRanks, Citizens, Neighbours, Elections, Milestones, Seasons);
 
     /// <summary>Milníky postupu z <c>data/milestones.json</c> (smí být prázdné).</summary>
     public IReadOnlyList<MilestoneDef> Milestones { get; }
@@ -163,6 +192,18 @@ public sealed class GameContent
 
     /// <summary>Ambientní fauna z <c>data/fauna.json</c> (smí být prázdné).</summary>
     public IReadOnlyList<FaunaDef> Fauna { get; }
+
+    /// <summary>
+    /// Vozidla pro dopravu po silnicích z <c>data/vehicles.json</c> (smí být
+    /// prázdné — bez nich se po silnicích prostě nic nehýbe).
+    /// </summary>
+    public IReadOnlyList<VehicleDef> Vehicles { get; }
+
+    /// <summary>
+    /// Načtené mody, jejichž data se do obsahu vlila. Hra je ukazuje hráči —
+    /// jinak by nešlo poznat, proč se jeho hra chová jinak než cizí.
+    /// </summary>
+    public IReadOnlyList<Mods.ModPackage> Mods { get; }
 
     /// <summary>Definice biomů z <c>data/biomes.json</c>.</summary>
     public BiomeRegistry Biomes { get; }

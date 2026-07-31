@@ -44,6 +44,28 @@ public struct BuildingInstance
     public float HaulMult;
 
     /// <summary>
+    /// Násobič výroby z milníků za počet budov téhož typu (viz
+    /// <c>BuildingMilestoneSystem</c>). 1.0 = typ milníky nemá nebo je ještě
+    /// nedosáhl.
+    /// </summary>
+    public float MilestoneMult;
+
+    /// <summary>
+    /// Násobič výroby ze synergie čtvrti (viz <c>DistrictSystem</c>). 1.0 = budova
+    /// není v žádné čtvrti, nebo je v ní sama.
+    /// </summary>
+    public float DistrictMult;
+
+    /// <summary>
+    /// Index čtvrti, do které budova patří; −1 = žádná.
+    ///
+    /// <para>Proč index a ne jen násobič: čtvrť má i stinnou stránku (víc kouře)
+    /// a UI o ní chce mluvit jménem. Jedno číslo navíc ušetří druhý cachovaný
+    /// násobič a dovolí pomalým systémům dohledat, o jakou čtvrť jde.</para>
+    /// </summary>
+    public int DistrictIndex;
+
+    /// <summary>
     /// Násobič výroby ze zamoření pod budovou (viz <c>PollutionSystem</c>). 1.0 =
     /// čisto nebo budově na okolí nezáleží.
     ///

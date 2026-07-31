@@ -112,6 +112,79 @@ public sealed class MapToolsTests
         Assert.False(tools.ZonePreviewActive);
     }
 
+    // ----- hromadná stavba -----
+
+    [Fact]
+    public void BatchSize_StartsAtOne()
+    {
+        // Výchozí chování musí zůstat „klik = jedna budova".
+        Assert.Equal(1, NewTools().BatchSize);
+    }
+
+    [Fact]
+    public void CycleBatchSize_WalksTheLadderAndWrapsAround()
+    {
+        var tools = NewTools();
+        var sizes = tools.BatchSizes;
+        Assert.True(sizes.Count > 1, "Data mají nabízet aspoň dva násobiče.");
+
+        for (int i = 1; i < sizes.Count; i++)
+        {
+            tools.CycleBatchSize();
+            Assert.Equal(sizes[i], tools.BatchSize);
+        }
+
+        tools.CycleBatchSize();
+        Assert.Equal(sizes[0], tools.BatchSize);
+    }
+
+    [Fact]
+    public void BatchSize_SurvivesSwitchingBuildings()
+    {
+        // Hráč, který staví po pětadvaceti, to obvykle chce dělat i u další budovy.
+        var tools = NewTools();
+        tools.SetBatchSize(5);
+
+        tools.ToggleBuilding(0);
+        tools.ToggleBuilding(1);
+
+        Assert.Equal(5, tools.BatchSize);
+    }
+
+    [Fact]
+    public void SetBatchSize_NeverGoesBelowOne()
+    {
+        var tools = NewTools();
+
+        tools.SetBatchSize(0);
+
+        Assert.Equal(1, tools.BatchSize);
+    }
+
+    [Fact]
+    public void BulkPlan_IsEmptyUntilThePlayerDrags()
+    {
+        // Duch plánu se kreslí, jen když se opravdu táhne — jinak by se přes
+        // mapu vykreslovaly budovy, které nikdo neobjednal.
+        var tools = NewTools();
+        tools.ToggleBuilding(0);
+
+        Assert.Empty(tools.BulkPlan);
+        Assert.Equal(0, tools.BulkBuildable);
+    }
+
+    [Fact]
+    public void Clear_ThrowsAwayThePlan()
+    {
+        var tools = NewTools();
+        tools.ToggleBuilding(0);
+
+        tools.Clear();
+
+        Assert.Empty(tools.BulkPlan);
+        Assert.Equal(0, tools.BulkBuildable);
+    }
+
     private static void AssertExactlyOneActive(MapTools tools)
     {
         int active = (tools.SelectedBuilding >= 0 ? 1 : 0)

@@ -58,7 +58,16 @@ public sealed record BuildingDto(
     AdjacencyDto? Adjacency,
     int BuildTicks,
     int TerrainHarvestRadius,
-    BuildingPollutionDto? Pollution);
+    BuildingPollutionDto? Pollution,
+    string? MinSettlementRank,
+    BuildingMilestonesDto? Milestones,
+    BuildingSpectacleDto? Spectacle);
+
+/// <summary>Podívaná megastruktury tak, jak leží v JSON.</summary>
+public sealed record BuildingSpectacleDto(string? Effect, double IntervalSeconds);
+
+/// <summary>Milníky za počet budov tak, jak leží v JSON.</summary>
+public sealed record BuildingMilestonesDto(int Every, double BonusPerStep, int MaxSteps);
 
 /// <summary>
 /// Dopad budovy na okolí tak, jak leží v JSON. Záporná čísla = čistička.
@@ -77,6 +86,68 @@ public sealed record RecipeDto(
     Dictionary<string, int>? Input,
     Dictionary<string, int>? Output,
     int TimeTicks);
+
+/// <summary>Obsah souboru <c>data/neighbours.json</c>.</summary>
+public sealed record NeighboursFileDto(
+    int SchemaVersion,
+    int TradesPerLevel,
+    double BonusPerLevel,
+    int MaxLevel,
+    List<NeighbourDto>? Neighbours);
+
+/// <summary>Jeden soused tak, jak leží v JSON.</summary>
+public sealed record NeighbourDto(string? Id, string? MapColor);
+
+/// <summary>Obsah souboru <c>data/citizens.json</c>.</summary>
+public sealed record CitizensFileDto(
+    int SchemaVersion,
+    List<string>? FirstNames,
+    List<string>? Surnames,
+    double GapSeconds,
+    List<CitizenRequestDto>? Requests);
+
+/// <summary>Jedna šablona prosby obyvatele tak, jak leží v JSON.</summary>
+public sealed record CitizenRequestDto(
+    string? Id,
+    string? Building,
+    Dictionary<string, int>? Cost,
+    double DurationSeconds,
+    GoalConditionDto? Requires);
+
+/// <summary>Obsah souboru <c>data/settlement-ranks.json</c>.</summary>
+public sealed record SettlementRanksFileDto(int SchemaVersion, List<SettlementRankDto>? Ranks);
+
+/// <summary>Jeden stupeň sídla tak, jak leží v JSON.</summary>
+public sealed record SettlementRankDto(string? Id, int MinBuildings);
+
+/// <summary>Obsah souboru <c>data/districts.json</c>.</summary>
+public sealed record DistrictsFileDto(int SchemaVersion, List<DistrictTypeDto>? Districts);
+
+/// <summary>Jeden druh čtvrti tak, jak leží v JSON.</summary>
+public sealed record DistrictTypeDto(
+    string? Id,
+    string[]? Categories,
+    int MinBuildings,
+    int ClusterDistance,
+    double SynergyPerBuilding,
+    double SynergyMax,
+    double PollutionMult,
+    string? MapColor);
+
+/// <summary>Obsah souboru <c>data/contracts.json</c>.</summary>
+public sealed record ContractsFileDto(int SchemaVersion, ContractBoardDto? Board, List<ContractDto>? Contracts);
+
+/// <summary>Nastavení nástěnky zakázek tak, jak leží v JSON.</summary>
+public sealed record ContractBoardDto(int Slots, double RestockSeconds, double ScaleGrowth, double MaxScale);
+
+/// <summary>Jedna šablona zakázky tak, jak leží v JSON.</summary>
+public sealed record ContractDto(
+    string? Id,
+    string? Resource,
+    int Amount,
+    Dictionary<string, int>? Reward,
+    double DurationSeconds,
+    GoalConditionDto? Requires);
 
 /// <summary>Obsah souboru <c>data/gameplay.json</c>.</summary>
 public sealed record GameplayFileDto(
@@ -99,7 +170,19 @@ public sealed record GameplayFileDto(
     HaulDto? Haul,
     ToolsDto? Tools,
     ComboDto? Combo,
-    PollutionDto? Pollution);
+    PollutionDto? Pollution,
+    BulkBuildDto? BulkBuild,
+    LaserDto? Laser,
+    HistoryDto? History);
+
+/// <summary>Časosběr tak, jak leží v JSON.</summary>
+public sealed record HistoryDto(double IntervalSeconds, int MaxFrames);
+
+/// <summary>Těžební laser tak, jak leží v JSON.</summary>
+public sealed record LaserDto(double HarvestsPerSecond, int RadiusTiles, string? Feature);
+
+/// <summary>Hromadná stavba tak, jak leží v JSON.</summary>
+public sealed record BulkBuildDto(List<int>? Batches, int MaxPerAction);
 
 /// <summary>Znečištění tak, jak leží v JSON.</summary>
 public sealed record PollutionDto(
@@ -199,6 +282,20 @@ public sealed record FaunaDto(
     int Size,
     double Speed,
     string? TimeOfDay,
+    bool Glow);
+
+/// <summary>Obsah souboru <c>data/vehicles.json</c>.</summary>
+public sealed record VehiclesFileDto(int SchemaVersion, List<VehicleDto>? Vehicles);
+
+/// <summary>Jedno vozidlo tak, jak leží v JSON.</summary>
+public sealed record VehicleDto(
+    string? Id,
+    string? Color,
+    int Width,
+    int Length,
+    double Speed,
+    int MinEra,
+    int? MaxEra,
     bool Glow);
 
 /// <summary>Nastavení auto-stavby tak, jak leží v JSON.</summary>

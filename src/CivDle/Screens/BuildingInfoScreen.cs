@@ -1,5 +1,6 @@
 using CivDle.Core.Sim;
 using CivDle.Input;
+using CivDle.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Myra.Graphics2D;
@@ -161,6 +162,86 @@ public sealed class BuildingInfoScreen : IScreen
                 TextColor = new Color(235, 170, 110),
                 HorizontalAlignment = HorizontalAlignment.Center,
             });
+        }
+
+        // Milník za počet budov: kolik jich stojí, co to dává a kolik chybí do
+        // dalšího stupně. Bez toho posledního řádku je milník neviditelný — a tím
+        // pádem k ničemu, protože právě ten je ta mrkev.
+        if (def.Milestones is { } milestones)
+        {
+            int tier = _simulation.MilestoneTier(instance.DefIndex);
+            long toNext = _simulation.MilestoneToNextTier(instance.DefIndex);
+            long built = _simulation.MilestoneCount(instance.DefIndex);
+
+            if (tier > 0)
+            {
+                layout.Widgets.Add(new Label
+                {
+                    Text = loc.Format("building.milestoneTier", tier,
+                        BuildingSummary.Percent(_simulation.MilestoneMultiplier(instance.DefIndex) - 1.0)),
+                    TextColor = new Color(150, 220, 150),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                });
+            }
+
+            layout.Widgets.Add(new Label
+            {
+                Text = toNext > 0
+                    ? loc.Format("building.milestoneNext", toNext, built)
+                    : loc.Format("building.milestoneMax", built),
+                TextColor = toNext > 0 ? new Color(255, 214, 120) : new Color(180, 190, 175),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Tooltip = loc.Format("tip.milestones", milestones.Every),
+            });
+        }
+
+        // Kdo budovu založil. Tenhle jeden řádek je celý smysl pojmenovaných
+        // obyvatel — bez něj je to jen další budova.
+        if (_simulation.FounderOf(instance.X, instance.Y) is { Length: > 0 } founder)
+        {
+            layout.Widgets.Add(new Label
+            {
+                Text = loc.Format("citizen.founder", founder),
+                TextColor = new Color(255, 224, 168),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Tooltip = loc["tip.citizens"],
+            });
+        }
+
+        // Čtvrť: kam budova patří a co jí to přináší. Bez tohohle by se synergie
+        // projevila jen v číslech a hráč by netušil, že za ni může sousedství.
+        if (_simulation.DistrictOf(_buildingIndex) is { } district)
+        {
+            var type = content.Districts.Types[district.TypeIndex];
+            layout.Widgets.Add(new Label
+            {
+                Text = loc.Format("building.inDistrict", loc[type.NameKey], district.BuildingCount),
+                TextColor = type.MapColor.ToXna(),
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+
+            if (instance.DistrictMult > 1.001f)
+            {
+                layout.Widgets.Add(new Label
+                {
+                    Text = loc.Format("building.districtBonus", BuildingSummary.Percent(instance.DistrictMult - 1f)),
+                    TextColor = new Color(150, 220, 150),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                });
+            }
+
+            // Stinná stránka se musí říct nahlas, jinak vypadá synergie jako
+            // čistý zisk a hráč nechápe, proč mu zrovna tady houstne smog.
+            if (type.PollutionMult > 1.001 && def.AffectsPollution && !def.Pollution.IsCleaner)
+            {
+                layout.Widgets.Add(new Label
+                {
+                    Text = loc["building.districtSmog"],
+                    TextColor = new Color(210, 170, 130),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Tooltip = loc["tip.district"],
+                });
+            }
         }
 
         // Zamoření pod budovou: proč zrovna tahle farma sotva rodí. Bez tohohle

@@ -27,6 +27,12 @@ public sealed class Camera2D
         * Matrix.CreateScale(Zoom, Zoom, 1f)
         * Matrix.CreateTranslation(_viewportWidth * 0.5f, _viewportHeight * 0.5f, 0f);
 
+    /// <summary>
+    /// Nastaví měřítko napřímo. Existuje kvůli offscreen kreslení (sdílitelná
+    /// karta, kapsle), kde není obrazovka, ke které by šlo přibližovat.
+    /// </summary>
+    public void SetZoom(float zoom) => Zoom = Math.Clamp(zoom, MinZoom, MaxZoom);
+
     /// <summary>Aktualizuje rozměry viewportu — volat každý snímek (okno jde zvětšovat).</summary>
     public void SetViewport(int width, int height)
     {

@@ -184,6 +184,60 @@ public class SaveGameSerializerTests
     }
 
     [Fact]
+    public void RoundTrip_PreservesTheContractBoard()
+    {
+        // Nástěnka je rozehraný stav: bez uložení by vypnutí hry smazalo běžící
+        // objednávky i to, jak velké nabídky už město dostává.
+        var (content, original) = PlayedGame();
+        for (int i = 0; i < 600; i++)
+        {
+            original.Tick(); // ať se stihne vypsat aspoň jedna zakázka
+        }
+
+        int slot = -1;
+        for (int i = 0; i < original.ContractSlots.Length; i++)
+        {
+            if (original.ContractSlots[i].IsActive)
+            {
+                slot = i;
+                break;
+            }
+        }
+
+        Assert.True(slot >= 0, "Nástěnka měla po deseti minutách nabídnout aspoň jednu zakázku.");
+        string offeredId = original.ContractAt(slot)!.Id;
+        long demand = original.ContractSlots[slot].DemandAmount;
+
+        using var stream = Saved(original, Metadata);
+        var (loaded, _) = new SaveGameSerializer().Read(stream, content);
+
+        Assert.Equal(offeredId, loaded.ContractAt(slot)?.Id);
+        Assert.Equal(demand, loaded.ContractSlots[slot].DemandAmount);
+        Assert.Equal(original.ContractsCompleted, loaded.ContractsCompleted);
+    }
+
+    [Fact]
+    public void RoundTrip_PreservesNeighbourStanding()
+    {
+        // Vztah se sousedem je to, co po hodinách hraní zůstane jako „příběh".
+        // Kdyby se neukládal, vypnutí hry by ho smazalo.
+        var (content, original) = PlayedGame();
+        for (int i = 0; i < 6; i++)
+        {
+            original.CompleteCaravan(neighbourIndex: 0, resourceIndex: 0, basePayout: 10);
+        }
+
+        long trades = original.NeighbourTrades(0);
+        Assert.Equal(6, trades);
+
+        using var stream = Saved(original, Metadata);
+        var (loaded, _) = new SaveGameSerializer().Read(stream, content);
+
+        Assert.Equal(trades, loaded.NeighbourTrades(0));
+        Assert.Equal(original.NeighbourLevel(0), loaded.NeighbourLevel(0));
+    }
+
+    [Fact]
     public void Load_RemapsResourceIdsWhenContentIsReordered()
     {
         // Obsah A: [wood, planks]; obsah B má stejná ID v opačném pořadí.

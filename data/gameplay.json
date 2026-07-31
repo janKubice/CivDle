@@ -90,5 +90,18 @@
     "fullEffectAt": 60,
     "happinessPenalty": 0.25,
     "productionPenalty": 0.35
+  },
+  "bulkBuild": {
+    "batches": [1, 5, 25],
+    "maxPerAction": 400
+  },
+  "laser": {
+    "harvestsPerSecond": 8,
+    "radiusTiles": 1,
+    "feature": "laser"
+  },
+  "history": {
+    "intervalSeconds": 20,
+    "maxFrames": 240
   }
 }

@@ -38,6 +38,10 @@ public sealed class BuildingRenderer
         // na budovu místo jedné. Tvar města zůstane čitelný z barev.
         bool detailed = camera.Zoom >= DetailLevel.BuildingSprites;
 
+        // Prosperita se propisuje do obrazu jen zblízka: z výšky by z nádechu
+        // zbyl jeden pixel a stálo by to dva dotazy na mřížku u každé budovy.
+        bool showsProsperity = detailed;
+
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
         var buildings = simulation.Buildings;
         for (int i = 0; i < buildings.Length; i++)
@@ -69,12 +73,17 @@ public sealed class BuildingRenderer
                 continue;
             }
 
+            // Jak se tomuhle místu daří — z toho se odvodí nádech i ozdoby.
+            // Prosperita je vlastnost světa; render ji jen zobrazuje.
+            double prosperity = showsProsperity ? simulation.ProsperityAt(building.X, building.Y) : 1.0;
+            var tint = ProsperityLook.Tint(prosperity);
+
             var sprite = _sprites.Get($"building.{def.Id}");
             if (sprite is not null)
             {
                 // Jemný stín pod budovou, ať „sedí" na terénu.
                 spriteBatch.Draw(_pixel, new Rectangle(x + 2, y + height - 3, width - 2, 3), Color.Black * 0.25f);
-                spriteBatch.Draw(sprite, new Rectangle(x, y, width, height), Color.White);
+                spriteBatch.Draw(sprite, new Rectangle(x, y, width, height), tint);
             }
             else
             {
@@ -82,7 +91,12 @@ public sealed class BuildingRenderer
                 spriteBatch.Draw(
                     _pixel,
                     new Rectangle(x + Inset, y + Inset, width - 2 * Inset, height - 2 * Inset),
-                    def.MapColor.ToXna());
+                    ProsperityLook.Modulate(def.MapColor.ToXna(), tint));
+            }
+
+            if (showsProsperity)
+            {
+                DrawProsperityDetail(spriteBatch, i, prosperity, x, y, width, height);
             }
 
             // Vyschlý vstup má být VIDĚT (fáze 3): stojící výroba dostane červený roh.
@@ -93,6 +107,37 @@ public sealed class BuildingRenderer
         }
 
         spriteBatch.End();
+    }
+
+    /// <summary>
+    /// Drobnost, ze které je poznat, jak se domu vede: kvetoucí dům dostane
+    /// truhlík pod okny, zašlý šmouhu od kouře.
+    ///
+    /// <para>Schválně jen pár pixelů — je to periferní signál, ne odznak.
+    /// Hráč si má všimnout, že ulice zezelenala, ne číst ikonky.</para>
+    /// </summary>
+    private void DrawProsperityDetail(
+        SpriteBatch spriteBatch, int buildingIndex, double prosperity, int x, int y, int width, int height)
+    {
+        if (ProsperityLook.HasOrnament(prosperity))
+        {
+            // Truhlík na parapetu: vodorovný proužek u spodní hrany.
+            int boxWidth = Math.Max(2, width / 3);
+            spriteBatch.Draw(
+                _pixel,
+                new Rectangle(x + width / 2 - boxWidth / 2, y + height - 5, boxWidth, 2),
+                ProsperityLook.OrnamentColor(buildingIndex));
+            return;
+        }
+
+        if (ProsperityLook.HasGrime(prosperity))
+        {
+            // Šmouha po zdi: svislý tmavý pruh od střechy dolů.
+            spriteBatch.Draw(
+                _pixel,
+                new Rectangle(x + width / 4, y + 2, 1, Math.Max(2, height / 2)),
+                new Color(40, 38, 34) * 0.35f);
+        }
     }
 
     /// <summary>

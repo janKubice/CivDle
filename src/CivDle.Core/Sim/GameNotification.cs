@@ -17,6 +17,30 @@ public enum NotificationKind
 
     /// <summary>Zásah do světa, který nespustil hráč (návštěva UFO).</summary>
     WorldEvent,
+
+    /// <summary>Na nástěnku přibyla nová zakázka.</summary>
+    ContractOffered,
+
+    /// <summary>Zakázka vypršela, aniž ji hráč splnil (žádný trest, jen odešla).</summary>
+    ContractExpired,
+
+    /// <summary>Hráč zakázku odevzdal a dostal zaplaceno.</summary>
+    ContractFulfilled,
+
+    /// <summary>Ozval se obyvatel s prosbou.</summary>
+    CitizenAsks,
+
+    /// <summary>Hráč obyvateli pomohl a vznikla jeho živnost.</summary>
+    CitizenHelped,
+
+    /// <summary>Obyvatel to vzdal a odešel (bez trestu).</summary>
+    CitizenLeft,
+
+    /// <summary>Vztah se sousedem se utužil — bude platit líp.</summary>
+    NeighbourFriendlier,
+
+    /// <summary>Budov jednoho typu přibylo tolik, že všechny dostaly další stupeň.</summary>
+    BuildingMilestone,
 }
 
 /// <summary>

@@ -43,6 +43,82 @@ public sealed record PollutionOutput(double Air, double Water, double Soil)
 }
 
 /// <summary>
+/// Milníky za počet budov jednoho typu: „každá desátá pila zrychlí všechny pily".
+///
+/// <para>Proč to ve hře je: dvacátá farma byla do téhle chvíle stejně zajímavá
+/// jako první — přibyla další porce výroby a nic víc. Tohle je motor, na kterém
+/// stojí celý žánr: stavět tutéž budovu dokola má smysl, protože každý kus
+/// posouvá k viditelnému prahu, a po jeho překročení se zlepší <b>všechny</b>
+/// budovy toho typu naráz.</para>
+///
+/// <para>Práh je „každých N", ne výčet: díky tomu je nekonečný a škáluje
+/// s velkoměstem stejně jako s vesnicí. Strop drží čísla při zemi.</para>
+/// </summary>
+/// <param name="Every">Po kolika budovách přijde další stupeň.</param>
+/// <param name="BonusPerStep">O kolik každý stupeň zvedne výrobu (0.25 = +25 %).</param>
+/// <param name="MaxSteps">Kolik stupňů se nejvýš počítá.</param>
+public sealed record BuildingMilestones(int Every, double BonusPerStep, int MaxSteps)
+{
+    /// <summary>Kolikátý stupeň má město při daném počtu budov (0 = zatím žádný).</summary>
+    public int TierFor(long count) =>
+        Every <= 0 ? 0 : (int)Math.Min(MaxSteps, count / Every);
+
+    /// <summary>Násobič výroby při daném počtu budov.</summary>
+    public double MultiplierFor(long count) => 1.0 + TierFor(count) * BonusPerStep;
+
+    /// <summary>
+    /// Kolik budov ještě chybí do dalšího stupně; 0 = strop je vyčerpaný.
+    /// UI z toho píše „ještě 3 do dalšího stupně" — bez toho je milník neviditelný.
+    /// </summary>
+    public long ToNextTier(long count)
+    {
+        if (Every <= 0 || TierFor(count) >= MaxSteps)
+        {
+            return 0;
+        }
+
+        return Every - count % Every;
+    }
+}
+
+/// <summary>
+/// Co budova pravidelně předvede. Behavior-ID z JSON (viz data-driven-content.md):
+/// data říkají <b>co a jak často</b>, kód <b>jak to nakreslit</b>.
+/// </summary>
+public enum SpectacleEffect
+{
+    /// <summary>Start rakety: sloup ohně, stoupající tečka, vlečka kouře.</summary>
+    RocketLaunch,
+
+    /// <summary>Urychlovač částic: prstenec, který se roztočí a bliskne.</summary>
+    ParticleBeam,
+
+    /// <summary>Pulz z orbitálního prstence: kruhová vlna přes okolí.</summary>
+    RingPulse,
+
+    /// <summary>Výheň světa: výšleh roztaveného kovu z komína.</summary>
+    ForgeFlare,
+
+    /// <summary>Maják na vrcholu věže: pomalu pulzující světlo.</summary>
+    SpireBeacon,
+}
+
+/// <summary>
+/// Podívaná megastruktury — periodický efekt, kvůli kterému se hráč vrátí
+/// kamerou k tomu, co s takovou námahou postavil.
+///
+/// <para>Proč to ve hře je: div světa se stavěl desítky minut a pak jen stál.
+/// Odměna, která se odehraje jednou při dostavbě, je odměna, kterou hráč zažije
+/// jednou. Tohle z megastruktury dělá místo, kam se vyplatí koukat i potom.</para>
+///
+/// <para>Vrstva: čistě kulisa. Interval a druh jsou v datech, samotné kreslení
+/// v renderu — simulace o podívané neví.</para>
+/// </summary>
+/// <param name="Effect">Který efekt se přehraje.</param>
+/// <param name="IntervalSeconds">Jak často (v sekundách herního času).</param>
+public sealed record BuildingSpectacle(SpectacleEffect Effect, double IntervalSeconds);
+
+/// <summary>
 /// Zvalidovaná definice budovy z <c>data/buildings.json</c> (typ; instance jsou
 /// struktury v plochém poli simulace). Jméno je v jazykových souborech pod
 /// <c>building.&lt;Id&gt;</c>.
@@ -92,8 +168,37 @@ public sealed record BuildingDef(
     AdjacencyRule? AdjacencyOrNull = null,
     int BuildTicks = 0,
     int TerrainHarvestRadius = 0,
-    PollutionOutput? PollutionOrNull = null)
+    PollutionOutput? PollutionOrNull = null,
+    int MinSettlementRank = -1,
+    BuildingMilestones? MilestonesOrNull = null,
+    BuildingSpectacle? SpectacleOrNull = null)
 {
+    /// <summary>
+    /// Podívaná, kterou budova pravidelně předvádí; <c>null</c> = jen stojí.
+    /// </summary>
+    public BuildingSpectacle? Spectacle => SpectacleOrNull;
+
+    /// <summary>Dělá tahle budova občas něco, na co stojí za to koukat?</summary>
+    public bool HasSpectacle => SpectacleOrNull is not null;
+
+    /// <summary>
+    /// Milníky za počet budov tohoto typu; <c>null</c> = typ milníky nemá
+    /// a chová se jako dřív.
+    /// </summary>
+    public BuildingMilestones? Milestones => MilestonesOrNull;
+
+    /// <summary>Odměňuje se u tohohle typu množství?</summary>
+    public bool HasMilestones => MilestonesOrNull is not null;
+
+    /// <summary>
+    /// Jak velké sídlo budova potřebuje (index stupně); −1 = kdekoli.
+    ///
+    /// <para>Existuje kvůli tomu, aby velikost místa něco znamenala: letiště
+    /// nepatří do osady o třech chalupách. Drtivá většina budov požadavek nemá,
+    /// takže rané hry se to vůbec netýká.</para>
+    /// </summary>
+    public bool NeedsSettlementRank => MinSettlementRank >= 0;
+
     /// <summary>
     /// Co budova dělá s okolím (špiní, čistí, nebo nic). Chybí-li v datech, je
     /// budova k okolí neutrální — starší obsah se tím chová jako dřív.

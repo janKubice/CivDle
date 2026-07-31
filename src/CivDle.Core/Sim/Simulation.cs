@@ -32,6 +32,11 @@ public sealed class Simulation
     private readonly SeasonSystem _seasonSystem;
     private readonly ToolsSystem _toolsSystem;
     private readonly PollutionSystem _pollutionSystem;
+    private readonly ContractSystem _contractSystem;
+    private readonly DistrictSystem _districtSystem;
+    private readonly CitizenSystem _citizenSystem;
+    private readonly BuildingMilestoneSystem _milestoneBonuses;
+    private readonly HistorySystem _historySystem;
     private readonly ConstructionSystem _constructionSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
@@ -70,6 +75,10 @@ public sealed class Simulation
     private readonly Dictionary<long, ClickYield> _plantedNodes = new(); // hráčem zasazené obnovitelné zdroje
     private readonly NodeLedger _nodes = new(); // co už se v krajině vytěžilo (jen dotčené dlaždice)
     private readonly PollutionGrid _pollution = new(); // stopa průmyslu v krajině (hrubá mřížka)
+    private ContractSlot[] _contractSlots = Array.Empty<ContractSlot>(); // nástěnka zakázek
+    private readonly List<District> _districts = new(); // rozpoznané čtvrti (odvozený stav)
+    private readonly Dictionary<long, long> _founders = new(); // kdo kterou budovu založil (dlaždice → jméno)
+    private long[] _neighbourTrades = Array.Empty<long>(); // kolik obchodů už s kterým sousedem proběhlo
     private readonly Dictionary<long, byte> _biomeOverrides = new(); // terraformované dlaždice (UFO)
     private readonly Queue<GameNotification> _notifications = new();
     private PrestigeBonuses _bonuses = PrestigeBonuses.None;
@@ -131,7 +140,15 @@ public sealed class Simulation
         _seasonSystem = new SeasonSystem(content);
         _toolsSystem = new ToolsSystem(content);
         _pollutionSystem = new PollutionSystem(content);
+        _contractSystem = new ContractSystem(content, seed);
+        _districtSystem = new DistrictSystem(content);
+        _citizenSystem = new CitizenSystem(content, seed);
+        _milestoneBonuses = new BuildingMilestoneSystem(content);
+        _historySystem = new HistorySystem(content);
+        History = new CityHistory(content.Gameplay.History.MaxFrames);
+        _neighbourTrades = new long[content.Neighbours.Neighbours.Count];
         _constructionSystem = new ConstructionSystem(content);
+        ResetContractBoard();
         _populationSystem = new PopulationSystem(content.Gameplay);
         _autoBuild = new AutoBuildSystem(content, seed);
         _zoneFill = new ZoneFillSystem(content, seed);
@@ -268,6 +285,464 @@ public sealed class Simulation
     public PollutionGrid PollutionMap => _pollution;
 
     /// <summary>
+    /// Prosba obyvatele, která zrovna čeká na odpověď. Vždycky nejvýš jedna —
+    /// zakázka je obchod, tohle je moment, a tři momenty naráz jsou seznam úkolů.
+    /// </summary>
+    public CitizenRequest PendingCitizenRequest { get; internal set; } = CitizenRequest.None;
+
+    /// <summary>Kolik tiků zbývá, než se ozve někdo další.</summary>
+    internal int CitizenCooldownTicks { get; set; }
+
+    /// <summary>Jsou sousedé v datech zapnutí? (UI podle toho skrývá seznam.)</summary>
+    public bool NeighboursEnabled => _content.Neighbours.IsEnabled;
+
+    /// <summary>Kolik obchodů už s daným sousedem proběhlo.</summary>
+    public long NeighbourTrades(int neighbourIndex) =>
+        neighbourIndex >= 0 && neighbourIndex < _neighbourTrades.Length ? _neighbourTrades[neighbourIndex] : 0;
+
+    /// <summary>Stupeň vztahu s daným sousedem (0 = cizinci).</summary>
+    public int NeighbourLevel(int neighbourIndex) =>
+        _content.Neighbours.LevelFor(NeighbourTrades(neighbourIndex));
+
+    /// <summary>
+    /// Kdo pošle příští karavanu. Vybírá se deterministicky z tiku, takže render
+    /// nemusí držet vlastní náhodu — a soused, se kterým se dlouho neobchodovalo,
+    /// dostane přednost.
+    ///
+    /// <para>Proč přednost: bez ní by hráč obchodoval pořád s tím samým a ostatní
+    /// sousedé by zůstali navždy cizinci. Takhle se vztahy rozvíjejí do šířky
+    /// a hráč pozná celé okolí.</para>
+    /// </summary>
+    public int PickNeighbour()
+    {
+        if (!_content.Neighbours.IsEnabled)
+        {
+            return -1;
+        }
+
+        int best = 0;
+        for (int i = 1; i < _neighbourTrades.Length; i++)
+        {
+            if (_neighbourTrades[i] < _neighbourTrades[best])
+            {
+                best = i;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>
+    /// Karavana dorazila: připíše obchod, vyplatí (s bonusem za vztah) a ohlásí
+    /// případné utužení vztahu.
+    ///
+    /// <para>Pravidla vztahu i výplata jsou tady, ne v renderu, který karavanu
+    /// kreslí — obrazovka jen hlásí, že dojela (CLAUDE.md, vrstvy).</para>
+    /// </summary>
+    /// <param name="neighbourIndex">Kdo karavanu poslal; −1 = anonymní (staré chování).</param>
+    /// <param name="resourceIndex">Čím se platí.</param>
+    /// <param name="basePayout">Základní výplata před bonusem za vztah.</param>
+    /// <returns>Kolik se nakonec vyplatilo.</returns>
+    public int CompleteCaravan(int neighbourIndex, int resourceIndex, int basePayout)
+    {
+        double multiplier = 1.0;
+        if (neighbourIndex >= 0 && neighbourIndex < _neighbourTrades.Length)
+        {
+            int levelBefore = NeighbourLevel(neighbourIndex);
+            _neighbourTrades[neighbourIndex]++;
+            multiplier = _content.Neighbours.PayoutMultiplier(_neighbourTrades[neighbourIndex]);
+
+            if (NeighbourLevel(neighbourIndex) > levelBefore)
+            {
+                EnqueueNotification(new GameNotification(
+                    NotificationKind.NeighbourFriendlier,
+                    "toast.neighbourLevel",
+                    _content.Neighbours.Neighbours[neighbourIndex].NameKey));
+            }
+        }
+
+        int payout = Math.Max(1, (int)Math.Round(basePayout * multiplier));
+        AddResource(resourceIndex, payout);
+        return payout;
+    }
+
+    /// <summary>ID sousedů v pořadí indexů — save je ukládá přes ID, ne index.</summary>
+    public IEnumerable<string> NeighbourIds()
+    {
+        for (int i = 0; i < _content.Neighbours.Neighbours.Count; i++)
+        {
+            yield return _content.Neighbours.Neighbours[i].Id;
+        }
+    }
+
+    /// <summary>Obnoví počet obchodů se sousedem ze savu.</summary>
+    internal void RestoreNeighbourTrades(int neighbourIndex, long trades)
+    {
+        if (neighbourIndex >= 0 && neighbourIndex < _neighbourTrades.Length)
+        {
+            _neighbourTrades[neighbourIndex] = Math.Max(0, trades);
+        }
+    }
+
+    /// <summary>Jsou pojmenovaní obyvatelé v datech zapnutí? (UI podle toho skrývá panel.)</summary>
+    public bool CitizensEnabled => _content.Citizens.IsEnabled;
+
+    /// <summary>Jméno obyvatele, který zrovna prosí; prázdné, když nikdo neprosí.</summary>
+    public string PendingCitizenName => PendingCitizenRequest.IsActive
+        ? _content.Citizens.NameOf(
+            PendingCitizenRequest.FirstNameIndex, PendingCitizenRequest.SurnameIndex)
+        : string.Empty;
+
+    /// <summary>Definice běžící prosby, nebo <c>null</c>.</summary>
+    public CitizenRequestDef? PendingCitizenDef => PendingCitizenRequest.IsActive
+        ? _content.Citizens.Requests[PendingCitizenRequest.DefIndex]
+        : null;
+
+    /// <summary>Má město na to, oč obyvatel prosí?</summary>
+    public bool CanHelpCitizen()
+    {
+        if (PendingCitizenDef is not { } def)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < def.Cost.Count; i++)
+        {
+            if (_resources[def.Cost[i].ResourceIndex] < def.Cost[i].Amount)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Příkaz hráče: pomoct obyvateli. Strhne materiál a založí mu jeho živnost —
+    /// budova od té chvíle nese jeho jméno.
+    ///
+    /// <para>Místo hledá hra sama ve spirále od těžiště města: hráč pomáhá
+    /// člověku, ne že si vybírá parcelu. Když se nikde nevejde, pomoc se
+    /// neuskuteční a materiál zůstane — tichý neúspěch, žádná ztráta.</para>
+    /// </summary>
+    public bool TryHelpCitizen()
+    {
+        if (!CanHelpCitizen() || PendingCitizenDef is not { } def)
+        {
+            return false;
+        }
+
+        if (!TryFoundNearCity(def.BuildingIndex, out int x, out int y))
+        {
+            return false;
+        }
+
+        for (int i = 0; i < def.Cost.Count; i++)
+        {
+            _resources[def.Cost[i].ResourceIndex] -= def.Cost[i].Amount;
+        }
+
+        var request = PendingCitizenRequest;
+        _founders[TileKey.Pack(x, y)] = PackName(request.FirstNameIndex, request.SurnameIndex);
+        PendingCitizenRequest = CitizenRequest.None;
+        CitizenCooldownTicks = _content.Citizens.GapTicks;
+        FoundedByCitizens++;
+
+        EnqueueNotification(new GameNotification(
+            NotificationKind.CitizenHelped, "toast.citizenHelped", def.TextKey));
+        return true;
+    }
+
+    /// <summary>Kolik živností už hráč obyvatelům založil (metrika do cílů a statistik).</summary>
+    public long FoundedByCitizens { get; internal set; }
+
+    /// <summary>
+    /// Jméno zakladatele budovy na dané dlaždici, nebo prázdný řetězec.
+    /// Panel budovy z toho píše „Založil: Marek Kovář".
+    /// </summary>
+    public string FounderOf(int x, int y)
+    {
+        if (!_founders.TryGetValue(TileKey.Pack(x, y), out long packed))
+        {
+            return string.Empty;
+        }
+
+        return _content.Citizens.NameOf((int)(packed >> 32), (int)(packed & 0xFFFFFFFF));
+    }
+
+    /// <summary>Zakladatelé k uložení do savu.</summary>
+    public IEnumerable<(int X, int Y, int FirstNameIndex, int SurnameIndex)> Founders()
+    {
+        foreach (var (key, packed) in _founders)
+        {
+            yield return (TileKey.X(key), TileKey.Y(key), (int)(packed >> 32), (int)(packed & 0xFFFFFFFF));
+        }
+    }
+
+    /// <summary>Obnoví zakladatele ze savu.</summary>
+    internal void RestoreFounder(int x, int y, int firstNameIndex, int surnameIndex) =>
+        _founders[TileKey.Pack(x, y)] = PackName(firstNameIndex, surnameIndex);
+
+    /// <summary>Obnoví počet založených živností ze savu.</summary>
+    internal void RestoreFoundedByCitizens(long count) => FoundedByCitizens = Math.Max(0, count);
+
+    /// <summary>Obnoví běžící prosbu ze savu.</summary>
+    internal void RestoreCitizenRequest(int defIndex, int first, int surname, int ticksLeft, int cooldown)
+    {
+        PendingCitizenRequest = defIndex >= 0 && defIndex < _content.Citizens.Requests.Count
+            ? new CitizenRequest(defIndex, first, surname, ticksLeft)
+            : CitizenRequest.None;
+        CitizenCooldownTicks = Math.Max(0, cooldown);
+    }
+
+    private static long PackName(int firstIndex, int surnameIndex) =>
+        ((long)firstIndex << 32) | (uint)surnameIndex;
+
+    /// <summary>
+    /// Najde místo pro živnost ve spirále od těžiště města a postaví ji zdarma.
+    /// Spirála je stejná úvaha jako u auto-stavby: nová budova má vyrůst tam, kde
+    /// se žije, ne na druhém konci mapy.
+    /// </summary>
+    private bool TryFoundNearCity(int defIndex, out int x, out int y)
+    {
+        for (int radius = 1; radius <= 24; radius++)
+        {
+            for (int dy = -radius; dy <= radius; dy++)
+            {
+                for (int dx = -radius; dx <= radius; dx++)
+                {
+                    if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != radius)
+                    {
+                        continue; // jen okraj prstence, ať se místa neopakují
+                    }
+
+                    x = CityCenterX + dx;
+                    y = CityCenterY + dy;
+                    if (TryPlaceBuildingFree(defIndex, x, y) == PlacementResult.Ok)
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        x = 0;
+        y = 0;
+        return false;
+    }
+
+    /// <summary>
+    /// Časosběr města: hrubý půdorys zaznamenaný co pár minut. Prázdný, dokud
+    /// není vrstva zapnutá v datech.
+    ///
+    /// <para>Je to jediná věc, která z dlouhé tiché práce dělá příběh, na který
+    /// jde ukázat prstem — proto přežívá i to, co Vzestup smaže… až do chvíle,
+    /// kdy začne nový svět.</para>
+    /// </summary>
+    public CityHistory History { get; }
+
+    /// <summary>Zaznamenává se vůbec časosběr?</summary>
+    public bool HistoryEnabled => _content.Gameplay.History.IsEnabled;
+
+    /// <summary>Kolik dostavěných budov daného typu se do milníků počítá.</summary>
+    public long MilestoneCount(int defIndex) => _milestoneBonuses.CountOf(defIndex);
+
+    /// <summary>Násobič výroby, který typ z milníků zrovna má (1.0 = žádný).</summary>
+    public double MilestoneMultiplier(int defIndex) => _milestoneBonuses.MultiplierOf(defIndex);
+
+    /// <summary>
+    /// Kolik budov typu chybí do dalšího stupně; 0 = strop je vyčerpaný nebo typ
+    /// milníky nemá. UI z toho píše „ještě 3 do dalšího stupně" — bez toho by byl
+    /// milník neviditelný a tím pádem k ničemu.
+    /// </summary>
+    public long MilestoneToNextTier(int defIndex) =>
+        _content.Buildings[defIndex].Milestones?.ToNextTier(MilestoneCount(defIndex)) ?? 0;
+
+    /// <summary>Kolikátý stupeň milníku typ má.</summary>
+    public int MilestoneTier(int defIndex) =>
+        _content.Buildings[defIndex].Milestones?.TierFor(MilestoneCount(defIndex)) ?? 0;
+
+    /// <summary>
+    /// Nejvyšší stupeň sídla, jakého už město dosáhlo. Existuje jen kvůli tomu,
+    /// aby se povýšení hlásilo jednou, a ne u každého shluku znovu.
+    /// </summary>
+    public int HighestSettlementRank { get; internal set; } = -1;
+
+    /// <summary>
+    /// Jak velké je sídlo nejblíž danému místu (index stupně; −1 = žádné v dosahu).
+    ///
+    /// <para>Používá se u budov, které potřebují velké sídlo — letiště nepatří
+    /// do osady o třech chalupách. „V dosahu" je schválně velkorysé: hráč staví
+    /// na kraji města a nemá být trestán za to, že netrefil přesný střed.</para>
+    /// </summary>
+    public int NearestSettlementRank(int x, int y)
+    {
+        int best = -1;
+        double bestDistance = double.MaxValue;
+        for (int i = 0; i < _settlements.Count; i++)
+        {
+            var settlement = _settlements[i];
+            double dx = settlement.CenterX - x;
+            double dy = settlement.CenterY - y;
+            double distance = dx * dx + dy * dy;
+            if (distance < bestDistance && distance <= SettlementReach * SettlementReach)
+            {
+                bestDistance = distance;
+                best = settlement.RankIndex;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>Do jaké vzdálenosti (dlaždice) od těžiště sídla se ještě staví „v něm".</summary>
+    private const int SettlementReach = 40;
+
+    /// <summary>Rozpoznané čtvrti pro render a UI (odvozený stav, neukládá se).</summary>
+    public IReadOnlyList<District> Districts => _districts;
+
+    /// <summary>Čtvrti pro systémy simulace.</summary>
+    internal List<District> DistrictsMutable => _districts;
+
+    /// <summary>
+    /// Změnila se zástavba tak, že se vyplatí čtvrti přepočítat? Stejný trik jako
+    /// u osad — hledat shluky každý tik by bylo plýtvání.
+    /// </summary>
+    internal bool DistrictsDirty { get; set; } = true;
+
+    /// <summary>
+    /// Čtvrť, ve které budova stojí, nebo <c>null</c>. UI z toho píše „Průmyslová
+    /// čtvrť (7 budov)" do panelu budovy.
+    /// </summary>
+    public District? DistrictOf(int buildingIndex)
+    {
+        if (buildingIndex < 0 || buildingIndex >= _buildingCount)
+        {
+            return null;
+        }
+
+        int index = _buildings[buildingIndex].DistrictIndex;
+        return index >= 0 && index < _districts.Count ? _districts[index] : null;
+    }
+
+    /// <summary>Nástěnka zakázek pro UI (jen ke čtení — měnit ji smí systém).</summary>
+    public ReadOnlySpan<ContractSlot> ContractSlots => _contractSlots;
+
+    /// <summary>Nástěnka pro systémy simulace (odpočet termínů, vypisování nabídek).</summary>
+    internal Span<ContractSlot> ContractSlotsMutable => _contractSlots;
+
+    /// <summary>Kolik zakázek už město splnilo. Řídí, jak velké nabídky chodí.</summary>
+    public long ContractsCompleted { get; internal set; }
+
+    /// <summary>Jsou zakázky v datech vůbec zapnuté? (UI podle toho skrývá nástěnku.)</summary>
+    public bool ContractsEnabled => _content.Contracts.IsEnabled;
+
+    /// <summary>Definice zakázky na daném místě nástěnky, nebo <c>null</c> u prázdného.</summary>
+    public ContractDef? ContractAt(int slot) =>
+        slot >= 0 && slot < _contractSlots.Length && _contractSlots[slot].IsActive
+            ? _content.Contracts.Contracts[_contractSlots[slot].DefIndex]
+            : null;
+
+    /// <summary>
+    /// Odměna za zakázku na daném místě, už přepočtená škálováním. Vrací prázdno
+    /// u prázdného místa. UI ji potřebuje vypsat dřív, než hráč klikne.
+    /// </summary>
+    public IReadOnlyList<ResourceAmount> ContractReward(int slot)
+    {
+        if (ContractAt(slot) is not { } def)
+        {
+            return Array.Empty<ResourceAmount>();
+        }
+
+        double scale = _contractSlots[slot].RewardScale;
+        var reward = new ResourceAmount[def.Reward.Count];
+        for (int i = 0; i < reward.Length; i++)
+        {
+            reward[i] = def.Reward[i] with
+            {
+                Amount = Math.Max(1, (int)Math.Round(def.Reward[i].Amount * scale)),
+            };
+        }
+
+        return reward;
+    }
+
+    /// <summary>Má město dost suroviny, aby zakázku na daném místě odevzdalo?</summary>
+    public bool CanFulfilContract(int slot)
+    {
+        if (ContractAt(slot) is not { } def)
+        {
+            return false;
+        }
+
+        return _resources[def.DemandResourceIndex] >= _contractSlots[slot].DemandAmount;
+    }
+
+    /// <summary>
+    /// Příkaz hráče: odevzdat zakázku. Strhne objednanou surovinu, vyplatí odměnu
+    /// a místo uvolní pro dalšího zákazníka.
+    ///
+    /// <para>Je to schválně akce, ne automatika: surovina, kterou odevzdáš, ti
+    /// zrovna chybí na stavbu — v tom je celé to malé rozhodnutí.</para>
+    /// </summary>
+    public bool TryFulfilContract(int slot)
+    {
+        if (!CanFulfilContract(slot) || ContractAt(slot) is not { } def)
+        {
+            return false;
+        }
+
+        var reward = ContractReward(slot);
+        _resources[def.DemandResourceIndex] -= _contractSlots[slot].DemandAmount;
+        for (int i = 0; i < reward.Count; i++)
+        {
+            AddResource(reward[i].ResourceIndex, reward[i].Amount);
+        }
+
+        ContractsCompleted++;
+        _contractSlots[slot] = ContractSlot.Empty(_content.Contracts.Board.RestockTicks);
+        EnqueueNotification(new GameNotification(
+            NotificationKind.ContractFulfilled, "toast.contractDone", def.NameKey));
+        return true;
+    }
+
+    /// <summary>
+    /// Postaví prázdnou nástěnku podle dat. Volá se při startu, po Vzestupu
+    /// i před načtením savu, aby měla vždycky správný počet míst.
+    /// </summary>
+    private void ResetContractBoard()
+    {
+        var board = _content.Contracts.Board;
+        _contractSlots = new ContractSlot[Math.Max(0, board.Slots)];
+        for (int i = 0; i < _contractSlots.Length; i++)
+        {
+            // Rozestupem se nabídky nevypíšou naráz — nástěnka se plní postupně,
+            // což vypadá živěji než tři zakázky, které se objeví v tomtéž tiku.
+            _contractSlots[i] = ContractSlot.Empty(board.RestockTicks / Math.Max(1, _contractSlots.Length) * i);
+        }
+    }
+
+    /// <summary>Obnoví počet splněných zakázek ze savu (řídí velikost nabídek).</summary>
+    internal void RestoreContractsCompleted(long completed) => ContractsCompleted = Math.Max(0, completed);
+
+    /// <summary>Obnoví místo na nástěnce ze savu.</summary>
+    internal void RestoreContractSlot(int slot, int defIndex, long demand, int ticksLeft, double rewardScale)
+    {
+        if (slot < 0 || slot >= _contractSlots.Length)
+        {
+            return; // save z jiného nastavení nástěnky — přebytek se tiše zahodí
+        }
+
+        _contractSlots[slot] = new ContractSlot
+        {
+            DefIndex = defIndex,
+            DemandAmount = demand,
+            TicksLeft = ticksLeft,
+            RewardScale = rewardScale,
+        };
+    }
+
+    /// <summary>
     /// Kolik je kouře přímo nad městem. Právě tohle číslo cítí obyvatelé — ne
     /// průměr přes celou mapu, který by vzdálený důl rozmělnil do bezvýznamnosti.
     /// </summary>
@@ -281,6 +756,36 @@ public sealed class Simulation
     /// dělá barvu i sílu zákalu, takže nemusí znát čísla z konfigurace.
     /// </summary>
     public double AirPollutionSeverity => _content.Gameplay.Pollution.Severity(AirPollutionOverCity);
+
+    /// <summary>
+    /// Jak se místu na mapě daří: 0 = zakouřená bída, 1 = kvetoucí čtvrť.
+    ///
+    /// <para>Proč to je v simulaci a ne v renderu: prosperita je vlastnost světa
+    /// a render ji má jen <b>zobrazit</b>. Skládá se ze spokojenosti (globální —
+    /// jak se ve městě žije) a zamoření pod nohama (místní — jak to tady vypadá).
+    /// Díky té místní složce nevypadá celé město stejně: čisté předměstí kvete,
+    /// i když nad hutěmi visí smog.</para>
+    ///
+    /// <para>Vypnuté vrstvy nic nekazí — bez spokojenosti i bez znečištění
+    /// vychází 1.0 a město prostě vypadá spořádaně.</para>
+    /// </summary>
+    public double ProsperityAt(int x, int y)
+    {
+        double happiness = _content.Gameplay.Happiness.IsEnabled ? Math.Clamp(Happiness, 0.0, 1.0) : 1.0;
+
+        var pollutionConfig = _content.Gameplay.Pollution;
+        double grime = 0.0;
+        if (pollutionConfig.IsEnabled)
+        {
+            // Vzduch i půda dohromady: kouř nad hlavou i otrávená země pod ní
+            // dělají místo stejně nehezkým. Bere se horší z obou.
+            grime = Math.Max(
+                pollutionConfig.Severity(_pollution.At(x, y, PollutionKind.Air)),
+                pollutionConfig.Severity(_pollution.At(x, y, PollutionKind.Soil)));
+        }
+
+        return Math.Clamp(happiness * (1.0 - grime), 0.0, 1.0);
+    }
 
     /// <summary>Je vrstva znečištění v datech vůbec zapnutá? (UI podle toho skrývá readout.)</summary>
     public bool PollutionEnabled => _content.Gameplay.Pollution.IsEnabled;
@@ -702,6 +1207,7 @@ public sealed class Simulation
         ApplyBuildingBonuses(def);
         WondersCompleted++;
         SettlementsDirty = true;
+        DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
         ReportVisual(VisualEventKind.BuildingUpgraded, _buildings[buildingIndex].X, _buildings[buildingIndex].Y);
         EnqueueNotification(new GameNotification(NotificationKind.Milestone, "toast.wonderDone", def.NameKey));
@@ -913,6 +1419,7 @@ public sealed class Simulation
         }
 
         SettlementsDirty = true;
+        DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
@@ -922,6 +1429,15 @@ public sealed class Simulation
     /// staví <see cref="RoadBuilder"/> sám, hráč je nekreslí.
     /// </summary>
     public void AddRoadTileForTest(int x, int y) => AddRoadTile(x, y);
+
+    /// <summary>
+    /// Nastaví počet obyvatel. Veřejné kvůli testům a nástrojům — ve hře populace
+    /// jen roste podle jídla, bydlení a spokojenosti, nikdo ji nezadává.
+    ///
+    /// <para>Existuje proto, aby se daly zkoušet věci, které závisejí na velikosti
+    /// města (hustota provozu, agregátní pohled), bez odtikání hodin růstu.</para>
+    /// </summary>
+    public void SetPopulationForTest(double population) => Population = Math.Max(0, population);
 
     /// <summary>Označí dlaždici jako silnici (RoadBuilder, načtení savu). Duplicitní volání je no-op.</summary>
     /// <summary>
@@ -1047,7 +1563,12 @@ public sealed class Simulation
         _zoneFill.Tick(this);
         _colonySystem.Tick(this); // guvernér: expanze do nových kolonií
         _settlementSystem.Tick(this);
+        _districtSystem.Tick(this);
+        _milestoneBonuses.Tick(this);
+        _historySystem.Tick(this);
         _happinessSystem.Tick(this);
+        _contractSystem.Tick(this);
+        _citizenSystem.Tick(this);
         _questSystem.Tick(this);
         _tutorialSystem.Tick(this);
         _challengeSystem.Tick(this);
@@ -1082,6 +1603,11 @@ public sealed class Simulation
         if (!IsBuildingBuildable(defIndex))
         {
             return PlacementResult.NotUnlocked;
+        }
+
+        if (def.NeedsSettlementRank && NearestSettlementRank(x, y) < def.MinSettlementRank)
+        {
+            return PlacementResult.SettlementTooSmall;
         }
 
         for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
@@ -1229,6 +1755,7 @@ public sealed class Simulation
         ReportVisual(VisualEventKind.BuildingPlaced, x, y);
         _roadBuilder.ConnectLastBuilding(this);
         SettlementsDirty = true;
+        DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
@@ -1843,6 +2370,16 @@ public sealed class Simulation
         var unlock = _content.Features[index].Unlock;
         return EvaluateMetric(unlock.Kind, unlock.Param) >= unlock.Target;
     }
+
+    /// <summary>
+    /// Smí hráč těžit orbitálním laserem? Je to pozdní podoba ručního sběru:
+    /// místo klikání na jednotlivé stromy táhne paprsek přes krajinu.
+    ///
+    /// <para>Vypnuté v datech i nezpřístupněné funkcí = false, takže starší
+    /// data i začínající hra se chovají jako dřív.</para>
+    /// </summary>
+    public bool LaserUnlocked =>
+        _content.Gameplay.Laser.IsEnabled && IsFeatureUnlocked(_content.Gameplay.Laser.FeatureId);
 
     /// <summary>Kolik funkcí je odemčeno — UI podle změny pozná, že má přestavět lištu.</summary>
     public int UnlockedFeatureCount
@@ -2703,6 +3240,7 @@ public sealed class Simulation
         _roadBuilder.ConnectLastBuilding(this);
         MergedBuildings++;
         SettlementsDirty = true;
+        DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
         EnqueueNotification(new GameNotification(
             NotificationKind.Milestone, "toast.merged", _content.Buildings[def.MergesToIndex].NameKey));
@@ -2796,6 +3334,7 @@ public sealed class Simulation
         ReportVisual(VisualEventKind.BuildingUpgraded, instance.X, instance.Y);
         ApplyBuildingBonuses(_content.Buildings[instance.DefIndex]);
         SettlementsDirty = true;
+        DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
@@ -2840,6 +3379,7 @@ public sealed class Simulation
 
         _buildingCount--;
         SettlementsDirty = true;
+        DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
@@ -2904,6 +3444,8 @@ public sealed class Simulation
         building.AdjacencyMult = (float)AdjacencyMultiplier(def, x, y);
         building.HaulMult = (float)_haulSystem.MultiplierAt(x, y);
         building.PollutionMult = (float)_pollutionSystem.MultiplierAt(this, building.DefIndex, x, y);
+        building.DistrictMult = 1f; // přesunutá budova ze čtvrti vypadla, než se pozná nová
+        building.DistrictIndex = -1;
         if (def.StorageBonus.Count > 0)
         {
             HaulDirty = true; // přesunutý sklad mění svoz na obou koncích
@@ -2917,6 +3459,7 @@ public sealed class Simulation
         }
 
         SettlementsDirty = true;
+        DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
@@ -3054,6 +3597,7 @@ public sealed class Simulation
         AddBuilding(defIndex, x, y, progress, asConstructionSite: false);
         ApplyBuildingBonuses(_content.Buildings[defIndex]);
         SettlementsDirty = true;
+        DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true; // silnice ze savu chodí zvlášť, přepočet osad ale spustit musíme
     }
 
@@ -3094,6 +3638,13 @@ public sealed class Simulation
             // Čistá 1.0, ne 0 — jinak by nová budova nevyráběla nic, dokud kolem ní
             // poprvé neproběhne pomalý přepočet znečištění.
             PollutionMult = (float)_pollutionSystem.MultiplierAt(this, defIndex, x, y),
+            // Čistá 1.0: čtvrť se pozná až při nejbližším přepočtu, a do té doby
+            // (i navždy, když jsou čtvrti vypnuté) musí budova vyrábět normálně.
+            DistrictMult = 1f,
+            DistrictIndex = -1,
+            // Milník typu už platí — nová budova ho zdědí hned, ať výroba
+            // nezačne na 1.0 a po pár ticích neposkočila.
+            MilestoneMult = (float)_milestoneBonuses.MultiplierOf(defIndex),
             BuildTicksRemaining = asConstructionSite ? def.BuildTicks : 0,
         };
         _buildingCount++;
@@ -3197,6 +3748,67 @@ public sealed class Simulation
         return metric / prestige.PointsDivisor;
     }
 
+    /// <summary>
+    /// Co přesně Vzestup udělá — pro obrazovku, která to má hráči říct dřív,
+    /// než klikne. Vzestup je jediná nevratná akce ve hře; překvapení vlastním
+    /// rozhodnutím je ta nejhorší možná zpětná vazba.
+    /// </summary>
+    public AscensionPreview PreviewAscension()
+    {
+        long points = PendingAscensionPoints();
+        int levelAfter = AscensionLevel + 1;
+        double nextScaled = _content.Prestige.Requirement.Target
+            * Math.Pow(_content.Prestige.RequirementGrowth, levelAfter);
+
+        int techs = 0;
+        for (int i = 0; i < _techResearched.Length; i++)
+        {
+            if (_techResearched[i])
+            {
+                techs++;
+            }
+        }
+
+        int upgrades = 0;
+        for (int i = 0; i < _upgradesPurchased.Length; i++)
+        {
+            if (_upgradesPurchased[i])
+            {
+                upgrades++;
+            }
+        }
+
+        return new AscensionPreview(
+            points,
+            PrestigePoints + points,
+            levelAfter,
+            (long)Math.Min(nextScaled, long.MaxValue / 2),
+            _buildingCount,
+            (long)Population,
+            _roadTiles.Count,
+            _zones.Count,
+            techs,
+            _districts.Count,
+            EvaluateMetric(MetricKind.WondersCompleted, -1),
+            upgrades);
+    }
+
+    /// <summary>
+    /// Nejvyšší populace, jaké město v tomhle běhu dosáhlo. Vzestup ji resetuje —
+    /// je to vrchol jedné kapitoly, ne celoživotní rekord.
+    /// </summary>
+    public long PeakPopulation { get; internal set; }
+
+    /// <summary>Nejlidnatější běh, jaký hráč kdy dohrál. Přežívá Vzestup i restart.</summary>
+    public long BestRunPopulation { get; internal set; }
+
+    /// <summary>
+    /// Bilance posledního doběhnutého běhu; <see cref="RunSummary.Exists"/> je
+    /// false, dokud hráč poprvé nevzestoupí. Neukládá se — je to zpráva
+    /// o okamžiku, ne stav světa.
+    /// </summary>
+    public RunSummary LastRun { get; private set; } = RunSummary.None;
+
     /// <summary>Je trvalý upgrade Vzestupu koupený?</summary>
     public bool IsUpgradePurchased(int upgradeIndex) => _upgradesPurchased[upgradeIndex];
 
@@ -3247,10 +3859,45 @@ public sealed class Simulation
             return PlacementResult.NotEnoughResources;
         }
 
-        PrestigePoints += PendingAscensionPoints();
+        long points = PendingAscensionPoints();
+
+        // Poslední podoba města patří do časosběru — jinak by přehrávka končila
+        // někde uprostřed, u snímku, který padl náhodou na správný tik.
+        _historySystem.Capture(this);
+
+        // Bilance se sbírá TEĎ, ještě před resetem — po něm už není z čeho.
+        int techs = 0;
+        for (int i = 0; i < _techResearched.Length; i++)
+        {
+            if (_techResearched[i])
+            {
+                techs++;
+            }
+        }
+
+        long peak = Math.Max(PeakPopulation, (long)Population);
+        long previousBest = BestRunPopulation;
+        LastRun = new RunSummary(
+            AscensionLevel + 1,
+            TickCount,
+            peak,
+            _buildingCount,
+            techs,
+            EvaluateMetric(MetricKind.WondersCompleted, -1),
+            points,
+            peak > previousBest,
+            previousBest);
+
+        BestRunPopulation = Math.Max(previousBest, peak);
+        PeakPopulation = 0; // vrchol patří k běhu, ne k hráči
+
+        PrestigePoints += points;
         AscensionLevel++;
         ResetEra(); // uvnitř i RefreshTierUnlocks — nové měřítko může odemknout megastruktury
         EnqueueNotification(new GameNotification(NotificationKind.Ascended, "toast.ascended", "prestige.ascendedSubject"));
+
+        // Největší okamžik ve hře si zaslouží ohňostroj nad novým světem.
+        ReportVisual(VisualEventKind.MilestoneReached, CityCenterX, CityCenterY);
         return PlacementResult.Ok;
     }
 
@@ -3342,6 +3989,15 @@ public sealed class Simulation
         _zones.Clear(); // zóny řídí přestavbu — po Vzestupu (nové měřítko) začínáš nanovo
         _nodes.Clear(); // nový svět má nedotčenou krajinu, ne vytěžené paseky po předchůdcích
         _pollution.Clear(); // ani smog po továrnách, které v novém měřítku ještě nestojí
+        _districts.Clear(); // čtvrti se poznají znovu, až nová zástavba doroste
+        HighestSettlementRank = -1; // v novém měřítku je i první osada zas událost
+        _founders.Clear(); // zakladatelé patří ke světu, který právě skončil
+        History.Clear();   // a časosběr taky — nový svět začíná prázdným listem
+        Array.Clear(_neighbourTrades); // sousedi nového měřítka hráče ještě neznají
+        PendingCitizenRequest = CitizenRequest.None;
+        CitizenCooldownTicks = 0;
+        ResetContractBoard(); // zákazníci z minulého měřítka na novou nástěnku nepatří
+        ContractsCompleted = 0; // a v novém měřítku začínají objednávky zas malé
         _buildingCount = 0;
 
         Array.Clear(_techResearched);
@@ -3365,6 +4021,7 @@ public sealed class Simulation
         Population = _content.Gameplay.StartingPopulation;
         TickCount = 0;
         SettlementsDirty = true;
+        DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
     }
 
@@ -3412,5 +4069,10 @@ public sealed class Simulation
         RecomputeDerivedState();
         RecomputePolicyEffects(); // obnovené politiky → odvozené parametry růstu
         RefreshTierUnlocks();     // obnovená úroveň Vzestupu → odemčené megastruktury
+
+        // Milníky se neukládají (odvodí se z počtu budov), ale platit musí hned
+        // po načtení — jinak by hráč prvních pár tiků vyráběl pod svou úrovní.
+        // Bez ohlašování: dosažené prahy hráč oslavil už minule.
+        _milestoneBonuses.Recompute(this, announce: false);
     }
 }

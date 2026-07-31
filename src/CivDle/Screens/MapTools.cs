@@ -21,12 +21,24 @@ public sealed class MapTools
     /// <summary>Tolerance tažení pravým tlačítkem, aby se pan kamery nepletl s klikem.</summary>
     private const float RightClickDragTolerance = 6f;
 
+    /// <summary>
+    /// O kolik dlaždic musí kurzor ujet, než se z kliknutí stane tažení. Bez
+    /// tolerance by se každý klik roztřesenou rukou počítal jako hromadná stavba.
+    /// </summary>
+    private const int DragThresholdTiles = 1;
+
     private readonly Simulation _simulation;
     private readonly Camera2D _camera;
     private readonly InputManager _input;
     private readonly CivDle.Core.Content.GameContent _content;
+    private readonly BulkBuilder _bulk;
+
+    /// <summary>Plán hromadné stavby. Drží se mezi snímky, ať se při tažení nealokuje.</summary>
+    private readonly List<BulkSlot> _plan = new();
 
     private float _rightDragDistance;
+    private bool _dragging;
+    private int _dragStartX, _dragStartY;
 
     public MapTools(Simulation simulation, Camera2D camera, InputManager input, CivDle.Core.Content.GameContent content)
     {
@@ -34,6 +46,7 @@ public sealed class MapTools
         _camera = camera;
         _input = input;
         _content = content;
+        _bulk = new BulkBuilder(simulation, content);
     }
 
     /// <summary>Vybraná budova ke stavbě, nebo −1.</summary>
@@ -74,6 +87,48 @@ public sealed class MapTools
     public int GhostX { get; private set; }
     public int GhostY { get; private set; }
     public PlacementResult GhostResult { get; private set; }
+
+    /// <summary>
+    /// Plán hromadné stavby — kam všude by šla budova, kdyby hráč pustil tlačítko.
+    /// Prázdný, když se staví po jednom. Render z něj kreslí duchy.
+    /// </summary>
+    public IReadOnlyList<BulkSlot> BulkPlan => _plan;
+
+    /// <summary>Kolik kusů plán opravdu postaví (pro popisek u kurzoru).</summary>
+    public int BulkBuildable { get; private set; }
+
+    /// <summary>Nabídka násobičů z dat (×1, ×5, ×25…).</summary>
+    public IReadOnlyList<int> BatchSizes => _content.Gameplay.BulkBuild.Batches;
+
+    /// <summary>
+    /// Kolik kusů položí jedno kliknutí. Přepíná se v liště a drží se mezi
+    /// budovami — hráč, který staví po pětadvaceti, to obvykle chce dělat dál.
+    /// </summary>
+    public int BatchSize { get; private set; } = 1;
+
+    /// <summary>Přepne násobič hromadné stavby.</summary>
+    public void SetBatchSize(int size) => BatchSize = Math.Max(1, size);
+
+    /// <summary>Posune násobič o krok v nabídce dokola (klávesa i gamepad).</summary>
+    public void CycleBatchSize()
+    {
+        var sizes = BatchSizes;
+        int index = 0;
+        for (int i = 0; i < sizes.Count; i++)
+        {
+            if (sizes[i] == BatchSize)
+            {
+                index = i;
+                break;
+            }
+        }
+
+        BatchSize = sizes[(index + 1) % sizes.Count];
+    }
+
+    /// <summary>Kolik kusů vybraného typu si hráč zrovna může dovolit.</summary>
+    public int AffordableCount =>
+        SelectedBuilding >= 0 ? _bulk.Affordable(SelectedBuilding) : 0;
 
     public bool MoveGhostActive { get; private set; }
     public int MoveGhostX { get; private set; }
@@ -205,6 +260,9 @@ public sealed class MapTools
         MergeGhostActive = false;
         RoadGhostActive = false;
         _zoneDragging = false;
+        _dragging = false;
+        _plan.Clear();
+        BulkBuildable = 0;
         GhostVisible = false;
         PlantGhostActive = false;
         MoveGhostActive = false;
@@ -297,6 +355,9 @@ public sealed class MapTools
         GhostVisible = false;
         if (SelectedBuilding < 0 || mouseOverUi)
         {
+            _dragging = false;
+            _plan.Clear();
+            BulkBuildable = 0;
             return;
         }
 
@@ -309,12 +370,76 @@ public sealed class MapTools
         GhostResult = _simulation.CanPlace(SelectedBuilding, GhostX, GhostY);
         GhostVisible = true;
 
-        if (_input.WasLeftPressed && GhostResult == PlacementResult.Ok)
+        if (_input.WasLeftPressed)
         {
-            // Výběr zůstává — idle hráč typicky staví víc budov za sebou.
+            _dragging = true;
+            _dragStartX = GhostX;
+            _dragStartY = GhostY;
+        }
+
+        if (_dragging && _input.IsLeftDown)
+        {
+            UpdateDragPlan();
+            return;
+        }
+
+        if (_input.WasLeftReleased && _dragging)
+        {
+            CommitPlacement();
+        }
+
+        _dragging = false;
+        _plan.Clear();
+        BulkBuildable = 0;
+    }
+
+    /// <summary>
+    /// Přepočítá náhled tažení. Mřížka je ukotvená v místě, kde tažení začalo —
+    /// jinak by budovy pod kurzorem poskakovaly a hráč by netrefil, co chce.
+    /// </summary>
+    private void UpdateDragPlan()
+    {
+        if (!IsDragGesture())
+        {
+            _plan.Clear();
+            BulkBuildable = 0;
+            return;
+        }
+
+        BulkBuildable = _bulk.PlanArea(SelectedBuilding, _dragStartX, _dragStartY, GhostX, GhostY, _plan);
+    }
+
+    /// <summary>
+    /// Postaví to, co hráč gestem vybral: tažením řadu či blok, jinak dávku podle
+    /// násobiče kolem místa kliknutí.
+    ///
+    /// <para>Výběr budovy zůstává — idle hráč typicky staví víc budov za sebou.</para>
+    /// </summary>
+    private void CommitPlacement()
+    {
+        if (IsDragGesture())
+        {
+            _bulk.PlanArea(SelectedBuilding, _dragStartX, _dragStartY, GhostX, GhostY, _plan);
+            _bulk.Build(SelectedBuilding, _plan);
+            return;
+        }
+
+        if (BatchSize > 1)
+        {
+            _bulk.PlanNear(SelectedBuilding, GhostX, GhostY, BatchSize, _plan);
+            _bulk.Build(SelectedBuilding, _plan);
+            return;
+        }
+
+        if (GhostResult == PlacementResult.Ok)
+        {
             _simulation.TryPlaceBuilding(SelectedBuilding, GhostX, GhostY);
         }
     }
+
+    /// <summary>Ujel kurzor od stisku dost na to, aby šlo o tažení, ne o klik?</summary>
+    private bool IsDragGesture() =>
+        Math.Abs(GhostX - _dragStartX) >= DragThresholdTiles || Math.Abs(GhostY - _dragStartY) >= DragThresholdTiles;
 
     /// <summary>
     /// Přetváření krajiny: náhled sleduje kurzor a barva říká, jestli zásah projde.

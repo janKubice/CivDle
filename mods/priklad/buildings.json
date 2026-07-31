@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "buildings": [
+    {
+      "id": "house",
+      "buildCost": { "wood": 3 }
+    },
+    {
+      "id": "observatory",
+      "category": "civic",
+      "mapColor": "#8FA9D6",
+      "footprint": [2, 2],
+      "workerSlots": 4,
+      "buildCost": { "planks": 30, "stone": 40 },
+      "allowedBiomes": ["grassland", "steppe", "tundra"],
+      "serviceValue": 6,
+      "upkeep": { "food": 1 }
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CivDle.Core.Content.Dto;
+using CivDle.Core.Content.Mods;
 using CivDle.Core.Sim;
 
 namespace CivDle.Core.Content;
@@ -23,18 +24,36 @@ public sealed class ContentLoader
         AllowTrailingCommas = true,
     };
 
+    /// <summary>
+    /// Mody, jejichž data se vrství na základní hru. Drží se v instanci, protože
+    /// všechny <c>Load*</c> metody čtou přes jediné místo (<see cref="ReadFile"/>)
+    /// a nemá smysl protahovat seznam všemi.
+    /// </summary>
+    private IReadOnlyList<ModPackage> _mods = Array.Empty<ModPackage>();
+
     /// <summary>Načte kompletní herní obsah ze složky s daty.</summary>
-    public GameContent LoadFrom(string dataDirectory)
+    public GameContent LoadFrom(string dataDirectory) => LoadFrom(dataDirectory, Array.Empty<ModPackage>());
+
+    /// <summary>
+    /// Načte obsah a navrství na něj mody. Mod nemusí dodat celý soubor — stačí
+    /// mu položka, kterou přidává nebo mění (viz <see cref="JsonOverlay"/>).
+    /// </summary>
+    public GameContent LoadFrom(string dataDirectory, IReadOnlyList<ModPackage> mods)
     {
         if (!Directory.Exists(dataDirectory))
         {
             throw new ContentLoadException(dataDirectory, $"Složka s herními daty '{dataDirectory}' neexistuje.");
         }
 
+        _mods = mods;
+
         // Suroviny první — odkazují na ně biomy (clickYield) i budovy (ceny, recepty).
         var resources = LoadResources(Path.Combine(dataDirectory, "resources.json"));
         var biomes = LoadBiomes(Path.Combine(dataDirectory, "biomes.json"), resources);
-        var buildings = LoadBuildings(Path.Combine(dataDirectory, "buildings.json"), biomes, resources);
+        // Žebříček sídel před budovami: budova může vyžadovat stupeň sídla,
+        // takže loader musí znát ID stupňů dřív, než je začne překládat.
+        var settlementRanks = LoadSettlementRanks(Path.Combine(dataDirectory, "settlement-ranks.json"));
+        var buildings = LoadBuildings(Path.Combine(dataDirectory, "buildings.json"), biomes, resources, settlementRanks);
         var techs = LoadTech(Path.Combine(dataDirectory, "tech.json"), buildings, resources);
         var (prestige, prestigeUpgrades) = LoadPrestige(Path.Combine(dataDirectory, "prestige.json"), resources, buildings, techs);
         var (quests, questsDynamic) = LoadQuests(Path.Combine(dataDirectory, "quests.json"), resources, buildings, techs);
@@ -53,19 +72,24 @@ public sealed class ContentLoader
         var milestones = LoadMilestones(Path.Combine(dataDirectory, "milestones.json"), resources, buildings, techs);
         var elections = LoadElections(Path.Combine(dataDirectory, "elections.json"));
         var challenges = LoadChallenges(Path.Combine(dataDirectory, "challenges.json"), resources, buildings, techs);
+        var contracts = LoadContracts(Path.Combine(dataDirectory, "contracts.json"), resources, buildings, techs);
+        var districts = LoadDistricts(Path.Combine(dataDirectory, "districts.json"), buildings);
+        var citizens = LoadCitizens(Path.Combine(dataDirectory, "citizens.json"), resources, buildings, techs);
+        var neighbours = LoadNeighbours(Path.Combine(dataDirectory, "neighbours.json"));
         var seasons = LoadSeasons(Path.Combine(dataDirectory, "seasons.json"), resources);
         var tutorial = LoadTutorial(Path.Combine(dataDirectory, "tutorial.json"), resources, buildings, techs);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, elections, milestones, seasons);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, neighbours, elections, milestones, seasons);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
+        var vehicles = LoadVehicles(Path.Combine(dataDirectory, "vehicles.json"));
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, elections, milestones, seasons);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, neighbours, elections, milestones, seasons, vehicles, mods);
     }
 
     // ----- roční období -----
@@ -74,7 +98,7 @@ public sealed class ContentLoader
     /// Načte kalendář ročních období. Volitelný soubor — bez něj hra běží
     /// v jednom nekonečném létě jako dřív.
     /// </summary>
-    private static SeasonCalendar LoadSeasons(string path, DefRegistry<Resource> resources)
+    private SeasonCalendar LoadSeasons(string path, DefRegistry<Resource> resources)
     {
         if (!File.Exists(path))
         {
@@ -166,7 +190,7 @@ public sealed class ContentLoader
     // ----- milníky -----
 
     /// <summary>Načte milníky postupu. Volitelný soubor — bez něj se nic neslaví.</summary>
-    private static IReadOnlyList<MilestoneDef> LoadMilestones(
+    private IReadOnlyList<MilestoneDef> LoadMilestones(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         if (!File.Exists(path))
@@ -205,7 +229,7 @@ public sealed class ContentLoader
     /// <summary>
     /// Načte volební programy. Volitelný soubor — bez něj hra běží bez voleb.
     /// </summary>
-    private static ElectionConfig LoadElections(string path)
+    private ElectionConfig LoadElections(string path)
     {
         if (!File.Exists(path))
         {
@@ -270,7 +294,391 @@ public sealed class ContentLoader
     /// <summary>
     /// Načte fond denních výzev. Volitelný soubor — bez něj hra běží bez výzev.
     /// </summary>
-    private static ChallengeCatalog LoadChallenges(
+    /// <summary>
+    /// Sousedé a pravidla vztahu. Soubor je volitelný — bez něj zůstanou karavany
+    /// anonymní jako dřív.
+    /// </summary>
+    private NeighbourCatalog LoadNeighbours(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return NeighbourCatalog.Empty;
+        }
+
+        var file = ReadFile<NeighboursFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Neighbours ?? new List<NeighbourDto>();
+        if (dtos.Count == 0)
+        {
+            return NeighbourCatalog.Empty;
+        }
+
+        if (file.TradesPerLevel < 1)
+        {
+            throw new ContentLoadException(path,
+                $"'tradesPerLevel' musí být aspoň 1, je {file.TradesPerLevel}.");
+        }
+
+        // Vztah nesmí ubírat: nejhorší, co se smí stát, je, že soused platí základ.
+        if (file.BonusPerLevel < 0 || file.BonusPerLevel > 2)
+        {
+            throw new ContentLoadException(path,
+                $"'bonusPerLevel' musí být 0–2, je {file.BonusPerLevel}.");
+        }
+
+        if (file.MaxLevel is < 1 or > 20)
+        {
+            throw new ContentLoadException(path, $"'maxLevel' musí být 1–20, je {file.MaxLevel}.");
+        }
+
+        var result = new List<NeighbourDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Soused na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID souseda '{id}'.");
+            }
+
+            result.Add(new NeighbourDef(id, ParseColor(path, dto.MapColor, $"soused '{id}'")));
+        }
+
+        return new NeighbourCatalog(
+            new DefRegistry<NeighbourDef>(result, n => n.Id, "soused"),
+            file.TradesPerLevel, file.BonusPerLevel, file.MaxLevel);
+    }
+
+    /// <summary>
+    /// Pojmenovaní obyvatelé a jejich prosby. Soubor je volitelný — bez něj se
+    /// nikdo neozve a hraje se jako dřív.
+    /// </summary>
+    private CitizenCatalog LoadCitizens(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        if (!File.Exists(path))
+        {
+            return CitizenCatalog.Empty;
+        }
+
+        var file = ReadFile<CitizensFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var firstNames = file.FirstNames ?? new List<string>();
+        var surnames = file.Surnames ?? new List<string>();
+        var dtos = file.Requests ?? new List<CitizenRequestDto>();
+        if (dtos.Count == 0)
+        {
+            return CitizenCatalog.Empty;
+        }
+
+        // Prosby bez jmen by byly anonymní — a to je přesně to, co tahle
+        // mechanika měla odstranit.
+        if (firstNames.Count == 0 || surnames.Count == 0)
+        {
+            throw new ContentLoadException(path,
+                "Obyvatelé mají prosby, ale chybí jim jména ('firstNames' nebo 'surnames').");
+        }
+
+        if (file.GapSeconds < 5)
+        {
+            throw new ContentLoadException(path,
+                $"'gapSeconds' musí být aspoň 5, je {file.GapSeconds} — jinak by se lidé ozývali bez přestání.");
+        }
+
+        var result = new List<CitizenRequestDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Prosba obyvatele na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID prosby '{id}'.");
+            }
+
+            if (!buildings.TryIndexOf(dto.Building ?? string.Empty, out int buildingIndex))
+            {
+                throw new ContentLoadException(path,
+                    $"Prosba '{id}' chce budovu '{dto.Building}', která neexistuje.");
+            }
+
+            var cost = ParseResourceAmounts(path, id, "cost", dto.Cost, resources);
+            if (cost.Count == 0)
+            {
+                throw new ContentLoadException(path,
+                    $"Prosba '{id}' nic nestojí — pak to není prosba, ale dárek.");
+            }
+
+            if (dto.DurationSeconds < 10 || dto.DurationSeconds > 3600)
+            {
+                throw new ContentLoadException(path,
+                    $"Prosba '{id}': 'durationSeconds' musí být 10–3600, je {dto.DurationSeconds}.");
+            }
+
+            var requirement = dto.Requires is null
+                ? (GoalCondition?)null
+                : ParseCondition(path, $"prosba '{id}'", dto.Requires, resources, buildings, techs);
+
+            result.Add(new CitizenRequestDef(id, buildingIndex, cost, dto.DurationSeconds, requirement));
+        }
+
+        return new CitizenCatalog(
+            firstNames, surnames,
+            new DefRegistry<CitizenRequestDef>(result, r => r.Id, "prosba obyvatele"),
+            file.GapSeconds);
+    }
+
+    /// <summary>
+    /// Stupně sídel. Soubor je volitelný — bez něj sídla stupně nemají a hraje
+    /// se jako dřív. Pořadí v souboru je pořadím hierarchie, takže se hlídá, že
+    /// prahy rostou: sestupný žebříček by tiše znamenal, že vyšší stupeň nikdy
+    /// nenastane.
+    /// </summary>
+    private SettlementRankLadder LoadSettlementRanks(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return SettlementRankLadder.Empty;
+        }
+
+        var file = ReadFile<SettlementRanksFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Ranks ?? new List<SettlementRankDto>();
+        if (dtos.Count == 0)
+        {
+            return SettlementRankLadder.Empty;
+        }
+
+        var result = new List<SettlementRankDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        int previousThreshold = 0;
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Stupeň sídla na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID stupně sídla '{id}'.");
+            }
+
+            if (dto.MinBuildings < 1)
+            {
+                throw new ContentLoadException(path,
+                    $"Stupeň '{id}': 'minBuildings' musí být aspoň 1, je {dto.MinBuildings}.");
+            }
+
+            if (i > 0 && dto.MinBuildings <= previousThreshold)
+            {
+                throw new ContentLoadException(path,
+                    $"Stupeň '{id}' má práh {dto.MinBuildings}, což není víc než předchozí ({previousThreshold}) — " +
+                    "žebříček musí růst, jinak se na vyšší stupeň nikdy nedojde.");
+            }
+
+            previousThreshold = dto.MinBuildings;
+            result.Add(new SettlementRankDef(id, dto.MinBuildings));
+        }
+
+        return new SettlementRankLadder(result);
+    }
+
+    /// <summary>
+    /// Druhy čtvrtí. Soubor je volitelný — bez něj se shluky budov nijak
+    /// nerozpoznávají a hraje se jako dřív.
+    /// </summary>
+    private DistrictCatalog LoadDistricts(string path, DefRegistry<BuildingDef> buildings)
+    {
+        if (!File.Exists(path))
+        {
+            return DistrictCatalog.Empty;
+        }
+
+        var file = ReadFile<DistrictsFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Districts ?? new List<DistrictTypeDto>();
+        if (dtos.Count == 0)
+        {
+            return DistrictCatalog.Empty;
+        }
+
+        // Kategorie nejsou samostatná data, jsou to řetězce na budovách. Ověřit,
+        // že aspoň jedna budova takovou kategorii má, je jediný způsob, jak
+        // odhalit překlep dřív, než se čtvrť tiše nikdy nevytvoří.
+        var knownCategories = new HashSet<string>(buildings.All.Select(b => b.Category), StringComparer.Ordinal);
+
+        var result = new List<DistrictTypeDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Čtvrť na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID čtvrti '{id}'.");
+            }
+
+            var categories = dto.Categories ?? Array.Empty<string>();
+            if (categories.Length == 0)
+            {
+                throw new ContentLoadException(path, $"Čtvrť '{id}' nemá 'categories' — nemá z čeho vzniknout.");
+            }
+
+            foreach (string category in categories)
+            {
+                if (!knownCategories.Contains(category))
+                {
+                    throw new ContentLoadException(path,
+                        $"Čtvrť '{id}' čeká kategorii '{category}', kterou nemá žádná budova.");
+                }
+            }
+
+            // Čtvrť o jedné budově není čtvrť; o padesáti se nikdy nesejde.
+            if (dto.MinBuildings is < 2 or > 50)
+            {
+                throw new ContentLoadException(path,
+                    $"Čtvrť '{id}': 'minBuildings' musí být 2–50, je {dto.MinBuildings}.");
+            }
+
+            if (dto.ClusterDistance is < 1 or > 20)
+            {
+                throw new ContentLoadException(path,
+                    $"Čtvrť '{id}': 'clusterDistance' musí být 1–20, je {dto.ClusterDistance}.");
+            }
+
+            if (dto.SynergyPerBuilding < 0 || dto.SynergyMax < 0)
+            {
+                throw new ContentLoadException(path,
+                    $"Čtvrť '{id}': synergie nesmí být záporná — čtvrť má odměňovat, ne trestat.");
+            }
+
+            // Bonus bez stropu se dá škálovat donekonečna jedním obřím blokem.
+            if (dto.SynergyMax > 5)
+            {
+                throw new ContentLoadException(path,
+                    $"Čtvrť '{id}': 'synergyMax' musí být nejvýš 5, je {dto.SynergyMax}.");
+            }
+
+            if (dto.PollutionMult is < 1 or > 5)
+            {
+                throw new ContentLoadException(path,
+                    $"Čtvrť '{id}': 'pollutionMult' musí být 1–5, je {dto.PollutionMult}.");
+            }
+
+            var color = ParseColor(path, dto.MapColor, $"čtvrť '{id}'");
+            result.Add(new DistrictTypeDef(
+                id, categories, dto.MinBuildings, dto.ClusterDistance,
+                dto.SynergyPerBuilding, dto.SynergyMax, dto.PollutionMult, color));
+        }
+
+        return new DistrictCatalog(new DefRegistry<DistrictTypeDef>(result, d => d.Id, "druh čtvrti"));
+    }
+
+    /// <summary>
+    /// Nástěnka zakázek. Soubor je volitelný — bez něj se hraje jako dřív, jen
+    /// bez krátkých objednávek.
+    /// </summary>
+    private ContractCatalog LoadContracts(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        if (!File.Exists(path))
+        {
+            return ContractCatalog.Empty;
+        }
+
+        var file = ReadFile<ContractsFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var dtos = file.Contracts ?? new List<ContractDto>();
+        var result = new List<ContractDef>(dtos.Count);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var dto = dtos[i];
+            string id = RequireId(path, dto.Id, $"Zakázka na pozici {i}");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID zakázky '{id}'.");
+            }
+
+            if (!resources.TryIndexOf(dto.Resource ?? string.Empty, out int demandIndex))
+            {
+                throw new ContentLoadException(path,
+                    $"Zakázka '{id}' chce surovinu '{dto.Resource}', která neexistuje.");
+            }
+
+            if (dto.Amount < 1)
+            {
+                throw new ContentLoadException(path,
+                    $"Zakázka '{id}': 'amount' musí být aspoň 1, je {dto.Amount}.");
+            }
+
+            var reward = ParseResourceAmounts(path, id, "reward", dto.Reward, resources);
+            if (reward.Count == 0)
+            {
+                throw new ContentLoadException(path, $"Zakázka '{id}' nemá odměnu — pak nemá proč existovat.");
+            }
+
+            // Zakázka placená tím, co si objednala, je jen složitý způsob, jak
+            // nedat nic. Tohle je tichá chyba obsahu, ne „skoro správně".
+            if (reward.Count == 1 && reward[0].ResourceIndex == demandIndex)
+            {
+                throw new ContentLoadException(path,
+                    $"Zakázka '{id}' platí toutéž surovinou, kterou chce — to hráči nic nedá.");
+            }
+
+            if (dto.DurationSeconds < 5 || dto.DurationSeconds > 3600)
+            {
+                throw new ContentLoadException(path,
+                    $"Zakázka '{id}': 'durationSeconds' musí být 5–3600, je {dto.DurationSeconds}.");
+            }
+
+            var requirement = dto.Requires is null
+                ? (GoalCondition?)null
+                : ParseCondition(path, $"zakázka '{id}'", dto.Requires, resources, buildings, techs);
+
+            result.Add(new ContractDef(id, demandIndex, dto.Amount, reward, dto.DurationSeconds, requirement));
+        }
+
+        var boardDto = file.Board;
+        if (result.Count == 0 || boardDto is null)
+        {
+            return ContractCatalog.Empty;
+        }
+
+        if (boardDto.Slots is < 1 or > 12)
+        {
+            throw new ContentLoadException(path, $"'board.slots' musí být 1–12, je {boardDto.Slots}.");
+        }
+
+        if (boardDto.RestockSeconds < 1)
+        {
+            throw new ContentLoadException(path,
+                $"'board.restockSeconds' musí být aspoň 1, je {boardDto.RestockSeconds}.");
+        }
+
+        // Růst pod 1 by nabídky s hraním zmenšoval; nad 1.5 by za deset zakázek
+        // vyletěly do nesmyslů. Obojí je překlep, ne záměr.
+        if (boardDto.ScaleGrowth is < 1.0 or > 1.5)
+        {
+            throw new ContentLoadException(path,
+                $"'board.scaleGrowth' musí být 1.0–1.5, je {boardDto.ScaleGrowth}.");
+        }
+
+        if (boardDto.MaxScale < 1.0)
+        {
+            throw new ContentLoadException(path, $"'board.maxScale' musí být aspoň 1, je {boardDto.MaxScale}.");
+        }
+
+        var board = new ContractBoardConfig(
+            boardDto.Slots, boardDto.RestockSeconds, boardDto.ScaleGrowth, boardDto.MaxScale);
+        return new ContractCatalog(board, new DefRegistry<ContractDef>(result, c => c.Id, "zakázka"));
+    }
+
+    private ChallengeCatalog LoadChallenges(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         if (!File.Exists(path))
@@ -329,7 +737,7 @@ public sealed class ContentLoader
     /// index), takže se nesmí přehazovat — proto se validuje jen unikátnost ID
     /// a to, že cíl „ukaž mi" existuje.
     /// </summary>
-    private static IReadOnlyList<TutorialStepDef> LoadTutorial(
+    private IReadOnlyList<TutorialStepDef> LoadTutorial(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         // Průvodce je volitelný — bez souboru se hra prostě spustí bez vedení.
@@ -407,7 +815,7 @@ public sealed class ContentLoader
 
     // ----- éry -----
 
-    private static DefRegistry<EraDef> LoadEras(string path)
+    private DefRegistry<EraDef> LoadEras(string path)
     {
         var file = ReadFile<ErasFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -445,7 +853,7 @@ public sealed class ContentLoader
 
     // ----- zóny (automatizace) -----
 
-    private static DefRegistry<ZoneTypeDef> LoadZoneTypes(string path, DefRegistry<BuildingDef> buildings)
+    private DefRegistry<ZoneTypeDef> LoadZoneTypes(string path, DefRegistry<BuildingDef> buildings)
     {
         // Zóny jsou volitelný obsah — bez souboru je registr prázdný (žádná automatizace zón).
         if (!File.Exists(path))
@@ -492,7 +900,7 @@ public sealed class ContentLoader
         return new DefRegistry<ZoneTypeDef>(result, z => z.Id, "typ zóny", allowEmpty: true);
     }
 
-    private static DefRegistry<GrowthPolicyDef> LoadPolicies(string path)
+    private DefRegistry<GrowthPolicyDef> LoadPolicies(string path)
     {
         // Politiky jsou volitelný obsah — bez souboru je registr prázdný (žádná stupeň-4 automatizace).
         if (!File.Exists(path))
@@ -530,7 +938,7 @@ public sealed class ContentLoader
 
     // ----- odemykatelné funkce -----
 
-    private static DefRegistry<FeatureDef> LoadFeatures(
+    private DefRegistry<FeatureDef> LoadFeatures(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         // Volitelný obsah — bez souboru je vše dostupné od začátku (žádné gatování).
@@ -568,7 +976,7 @@ public sealed class ContentLoader
 
     // ----- přetváření krajiny -----
 
-    private static DefRegistry<TerraformDef> LoadTerraform(
+    private DefRegistry<TerraformDef> LoadTerraform(
         string path, BiomeRegistry biomes, DefRegistry<Resource> resources, DefRegistry<TechDef> techs)
     {
         // Volitelný obsah — bez souboru se krajina prostě přetvářet nedá.
@@ -625,7 +1033,7 @@ public sealed class ContentLoader
 
     // ----- ambientní kulisa -----
 
-    private static IReadOnlyList<AmbienceDef> LoadAmbience(
+    private IReadOnlyList<AmbienceDef> LoadAmbience(
         string path, BiomeRegistry biomes, DefRegistry<WeatherDef> weather)
     {
         // Volitelný obsah — bez souboru hraje jen hudba, hra běží dál.
@@ -700,7 +1108,7 @@ public sealed class ContentLoader
         "abduct", "demolish", "plant", "terraform", "gift", "none",
     };
 
-    private static UfoConfig LoadUfo(string path)
+    private UfoConfig LoadUfo(string path)
     {
         // Volitelný obsah — bez souboru UFO ve hře prostě není.
         if (!File.Exists(path))
@@ -766,7 +1174,7 @@ public sealed class ContentLoader
 
     // ----- landmarky (živá mapa) -----
 
-    private static DefRegistry<LandmarkDef> LoadLandmarks(string path, BiomeRegistry biomes, DefRegistry<Resource> resources)
+    private DefRegistry<LandmarkDef> LoadLandmarks(string path, BiomeRegistry biomes, DefRegistry<Resource> resources)
     {
         // Landmarky jsou volitelný obsah — bez souboru je mapa jen bez bodů zájmu.
         if (!File.Exists(path))
@@ -840,7 +1248,7 @@ public sealed class ContentLoader
 
     // ----- počasí (živá mapa) -----
 
-    private static DefRegistry<WeatherDef> LoadWeather(string path, BiomeRegistry biomes)
+    private DefRegistry<WeatherDef> LoadWeather(string path, BiomeRegistry biomes)
     {
         // Počasí je volitelný obsah — bez souboru je registr prázdný (mapa bez počasí).
         if (!File.Exists(path))
@@ -913,7 +1321,7 @@ public sealed class ContentLoader
 
     // ----- stupně měřítka (Vzestup) -----
 
-    private static DefRegistry<AscensionTierDef> LoadAscensionTiers(string path, DefRegistry<BuildingDef> buildings)
+    private DefRegistry<AscensionTierDef> LoadAscensionTiers(string path, DefRegistry<BuildingDef> buildings)
     {
         // Stupně měřítka jsou volitelný obsah — bez souboru je registr prázdný (žádný strop).
         if (!File.Exists(path))
@@ -971,7 +1379,7 @@ public sealed class ContentLoader
 
     // ----- biomy -----
 
-    private static BiomeRegistry LoadBiomes(string path, DefRegistry<Resource> resources)
+    private BiomeRegistry LoadBiomes(string path, DefRegistry<Resource> resources)
     {
         var file = ReadFile<BiomesFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -1137,7 +1545,7 @@ public sealed class ContentLoader
 
     // ----- suroviny -----
 
-    private static DefRegistry<Resource> LoadResources(string path)
+    private DefRegistry<Resource> LoadResources(string path)
     {
         var file = ReadFile<ResourcesFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -1182,7 +1590,8 @@ public sealed class ContentLoader
 
     // ----- budovy -----
 
-    private static DefRegistry<BuildingDef> LoadBuildings(string path, BiomeRegistry biomes, DefRegistry<Resource> resources)
+    private DefRegistry<BuildingDef> LoadBuildings(
+        string path, BiomeRegistry biomes, DefRegistry<Resource> resources, SettlementRankLadder ranks)
     {
         var file = ReadFile<BuildingsFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -1206,7 +1615,7 @@ public sealed class ContentLoader
         var buildings = new List<BuildingDef>(file.Buildings.Count);
         for (int i = 0; i < file.Buildings.Count; i++)
         {
-            buildings.Add(ValidateBuilding(path, file.Buildings[i], i, biomes, resources, idToIndex));
+            buildings.Add(ValidateBuilding(path, file.Buildings[i], i, biomes, resources, idToIndex, ranks));
         }
 
         // Vylepšení musí mít stejný půdorys (mění se na místě) — kontrola po sestavení.
@@ -1243,7 +1652,7 @@ public sealed class ContentLoader
 
     private static BuildingDef ValidateBuilding(
         string path, BuildingDto dto, int index, BiomeRegistry biomes, DefRegistry<Resource> resources,
-        Dictionary<string, int> idToIndex)
+        Dictionary<string, int> idToIndex, SettlementRankLadder ranks)
     {
         string id = RequireId(path, dto.Id, $"Budova na pozici {index}");
         var color = ParseColor(path, dto.MapColor, $"Budova '{id}'");
@@ -1404,7 +1813,97 @@ public sealed class ContentLoader
             storageBonus, dto.AutoBuild, dto.Buildable ?? true, upgradesToIndex, upgradeCost,
             dto.PowerSupply, dto.PowerDemand, dto.RequiresAdjacentWater,
             dto.ServiceValue, upkeep, mergesToIndex, mergeCost, adjacency, dto.BuildTicks,
-            dto.TerrainHarvestRadius, pollution);
+            dto.TerrainHarvestRadius, pollution, ParseMinSettlementRank(path, id, dto.MinSettlementRank, ranks),
+            ParseMilestones(path, id, dto.Milestones),
+            ParseSpectacle(path, id, dto.Spectacle));
+    }
+
+    /// <summary>
+    /// Podívaná megastruktury. Blok je volitelný; neznámý efekt je tichá chyba
+    /// obsahu — budova by se tvářila, že něco umí, a nikdy nic neudělala.
+    /// </summary>
+    private static BuildingSpectacle? ParseSpectacle(string path, string id, BuildingSpectacleDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        var effect = dto.Effect?.Trim().ToLowerInvariant() switch
+        {
+            "rocket_launch" => SpectacleEffect.RocketLaunch,
+            "particle_beam" => SpectacleEffect.ParticleBeam,
+            "ring_pulse" => SpectacleEffect.RingPulse,
+            "forge_flare" => SpectacleEffect.ForgeFlare,
+            "spire_beacon" => SpectacleEffect.SpireBeacon,
+            _ => throw new ContentLoadException(path,
+                $"Budova '{id}': 'spectacle.effect' zná jen rocket_launch, particle_beam, ring_pulse, "
+                + $"forge_flare a spire_beacon, je '{dto.Effect}'."),
+        };
+
+        // Příliš častá podívaná přestane být podívanou a stane se blikáním.
+        if (dto.IntervalSeconds is < 1 or > 3600)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': 'spectacle.intervalSeconds' musí být 1–3600, je {dto.IntervalSeconds}.");
+        }
+
+        return new BuildingSpectacle(effect, dto.IntervalSeconds);
+    }
+
+    /// <summary>
+    /// Milníky za počet budov. Blok je volitelný; když v datech je, musí dávat
+    /// smysl — milník „každou nultou budovu" nebo s nulovým bonusem je tichá
+    /// chyba obsahu, ne „skoro správně" (fail-fast, CLAUDE.md).
+    /// </summary>
+    private static BuildingMilestones? ParseMilestones(string path, string id, BuildingMilestonesDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (dto.Every is < 1 or > 10_000)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': 'milestones.every' musí být 1–10000, je {dto.Every}.");
+        }
+
+        if (dto.BonusPerStep <= 0 || dto.BonusPerStep > 5)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': 'milestones.bonusPerStep' musí být větší než 0 a nejvýš 5, je {dto.BonusPerStep}.");
+        }
+
+        // Bez stropu by šla výroba škálovat donekonečna jedním typem budovy.
+        if (dto.MaxSteps is < 1 or > 100)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': 'milestones.maxSteps' musí být 1–100, je {dto.MaxSteps}.");
+        }
+
+        return new BuildingMilestones(dto.Every, dto.BonusPerStep, dto.MaxSteps);
+    }
+
+    /// <summary>
+    /// Přeloží požadovaný stupeň sídla z ID na index. Neznámé ID je tichá chyba
+    /// obsahu — budova by se dala postavit kdekoli, i když data slibují opak.
+    /// </summary>
+    private static int ParseMinSettlementRank(string path, string id, string? rankId, SettlementRankLadder ranks)
+    {
+        if (string.IsNullOrWhiteSpace(rankId))
+        {
+            return -1;
+        }
+
+        int index = ranks.IndexOf(rankId.Trim());
+        if (index < 0)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}' vyžaduje stupeň sídla '{rankId}', který v settlement-ranks.json neexistuje.");
+        }
+
+        return index;
     }
 
     /// <summary>
@@ -1483,7 +1982,7 @@ public sealed class ContentLoader
 
     // ----- tech tree -----
 
-    private static DefRegistry<TechDef> LoadTech(string path, DefRegistry<BuildingDef> buildings, DefRegistry<Resource> resources)
+    private DefRegistry<TechDef> LoadTech(string path, DefRegistry<BuildingDef> buildings, DefRegistry<Resource> resources)
     {
         // Tech tree je volitelný — bez souboru je registr prázdný a vše je odemčené.
         if (!File.Exists(path))
@@ -1566,7 +2065,7 @@ public sealed class ContentLoader
         "crit_chance", "jackpot_chance", "discovery_luck", "festival_power", "research_discount",
     };
 
-    private static (PrestigeConfig Config, DefRegistry<PrestigeUpgradeDef> Upgrades) LoadPrestige(
+    private (PrestigeConfig Config, DefRegistry<PrestigeUpgradeDef> Upgrades) LoadPrestige(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         var file = ReadFile<PrestigeFileDto>(path);
@@ -1651,7 +2150,7 @@ public sealed class ContentLoader
 
     // ----- úkoly (quests) -----
 
-    private static (DefRegistry<QuestDef> Quests, DynamicQuestConfig Dynamic) LoadQuests(
+    private (DefRegistry<QuestDef> Quests, DynamicQuestConfig Dynamic) LoadQuests(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         var file = ReadFile<QuestFileDto>(path);
@@ -1702,7 +2201,7 @@ public sealed class ContentLoader
 
     // ----- achievementy -----
 
-    private static DefRegistry<AchievementDef> LoadAchievements(
+    private DefRegistry<AchievementDef> LoadAchievements(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         var file = ReadFile<AchievementFileDto>(path);
@@ -1734,7 +2233,7 @@ public sealed class ContentLoader
 
     // ----- události -----
 
-    private static DefRegistry<EventDef> LoadEvents(
+    private DefRegistry<EventDef> LoadEvents(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         var file = ReadFile<EventFileDto>(path);
@@ -1866,7 +2365,7 @@ public sealed class ContentLoader
 
     // ----- gameplay -----
 
-    private static GameplayConfig LoadGameplay(string path, DefRegistry<Resource> resources)
+    private GameplayConfig LoadGameplay(string path, DefRegistry<Resource> resources)
     {
         var file = ReadFile<GameplayFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -2054,7 +2553,113 @@ public sealed class ContentLoader
             ParseHaul(path, file.Haul),
             ParseTools(path, file.Tools, resources),
             ParseCombo(path, file.Combo),
-            ParsePollution(path, file.Pollution));
+            ParsePollution(path, file.Pollution),
+            ParseBulkBuild(path, file.BulkBuild),
+            ParseLaser(path, file.Laser),
+            ParseHistory(path, file.History));
+    }
+
+    /// <summary>
+    /// Nastavení časosběru. Chybí-li blok, nic se nezaznamenává a save zůstává
+    /// stejně velký jako dřív.
+    /// </summary>
+    private static HistoryConfig? ParseHistory(string path, HistoryDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        // Příliš hustý záznam by nafoukl save, příliš řídký by přehrávku udělal
+        // trhanou — obojí je tichá chyba obsahu.
+        if (dto.IntervalSeconds is < 1 or > 3600)
+        {
+            throw new ContentLoadException(path,
+                $"'history.intervalSeconds' musí být 1–3600, je {dto.IntervalSeconds}.");
+        }
+
+        if (dto.MaxFrames is < 2 or > 2000)
+        {
+            throw new ContentLoadException(path, $"'history.maxFrames' musí být 2–2000, je {dto.MaxFrames}.");
+        }
+
+        return new HistoryConfig(dto.IntervalSeconds, dto.MaxFrames);
+    }
+
+    /// <summary>
+    /// Nastavení těžebního laseru. Chybí-li blok, je vrstva vypnutá a ruční sběr
+    /// zůstává klikáním jako dřív.
+    /// </summary>
+    private static LaserConfig? ParseLaser(string path, LaserDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        // Příliš rychlý paprsek by z krajiny udělal jednorázovou zásobárnu —
+        // strop je tu proti tiché chybě obsahu, ne proti hráči.
+        if (dto.HarvestsPerSecond is <= 0 or > 60)
+        {
+            throw new ContentLoadException(path,
+                $"'laser.harvestsPerSecond' musí být v (0, 60], je {dto.HarvestsPerSecond}.");
+        }
+
+        if (dto.RadiusTiles is < 0 or > 8)
+        {
+            throw new ContentLoadException(path, $"'laser.radiusTiles' musí být 0–8, je {dto.RadiusTiles}.");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Feature))
+        {
+            throw new ContentLoadException(path,
+                "'laser.feature' musí odkazovat na funkci z features.json — bez brány by laser platil od první minuty.");
+        }
+
+        return new LaserConfig(dto.HarvestsPerSecond, dto.RadiusTiles, dto.Feature.Trim());
+    }
+
+    /// <summary>
+    /// Nastavení hromadné stavby. Chybí-li blok, platí výchozí násobiče — starší
+    /// data se načtou a hráč o funkci nepřijde.
+    /// </summary>
+    private static BulkBuildConfig? ParseBulkBuild(string path, BulkBuildDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (dto.MaxPerAction is < 1 or > 10_000)
+        {
+            throw new ContentLoadException(path,
+                $"'bulkBuild.maxPerAction' musí být 1–10000, je {dto.MaxPerAction}.");
+        }
+
+        var batches = dto.Batches;
+        if (batches is null || batches.Count == 0)
+        {
+            throw new ContentLoadException(path, "'bulkBuild.batches' nesmí být prázdné.");
+        }
+
+        for (int i = 0; i < batches.Count; i++)
+        {
+            if (batches[i] < 1)
+            {
+                throw new ContentLoadException(path,
+                    $"'bulkBuild.batches' smí obsahovat jen kladná čísla, je tam {batches[i]}.");
+            }
+
+            // Rostoucí řada: lišta násobičů se čte zleva doprava a přeházená čísla
+            // by z ní udělaly hádanku.
+            if (i > 0 && batches[i] <= batches[i - 1])
+            {
+                throw new ContentLoadException(path,
+                    $"'bulkBuild.batches' musí růst, {batches[i]} následuje po {batches[i - 1]}.");
+            }
+        }
+
+        return new BulkBuildConfig(batches.ToArray(), dto.MaxPerAction);
     }
 
     /// <summary>
@@ -2279,7 +2884,7 @@ public sealed class ContentLoader
 
     // ----- devlog (volitelný obsah menu) -----
 
-    private static IReadOnlyList<DevlogEntry> LoadDevlog(string path)
+    private IReadOnlyList<DevlogEntry> LoadDevlog(string path)
     {
         if (!File.Exists(path))
         {
@@ -2308,7 +2913,7 @@ public sealed class ContentLoader
 
     // ----- dekorace a fauna (živá mapa) -----
 
-    private static IReadOnlyList<DecorationDef> LoadDecorations(string path, BiomeRegistry biomes)
+    private IReadOnlyList<DecorationDef> LoadDecorations(string path, BiomeRegistry biomes)
     {
         var file = ReadFile<DecorationsFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -2352,7 +2957,7 @@ public sealed class ContentLoader
         return result;
     }
 
-    private static IReadOnlyList<FaunaDef> LoadFauna(string path, BiomeRegistry biomes)
+    private IReadOnlyList<FaunaDef> LoadFauna(string path, BiomeRegistry biomes)
     {
         var file = ReadFile<FaunaFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -2394,6 +2999,66 @@ public sealed class ContentLoader
         return result;
     }
 
+    /// <summary>
+    /// Vozidla pro dopravu po silnicích. Soubor je volitelný — bez něj se prostě
+    /// nic nehýbe a hra běží jako dřív (kulisa nesmí být podmínkou spuštění).
+    /// </summary>
+    private IReadOnlyList<VehicleDef> LoadVehicles(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return Array.Empty<VehicleDef>();
+        }
+
+        var file = ReadFile<VehiclesFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var result = new List<VehicleDef>();
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var dto in file.Vehicles ?? new List<VehicleDto>())
+        {
+            string id = RequireId(path, dto.Id, "Vozidlo");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID vozidla '{id}'.");
+            }
+
+            var color = ParseColor(path, dto.Color, $"Vozidlo '{id}'");
+            if (dto.Width is < 1 or > 16)
+            {
+                throw new ContentLoadException(path, $"Vozidlo '{id}': 'width' musí být 1–16, je {dto.Width}.");
+            }
+
+            if (dto.Length is < 1 or > 32)
+            {
+                throw new ContentLoadException(path, $"Vozidlo '{id}': 'length' musí být 1–32, je {dto.Length}.");
+            }
+
+            if (dto.Speed is <= 0 or > 500)
+            {
+                throw new ContentLoadException(path, $"Vozidlo '{id}': 'speed' musí být v (0, 500], je {dto.Speed}.");
+            }
+
+            if (dto.MinEra < 0)
+            {
+                throw new ContentLoadException(path, $"Vozidlo '{id}': 'minEra' nesmí být záporná, je {dto.MinEra}.");
+            }
+
+            // Chybějící maxEra = jezdí navždy; převrácený rozsah je tichá chyba
+            // obsahu — vozidlo by se nikdy neobjevilo.
+            int maxEra = dto.MaxEra ?? -1;
+            if (maxEra >= 0 && maxEra < dto.MinEra)
+            {
+                throw new ContentLoadException(path,
+                    $"Vozidlo '{id}': 'maxEra' ({maxEra}) je menší než 'minEra' ({dto.MinEra}) — nikdy by nejezdilo.");
+            }
+
+            result.Add(new VehicleDef(id, color, dto.Width, dto.Length, (float)dto.Speed, dto.MinEra, maxEra, dto.Glow));
+        }
+
+        return result;
+    }
+
     private static bool[] ParseBiomeMask(string path, string owner, string[]? biomeIds, BiomeRegistry biomes)
     {
         if (biomeIds is not { Length: > 0 })
@@ -2417,7 +3082,7 @@ public sealed class ContentLoader
 
     // ----- jména osad -----
 
-    private static IReadOnlyList<string> LoadSettlementNames(string path)
+    private IReadOnlyList<string> LoadSettlementNames(string path)
     {
         var file = ReadFile<SettlementNamesFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -2448,7 +3113,7 @@ public sealed class ContentLoader
 
     // ----- jazyky -----
 
-    private static DefRegistry<LanguageDef> LoadLanguages(
+    private DefRegistry<LanguageDef> LoadLanguages(
         string langDirectory,
         BiomeRegistry biomes,
         DefRegistry<Resource> resources,
@@ -2470,6 +3135,11 @@ public sealed class ContentLoader
         DefRegistry<TerraformDef> terraform,
         IReadOnlyList<TutorialStepDef> tutorial,
         ChallengeCatalog challenges,
+        ContractCatalog contracts,
+        DistrictCatalog districts,
+        SettlementRankLadder settlementRanks,
+        CitizenCatalog citizens,
+        NeighbourCatalog neighbours,
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
         SeasonCalendar seasons)
@@ -2506,8 +3176,8 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, elections, milestones, seasons);
-        ValidateKeySetsMatch(langDirectory, languages);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, neighbours, elections, milestones, seasons);
+        FillGapsFromBaseLanguage(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
 
@@ -2535,6 +3205,11 @@ public sealed class ContentLoader
         DefRegistry<TerraformDef> terraform,
         IReadOnlyList<TutorialStepDef> tutorial,
         ChallengeCatalog challenges,
+        ContractCatalog contracts,
+        DistrictCatalog districts,
+        SettlementRankLadder settlementRanks,
+        CitizenCatalog citizens,
+        NeighbourCatalog neighbours,
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
         SeasonCalendar seasons)
@@ -2582,6 +3257,11 @@ public sealed class ContentLoader
         required.AddRange(tutorial.Select(t => t.HintKey));
         required.AddRange(challenges.Challenges.Select(c => c.NameKey));
         required.AddRange(challenges.Challenges.Select(c => c.DescriptionKey));
+        required.AddRange(contracts.Contracts.All.Select(c => c.NameKey));
+        required.AddRange(districts.Types.All.Select(d => d.NameKey));
+        required.AddRange(settlementRanks.Ranks.Select(r => r.NameKey));
+        required.AddRange(citizens.Requests.All.Select(r => r.TextKey));
+        required.AddRange(neighbours.Neighbours.All.Select(n => n.NameKey));
         required.AddRange(elections.Candidates.Select(c => c.NameKey));
         required.AddRange(elections.Candidates.Select(c => c.DescriptionKey));
         required.AddRange(milestones.Select(m => m.NameKey));
@@ -2599,36 +3279,48 @@ public sealed class ContentLoader
     }
 
     /// <summary>Všechny jazyky musí mít stejnou sadu klíčů — chybějící překlad se pozná při startu, ne ve hře.</summary>
-    private static void ValidateKeySetsMatch(string langDirectory, List<LanguageDef> languages)
+    /// <summary>
+    /// Doplní částečným jazykům chybějící klíče ze základního a spočítá pokrytí.
+    ///
+    /// <para>Klíč navíc (ve jazyce, ale ne v základu) je pořád chyba: je to skoro
+    /// vždycky překlep, na který by se jinak nikdy nepřišlo, protože hra si takový
+    /// řetězec nikdy nevyžádá.</para>
+    /// </summary>
+    private static void FillGapsFromBaseLanguage(string langDirectory, List<LanguageDef> languages)
     {
         var reference = languages[0];
-        foreach (var language in languages.Skip(1))
+        for (int i = 1; i < languages.Count; i++)
         {
-            var missing = reference.Strings.Keys.Where(k => !language.Strings.ContainsKey(k)).ToList();
+            var language = languages[i];
             var extra = language.Strings.Keys.Where(k => !reference.Strings.ContainsKey(k)).ToList();
-            if (missing.Count > 0 || extra.Count > 0)
+            if (extra.Count > 0)
             {
-                var parts = new List<string>();
-                if (missing.Count > 0)
-                {
-                    parts.Add($"chybí: {string.Join(", ", missing.Take(8))}" + (missing.Count > 8 ? "…" : ""));
-                }
-
-                if (extra.Count > 0)
-                {
-                    parts.Add($"přebývá: {string.Join(", ", extra.Take(8))}" + (extra.Count > 8 ? " …" : ""));
-                }
-
                 throw new ContentLoadException(
                     langDirectory,
-                    $"Jazyk '{language.Id}' nemá stejné klíče jako '{reference.Id}' — {string.Join("; ", parts)}.");
+                    $"Jazyk '{language.Id}' má klíče, které základní jazyk '{reference.Id}' nezná — "
+                    + $"{string.Join(", ", extra.Take(8))}{(extra.Count > 8 ? " …" : string.Empty)}. "
+                    + "Nejspíš překlep: hra si takový řetězec nikdy nevyžádá.");
             }
+
+            var merged = new Dictionary<string, string>(reference.Strings, StringComparer.Ordinal);
+            int translated = 0;
+            foreach (var pair in language.Strings)
+            {
+                merged[pair.Key] = pair.Value;
+                translated++;
+            }
+
+            languages[i] = language with
+            {
+                Strings = merged,
+                Coverage = reference.Strings.Count == 0 ? 1.0 : translated / (double)reference.Strings.Count,
+            };
         }
     }
 
     // ----- worldgen -----
 
-    private static WorldGenCatalog LoadWorldGen(string path, BiomeRegistry biomes)
+    private WorldGenCatalog LoadWorldGen(string path, BiomeRegistry biomes)
     {
         var file = ReadFile<WorldGenFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -2837,7 +3529,14 @@ public sealed class ContentLoader
         }
     }
 
-    private static T ReadFile<T>(string path)
+    /// <summary>
+    /// Načte datový soubor a navrství na něj stejnojmenné soubory z modů.
+    ///
+    /// <para>Tohle je jediné místo, kudy do hry tečou data — proto tu vrstvení
+    /// modů stojí. Kdyby se řešilo v každé <c>Load*</c> metodě zvlášť, půlka
+    /// obsahu by se moddovat nedala a nikdo by nepřišel na to proč.</para>
+    /// </summary>
+    private T ReadFile<T>(string path)
     {
         if (!File.Exists(path))
         {
@@ -2846,12 +3545,42 @@ public sealed class ContentLoader
 
         try
         {
-            var parsed = JsonSerializer.Deserialize<T>(File.ReadAllText(path), JsonOptions);
+            string json = JsonOverlay.Merge(File.ReadAllText(path), OverlaysFor(path));
+            var parsed = JsonSerializer.Deserialize<T>(json, JsonOptions);
             return parsed ?? throw new ContentLoadException(path, "Soubor obsahuje jen 'null'.");
         }
         catch (JsonException ex)
         {
             throw new ContentLoadException(path, $"Neplatný JSON: {ex.Message}");
         }
+    }
+
+    /// <summary>Obsah stejnojmenných souborů z modů, v pořadí uplatnění.</summary>
+    private List<string> OverlaysFor(string path)
+    {
+        var overlays = new List<string>();
+        if (_mods.Count == 0)
+        {
+            return overlays;
+        }
+
+        // Modová cesta je stejná jako základní, jen s jiným kořenem — díky tomu
+        // se modu nedá omylem podstrčit soubor odjinud.
+        string fileName = Path.GetFileName(path);
+        string parent = Path.GetFileName(Path.GetDirectoryName(path) ?? string.Empty);
+        bool inSubfolder = parent == "lang";
+
+        foreach (var mod in _mods)
+        {
+            string candidate = inSubfolder
+                ? Path.Combine(mod.Directory, parent, fileName)
+                : Path.Combine(mod.Directory, fileName);
+            if (File.Exists(candidate))
+            {
+                overlays.Add(File.ReadAllText(candidate));
+            }
+        }
+
+        return overlays;
     }
 }

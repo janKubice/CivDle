@@ -63,6 +63,11 @@ public sealed class SaveGameSerializer
     private const string SectionConstruction = "construction";
     private const string SectionNodes = "nodes";
     private const string SectionPollution = "pollution";
+    private const string SectionContracts = "contracts";
+    private const string SectionCitizens = "citizens";
+    private const string SectionNeighbours = "neighbours";
+    private const string SectionRuns = "runs";
+    private const string SectionHistory = "history";
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -110,11 +115,26 @@ public sealed class SaveGameSerializer
         WriteSection(writer, SectionConstruction, w => WriteConstruction(w, simulation));
         WriteSection(writer, SectionNodes, w => WriteNodes(w, simulation));
         WriteSection(writer, SectionPollution, w => WritePollution(w, simulation));
+        WriteSection(writer, SectionContracts, w => WriteContracts(w, simulation));
+        WriteSection(writer, SectionCitizens, w => WriteCitizens(w, simulation));
+        WriteSection(writer, SectionNeighbours, w => WriteNeighbours(w, content: null, simulation));
         WriteSection(writer, SectionElection, w =>
         {
             w.Write(simulation.ElectionTerm);
             w.Write(simulation.ElectedCandidate);
         });
+
+        // Vrchol běhu a nejlepší běh vůbec — bez nich by se bilance po Vzestupu
+        // po restartu hry poměřovala s nulou.
+        WriteSection(writer, SectionRuns, w =>
+        {
+            w.Write(simulation.PeakPopulation);
+            w.Write(simulation.BestRunPopulation);
+        });
+
+        // Časosběr: bez něj by po restartu zmizel celý příběh běhu. Tělo savu
+        // je gzip, takže si podobné snímky poradí samy.
+        WriteSection(writer, SectionHistory, w => WriteHistory(w, simulation));
     }
 
     /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
@@ -327,8 +347,16 @@ public sealed class SaveGameSerializer
             case SectionConstruction: ReadConstruction(section, simulation); break;
             case SectionNodes: ReadNodes(section, simulation); break;
             case SectionPollution: ReadPollution(section, simulation); break;
+            case SectionContracts: ReadContracts(section, content, simulation); break;
+            case SectionCitizens: ReadCitizens(section, simulation); break;
+            case SectionNeighbours: ReadNeighbours(section, content, simulation); break;
             case SectionElection: simulation.RestoreElection(section.ReadInt64(), section.ReadInt32()); break;
             case SectionMilestones: ReadMilestones(section, content, simulation); break;
+            case SectionHistory: ReadHistory(section, simulation); break;
+            case SectionRuns:
+                simulation.PeakPopulation = section.ReadInt64();  // pořadí musí sedět se zápisem
+                simulation.BestRunPopulation = section.ReadInt64();
+                break;
             default: break; // neznámá sekce z novější hry — přeskočit, ne spadnout
         }
     }
@@ -531,6 +559,166 @@ public sealed class SaveGameSerializer
             double water = reader.ReadDouble();
             double soil = reader.ReadDouble();
             simulation.PollutionMap.RestoreCell(cellX, cellY, air, water, soil);
+        }
+    }
+
+    /// <summary>
+    /// Nástěnka zakázek. Ukládá se přes stabilní ID šablony, ne přes index —
+    /// aby přidání nové zakázky do dat nepřeházelo rozehrané nabídky.
+    /// Starší savy sekci nemají a načtou se s prázdnou nástěnkou, která se sama
+    /// zaplní; o nic se tím nepřijde.
+    /// </summary>
+    private static void WriteContracts(BinaryWriter writer, Simulation simulation)
+    {
+        writer.Write(simulation.ContractsCompleted);
+
+        var slots = simulation.ContractSlots;
+        writer.Write(slots.Length);
+        for (int i = 0; i < slots.Length; i++)
+        {
+            var def = simulation.ContractAt(i);
+            writer.Write(def?.Id ?? string.Empty); // prázdný řetězec = volné místo
+            writer.Write(slots[i].DemandAmount);
+            writer.Write(slots[i].TicksLeft);
+            writer.Write(slots[i].RewardScale);
+        }
+    }
+
+    private static void ReadContracts(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        simulation.RestoreContractsCompleted(reader.ReadInt64());
+
+        int count = ReadCount(reader, max: 64, what: "míst na nástěnce zakázek");
+        for (int i = 0; i < count; i++)
+        {
+            string id = reader.ReadString();
+            long demand = reader.ReadInt64();
+            int ticksLeft = reader.ReadInt32();
+            double scale = reader.ReadDouble();
+
+            // Zakázka, která z dat zmizela, se tiše zahodí — místo se doplní samo.
+            // Padat kvůli obsahu, který se mezi verzemi mění, by byla krutost.
+            if (id.Length == 0 || !content.Contracts.Contracts.TryIndexOf(id, out int defIndex))
+            {
+                continue;
+            }
+
+            simulation.RestoreContractSlot(i, defIndex, demand, ticksLeft, scale);
+        }
+    }
+
+    /// <summary>
+    /// Obyvatelé: běžící prosba a zakladatelé budov. Jména se ukládají jako dvojice
+    /// indexů do seznamů — kratší než řetězec a odolné vůči přeložení hry.
+    /// Starší savy sekci nemají a načtou se bez zakladatelů, což je správně.
+    /// </summary>
+    private static void WriteCitizens(BinaryWriter writer, Simulation simulation)
+    {
+        var request = simulation.PendingCitizenRequest;
+        writer.Write(request.DefIndex);
+        writer.Write(request.FirstNameIndex);
+        writer.Write(request.SurnameIndex);
+        writer.Write(request.TicksLeft);
+        writer.Write(simulation.FoundedByCitizens);
+
+        var founders = simulation.Founders().ToList();
+        writer.Write(founders.Count);
+        foreach (var (x, y, first, surname) in founders)
+        {
+            writer.Write(x);
+            writer.Write(y);
+            writer.Write(first);
+            writer.Write(surname);
+        }
+    }
+
+    private static void ReadCitizens(BinaryReader reader, Simulation simulation)
+    {
+        int defIndex = reader.ReadInt32();
+        int first = reader.ReadInt32();
+        int surname = reader.ReadInt32();
+        int ticksLeft = reader.ReadInt32();
+        simulation.RestoreCitizenRequest(defIndex, first, surname, ticksLeft, cooldown: 0);
+        simulation.RestoreFoundedByCitizens(reader.ReadInt64());
+
+        int count = ReadCount(reader, max: 5_000_000, what: "zakladatelů budov");
+        for (int i = 0; i < count; i++)
+        {
+            int x = reader.ReadInt32();
+            int y = reader.ReadInt32();
+            simulation.RestoreFounder(x, y, reader.ReadInt32(), reader.ReadInt32());
+        }
+    }
+
+    /// <summary>
+    /// Vztahy se sousedy. Ukládají se přes stabilní ID, ne index — přidání
+    /// souseda do dat tak nepřehází, s kým už město obchodovalo. Starší savy
+    /// sekci nemají a začnou jako cizinci, což je správně.
+    /// </summary>
+    private static void WriteHistory(BinaryWriter writer, Simulation simulation)
+    {
+        var history = simulation.History;
+        writer.Write(history.Count);
+        for (int i = 0; i < history.Count; i++)
+        {
+            var frame = history.FrameAt(i);
+            writer.Write(frame.Tick);
+            writer.Write(frame.Population);
+            writer.Write(frame.Buildings);
+            writer.Write(frame.EraIndex);
+            writer.Write(frame.Happiness);
+            writer.Write(frame.HousingCapacity);
+            writer.Write(frame.Pollution);
+            writer.Write(frame.Settlements);
+            writer.Write(history.MaskAt(i));
+        }
+    }
+
+    private static void ReadHistory(BinaryReader reader, Simulation simulation)
+    {
+        simulation.History.Clear();
+        int count = reader.ReadInt32();
+        for (int i = 0; i < count; i++)
+        {
+            var frame = new HistoryFrame(
+                reader.ReadInt64(), reader.ReadInt64(), reader.ReadInt32(), reader.ReadInt32(),
+                reader.ReadDouble(), reader.ReadInt64(), reader.ReadDouble(), reader.ReadInt32());
+            var mask = reader.ReadBytes(CityHistory.MaskBytes);
+            if (mask.Length != CityHistory.MaskBytes)
+            {
+                return; // useknutý save — co se přečetlo, to platí; zbytek se zahodí
+            }
+
+            simulation.History.Add(frame, mask);
+        }
+    }
+
+    private static void WriteNeighbours(BinaryWriter writer, GameContent? content, Simulation simulation)
+    {
+        _ = content; // katalog se bere ze simulace, parametr drží tvar ostatních zapisovačů
+        var ids = simulation.NeighbourIds().ToList();
+        writer.Write(ids.Count);
+        for (int i = 0; i < ids.Count; i++)
+        {
+            writer.Write(ids[i]);
+            writer.Write(simulation.NeighbourTrades(i));
+        }
+    }
+
+    private static void ReadNeighbours(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        int count = ReadCount(reader, max: 1000, what: "sousedů");
+        for (int i = 0; i < count; i++)
+        {
+            string id = reader.ReadString();
+            long trades = reader.ReadInt64();
+
+            // Soused, který z dat zmizel, se tiše přeskočí — padat kvůli obsahu,
+            // co se mezi verzemi mění, by byla krutost.
+            if (content.Neighbours.Neighbours.TryIndexOf(id, out int index))
+            {
+                simulation.RestoreNeighbourTrades(index, trades);
+            }
         }
     }
 

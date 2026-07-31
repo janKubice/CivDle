@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Hierarchie sidel (living-city.md §6). Prah je pocet budov ve shluku — populace je v teto hre globalni agregat, takze 'kolik lidi bydli zrovna tady' neexistuje. Poradi v souboru je poradim hierarchie a prahy musi rust.",
+  "ranks": [
+    { "id": "hamlet", "minBuildings": 3 },
+    { "id": "village", "minBuildings": 8 },
+    { "id": "town", "minBuildings": 20 },
+    { "id": "city", "minBuildings": 50 },
+    { "id": "large_city", "minBuildings": 120 },
+    { "id": "metropolis", "minBuildings": 300 }
+  ]
+}

@@ -98,7 +98,7 @@ public sealed class SettingsScreen : IScreen
         var loc = _screens.Loc;
 
         var language = new CycleSelector(
-            loc.Languages.Count, _languageIndex, i => loc.Languages[i].NativeName);
+            loc.Languages.Count, _languageIndex, i => LanguageLabel(loc.Languages[i]));
         language.SelectionChanged += i => _languageIndex = i;
 
         var resolution = new CycleSelector(
@@ -190,6 +190,15 @@ public sealed class SettingsScreen : IScreen
     }
 
     /// <summary>Nejbližší nabízený krok zvětšení k uložené hodnotě (soubor mohl někdo ručně upravit).</summary>
+    /// <summary>
+    /// Jméno jazyka v nabídce; u nedodělaných překladů i procento pokrytí.
+    ///
+    /// <para>Bez toho by hráč přepnul na částečný jazyk a divil se, proč je
+    /// půlka hry pořád v základním jazyce — takhle to ví předem.</para>
+    /// </summary>
+    private static string LanguageLabel(CivDle.Core.Content.LanguageDef language) =>
+        language.IsComplete ? language.NativeName : $"{language.NativeName} ({language.Coverage * 100:0} %)";
+
     private static int NearestUiScaleStep(float scale)
     {
         int best = 0;
