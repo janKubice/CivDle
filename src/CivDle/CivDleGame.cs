@@ -1,6 +1,7 @@
 using CivDle.Capture;
 using CivDle.Core.Config;
 using CivDle.Core.Content;
+using CivDle.Core.Content.Mods;
 using CivDle.Core.Save;
 using CivDle.Core.Sim;
 using CivDle.Rendering.Sprites;
@@ -116,7 +117,14 @@ public sealed class CivDleGame : Game
         MyraEnvironment.TooltipOffset = new Point(16, 18);
 
         // Data leží vedle binárky — funguje pro `dotnet run` i pro publish jedním exe.
-        var content = new ContentLoader().LoadFrom(Path.Combine(AppContext.BaseDirectory, "data"));
+        // Mody bydlí ve vlastní složce vedle nich: kdyby přepisovaly data/, každá
+        // aktualizace hry by je smazala a dva mody by se nedaly použít naráz.
+        var mods = ModCatalog.Discover(Path.Combine(AppContext.BaseDirectory, "mods"));
+        var content = new ContentLoader().LoadFrom(Path.Combine(AppContext.BaseDirectory, "data"), mods);
+        foreach (var mod in mods)
+        {
+            Console.WriteLine($"mod: {mod.Name} {mod.Version} ({mod.Id})");
+        }
         // Obchod je anglicky: snímky do Steamu musí být v jazyce, kterému rozumí
         // každý, kdo si stránku otevře — ne v tom, který má vývojář nastavený.
         bool storeMode = _capture is not null || _capsuleDirectory is not null || _smoke || _perf;

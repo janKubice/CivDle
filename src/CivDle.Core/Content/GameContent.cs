@@ -45,9 +45,11 @@ public sealed class GameContent
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
         SeasonCalendar seasons,
-        IReadOnlyList<VehicleDef>? vehicles = null)
+        IReadOnlyList<VehicleDef>? vehicles = null,
+        IReadOnlyList<Mods.ModPackage>? mods = null)
     {
         Vehicles = vehicles ?? Array.Empty<VehicleDef>();
+        Mods = mods ?? Array.Empty<Mods.ModPackage>();
         Biomes = biomes;
         Resources = resources;
         Buildings = buildings;
@@ -196,6 +198,12 @@ public sealed class GameContent
     /// prázdné — bez nich se po silnicích prostě nic nehýbe).
     /// </summary>
     public IReadOnlyList<VehicleDef> Vehicles { get; }
+
+    /// <summary>
+    /// Načtené mody, jejichž data se do obsahu vlila. Hra je ukazuje hráči —
+    /// jinak by nešlo poznat, proč se jeho hra chová jinak než cizí.
+    /// </summary>
+    public IReadOnlyList<Mods.ModPackage> Mods { get; }
 
     /// <summary>Definice biomů z <c>data/biomes.json</c>.</summary>
     public BiomeRegistry Biomes { get; }

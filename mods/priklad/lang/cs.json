@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "id": "cs",
+  "nativeName": "Čeština",
+  "strings": {
+    "building.observatory": "Hvězdárna"
+  }
+}

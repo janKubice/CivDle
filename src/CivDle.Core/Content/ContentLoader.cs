@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CivDle.Core.Content.Dto;
+using CivDle.Core.Content.Mods;
 using CivDle.Core.Sim;
 
 namespace CivDle.Core.Content;
@@ -23,13 +24,28 @@ public sealed class ContentLoader
         AllowTrailingCommas = true,
     };
 
+    /// <summary>
+    /// Mody, jejichž data se vrství na základní hru. Drží se v instanci, protože
+    /// všechny <c>Load*</c> metody čtou přes jediné místo (<see cref="ReadFile"/>)
+    /// a nemá smysl protahovat seznam všemi.
+    /// </summary>
+    private IReadOnlyList<ModPackage> _mods = Array.Empty<ModPackage>();
+
     /// <summary>Načte kompletní herní obsah ze složky s daty.</summary>
-    public GameContent LoadFrom(string dataDirectory)
+    public GameContent LoadFrom(string dataDirectory) => LoadFrom(dataDirectory, Array.Empty<ModPackage>());
+
+    /// <summary>
+    /// Načte obsah a navrství na něj mody. Mod nemusí dodat celý soubor — stačí
+    /// mu položka, kterou přidává nebo mění (viz <see cref="JsonOverlay"/>).
+    /// </summary>
+    public GameContent LoadFrom(string dataDirectory, IReadOnlyList<ModPackage> mods)
     {
         if (!Directory.Exists(dataDirectory))
         {
             throw new ContentLoadException(dataDirectory, $"Složka s herními daty '{dataDirectory}' neexistuje.");
         }
+
+        _mods = mods;
 
         // Suroviny první — odkazují na ně biomy (clickYield) i budovy (ceny, recepty).
         var resources = LoadResources(Path.Combine(dataDirectory, "resources.json"));
@@ -73,7 +89,7 @@ public sealed class ContentLoader
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, neighbours, elections, milestones, seasons, vehicles);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, neighbours, elections, milestones, seasons, vehicles, mods);
     }
 
     // ----- roční období -----
@@ -82,7 +98,7 @@ public sealed class ContentLoader
     /// Načte kalendář ročních období. Volitelný soubor — bez něj hra běží
     /// v jednom nekonečném létě jako dřív.
     /// </summary>
-    private static SeasonCalendar LoadSeasons(string path, DefRegistry<Resource> resources)
+    private SeasonCalendar LoadSeasons(string path, DefRegistry<Resource> resources)
     {
         if (!File.Exists(path))
         {
@@ -174,7 +190,7 @@ public sealed class ContentLoader
     // ----- milníky -----
 
     /// <summary>Načte milníky postupu. Volitelný soubor — bez něj se nic neslaví.</summary>
-    private static IReadOnlyList<MilestoneDef> LoadMilestones(
+    private IReadOnlyList<MilestoneDef> LoadMilestones(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         if (!File.Exists(path))
@@ -213,7 +229,7 @@ public sealed class ContentLoader
     /// <summary>
     /// Načte volební programy. Volitelný soubor — bez něj hra běží bez voleb.
     /// </summary>
-    private static ElectionConfig LoadElections(string path)
+    private ElectionConfig LoadElections(string path)
     {
         if (!File.Exists(path))
         {
@@ -282,7 +298,7 @@ public sealed class ContentLoader
     /// Sousedé a pravidla vztahu. Soubor je volitelný — bez něj zůstanou karavany
     /// anonymní jako dřív.
     /// </summary>
-    private static NeighbourCatalog LoadNeighbours(string path)
+    private NeighbourCatalog LoadNeighbours(string path)
     {
         if (!File.Exists(path))
         {
@@ -339,7 +355,7 @@ public sealed class ContentLoader
     /// Pojmenovaní obyvatelé a jejich prosby. Soubor je volitelný — bez něj se
     /// nikdo neozve a hraje se jako dřív.
     /// </summary>
-    private static CitizenCatalog LoadCitizens(
+    private CitizenCatalog LoadCitizens(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         if (!File.Exists(path))
@@ -421,7 +437,7 @@ public sealed class ContentLoader
     /// prahy rostou: sestupný žebříček by tiše znamenal, že vyšší stupeň nikdy
     /// nenastane.
     /// </summary>
-    private static SettlementRankLadder LoadSettlementRanks(string path)
+    private SettlementRankLadder LoadSettlementRanks(string path)
     {
         if (!File.Exists(path))
         {
@@ -473,7 +489,7 @@ public sealed class ContentLoader
     /// Druhy čtvrtí. Soubor je volitelný — bez něj se shluky budov nijak
     /// nerozpoznávají a hraje se jako dřív.
     /// </summary>
-    private static DistrictCatalog LoadDistricts(string path, DefRegistry<BuildingDef> buildings)
+    private DistrictCatalog LoadDistricts(string path, DefRegistry<BuildingDef> buildings)
     {
         if (!File.Exists(path))
         {
@@ -565,7 +581,7 @@ public sealed class ContentLoader
     /// Nástěnka zakázek. Soubor je volitelný — bez něj se hraje jako dřív, jen
     /// bez krátkých objednávek.
     /// </summary>
-    private static ContractCatalog LoadContracts(
+    private ContractCatalog LoadContracts(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         if (!File.Exists(path))
@@ -662,7 +678,7 @@ public sealed class ContentLoader
         return new ContractCatalog(board, new DefRegistry<ContractDef>(result, c => c.Id, "zakázka"));
     }
 
-    private static ChallengeCatalog LoadChallenges(
+    private ChallengeCatalog LoadChallenges(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         if (!File.Exists(path))
@@ -721,7 +737,7 @@ public sealed class ContentLoader
     /// index), takže se nesmí přehazovat — proto se validuje jen unikátnost ID
     /// a to, že cíl „ukaž mi" existuje.
     /// </summary>
-    private static IReadOnlyList<TutorialStepDef> LoadTutorial(
+    private IReadOnlyList<TutorialStepDef> LoadTutorial(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         // Průvodce je volitelný — bez souboru se hra prostě spustí bez vedení.
@@ -799,7 +815,7 @@ public sealed class ContentLoader
 
     // ----- éry -----
 
-    private static DefRegistry<EraDef> LoadEras(string path)
+    private DefRegistry<EraDef> LoadEras(string path)
     {
         var file = ReadFile<ErasFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -837,7 +853,7 @@ public sealed class ContentLoader
 
     // ----- zóny (automatizace) -----
 
-    private static DefRegistry<ZoneTypeDef> LoadZoneTypes(string path, DefRegistry<BuildingDef> buildings)
+    private DefRegistry<ZoneTypeDef> LoadZoneTypes(string path, DefRegistry<BuildingDef> buildings)
     {
         // Zóny jsou volitelný obsah — bez souboru je registr prázdný (žádná automatizace zón).
         if (!File.Exists(path))
@@ -884,7 +900,7 @@ public sealed class ContentLoader
         return new DefRegistry<ZoneTypeDef>(result, z => z.Id, "typ zóny", allowEmpty: true);
     }
 
-    private static DefRegistry<GrowthPolicyDef> LoadPolicies(string path)
+    private DefRegistry<GrowthPolicyDef> LoadPolicies(string path)
     {
         // Politiky jsou volitelný obsah — bez souboru je registr prázdný (žádná stupeň-4 automatizace).
         if (!File.Exists(path))
@@ -922,7 +938,7 @@ public sealed class ContentLoader
 
     // ----- odemykatelné funkce -----
 
-    private static DefRegistry<FeatureDef> LoadFeatures(
+    private DefRegistry<FeatureDef> LoadFeatures(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         // Volitelný obsah — bez souboru je vše dostupné od začátku (žádné gatování).
@@ -960,7 +976,7 @@ public sealed class ContentLoader
 
     // ----- přetváření krajiny -----
 
-    private static DefRegistry<TerraformDef> LoadTerraform(
+    private DefRegistry<TerraformDef> LoadTerraform(
         string path, BiomeRegistry biomes, DefRegistry<Resource> resources, DefRegistry<TechDef> techs)
     {
         // Volitelný obsah — bez souboru se krajina prostě přetvářet nedá.
@@ -1017,7 +1033,7 @@ public sealed class ContentLoader
 
     // ----- ambientní kulisa -----
 
-    private static IReadOnlyList<AmbienceDef> LoadAmbience(
+    private IReadOnlyList<AmbienceDef> LoadAmbience(
         string path, BiomeRegistry biomes, DefRegistry<WeatherDef> weather)
     {
         // Volitelný obsah — bez souboru hraje jen hudba, hra běží dál.
@@ -1092,7 +1108,7 @@ public sealed class ContentLoader
         "abduct", "demolish", "plant", "terraform", "gift", "none",
     };
 
-    private static UfoConfig LoadUfo(string path)
+    private UfoConfig LoadUfo(string path)
     {
         // Volitelný obsah — bez souboru UFO ve hře prostě není.
         if (!File.Exists(path))
@@ -1158,7 +1174,7 @@ public sealed class ContentLoader
 
     // ----- landmarky (živá mapa) -----
 
-    private static DefRegistry<LandmarkDef> LoadLandmarks(string path, BiomeRegistry biomes, DefRegistry<Resource> resources)
+    private DefRegistry<LandmarkDef> LoadLandmarks(string path, BiomeRegistry biomes, DefRegistry<Resource> resources)
     {
         // Landmarky jsou volitelný obsah — bez souboru je mapa jen bez bodů zájmu.
         if (!File.Exists(path))
@@ -1232,7 +1248,7 @@ public sealed class ContentLoader
 
     // ----- počasí (živá mapa) -----
 
-    private static DefRegistry<WeatherDef> LoadWeather(string path, BiomeRegistry biomes)
+    private DefRegistry<WeatherDef> LoadWeather(string path, BiomeRegistry biomes)
     {
         // Počasí je volitelný obsah — bez souboru je registr prázdný (mapa bez počasí).
         if (!File.Exists(path))
@@ -1305,7 +1321,7 @@ public sealed class ContentLoader
 
     // ----- stupně měřítka (Vzestup) -----
 
-    private static DefRegistry<AscensionTierDef> LoadAscensionTiers(string path, DefRegistry<BuildingDef> buildings)
+    private DefRegistry<AscensionTierDef> LoadAscensionTiers(string path, DefRegistry<BuildingDef> buildings)
     {
         // Stupně měřítka jsou volitelný obsah — bez souboru je registr prázdný (žádný strop).
         if (!File.Exists(path))
@@ -1363,7 +1379,7 @@ public sealed class ContentLoader
 
     // ----- biomy -----
 
-    private static BiomeRegistry LoadBiomes(string path, DefRegistry<Resource> resources)
+    private BiomeRegistry LoadBiomes(string path, DefRegistry<Resource> resources)
     {
         var file = ReadFile<BiomesFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -1529,7 +1545,7 @@ public sealed class ContentLoader
 
     // ----- suroviny -----
 
-    private static DefRegistry<Resource> LoadResources(string path)
+    private DefRegistry<Resource> LoadResources(string path)
     {
         var file = ReadFile<ResourcesFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -1574,7 +1590,7 @@ public sealed class ContentLoader
 
     // ----- budovy -----
 
-    private static DefRegistry<BuildingDef> LoadBuildings(
+    private DefRegistry<BuildingDef> LoadBuildings(
         string path, BiomeRegistry biomes, DefRegistry<Resource> resources, SettlementRankLadder ranks)
     {
         var file = ReadFile<BuildingsFileDto>(path);
@@ -1966,7 +1982,7 @@ public sealed class ContentLoader
 
     // ----- tech tree -----
 
-    private static DefRegistry<TechDef> LoadTech(string path, DefRegistry<BuildingDef> buildings, DefRegistry<Resource> resources)
+    private DefRegistry<TechDef> LoadTech(string path, DefRegistry<BuildingDef> buildings, DefRegistry<Resource> resources)
     {
         // Tech tree je volitelný — bez souboru je registr prázdný a vše je odemčené.
         if (!File.Exists(path))
@@ -2049,7 +2065,7 @@ public sealed class ContentLoader
         "crit_chance", "jackpot_chance", "discovery_luck", "festival_power", "research_discount",
     };
 
-    private static (PrestigeConfig Config, DefRegistry<PrestigeUpgradeDef> Upgrades) LoadPrestige(
+    private (PrestigeConfig Config, DefRegistry<PrestigeUpgradeDef> Upgrades) LoadPrestige(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         var file = ReadFile<PrestigeFileDto>(path);
@@ -2134,7 +2150,7 @@ public sealed class ContentLoader
 
     // ----- úkoly (quests) -----
 
-    private static (DefRegistry<QuestDef> Quests, DynamicQuestConfig Dynamic) LoadQuests(
+    private (DefRegistry<QuestDef> Quests, DynamicQuestConfig Dynamic) LoadQuests(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         var file = ReadFile<QuestFileDto>(path);
@@ -2185,7 +2201,7 @@ public sealed class ContentLoader
 
     // ----- achievementy -----
 
-    private static DefRegistry<AchievementDef> LoadAchievements(
+    private DefRegistry<AchievementDef> LoadAchievements(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         var file = ReadFile<AchievementFileDto>(path);
@@ -2217,7 +2233,7 @@ public sealed class ContentLoader
 
     // ----- události -----
 
-    private static DefRegistry<EventDef> LoadEvents(
+    private DefRegistry<EventDef> LoadEvents(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         var file = ReadFile<EventFileDto>(path);
@@ -2349,7 +2365,7 @@ public sealed class ContentLoader
 
     // ----- gameplay -----
 
-    private static GameplayConfig LoadGameplay(string path, DefRegistry<Resource> resources)
+    private GameplayConfig LoadGameplay(string path, DefRegistry<Resource> resources)
     {
         var file = ReadFile<GameplayFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -2868,7 +2884,7 @@ public sealed class ContentLoader
 
     // ----- devlog (volitelný obsah menu) -----
 
-    private static IReadOnlyList<DevlogEntry> LoadDevlog(string path)
+    private IReadOnlyList<DevlogEntry> LoadDevlog(string path)
     {
         if (!File.Exists(path))
         {
@@ -2897,7 +2913,7 @@ public sealed class ContentLoader
 
     // ----- dekorace a fauna (živá mapa) -----
 
-    private static IReadOnlyList<DecorationDef> LoadDecorations(string path, BiomeRegistry biomes)
+    private IReadOnlyList<DecorationDef> LoadDecorations(string path, BiomeRegistry biomes)
     {
         var file = ReadFile<DecorationsFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -2941,7 +2957,7 @@ public sealed class ContentLoader
         return result;
     }
 
-    private static IReadOnlyList<FaunaDef> LoadFauna(string path, BiomeRegistry biomes)
+    private IReadOnlyList<FaunaDef> LoadFauna(string path, BiomeRegistry biomes)
     {
         var file = ReadFile<FaunaFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -2987,7 +3003,7 @@ public sealed class ContentLoader
     /// Vozidla pro dopravu po silnicích. Soubor je volitelný — bez něj se prostě
     /// nic nehýbe a hra běží jako dřív (kulisa nesmí být podmínkou spuštění).
     /// </summary>
-    private static IReadOnlyList<VehicleDef> LoadVehicles(string path)
+    private IReadOnlyList<VehicleDef> LoadVehicles(string path)
     {
         if (!File.Exists(path))
         {
@@ -3066,7 +3082,7 @@ public sealed class ContentLoader
 
     // ----- jména osad -----
 
-    private static IReadOnlyList<string> LoadSettlementNames(string path)
+    private IReadOnlyList<string> LoadSettlementNames(string path)
     {
         var file = ReadFile<SettlementNamesFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -3097,7 +3113,7 @@ public sealed class ContentLoader
 
     // ----- jazyky -----
 
-    private static DefRegistry<LanguageDef> LoadLanguages(
+    private DefRegistry<LanguageDef> LoadLanguages(
         string langDirectory,
         BiomeRegistry biomes,
         DefRegistry<Resource> resources,
@@ -3304,7 +3320,7 @@ public sealed class ContentLoader
 
     // ----- worldgen -----
 
-    private static WorldGenCatalog LoadWorldGen(string path, BiomeRegistry biomes)
+    private WorldGenCatalog LoadWorldGen(string path, BiomeRegistry biomes)
     {
         var file = ReadFile<WorldGenFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -3513,7 +3529,14 @@ public sealed class ContentLoader
         }
     }
 
-    private static T ReadFile<T>(string path)
+    /// <summary>
+    /// Načte datový soubor a navrství na něj stejnojmenné soubory z modů.
+    ///
+    /// <para>Tohle je jediné místo, kudy do hry tečou data — proto tu vrstvení
+    /// modů stojí. Kdyby se řešilo v každé <c>Load*</c> metodě zvlášť, půlka
+    /// obsahu by se moddovat nedala a nikdo by nepřišel na to proč.</para>
+    /// </summary>
+    private T ReadFile<T>(string path)
     {
         if (!File.Exists(path))
         {
@@ -3522,12 +3545,42 @@ public sealed class ContentLoader
 
         try
         {
-            var parsed = JsonSerializer.Deserialize<T>(File.ReadAllText(path), JsonOptions);
+            string json = JsonOverlay.Merge(File.ReadAllText(path), OverlaysFor(path));
+            var parsed = JsonSerializer.Deserialize<T>(json, JsonOptions);
             return parsed ?? throw new ContentLoadException(path, "Soubor obsahuje jen 'null'.");
         }
         catch (JsonException ex)
         {
             throw new ContentLoadException(path, $"Neplatný JSON: {ex.Message}");
         }
+    }
+
+    /// <summary>Obsah stejnojmenných souborů z modů, v pořadí uplatnění.</summary>
+    private List<string> OverlaysFor(string path)
+    {
+        var overlays = new List<string>();
+        if (_mods.Count == 0)
+        {
+            return overlays;
+        }
+
+        // Modová cesta je stejná jako základní, jen s jiným kořenem — díky tomu
+        // se modu nedá omylem podstrčit soubor odjinud.
+        string fileName = Path.GetFileName(path);
+        string parent = Path.GetFileName(Path.GetDirectoryName(path) ?? string.Empty);
+        bool inSubfolder = parent == "lang";
+
+        foreach (var mod in _mods)
+        {
+            string candidate = inSubfolder
+                ? Path.Combine(mod.Directory, parent, fileName)
+                : Path.Combine(mod.Directory, fileName);
+            if (File.Exists(candidate))
+            {
+                overlays.Add(File.ReadAllText(candidate));
+            }
+        }
+
+        return overlays;
     }
 }

@@ -29,6 +29,8 @@
   <!-- Data-driven obsah: JSON definice se kopírují vedle binárky do složky data/. -->
   <ItemGroup>
     <Content Include="..\..\data\**" LinkBase="data" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Mody putují vedle dat, ať si hráč nemusí složku vyrábět sám. -->
+    <Content Include="..\..\mods\**" LinkBase="mods" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

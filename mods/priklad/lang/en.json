@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "id": "en",
+  "nativeName": "English",
+  "strings": {
+    "building.observatory": "Observatory"
+  }
+}
