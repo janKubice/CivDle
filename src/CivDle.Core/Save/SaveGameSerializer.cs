@@ -66,6 +66,7 @@ public sealed class SaveGameSerializer
     private const string SectionContracts = "contracts";
     private const string SectionCitizens = "citizens";
     private const string SectionNeighbours = "neighbours";
+    private const string SectionRuns = "runs";
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
@@ -120,6 +121,14 @@ public sealed class SaveGameSerializer
         {
             w.Write(simulation.ElectionTerm);
             w.Write(simulation.ElectedCandidate);
+        });
+
+        // Vrchol běhu a nejlepší běh vůbec — bez nich by se bilance po Vzestupu
+        // po restartu hry poměřovala s nulou.
+        WriteSection(writer, SectionRuns, w =>
+        {
+            w.Write(simulation.PeakPopulation);
+            w.Write(simulation.BestRunPopulation);
         });
     }
 
@@ -338,6 +347,10 @@ public sealed class SaveGameSerializer
             case SectionNeighbours: ReadNeighbours(section, content, simulation); break;
             case SectionElection: simulation.RestoreElection(section.ReadInt64(), section.ReadInt32()); break;
             case SectionMilestones: ReadMilestones(section, content, simulation); break;
+            case SectionRuns:
+                simulation.PeakPopulation = section.ReadInt64();  // pořadí musí sedět se zápisem
+                simulation.BestRunPopulation = section.ReadInt64();
+                break;
             default: break; // neznámá sekce z novější hry — přeskočit, ne spadnout
         }
     }

@@ -3682,6 +3682,67 @@ public sealed class Simulation
         return metric / prestige.PointsDivisor;
     }
 
+    /// <summary>
+    /// Co přesně Vzestup udělá — pro obrazovku, která to má hráči říct dřív,
+    /// než klikne. Vzestup je jediná nevratná akce ve hře; překvapení vlastním
+    /// rozhodnutím je ta nejhorší možná zpětná vazba.
+    /// </summary>
+    public AscensionPreview PreviewAscension()
+    {
+        long points = PendingAscensionPoints();
+        int levelAfter = AscensionLevel + 1;
+        double nextScaled = _content.Prestige.Requirement.Target
+            * Math.Pow(_content.Prestige.RequirementGrowth, levelAfter);
+
+        int techs = 0;
+        for (int i = 0; i < _techResearched.Length; i++)
+        {
+            if (_techResearched[i])
+            {
+                techs++;
+            }
+        }
+
+        int upgrades = 0;
+        for (int i = 0; i < _upgradesPurchased.Length; i++)
+        {
+            if (_upgradesPurchased[i])
+            {
+                upgrades++;
+            }
+        }
+
+        return new AscensionPreview(
+            points,
+            PrestigePoints + points,
+            levelAfter,
+            (long)Math.Min(nextScaled, long.MaxValue / 2),
+            _buildingCount,
+            (long)Population,
+            _roadTiles.Count,
+            _zones.Count,
+            techs,
+            _districts.Count,
+            EvaluateMetric(MetricKind.WondersCompleted, -1),
+            upgrades);
+    }
+
+    /// <summary>
+    /// Nejvyšší populace, jaké město v tomhle běhu dosáhlo. Vzestup ji resetuje —
+    /// je to vrchol jedné kapitoly, ne celoživotní rekord.
+    /// </summary>
+    public long PeakPopulation { get; internal set; }
+
+    /// <summary>Nejlidnatější běh, jaký hráč kdy dohrál. Přežívá Vzestup i restart.</summary>
+    public long BestRunPopulation { get; internal set; }
+
+    /// <summary>
+    /// Bilance posledního doběhnutého běhu; <see cref="RunSummary.Exists"/> je
+    /// false, dokud hráč poprvé nevzestoupí. Neukládá se — je to zpráva
+    /// o okamžiku, ne stav světa.
+    /// </summary>
+    public RunSummary LastRun { get; private set; } = RunSummary.None;
+
     /// <summary>Je trvalý upgrade Vzestupu koupený?</summary>
     public bool IsUpgradePurchased(int upgradeIndex) => _upgradesPurchased[upgradeIndex];
 
@@ -3732,7 +3793,35 @@ public sealed class Simulation
             return PlacementResult.NotEnoughResources;
         }
 
-        PrestigePoints += PendingAscensionPoints();
+        long points = PendingAscensionPoints();
+
+        // Bilance se sbírá TEĎ, ještě před resetem — po něm už není z čeho.
+        int techs = 0;
+        for (int i = 0; i < _techResearched.Length; i++)
+        {
+            if (_techResearched[i])
+            {
+                techs++;
+            }
+        }
+
+        long peak = Math.Max(PeakPopulation, (long)Population);
+        long previousBest = BestRunPopulation;
+        LastRun = new RunSummary(
+            AscensionLevel + 1,
+            TickCount,
+            peak,
+            _buildingCount,
+            techs,
+            EvaluateMetric(MetricKind.WondersCompleted, -1),
+            points,
+            peak > previousBest,
+            previousBest);
+
+        BestRunPopulation = Math.Max(previousBest, peak);
+        PeakPopulation = 0; // vrchol patří k běhu, ne k hráči
+
+        PrestigePoints += points;
         AscensionLevel++;
         ResetEra(); // uvnitř i RefreshTierUnlocks — nové měřítko může odemknout megastruktury
         EnqueueNotification(new GameNotification(NotificationKind.Ascended, "toast.ascended", "prestige.ascendedSubject"));

@@ -43,5 +43,12 @@ internal sealed class PopulationSystem
                     * sim.Bonuses.GrowthMult * sim.HappinessGrowthFactor * sim.ElectionGrowthMult
                     * sim.SeasonGrowthMult);
         }
+
+        // Vrchol běhu se sleduje tady, kde populace jediné místo roste. Bilance
+        // po Vzestupu se ptá „kam jsi to dotáhl", ne „kolik jich zbylo na konci".
+        if (sim.Population > sim.PeakPopulation)
+        {
+            sim.PeakPopulation = (long)sim.Population;
+        }
     }
 }

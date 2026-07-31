@@ -20,6 +20,9 @@ public sealed class AscensionScreen : IScreen
     private readonly InputManager _input = new();
     private Desktop _desktop = null!;
 
+    /// <summary>Čeká tlačítko Vzestupu na potvrzení? (Nevratný krok na dvě kliknutí.)</summary>
+    private bool _confirming;
+
     public AscensionScreen(ScreenManager screens, Simulation simulation)
     {
         _screens = screens;
@@ -116,27 +119,51 @@ public sealed class AscensionScreen : IScreen
         var loc = _screens.Loc;
         if (_simulation.CanAscend())
         {
+            var ready = new VerticalStackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
+            ready.Widgets.Add(AscendPreviewPanel(_simulation.PreviewAscension()));
+
             var button = new Button
             {
                 Content = new Label
                 {
-                    Text = loc.Format("prestige.ascend", _simulation.PendingAscensionPoints()),
+                    Text = _confirming
+                        ? loc["prestige.confirm"]
+                        : loc.Format("prestige.ascend", _simulation.PendingAscensionPoints()),
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
                 },
                 Padding = new Thickness(20, 8),
                 HorizontalAlignment = HorizontalAlignment.Center,
-                Background = new SolidBrush(new Color(120, 80, 170, 240)),
+                Background = new SolidBrush(_confirming
+                    ? new Color(170, 70, 90, 245)
+                    : new Color(120, 80, 170, 240)),
             };
+
+            // Dvě kliknutí, ne jedno: Vzestup je jediná nevratná akce ve hře
+            // a omylem smazané město se nedá vrátit.
             button.Click += (_, _) =>
             {
+                if (!_confirming)
+                {
+                    _confirming = true;
+                    BuildUi();
+                    return;
+                }
+
+                _confirming = false;
                 if (_simulation.TryAscend() == PlacementResult.Ok)
                 {
-                    BuildUi(); // nová éra + víc bodů
+                    // Bilance běhu jako tečka za kapitolou — bez ní je Vzestup
+                    // jen tlačítko „smazat město".
+                    _screens.Push(new RunSummaryScreen(_screens, _simulation.LastRun));
                 }
             };
-            return button;
+
+            ready.Widgets.Add(button);
+            return ready;
         }
+
+        _confirming = false;
 
         // Práh roste s každým Vzestupem — ukazuj ten AKTUÁLNÍ, ne základní z dat.
         long current = _simulation.AscensionProgress();
@@ -154,6 +181,61 @@ public sealed class AscensionScreen : IScreen
         bar.SetProgress(target > 0 ? current / (double)target : 1.0);
         pending.Widgets.Add(bar.Root);
         return pending;
+    }
+
+    /// <summary>
+    /// Rozvaha před nevratným krokem: co zůstane a co zmizí.
+    ///
+    /// <para>Do téhle chvíle tlačítko říkalo jen „+N bodů" a hráč se o tom, že
+    /// přišel o město, silnice i výzkum, dozvěděl až potom. Nejde o balanc, ale
+    /// o informovaný souhlas.</para>
+    /// </summary>
+    private Widget AscendPreviewPanel(AscensionPreview preview)
+    {
+        var loc = _screens.Loc;
+        var stack = new VerticalStackPanel
+        {
+            Spacing = 4,
+            Width = 436,
+            Padding = new Thickness(12, 8),
+            Background = new SolidBrush(new Color(30, 26, 44, 235)),
+        };
+
+        stack.Widgets.Add(new Label
+        {
+            Text = loc.Format("prestige.preview.gain", preview.PointsGained, preview.PointsAfter),
+            TextColor = new Color(190, 160, 235),
+            Wrap = true,
+        });
+
+        stack.Widgets.Add(new Label
+        {
+            Text = loc.Format("prestige.preview.keeps", preview.UpgradesOwned, preview.LevelAfter),
+            TextColor = new Color(150, 220, 150),
+            Wrap = true,
+        });
+
+        // „Přijdeš o" má smysl psát jen tehdy, když je o co přijít — po prvním
+        // Vzestupu z holé mapy by to byl planý strašák.
+        if (preview.LosesAnything)
+        {
+            stack.Widgets.Add(new Label
+            {
+                Text = loc.Format("prestige.preview.loses",
+                    preview.Buildings, preview.Population, preview.RoadTiles, preview.Techs),
+                TextColor = new Color(235, 150, 120),
+                Wrap = true,
+            });
+        }
+
+        stack.Widgets.Add(new Label
+        {
+            Text = loc.Format("prestige.preview.next", preview.NextRequirement),
+            TextColor = new Color(150, 160, 175),
+            Wrap = true,
+        });
+
+        return stack;
     }
 
     private Widget UpgradeRow(int upgradeIndex)
