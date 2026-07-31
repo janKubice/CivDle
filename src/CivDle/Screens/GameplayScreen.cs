@@ -255,7 +255,7 @@ public sealed class GameplayScreen : IScreen
         }
 
         float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
-        _input.Update();
+        _input.Update(dt);
 
         // Kulisa podle biomu a počasí — atmosféra stála skoro jen na obraze.
         _soundscape.Update(dt, _simulation);
@@ -285,6 +285,19 @@ public sealed class GameplayScreen : IScreen
                 _screens.Push(new PauseScreen(_screens, _simulation, _info));
                 return;
             }
+        }
+
+        // Start otevře pauzu, Y stavební menu — bez nich by ovladač uměl jen
+        // chodit po mapě.
+        if (_input.WasPadPressed(GamePadMap.Pause))
+        {
+            _screens.Push(new PauseScreen(_screens, _simulation, _info));
+            return;
+        }
+
+        if (_input.WasPadPressed(GamePadMap.BuildMenu))
+        {
+            ToggleBuildMenu();
         }
 
         // Tab přepíná násobič hromadné stavby — ruka zůstává u WASD a nemusí
@@ -632,8 +645,25 @@ public sealed class GameplayScreen : IScreen
         if (move != Vector2.Zero)
         {
             move.Normalize();
+        }
+
+        // Levý stick jede plynule, ne po krocích — proto se přičítá až po
+        // normalizaci klávesnice, aby si poloviční výchylka udržela poloviční
+        // rychlost.
+        move += _input.PadCameraMove;
+        if (move != Vector2.Zero)
+        {
             // Dělení zoomem: posun je konstantní v pixelech obrazovky, ne světa.
             _camera.PanWorld(move * (PanSpeed * dt / _camera.Zoom));
+        }
+
+        // Spouště přibližují a oddalují ke středu obrazovky — palcem se kolečko
+        // myši nahradit nedá.
+        float padZoom = _input.PadZoomFactor(dt);
+        if (padZoom != 1f)
+        {
+            var viewport = _screens.GraphicsDevice.Viewport;
+            _camera.ZoomAt(new Vector2(viewport.Width * 0.5f, viewport.Height * 0.5f), padZoom);
         }
 
         // Levé tlačítko je pro stavění/těžbu; mapou se táhne pravým nebo prostředním.
