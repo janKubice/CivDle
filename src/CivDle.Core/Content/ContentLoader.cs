@@ -3161,7 +3161,7 @@ public sealed class ContentLoader
         }
 
         ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, neighbours, elections, milestones, seasons);
-        ValidateKeySetsMatch(langDirectory, languages);
+        FillGapsFromBaseLanguage(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
 
@@ -3263,30 +3263,42 @@ public sealed class ContentLoader
     }
 
     /// <summary>Všechny jazyky musí mít stejnou sadu klíčů — chybějící překlad se pozná při startu, ne ve hře.</summary>
-    private static void ValidateKeySetsMatch(string langDirectory, List<LanguageDef> languages)
+    /// <summary>
+    /// Doplní částečným jazykům chybějící klíče ze základního a spočítá pokrytí.
+    ///
+    /// <para>Klíč navíc (ve jazyce, ale ne v základu) je pořád chyba: je to skoro
+    /// vždycky překlep, na který by se jinak nikdy nepřišlo, protože hra si takový
+    /// řetězec nikdy nevyžádá.</para>
+    /// </summary>
+    private static void FillGapsFromBaseLanguage(string langDirectory, List<LanguageDef> languages)
     {
         var reference = languages[0];
-        foreach (var language in languages.Skip(1))
+        for (int i = 1; i < languages.Count; i++)
         {
-            var missing = reference.Strings.Keys.Where(k => !language.Strings.ContainsKey(k)).ToList();
+            var language = languages[i];
             var extra = language.Strings.Keys.Where(k => !reference.Strings.ContainsKey(k)).ToList();
-            if (missing.Count > 0 || extra.Count > 0)
+            if (extra.Count > 0)
             {
-                var parts = new List<string>();
-                if (missing.Count > 0)
-                {
-                    parts.Add($"chybí: {string.Join(", ", missing.Take(8))}" + (missing.Count > 8 ? "…" : ""));
-                }
-
-                if (extra.Count > 0)
-                {
-                    parts.Add($"přebývá: {string.Join(", ", extra.Take(8))}" + (extra.Count > 8 ? " …" : ""));
-                }
-
                 throw new ContentLoadException(
                     langDirectory,
-                    $"Jazyk '{language.Id}' nemá stejné klíče jako '{reference.Id}' — {string.Join("; ", parts)}.");
+                    $"Jazyk '{language.Id}' má klíče, které základní jazyk '{reference.Id}' nezná — "
+                    + $"{string.Join(", ", extra.Take(8))}{(extra.Count > 8 ? " …" : string.Empty)}. "
+                    + "Nejspíš překlep: hra si takový řetězec nikdy nevyžádá.");
             }
+
+            var merged = new Dictionary<string, string>(reference.Strings, StringComparer.Ordinal);
+            int translated = 0;
+            foreach (var pair in language.Strings)
+            {
+                merged[pair.Key] = pair.Value;
+                translated++;
+            }
+
+            languages[i] = language with
+            {
+                Strings = merged,
+                Coverage = reference.Strings.Count == 0 ? 1.0 : translated / (double)reference.Strings.Count,
+            };
         }
     }
 

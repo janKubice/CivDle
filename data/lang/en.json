@@ -1137,7 +1137,7 @@
     "tip.idleBuildings": "These buildings have nobody to staff them, so they produce nothing. Workers go to the oldest buildings first — grow the population, or demolish what you do not need.",
     "tip.landmark": "A special spot on the map. Click it — it yields more than the ground around it.",
     "tip.merge": "Four identical buildings in a 2x2 square become one larger building. Needs the right research.",
-    "tip.milestones": "The more buildings of one type you have, the better they all produce. Every Nth one is another tier — building the same type over and over pays off.",
+    "tip.milestones": "The more buildings of one type you have, the better they all produce. Every {0}th one is another tier — building the same type over and over pays off.",
     "tip.neighbours": "Neighbours send caravans along your roads. The more you escort, the better the standing — and the better they pay. Whoever you have traded with least goes first.",
     "tip.objective": "One step at a time. Finish it and the next one appears.",
     "tip.plant": "Planting: click an empty tile to plant a tree. Forests regrow wood and change the biome underneath.",

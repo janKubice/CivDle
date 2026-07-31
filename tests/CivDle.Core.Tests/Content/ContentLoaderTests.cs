@@ -1120,16 +1120,34 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
-    public void LoadFrom_LanguageKeySetMismatch_ReportsLanguage()
+    public void LoadFrom_PartialLanguage_FallsBackToTheBaseLanguage()
     {
+        // Dřív musel nový jazyk přinést všechny klíče, jinak hra vůbec nenaběhla.
+        // Rozpracovaný překlad tak buď někdo dotáhl do posledního tooltipu, nebo
+        // nevznikl vůbec — a každý nový řetězec ve hře rozbil všechny hotové.
         WriteAllValid();
-        // Angličtině chybí klíč navíc přítomný v češtině.
         Write(Path.Combine("lang", "en.json"), LangJson("en", "English", includeExtraKey: false));
+
+        var content = Load();
+        var english = content.Languages[content.Languages.IndexOf("en")];
+
+        Assert.False(english.IsComplete);
+        Assert.True(english.Coverage is > 0 and < 1);
+        Assert.True(english.Strings.ContainsKey("ui.hello"), "Chybějící klíč se má doplnit ze základního jazyka.");
+    }
+
+    [Fact]
+    public void LoadFrom_LanguageWithAnUnknownKey_ReportsLanguage()
+    {
+        // Klíč navíc je skoro vždycky překlep: hra si takový řetězec nikdy
+        // nevyžádá, takže by se na něj jinak nepřišlo.
+        WriteAllValid();
+        Write(Path.Combine("lang", "en.json"), LangJson("en", "English") .Replace("\"ui.hello\"", "\"ui.helo\""));
 
         var ex = Assert.Throws<ContentLoadException>(Load);
 
         Assert.Contains("'en'", ex.Message);
-        Assert.Contains("ui.hello", ex.Message);
+        Assert.Contains("ui.helo", ex.Message);
     }
 
     // ----- pomůcky -----
