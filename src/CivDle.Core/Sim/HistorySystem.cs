@@ -66,8 +66,18 @@ internal sealed class HistorySystem
             }
         }
 
+        // Čísla ke snímku: z nich se pak kreslí grafy. Jsou to skaláry, takže
+        // snímek zůstává drobný proti masce zástavby.
         sim.History.Add(
-            new HistoryFrame(sim.TickCount, (long)sim.Population, buildings.Length, sim.CurrentEraIndex),
+            new HistoryFrame(
+                sim.TickCount,
+                (long)sim.Population,
+                buildings.Length,
+                sim.CurrentEraIndex,
+                sim.Happiness,
+                sim.HousingCapacity,
+                sim.AirPollutionOverCity,
+                sim.Settlements.Count),
             _mask);
     }
 }

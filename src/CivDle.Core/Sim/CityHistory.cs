@@ -7,7 +7,19 @@ namespace CivDle.Core.Sim;
 /// <param name="Population">Kolik lidí tehdy ve městě žilo.</param>
 /// <param name="Buildings">Kolik budov tehdy stálo.</param>
 /// <param name="EraIndex">V jaké éře město bylo; −1 = éry nejsou v datech.</param>
-public readonly record struct HistoryFrame(long Tick, long Population, int Buildings, int EraIndex)
+/// <param name="Happiness">Jak se ve městě žilo (0–1).</param>
+/// <param name="HousingCapacity">Kolik lidí se tehdy mělo kam vejít.</param>
+/// <param name="Pollution">Kolik špíny viselo nad městem.</param>
+/// <param name="Settlements">Kolik sídel civilizace měla.</param>
+public readonly record struct HistoryFrame(
+    long Tick,
+    long Population,
+    int Buildings,
+    int EraIndex,
+    double Happiness = 1.0,
+    long HousingCapacity = 0,
+    double Pollution = 0,
+    int Settlements = 0)
 {
     /// <summary>Kolik sekund herního času uplynulo od začátku běhu.</summary>
     public double Seconds => Tick / (double)Simulation.TicksPerSecond;

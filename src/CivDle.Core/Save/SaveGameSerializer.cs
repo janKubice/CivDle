@@ -666,6 +666,10 @@ public sealed class SaveGameSerializer
             writer.Write(frame.Population);
             writer.Write(frame.Buildings);
             writer.Write(frame.EraIndex);
+            writer.Write(frame.Happiness);
+            writer.Write(frame.HousingCapacity);
+            writer.Write(frame.Pollution);
+            writer.Write(frame.Settlements);
             writer.Write(history.MaskAt(i));
         }
     }
@@ -677,7 +681,8 @@ public sealed class SaveGameSerializer
         for (int i = 0; i < count; i++)
         {
             var frame = new HistoryFrame(
-                reader.ReadInt64(), reader.ReadInt64(), reader.ReadInt32(), reader.ReadInt32());
+                reader.ReadInt64(), reader.ReadInt64(), reader.ReadInt32(), reader.ReadInt32(),
+                reader.ReadDouble(), reader.ReadInt64(), reader.ReadDouble(), reader.ReadInt32());
             var mask = reader.ReadBytes(CityHistory.MaskBytes);
             if (mask.Length != CityHistory.MaskBytes)
             {
