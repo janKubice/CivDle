@@ -788,9 +788,13 @@ public sealed class SaveGameSerializer
             int y = reader.ReadInt32();
             float progress = reader.ReadSingle();
 
+            // Neznámé ID = budova z odinstalovaného modu nebo ze zrušeného
+            // obsahu. Vyhodit celé načtení by hráče stálo město kvůli jedné
+            // budově — vynechá se jen ona a zbytek se načte.
             if (!content.Buildings.TryIndexOf(id, out int defIndex))
             {
-                throw new SaveLoadException($"Save odkazuje na budovu '{id}', která v aktuálních datech neexistuje.");
+                Console.Error.WriteLine($"Save odkazuje na neznámou budovu '{id}' — přeskakuji ji.");
+                continue;
             }
 
             simulation.RestoreBuilding(defIndex, x, y, progress);
