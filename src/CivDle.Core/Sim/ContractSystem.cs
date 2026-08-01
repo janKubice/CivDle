@@ -28,6 +28,15 @@ internal sealed class ContractSystem
     /// </summary>
     private readonly Random _rng;
 
+    /// <summary>
+    /// Bylo místo minulý tik splnitelné? Hlásí se jen přechod ne→ano — jinak by
+    /// se z dobré zprávy stal spam každý tik.
+    ///
+    /// <para>Schválně mimo save: po načtení se připravená zakázka ohlásí znovu,
+    /// což je spíš služba („pořád na ni máš") než chyba.</para>
+    /// </summary>
+    private bool[] _wasReady = Array.Empty<bool>();
+
     public ContractSystem(GameContent content, long seed)
     {
         _content = content;
@@ -63,6 +72,34 @@ internal sealed class ContractSystem
             }
 
             Offer(sim, catalog, ref slot);
+        }
+
+        AnnounceNewlyReady(sim, slots);
+    }
+
+    /// <summary>
+    /// Ohlásí zakázky, na které město právě nastřádalo. Bez toho se hráč
+    /// o splnitelné zakázce dozvěděl jen náhodou, když nástěnku otevřel —
+    /// „nevím, že jsem splnil kontrakt" byla oprávněná stížnost.
+    /// </summary>
+    private void AnnounceNewlyReady(Simulation sim, ReadOnlySpan<ContractSlot> slots)
+    {
+        if (_wasReady.Length != slots.Length)
+        {
+            _wasReady = new bool[slots.Length];
+        }
+
+        for (int i = 0; i < slots.Length; i++)
+        {
+            bool ready = slots[i].IsActive && sim.CanFulfilContract(i);
+            if (ready && !_wasReady[i])
+            {
+                sim.EnqueueNotification(new GameNotification(
+                    NotificationKind.ContractReady, "toast.contractReady",
+                    _content.Contracts.Contracts[slots[i].DefIndex].NameKey));
+            }
+
+            _wasReady[i] = ready;
         }
     }
 

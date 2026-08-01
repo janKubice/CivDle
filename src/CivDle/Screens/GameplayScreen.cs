@@ -1421,6 +1421,7 @@ public sealed class GameplayScreen : IScreen
     private static Color NotificationColor(NotificationKind kind) => kind switch
     {
         NotificationKind.QuestCompleted => new Color(120, 200, 140),
+        NotificationKind.ContractReady => new Color(150, 220, 150), // stejná zelená jako „✓" na tlačítku zakázek
         NotificationKind.AchievementUnlocked => new Color(230, 200, 110),
         NotificationKind.Ascended => new Color(180, 140, 230),
         NotificationKind.BuildingMilestone => new Color(255, 214, 120), // barva ohňostroje

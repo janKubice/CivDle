@@ -254,4 +254,77 @@ public class ContractTests
         Assert.False(sim.ContractsEnabled);
         Assert.Equal(0, sim.ContractSlots.Length);
     }
+
+    // ----- „máš na to" — hlášení připravené zakázky -----
+
+    /// <summary>Vyzvedne a vrátí všechna čekající oznámení.</summary>
+    private static List<GameNotification> Drain(Simulation sim)
+    {
+        var notes = new List<GameNotification>();
+        while (sim.TryDequeueNotification(out var note))
+        {
+            notes.Add(note);
+        }
+
+        return notes;
+    }
+
+    [Fact]
+    public void TheMomentAnOrderBecomesDeliverableThePlayerHears()
+    {
+        // Hráč si všiml zakázky, když přišla — ale to, že na ni UŽ MÁ, se dřív
+        // dozvěděl jen náhodou při otevření nástěnky. Přesně tohle byla stížnost
+        // „nevím, že jsem splnil kontrakt".
+        var sim = NewSim(startingResources: 0);
+        Tick(sim, 40);
+        int slot = FirstActive(sim);
+        Assert.True(slot >= 0);
+        Drain(sim); // zahodit „nová zakázka" a spol.
+
+        var def = sim.ContractAt(slot)!;
+        sim.AddResource(def.DemandResourceIndex, sim.ContractSlots[slot].DemandAmount);
+        Tick(sim, 1);
+
+        Assert.Contains(Drain(sim), n => n.Kind == NotificationKind.ContractReady);
+    }
+
+    [Fact]
+    public void TheReadyChimeRingsOncePerOfferNotEveryTick()
+    {
+        // Oznámení každý tik by z dobré zprávy udělalo spam.
+        var sim = NewSim(startingResources: 0);
+        Tick(sim, 40);
+        int slot = FirstActive(sim);
+        var def = sim.ContractAt(slot)!;
+        sim.AddResource(def.DemandResourceIndex, sim.ContractSlots[slot].DemandAmount);
+        Tick(sim, 1);
+        Drain(sim);
+
+        Tick(sim, 50);
+
+        Assert.DoesNotContain(Drain(sim), n => n.Kind == NotificationKind.ContractReady);
+    }
+
+    [Fact]
+    public void SpendingTheGoodsRearmsTheReadyChime()
+    {
+        // Když hráč surovinu mezitím utratí a město ji nastřádá znovu,
+        // je to nová situace — a zaslouží si nové upozornění.
+        var sim = NewSim(startingResources: 0);
+        Tick(sim, 40);
+        int slot = FirstActive(sim);
+        var def = sim.ContractAt(slot)!;
+        long demand = sim.ContractSlots[slot].DemandAmount;
+
+        sim.AddResource(def.DemandResourceIndex, demand);
+        Tick(sim, 1);
+        Drain(sim);
+
+        sim.AddResource(def.DemandResourceIndex, -demand); // „utraceno"
+        Tick(sim, 1);
+        sim.AddResource(def.DemandResourceIndex, demand);
+        Tick(sim, 1);
+
+        Assert.Contains(Drain(sim), n => n.Kind == NotificationKind.ContractReady);
+    }
 }
