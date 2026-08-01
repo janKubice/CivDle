@@ -102,7 +102,7 @@ public sealed class TimelapseScreen : IScreen
         DrawFrame(spriteBatch, pixel, viewport);
         spriteBatch.End();
 
-        _desktop.Render();
+        _screens.RenderDesktop(this, _desktop);
     }
 
     public void Dispose()

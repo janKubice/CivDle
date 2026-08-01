@@ -39,7 +39,7 @@ public sealed class NewGameScreen : IScreen
     public void Draw(GameTime gameTime)
     {
         _screens.MenuBackground.Draw(_screens.SpriteBatch);
-        _desktop.Render();
+        _screens.RenderDesktop(this, _desktop);
     }
 
     public void Dispose()

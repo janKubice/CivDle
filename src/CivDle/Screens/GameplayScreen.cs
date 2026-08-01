@@ -543,7 +543,7 @@ public sealed class GameplayScreen : IScreen
             return;
         }
 
-        _desktop.Render();
+        _screens.RenderDesktop(this, _desktop);
 
         // Minimapa, popupy a toasty až nad UI — hráč je nesmí přehlédnout.
         _minimap.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, _camera, _simulation);

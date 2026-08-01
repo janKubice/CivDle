@@ -97,6 +97,30 @@ public sealed class ScreenManager
     /// <summary>Změnilo se nastavení, které mění vzhled UI — obrazovky se mají přestavět.</summary>
     public event Action? UiSettingsChanged;
 
+    /// <summary>Je obrazovka navrchu zásobníku (a má tedy dostávat vstup)?</summary>
+    public bool IsTop(IScreen screen) => _screens.Count > 0 && ReferenceEquals(_screens[^1], screen);
+
+    /// <summary>
+    /// Vykreslí desktop obrazovky — a vstup mu předá, jen když je navrchu.
+    ///
+    /// <para>Tohle je oprava celé třídy chyb „tlačítko nefunguje": obrazovka pod
+    /// overlayem dál volala <c>Desktop.Render()</c>, který zpracovává i myš.
+    /// Klik na „Zpět" v návodu tak zároveň klikl do menu POD ním — to znovu
+    /// otevřelo tentýž návod a vypadalo to, že tlačítko nedělá nic. Vstup patří
+    /// jen vrchní obrazovce; spodní se smí jen kreslit.</para>
+    /// </summary>
+    public void RenderDesktop(IScreen owner, Myra.Graphics2D.UI.Desktop desktop)
+    {
+        if (IsTop(owner))
+        {
+            desktop.Render();
+            return;
+        }
+
+        desktop.UpdateLayout();
+        desktop.RenderVisual();
+    }
+
     /// <summary>Položí obrazovku navrch zásobníku.</summary>
     public void Push(IScreen screen)
     {

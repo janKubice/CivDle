@@ -56,7 +56,7 @@ public sealed class SettlementsScreen : IScreen
         spriteBatch.Draw(_screens.WhitePixel, new Rectangle(0, 0, viewport.Width, viewport.Height), Color.Black * 0.55f);
         spriteBatch.End();
 
-        _desktop.Render();
+        _screens.RenderDesktop(this, _desktop);
     }
 
     public void Dispose()

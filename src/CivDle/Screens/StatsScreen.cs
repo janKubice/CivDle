@@ -106,7 +106,7 @@ public sealed class StatsScreen : IScreen
         }
 
         spriteBatch.End();
-        _desktop.Render();
+        _screens.RenderDesktop(this, _desktop);
     }
 
     public void Dispose()
