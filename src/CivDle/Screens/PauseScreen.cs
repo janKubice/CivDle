@@ -88,8 +88,9 @@ public sealed class PauseScreen : IScreen
         layout.Widgets.Add(UiFactory.MenuButton(loc["pause.save"], SaveGame));
         layout.Widgets.Add(UiFactory.MenuButton(loc["menu.howto"], () => _screens.Push(new HowToPlayScreen(_screens))));
 
-        // Časosběr i grafy se nabízí, jen když už je co ukazovat — prázdné
-        // tlačítko v pauze by bylo jen slib, který hra hned nesplní.
+        // Časosběr se nabízí, jen když už je co ukazovat — prázdné tlačítko
+        // v pauze by bylo jen slib, který hra hned nesplní. Grafy („Moje čísla")
+        // se přestěhovaly do herní lišty; pauza je na řízení hry, ne na odměny.
         if (_simulation.HistoryEnabled && _simulation.History.Count > 1)
         {
             layout.Widgets.Add(UiFactory.MenuButton(
@@ -102,9 +103,6 @@ public sealed class PauseScreen : IScreen
                         _screens.Saves.Timelapses.TrySave(
                             _simulation.History, _simulation.Seed, _info.SizeId, _info.PresetId);
                     }))));
-            layout.Widgets.Add(UiFactory.MenuButton(
-                loc["stats.title"],
-                () => _screens.Push(new StatsScreen(_screens, _simulation.History))));
         }
 
         layout.Widgets.Add(UiFactory.MenuButton(loc["pause.settings"], () => _screens.Push(new SettingsScreen(_screens, showBackground: false))));

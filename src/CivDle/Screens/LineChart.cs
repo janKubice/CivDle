@@ -57,14 +57,14 @@ public sealed class LineChart
     public void Draw(SpriteBatch spriteBatch, Rectangle bounds, IReadOnlyList<double> values, Color color)
     {
         // Podklad a základní čára, ať je graf čitelný i prázdný.
-        spriteBatch.Draw(_pixel, bounds, new Color(18, 22, 28));
+        spriteBatch.Draw(_pixel, bounds, new Color(16, 20, 27));
         spriteBatch.Draw(_pixel, new Rectangle(bounds.Left, bounds.Bottom - 1, bounds.Width, 1), new Color(70, 78, 88));
 
         // Vodicí linky po čtvrtinách — bez nich se z křivky nedá odhadnout výška.
         for (int i = 1; i < 4; i++)
         {
             int y = bounds.Bottom - bounds.Height * i / 4;
-            spriteBatch.Draw(_pixel, new Rectangle(bounds.Left, y, bounds.Width, 1), new Color(44, 50, 58));
+            spriteBatch.Draw(_pixel, new Rectangle(bounds.Left, y, bounds.Width, 1), new Color(38, 44, 52));
         }
 
         if (values.Count == 0)
@@ -87,30 +87,47 @@ public sealed class LineChart
         {
             var point = PointAt(values, i, bounds, min, max);
 
-            // Výplň pod čarou: svislý sloupek k základně. Levnější než trojúhelníky
-            // a na téhle velikosti k nerozeznání.
+            // Výplň pod čarou: svislý sloupek k základně, u čáry sytější pruh —
+            // laciný „gradient", který křivku opticky ukotví k základně.
             int columnLeft = (int)previous.X;
             int columnWidth = Math.Max(1, (int)point.X - columnLeft);
             int top = (int)Math.Min(previous.Y, point.Y);
             spriteBatch.Draw(
                 _pixel,
                 new Rectangle(columnLeft, top, columnWidth, Math.Max(1, bounds.Bottom - top)),
-                color * 0.18f);
+                color * 0.14f);
+            spriteBatch.Draw(
+                _pixel,
+                new Rectangle(columnLeft, top, columnWidth, Math.Min(10, Math.Max(1, bounds.Bottom - top))),
+                color * 0.10f);
 
-            DrawSegment(spriteBatch, previous, point, color);
+            // Měkká záře pod čarou + ostrá čára navrch — bez záře působila
+            // 2px čára na tmavém podkladu lacině zubatě.
+            DrawSegment(spriteBatch, previous, point, color * 0.30f, 4);
+            DrawSegment(spriteBatch, previous, point, color, 2);
             previous = point;
         }
+
+        // Koncová tečka: „tady jsi teď". Poslední hodnota je ta, kterou hráč
+        // v grafu hledá nejdřív.
+        var last = PointAt(values, values.Count - 1, bounds, min, max);
+        spriteBatch.Draw(_pixel, new Rectangle((int)last.X - 3, (int)last.Y - 3, 6, 6), Color.White * 0.9f);
+        spriteBatch.Draw(_pixel, new Rectangle((int)last.X - 2, (int)last.Y - 2, 4, 4), color);
     }
 
     /// <summary>Úsečka po pixelech — na desítky bodů je to levnější než rotovaný sprite.</summary>
-    private void DrawSegment(SpriteBatch spriteBatch, Vector2 from, Vector2 to, Color color)
+    private void DrawSegment(SpriteBatch spriteBatch, Vector2 from, Vector2 to, Color color, int thickness)
     {
         int steps = Math.Max(1, (int)Math.Abs(to.X - from.X));
+        int half = thickness / 2;
         for (int i = 0; i <= steps; i++)
         {
             float t = i / (float)steps;
             var point = Vector2.Lerp(from, to, t);
-            spriteBatch.Draw(_pixel, new Rectangle((int)point.X, (int)point.Y - 1, 2, 2), color);
+            spriteBatch.Draw(
+                _pixel,
+                new Rectangle((int)point.X - half + 1, (int)point.Y - half, thickness, thickness),
+                color);
         }
     }
 }

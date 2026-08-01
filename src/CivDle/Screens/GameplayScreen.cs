@@ -1642,6 +1642,14 @@ public sealed class GameplayScreen : IScreen
             stack.Widgets.Add(_contractsButton);
         }
 
+        // Grafy růstu („Moje čísla") přímo z lišty — dřív bydlely jen v pauze
+        // a hráč je tam nehledal. Statistika je odměna, ne systémové nastavení.
+        if (_simulation.HistoryEnabled)
+        {
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.stats"],
+                () => _screens.Push(new StatsScreen(_screens, _simulation.History)), loc["tip.stats"]));
+        }
+
         // Každá funkce se objeví, teprve až si ji hráč odemkne (data/features.json).
         if (_simulation.IsFeatureUnlocked("plant"))
         {
