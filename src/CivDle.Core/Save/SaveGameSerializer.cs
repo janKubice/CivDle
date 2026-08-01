@@ -188,8 +188,16 @@ public sealed class SaveGameSerializer
             simulation.FinalizeLoad(); // bonusy Vzestupu → přepočet bydlení/skladů + politik
             return (simulation, metadata);
         }
-        catch (Exception ex) when (ex is EndOfStreamException or InvalidDataException or IOException)
+        catch (SaveLoadException)
         {
+            throw; // vlastní hlášky (verze, neznámá budova…) už jsou srozumitelné
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+        {
+            // Jakákoli jiná výjimka odsud znamenala pád celé hry na tlačítku
+            // „Pokračovat" — hráč přišel o partii kvůli chybě čtečky. Save je
+            // vstup z disku a zachází se s ním jako se vstupem: nejhorší povolený
+            // výsledek je hláška „soubor se nepovedlo načíst", ne pád.
             throw new SaveLoadException("Uložená hra je poškozená nebo neúplná.", ex);
         }
     }
@@ -317,7 +325,30 @@ public sealed class SaveGameSerializer
             }
 
             using var section = new BinaryReader(new MemoryStream(payload), Encoding.UTF8);
+            TryApplySection(name, section, content, simulation);
+        }
+    }
+
+    /// <summary>
+    /// Aplikuje jednu sekci a <b>přežije, když se to nepovede</b>.
+    ///
+    /// <para>Sekce jsou nezávislé a v souboru mají svoji délku, takže přeskočit
+    /// tu vadnou je bezpečné. Bez tohohle stačilo, aby se změnil formát jediné
+    /// sekce (nebo se soubor cestou poškodil), a „Pokračovat" shodilo celou hru —
+    /// hráč přišel o rozehranou partii kvůli údaji, bez kterého by se klidně
+    /// obešel (tolerantní savy, viz mvp-roadmap.md).</para>
+    /// </summary>
+    private static void TryApplySection(string name, BinaryReader section, GameContent content, Simulation simulation)
+    {
+        try
+        {
             ApplySection(name, section, content, simulation);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+        {
+            // Zbytek savu je pořád v pořádku — jedna vynechaná sekce znamená
+            // ztrátu jedné vrstvy (třeba časosběru), ne ztrátu rozehrané hry.
+            Console.Error.WriteLine($"Sekce savu '{name}' se nepovedla načíst, přeskakuji: {ex.Message}");
         }
     }
 
@@ -655,9 +686,13 @@ public sealed class SaveGameSerializer
     /// souseda do dat tak nepřehází, s kým už město obchodovalo. Starší savy
     /// sekci nemají a začnou jako cizinci, což je správně.
     /// </summary>
+    /// <summary>Verze formátu časosběru — sekce se ještě vyvíjí, ať ji jde poznat.</summary>
+    private const int HistorySectionVersion = 2;
+
     private static void WriteHistory(BinaryWriter writer, Simulation simulation)
     {
         var history = simulation.History;
+        writer.Write(HistorySectionVersion);
         writer.Write(history.Count);
         for (int i = 0; i < history.Count; i++)
         {
@@ -677,6 +712,14 @@ public sealed class SaveGameSerializer
     private static void ReadHistory(BinaryReader reader, Simulation simulation)
     {
         simulation.History.Clear();
+
+        // Starší verze sekce se nečtou: časosběr je kronika, ne stav světa,
+        // a půlka příběhu je horší než čistý začátek.
+        if (reader.ReadInt32() != HistorySectionVersion)
+        {
+            return;
+        }
+
         int count = reader.ReadInt32();
         for (int i = 0; i < count; i++)
         {

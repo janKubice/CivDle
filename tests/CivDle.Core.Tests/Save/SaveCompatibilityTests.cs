@@ -118,6 +118,75 @@ public sealed class SaveCompatibilityTests
     private static SaveMetadata Metadata() => new(12345, "medium", "continents", DateTime.UtcNow);
 
     /// <summary>Přilepí na konec těla savu novou sekci (simuluje save z novější hry).</summary>
+    [Fact]
+    public void ACorruptedSectionIsSkippedInsteadOfCrashingTheGame()
+    {
+        // Přesně tohle byl pád na tlačítku „Pokračovat": jedna sekce se změnila
+        // (nebo poškodila) a výjimka z její čtečky proletěla až ven z procesu.
+        // Hráč nesmí přijít o partii kvůli údaji, bez kterého se hra obejde.
+        var content = TestData.LoadRealContent();
+        var original = NewGame(content);
+        original.AddResource(0, 25);
+        for (int i = 0; i < 10; i++)
+        {
+            original.Tick();
+        }
+
+        var stream = new MemoryStream();
+        new SaveGameSerializer().Write(stream, original, Metadata());
+
+        // Sekce časosběru se nahradí smetím: správné jméno, platná délka,
+        // nesmyslný obsah — jako by ji zapsala jiná verze hry.
+        var corrupted = ReplaceSection(stream.ToArray(), "history", writer =>
+        {
+            writer.Write(int.MaxValue);
+            writer.Write(new byte[] { 1, 2, 3 });
+        });
+
+        var (loaded, _) = new SaveGameSerializer().Read(new MemoryStream(corrupted), content);
+
+        Assert.Equal(original.Population, loaded.Population, 6);
+        Assert.Equal(original.GetResource(0), loaded.GetResource(0), 6);
+        Assert.Equal(0, loaded.History.Count); // vadná vrstva chybí, hra žije
+    }
+
+    [Fact]
+    public void CompleteGarbageFailsWithAMessageNotACrash()
+    {
+        var content = TestData.LoadRealContent();
+        var garbage = new byte[1024];
+        new Random(7).NextBytes(garbage);
+
+        Assert.Throws<SaveLoadException>(
+            () => new SaveGameSerializer().Read(new MemoryStream(garbage), content));
+    }
+
+    [Fact]
+    public void GarbageWithAValidHeaderFailsWithAMessageNotACrash()
+    {
+        // Hlavička projde, tělo je smetí — dřív přesně tohle končilo pádem,
+        // protože gzip vyhodil výjimku, kterou nikdo nepřekládal.
+        var content = TestData.LoadRealContent();
+        var original = NewGame(content);
+        var stream = new MemoryStream();
+        new SaveGameSerializer().Write(stream, original, Metadata());
+
+        var bytes = stream.ToArray();
+        for (int i = 16; i < bytes.Length; i++)
+        {
+            bytes[i] ^= 0x5A; // rozbít gzip tělo, hlavičku nechat
+        }
+
+        Assert.Throws<SaveLoadException>(
+            () => new SaveGameSerializer().Read(new MemoryStream(bytes), content));
+    }
+
+    /// <summary>Nahradí obsah sekce daného jména (simuluje sekci z jiné verze hry).</summary>
+    private static byte[] ReplaceSection(byte[] save, string name, Action<BinaryWriter> body)
+    {
+        return AppendSection(RemoveSection(save, name), name, body);
+    }
+
     private static byte[] AppendSection(byte[] save, string name, Action<BinaryWriter> body)
     {
         var (header, sections) = SplitSave(save);

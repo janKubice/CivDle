@@ -1,3 +1,4 @@
+using CivDle.Core.Save;
 using CivDle.Core.Sim;
 using CivDle.Screens;
 using Microsoft.Xna.Framework;
@@ -48,6 +49,27 @@ public sealed class SmokeRun
 
         Check("nástroje: vypnout", () => screen.ActivateToolForSmoke(SmokeTool.None));
         Frames(screen, time);
+
+        // Continue: ulož → načti → postav obrazovku nad načtenou simulací.
+        // Přesně tahle cesta hráči spadla, a testy simulace ji nechytí — kříží
+        // save vrstvu s UI vrstvou.
+        Simulation? loaded = null;
+        Check("save: uložit + načíst", () =>
+        {
+            var serializer = new SaveGameSerializer();
+            using var stream = new MemoryStream();
+            serializer.Write(stream, sim, new SaveMetadata(sim.Seed, "medium", "continents", DateTime.UtcNow));
+            stream.Position = 0;
+            (loaded, _) = serializer.Read(stream, screens.Content);
+        });
+
+        Check("save: obrazovka po Continue", () =>
+        {
+            var continued = new GameplayScreen(
+                screens, loaded!, new WorldInfo(sim.Seed, "medium", "continents"), DateTime.UtcNow.AddMinutes(-3));
+            Frames(continued, time);
+            continued.Dispose();
+        });
 
         Console.WriteLine($"smoke OK ({_passed.Count} kroků): {string.Join(", ", _passed)}");
     }
