@@ -94,7 +94,14 @@ public sealed class PauseScreen : IScreen
         {
             layout.Widgets.Add(UiFactory.MenuButton(
                 loc["timelapse.title"],
-                () => _screens.Push(new TimelapseScreen(_screens, _simulation.History))));
+                () => _screens.Push(new TimelapseScreen(
+                    _screens, _simulation.History, _simulation.Terrain, _simulation.Seed,
+                    () =>
+                    {
+                        _simulation.CaptureHistoryNow();
+                        _screens.Saves.Timelapses.TrySave(
+                            _simulation.History, _simulation.Seed, _info.SizeId, _info.PresetId);
+                    }))));
             layout.Widgets.Add(UiFactory.MenuButton(
                 loc["stats.title"],
                 () => _screens.Push(new StatsScreen(_screens, _simulation.History))));

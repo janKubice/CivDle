@@ -1709,7 +1709,7 @@ public sealed class GameplayScreen : IScreen
         if (_simulation.IsFeatureUnlocked("ascend"))
         {
             stack.Widgets.Add(UiFactory.SmallButton(loc["hud.ascend"],
-                () => _screens.Push(new AscensionScreen(_screens, _simulation)), loc["tip.ascend"]));
+                () => _screens.Push(new AscensionScreen(_screens, _simulation, _info)), loc["tip.ascend"]));
         }
 
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.achievements"],
@@ -2053,7 +2053,7 @@ public sealed class GameplayScreen : IScreen
                 break;
 
             case FocusKind.Screen when focus.Target == "ascend":
-                _screens.Push(new AscensionScreen(_screens, _simulation));
+                _screens.Push(new AscensionScreen(_screens, _simulation, _info));
                 break;
         }
     }

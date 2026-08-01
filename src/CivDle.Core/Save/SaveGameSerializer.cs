@@ -686,55 +686,11 @@ public sealed class SaveGameSerializer
     /// souseda do dat tak nepřehází, s kým už město obchodovalo. Starší savy
     /// sekci nemají a začnou jako cizinci, což je správně.
     /// </summary>
-    /// <summary>Verze formátu časosběru — sekce se ještě vyvíjí, ať ji jde poznat.</summary>
-    private const int HistorySectionVersion = 2;
+    private static void WriteHistory(BinaryWriter writer, Simulation simulation) =>
+        TimelapseStore.WriteBody(writer, simulation.History);
 
-    private static void WriteHistory(BinaryWriter writer, Simulation simulation)
-    {
-        var history = simulation.History;
-        writer.Write(HistorySectionVersion);
-        writer.Write(history.Count);
-        for (int i = 0; i < history.Count; i++)
-        {
-            var frame = history.FrameAt(i);
-            writer.Write(frame.Tick);
-            writer.Write(frame.Population);
-            writer.Write(frame.Buildings);
-            writer.Write(frame.EraIndex);
-            writer.Write(frame.Happiness);
-            writer.Write(frame.HousingCapacity);
-            writer.Write(frame.Pollution);
-            writer.Write(frame.Settlements);
-            writer.Write(history.MaskAt(i));
-        }
-    }
-
-    private static void ReadHistory(BinaryReader reader, Simulation simulation)
-    {
-        simulation.History.Clear();
-
-        // Starší verze sekce se nečtou: časosběr je kronika, ne stav světa,
-        // a půlka příběhu je horší než čistý začátek.
-        if (reader.ReadInt32() != HistorySectionVersion)
-        {
-            return;
-        }
-
-        int count = reader.ReadInt32();
-        for (int i = 0; i < count; i++)
-        {
-            var frame = new HistoryFrame(
-                reader.ReadInt64(), reader.ReadInt64(), reader.ReadInt32(), reader.ReadInt32(),
-                reader.ReadDouble(), reader.ReadInt64(), reader.ReadDouble(), reader.ReadInt32());
-            var mask = reader.ReadBytes(CityHistory.MaskBytes);
-            if (mask.Length != CityHistory.MaskBytes)
-            {
-                return; // useknutý save — co se přečetlo, to platí; zbytek se zahodí
-            }
-
-            simulation.History.Add(frame, mask);
-        }
-    }
+    private static void ReadHistory(BinaryReader reader, Simulation simulation) =>
+        TimelapseStore.ReadBody(reader, simulation.History);
 
     private static void WriteNeighbours(BinaryWriter writer, GameContent? content, Simulation simulation)
     {

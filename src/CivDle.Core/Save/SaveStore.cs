@@ -34,6 +34,12 @@ public sealed class SaveStore
     public string ShareDirectory =>
         Path.Combine(Path.GetDirectoryName(_filePath) ?? ".", "obrazky");
 
+    /// <summary>Kam se ukládají časosběry — vedle savu, ve složce profilu.</summary>
+    public TimelapseStore Timelapses =>
+        _timelapses ??= new TimelapseStore(Path.Combine(Path.GetDirectoryName(_filePath) ?? ".", "casosbery"));
+
+    private TimelapseStore? _timelapses;
+
     /// <summary>Uloží hru; false = zápis selhal (plný disk, práva…).</summary>
     public bool TrySave(Simulation simulation, SaveMetadata metadata)
     {

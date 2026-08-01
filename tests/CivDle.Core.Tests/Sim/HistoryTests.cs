@@ -118,7 +118,7 @@ public class HistoryTests
         // Kdyby se zahazoval nejstarší snímek, časosběr by časem začínal
         // uprostřed příběhu — a začátek je ta nejzajímavější část.
         var history = new CityHistory(maxFrames: 4);
-        var mask = new byte[CityHistory.MaskBytes];
+        var mask = new byte[CityHistory.CellBytes];
         for (int i = 0; i < 12; i++)
         {
             history.Add(new HistoryFrame(i, i, i, -1), mask);
@@ -132,7 +132,7 @@ public class HistoryTests
     public void ThinningKeepsTheOrderOfTime()
     {
         var history = new CityHistory(maxFrames: 6);
-        var mask = new byte[CityHistory.MaskBytes];
+        var mask = new byte[CityHistory.CellBytes];
         for (int i = 0; i < 40; i++)
         {
             history.Add(new HistoryFrame(i, i, i, -1), mask);
@@ -145,12 +145,61 @@ public class HistoryTests
     }
 
     [Fact]
-    public void AMaskOfTheWrongSizeIsRejected()
+    public void AGridOfTheWrongSizeIsRejected()
     {
         // Tichá chyba by znamenala poškozený snímek, který se pozná až při přehrání.
         var history = new CityHistory(maxFrames: 4);
 
         Assert.Throws<ArgumentException>(() => history.Add(default, new byte[3]));
+    }
+
+    // ----- barvy -----
+
+    [Fact]
+    public void CellsRememberTheColourOfTheRealBuilding()
+    {
+        // Přehrávka kreslí město v barvách skutečné zástavby — ne jako
+        // anonymní mřížku. Bez toho by časosběr nevypadal jako „moje město".
+        var sim = NewSim();
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(Hut, 0, 0));
+        Tick(sim, (int)Simulation.TicksPerSecond * 2);
+
+        Assert.True(CityHistory.TryCellOf(0, 0, out int cellX, out int cellY));
+        int last = sim.History.Count - 1;
+
+        var color = sim.History.ColorAt(last, cellX, cellY);
+        Assert.NotNull(color);
+        Assert.Single(sim.History.Palette);
+    }
+
+    [Fact]
+    public void TheSamePaletteColourIsNeverStoredTwice()
+    {
+        var history = new CityHistory(maxFrames: 4);
+        var red = new CivDle.Core.Content.RgbColor(200, 40, 40);
+
+        int first = history.PaletteIndexOf(red);
+        int second = history.PaletteIndexOf(red);
+
+        Assert.Equal(first, second);
+        Assert.Single(history.Palette);
+    }
+
+    [Fact]
+    public void AFullPaletteFallsBackToTheLastColourInsteadOfOverflowing()
+    {
+        // 256. barva nesmí přetéct bajt buňky — kreslit trochu špatnou barvou
+        // je lepší než spadnout nebo nekreslit.
+        var history = new CityHistory(maxFrames: 4);
+        for (int i = 0; i < CityHistory.MaxPaletteColors; i++)
+        {
+            history.PaletteIndexOf(new CivDle.Core.Content.RgbColor((byte)i, (byte)(i * 3), (byte)(255 - i)));
+        }
+
+        int overflow = history.PaletteIndexOf(new CivDle.Core.Content.RgbColor(9, 99, 199));
+
+        Assert.Equal(CityHistory.MaxPaletteColors - 1, overflow);
+        Assert.Equal(CityHistory.MaxPaletteColors, history.Palette.Count);
     }
 
     // ----- Vzestup a save -----
