@@ -89,7 +89,7 @@ public class TechEffectTests
         Assert.True(branchPoints >= 8, $"hvězda má mít víc ramen, větvení je jen {branchPoints}");
 
         // Právě jeden kořen — jádro hvězdy, od kterého se všechno odvíjí.
-        Assert.Single(techs.All.Where(t => t.PrerequisiteIndices.Count == 0));
+        Assert.Single(techs.All, t => t.PrerequisiteIndices.Count == 0);
     }
 
     [Fact]
