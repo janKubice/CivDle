@@ -3,147 +3,362 @@
   "decorations": [
     {
       "id": "meadow_flowers",
-      "biomes": ["grassland"],
-      "colors": ["#E7E26B", "#D96A6A", "#EFEFEF", "#C58BD9"],
+      "biomes": [
+        "grassland"
+      ],
+      "colors": [
+        "#E7E26B",
+        "#D96A6A",
+        "#EFEFEF",
+        "#C58BD9"
+      ],
       "density": 0.06,
       "minSize": 1,
       "maxSize": 2
     },
     {
       "id": "forest_canopy",
-      "biomes": ["forest"],
-      "colors": ["#2E5C26", "#4C8A3D", "#356B2C"],
+      "biomes": [
+        "forest"
+      ],
+      "colors": [
+        "#2E5C26",
+        "#4C8A3D",
+        "#356B2C"
+      ],
       "density": 0.35,
       "minSize": 2,
       "maxSize": 4
     },
     {
       "id": "steppe_shrub",
-      "biomes": ["steppe"],
-      "colors": ["#8F894F", "#A89B5A", "#7A7546"],
+      "biomes": [
+        "steppe"
+      ],
+      "colors": [
+        "#8F894F",
+        "#A89B5A",
+        "#7A7546"
+      ],
       "density": 0.08,
       "minSize": 1,
       "maxSize": 3
     },
     {
       "id": "mountain_rocks",
-      "biomes": ["mountains"],
-      "colors": ["#6F6B60", "#9C978A", "#5B584F"],
+      "biomes": [
+        "mountains"
+      ],
+      "colors": [
+        "#6F6B60",
+        "#9C978A",
+        "#5B584F"
+      ],
       "density": 0.1,
       "minSize": 1,
       "maxSize": 3
     },
     {
       "id": "beach_shells",
-      "biomes": ["beach"],
-      "colors": ["#F2EFE4", "#D8C9A6"],
+      "biomes": [
+        "beach"
+      ],
+      "colors": [
+        "#F2EFE4",
+        "#D8C9A6"
+      ],
       "density": 0.04,
       "minSize": 1,
       "maxSize": 1
     },
     {
       "id": "snow_sparkle",
-      "biomes": ["snow_peaks"],
-      "colors": ["#FFFFFF"],
+      "biomes": [
+        "snow_peaks"
+      ],
+      "colors": [
+        "#FFFFFF"
+      ],
       "density": 0.05,
       "minSize": 1,
       "maxSize": 1
     },
     {
       "id": "wave_glint",
-      "biomes": ["shallow_water"],
-      "colors": ["#7FB4D9", "#9CC8E4"],
+      "biomes": [
+        "shallow_water"
+      ],
+      "colors": [
+        "#7FB4D9",
+        "#9CC8E4"
+      ],
       "density": 0.05,
       "minSize": 1,
       "maxSize": 2
     },
     {
       "id": "jungle_canopy",
-      "biomes": ["jungle", "mangrove"],
-      "colors": ["#14612F", "#2B9450", "#0E4A24", "#57B36A"],
+      "biomes": [
+        "jungle",
+        "mangrove"
+      ],
+      "colors": [
+        "#14612F",
+        "#2B9450",
+        "#0E4A24",
+        "#57B36A"
+      ],
       "density": 0.42,
       "minSize": 2,
       "maxSize": 5
     },
     {
       "id": "taiga_conifers",
-      "biomes": ["taiga", "highlands"],
-      "colors": ["#22453A", "#2F6350", "#1A362D"],
+      "biomes": [
+        "taiga",
+        "highlands"
+      ],
+      "colors": [
+        "#22453A",
+        "#2F6350",
+        "#1A362D"
+      ],
       "density": 0.3,
       "minSize": 2,
       "maxSize": 4
     },
     {
       "id": "acacia",
-      "biomes": ["savanna"],
-      "colors": ["#6E7A3A", "#8A9247", "#5A6330"],
+      "biomes": [
+        "savanna"
+      ],
+      "colors": [
+        "#6E7A3A",
+        "#8A9247",
+        "#5A6330"
+      ],
       "density": 0.07,
       "minSize": 2,
       "maxSize": 3
     },
     {
       "id": "dune_ripples",
-      "biomes": ["desert"],
-      "colors": ["#D6B673", "#F0DCA6"],
+      "biomes": [
+        "desert"
+      ],
+      "colors": [
+        "#D6B673",
+        "#F0DCA6"
+      ],
       "density": 0.09,
       "minSize": 1,
       "maxSize": 3
     },
     {
       "id": "tundra_lichen",
-      "biomes": ["tundra"],
-      "colors": ["#8B9A7E", "#A8B39B", "#6F7D64"],
+      "biomes": [
+        "tundra"
+      ],
+      "colors": [
+        "#8B9A7E",
+        "#A8B39B",
+        "#6F7D64"
+      ],
       "density": 0.08,
       "minSize": 1,
       "maxSize": 2
     },
     {
       "id": "reeds",
-      "biomes": ["swamp"],
-      "colors": ["#5D7040", "#3F5230", "#7C8B4C"],
+      "biomes": [
+        "swamp"
+      ],
+      "colors": [
+        "#5D7040",
+        "#3F5230",
+        "#7C8B4C"
+      ],
       "density": 0.22,
       "minSize": 1,
       "maxSize": 3
     },
     {
       "id": "canyon_strata",
-      "biomes": ["badlands"],
-      "colors": ["#8E4C2E", "#C07A4A", "#6B3722"],
+      "biomes": [
+        "badlands"
+      ],
+      "colors": [
+        "#8E4C2E",
+        "#C07A4A",
+        "#6B3722"
+      ],
       "density": 0.14,
       "minSize": 1,
       "maxSize": 4
     },
     {
       "id": "lava_cracks",
-      "biomes": ["volcanic"],
-      "colors": ["#E2542A", "#F09B3C", "#8A2E16"],
+      "biomes": [
+        "volcanic"
+      ],
+      "colors": [
+        "#E2542A",
+        "#F09B3C",
+        "#8A2E16"
+      ],
       "density": 0.12,
       "minSize": 1,
       "maxSize": 2
     },
     {
       "id": "crevasse",
-      "biomes": ["glacier", "ice_shelf"],
-      "colors": ["#8FBBD6", "#CFE6F2"],
+      "biomes": [
+        "glacier",
+        "ice_shelf"
+      ],
+      "colors": [
+        "#8FBBD6",
+        "#CFE6F2"
+      ],
       "density": 0.07,
       "minSize": 1,
       "maxSize": 3
     },
     {
       "id": "reef_coral",
-      "biomes": ["coral_reef"],
-      "colors": ["#E4746A", "#F0B65C", "#7FD6C4", "#C77BD0"],
+      "biomes": [
+        "coral_reef"
+      ],
+      "colors": [
+        "#E4746A",
+        "#F0B65C",
+        "#7FD6C4",
+        "#C77BD0"
+      ],
       "density": 0.2,
       "minSize": 1,
       "maxSize": 2
     },
     {
       "id": "ice_floes",
-      "biomes": ["pack_ice"],
-      "colors": ["#FFFFFF", "#D9E9F2"],
+      "biomes": [
+        "pack_ice"
+      ],
+      "colors": [
+        "#FFFFFF",
+        "#D9E9F2"
+      ],
       "density": 0.16,
       "minSize": 1,
       "maxSize": 3
+    },
+    {
+      "id": "ocean_swell",
+      "biomes": [
+        "ocean"
+      ],
+      "colors": [
+        "#2A4A6E",
+        "#35577C"
+      ],
+      "density": 0.05,
+      "minSize": 2,
+      "maxSize": 4
+    },
+    {
+      "id": "deep_glow",
+      "biomes": [
+        "deep_ocean"
+      ],
+      "colors": [
+        "#1A2E4A",
+        "#24406A",
+        "#3A6A9A"
+      ],
+      "density": 0.03,
+      "minSize": 1,
+      "maxSize": 3
+    },
+    {
+      "id": "volcanic_ash",
+      "biomes": [
+        "volcanic"
+      ],
+      "colors": [
+        "#4A3E3A",
+        "#6A5A52",
+        "#2E2622"
+      ],
+      "density": 0.07,
+      "minSize": 1,
+      "maxSize": 3
+    },
+    {
+      "id": "salt_crust",
+      "biomes": [
+        "badlands"
+      ],
+      "colors": [
+        "#D8D0BE",
+        "#E8E2D2"
+      ],
+      "density": 0.05,
+      "minSize": 1,
+      "maxSize": 3
+    },
+    {
+      "id": "swamp_moss",
+      "biomes": [
+        "swamp"
+      ],
+      "colors": [
+        "#3E5A32",
+        "#587A42",
+        "#2E4426"
+      ],
+      "density": 0.08,
+      "minSize": 1,
+      "maxSize": 3
+    },
+    {
+      "id": "mangrove_stilts",
+      "biomes": [
+        "mangrove"
+      ],
+      "colors": [
+        "#4A3A2A",
+        "#5E4A34"
+      ],
+      "density": 0.06,
+      "minSize": 2,
+      "maxSize": 4
+    },
+    {
+      "id": "highland_heather",
+      "biomes": [
+        "highlands"
+      ],
+      "colors": [
+        "#8A6A9A",
+        "#6A5A7A",
+        "#9A8AAA"
+      ],
+      "density": 0.06,
+      "minSize": 1,
+      "maxSize": 2
+    },
+    {
+      "id": "glacier_seracs",
+      "biomes": [
+        "glacier"
+      ],
+      "colors": [
+        "#C8E4F4",
+        "#A8D0E8"
+      ],
+      "density": 0.05,
+      "minSize": 2,
+      "maxSize": 4
     }
   ]
 }

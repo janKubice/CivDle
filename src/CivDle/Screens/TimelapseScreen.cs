@@ -215,18 +215,20 @@ public sealed class TimelapseScreen : IScreen
                 int worldY = (cy - CityHistory.GridSize / 2) * cellWorld;
                 var tint = color.ToXna();
 
-                // Tmavý podklad pod barvou: buňka se odlepí od terénu i tam,
-                // kde má budova podobnou barvu jako biom pod ní.
-                spriteBatch.Draw(pixel, new Rectangle(worldX, worldY, cellWorld, cellWorld), Color.Black * 0.35f);
-                spriteBatch.Draw(
-                    pixel,
-                    new Rectangle(worldX + 2, worldY + 2, cellWorld - 4, cellWorld - 4),
-                    tint * 0.9f);
+                // Buňky se kreslí NA DORAZ, bez mezer: na jemné mřížce tvoří
+                // sousední buňky jednu budovu nebo souvislou silnici. Mezery
+                // (které dávaly smysl u hrubých čtverců) by z města udělaly
+                // mozaiku dlaždic.
+                spriteBatch.Draw(pixel, new Rectangle(worldX, worldY, cellWorld, cellWorld), tint * 0.95f);
+
+                // Obrys jen tam, kde zástavba končí — tím se tvar odlepí od
+                // terénu, aniž by se rozpadl na jednotlivé buňky.
+                DrawEdges(spriteBatch, pixel, index, cx, cy, worldX, worldY, cellWorld);
 
                 if (!_history.IsOccupied(previous, cx, cy))
                 {
                     spriteBatch.Draw(
-                        pixel, new Rectangle(worldX + 2, worldY + 2, cellWorld - 4, cellWorld - 4),
+                        pixel, new Rectangle(worldX, worldY, cellWorld, cellWorld),
                         Color.White * 0.35f); // novostavba zazáří
                 }
             }
@@ -250,6 +252,39 @@ public sealed class TimelapseScreen : IScreen
 
         spriteBatch.Draw(pixel, new Rectangle(left, y, width, 4), new Color(60, 66, 74));
         spriteBatch.Draw(pixel, new Rectangle(left, y, (int)(width * progress), 4), new Color(255, 226, 150));
+    }
+
+    /// <summary>
+    /// Tmavý obrys na těch stranách buňky, kde už žádná zástavba není. Levnější
+    /// i hezčí než rámeček kolem každé buňky: uvnitř bloku se nekreslí nic,
+    /// takže velká budova vypadá jako jeden tvar.
+    /// </summary>
+    private void DrawEdges(
+        SpriteBatch spriteBatch, Texture2D pixel, int frame, int cx, int cy,
+        int worldX, int worldY, int cellWorld)
+    {
+        var edge = Color.Black * 0.45f;
+        const int thickness = 2;
+
+        if (!_history.IsOccupied(frame, cx, cy - 1))
+        {
+            spriteBatch.Draw(pixel, new Rectangle(worldX, worldY, cellWorld, thickness), edge);
+        }
+
+        if (!_history.IsOccupied(frame, cx, cy + 1))
+        {
+            spriteBatch.Draw(pixel, new Rectangle(worldX, worldY + cellWorld - thickness, cellWorld, thickness), edge);
+        }
+
+        if (!_history.IsOccupied(frame, cx - 1, cy))
+        {
+            spriteBatch.Draw(pixel, new Rectangle(worldX, worldY, thickness, cellWorld), edge);
+        }
+
+        if (!_history.IsOccupied(frame, cx + 1, cy))
+        {
+            spriteBatch.Draw(pixel, new Rectangle(worldX + cellWorld - thickness, worldY, thickness, cellWorld), edge);
+        }
     }
 
     public void Dispose()

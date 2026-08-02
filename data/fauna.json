@@ -3,7 +3,10 @@
   "fauna": [
     {
       "id": "deer",
-      "biomes": ["grassland", "forest"],
+      "biomes": [
+        "grassland",
+        "forest"
+      ],
       "color": "#8A5A33",
       "size": 3,
       "speed": 10,
@@ -11,7 +14,12 @@
     },
     {
       "id": "bird",
-      "biomes": ["grassland", "beach", "steppe", "forest"],
+      "biomes": [
+        "grassland",
+        "beach",
+        "steppe",
+        "forest"
+      ],
       "color": "#F2F2F2",
       "size": 2,
       "speed": 34,
@@ -19,7 +27,10 @@
     },
     {
       "id": "rabbit",
-      "biomes": ["grassland", "steppe"],
+      "biomes": [
+        "grassland",
+        "steppe"
+      ],
       "color": "#C9B38C",
       "size": 2,
       "speed": 16,
@@ -27,7 +38,10 @@
     },
     {
       "id": "firefly",
-      "biomes": ["grassland", "forest"],
+      "biomes": [
+        "grassland",
+        "forest"
+      ],
       "color": "#FFE985",
       "size": 2,
       "speed": 6,
@@ -36,7 +50,10 @@
     },
     {
       "id": "camel",
-      "biomes": ["desert", "steppe"],
+      "biomes": [
+        "desert",
+        "steppe"
+      ],
       "color": "#C79B62",
       "size": 3,
       "speed": 8,
@@ -44,7 +61,9 @@
     },
     {
       "id": "gazelle",
-      "biomes": ["savanna"],
+      "biomes": [
+        "savanna"
+      ],
       "color": "#D2A96B",
       "size": 3,
       "speed": 24,
@@ -52,7 +71,10 @@
     },
     {
       "id": "parrot",
-      "biomes": ["jungle", "mangrove"],
+      "biomes": [
+        "jungle",
+        "mangrove"
+      ],
       "color": "#4CD07A",
       "size": 2,
       "speed": 30,
@@ -60,7 +82,11 @@
     },
     {
       "id": "wolf",
-      "biomes": ["taiga", "tundra", "highlands"],
+      "biomes": [
+        "taiga",
+        "tundra",
+        "highlands"
+      ],
       "color": "#7E838C",
       "size": 3,
       "speed": 18,
@@ -68,7 +94,10 @@
     },
     {
       "id": "reindeer",
-      "biomes": ["tundra", "taiga"],
+      "biomes": [
+        "tundra",
+        "taiga"
+      ],
       "color": "#9C8265",
       "size": 3,
       "speed": 12,
@@ -76,7 +105,11 @@
     },
     {
       "id": "penguin",
-      "biomes": ["ice_shelf", "pack_ice", "glacier"],
+      "biomes": [
+        "ice_shelf",
+        "pack_ice",
+        "glacier"
+      ],
       "color": "#2B2F38",
       "size": 2,
       "speed": 7,
@@ -84,7 +117,11 @@
     },
     {
       "id": "heron",
-      "biomes": ["swamp", "mangrove", "shallow_water"],
+      "biomes": [
+        "swamp",
+        "mangrove",
+        "shallow_water"
+      ],
       "color": "#DDE3E8",
       "size": 3,
       "speed": 14,
@@ -92,7 +129,11 @@
     },
     {
       "id": "eagle",
-      "biomes": ["mountains", "badlands", "snow_peaks"],
+      "biomes": [
+        "mountains",
+        "badlands",
+        "snow_peaks"
+      ],
       "color": "#6B5A44",
       "size": 3,
       "speed": 38,
@@ -100,11 +141,103 @@
     },
     {
       "id": "fish_school",
-      "biomes": ["coral_reef", "shallow_water"],
+      "biomes": [
+        "coral_reef",
+        "shallow_water"
+      ],
       "color": "#F0C060",
       "size": 2,
       "speed": 20,
       "timeOfDay": "any"
+    },
+    {
+      "id": "ash_moth",
+      "biomes": [
+        "volcanic"
+      ],
+      "color": "#D8B08A",
+      "size": 2,
+      "speed": 14,
+      "timeOfDay": "night"
+    },
+    {
+      "id": "vulture",
+      "biomes": [
+        "badlands",
+        "desert",
+        "volcanic"
+      ],
+      "color": "#4A4238",
+      "size": 4,
+      "speed": 16,
+      "timeOfDay": "day"
+    },
+    {
+      "id": "whale",
+      "biomes": [
+        "ocean",
+        "deep_ocean"
+      ],
+      "color": "#3C5A78",
+      "size": 7,
+      "speed": 6,
+      "timeOfDay": "day"
+    },
+    {
+      "id": "jellyfish",
+      "biomes": [
+        "deep_ocean",
+        "ocean"
+      ],
+      "color": "#C8A0D8",
+      "size": 3,
+      "speed": 4,
+      "timeOfDay": "night"
+    },
+    {
+      "id": "seagull",
+      "biomes": [
+        "ocean",
+        "beach",
+        "shallow_water"
+      ],
+      "color": "#E8E8E8",
+      "size": 3,
+      "speed": 18,
+      "timeOfDay": "day"
+    },
+    {
+      "id": "frog",
+      "biomes": [
+        "swamp",
+        "mangrove"
+      ],
+      "color": "#5A8A3A",
+      "size": 2,
+      "speed": 8,
+      "timeOfDay": "night"
+    },
+    {
+      "id": "monkey",
+      "biomes": [
+        "jungle"
+      ],
+      "color": "#6A4A32",
+      "size": 3,
+      "speed": 14,
+      "timeOfDay": "day"
+    },
+    {
+      "id": "ibex",
+      "biomes": [
+        "mountains",
+        "highlands",
+        "snow_peaks"
+      ],
+      "color": "#8A7A62",
+      "size": 4,
+      "speed": 12,
+      "timeOfDay": "day"
     }
   ]
 }

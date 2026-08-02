@@ -1241,6 +1241,75 @@
       "effect": "production_mult",
       "magnitude": 0.25,
       "targetResource": "science"
+    },
+    {
+      "id": "civil_service",
+      "cost": {
+        "science": 260,
+        "planks": 120
+      },
+      "prerequisites": [
+        "municipal_administration"
+      ]
+    },
+    {
+      "id": "city_planning_office",
+      "cost": {
+        "science": 900,
+        "steel": 60
+      },
+      "prerequisites": [
+        "civil_service"
+      ]
+    },
+    {
+      "id": "works_department",
+      "cost": {
+        "science": 500,
+        "stone": 200
+      },
+      "prerequisites": [
+        "civil_service"
+      ]
+    },
+    {
+      "id": "rituals",
+      "cost": {
+        "wood": 40,
+        "stone": 30
+      },
+      "prerequisites": [
+        "writing"
+      ],
+      "unlocks": [
+        "shrine"
+      ]
+    },
+    {
+      "id": "priesthood",
+      "cost": {
+        "stone": 120,
+        "science": 60
+      },
+      "prerequisites": [
+        "rituals"
+      ],
+      "unlocks": [
+        "temple"
+      ]
+    },
+    {
+      "id": "theology",
+      "cost": {
+        "science": 300,
+        "planks": 160
+      },
+      "prerequisites": [
+        "priesthood"
+      ],
+      "unlocks": [
+        "monastery"
+      ]
     }
   ]
 }

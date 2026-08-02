@@ -38,7 +38,7 @@ public sealed class TimelapseStore
     private const int FormatVersion = 1;
 
     /// <summary>Verze těla kroniky (sdílená se sekcí savu) — formát se ještě vyvíjí.</summary>
-    private const int BodyVersion = 3;
+    private const int BodyVersion = 4;
 
     private readonly string _directory;
 

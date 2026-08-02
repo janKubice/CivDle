@@ -81,6 +81,8 @@ public sealed class Simulation
     private long[] _neighbourTrades = Array.Empty<long>(); // kolik obchodů už s kterým sousedem proběhlo
     private readonly Dictionary<long, byte> _biomeOverrides = new(); // terraformované dlaždice (UFO)
     private readonly Queue<GameNotification> _notifications = new();
+    private readonly PrayerSystem _prayerSystem;
+
     private PrestigeBonuses _bonuses = PrestigeBonuses.None;
 
     /// <summary>Násobiče výroby po surovinách z cílených technologií (index = surovina).</summary>
@@ -146,6 +148,7 @@ public sealed class Simulation
         _toolsSystem = new ToolsSystem(content);
         _pollutionSystem = new PollutionSystem(content);
         _contractSystem = new ContractSystem(content, seed);
+        _prayerSystem = new PrayerSystem(content, seed);
         _districtSystem = new DistrictSystem(content);
         _citizenSystem = new CitizenSystem(content, seed);
         _milestoneBonuses = new BuildingMilestoneSystem(content);
@@ -175,7 +178,156 @@ public sealed class Simulation
         _achievementSystem = new AchievementSystem(content);
         _achievementsUnlocked = new bool[content.Achievements.Count];
 
+        // Start je vždycky vidět — hráč musí od první vteřiny vědět, kde stojí.
+        Fog.Reveal(0, 0, FogRevealRadius * 2);
+
         PlaceStartingBuildings();
+    }
+
+    /// <summary>
+    /// Mlha války: co hráč neviděl, je tma. Odhaluje se stavěním a ruční těžbou.
+    /// </summary>
+    public FogOfWar Fog { get; } = new();
+
+    /// <summary>Kolik dlaždic kolem sebe odhalí budova nebo ruční sběr.</summary>
+    public const int FogRevealRadius = 10;
+
+    // ----- víra: modlitby, požehnání a zásahy -----
+
+    /// <summary>Jak dlouho vydrží požehnání ze zodpovězené modlitby.</summary>
+    private const int BlessingTicks = (int)(TicksPerSecond * 120);
+
+    private int _rainTicksLeft;
+    private double _rainMagnitude;
+    private int _growthTicksLeft;
+    private double _growthMagnitude;
+
+    /// <summary>Běží déšť z vyslyšené modlitby?</summary>
+    public bool RainBlessingActive => _rainTicksLeft > 0;
+
+    /// <summary>Běží plodnost z vyslyšené modlitby?</summary>
+    public bool GrowthBlessingActive => _growthTicksLeft > 0;
+
+    /// <summary>Násobič výroby jídla z deště (1.0 = beze změny).</summary>
+    public double RainFoodMult => _rainTicksLeft > 0 ? 1.0 + _rainMagnitude : 1.0;
+
+    /// <summary>Násobič růstu obyvatel z plodnosti (1.0 = beze změny).</summary>
+    public double BlessedGrowthMult => _growthTicksLeft > 0 ? 1.0 + _growthMagnitude : 1.0;
+
+    /// <summary>Je víra v datech zapnutá?</summary>
+    public bool FaithEnabled => _content.Faith.IsEnabled;
+
+    /// <summary>Nejvyšší síla, na kterou jde modlitbu vystupňovat.</summary>
+    public const int MaxPrayerStrength = PrayerSystem.MaxStrength;
+
+    /// <summary>Kolikrát se hráč modlil (statistika, kronika, achievementy).</summary>
+    public long PrayerCount => _prayerSystem.PrayerCount;
+
+    /// <summary>Obnoví počítadlo modliteb ze savu.</summary>
+    internal void RestorePrayerCount(long count) => _prayerSystem.RestoreCount(count);
+
+    /// <summary>
+    /// Příkaz hráče: pronést modlitbu. Víra se obětuje předem, výsledek je
+    /// nejistý — v tom je celé to rozhodnutí.
+    /// </summary>
+    public PrayerOutcome TryPray(int prayerIndex, int strength, int targetX, int targetY) =>
+        _prayerSystem.Pray(this, prayerIndex, strength, targetX, targetY);
+
+    /// <summary>Zapne dočasné požehnání (volá se z účinku modlitby).</summary>
+    internal void StartBlessing(BlessingKind kind, double magnitude, int radiusTiles, int targetX, int targetY)
+    {
+        _ = radiusTiles; // požehnání platí pro celé město; cíl je zatím jen místo obřadu
+        _ = targetX;
+        _ = targetY;
+        if (kind == BlessingKind.Rain)
+        {
+            _rainTicksLeft = BlessingTicks;
+            _rainMagnitude = magnitude;
+            return;
+        }
+
+        _growthTicksLeft = BlessingTicks;
+        _growthMagnitude = magnitude;
+    }
+
+    /// <summary>Očistí okolí od znečištění — odpověď na modlitbu za čistou zemi.</summary>
+    internal void CleanseArea(int centerX, int centerY, int radiusTiles, double magnitude)
+    {
+        int step = PollutionGrid.CellTiles;
+        for (int y = centerY - radiusTiles; y <= centerY + radiusTiles; y += step)
+        {
+            for (int x = centerX - radiusTiles; x <= centerX + radiusTiles; x += step)
+            {
+                foreach (var kind in new[] { PollutionKind.Air, PollutionKind.Water, PollutionKind.Soil })
+                {
+                    _pollution.Emit(x, y, kind, -_pollution.At(x, y, kind) * Math.Clamp(magnitude, 0, 1));
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Meteorit: srovná zástavbu v okolí cíle. Je to trest, ne úklid — proto
+    /// bourá bez náhrady.
+    /// </summary>
+    internal void StrikeMeteor(int centerX, int centerY, int radiusTiles)
+    {
+        // Odzadu, protože demolice přerovnává pole budov.
+        for (int i = _buildingCount - 1; i >= 0; i--)
+        {
+            if (WithinRadius(_buildings[i].X, _buildings[i].Y, centerX, centerY, radiusTiles))
+            {
+                TryDemolish(i);
+            }
+        }
+
+        Fog.Reveal(centerX, centerY, radiusTiles + 4); // ránu je vidět zdaleka
+    }
+
+    /// <summary>Povodeň: zaplaví okolí — zástavba u vody bere první ránu.</summary>
+    internal void StrikeFlood(int centerX, int centerY, int radiusTiles)
+    {
+        for (int i = _buildingCount - 1; i >= 0; i--)
+        {
+            if (!WithinRadius(_buildings[i].X, _buildings[i].Y, centerX, centerY, radiusTiles))
+            {
+                continue;
+            }
+
+            // Povodeň bere jen to, co stojí nízko u vody — jinak by byla jen
+            // druhým meteoritem s jiným jménem.
+            if (IsWaterNextTo(_buildings[i].X, _buildings[i].Y))
+            {
+                TryDemolish(i);
+            }
+        }
+
+        CleanseArea(centerX, centerY, radiusTiles, 0.5); // voda po sobě aspoň uklidí
+        Fog.Reveal(centerX, centerY, radiusTiles + 2);
+    }
+
+    /// <summary>Sousedí dlaždice s vodou? (Povodeň bere jen to, co stojí u ní.)</summary>
+    private bool IsWaterNextTo(int x, int y) =>
+        _content.Biomes[Terrain.BiomeAt(x + 1, y)].IsWater
+        || _content.Biomes[Terrain.BiomeAt(x - 1, y)].IsWater
+        || _content.Biomes[Terrain.BiomeAt(x, y + 1)].IsWater
+        || _content.Biomes[Terrain.BiomeAt(x, y - 1)].IsWater;
+
+    private static bool WithinRadius(int x, int y, int centerX, int centerY, int radius) =>
+        Math.Abs(x - centerX) <= radius && Math.Abs(y - centerY) <= radius;
+
+    /// <summary>Odtikne požehnání. Volá se z hlavního tiku.</summary>
+    private void TickBlessings()
+    {
+        if (_rainTicksLeft > 0)
+        {
+            _rainTicksLeft--;
+        }
+
+        if (_growthTicksLeft > 0)
+        {
+            _growthTicksLeft--;
+        }
     }
 
     /// <summary>
@@ -1580,6 +1732,7 @@ public sealed class Simulation
     public void Tick()
     {
         TickCount++;
+        TickBlessings(); // požehnání z modliteb dobíhají spolu se slavností
         if (_boostTicksRemaining > 0)
         {
             _boostTicksRemaining--;
@@ -1817,6 +1970,10 @@ public sealed class Simulation
         resourceIndex = 0;
         amount = 0;
         outcome = HarvestOutcome.Normal;
+
+        // Kam hráč dosáhne rukou, tam taky vidí — ruční sběr je ten druhý
+        // (a v rané hře jediný) způsob, jak se svět otevírá.
+        Fog.Reveal(x, y, FogRevealRadius);
 
         long tile = TileKey.Pack(x, y);
         if (_occupancy.ContainsKey(tile))
@@ -2463,9 +2620,100 @@ public sealed class Simulation
     /// </summary>
     public int AutoUpgradeLevel => IsGovernorUnlocked ? _autoUpgradeLevel : 0;
 
-    /// <summary>Příkaz hráče: nastaví míru automatického vylepšování (ořízne se do rozsahu).</summary>
+    /// <summary>ID technologií, které postupně otevírají vyšší stupně správy.</summary>
+    public const string GovernorLevel2TechId = "civil_service";
+
+    /// <summary>Technologie pro nejvyšší stupeň guvernérovy správy.</summary>
+    public const string GovernorLevel3TechId = "city_planning_office";
+
+    /// <summary>
+    /// Nejvyšší stupeň, na který jde guvernéra právě teď nastavit.
+    ///
+    /// <para>Stupně se ODEMYKAJÍ výzkumem, nejsou to volné posuvníky: automatizace
+    /// je odměna za postup, ne přepínač dostupný od začátku (living-city.md §4).
+    /// Bez toho by hráč hned na začátku přepnul na „vše a svižně" a přišel o celou
+    /// střední hru.</para>
+    /// </summary>
+    public int MaxUnlockedAutoUpgradeLevel
+    {
+        get
+        {
+            if (!IsGovernorUnlocked)
+            {
+                return 0;
+            }
+
+            if (IsTechResearchedById(GovernorLevel3TechId))
+            {
+                return MaxAutoUpgradeLevel;
+            }
+
+            return IsTechResearchedById(GovernorLevel2TechId) ? 2 : 1;
+        }
+    }
+
+    /// <summary>Je technologie daného ID vyzkoumaná? (Neznámé ID = ne.)</summary>
+    private bool IsTechResearchedById(string techId) =>
+        _content.Techs.TryIndexOf(techId, out int index) && _techResearched[index];
+
+    /// <summary>Příkaz hráče: nastaví míru automatického vylepšování (ořízne se do odemčeného rozsahu).</summary>
     public void SetAutoUpgradeLevel(int level) =>
-        _autoUpgradeLevel = Math.Clamp(level, 0, MaxAutoUpgradeLevel);
+        _autoUpgradeLevel = Math.Clamp(level, 0, MaxUnlockedAutoUpgradeLevel);
+
+    // ----- guvernér: rezerva surovin -----
+
+    /// <summary>Technologie, která odemyká nastavení rezervy.</summary>
+    public const string GovernorReserveTechId = "works_department";
+
+    private double _governorReserve;
+
+    /// <summary>Umí guvernér šetřit (je rezerva odemčená)?</summary>
+    public bool IsGovernorReserveUnlocked =>
+        IsGovernorUnlocked && IsTechResearchedById(GovernorReserveTechId);
+
+    /// <summary>
+    /// Podíl zásob (0–0.9), který guvernér nesmí utratit.
+    ///
+    /// <para>Bez rezervy sebere automatika i to, co si hráč schovával na konkrétní
+    /// stavbu — a to je nejrychlejší cesta, jak si hráč automatizaci zase vypne.
+    /// Tohle je ta pojistka, díky které ji nechá zapnutou.</para>
+    /// </summary>
+    public double GovernorReserve => IsGovernorReserveUnlocked ? _governorReserve : 0.0;
+
+    /// <summary>Příkaz hráče: nastaví rezervu (ořízne se na 0–90 %).</summary>
+    public void SetGovernorReserve(double fraction) =>
+        _governorReserve = Math.Clamp(fraction, 0.0, 0.9);
+
+    /// <summary>Surová rezerva pro save (bez ohledu na odemčení).</summary>
+    internal double GovernorReserveRaw => _governorReserve;
+
+    /// <summary>Obnoví rezervu ze savu.</summary>
+    internal void RestoreGovernorReserve(double fraction) => SetGovernorReserve(fraction);
+
+    /// <summary>
+    /// Smí automatika utratit tuhle cenu, aniž by sáhla do rezervy? Počítá se
+    /// proti kapacitě skladu, ne proti aktuálnímu stavu — jinak by se rezerva
+    /// sama snižovala tím, jak zásoby ubývají.
+    /// </summary>
+    internal bool AutomationCanSpend(IReadOnlyList<ResourceAmount> cost)
+    {
+        double reserve = GovernorReserve;
+        if (reserve <= 0)
+        {
+            return true;
+        }
+
+        for (int i = 0; i < cost.Count; i++)
+        {
+            int index = cost[i].ResourceIndex;
+            if (_resources[index] - cost[i].Amount < _storageCaps[index] * reserve)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     /// <summary>ID technologie, po které umí guvernér i slučovat bloky (data-driven odkaz).</summary>
     public const string GovernorMergeTechId = "urban_planning";
@@ -3668,6 +3916,11 @@ public sealed class Simulation
         // tudy prochází i obnova ze savu — jinak by se po načtení zapomněl.
         _settledBiomes[Terrain.BiomeAt(x, y)] = true;
 
+        // Co postavíš, na to i vidíš. Je to tady ze stejného důvodu jako řádek
+        // výš: touhle cestou jde i obnova ze savu, takže i starý save (bez sekce
+        // mlhy) dostane odhalené aspoň okolí svých budov.
+        Fog.Reveal(x, y, FogRevealRadius);
+
         // Cache napojení na silnice mluví o polích, která se právě mění — zneplatni
         // ji TADY, ne až po zavolání RoadBuilderu. Dřív to bylo až na konci
         // TryPlaceBuilding, takže se stihl někdo zeptat na napojení budovy, kterou
@@ -4058,6 +4311,8 @@ public sealed class Simulation
         HighestSettlementRank = -1; // v novém měřítku je i první osada zas událost
         _founders.Clear(); // zakladatelé patří ke světu, který právě skončil
         History.Clear();   // a časosběr taky — nový svět začíná prázdným listem
+        Fog.Clear();       // nový svět se musí objevit znovu
+        Fog.Reveal(0, 0, FogRevealRadius * 2);
         Array.Clear(_neighbourTrades); // sousedi nového měřítka hráče ještě neznají
         PendingCitizenRequest = CitizenRequest.None;
         CitizenCooldownTicks = 0;

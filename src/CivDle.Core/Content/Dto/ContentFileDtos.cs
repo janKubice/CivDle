@@ -149,6 +149,19 @@ public sealed record ContractDto(
     double DurationSeconds,
     GoalConditionDto? Requires);
 
+/// <summary>Obsah souboru <c>data/faith.json</c>.</summary>
+public sealed record FaithFileDto(int SchemaVersion, string? FaithResource, List<PrayerDto>? Prayers);
+
+/// <summary>Jedna modlitba tak, jak leží v JSON.</summary>
+public sealed record PrayerDto(
+    string? Id,
+    string? Effect,
+    int BaseCost,
+    double BaseChance,
+    double ChanceFalloff,
+    double Magnitude,
+    int Radius);
+
 /// <summary>Obsah souboru <c>data/gameplay.json</c>.</summary>
 public sealed record GameplayFileDto(
     int SchemaVersion,

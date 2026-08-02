@@ -3,64 +3,487 @@
   "landmarks": [
     {
       "id": "ancient_tree",
-      "biomes": ["forest"],
+      "biomes": [
+        "forest"
+      ],
       "mapColor": "#2F6B34",
       "size": 13,
       "rarity": 900,
-      "clickYield": { "resource": "wood", "amount": 12 }
+      "clickYield": {
+        "resource": "wood",
+        "amount": 12
+      }
     },
     {
       "id": "berry_grove",
-      "biomes": ["forest", "grassland"],
+      "biomes": [
+        "forest",
+        "grassland"
+      ],
       "mapColor": "#B0356B",
       "size": 8,
       "rarity": 600,
-      "clickYield": { "resource": "food", "amount": 8 }
+      "clickYield": {
+        "resource": "food",
+        "amount": 8
+      }
     },
     {
       "id": "deer_herd",
-      "biomes": ["forest", "grassland"],
+      "biomes": [
+        "forest",
+        "grassland"
+      ],
       "mapColor": "#8A5A33",
       "size": 9,
       "rarity": 700,
-      "clickYield": { "resource": "food", "amount": 14 }
+      "clickYield": {
+        "resource": "food",
+        "amount": 14
+      }
     },
     {
       "id": "fish_shoal",
-      "biomes": ["shallow_water"],
+      "biomes": [
+        "shallow_water"
+      ],
       "mapColor": "#4FD0E0",
       "size": 8,
       "rarity": 400,
-      "clickYield": { "resource": "food", "amount": 10 }
+      "clickYield": {
+        "resource": "food",
+        "amount": 10
+      }
     },
     {
       "id": "ore_vein",
-      "biomes": ["mountains", "snow_peaks"],
+      "biomes": [
+        "mountains",
+        "snow_peaks"
+      ],
       "mapColor": "#C08A3E",
       "size": 9,
       "rarity": 500,
-      "clickYield": { "resource": "stone", "amount": 14 }
+      "clickYield": {
+        "resource": "stone",
+        "amount": 14
+      }
     },
     {
       "id": "geyser",
-      "biomes": ["mountains", "snow_peaks"],
+      "biomes": [
+        "mountains",
+        "snow_peaks"
+      ],
       "mapColor": "#DCEAF2",
       "size": 10,
       "rarity": 1100
     },
     {
       "id": "canyon",
-      "biomes": ["steppe"],
+      "biomes": [
+        "steppe"
+      ],
       "mapColor": "#9C5A32",
       "size": 14,
       "rarity": 800
     },
     {
       "id": "stone_circle",
-      "biomes": ["grassland", "steppe"],
+      "biomes": [
+        "grassland",
+        "steppe"
+      ],
       "mapColor": "#8E8E96",
       "size": 11,
       "rarity": 1300
+    },
+    {
+      "id": "volcano",
+      "biomes": [
+        "volcanic"
+      ],
+      "mapColor": "#7A2A1E",
+      "size": 16,
+      "rarity": 1600,
+      "clickYield": {
+        "resource": "stone",
+        "amount": 22
+      }
+    },
+    {
+      "id": "lava_lake",
+      "biomes": [
+        "volcanic"
+      ],
+      "mapColor": "#E0561F",
+      "size": 13,
+      "rarity": 1400
+    },
+    {
+      "id": "obsidian_flow",
+      "biomes": [
+        "volcanic"
+      ],
+      "mapColor": "#2A2430",
+      "size": 11,
+      "rarity": 900,
+      "clickYield": {
+        "resource": "stone",
+        "amount": 18
+      }
+    },
+    {
+      "id": "fumarole",
+      "biomes": [
+        "volcanic",
+        "badlands"
+      ],
+      "mapColor": "#C8B49A",
+      "size": 8,
+      "rarity": 700
+    },
+    {
+      "id": "oasis",
+      "biomes": [
+        "desert"
+      ],
+      "mapColor": "#3FA98C",
+      "size": 11,
+      "rarity": 1000,
+      "clickYield": {
+        "resource": "food",
+        "amount": 16
+      }
+    },
+    {
+      "id": "salt_flat",
+      "biomes": [
+        "desert",
+        "badlands"
+      ],
+      "mapColor": "#E8E4D8",
+      "size": 14,
+      "rarity": 800
+    },
+    {
+      "id": "meteor_crater",
+      "biomes": [
+        "desert",
+        "badlands",
+        "steppe"
+      ],
+      "mapColor": "#6B6259",
+      "size": 15,
+      "rarity": 1800,
+      "clickYield": {
+        "resource": "iron_ore",
+        "amount": 20
+      }
+    },
+    {
+      "id": "petrified_forest",
+      "biomes": [
+        "badlands"
+      ],
+      "mapColor": "#8A7A62",
+      "size": 12,
+      "rarity": 1200,
+      "clickYield": {
+        "resource": "stone",
+        "amount": 16
+      }
+    },
+    {
+      "id": "mesa",
+      "biomes": [
+        "badlands",
+        "steppe"
+      ],
+      "mapColor": "#A0603A",
+      "size": 15,
+      "rarity": 900
+    },
+    {
+      "id": "waterfall",
+      "biomes": [
+        "highlands",
+        "mountains"
+      ],
+      "mapColor": "#8FC6E8",
+      "size": 12,
+      "rarity": 900,
+      "clickYield": {
+        "resource": "food",
+        "amount": 10
+      }
+    },
+    {
+      "id": "cave_mouth",
+      "biomes": [
+        "mountains",
+        "highlands"
+      ],
+      "mapColor": "#3A3540",
+      "size": 10,
+      "rarity": 700,
+      "clickYield": {
+        "resource": "stone",
+        "amount": 12
+      }
+    },
+    {
+      "id": "hot_spring",
+      "biomes": [
+        "highlands",
+        "taiga"
+      ],
+      "mapColor": "#B8DCE0",
+      "size": 9,
+      "rarity": 800
+    },
+    {
+      "id": "crystal_seam",
+      "biomes": [
+        "mountains",
+        "snow_peaks"
+      ],
+      "mapColor": "#9FD4E8",
+      "size": 9,
+      "rarity": 1500,
+      "clickYield": {
+        "resource": "silicon",
+        "amount": 14
+      }
+    },
+    {
+      "id": "amber_seep",
+      "biomes": [
+        "taiga",
+        "forest"
+      ],
+      "mapColor": "#D89A34",
+      "size": 8,
+      "rarity": 1300,
+      "clickYield": {
+        "resource": "wood",
+        "amount": 16
+      }
+    },
+    {
+      "id": "sinkhole",
+      "biomes": [
+        "jungle"
+      ],
+      "mapColor": "#2F4A34",
+      "size": 11,
+      "rarity": 1000
+    },
+    {
+      "id": "canopy_giant",
+      "biomes": [
+        "jungle"
+      ],
+      "mapColor": "#1F5E2A",
+      "size": 14,
+      "rarity": 1100,
+      "clickYield": {
+        "resource": "wood",
+        "amount": 18
+      }
+    },
+    {
+      "id": "ancient_ruins",
+      "biomes": [
+        "savanna",
+        "steppe",
+        "jungle"
+      ],
+      "mapColor": "#B0A184",
+      "size": 13,
+      "rarity": 1900,
+      "clickYield": {
+        "resource": "stone",
+        "amount": 20
+      }
+    },
+    {
+      "id": "baobab",
+      "biomes": [
+        "savanna"
+      ],
+      "mapColor": "#7A6A3E",
+      "size": 12,
+      "rarity": 900,
+      "clickYield": {
+        "resource": "food",
+        "amount": 12
+      }
+    },
+    {
+      "id": "peat_bog",
+      "biomes": [
+        "swamp"
+      ],
+      "mapColor": "#4A4028",
+      "size": 11,
+      "rarity": 700,
+      "clickYield": {
+        "resource": "coal",
+        "amount": 12
+      }
+    },
+    {
+      "id": "mangrove_roots",
+      "biomes": [
+        "mangrove"
+      ],
+      "mapColor": "#3A5E42",
+      "size": 10,
+      "rarity": 700,
+      "clickYield": {
+        "resource": "wood",
+        "amount": 12
+      }
+    },
+    {
+      "id": "driftwood",
+      "biomes": [
+        "beach"
+      ],
+      "mapColor": "#B49A78",
+      "size": 7,
+      "rarity": 500,
+      "clickYield": {
+        "resource": "wood",
+        "amount": 10
+      }
+    },
+    {
+      "id": "tide_pool",
+      "biomes": [
+        "beach",
+        "shallow_water"
+      ],
+      "mapColor": "#6FBFC8",
+      "size": 8,
+      "rarity": 600,
+      "clickYield": {
+        "resource": "food",
+        "amount": 9
+      }
+    },
+    {
+      "id": "glacier_cave",
+      "biomes": [
+        "glacier"
+      ],
+      "mapColor": "#A8D8EE",
+      "size": 12,
+      "rarity": 1200
+    },
+    {
+      "id": "ice_arch",
+      "biomes": [
+        "ice_shelf",
+        "pack_ice"
+      ],
+      "mapColor": "#CDE8F6",
+      "size": 13,
+      "rarity": 1100
+    },
+    {
+      "id": "seal_colony",
+      "biomes": [
+        "pack_ice",
+        "ice_shelf"
+      ],
+      "mapColor": "#6E6A66",
+      "size": 9,
+      "rarity": 800,
+      "clickYield": {
+        "resource": "food",
+        "amount": 14
+      }
+    },
+    {
+      "id": "kelp_forest",
+      "biomes": [
+        "coral_reef",
+        "shallow_water"
+      ],
+      "mapColor": "#2E7A5A",
+      "size": 11,
+      "rarity": 700,
+      "clickYield": {
+        "resource": "food",
+        "amount": 12
+      }
+    },
+    {
+      "id": "whale_pod",
+      "biomes": [
+        "ocean",
+        "deep_ocean"
+      ],
+      "mapColor": "#3A5A7A",
+      "size": 15,
+      "rarity": 1700,
+      "clickYield": {
+        "resource": "food",
+        "amount": 26
+      }
+    },
+    {
+      "id": "shipwreck",
+      "biomes": [
+        "ocean",
+        "shallow_water"
+      ],
+      "mapColor": "#5A4A3A",
+      "size": 12,
+      "rarity": 1500,
+      "clickYield": {
+        "resource": "planks",
+        "amount": 18
+      }
+    },
+    {
+      "id": "thermal_vent",
+      "biomes": [
+        "deep_ocean"
+      ],
+      "mapColor": "#8A4A6A",
+      "size": 10,
+      "rarity": 1600,
+      "clickYield": {
+        "resource": "copper_ore",
+        "amount": 18
+      }
+    },
+    {
+      "id": "mammoth_bones",
+      "biomes": [
+        "tundra"
+      ],
+      "mapColor": "#C8BEA8",
+      "size": 12,
+      "rarity": 1400,
+      "clickYield": {
+        "resource": "stone",
+        "amount": 16
+      }
+    },
+    {
+      "id": "frozen_falls",
+      "biomes": [
+        "tundra",
+        "glacier",
+        "snow_peaks"
+      ],
+      "mapColor": "#B8DCF0",
+      "size": 11,
+      "rarity": 1000
     }
   ]
 }

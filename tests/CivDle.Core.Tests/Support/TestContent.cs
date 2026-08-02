@@ -52,6 +52,7 @@ internal static class TestContent
         ElectionConfig? elections = null,
         IReadOnlyList<MilestoneDef>? milestones = null,
         SeasonCalendar? seasons = null,
+        FaithCatalog? faith = null,
         ContractCatalog? contracts = null,
         DistrictCatalog? districts = null,
         SettlementRankLadder? settlementRanks = null,
@@ -119,7 +120,8 @@ internal static class TestContent
             neighbours ?? NeighbourCatalog.Empty,
             elections ?? ElectionConfig.Disabled,
             milestones ?? Array.Empty<MilestoneDef>(),
-            seasons ?? SeasonCalendar.Disabled);
+            seasons ?? SeasonCalendar.Disabled,
+            faith); // null = víra v testech vypnutá
     }
 
     /// <summary>Výchozí prestige config testů (Vzestup od 50 obyvatel, body = populace ÷ 15).</summary>

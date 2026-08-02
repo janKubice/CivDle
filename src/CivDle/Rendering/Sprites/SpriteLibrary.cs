@@ -41,6 +41,7 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "icon.steel", IconSize, canvas => IngotIcon(canvas, new Color(126, 140, 158)));
         Add(device, "icon.nanomaterial", IconSize, canvas => IngotIcon(canvas, new Color(178, 132, 220)));
         Add(device, "icon.science", IconSize, ScienceIcon);
+        Add(device, "icon.faith", IconSize, FaithIcon);
         Add(device, "icon.machine_parts", IconSize, GearIcon);
         Add(device, "icon.electronics", IconSize, ChipIcon);
         Add(device, "icon.computer", IconSize, ComputerIcon);
@@ -78,6 +79,11 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.school", SpriteSize, canvas => Schoolhouse(canvas, floors: 2));
         Add(device, "building.university", SpriteSize, canvas => Schoolhouse(canvas, floors: 3));
         Add(device, "building.research_lab", SpriteSize, ResearchLab);
+
+        // Víra: rostoucí silueta se stejným znakem — svatyně, chrám, klášter.
+        Add(device, "building.shrine", SpriteSize, canvas => Sanctuary(canvas, height: 12));
+        Add(device, "building.temple", SpriteSize, canvas => Sanctuary(canvas, height: 20));
+        Add(device, "building.monastery", SpriteSize, canvas => Sanctuary(canvas, height: 26));
 
         // Éra kamene a dřeva.
         Add(device, "building.granary", SpriteSize, Granary);
@@ -1109,6 +1115,25 @@ public sealed class SpriteLibrary : IDisposable
         c.FillRect(6, 9, 12, 8, metal);
         c.FillRect(6, 9, 12, 2, metal * 1.25f); // odlesk na horní hraně
         c.FillRect(3, 17, 18, 2, metal * 0.7f);
+    }
+
+    /// <summary>Víra: prostá stavba se štítem a stoupajícím dýmem oběti.</summary>
+    private static void Sanctuary(PixelCanvas c, int height)
+    {
+        int top = 30 - height;
+        c.FillRect(7, top + 4, 18, height - 4, new Color(216, 200, 156));
+        c.FillTriangle(5f, top + 4f, 27f, top + 4f, 16f, top, new Color(176, 150, 96));
+        c.FillRect(15, Math.Max(0, top - 6), 2, 6, new Color(200, 176, 120)); // sloupek
+        c.FillRect(13, Math.Max(0, top - 5), 6, 2, new Color(200, 176, 120)); // příčka
+        c.FillRect(14, 24, 5, 6, new Color(120, 96, 60));                     // vchod
+    }
+
+    /// <summary>Víra: plamínek oběti — teplý bod, čitelný i v malém.</summary>
+    private static void FaithIcon(PixelCanvas c)
+    {
+        c.FillRect(6, 17, 12, 3, new Color(150, 120, 70)); // miska
+        c.FillTriangle(12f, 4f, 8f, 16f, 16f, 16f, new Color(240, 190, 90));
+        c.FillTriangle(12f, 8f, 10f, 16f, 14f, 16f, new Color(252, 238, 180));
     }
 
     /// <summary>Věda: otevřená kniha se záložkou — čitelná i na 24 pixelech.</summary>

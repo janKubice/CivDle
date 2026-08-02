@@ -169,6 +169,8 @@ public class HistoryTests
 
         var color = sim.History.ColorAt(last, cellX, cellY);
         Assert.NotNull(color);
+
+        // Jedna barva: bez silnic nemá paleta důvod nést cokoli dalšího.
         Assert.Single(sim.History.Palette);
     }
 
@@ -200,6 +202,60 @@ public class HistoryTests
 
         Assert.Equal(CityHistory.MaxPaletteColors - 1, overflow);
         Assert.Equal(CityHistory.MaxPaletteColors, history.Palette.Count);
+    }
+
+    // ----- detail: silnice a celé půdorysy -----
+
+    [Fact]
+    public void RoadsAreInTheTimelapseToo()
+    {
+        // Bez silnic vypadala přehrávka jako ostrůvky baráků ve vzduchoprázdnu —
+        // město drží pohromadě právě síť mezi nimi.
+        var sim = NewSim();
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(Hut, 0, 0));
+        sim.AddRoadTileForTest(6, 0);
+        Tick(sim, (int)Simulation.TicksPerSecond * 2);
+
+        Assert.True(CityHistory.TryCellOf(6, 0, out int cellX, out int cellY));
+        int last = sim.History.Count - 1;
+
+        Assert.True(sim.History.IsOccupied(last, cellX, cellY), "Silnice má být v časosběru vidět.");
+    }
+
+    [Fact]
+    public void ABuildingFillsItsWholeFootprint()
+    {
+        // Na jemné mřížce musí být velká budova opravdu velká, jinak hráč
+        // v přehrávce nepozná huť od chalupy.
+        var content = TestContent.Build(
+            buildings: new[] { TestContent.SimpleBuilding("hut", 2) with { FootprintWidth = 4, FootprintHeight = 4 } },
+            gameplay: TestContent.DefaultGameplay with
+            {
+                FoodPerPersonPerSecond = 0,
+                PopulationGrowthPerSecond = 0,
+                HistoryOrNull = new HistoryConfig(1, 8),
+            });
+        var sim = new Simulation(content, new UniformTerrain(1));
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(0, 0, 0));
+        Tick(sim, (int)Simulation.TicksPerSecond * 2);
+
+        int last = sim.History.Count - 1;
+        Assert.True(CityHistory.TryCellOf(0, 0, out int nearX, out int nearY));
+        Assert.True(CityHistory.TryCellOf(3, 3, out int farX, out int farY));
+
+        Assert.True(sim.History.IsOccupied(last, nearX, nearY));
+        Assert.True(sim.History.IsOccupied(last, farX, farY), "Vzdálený roh půdorysu má být taky obsazený.");
+    }
+
+    [Fact]
+    public void TheGridIsFineEnoughToTellBuildingsApart()
+    {
+        // Dvě budovy vedle sebe musí padnout do RŮZNÝCH buněk — jinak je
+        // přehrávka jen shluk nejasných čtverečků, což byla přesně ta stížnost.
+        Assert.True(CityHistory.TryCellOf(0, 0, out int aX, out int aY));
+        Assert.True(CityHistory.TryCellOf(2, 0, out int bX, out int bY));
+
+        Assert.True(aX != bX || aY != bY);
     }
 
     // ----- Vzestup a save -----

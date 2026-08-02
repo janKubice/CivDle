@@ -38,6 +38,12 @@
       "baseStorage": 150
     },
     {
+      "id": "faith",
+      "mapColor": "#E8D48A",
+      "startAmount": 0,
+      "baseStorage": 120
+    },
+    {
       "id": "copper_ore",
       "mapColor": "#B87333",
       "startAmount": 0,

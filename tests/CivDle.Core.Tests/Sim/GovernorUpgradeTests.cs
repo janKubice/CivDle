@@ -40,9 +40,15 @@ public class GovernorUpgradeTests
             Make("manufactory", "production", -1),       // 3
         };
 
-        var tech = new TechDef(
-            Simulation.GovernorTechId, cost,
-            System.Array.Empty<int>(), System.Array.Empty<int>());
+        // Vyšší stupně guvernéra se odemykají vlastními technologiemi; testy
+        // chování musí mít odemčeno všechno, jinak by měřily jen první stupeň.
+        TechDef Tech(string id) => new(id, cost, System.Array.Empty<int>(), System.Array.Empty<int>());
+        var governorTechs = new[]
+        {
+            Tech(Simulation.GovernorTechId),
+            Tech(Simulation.GovernorLevel2TechId),
+            Tech(Simulation.GovernorLevel3TechId),
+        };
 
         var gameplay = TestContent.DefaultGameplay with
         {
@@ -50,7 +56,7 @@ public class GovernorUpgradeTests
             FoodPerPersonPerSecond = 0,
             PopulationGrowthPerSecond = 0,
         };
-        return TestContent.Build(biomes, 1, resources, buildings, gameplay, techs: new[] { tech });
+        return TestContent.Build(biomes, 1, resources, buildings, gameplay, techs: governorTechs);
     }
 
     private static Simulation WithBuildings(GameContent content)
@@ -89,6 +95,8 @@ public class GovernorUpgradeTests
     {
         var sim = WithBuildings(GovernorContent());
         Assert.Equal(PlacementResult.Ok, sim.TryResearch(0));
+        Assert.Equal(PlacementResult.Ok, sim.TryResearch(1));
+        Assert.Equal(PlacementResult.Ok, sim.TryResearch(2));
         sim.SetAutoUpgradeLevel(1);
 
         RunTicks(sim, 50);
@@ -102,6 +110,8 @@ public class GovernorUpgradeTests
     {
         var sim = WithBuildings(GovernorContent());
         Assert.Equal(PlacementResult.Ok, sim.TryResearch(0));
+        Assert.Equal(PlacementResult.Ok, sim.TryResearch(1));
+        Assert.Equal(PlacementResult.Ok, sim.TryResearch(2));
         sim.SetAutoUpgradeLevel(2);
 
         RunTicks(sim, 50);
@@ -115,6 +125,8 @@ public class GovernorUpgradeTests
     {
         var sim = WithBuildings(GovernorContent());
         Assert.Equal(PlacementResult.Ok, sim.TryResearch(0));
+        Assert.Equal(PlacementResult.Ok, sim.TryResearch(1));
+        Assert.Equal(PlacementResult.Ok, sim.TryResearch(2));
         sim.SetAutoUpgradeLevel(0);
 
         RunTicks(sim, 50);
@@ -128,6 +140,8 @@ public class GovernorUpgradeTests
     {
         var sim = WithBuildings(GovernorContent());
         Assert.Equal(PlacementResult.Ok, sim.TryResearch(0));
+        Assert.Equal(PlacementResult.Ok, sim.TryResearch(1));
+        Assert.Equal(PlacementResult.Ok, sim.TryResearch(2));
 
         sim.SetAutoUpgradeLevel(99);
         Assert.Equal(Simulation.MaxAutoUpgradeLevel, sim.AutoUpgradeLevel);

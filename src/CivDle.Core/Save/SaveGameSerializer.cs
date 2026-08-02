@@ -62,6 +62,8 @@ public sealed class SaveGameSerializer
     private const string SectionMilestones = "milestones";
     private const string SectionConstruction = "construction";
     private const string SectionNodes = "nodes";
+    private const string SectionFog = "fog";
+    private const string SectionFaith = "faith";
     private const string SectionPollution = "pollution";
     private const string SectionContracts = "contracts";
     private const string SectionCitizens = "citizens";
@@ -106,7 +108,18 @@ public sealed class SaveGameSerializer
         {
             w.Write(simulation.AutoUpgradeLevelRaw);
             w.Write(simulation.AutoMergeRaw);
+            w.Write(simulation.GovernorReserveRaw);
         });
+        WriteSection(writer, SectionFog, w =>
+        {
+            var keys = simulation.Fog.ExploredKeys;
+            w.Write(keys.Count);
+            foreach (long key in keys)
+            {
+                w.Write(key);
+            }
+        });
+        WriteSection(writer, SectionFaith, w => w.Write(simulation.PrayerCount));
         WriteSection(writer, SectionKnownResources, w => WriteKnownResources(w, simulation));
         WriteSection(writer, SectionWorldChanges, w => WriteWorldChanges(w, simulation));
         WriteSection(writer, SectionTutorial, w => w.Write(simulation.TutorialStep));
@@ -239,6 +252,22 @@ public sealed class SaveGameSerializer
         }
     }
 
+    /// <summary>
+    /// Odhalené čtverce mapy. Starší save sekci nemá — hráč pak uvidí jen okolí
+    /// svých budov, což je pořád lepší než celá mapa odkrytá zadarmo.
+    /// </summary>
+    private static void ReadFog(BinaryReader reader, Simulation simulation)
+    {
+        int count = reader.ReadInt32();
+        var keys = new List<long>(Math.Max(0, Math.Min(count, 1_000_000)));
+        for (int i = 0; i < count; i++)
+        {
+            keys.Add(reader.ReadInt64());
+        }
+
+        simulation.Fog.Restore(keys);
+    }
+
     private static void ReadGovernor(BinaryReader reader, Simulation simulation)
     {
         simulation.RestoreAutoUpgradeLevel(reader.ReadInt32());
@@ -247,6 +276,12 @@ public sealed class SaveGameSerializer
         if (reader.BaseStream.Position < reader.BaseStream.Length)
         {
             simulation.RestoreAutoMerge(reader.ReadBoolean());
+        }
+
+        // Rezerva přibyla ještě později; starší save prostě žádnou nemá.
+        if (reader.BaseStream.Position < reader.BaseStream.Length)
+        {
+            simulation.RestoreGovernorReserve(reader.ReadDouble());
         }
     }
 
@@ -377,6 +412,8 @@ public sealed class SaveGameSerializer
             case SectionChallenges: ReadChallenges(section, simulation); break;
             case SectionConstruction: ReadConstruction(section, simulation); break;
             case SectionNodes: ReadNodes(section, simulation); break;
+            case SectionFog: ReadFog(section, simulation); break;
+            case SectionFaith: simulation.RestorePrayerCount(section.ReadInt64()); break;
             case SectionPollution: ReadPollution(section, simulation); break;
             case SectionContracts: ReadContracts(section, content, simulation); break;
             case SectionCitizens: ReadCitizens(section, simulation); break;

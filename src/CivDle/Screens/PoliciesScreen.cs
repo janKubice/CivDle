@@ -126,18 +126,21 @@ public sealed class PoliciesScreen : IScreen
         {
             int captured = level;
             bool active = _simulation.AutoUpgradeLevel == level;
+            bool unlocked = level <= _simulation.MaxUnlockedAutoUpgradeLevel;
             var button = new Button
             {
                 Content = new Label
                 {
-                    Text = level.ToString(),
+                    Text = unlocked ? level.ToString() : "×",
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
-                    TextColor = active ? Color.White : new Color(200, 205, 215),
+                    TextColor = active ? Color.White
+                        : unlocked ? new Color(200, 205, 215) : new Color(120, 126, 140),
                 },
                 Width = 44,
                 Height = 32,
-                Background = new SolidBrush(active ? new Color(48, 92, 72, 240) : new Color(44, 50, 64, 235)),
+                Background = new SolidBrush(active ? new Color(48, 92, 72, 240)
+                    : unlocked ? new Color(44, 50, 64, 235) : new Color(32, 35, 44, 200)),
             };
             button.Click += (_, _) =>
             {
@@ -148,6 +151,20 @@ public sealed class PoliciesScreen : IScreen
         }
 
         box.Widgets.Add(levels);
+
+        // U zamčeného stupně musí být vidět, ČÍM se odemkne — jinak vypadá
+        // přeškrtnuté tlačítko jako rozbitá hra.
+        if (_simulation.MaxUnlockedAutoUpgradeLevel < Simulation.MaxAutoUpgradeLevel)
+        {
+            box.Widgets.Add(new Label
+            {
+                Text = loc[_simulation.MaxUnlockedAutoUpgradeLevel < 2 ? "governor.locked2" : "governor.locked3"],
+                TextColor = new Color(210, 170, 120),
+                Wrap = true,
+            });
+        }
+
+        box.Widgets.Add(AddReserve(loc));
 
         // Automatické slučování je vlastní přepínač, ne další stupeň: mění půdorys
         // města a je nevratné, takže se nemá zapnout jen posunutím míry vylepšování.
@@ -173,6 +190,64 @@ public sealed class PoliciesScreen : IScreen
             },
             loc["tip.governorMerge"]);
         box.Widgets.Add(mergeToggle);
+        return box;
+    }
+
+    /// <summary>
+    /// Rezerva surovin: kolik guvernér nesmí utratit. Je to jediné nastavení,
+    /// které hráči vrací kontrolu nad tím, co si schoval — bez něj si automatiku
+    /// dřív nebo později vypne.
+    /// </summary>
+    private Widget AddReserve(CivDle.Core.Content.Localization loc)
+    {
+        var box = new VerticalStackPanel { Spacing = 4 };
+        box.Widgets.Add(new Label { Text = " " });
+
+        if (!_simulation.IsGovernorReserveUnlocked)
+        {
+            box.Widgets.Add(new Label
+            {
+                Text = loc["governor.reserveLocked"],
+                TextColor = new Color(210, 170, 120),
+                Wrap = true,
+            });
+            return box;
+        }
+
+        box.Widgets.Add(new Label { Text = loc["governor.reserveDesc"], TextColor = Color.LightGray, Wrap = true });
+        box.Widgets.Add(new Label
+        {
+            Text = loc.Format("governor.reserve", (int)Math.Round(_simulation.GovernorReserve * 100)),
+            TextColor = new Color(150, 220, 150),
+        });
+
+        var steps = new HorizontalStackPanel { Spacing = 6 };
+        foreach (int percent in new[] { 0, 10, 25, 50, 75 })
+        {
+            int captured = percent;
+            bool active = (int)Math.Round(_simulation.GovernorReserve * 100) == percent;
+            var button = new Button
+            {
+                Content = new Label
+                {
+                    Text = percent + " %",
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextColor = active ? Color.White : new Color(200, 205, 215),
+                },
+                Width = 58,
+                Height = 32,
+                Background = new SolidBrush(active ? new Color(48, 92, 72, 240) : new Color(44, 50, 64, 235)),
+            };
+            button.Click += (_, _) =>
+            {
+                _simulation.SetGovernorReserve(captured / 100.0);
+                BuildUi();
+            };
+            steps.Widgets.Add(button);
+        }
+
+        box.Widgets.Add(steps);
         return box;
     }
 

@@ -81,6 +81,9 @@ public sealed class GameplayScreen : IScreen
     private readonly ToastRenderer _toasts;
     private readonly CityScaleRenderer _cityScale;
     private readonly VignetteRenderer _vignette;
+
+    /// <summary>Závoj přes neprozkoumaný svět — kreslí se až nad mapou a budovami.</summary>
+    private readonly FogRenderer _fogRenderer;
     private readonly BubbleSystem _bubbles;
     private readonly CaravanSystem _caravans;
     private readonly GoldenSpawnSystem _golden;
@@ -168,6 +171,14 @@ public sealed class GameplayScreen : IScreen
 
     /// <summary>Nástroje mapy (stavba, sázení, zóny, přesun) i s jejich stavem.</summary>
     private readonly MapTools _tools;
+
+    /// <summary>
+    /// Modlitba, která čeká na ukázání cíle na mapě (−1 = žádná). Cílit se musí
+    /// na mapě, ne v menu — přivolat meteorit naslepo by byla past.
+    /// </summary>
+    private int _pendingPrayer = -1;
+
+    private int _pendingPrayerStrength = 1;
     private int _knownBuildingCount;
 
     /// <param name="savedAtUtc">Čas uložení načtené hry — spustí offline dohon; <c>null</c> = nová hra.</param>
@@ -215,6 +226,7 @@ public sealed class GameplayScreen : IScreen
         _agents = new AgentSystem(screens.Content, screens.Sprites);
         _minimap = new MinimapRenderer(screens.GraphicsDevice, screens.Content.Biomes, screens.WhitePixel);
         _vignette = new VignetteRenderer(screens.GraphicsDevice);
+        _fogRenderer = new FogRenderer(screens.WhitePixel);
         _bubbles = new BubbleSystem(screens.Sprites, screens.Content);
         _caravans = new CaravanSystem(screens.Sprites, screens.Content);
         _golden = new GoldenSpawnSystem(screens.Sprites, screens.Content);
@@ -532,6 +544,13 @@ public sealed class GameplayScreen : IScreen
         }
 
         _weatherRenderer.Draw(spriteBatch, _screens.GraphicsDevice.Viewport); // závoj + srážky nad scénou
+        // Mlha až nad mapou i zástavbou: schovat musí i to, co v neprozkoumaném
+        // stojí. Ve fotorežimu se vypíná — na snímek do obchodu patří svět, ne tma.
+        if (!_captureMode)
+        {
+            _fogRenderer.Draw(spriteBatch, _camera, _simulation.Fog);
+        }
+
         _vignette.Draw(spriteBatch, _screens.GraphicsDevice.Viewport); // decentní sevření pohledu, pod HUD
 
         // Fotorežim: všechno od téhle chvíle je HUD, a ten se do fotky nehodí.
@@ -891,6 +910,16 @@ public sealed class GameplayScreen : IScreen
 
         if (!_input.WasLeftPressed)
         {
+            return;
+        }
+
+        // Modlitba čekající na cíl má přednost přede vším ostatním: hráč právě
+        // ukazuje, kam má dopadnout, ne že chce těžit.
+        if (_pendingPrayer >= 0)
+        {
+            var prayerOutcome = _simulation.TryPray(_pendingPrayer, _pendingPrayerStrength, tileX, tileY);
+            _pendingPrayer = -1;
+            ShowPrayerOutcome(prayerOutcome, world);
             return;
         }
 
@@ -1447,6 +1476,30 @@ public sealed class GameplayScreen : IScreen
         }
     }
 
+    /// <summary>
+    /// Odpověď na modlitbu. Ticho musí být vidět stejně jasně jako zázrak —
+    /// jinak by hráč nevěděl, jestli se vůbec něco stalo, a měl by pocit, že
+    /// hra spolkla suroviny.
+    /// </summary>
+    private void ShowPrayerOutcome(PrayerOutcome outcome, Vector2 world)
+    {
+        var loc = _screens.Loc;
+        if (outcome == PrayerOutcome.Answered)
+        {
+            _toasts.Add(loc["toast.prayerAnswered"], new Color(255, 226, 150));
+            _floatingText.Add(world, loc["toast.prayerAnswered"], new Color(255, 226, 150));
+            _particles.SpawnBurst(world, new Color(255, 226, 150), 20, 60f, 190f);
+            _sounds.PlayChime();
+            return;
+        }
+
+        if (outcome == PrayerOutcome.Unanswered)
+        {
+            _toasts.Add(loc["toast.prayerUnanswered"], new Color(150, 155, 170));
+            _floatingText.Add(world, loc["toast.prayerUnanswered"], new Color(150, 155, 170));
+        }
+    }
+
     private static Color NotificationColor(NotificationKind kind) => kind switch
     {
         NotificationKind.QuestCompleted => new Color(120, 200, 140),
@@ -1646,6 +1699,14 @@ public sealed class GameplayScreen : IScreen
     /// Vodorovný pruh DOLE nad stavebním menu — spodek obrazovky patří akcím,
     /// horní okraj zůstává na suroviny a stav světa.
     /// </summary>
+    /// <summary>Modlitba čeká na ukázání cíle na mapě; další klik ji pronese.</summary>
+    private void StartPrayerTargeting(int prayerIndex, int strength)
+    {
+        _pendingPrayer = prayerIndex;
+        _pendingPrayerStrength = strength;
+        _toasts.Add(_screens.Loc["faith.pickTarget"], new Color(255, 226, 150));
+    }
+
     private Widget BuildToolButtons()
     {
         var loc = _screens.Loc;
@@ -1707,6 +1768,15 @@ public sealed class GameplayScreen : IScreen
             stack.Widgets.Add(UiFactory.SmallButton(loc[zoneTypes[z].NameKey],
                 () => _tools.ToggleZone(typeIndex), ZoneTooltip(zoneTypes[z])));
         }
+        // Víra: modlitby jsou vlastní obrazovka, protože nesou volbu síly
+        // a čísla (cena vs. šance), která se do lišty nevejdou.
+        if (_simulation.FaithEnabled)
+        {
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.faith"],
+                () => _screens.Push(new PrayerScreen(_screens, _simulation, StartPrayerTargeting)),
+                loc["tip.faith"]));
+        }
+
         // Přetváření krajiny: jedno tlačítko na zásah, odemyká se výzkumem.
         var terraform = _simulation.IsFeatureUnlocked("terraform") ? _screens.Content.Terraform : null;
         for (int a = 0; terraform is not null && a < terraform.Count; a++)
