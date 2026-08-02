@@ -205,6 +205,10 @@ public class HarvestNodeTests
 
         Assert.Equal(stalled, sim.GetResource(Wood), 6);
         Assert.True(sim.Buildings[0].OutOfResources, "budova má hlásit, že v dosahu nic není");
+
+        // A hlavně musí říct PROČ. Bez důvodu viděl hráč jen červený roh
+        // a neměl jak zjistit, co má udělat.
+        Assert.Equal(BuildingStall.NoTerrain, sim.Buildings[0].Stall);
     }
 
     [Fact]

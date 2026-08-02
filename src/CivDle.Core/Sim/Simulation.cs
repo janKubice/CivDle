@@ -37,6 +37,7 @@ public sealed class Simulation
     private readonly CitizenSystem _citizenSystem;
     private readonly BuildingMilestoneSystem _milestoneBonuses;
     private readonly HistorySystem _historySystem;
+    private readonly ReforestSystem _reforestSystem;
     private readonly ConstructionSystem _constructionSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
@@ -78,7 +79,6 @@ public sealed class Simulation
     private ContractSlot[] _contractSlots = Array.Empty<ContractSlot>(); // nástěnka zakázek
     private readonly List<District> _districts = new(); // rozpoznané čtvrti (odvozený stav)
     private readonly Dictionary<long, long> _founders = new(); // kdo kterou budovu založil (dlaždice → jméno)
-    private long[] _neighbourTrades = Array.Empty<long>(); // kolik obchodů už s kterým sousedem proběhlo
     private readonly Dictionary<long, byte> _biomeOverrides = new(); // terraformované dlaždice (UFO)
     private readonly Queue<GameNotification> _notifications = new();
     private readonly PrayerSystem _prayerSystem;
@@ -149,12 +149,13 @@ public sealed class Simulation
         _pollutionSystem = new PollutionSystem(content);
         _contractSystem = new ContractSystem(content, seed);
         _prayerSystem = new PrayerSystem(content, seed);
+        NpcCities = new NpcCityMap(seed, content.NpcCities.Archetypes.Count, content.NpcCities.Names.Count);
         _districtSystem = new DistrictSystem(content);
         _citizenSystem = new CitizenSystem(content, seed);
         _milestoneBonuses = new BuildingMilestoneSystem(content);
         _historySystem = new HistorySystem(content);
+        _reforestSystem = new ReforestSystem(content);
         History = new CityHistory(content.Gameplay.History.MaxFrames);
-        _neighbourTrades = new long[content.Neighbours.Neighbours.Count];
         _constructionSystem = new ConstructionSystem(content);
         ResetContractBoard();
         _populationSystem = new PopulationSystem(content.Gameplay);
@@ -191,6 +192,322 @@ public sealed class Simulation
 
     /// <summary>Kolik dlaždic kolem sebe odhalí budova nebo ruční sběr.</summary>
     public const int FogRevealRadius = 10;
+
+    // ----- cizí města: objevení, obchod, pohlcení -----
+
+    /// <summary>Mapa cizích měst (odvozená ze seedu, neukládá se).</summary>
+    public NpcCityMap NpcCities { get; private set; } = null!;
+
+    /// <summary>Co hráč s kterým městem zažil. Ukládá se jen tohle.</summary>
+    private readonly Dictionary<long, NpcCityState> _npcStates = new();
+
+    /// <summary>Tik posledního obchodu s městem — kvůli intervalu dodávek.</summary>
+    private readonly Dictionary<long, long> _npcLastTrade = new();
+
+    /// <summary>Jsou cizí města v datech zapnutá?</summary>
+    public bool NpcCitiesEnabled => _content.NpcCities.IsEnabled;
+
+    /// <summary>Stav vztahu k městu (výchozí = nedotčené).</summary>
+    public NpcCityState NpcStateOf(long key) =>
+        _npcStates.TryGetValue(key, out var state) ? state : default;
+
+    /// <summary>Kolik cizích měst už je součástí říše (odkupem nebo obestavěním).</summary>
+    public int CitiesJoined
+    {
+        get
+        {
+            int count = 0;
+            foreach (var pair in _npcStates)
+            {
+                if (pair.Value.Absorbed)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
+    /// <summary>Klíče měst, se kterými už hráč něco měl — pro save i pro seznam.</summary>
+    public IReadOnlyDictionary<long, NpcCityState> NpcStates => _npcStates;
+
+    /// <summary>Obnoví vztah k městu ze savu.</summary>
+    internal void RestoreNpcState(long key, NpcCityState state) => _npcStates[key] = state;
+
+    /// <summary>
+    /// Objevil už hráč tohle město? Objevení se neukládá — plyne z mlhy, takže
+    /// se nemůže rozejít s tím, co hráč vidí.
+    /// </summary>
+    public bool IsCityDiscovered(in NpcCity city) => Fog.IsExplored(city.X, city.Y);
+
+    /// <summary>
+    /// Města v dohledu kolem místa (pro mapu i pro seznam sídel).
+    ///
+    /// <para>Srovnaná města se sem nedostanou. Filtruje se právě tady, na jednom
+    /// místě — kdyby to řešil každý volající sám, dřív nebo později by někde
+    /// zůstal duch zničeného města.</para>
+    /// </summary>
+    public IEnumerable<NpcCity> CitiesNear(int tileX, int tileY, int radiusTiles)
+    {
+        if (!NpcCitiesEnabled)
+        {
+            yield break;
+        }
+
+        foreach (var city in NpcCities.CitiesNear(tileX, tileY, radiusTiles))
+        {
+            if (!NpcStateOf(city.Key).Destroyed)
+            {
+                yield return city;
+            }
+        }
+    }
+
+    /// <summary>Cesty mezi cizími městy v okolí — svět si žije i bez hráče.</summary>
+    public IEnumerable<NpcCityLink> CityLinksNear(int tileX, int tileY, int radiusTiles) =>
+        NpcCitiesEnabled ? NpcCities.LinksNear(tileX, tileY, radiusTiles) : Array.Empty<NpcCityLink>();
+
+    /// <summary>
+    /// Dar cizímu městu: zaplatíš a vztah povyroste. Nejlevnější způsob, jak se
+    /// k městu dostat blíž — a jediný, který jde použít hned po objevení.
+    /// </summary>
+    public DiplomacyResult TryGiftCity(long key)
+    {
+        if (!NpcCitiesEnabled || !NpcCities.TryCityByKey(key, out _))
+        {
+            return DiplomacyResult.Unavailable;
+        }
+
+        var state = NpcStateOf(key);
+        if (state.Destroyed)
+        {
+            return DiplomacyResult.Unavailable; // po tom, co po něm zbylo, se jednat nedá
+        }
+
+        if (state.Absorbed)
+        {
+            return DiplomacyResult.AlreadyYours;
+        }
+
+        var catalog = _content.NpcCities;
+        if (!CanPay(catalog.GiftCost))
+        {
+            return DiplomacyResult.NotEnoughResources;
+        }
+
+        Pay(catalog.GiftCost);
+        state.Relation = Math.Min(MaxRelation, state.Relation + catalog.GiftRelation);
+        _npcStates[key] = state;
+        return DiplomacyResult.Ok;
+    }
+
+    /// <summary>
+    /// Postaví cestu k městu. Bez cesty se obchodovat nedá — a to je celý důvod,
+    /// proč silnice v téhle hře nejsou dekorace.
+    ///
+    /// <para>Cesta se nekreslí dlaždici po dlaždici: platí se jednou a spojení
+    /// vznikne. Trasovat stovky dlaždic přes půl mapy by byla práce navíc pro
+    /// hráče i pro procesor, a nic by to nepřineslo.</para>
+    /// </summary>
+    public DiplomacyResult TryConnectCity(long key)
+    {
+        if (!NpcCitiesEnabled || !NpcCities.TryCityByKey(key, out _))
+        {
+            return DiplomacyResult.Unavailable;
+        }
+
+        var state = NpcStateOf(key);
+        if (state.Destroyed)
+        {
+            return DiplomacyResult.Unavailable; // po tom, co po něm zbylo, se jednat nedá
+        }
+
+        if (state.Absorbed)
+        {
+            return DiplomacyResult.AlreadyYours;
+        }
+
+        if (state.RoadLinked)
+        {
+            return DiplomacyResult.Ok;
+        }
+
+        if (!CanPay(_content.NpcCities.RoadCost))
+        {
+            return DiplomacyResult.NotEnoughResources;
+        }
+
+        Pay(_content.NpcCities.RoadCost);
+        state.RoadLinked = true;
+        _npcStates[key] = state;
+        return DiplomacyResult.Ok;
+    }
+
+    /// <summary>
+    /// Odkoupí město. Chce vysoký vztah <b>i</b> hodně surovin: koupit se dá
+    /// jen to, co už tě má rádo — jinak by z diplomacie byl jen nákup.
+    /// </summary>
+    public DiplomacyResult TryBuyCity(long key)
+    {
+        if (!NpcCitiesEnabled || !NpcCities.TryCityByKey(key, out var city))
+        {
+            return DiplomacyResult.Unavailable;
+        }
+
+        var state = NpcStateOf(key);
+        if (state.Destroyed)
+        {
+            return DiplomacyResult.Unavailable; // po tom, co po něm zbylo, se jednat nedá
+        }
+
+        if (state.Absorbed)
+        {
+            return DiplomacyResult.AlreadyYours;
+        }
+
+        if (state.Relation < _content.NpcCities.BuyRelation)
+        {
+            return DiplomacyResult.RelationTooLow;
+        }
+
+        if (!CanPay(_content.NpcCities.BuyCost))
+        {
+            return DiplomacyResult.NotEnoughResources;
+        }
+
+        Pay(_content.NpcCities.BuyCost);
+        AbsorbCity(key, city);
+        return DiplomacyResult.Ok;
+    }
+
+    /// <summary>
+    /// Město se stalo součástí říše: přinese své lidi a přestane být cizí.
+    /// Volá se z odkupu i z obestavění.
+    /// </summary>
+    private void AbsorbCity(long key, in NpcCity city)
+    {
+        var state = NpcStateOf(key);
+        state.Absorbed = true;
+        state.Relation = 100;
+        _npcStates[key] = state;
+
+        var archetype = _content.NpcCities.Archetypes[city.ArchetypeIndex];
+        Population += archetype.Population;
+        Fog.Reveal(city.X, city.Y, FogRevealRadius);
+        EnqueueNotification(new GameNotification(
+            NotificationKind.CityJoined, "toast.cityJoined", archetype.NameKey));
+    }
+
+    /// <summary>
+    /// Dodávky od spřátelených měst a tiché pohlcování obestavěných.
+    ///
+    /// <para>Běží na nízké frekvenci nad městy v okolí, ne nad celou mapou —
+    /// cizích měst je nekonečně mnoho, ale zajímavá jsou jen ta blízko.</para>
+    /// </summary>
+    private void TickNpcCities()
+    {
+        var catalog = _content.NpcCities;
+        if (!catalog.IsEnabled || TickCount % catalog.TradeIntervalTicks != 0)
+        {
+            return;
+        }
+
+        foreach (var city in NpcCities.CitiesNear(CityCenterX, CityCenterY, NpcScanRadius))
+        {
+            var state = NpcStateOf(city.Key);
+            if (state.Absorbed || state.Destroyed)
+            {
+                continue;
+            }
+
+            // Obestavěné město sroste s hráčovým samo — nikdo ho nedobývá,
+            // jen se kolem něj rozrostlo město a hranice přestala dávat smysl.
+            if (CountOwnBuildingsAround(city.X, city.Y, catalog.SurroundRadius) >= catalog.SurroundBuildings)
+            {
+                AbsorbCity(city.Key, city);
+                continue;
+            }
+
+            if (!IsCityDiscovered(city) || !HasTradeLink(city, state))
+            {
+                continue;
+            }
+
+            var trade = catalog.Archetypes[city.ArchetypeIndex].Trade;
+            for (int i = 0; i < trade.Count; i++)
+            {
+                AddResource(trade[i].ResourceIndex, trade[i].Amount);
+            }
+
+            state.Trades++;
+            state.Relation = Math.Min(100, state.Relation + 1); // obchod sbližuje
+            _npcStates[city.Key] = state;
+        }
+    }
+
+    /// <summary>Jak daleko se cizí města ještě řeší (dál by to byla práce nazmar).</summary>
+    private const int NpcScanRadius = NpcCityMap.CellTiles * 3;
+
+    /// <summary>Nejvyšší možný vztah s cizím městem. UI ho ukazuje jako „x / 100".</summary>
+    public const int MaxRelation = 100;
+
+    /// <summary>
+    /// Dá se s městem obchodovat? Buď vede cesta, nebo obě strany leží u vody
+    /// a hráč má přístav — moře je cesta, kterou nikdo nemusel stavět.
+    /// </summary>
+    private bool HasTradeLink(in NpcCity city, in NpcCityState state) =>
+        state.RoadLinked || (IsWaterNextTo(city.X, city.Y) && HasHarbour());
+
+    /// <summary>Má hráč přístav? (Námořní obchod bez něj nedává smysl.)</summary>
+    private bool HasHarbour()
+    {
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            if (_buildings[i].IsComplete && _content.Buildings[_buildings[i].DefIndex].NeedsWaterAccess)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Kolik hráčových budov stojí v okruhu kolem místa.</summary>
+    private int CountOwnBuildingsAround(int centerX, int centerY, int radius)
+    {
+        int count = 0;
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            if (WithinRadius(_buildings[i].X, _buildings[i].Y, centerX, centerY, radius))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private bool CanPay(IReadOnlyList<ResourceAmount> cost)
+    {
+        for (int i = 0; i < cost.Count; i++)
+        {
+            if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void Pay(IReadOnlyList<ResourceAmount> cost)
+    {
+        for (int i = 0; i < cost.Count; i++)
+        {
+            _resources[cost[i].ResourceIndex] -= cost[i].Amount;
+        }
+    }
 
     // ----- víra: modlitby, požehnání a zásahy -----
 
@@ -267,26 +584,45 @@ public sealed class Simulation
     }
 
     /// <summary>
-    /// Meteorit: srovná zástavbu v okolí cíle. Je to trest, ne úklid — proto
-    /// bourá bez náhrady.
+    /// Meteorit: srovná zástavbu v okolí cíle a spálí krajinu. Je to trest,
+    /// ne úklid — proto bourá bez náhrady.
+    ///
+    /// <para>Zasáhne i cizí města, a to je celý smysl té modlitby: hráč má mít
+    /// jedno místo ve hře, kde může někomu jinému doopravdy ublížit. Rána na
+    /// holé pláni taky není nic — po dopadu zůstane spáleniště, aby bylo vidět,
+    /// že se něco stalo.</para>
     /// </summary>
-    internal void StrikeMeteor(int centerX, int centerY, int radiusTiles)
+    /// <returns>Kolik věcí (budov a měst) rána srovnala — UI z toho skládá hlášku.</returns>
+    internal int StrikeMeteor(int centerX, int centerY, int radiusTiles)
     {
+        int hits = 0;
+
         // Odzadu, protože demolice přerovnává pole budov.
         for (int i = _buildingCount - 1; i >= 0; i--)
         {
             if (WithinRadius(_buildings[i].X, _buildings[i].Y, centerX, centerY, radiusTiles))
             {
                 TryDemolish(i);
+                hits++;
             }
         }
 
+        hits += StrikeCities(centerX, centerY, radiusTiles, waterOnly: false);
+        ScorchGround(centerX, centerY, radiusTiles);
+
         Fog.Reveal(centerX, centerY, radiusTiles + 4); // ránu je vidět zdaleka
+        return hits;
     }
 
-    /// <summary>Povodeň: zaplaví okolí — zástavba u vody bere první ránu.</summary>
-    internal void StrikeFlood(int centerX, int centerY, int radiusTiles)
+    /// <summary>
+    /// Povodeň: zaplaví okolí — co stojí u vody, bere první ránu. Na rozdíl od
+    /// meteoritu nespálí krajinu, ale zvedne hladinu: pár dlaždic u břehu zůstane
+    /// pod vodou natrvalo.
+    /// </summary>
+    /// <returns>Kolik věcí voda vzala.</returns>
+    internal int StrikeFlood(int centerX, int centerY, int radiusTiles)
     {
+        int hits = 0;
         for (int i = _buildingCount - 1; i >= 0; i--)
         {
             if (!WithinRadius(_buildings[i].X, _buildings[i].Y, centerX, centerY, radiusTiles))
@@ -299,12 +635,190 @@ public sealed class Simulation
             if (IsWaterNextTo(_buildings[i].X, _buildings[i].Y))
             {
                 TryDemolish(i);
+                hits++;
             }
         }
 
+        hits += StrikeCities(centerX, centerY, radiusTiles, waterOnly: true);
+        RaiseWater(centerX, centerY, radiusTiles);
+
         CleanseArea(centerX, centerY, radiusTiles, 0.5); // voda po sobě aspoň uklidí
         Fog.Reveal(centerX, centerY, radiusTiles + 2);
+        return hits;
     }
+
+    /// <summary>
+    /// Srovná cizí města v dosahu rány. <paramref name="waterOnly"/> = vezme jen
+    /// ta u vody (povodeň).
+    /// </summary>
+    private int StrikeCities(int centerX, int centerY, int radiusTiles, bool waterOnly)
+    {
+        if (!NpcCitiesEnabled)
+        {
+            return 0;
+        }
+
+        int hits = 0;
+        foreach (var city in NpcCities.CitiesNear(centerX, centerY, radiusTiles + NpcCityMap.CellTiles))
+        {
+            if (!WithinRadius(city.X, city.Y, centerX, centerY, radiusTiles))
+            {
+                continue;
+            }
+
+            var state = NpcStateOf(city.Key);
+            if (state.Destroyed || (waterOnly && !IsWaterNextTo(city.X, city.Y)))
+            {
+                continue;
+            }
+
+            state.Destroyed = true;
+            state.RoadLinked = false;
+            state.Relation = 0;
+            _npcStates[city.Key] = state;
+            hits++;
+
+            EnqueueNotification(new GameNotification(
+                NotificationKind.CityStruck, "toast.cityStruck",
+                _content.NpcCities.Archetypes[city.ArchetypeIndex].NameKey));
+        }
+
+        return hits;
+    }
+
+    /// <summary>
+    /// Spáleniště po dopadu: stromy a žíly shoří, hlína zčerná. Kráter je menší
+    /// než dosah rány — jinak by z mapy zbyla po pár modlitbách poušť.
+    /// </summary>
+    private void ScorchGround(int centerX, int centerY, int radiusTiles)
+    {
+        int crater = Math.Max(1, radiusTiles / 2);
+        for (int y = centerY - radiusTiles; y <= centerY + radiusTiles; y++)
+        {
+            for (int x = centerX - radiusTiles; x <= centerX + radiusTiles; x++)
+            {
+                _nodes.Deplete(x, y, TickCount); // les shoří, ale časem doroste
+
+                if (WithinRadius(x, y, centerX, centerY, crater)
+                    && ScorchedBiomeIndex >= 0
+                    && !_content.Biomes[Terrain.BiomeAt(x, y)].IsWater)
+                {
+                    SetBiomeOverride(x, y, (byte)ScorchedBiomeIndex);
+                }
+            }
+        }
+    }
+
+    /// <summary>Zaplavené pobřeží: dlaždice u vody zůstanou pod hladinou.</summary>
+    private void RaiseWater(int centerX, int centerY, int radiusTiles)
+    {
+        if (FloodedBiomeIndex < 0)
+        {
+            return;
+        }
+
+        for (int y = centerY - radiusTiles; y <= centerY + radiusTiles; y++)
+        {
+            for (int x = centerX - radiusTiles; x <= centerX + radiusTiles; x++)
+            {
+                if (!_content.Biomes[Terrain.BiomeAt(x, y)].IsWater && IsWaterNextTo(x, y))
+                {
+                    SetBiomeOverride(x, y, (byte)FloodedBiomeIndex);
+                }
+            }
+        }
+    }
+
+    /// <summary>Biom spáleniště; −1 = data ho nemají a kráter se nekreslí.</summary>
+    private int ScorchedBiomeIndex =>
+        _content.Biomes.TryIndexOf("badlands", out int index) ? index : -1;
+
+    /// <summary>Biom mělčiny, kterou po sobě nechá povodeň.</summary>
+    private int FloodedBiomeIndex =>
+        _content.Biomes.TryIndexOf("shallow_water", out int index) ? index : -1;
+
+    /// <summary>
+    /// Vrátí vytěženou dlaždici do plného stavu. Vrací <c>false</c>, když tam
+    /// není co obnovovat — dlaždice je zastavěná, je pod ní voda, nebo se na ní
+    /// nikdy netěžilo.
+    ///
+    /// <para>Volá to reforestace; ruční sázení má vlastní cestu, protože kromě
+    /// obnovy uzlu ještě zakládá nový druh.</para>
+    /// </summary>
+    internal bool TryRestoreTerrain(int x, int y)
+    {
+        long tile = TileKey.Pack(x, y);
+        if (_occupancy.ContainsKey(tile) || _plantedNodes.ContainsKey(tile))
+        {
+            return false;
+        }
+
+        var yield = _content.Biomes[BiomeAt(x, y)].ClickYield;
+        if (yield is null || !yield.IsExhaustible || _nodes.IsAvailable(x, y, yield, TickCount))
+        {
+            return false; // buď tu není co těžit, nebo je dlaždice plná
+        }
+
+        _nodes.Restore(x, y);
+        return true;
+    }
+
+    /// <summary>
+    /// Vrátí vytěženou krajinu v okolí naráz. Rychlá (a nejistá) obdoba lesní
+    /// školky — modlitba za rychlý růst.
+    /// </summary>
+    internal void RegrowArea(int centerX, int centerY, int radiusTiles)
+    {
+        for (int y = centerY - radiusTiles; y <= centerY + radiusTiles; y++)
+        {
+            for (int x = centerX - radiusTiles; x <= centerX + radiusTiles; x++)
+            {
+                TryRestoreTerrain(x, y);
+            }
+        }
+
+        Fog.Reveal(centerX, centerY, radiusTiles);
+    }
+
+    /// <summary>
+    /// Sucho: krajina v okolí vyschne. Opak <see cref="RegrowArea"/> — dopadá
+    /// na okolí cizího města stejně jako na hráčovo.
+    /// </summary>
+    internal void BlightArea(int centerX, int centerY, int radiusTiles)
+    {
+        for (int y = centerY - radiusTiles; y <= centerY + radiusTiles; y++)
+        {
+            for (int x = centerX - radiusTiles; x <= centerX + radiusTiles; x++)
+            {
+                _nodes.Deplete(x, y, TickCount);
+            }
+        }
+
+        Fog.Reveal(centerX, centerY, radiusTiles);
+    }
+
+    /// <summary>
+    /// Přidá dávku suroviny, kterou hráč <b>zná</b>. Losuje se z cíle a tiku,
+    /// takže je to deterministické jako všechno ostatní v modlitbách.
+    /// </summary>
+    internal void GrantKnownResource(double amount, int targetX, int targetY)
+    {
+        int known = KnownResourceCount;
+        if (known == 0)
+        {
+            return;
+        }
+
+        int pick = (int)(((uint)(targetX * 73856093 ^ targetY * 19349663 ^ (int)TickCount)) % (uint)known);
+        int index = KnownResourceAt(pick);
+        if (index >= 0)
+        {
+            AddResource(index, amount);
+        }
+    }
+
+    /// <summary>Je na dlaždici voda? (Render z toho hledá, kam vyplout.)</summary>
+    public bool IsWaterAt(int x, int y) => _content.Biomes[BiomeAt(x, y)].IsWater;
 
     /// <summary>Sousedí dlaždice s vodou? (Povodeň bere jen to, co stojí u ní.)</summary>
     private bool IsWaterNextTo(int x, int y) =>
@@ -473,95 +987,86 @@ public sealed class Simulation
     /// <summary>Kolik tiků zbývá, než se ozve někdo další.</summary>
     internal int CitizenCooldownTicks { get; set; }
 
-    /// <summary>Jsou sousedé v datech zapnutí? (UI podle toho skrývá seznam.)</summary>
-    public bool NeighboursEnabled => _content.Neighbours.IsEnabled;
-
-    /// <summary>Kolik obchodů už s daným sousedem proběhlo.</summary>
-    public long NeighbourTrades(int neighbourIndex) =>
-        neighbourIndex >= 0 && neighbourIndex < _neighbourTrades.Length ? _neighbourTrades[neighbourIndex] : 0;
-
-    /// <summary>Stupeň vztahu s daným sousedem (0 = cizinci).</summary>
-    public int NeighbourLevel(int neighbourIndex) =>
-        _content.Neighbours.LevelFor(NeighbourTrades(neighbourIndex));
-
     /// <summary>
-    /// Kdo pošle příští karavanu. Vybírá se deterministicky z tiku, takže render
-    /// nemusí držet vlastní náhodu — a soused, se kterým se dlouho neobchodovalo,
-    /// dostane přednost.
+    /// Kdo pošle příští karavanu.
     ///
-    /// <para>Proč přednost: bez ní by hráč obchodoval pořád s tím samým a ostatní
-    /// sousedé by zůstali navždy cizinci. Takhle se vztahy rozvíjejí do šířky
-    /// a hráč pozná celé okolí.</para>
+    /// <para>Dřív to byl anonymní seznam sousedů z dat. Teď karavany posílají
+    /// města, která hráč sám našel a spojil — karavana na silnici má být vidět
+    /// jako důsledek toho, že někam vede cesta, ne jako náhodná událost.</para>
+    ///
+    /// <para>Přednost dostane město, se kterým se dlouho neobchodovalo. Bez toho
+    /// by hráč obchodoval pořád s prvním nalezeným a zbytek okolí by zůstal
+    /// cizí.</para>
     /// </summary>
-    public int PickNeighbour()
+    /// <param name="key">Klíč vybraného města; platný jen když metoda vrátí <c>true</c>.</param>
+    public bool TryPickTradeCity(out long key)
     {
-        if (!_content.Neighbours.IsEnabled)
+        key = 0;
+        if (!NpcCitiesEnabled)
         {
-            return -1;
+            return false;
         }
 
-        int best = 0;
-        for (int i = 1; i < _neighbourTrades.Length; i++)
+        long fewestTrades = long.MaxValue;
+        bool found = false;
+        foreach (var city in NpcCities.CitiesNear(CityCenterX, CityCenterY, NpcScanRadius))
         {
-            if (_neighbourTrades[i] < _neighbourTrades[best])
+            var state = NpcStateOf(city.Key);
+            if (state.Absorbed || state.Destroyed || !IsCityDiscovered(city) || !HasTradeLink(city, state))
             {
-                best = i;
+                continue;
+            }
+
+            if (state.Trades < fewestTrades)
+            {
+                fewestTrades = state.Trades;
+                key = city.Key;
+                found = true;
             }
         }
 
-        return best;
+        return found;
     }
 
     /// <summary>
-    /// Karavana dorazila: připíše obchod, vyplatí (s bonusem za vztah) a ohlásí
-    /// případné utužení vztahu.
+    /// Karavana dorazila: připíše obchod, utuží vztah a vyplatí (s bonusem za vztah).
     ///
     /// <para>Pravidla vztahu i výplata jsou tady, ne v renderu, který karavanu
     /// kreslí — obrazovka jen hlásí, že dojela (CLAUDE.md, vrstvy).</para>
     /// </summary>
-    /// <param name="neighbourIndex">Kdo karavanu poslal; −1 = anonymní (staré chování).</param>
+    /// <param name="cityKey">Kdo karavanu poslal (z <see cref="TryPickTradeCity"/>).</param>
     /// <param name="resourceIndex">Čím se platí.</param>
     /// <param name="basePayout">Základní výplata před bonusem za vztah.</param>
     /// <returns>Kolik se nakonec vyplatilo.</returns>
-    public int CompleteCaravan(int neighbourIndex, int resourceIndex, int basePayout)
+    public int CompleteCaravan(long cityKey, int resourceIndex, int basePayout)
     {
         double multiplier = 1.0;
-        if (neighbourIndex >= 0 && neighbourIndex < _neighbourTrades.Length)
+        if (NpcCitiesEnabled && _npcStates.TryGetValue(cityKey, out var state)
+            && NpcCities.TryCityByKey(cityKey, out var city))
         {
-            int levelBefore = NeighbourLevel(neighbourIndex);
-            _neighbourTrades[neighbourIndex]++;
-            multiplier = _content.Neighbours.PayoutMultiplier(_neighbourTrades[neighbourIndex]);
+            int relationBefore = state.Relation;
+            state.Trades++;
+            state.Relation = Math.Min(MaxRelation, state.Relation + _content.NpcCities.TradeRelation);
+            _npcStates[cityKey] = state;
 
-            if (NeighbourLevel(neighbourIndex) > levelBefore)
+            // Bonus roste plynule se vztahem: přátelé platí líp, ale nikdy víc,
+            // než kolik dovolí data.
+            multiplier = 1.0 + _content.NpcCities.CaravanBonusAtFullRelation * (state.Relation / (double)MaxRelation);
+
+            // Hlásí se jen překročení desítky, ne každý bod — jinak by toasty
+            // chodily po každé karavaně a přestaly by cokoli znamenat.
+            if (state.Relation / 10 > relationBefore / 10)
             {
                 EnqueueNotification(new GameNotification(
-                    NotificationKind.NeighbourFriendlier,
-                    "toast.neighbourLevel",
-                    _content.Neighbours.Neighbours[neighbourIndex].NameKey));
+                    NotificationKind.CityFriendlier,
+                    "toast.cityLevel",
+                    _content.NpcCities.Archetypes[city.ArchetypeIndex].NameKey));
             }
         }
 
         int payout = Math.Max(1, (int)Math.Round(basePayout * multiplier));
         AddResource(resourceIndex, payout);
         return payout;
-    }
-
-    /// <summary>ID sousedů v pořadí indexů — save je ukládá přes ID, ne index.</summary>
-    public IEnumerable<string> NeighbourIds()
-    {
-        for (int i = 0; i < _content.Neighbours.Neighbours.Count; i++)
-        {
-            yield return _content.Neighbours.Neighbours[i].Id;
-        }
-    }
-
-    /// <summary>Obnoví počet obchodů se sousedem ze savu.</summary>
-    internal void RestoreNeighbourTrades(int neighbourIndex, long trades)
-    {
-        if (neighbourIndex >= 0 && neighbourIndex < _neighbourTrades.Length)
-        {
-            _neighbourTrades[neighbourIndex] = Math.Max(0, trades);
-        }
     }
 
     /// <summary>Jsou pojmenovaní obyvatelé v datech zapnutí? (UI podle toho skrývá panel.)</summary>
@@ -1049,6 +1554,16 @@ public sealed class Simulation
         return true;
     }
 
+    /// <summary>
+    /// Vyhlásí slavnost bez ohledu na ochlazení. Používá jen modlitba: hráč za
+    /// ni zaplatil vírou a riskoval, že nebude vyslyšena — to je ta cena.
+    /// </summary>
+    internal void ForceBoost()
+    {
+        _boostTicksRemaining = (int)(_content.Gameplay.Boost.DurationSeconds * TicksPerSecond);
+        _boostCooldownRemaining = (int)(_content.Gameplay.Boost.CooldownSeconds * TicksPerSecond);
+    }
+
     /// <summary>Kolik lidí se vejde (základní tábor + domy).</summary>
     public int HousingCapacity { get; private set; }
 
@@ -1272,6 +1787,26 @@ public sealed class Simulation
 
             return count;
         }
+    }
+
+    /// <summary>
+    /// <paramref name="ordinal"/>-tá známá surovina; −1 = hráč nezná žádnou.
+    ///
+    /// <para>Slouží k losování odměn. Odměna smí padnout jen ze surovin, které
+    /// hráč už viděl — jinak mu ze zlatého nálezu přiletí nanomateriál dřív, než
+    /// tuší, že něco takového existuje, a rozbije mu to progresi i překvapení.</para>
+    /// </summary>
+    public int KnownResourceAt(int ordinal)
+    {
+        for (int i = 0, seen = 0; i < _resourceKnown.Length; i++)
+        {
+            if (_resourceKnown[i] && seen++ == ordinal)
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     /// <summary>Označí surovinu za známou (hráč ji získal). Idempotentní.</summary>
@@ -1733,6 +2268,7 @@ public sealed class Simulation
     {
         TickCount++;
         TickBlessings(); // požehnání z modliteb dobíhají spolu se slavností
+        TickNpcCities(); // dodávky od sousedů a tiché srůstání obestavěných
         if (_boostTicksRemaining > 0)
         {
             _boostTicksRemaining--;
@@ -1756,6 +2292,7 @@ public sealed class Simulation
         _zoneFill.Tick(this);
         _colonySystem.Tick(this); // guvernér: expanze do nových kolonií
         _settlementSystem.Tick(this);
+        _reforestSystem.Tick(this);
         _districtSystem.Tick(this);
         _milestoneBonuses.Tick(this);
         _historySystem.Tick(this);
@@ -2112,16 +2649,79 @@ public sealed class Simulation
             return PlacementResult.Occupied;
         }
 
-        var cost = _content.Gameplay.Planting.Cost;
-        for (int i = 0; i < cost.Count; i++)
+        var species = SelectedPlantSpecies;
+        if (species is null)
         {
-            if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
+            return PlacementResult.NotUnlocked;
+        }
+
+        for (int i = 0; i < species.Cost.Count; i++)
+        {
+            if (_resources[species.Cost[i].ResourceIndex] < species.Cost[i].Amount)
             {
                 return PlacementResult.NotEnoughResources;
             }
         }
 
         return PlacementResult.Ok;
+    }
+
+    /// <summary>
+    /// Který druh se zrovna sází. Index do <see cref="PlantingConfig.Species"/>;
+    /// neodemčený nebo neplatný se tiše sveze na první dostupný, ať se hráč
+    /// nemůže zaseknout na něčem, co nemá.
+    /// </summary>
+    public int PlantSpeciesIndex { get; private set; }
+
+    /// <summary>Vybraný druh k zasazení; <c>null</c> = není co sázet.</summary>
+    public PlantSpecies? SelectedPlantSpecies
+    {
+        get
+        {
+            var all = _content.Gameplay.Planting.Species;
+            if (PlantSpeciesIndex >= 0 && PlantSpeciesIndex < all.Count && IsPlantSpeciesUnlocked(PlantSpeciesIndex))
+            {
+                return all[PlantSpeciesIndex];
+            }
+
+            for (int i = 0; i < all.Count; i++)
+            {
+                if (IsPlantSpeciesUnlocked(i))
+                {
+                    return all[i];
+                }
+            }
+
+            return null;
+        }
+    }
+
+    /// <summary>Je druh odemčený? (Výzkum je v datech, ne v kódu.)</summary>
+    public bool IsPlantSpeciesUnlocked(int speciesIndex)
+    {
+        var all = _content.Gameplay.Planting.Species;
+        if (speciesIndex < 0 || speciesIndex >= all.Count)
+        {
+            return false;
+        }
+
+        int tech = all[speciesIndex].RequiredTechIndex;
+        return tech < 0 || _techResearched[tech];
+    }
+
+    /// <summary>Přepne na další odemčený druh (tlačítko sázení v liště).</summary>
+    public void CyclePlantSpecies()
+    {
+        var all = _content.Gameplay.Planting.Species;
+        for (int step = 1; step <= all.Count; step++)
+        {
+            int candidate = (PlantSpeciesIndex + step) % all.Count;
+            if (IsPlantSpeciesUnlocked(candidate))
+            {
+                PlantSpeciesIndex = candidate;
+                return;
+            }
+        }
     }
 
     /// <summary>Příkaz hráče: zasadí obnovitelný zdroj (háj) — pak se dá těžit klikem jako přírodní.</summary>
@@ -2133,13 +2733,13 @@ public sealed class Simulation
             return result;
         }
 
-        var planting = _content.Gameplay.Planting;
-        for (int i = 0; i < planting.Cost.Count; i++)
+        var species = SelectedPlantSpecies!;
+        for (int i = 0; i < species.Cost.Count; i++)
         {
-            _resources[planting.Cost[i].ResourceIndex] -= planting.Cost[i].Amount;
+            _resources[species.Cost[i].ResourceIndex] -= species.Cost[i].Amount;
         }
 
-        _plantedNodes[TileKey.Pack(x, y)] = new ClickYield(planting.ResourceIndex, planting.Amount);
+        _plantedNodes[TileKey.Pack(x, y)] = new ClickYield(species.ResourceIndex, species.Amount);
         _nodes.Restore(x, y); // zasazený háj stojí na plném uzlu, i když se tu předtím těžilo
         return PlacementResult.Ok;
     }
@@ -2455,7 +3055,15 @@ public sealed class Simulation
     /// <summary>Zaseje sklizitelný porost na volné dlaždice kolem zásahu (kruh v obilí).</summary>
     private bool PlantUfoPatch(int x, int y, int tiles)
     {
-        var planting = _content.Gameplay.Planting;
+        // UFO seje ten nejzákladnější druh — kruh v obilí není odměna za výzkum.
+        var species = _content.Gameplay.Planting.Species.Count > 0
+            ? _content.Gameplay.Planting.Species[0]
+            : null;
+        if (species is null)
+        {
+            return false;
+        }
+
         bool any = false;
         for (int i = 0; i < tiles; i++)
         {
@@ -2468,7 +3076,7 @@ public sealed class Simulation
                 continue;
             }
 
-            _plantedNodes[tile] = new ClickYield(planting.ResourceIndex, planting.Amount);
+            _plantedNodes[tile] = new ClickYield(species.ResourceIndex, species.Amount);
             any = true;
         }
 
@@ -3022,6 +3630,9 @@ public sealed class Simulation
         MetricKind.TerraformedTiles => TerraformedTiles,
         MetricKind.MergedBuildings => MergedBuildings,
         MetricKind.WondersCompleted => WondersCompleted,
+        MetricKind.Prayers => PrayerCount,
+        MetricKind.CitiesJoined => CitiesJoined,
+        MetricKind.Explored => Fog.ExploredChunks,
         _ => 0,
     };
 
@@ -3827,14 +4438,37 @@ public sealed class Simulation
     }
 
     /// <summary>
-    /// Cena výzkumu po slevě z Vzestupu. Nikdy neklesne pod 1 — technologie zadarmo
-    /// by rozbila celou progresi.
+    /// Cena výzkumu: základ z dat × škálování × sleva z Vzestupu.
+    ///
+    /// <para>Škálování roste s počtem už hotových technologií — první uzly jsou
+    /// svižné, pozdější stojí za rozmyšlenou. Bez toho měl celý strom prakticky
+    /// stejnou cenu a v druhé půlce hry se proklikal za pár minut.</para>
+    ///
+    /// <para>Nikdy neklesne pod 1 — technologie zadarmo by rozbila progresi.</para>
     /// </summary>
-    public int ResearchCost(int baseAmount) =>
-        Math.Max(1, (int)Math.Round(baseAmount * (1.0 - Math.Min(0.9, _bonuses.ResearchDiscount + ElectionResearchDiscount))));
+    public int ResearchCost(int baseAmount)
+    {
+        double scaled = baseAmount * _content.Gameplay.Research.ScaleAfter(TechsResearched);
+        double discount = Math.Min(0.9, _bonuses.ResearchDiscount + ElectionResearchDiscount);
+        return Math.Max(1, (int)Math.Round(scaled * (1.0 - discount)));
+    }
+
+    /// <summary>
+    /// Kolik technologií je už hotových (vstupuje do ceny další).
+    ///
+    /// <para>Drží se jako číslo, ne jako průchod polem: cena výzkumu se počítá
+    /// při každém překreslení stromu pro každý uzel a každou surovinu, a procházet
+    /// při tom stovku příznaků by bylo zbytečné.</para>
+    /// </summary>
+    public int TechsResearched { get; private set; }
 
     private void UnlockTech(int techIndex)
     {
+        if (!_techResearched[techIndex])
+        {
+            TechsResearched++;
+        }
+
         _techResearched[techIndex] = true;
         foreach (int buildingIndex in _content.Techs[techIndex].UnlockedBuildingIndices)
         {
@@ -4311,9 +4945,9 @@ public sealed class Simulation
         HighestSettlementRank = -1; // v novém měřítku je i první osada zas událost
         _founders.Clear(); // zakladatelé patří ke světu, který právě skončil
         History.Clear();   // a časosběr taky — nový svět začíná prázdným listem
+        _npcStates.Clear(); // cizí města nového měřítka hráče ještě neznají
         Fog.Clear();       // nový svět se musí objevit znovu
         Fog.Reveal(0, 0, FogRevealRadius * 2);
-        Array.Clear(_neighbourTrades); // sousedi nového měřítka hráče ještě neznají
         PendingCitizenRequest = CitizenRequest.None;
         CitizenCooldownTicks = 0;
         ResetContractBoard(); // zákazníci z minulého měřítka na novou nástěnku nepatří
@@ -4321,6 +4955,7 @@ public sealed class Simulation
         _buildingCount = 0;
 
         Array.Clear(_techResearched);
+        TechsResearched = 0; // nové měřítko se zkoumá od nuly, i cenami
         Array.Fill(_buildingUnlocked, true);
         foreach (var tech in _content.Techs.All)
         {

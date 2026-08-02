@@ -57,6 +57,15 @@ public sealed class TechScreen : IScreen
     private Vector2 _panOrigin;
     private int _hovered = -1;
 
+    /// <summary>Uzel, který právě vzplál po vyzkoumání; −1 = nic nehoří.</summary>
+    private int _flashNode = -1;
+
+    /// <summary>Jak dlouho záblesk běží (sekundy).</summary>
+    private float _flashAge;
+
+    /// <summary>Jak dlouho trvá záblesk po dokončení výzkumu.</summary>
+    private const float FlashSeconds = 1.1f;
+
     public TechScreen(ScreenManager screens, Simulation simulation)
     {
         _screens = screens;
@@ -86,6 +95,11 @@ public sealed class TechScreen : IScreen
 
         var viewport = _screens.GraphicsDevice.Viewport;
         float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
+        if (_flashNode >= 0 && (_flashAge += dt) >= FlashSeconds)
+        {
+            _flashNode = -1;
+        }
+
         const float keyboardPanSpeed = 600f;
         if (_input.IsDown(Keys.A) || _input.IsDown(Keys.Left)) _pan.X += keyboardPanSpeed * dt;
         if (_input.IsDown(Keys.D) || _input.IsDown(Keys.Right)) _pan.X -= keyboardPanSpeed * dt;
@@ -126,9 +140,14 @@ public sealed class TechScreen : IScreen
             if (wasClick && !overUi)
             {
                 int hit = NodeAt(mouse);
-                if (hit >= 0)
+                if (hit >= 0 && _simulation.TryResearch(hit) == PlacementResult.Ok)
                 {
-                    _simulation.TryResearch(hit); // neúspěch (drahé/zamčené) se jen neprojeví
+                    // Dokončený výzkum je jeden z mála okamžiků, kdy se ve hře
+                    // něco doopravdy odemkne — musí to být slyšet i vidět.
+                    // (Neúspěch — drahé nebo zamčené — se jen neprojeví.)
+                    _screens.Sounds.PlayChime();
+                    _flashNode = hit;
+                    _flashAge = 0f;
                 }
             }
         }
@@ -220,6 +239,18 @@ public sealed class TechScreen : IScreen
             if (hovered)
             {
                 DrawDiamond(spriteBatch, pixel, center, star * 0.45f, Color.White);
+            }
+
+            // Rozletící se prstenec po dokončení výzkumu. Odemčení technologie
+            // je jeden z mála okamžiků, kdy hráč něco doopravdy získá — bez
+            // odezvy to vypadalo, jako by klik nic neudělal.
+            if (i == _flashNode)
+            {
+                float t = _flashAge / FlashSeconds;
+                float fade = 1f - t;
+                DrawRing(spriteBatch, pixel, center, star * (1.5f + 7f * t), ResearchedColor * fade);
+                DrawRing(spriteBatch, pixel, center, star * (1f + 4f * t), Color.White * (fade * 0.7f));
+                DrawDiamond(spriteBatch, pixel, center, star * (1f + 2f * fade), Color.White * (fade * 0.5f));
             }
 
             // Jméno pod hvězdou; zbytek (popis, cena, chybějící prerekvizity) nese

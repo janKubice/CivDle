@@ -97,14 +97,6 @@ public sealed class AscensionScreen : IScreen
 
         layout.Widgets.Add(new ScrollViewer { Content = list, Height = 300, Width = 460 });
 
-        layout.Widgets.Add(new Label
-        {
-            Text = loc["prestige.teaser"],
-            Wrap = true,
-            Width = 460,
-            TextColor = new Color(150, 160, 175),
-            HorizontalAlignment = HorizontalAlignment.Center,
-        });
         layout.Widgets.Add(UiFactory.MenuButton(loc["panel.close"], _screens.Pop));
 
         var panel = UiFactory.DarkPanel(layout);

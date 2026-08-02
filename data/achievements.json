@@ -578,6 +578,96 @@
         "metric": "wonders",
         "target": 5
       }
+    },
+    {
+      "id": "first_prayer",
+      "condition": {
+        "metric": "prayers",
+        "target": 1
+      }
+    },
+    {
+      "id": "devout",
+      "condition": {
+        "metric": "prayers",
+        "target": 50
+      }
+    },
+    {
+      "id": "shrine_builder",
+      "condition": {
+        "metric": "building",
+        "building": "shrine",
+        "target": 5
+      }
+    },
+    {
+      "id": "cathedral_of_faith",
+      "condition": {
+        "metric": "building",
+        "building": "monastery",
+        "target": 3
+      }
+    },
+    {
+      "id": "first_neighbour",
+      "condition": {
+        "metric": "cities",
+        "target": 1
+      }
+    },
+    {
+      "id": "empire_of_five",
+      "condition": {
+        "metric": "cities",
+        "target": 5
+      }
+    },
+    {
+      "id": "cartographer_fog",
+      "condition": {
+        "metric": "explored",
+        "target": 200
+      }
+    },
+    {
+      "id": "world_walker",
+      "condition": {
+        "metric": "explored",
+        "target": 2000
+      }
+    },
+    {
+      "id": "first_scholar",
+      "condition": {
+        "metric": "building",
+        "building": "library",
+        "target": 1
+      }
+    },
+    {
+      "id": "university_town",
+      "condition": {
+        "metric": "building",
+        "building": "university",
+        "target": 3
+      }
+    },
+    {
+      "id": "science_hoard",
+      "condition": {
+        "metric": "resource",
+        "resource": "science",
+        "target": 1000
+      }
+    },
+    {
+      "id": "faith_hoard",
+      "condition": {
+        "metric": "resource",
+        "resource": "faith",
+        "target": 500
+      }
     }
   ]
 }

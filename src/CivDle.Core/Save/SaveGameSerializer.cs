@@ -64,10 +64,10 @@ public sealed class SaveGameSerializer
     private const string SectionNodes = "nodes";
     private const string SectionFog = "fog";
     private const string SectionFaith = "faith";
+    private const string SectionNpcCities = "npccities";
     private const string SectionPollution = "pollution";
     private const string SectionContracts = "contracts";
     private const string SectionCitizens = "citizens";
-    private const string SectionNeighbours = "neighbours";
     private const string SectionRuns = "runs";
     private const string SectionHistory = "history";
 
@@ -120,6 +120,27 @@ public sealed class SaveGameSerializer
             }
         });
         WriteSection(writer, SectionFaith, w => w.Write(simulation.PrayerCount));
+        WriteSection(writer, SectionNpcCities, w =>
+        {
+            // Poloha měst se neukládá — plyne ze seedu. Do savu jde jen to,
+            // co hráč změnil: vztah, obchody, cesta, pohlcení, zkáza.
+            //
+            // Záporné číslo na začátku je značka verze záznamu. Starší savy tu
+            // mají rovnou počet (a ten je vždycky ≥ 0), takže se obě podoby
+            // rozeznají bez hádání.
+            var states = simulation.NpcStates;
+            w.Write(NpcCityEntryVersion2);
+            w.Write(states.Count);
+            foreach (var pair in states)
+            {
+                w.Write(pair.Key);
+                w.Write(pair.Value.Relation);
+                w.Write(pair.Value.Trades);
+                w.Write(pair.Value.RoadLinked);
+                w.Write(pair.Value.Absorbed);
+                w.Write(pair.Value.Destroyed);
+            }
+        });
         WriteSection(writer, SectionKnownResources, w => WriteKnownResources(w, simulation));
         WriteSection(writer, SectionWorldChanges, w => WriteWorldChanges(w, simulation));
         WriteSection(writer, SectionTutorial, w => w.Write(simulation.TutorialStep));
@@ -130,7 +151,6 @@ public sealed class SaveGameSerializer
         WriteSection(writer, SectionPollution, w => WritePollution(w, simulation));
         WriteSection(writer, SectionContracts, w => WriteContracts(w, simulation));
         WriteSection(writer, SectionCitizens, w => WriteCitizens(w, simulation));
-        WriteSection(writer, SectionNeighbours, w => WriteNeighbours(w, content: null, simulation));
         WriteSection(writer, SectionElection, w =>
         {
             w.Write(simulation.ElectionTerm);
@@ -266,6 +286,30 @@ public sealed class SaveGameSerializer
         }
 
         simulation.Fog.Restore(keys);
+    }
+
+    /// <summary>Vztahy k cizím městům. Chybějící sekce = hráč zatím žádné nepotkal.</summary>
+    /// <summary>Značka druhé podoby záznamu cizího města (přibyla zkáza).</summary>
+    private const int NpcCityEntryVersion2 = -2;
+
+    private static void ReadNpcCities(BinaryReader reader, Simulation simulation)
+    {
+        int first = reader.ReadInt32();
+        bool hasDestroyed = first == NpcCityEntryVersion2;
+        int count = hasDestroyed ? reader.ReadInt32() : first;
+
+        for (int i = 0; i < count; i++)
+        {
+            long key = reader.ReadInt64();
+            simulation.RestoreNpcState(key, new NpcCityState
+            {
+                Relation = reader.ReadInt32(),
+                Trades = reader.ReadInt64(),
+                RoadLinked = reader.ReadBoolean(),
+                Absorbed = reader.ReadBoolean(),
+                Destroyed = hasDestroyed && reader.ReadBoolean(),
+            });
+        }
     }
 
     private static void ReadGovernor(BinaryReader reader, Simulation simulation)
@@ -414,10 +458,10 @@ public sealed class SaveGameSerializer
             case SectionNodes: ReadNodes(section, simulation); break;
             case SectionFog: ReadFog(section, simulation); break;
             case SectionFaith: simulation.RestorePrayerCount(section.ReadInt64()); break;
+            case SectionNpcCities: ReadNpcCities(section, simulation); break;
             case SectionPollution: ReadPollution(section, simulation); break;
             case SectionContracts: ReadContracts(section, content, simulation); break;
             case SectionCitizens: ReadCitizens(section, simulation); break;
-            case SectionNeighbours: ReadNeighbours(section, content, simulation); break;
             case SectionElection: simulation.RestoreElection(section.ReadInt64(), section.ReadInt32()); break;
             case SectionMilestones: ReadMilestones(section, content, simulation); break;
             case SectionHistory: ReadHistory(section, simulation); break;
@@ -728,35 +772,6 @@ public sealed class SaveGameSerializer
 
     private static void ReadHistory(BinaryReader reader, Simulation simulation) =>
         TimelapseStore.ReadBody(reader, simulation.History);
-
-    private static void WriteNeighbours(BinaryWriter writer, GameContent? content, Simulation simulation)
-    {
-        _ = content; // katalog se bere ze simulace, parametr drží tvar ostatních zapisovačů
-        var ids = simulation.NeighbourIds().ToList();
-        writer.Write(ids.Count);
-        for (int i = 0; i < ids.Count; i++)
-        {
-            writer.Write(ids[i]);
-            writer.Write(simulation.NeighbourTrades(i));
-        }
-    }
-
-    private static void ReadNeighbours(BinaryReader reader, GameContent content, Simulation simulation)
-    {
-        int count = ReadCount(reader, max: 1000, what: "sousedů");
-        for (int i = 0; i < count; i++)
-        {
-            string id = reader.ReadString();
-            long trades = reader.ReadInt64();
-
-            // Soused, který z dat zmizel, se tiše přeskočí — padat kvůli obsahu,
-            // co se mezi verzemi mění, by byla krutost.
-            if (content.Neighbours.Neighbours.TryIndexOf(id, out int index))
-            {
-                simulation.RestoreNeighbourTrades(index, trades);
-            }
-        }
-    }
 
     private static void ReadNodes(BinaryReader reader, Simulation simulation)
     {

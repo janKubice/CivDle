@@ -99,14 +99,38 @@ public sealed class BuildingRenderer
                 DrawProsperityDetail(spriteBatch, i, prosperity, x, y, width, height);
             }
 
-            // Vyschlý vstup má být VIDĚT (fáze 3): stojící výroba dostane červený roh.
-            if (def.Recipe is not null && building.Progress >= def.Recipe.TimeTicks - 0.001f)
-            {
-                spriteBatch.Draw(_pixel, new Rectangle(x + width - 7, y + 3, 4, 4), Color.Red);
-            }
+            // Stojící budova má být VIDĚT — a hlavně má být poznat PROČ. Jeden
+            // červený roh pro všechno znamenal, že hráč viděl „něco je špatně"
+            // a musel hádat; barva teď důvod rozliší a bublina ho pojmenuje.
+            DrawStallBadge(spriteBatch, building.Stall, x, y, width);
         }
 
         spriteBatch.End();
+    }
+
+    /// <summary>Barva odznaku podle důvodu, proč budova stojí.</summary>
+    public static Color StallColor(BuildingStall stall) => stall switch
+    {
+        BuildingStall.NoWorkers => new Color(255, 190, 70),   // oranžová = chybí lidi
+        BuildingStall.MissingInput => new Color(240, 90, 80), // červená = chybí surovina
+        BuildingStall.NoTerrain => new Color(150, 110, 220),  // fialová = došlo okolí
+        _ => Color.Transparent,
+    };
+
+    /// <summary>
+    /// Odznak v rohu budovy. Rozestavěná budova ho nedostane — u té je vidět
+    /// lešení i pruh postupu, druhá cedule by jen šuměla.
+    /// </summary>
+    private void DrawStallBadge(SpriteBatch spriteBatch, BuildingStall stall, int x, int y, int width)
+    {
+        var color = StallColor(stall);
+        if (color == Color.Transparent)
+        {
+            return;
+        }
+
+        spriteBatch.Draw(_pixel, new Rectangle(x + width - 8, y + 2, 6, 6), Color.Black * 0.5f);
+        spriteBatch.Draw(_pixel, new Rectangle(x + width - 7, y + 3, 4, 4), color);
     }
 
     /// <summary>

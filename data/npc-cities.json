@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "giftCost": {
+    "food": 40,
+    "planks": 20
+  },
+  "giftRelation": 12,
+  "roadCost": {
+    "stone": 60,
+    "planks": 40
+  },
+  "tradeIntervalSeconds": 45,
+  "buyRelation": 70,
+  "buyCost": {
+    "bronze": 200,
+    "planks": 300,
+    "stone": 300
+  },
+  "surroundRadius": 14,
+  "surroundBuildings": 12,
+  "tradeRelation": 2,
+  "caravanBonusAtFullRelation": 0.75,
+  "archetypes": [
+    {
+      "id": "farmtown",
+      "mapColor": "#8FBF6A",
+      "population": 60,
+      "trade": {
+        "food": 45
+      }
+    },
+    {
+      "id": "mining_camp",
+      "mapColor": "#B08968",
+      "population": 40,
+      "trade": {
+        "stone": 35,
+        "iron_ore": 12
+      }
+    },
+    {
+      "id": "port",
+      "mapColor": "#6AA6BF",
+      "population": 80,
+      "trade": {
+        "planks": 30,
+        "tools": 10
+      }
+    },
+    {
+      "id": "free_city",
+      "mapColor": "#C9A227",
+      "population": 150,
+      "trade": {
+        "bronze": 20,
+        "science": 15
+      }
+    },
+    {
+      "id": "holy_city",
+      "mapColor": "#D9C27E",
+      "population": 110,
+      "trade": {
+        "faith": 25
+      }
+    }
+  ],
+  "names": [
+    "Kamenný Brod",
+    "Vlčí Důl",
+    "Trnová",
+    "Solný Přístav",
+    "Zlatá Lhota",
+    "Bílé Skály",
+    "Rákosí",
+    "Mlžná Zátoka",
+    "Havraní Vrch",
+    "Tichá Ves",
+    "Železný Kout",
+    "Jantarov",
+    "Dubová Stráž",
+    "Vysoký Mlýn",
+    "Slaná Kosa",
+    "Ohnivá Rokle",
+    "Modřín",
+    "Lipová Brána",
+    "Rybí Zátoka",
+    "Popelavý Hřbet"
+  ]
+}

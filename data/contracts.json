@@ -12,111 +12,218 @@
       "id": "firewood",
       "resource": "wood",
       "amount": 30,
-      "reward": { "food": 45 },
+      "reward": {
+        "food": 45
+      },
       "durationSeconds": 180
     },
     {
       "id": "harvest_help",
       "resource": "food",
       "amount": 40,
-      "reward": { "wood": 35, "stone": 15 },
+      "reward": {
+        "wood": 35,
+        "stone": 15
+      },
       "durationSeconds": 200
     },
     {
       "id": "quarry_order",
       "resource": "stone",
       "amount": 35,
-      "reward": { "food": 40, "wood": 25 },
+      "reward": {
+        "food": 40,
+        "wood": 25
+      },
       "durationSeconds": 200,
-      "requires": { "metric": "population", "target": 15 }
+      "requires": {
+        "metric": "population",
+        "target": 15
+      }
     },
     {
       "id": "plank_delivery",
       "resource": "planks",
       "amount": 25,
-      "reward": { "stone": 50, "food": 50 },
+      "reward": {
+        "stone": 50,
+        "food": 50
+      },
       "durationSeconds": 240,
-      "requires": { "metric": "population", "target": 25 }
+      "requires": {
+        "metric": "population",
+        "target": 25
+      }
     },
     {
       "id": "toolsmith_rush",
       "resource": "tools",
       "amount": 12,
-      "reward": { "planks": 30, "food": 70 },
+      "reward": {
+        "planks": 30,
+        "food": 70
+      },
       "durationSeconds": 300,
-      "requires": { "metric": "population", "target": 40 }
+      "requires": {
+        "metric": "population",
+        "target": 40
+      }
     },
     {
       "id": "bronze_tribute",
       "resource": "bronze",
       "amount": 15,
-      "reward": { "planks": 45, "stone": 60 },
+      "reward": {
+        "planks": 45,
+        "stone": 60
+      },
       "durationSeconds": 300,
-      "requires": { "metric": "population", "target": 60 }
+      "requires": {
+        "metric": "population",
+        "target": 60
+      }
     },
     {
       "id": "iron_shipment",
       "resource": "iron",
       "amount": 20,
-      "reward": { "planks": 60, "food": 120 },
+      "reward": {
+        "planks": 60,
+        "food": 120
+      },
       "durationSeconds": 320,
-      "requires": { "metric": "population", "target": 90 }
+      "requires": {
+        "metric": "population",
+        "target": 90
+      }
     },
     {
       "id": "coal_run",
       "resource": "coal",
       "amount": 30,
-      "reward": { "iron": 18, "food": 100 },
+      "reward": {
+        "iron": 18,
+        "food": 100
+      },
       "durationSeconds": 300,
-      "requires": { "metric": "population", "target": 120 }
+      "requires": {
+        "metric": "population",
+        "target": 120
+      }
     },
     {
       "id": "steel_beams",
       "resource": "steel",
       "amount": 25,
-      "reward": { "iron": 40, "coal": 45 },
+      "reward": {
+        "iron": 40,
+        "coal": 45
+      },
       "durationSeconds": 360,
-      "requires": { "metric": "population", "target": 200 }
+      "requires": {
+        "metric": "population",
+        "target": 200
+      }
     },
     {
       "id": "machine_parts_order",
       "resource": "machine_parts",
       "amount": 18,
-      "reward": { "steel": 35, "coal": 60 },
+      "reward": {
+        "steel": 35,
+        "coal": 60
+      },
       "durationSeconds": 400,
-      "requires": { "metric": "population", "target": 350 }
+      "requires": {
+        "metric": "population",
+        "target": 350
+      }
     },
     {
       "id": "electronics_batch",
       "resource": "electronics",
       "amount": 20,
-      "reward": { "machine_parts": 30, "steel": 60 },
+      "reward": {
+        "machine_parts": 30,
+        "steel": 60
+      },
       "durationSeconds": 420,
-      "requires": { "metric": "population", "target": 600 }
+      "requires": {
+        "metric": "population",
+        "target": 600
+      }
     },
     {
       "id": "compute_cluster",
       "resource": "computer",
       "amount": 12,
-      "reward": { "electronics": 40, "machine_parts": 45 },
+      "reward": {
+        "electronics": 40,
+        "machine_parts": 45
+      },
       "durationSeconds": 480,
-      "requires": { "metric": "population", "target": 1200 }
+      "requires": {
+        "metric": "population",
+        "target": 1200
+      }
     },
     {
       "id": "nano_consignment",
       "resource": "nanomaterial",
       "amount": 15,
-      "reward": { "computer": 25, "electronics": 60 },
+      "reward": {
+        "computer": 25,
+        "electronics": 60
+      },
       "durationSeconds": 520,
-      "requires": { "metric": "population", "target": 3000 }
+      "requires": {
+        "metric": "population",
+        "target": 3000
+      }
     },
     {
       "id": "robot_levy",
       "resource": "robot",
       "amount": 10,
-      "reward": { "nanomaterial": 45, "computer": 30 },
+      "reward": {
+        "nanomaterial": 45,
+        "computer": 30
+      },
       "durationSeconds": 560,
-      "requires": { "metric": "population", "target": 8000 }
+      "requires": {
+        "metric": "population",
+        "target": 8000
+      }
+    },
+    {
+      "id": "scholars_order",
+      "resource": "science",
+      "amount": 60,
+      "reward": {
+        "planks": 120,
+        "stone": 90
+      },
+      "durationSeconds": 240,
+      "requires": {
+        "metric": "building",
+        "building": "library",
+        "target": 1
+      }
+    },
+    {
+      "id": "pilgrim_tithe",
+      "resource": "faith",
+      "amount": 40,
+      "reward": {
+        "food": 180,
+        "planks": 80
+      },
+      "durationSeconds": 240,
+      "requires": {
+        "metric": "building",
+        "building": "shrine",
+        "target": 1
+      }
     }
   ]
 }

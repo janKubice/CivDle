@@ -11,19 +11,20 @@ namespace CivDle.Rendering;
 /// a jen přes to, co je právě na obrazovce — na nekonečné mapě je jakýkoli jiný
 /// postup nepoužitelný.</para>
 ///
-/// <para>Neodhalený čtverec není úplně černý: nechá prosvítat obrys terénu.
-/// Úplná čerň by z okraje mapy udělala zeď a hráč by neměl kam mířit; takhle
-/// je vidět, že tam něco je, ale ne co.</para>
+/// <para>Neprozkoumané je <b>neprůhledné</b>. Průsvitný závoj vypadal jako
+/// filtr přes hotovou mapu, ne jako neznámo — a hráč přes něj viděl dost na to,
+/// aby neměl důvod tam jít. Měkký zůstal jen lem na hranici; ostrá hrana vypadá
+/// jako chyba vykreslování, ne jako mlha.</para>
 ///
 /// <para>Vrstva: čte ze simulace, nikdy do ní nezapisuje.</para>
 /// </summary>
 public sealed class FogRenderer
 {
     /// <summary>Jak hustý je závoj nad neprozkoumaným (0 = nic, 1 = čerň).</summary>
-    private const float Density = 0.82f;
+    private const float Density = 1f;
 
-    /// <summary>Poloviční závoj na hranici — ostrá hrana vypadá jako chyba, ne jako mlha.</summary>
-    private const float EdgeDensity = 0.4f;
+    /// <summary>Lem na hranici odhaleného — jen tolik, aby přechod nebyl schod.</summary>
+    private const float EdgeDensity = 0.72f;
 
     private readonly Texture2D _pixel;
 

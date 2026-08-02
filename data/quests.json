@@ -229,6 +229,59 @@
         "steel": 200,
         "electronics": 100
       }
+    },
+    {
+      "id": "build_library",
+      "condition": {
+        "metric": "building",
+        "building": "library",
+        "target": 1
+      },
+      "reward": {
+        "science": 15
+      }
+    },
+    {
+      "id": "first_shrine",
+      "condition": {
+        "metric": "building",
+        "building": "shrine",
+        "target": 1
+      },
+      "reward": {
+        "faith": 10
+      }
+    },
+    {
+      "id": "say_a_prayer",
+      "condition": {
+        "metric": "prayers",
+        "target": 1
+      },
+      "reward": {
+        "food": 60
+      }
+    },
+    {
+      "id": "meet_the_world",
+      "condition": {
+        "metric": "cities",
+        "target": 1
+      },
+      "reward": {
+        "planks": 80,
+        "stone": 60
+      }
+    },
+    {
+      "id": "explore_the_map",
+      "condition": {
+        "metric": "explored",
+        "target": 120
+      },
+      "reward": {
+        "science": 40
+      }
     }
   ],
   "dynamic": {

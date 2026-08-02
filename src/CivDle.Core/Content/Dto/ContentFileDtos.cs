@@ -61,7 +61,8 @@ public sealed record BuildingDto(
     BuildingPollutionDto? Pollution,
     string? MinSettlementRank,
     BuildingMilestonesDto? Milestones,
-    BuildingSpectacleDto? Spectacle);
+    BuildingSpectacleDto? Spectacle,
+    int ReforestRadius);
 
 /// <summary>Podívaná megastruktury tak, jak leží v JSON.</summary>
 public sealed record BuildingSpectacleDto(string? Effect, double IntervalSeconds);
@@ -87,16 +88,6 @@ public sealed record RecipeDto(
     Dictionary<string, int>? Output,
     int TimeTicks);
 
-/// <summary>Obsah souboru <c>data/neighbours.json</c>.</summary>
-public sealed record NeighboursFileDto(
-    int SchemaVersion,
-    int TradesPerLevel,
-    double BonusPerLevel,
-    int MaxLevel,
-    List<NeighbourDto>? Neighbours);
-
-/// <summary>Jeden soused tak, jak leží v JSON.</summary>
-public sealed record NeighbourDto(string? Id, string? MapColor);
 
 /// <summary>Obsah souboru <c>data/citizens.json</c>.</summary>
 public sealed record CitizensFileDto(
@@ -149,6 +140,29 @@ public sealed record ContractDto(
     double DurationSeconds,
     GoalConditionDto? Requires);
 
+/// <summary>Obsah souboru <c>data/npc-cities.json</c>.</summary>
+public sealed record NpcCitiesFileDto(
+    int SchemaVersion,
+    Dictionary<string, int>? GiftCost,
+    int GiftRelation,
+    Dictionary<string, int>? RoadCost,
+    double TradeIntervalSeconds,
+    int BuyRelation,
+    Dictionary<string, int>? BuyCost,
+    int SurroundRadius,
+    int SurroundBuildings,
+    int TradeRelation,
+    double CaravanBonusAtFullRelation,
+    List<NpcArchetypeDto>? Archetypes,
+    List<string>? Names);
+
+/// <summary>Jeden druh cizího města tak, jak leží v JSON.</summary>
+public sealed record NpcArchetypeDto(
+    string? Id,
+    string? MapColor,
+    int Population,
+    Dictionary<string, int>? Trade);
+
 /// <summary>Obsah souboru <c>data/faith.json</c>.</summary>
 public sealed record FaithFileDto(int SchemaVersion, string? FaithResource, List<PrayerDto>? Prayers);
 
@@ -187,7 +201,11 @@ public sealed record GameplayFileDto(
     PollutionDto? Pollution,
     BulkBuildDto? BulkBuild,
     LaserDto? Laser,
-    HistoryDto? History);
+    HistoryDto? History,
+    ResearchDto? Research);
+
+/// <summary>Škálování cen výzkumu tak, jak leží v JSON.</summary>
+public sealed record ResearchDto(double CostMultiplier, double CostGrowthPerTech);
 
 /// <summary>Časosběr tak, jak leží v JSON.</summary>
 public sealed record HistoryDto(double IntervalSeconds, int MaxFrames);
@@ -262,7 +280,19 @@ public sealed record HarvestDto(double CritChance, double CritMultiplier, double
 public sealed record DailyRewardDto(Dictionary<string, int>? Reward, int StreakCap);
 
 /// <summary>Sázení tak, jak leží v JSON.</summary>
-public sealed record PlantingDto(Dictionary<string, int>? Cost, string? Resource, int Amount);
+public sealed record PlantingDto(
+    Dictionary<string, int>? Cost,
+    string? Resource,
+    int Amount,
+    List<PlantSpeciesDto>? Species);
+
+/// <summary>Jeden druh k zasazení tak, jak leží v JSON.</summary>
+public sealed record PlantSpeciesDto(
+    string? Id,
+    Dictionary<string, int>? Cost,
+    string? Resource,
+    int Amount,
+    string? RequiresTech);
 
 /// <summary>Denní/noční cyklus tak, jak leží v JSON.</summary>
 public sealed record DayNightDto(

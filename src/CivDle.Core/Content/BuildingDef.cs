@@ -171,7 +171,8 @@ public sealed record BuildingDef(
     PollutionOutput? PollutionOrNull = null,
     int MinSettlementRank = -1,
     BuildingMilestones? MilestonesOrNull = null,
-    BuildingSpectacle? SpectacleOrNull = null)
+    BuildingSpectacle? SpectacleOrNull = null,
+    int ReforestRadius = 0)
 {
     /// <summary>
     /// Podívaná, kterou budova pravidelně předvádí; <c>null</c> = jen stojí.
@@ -218,6 +219,15 @@ public sealed record BuildingDef(
     /// Čím větší město, tím víc lidí, tím rychleji mizí okolní porost.</para>
     /// </summary>
     public bool HarvestsTerrain => TerrainHarvestRadius > 0;
+
+    /// <summary>
+    /// Vysazuje budova okolí zpátky? (Lesní školka a spol.)
+    ///
+    /// <para>Proč to existuje: pily a lomy krajinu vytěží rychleji, než sama
+    /// doroste, a hráči zůstane holina, se kterou nemůže nic dělat. Reforestace
+    /// je odpověď — stojí místo i dělníky, ale les vrací.</para>
+    /// </summary>
+    public bool Reforests => ReforestRadius > 0;
 
     /// <summary>
     /// Jak dlouho se budova staví (v ticích). 0 = stojí hned, jako všechno ostatní.

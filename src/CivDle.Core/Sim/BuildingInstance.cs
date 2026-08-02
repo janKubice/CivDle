@@ -1,6 +1,31 @@
 namespace CivDle.Core.Sim;
 
 /// <summary>
+/// Proč budova nevyrábí.
+///
+/// <para>Do téhle chvíle dostala stojící výroba červený roh a hráč neměl jak
+/// zjistit proč — a budova bez dělníků neměla ani ten roh. Důvod zná jen
+/// výrobní systém, takže si ho musí uložit; UI ho pak jen přeloží.</para>
+/// </summary>
+public enum BuildingStall : byte
+{
+    /// <summary>Vyrábí se, všechno v pořádku.</summary>
+    None = 0,
+
+    /// <summary>Nemá kdo dělat — chybí lidé nebo je vzali jiné budovy.</summary>
+    NoWorkers,
+
+    /// <summary>Čeká na vstupní suroviny.</summary>
+    MissingInput,
+
+    /// <summary>V dosahu došlo, co těžit (les, kámen, ryby).</summary>
+    NoTerrain,
+
+    /// <summary>Ještě se staví.</summary>
+    UnderConstruction,
+}
+
+/// <summary>
 /// Instance postavené budovy — malá struktura v plochém poli simulace
 /// (data-oriented, viz CLAUDE.md). Na definici odkazuje indexem, ne referencí.
 /// </summary>
@@ -94,6 +119,12 @@ public struct BuildingInstance
 
     /// <summary>Došly budově v dosahu zdroje? (Render i UI to hlásí hráči.)</summary>
     public bool OutOfResources;
+
+    /// <summary>
+    /// Proč budova zrovna nevyrábí. Přepisuje se každý tik ve výrobě — je to
+    /// odvozený stav, do savu nepatří.
+    /// </summary>
+    public BuildingStall Stall;
 
     /// <summary>Je budova hotová a v provozu?</summary>
     public readonly bool IsComplete => BuildTicksRemaining <= 0;

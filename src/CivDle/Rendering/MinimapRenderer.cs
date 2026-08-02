@@ -71,6 +71,24 @@ public sealed class MinimapRenderer : IDisposable
             }
         }
 
+        // Objevená cizí města. Neobjevená se nekreslí — jinak by minimapa
+        // prozradila, co má hráč teprve najít, a mlha by ztratila smysl.
+        // Barva je jen „cizí / už moje": na dvou pixelech by odstín druhu města
+        // stejně nikdo nerozeznal.
+        int scanTiles = SizePixels * TilesPerPixel / 2;
+        foreach (var city in simulation.CitiesNear(_centerTileX, _centerTileY, scanTiles))
+        {
+            if (!simulation.IsCityDiscovered(city) || !TileToMinimap(city.X, city.Y, out int cmx, out int cmy))
+            {
+                continue;
+            }
+
+            var dot = simulation.NpcStateOf(city.Key).Absorbed
+                ? new Color(250, 210, 110)
+                : new Color(150, 200, 255);
+            spriteBatch.Draw(_pixel, new Rectangle(x + cmx - 1, y + cmy - 1, 4, 4), dot);
+        }
+
         // Rámeček viditelného výřezu.
         var (min, max) = camera.VisibleWorldBounds();
         if (TileToMinimap((int)(min.X / TerrainRenderer.TileSize), (int)(min.Y / TerrainRenderer.TileSize), out int vx0, out int vy0)

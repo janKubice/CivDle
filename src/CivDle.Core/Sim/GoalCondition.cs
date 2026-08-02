@@ -45,6 +45,15 @@ public enum MetricKind
 
     /// <summary>Kolik divů světa už město dostavělo.</summary>
     WondersCompleted,
+
+    /// <summary>Kolik modliteb hráč pronesl (víra).</summary>
+    Prayers,
+
+    /// <summary>Kolik cizích měst se stalo součástí říše.</summary>
+    CitiesJoined,
+
+    /// <summary>Kolik kusů světa hráč odhalil z mlhy.</summary>
+    Explored,
 }
 
 /// <summary>

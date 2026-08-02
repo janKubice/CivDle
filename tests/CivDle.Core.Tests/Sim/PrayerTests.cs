@@ -19,7 +19,13 @@ public class PrayerTests
 
     private static GameContent Content(params PrayerDef[] prayers)
     {
-        var biomes = new[] { TestContent.WaterBiome(), TestContent.LandBiome("grass") };
+        // „badlands" a „shallow_water" tu nejsou pro terén, ale proto, že do nich
+        // rány přepisují zasaženou půdu — bez nich by po zásahu nezůstala stopa.
+        var biomes = new[]
+        {
+            TestContent.WaterBiome(), TestContent.LandBiome("grass"),
+            TestContent.LandBiome("badlands"), TestContent.WaterBiome("shallow_water"),
+        };
         var resources = new[]
         {
             new Resource("food", new RgbColor(1, 1, 1), StartAmount: 0, BaseStorage: 10_000),
@@ -146,6 +152,20 @@ public class PrayerTests
         Assert.Equal(PrayerOutcome.Answered, sim.TryPray(0, 1, 20, 20));
 
         Assert.Empty(sim.Buildings.ToArray());
+    }
+
+    [Fact]
+    public void AMeteorOnEmptyGroundStillLeavesAMark()
+    {
+        // Nejčastější stížnost na modlitbu byla „kliknu a nic se nestane" —
+        // rána do prázdna nedělala vůbec nic. Po zásahu musí zůstat spáleniště,
+        // i když tam nic nestálo.
+        var sim = new Simulation(Content(Sure("meteor", "smite_meteor", radius: 4)), new UniformTerrain(1));
+        byte before = sim.BiomeAt(60, 60);
+
+        Assert.Equal(PrayerOutcome.Answered, sim.TryPray(0, 1, 60, 60));
+
+        Assert.NotEqual(before, sim.BiomeAt(60, 60));
     }
 
     [Fact]

@@ -199,6 +199,54 @@ public class DistrictTests
     }
 
     [Fact]
+    public void ASprawlingClusterIsNotAQuarter()
+    {
+        // Hráčova stížnost: obří průmyslová čtvrť, a uvnitř ní rezidenční. Vzniklo
+        // to tím, že se čtvrť kreslí jako OBÁLKA shluku — pily natažené do L
+        // roztáhly obálku přes kus města a všechno uvnitř se ocitlo „ve čtvrti",
+        // i když to s průmyslem nemá nic společného.
+        var sim = NewSim(Catalog(minBuildings: 3));
+
+        for (int i = 0; i < 5; i++)
+        {
+            sim.TryPlaceBuilding(Mill, 40 + i * 3, 40); // rameno doprava
+            sim.TryPlaceBuilding(Mill, 40, 43 + i * 3); // rameno dolů
+        }
+
+        Tick(sim, 120);
+
+        foreach (var district in sim.Districts)
+        {
+            long area = (long)(district.MaxX - district.MinX + 1) * (district.MaxY - district.MinY + 1);
+            Assert.True(area <= 64,
+                $"čtvrť se roztáhla na {area} dlaždic — obálka pohltila i to, co do ní nepatří");
+        }
+    }
+
+    [Fact]
+    public void QuartersNeverNestInsideEachOther()
+    {
+        // Druhá stížnost: průmyslová čtvrť uvnitř průmyslové čtvrti. Dvě obálky
+        // téhož druhu, které se překrývají, jsou jedna čtvrť — ne dvě.
+        var sim = NewSim(Catalog(minBuildings: 3));
+        BuildRow(sim, Mill, 5, y: 10);
+        BuildRow(sim, Mill, 5, y: 12);
+
+        Tick(sim, 120);
+
+        var all = sim.Districts;
+        for (int a = 0; a < all.Count; a++)
+        {
+            for (int b = a + 1; b < all.Count; b++)
+            {
+                bool overlaps = all[a].MinX <= all[b].MaxX && all[b].MinX <= all[a].MaxX
+                    && all[a].MinY <= all[b].MaxY && all[b].MinY <= all[a].MaxY;
+                Assert.False(overlaps, "dvě čtvrti se překrývají — čtvrť ve čtvrti nedává smysl");
+            }
+        }
+    }
+
+    [Fact]
     public void EmptyCatalogLeavesTheGameAsItWas()
     {
         var sim = NewSim(DistrictCatalog.Empty);

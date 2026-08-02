@@ -88,7 +88,7 @@ public sealed class SettlementsScreen : IScreen
             }
         }
 
-        AddNeighbours(list);
+        AddNpcCities(list);
 
         var scroll = new ScrollViewer
         {
@@ -125,45 +125,130 @@ public sealed class SettlementsScreen : IScreen
     /// Vztah je dlouhá veličina — roste desítky minut — takže patří sem, kde se
     /// hráč dívá na mapu jako celek, ne do rychlého HUD.
     /// </summary>
-    private void AddNeighbours(VerticalStackPanel list)
+    /// <summary>
+    /// Objevená cizí města: co s nimi hráč zažil a co s nimi může udělat.
+    ///
+    /// <para>Nahradilo to pevný seznam „sousedů". Soused byl řádek v tabulce,
+    /// který nikde nestál — město je bod na mapě, ke kterému se dá dojít,
+    /// postavit k němu cestu, obchodovat s ním, koupit ho, nebo ho prostě
+    /// obestavět, až sroste s tvým.</para>
+    ///
+    /// <para>Ukazují se jen ta OBJEVENÁ: seznam nesmí prozradit, co je za mlhou.</para>
+    /// </summary>
+    private void AddNpcCities(VerticalStackPanel list)
     {
         var loc = _screens.Loc;
-        var catalog = _screens.Content.Neighbours;
-        if (!_simulation.NeighboursEnabled)
+        if (!_simulation.NpcCitiesEnabled)
         {
             return;
         }
 
-        list.Widgets.Add(new Label
+        list.Widgets.Add(new Label { Text = loc["npc.title"], TextColor = UiFactory.Accent });
+
+        var catalog = _screens.Content.NpcCities;
+        bool any = false;
+        foreach (var city in _simulation.CitiesNear(
+                     _simulation.CityCenterX, _simulation.CityCenterY, NpcCityMap.CellTiles * 3))
         {
-            Text = loc["panel.neighbours"],
-            TextColor = UiFactory.Accent,
-            Tooltip = loc["tip.neighbours"],
+            if (!_simulation.IsCityDiscovered(city))
+            {
+                continue;
+            }
+
+            any = true;
+            list.Widgets.Add(CityRow(loc, catalog, city));
+        }
+
+        if (!any)
+        {
+            list.Widgets.Add(new Label
+            {
+                Text = loc["npc.none"],
+                Wrap = true,
+                Width = 420,
+                TextColor = new Color(150, 160, 175),
+            });
+        }
+    }
+
+    private Widget CityRow(CivDle.Core.Content.Localization loc, CivDle.Core.Content.NpcCityCatalog catalog, NpcCity city)
+    {
+        var state = _simulation.NpcStateOf(city.Key);
+        var archetype = catalog.Archetypes[city.ArchetypeIndex];
+
+        var stack = new VerticalStackPanel { Spacing = 3, Width = 430 };
+        stack.Widgets.Add(new Label
+        {
+            Text = catalog.Names[city.NameIndex % catalog.Names.Count] + " — " + loc[archetype.NameKey],
+            TextColor = archetype.MapColor.ToXna(),
         });
 
-        for (int i = 0; i < catalog.Neighbours.Count; i++)
+        if (state.Absorbed)
         {
-            var neighbour = catalog.Neighbours[i];
-            long trades = _simulation.NeighbourTrades(i);
-            int level = _simulation.NeighbourLevel(i);
-
-            var row = new VerticalStackPanel { Spacing = 2 };
-            row.Widgets.Add(new Label
-            {
-                Text = loc[neighbour.NameKey],
-                TextColor = neighbour.MapColor.ToXna(),
-            });
-            row.Widgets.Add(new Label
-            {
-                // Nula obchodů se nepíše jako „Vztah 0" — to zní jako chyba,
-                // ne jako „ještě jste se nepotkali".
-                Text = trades == 0
-                    ? loc["neighbour.stranger"]
-                    : loc.Format("neighbour.level", level, trades),
-                TextColor = Color.Gray,
-            });
-            list.Widgets.Add(row);
+            stack.Widgets.Add(new Label { Text = loc["npc.joined"], TextColor = new Color(150, 220, 150) });
+            return Framed(stack);
         }
+
+        stack.Widgets.Add(new Label
+        {
+            Text = loc.Format("npc.relation", state.Relation) + "   " + loc.Format("npc.trades", state.Trades),
+            TextColor = Color.LightGray,
+        });
+
+        stack.Widgets.Add(new Label
+        {
+            Text = state.RoadLinked ? loc["npc.linked"] : loc["npc.noLink"],
+            TextColor = state.RoadLinked ? new Color(150, 220, 150) : new Color(235, 170, 110),
+            Wrap = true,
+        });
+
+        var buttons = new HorizontalStackPanel { Spacing = 6 };
+        buttons.Widgets.Add(UiFactory.SmallButton(loc["npc.gift"], () =>
+        {
+            _simulation.TryGiftCity(city.Key);
+            BuildUi();
+        }));
+
+        if (!state.RoadLinked)
+        {
+            buttons.Widgets.Add(UiFactory.SmallButton(loc["npc.connect"], () =>
+            {
+                _simulation.TryConnectCity(city.Key);
+                BuildUi();
+            }));
+        }
+
+        if (state.Relation >= catalog.BuyRelation)
+        {
+            buttons.Widgets.Add(UiFactory.SmallButton(loc["npc.buy"], () =>
+            {
+                _simulation.TryBuyCity(city.Key);
+                BuildUi();
+            }));
+        }
+        else
+        {
+            stack.Widgets.Add(new Label
+            {
+                Text = loc.Format("npc.needRelation", catalog.BuyRelation),
+                TextColor = new Color(160, 168, 184),
+            });
+        }
+
+        stack.Widgets.Add(buttons);
+        stack.Widgets.Add(new Label { Text = loc["npc.surround"], TextColor = new Color(140, 148, 165), Wrap = true });
+        return Framed(stack);
+    }
+
+    private static Widget Framed(Widget content)
+    {
+        var panel = new Panel
+        {
+            Background = new Myra.Graphics2D.Brushes.SolidBrush(new Color(30, 34, 44, 230)),
+            Padding = new Thickness(10, 8),
+        };
+        panel.Widgets.Add(content);
+        return panel;
     }
 
     private Button SettlementRow(Settlement settlement, IReadOnlyList<string> names)

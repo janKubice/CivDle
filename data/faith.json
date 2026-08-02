@@ -55,6 +55,51 @@
       "chanceFalloff": 0.2,
       "magnitude": 1.0,
       "radius": 7
+    },
+    {
+      "id": "quickening",
+      "effect": "bless_regrow",
+      "baseCost": 55,
+      "baseChance": 0.7,
+      "chanceFalloff": 0.16,
+      "magnitude": 1.0,
+      "radius": 9
+    },
+    {
+      "id": "revelation",
+      "effect": "bless_reveal",
+      "baseCost": 30,
+      "baseChance": 0.9,
+      "chanceFalloff": 0.1,
+      "magnitude": 1.0,
+      "radius": 26
+    },
+    {
+      "id": "windfall",
+      "effect": "bless_windfall",
+      "baseCost": 70,
+      "baseChance": 0.6,
+      "chanceFalloff": 0.18,
+      "magnitude": 120,
+      "radius": 0
+    },
+    {
+      "id": "jubilee",
+      "effect": "bless_festival",
+      "baseCost": 90,
+      "baseChance": 0.6,
+      "chanceFalloff": 0.2,
+      "magnitude": 1.0,
+      "radius": 0
+    },
+    {
+      "id": "blight",
+      "effect": "smite_blight",
+      "baseCost": 110,
+      "baseChance": 0.55,
+      "chanceFalloff": 0.2,
+      "magnitude": 1.0,
+      "radius": 8
     }
   ]
 }

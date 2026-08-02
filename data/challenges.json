@@ -137,6 +137,37 @@
       "reward": {
         "stone": 140
       }
+    },
+    {
+      "id": "praying_day",
+      "condition": {
+        "metric": "prayers",
+        "target": 3
+      },
+      "reward": {
+        "faith": 40
+      }
+    },
+    {
+      "id": "scholar_day",
+      "condition": {
+        "metric": "resource",
+        "resource": "science",
+        "target": 120
+      },
+      "reward": {
+        "planks": 80
+      }
+    },
+    {
+      "id": "explorer_day",
+      "condition": {
+        "metric": "explored",
+        "target": 40
+      },
+      "reward": {
+        "food": 120
+      }
     }
   ]
 }

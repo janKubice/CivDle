@@ -46,11 +46,46 @@
     "streakCap": 7
   },
   "planting": {
-    "cost": {
-      "food": 10
-    },
-    "resource": "wood",
-    "amount": 2
+    "species": [
+      {
+        "id": "grove",
+        "cost": {
+          "food": 10
+        },
+        "resource": "wood",
+        "amount": 2
+      },
+      {
+        "id": "orchard",
+        "cost": {
+          "wood": 30,
+          "tools": 3
+        },
+        "resource": "food",
+        "amount": 3,
+        "requiresTech": "crop_rotation"
+      },
+      {
+        "id": "quarry_garden",
+        "cost": {
+          "planks": 25,
+          "tools": 5
+        },
+        "resource": "stone",
+        "amount": 3,
+        "requiresTech": "masonry"
+      },
+      {
+        "id": "sacred_grove",
+        "cost": {
+          "planks": 60,
+          "food": 40
+        },
+        "resource": "faith",
+        "amount": 2,
+        "requiresTech": "silviculture"
+      }
+    ]
   },
   "_comment_happiness": "Spokojenost 0-1: základ + pokrytí službami - přelidnění. Nízká brzdí růst (nikdy nikoho nezabije). intervalTicks 0 = vrstva vypnutá.",
   "happiness": {
@@ -110,5 +145,11 @@
   },
   "startingBuildings": [
     "cottage"
-  ]
+  ],
+  "_comment_research": "Ceny v tech.json jsou zaklad. costMultiplier zdrazi cely strom jednim cislem; costGrowthPerTech pricita za kazdou hotovou technologii, takze prvni uzly jsou svizne a pozdejsi stoji za rozmyslenou. Rust je linearni schvalne - slozeny by posledni vetev udelal nedosazitelnou.",
+  "research": {
+    "costMultiplier": 2.2,
+    "costGrowthPerTech": 0.05
+  },
+  "_comment_planting": "Co jde zasadit. Druhy se odemykaji vyzkumem (requiresTech), takze sazeni roste spolu s hrou misto jedne vecne moznosti. Prvni druh je zaroven to, co seje UFO."
 }

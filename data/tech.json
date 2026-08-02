@@ -75,6 +75,20 @@
       "magnitude": 0.15
     },
     {
+      "id": "silviculture",
+      "cost": {
+        "planks": 60,
+        "tools": 15,
+        "science": 60
+      },
+      "prerequisites": [
+        "joinery"
+      ],
+      "unlocks": [
+        "tree_nursery"
+      ]
+    },
+    {
       "id": "granary",
       "cost": {
         "planks": 40,
@@ -141,8 +155,8 @@
     {
       "id": "bellows",
       "cost": {
-        "bronze": 20,
-        "tools": 10
+        "tools": 10,
+        "science": 20
       },
       "prerequisites": [
         "guilds"
@@ -157,7 +171,7 @@
         "bronze": 15
       },
       "prerequisites": [
-        "masonry"
+        "bronze_working"
       ],
       "effect": "growth_mult",
       "magnitude": 0.3
@@ -169,7 +183,7 @@
         "bronze": 20
       },
       "prerequisites": [
-        "granary"
+        "bronze_working"
       ],
       "effect": "storage_mult",
       "magnitude": 0.4
@@ -194,8 +208,7 @@
     {
       "id": "toolsmithing",
       "cost": {
-        "bronze": 30,
-        "iron": 20
+        "science": 50
       },
       "prerequisites": [
         "bellows"
@@ -211,7 +224,7 @@
         "tools": 20
       },
       "prerequisites": [
-        "sharp_axes"
+        "iron_working"
       ],
       "effect": "harvest_mult",
       "magnitude": 0.4
@@ -219,9 +232,8 @@
     {
       "id": "guilds",
       "cost": {
-        "iron": 25,
         "food": 80,
-        "science": 30
+        "science": 55
       },
       "prerequisites": [
         "joinery"
@@ -259,7 +271,7 @@
         "iron": 25
       },
       "prerequisites": [
-        "masonry"
+        "iron_working"
       ],
       "effect": "housing_mult",
       "magnitude": 0.3
@@ -506,9 +518,8 @@
     {
       "id": "robotics",
       "cost": {
-        "nanomaterial": 30,
         "computer": 25,
-        "science": 1500
+        "science": 1530
       },
       "prerequisites": [
         "computing"
@@ -524,7 +535,7 @@
         "robot": 10
       },
       "prerequisites": [
-        "automation_theory"
+        "fusion"
       ],
       "effect": "production_mult",
       "magnitude": 1.5
@@ -536,7 +547,7 @@
         "computer": 40
       },
       "prerequisites": [
-        "steel_frames"
+        "fusion"
       ],
       "effect": "housing_mult",
       "magnitude": 1.0
@@ -548,7 +559,7 @@
         "computer": 50
       },
       "prerequisites": [
-        "jet_age"
+        "robotics"
       ],
       "effect": "offline_mult",
       "magnitude": 1.5
@@ -572,7 +583,7 @@
         "nanomaterial": 40
       },
       "prerequisites": [
-        "genomics"
+        "robotics"
       ],
       "effect": "growth_mult",
       "magnitude": 1.5
@@ -632,7 +643,7 @@
         "iron": 30
       },
       "prerequisites": [
-        "guilds"
+        "iron_working"
       ],
       "unlocks": [
         "timber_yard",
@@ -699,7 +710,7 @@
         "bronze": 50
       },
       "prerequisites": [
-        "megaliths"
+        "bronze_working"
       ],
       "unlocks": [
         "great_statue"
@@ -754,7 +765,7 @@
         "science": 40
       },
       "prerequisites": [
-        "scriptoria"
+        "steam_power"
       ],
       "unlocks": [
         "observatory"
@@ -806,7 +817,7 @@
         "steel": 60
       },
       "prerequisites": [
-        "higher_education"
+        "steam_power"
       ],
       "unlocks": [
         "research_lab"

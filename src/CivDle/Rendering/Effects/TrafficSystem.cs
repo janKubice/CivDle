@@ -27,7 +27,14 @@ namespace CivDle.Rendering.Effects;
 public sealed class TrafficSystem
 {
     /// <summary>Strop poolu. Víc aut naráz stejně nikdo nerozezná, a rám by trpěl.</summary>
-    private const int MaxVehicles = 40;
+    /// <summary>
+    /// Strop počtu vozidel. Zvednutý spolu s hustotou provozu: na prázdné
+    /// silnici uprostřed velkoměsta bylo poznat, že se ulice jen tváří živé.
+    /// </summary>
+    private const int MaxVehicles = 72;
+
+    /// <summary>Strop pro testy i pro ladění — kolik vozidel systém nejvýš drží.</summary>
+    public static int MaxActive => MaxVehicles;
 
     /// <summary>Pod tímhle přiblížením je vozidlo pixel — nemá smysl ho počítat.</summary>
     private const float MinZoom = 0.5f;
@@ -36,7 +43,7 @@ public sealed class TrafficSystem
     private const float DespawnMargin = 64f;
 
     /// <summary>Na kolik obyvatel připadá jedno vozidlo v provozu.</summary>
-    private const double PeoplePerVehicle = 40.0;
+    private const double PeoplePerVehicle = 22.0;
 
     /// <summary>Kolik dlaždic silnice musí síť mít, aby mělo smysl něco vypouštět.</summary>
     private const int MinRoadTiles = 3;

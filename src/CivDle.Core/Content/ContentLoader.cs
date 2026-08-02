@@ -75,22 +75,75 @@ public sealed class ContentLoader
         var contracts = LoadContracts(Path.Combine(dataDirectory, "contracts.json"), resources, buildings, techs);
         var districts = LoadDistricts(Path.Combine(dataDirectory, "districts.json"), buildings);
         var citizens = LoadCitizens(Path.Combine(dataDirectory, "citizens.json"), resources, buildings, techs);
-        var neighbours = LoadNeighbours(Path.Combine(dataDirectory, "neighbours.json"));
         var seasons = LoadSeasons(Path.Combine(dataDirectory, "seasons.json"), resources);
         var tutorial = LoadTutorial(Path.Combine(dataDirectory, "tutorial.json"), resources, buildings, techs);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
-        var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources, buildings);
+        var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources, buildings, techs);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, neighbours, elections, milestones, seasons);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
         var vehicles = LoadVehicles(Path.Combine(dataDirectory, "vehicles.json"));
         var faith = LoadFaith(Path.Combine(dataDirectory, "faith.json"), resources);
+        var npcCities = LoadNpcCities(Path.Combine(dataDirectory, "npc-cities.json"), resources);
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, neighbours, elections, milestones, seasons, faith, vehicles, mods);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, faith, npcCities, vehicles, mods);
+    }
+
+    // ----- cizí města -----
+
+    /// <summary>
+    /// Načte pravidla soužití s cizími městy. Chybějící soubor není chyba —
+    /// mechanika je volitelná a hra (i starší mody) musí naběhnout bez ní.
+    /// </summary>
+    private NpcCityCatalog LoadNpcCities(string path, DefRegistry<Resource> resources)
+    {
+        if (!File.Exists(path))
+        {
+            return NpcCityCatalog.Empty;
+        }
+
+        var file = ReadFile<NpcCitiesFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var archetypes = new List<NpcCityArchetype>();
+        foreach (var dto in file.Archetypes ?? new List<NpcArchetypeDto>())
+        {
+            string id = dto.Id?.Trim() ?? string.Empty;
+            if (id.Length == 0)
+            {
+                throw new ContentLoadException(path, "Druh cizího města bez 'id'.");
+            }
+
+            archetypes.Add(new NpcCityArchetype(
+                id,
+                ParseColor(path, dto.MapColor, $"cizí město '{id}'"),
+                Math.Max(0, dto.Population),
+                ParseResourceAmounts(path, id, "trade", dto.Trade, resources)));
+        }
+
+        var names = file.Names ?? new List<string>();
+        if (archetypes.Count > 0 && names.Count == 0)
+        {
+            throw new ContentLoadException(path, "Cizí města nemají žádná jména ('names').");
+        }
+
+        return new NpcCityCatalog(
+            ParseResourceAmounts(path, "npc", "giftCost", file.GiftCost, resources),
+            Math.Max(0, file.GiftRelation),
+            ParseResourceAmounts(path, "npc", "roadCost", file.RoadCost, resources),
+            (int)Math.Round(file.TradeIntervalSeconds * 10),
+            Math.Clamp(file.BuyRelation, 0, 100),
+            ParseResourceAmounts(path, "npc", "buyCost", file.BuyCost, resources),
+            Math.Max(1, file.SurroundRadius),
+            Math.Max(1, file.SurroundBuildings),
+            Math.Max(0, file.TradeRelation),
+            Math.Max(0.0, file.CaravanBonusAtFullRelation),
+            new DefRegistry<NpcCityArchetype>(archetypes, a => a.Id, "cizí město", allowEmpty: true),
+            names);
     }
 
     // ----- víra -----
@@ -348,63 +401,6 @@ public sealed class ContentLoader
     /// <summary>
     /// Načte fond denních výzev. Volitelný soubor — bez něj hra běží bez výzev.
     /// </summary>
-    /// <summary>
-    /// Sousedé a pravidla vztahu. Soubor je volitelný — bez něj zůstanou karavany
-    /// anonymní jako dřív.
-    /// </summary>
-    private NeighbourCatalog LoadNeighbours(string path)
-    {
-        if (!File.Exists(path))
-        {
-            return NeighbourCatalog.Empty;
-        }
-
-        var file = ReadFile<NeighboursFileDto>(path);
-        CheckSchemaVersion(path, file.SchemaVersion);
-
-        var dtos = file.Neighbours ?? new List<NeighbourDto>();
-        if (dtos.Count == 0)
-        {
-            return NeighbourCatalog.Empty;
-        }
-
-        if (file.TradesPerLevel < 1)
-        {
-            throw new ContentLoadException(path,
-                $"'tradesPerLevel' musí být aspoň 1, je {file.TradesPerLevel}.");
-        }
-
-        // Vztah nesmí ubírat: nejhorší, co se smí stát, je, že soused platí základ.
-        if (file.BonusPerLevel < 0 || file.BonusPerLevel > 2)
-        {
-            throw new ContentLoadException(path,
-                $"'bonusPerLevel' musí být 0–2, je {file.BonusPerLevel}.");
-        }
-
-        if (file.MaxLevel is < 1 or > 20)
-        {
-            throw new ContentLoadException(path, $"'maxLevel' musí být 1–20, je {file.MaxLevel}.");
-        }
-
-        var result = new List<NeighbourDef>(dtos.Count);
-        var seenIds = new HashSet<string>(StringComparer.Ordinal);
-        for (int i = 0; i < dtos.Count; i++)
-        {
-            var dto = dtos[i];
-            string id = RequireId(path, dto.Id, $"Soused na pozici {i}");
-            if (!seenIds.Add(id))
-            {
-                throw new ContentLoadException(path, $"Duplicitní ID souseda '{id}'.");
-            }
-
-            result.Add(new NeighbourDef(id, ParseColor(path, dto.MapColor, $"soused '{id}'")));
-        }
-
-        return new NeighbourCatalog(
-            new DefRegistry<NeighbourDef>(result, n => n.Id, "soused"),
-            file.TradesPerLevel, file.BonusPerLevel, file.MaxLevel);
-    }
-
     /// <summary>
     /// Pojmenovaní obyvatelé a jejich prosby. Soubor je volitelný — bez něj se
     /// nikdo neozve a hraje se jako dřív.
@@ -1854,6 +1850,14 @@ public sealed class ContentLoader
                 $"Budova '{id}' má 'terrainHarvestRadius', ale nic nevyrábí — nemá co z krajiny brát.");
         }
 
+        // Reforestace: příliš velký okruh by z jedné školky udělal nekonečný les
+        // a těžba by přestala mít cenu.
+        if (dto.ReforestRadius is < 0 or > 24)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': 'reforestRadius' musí být 0–24, je {dto.ReforestRadius}.");
+        }
+
         // Doba stavby: strop je tu proto, aby překlep v datech neudělal budovu,
         // která se staví déle, než kdo kdy bude hrát.
         if (dto.BuildTicks is < 0 or > 1_000_000)
@@ -1869,7 +1873,8 @@ public sealed class ContentLoader
             dto.ServiceValue, upkeep, mergesToIndex, mergeCost, adjacency, dto.BuildTicks,
             dto.TerrainHarvestRadius, pollution, ParseMinSettlementRank(path, id, dto.MinSettlementRank, ranks),
             ParseMilestones(path, id, dto.Milestones),
-            ParseSpectacle(path, id, dto.Spectacle));
+            ParseSpectacle(path, id, dto.Spectacle),
+            dto.ReforestRadius);
     }
 
     /// <summary>
@@ -2382,6 +2387,9 @@ public sealed class ContentLoader
             case "terraformed": return (MetricKind.TerraformedTiles, -1);
             case "merged": return (MetricKind.MergedBuildings, -1);
             case "wonders": return (MetricKind.WondersCompleted, -1);
+            case "prayers": return (MetricKind.Prayers, -1);
+            case "cities": return (MetricKind.CitiesJoined, -1);
+            case "explored": return (MetricKind.Explored, -1);
             case "harvested": return (MetricKind.Harvested, ResolveRef(path, owner, "resource", resource, resources));
             case "resource": return (MetricKind.ResourceStock, ResolveRef(path, owner, "resource", resource, resources));
             case "building": return (MetricKind.BuildingOfType, ResolveRef(path, owner, "building", building, buildings));
@@ -2430,7 +2438,9 @@ public sealed class ContentLoader
 
     // ----- gameplay -----
 
-    private GameplayConfig LoadGameplay(string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings)
+    private GameplayConfig LoadGameplay(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings,
+        DefRegistry<TechDef> techs)
     {
         var file = ReadFile<GameplayFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -2594,18 +2604,7 @@ public sealed class ContentLoader
             ParseResourceAmounts(path, "gameplay", "dailyReward.reward", file.DailyReward?.Reward, resources),
             file.DailyReward is { StreakCap: > 0 } ? file.DailyReward.StreakCap : 7);
 
-        // Sázení: volitelný blok. Bez něj se vysazuje háj dávající první surovinu.
-        int plantResource = 0;
-        if (file.Planting?.Resource is { } plantResId && !resources.TryIndexOf(plantResId.Trim(), out plantResource))
-        {
-            throw new ContentLoadException(path, $"'planting.resource' odkazuje na neexistující surovinu '{plantResId}'.");
-        }
-
-        int plantAmount = file.Planting is { Amount: > 0 } ? file.Planting.Amount : 2;
-        var planting = new PlantingConfig(
-            ParseResourceAmounts(path, "gameplay", "planting.cost", file.Planting?.Cost, resources),
-            plantResource,
-            plantAmount);
+        var planting = ParsePlanting(path, file.Planting, resources, techs);
 
         return new GameplayConfig(
             file.StartingPopulation,
@@ -2636,13 +2635,99 @@ public sealed class ContentLoader
             ParsePollution(path, file.Pollution),
             ParseBulkBuild(path, file.BulkBuild),
             ParseLaser(path, file.Laser),
-            ParseHistory(path, file.History));
+            ParseHistory(path, file.History),
+            ParseResearch(path, file.Research));
     }
 
     /// <summary>
     /// Nastavení časosběru. Chybí-li blok, nic se nezaznamenává a save zůstává
     /// stejně velký jako dřív.
     /// </summary>
+    /// <summary>
+    /// Škálování cen výzkumu. Chybí-li blok, platí ceny přesně tak, jak jsou
+    /// v tech.json — starší data a mody tím nic neztratí.
+    /// </summary>
+    private static ResearchConfig? ParseResearch(string path, ResearchDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (dto.CostMultiplier is < 0.1 or > 100)
+        {
+            throw new ContentLoadException(path,
+                $"'research.costMultiplier' musí být 0.1–100, je {dto.CostMultiplier}.");
+        }
+
+        // Strop je tu proti překlepu: 0.5 místo 0.05 by po padesáti výzkumech
+        // udělalo z dalšího uzlu nedosažitelnou zeď.
+        if (dto.CostGrowthPerTech is < 0 or > 1)
+        {
+            throw new ContentLoadException(path,
+                $"'research.costGrowthPerTech' musí být 0–1, je {dto.CostGrowthPerTech}.");
+        }
+
+        return new ResearchConfig(dto.CostMultiplier, dto.CostGrowthPerTech);
+    }
+
+    /// <summary>
+    /// Co všechno jde zasadit. Starší data mají jen jeden druh psaný přímo
+    /// v bloku (<c>cost/resource/amount</c>) — ten se bere jako první druh, aby
+    /// se hra i mody s takovými daty chovaly jako dřív.
+    /// </summary>
+    private static PlantingConfig ParsePlanting(
+        string path, PlantingDto? dto, DefRegistry<Resource> resources, DefRegistry<TechDef> techs)
+    {
+        var species = new List<PlantSpecies>();
+
+        foreach (var speciesDto in dto?.Species ?? new List<PlantSpeciesDto>())
+        {
+            string id = RequireId(path, speciesDto.Id, "Druh k zasazení");
+            if (!resources.TryIndexOf((speciesDto.Resource ?? string.Empty).Trim(), out int resourceIndex))
+            {
+                throw new ContentLoadException(path,
+                    $"'planting.species[{id}].resource' odkazuje na neexistující surovinu '{speciesDto.Resource}'.");
+            }
+
+            int techIndex = -1;
+            if (speciesDto.RequiresTech is { Length: > 0 } techId
+                && !techs.TryIndexOf(techId.Trim(), out techIndex))
+            {
+                throw new ContentLoadException(path,
+                    $"'planting.species[{id}].requiresTech' odkazuje na neexistující technologii '{techId}'.");
+            }
+
+            species.Add(new PlantSpecies(
+                id,
+                ParseResourceAmounts(path, "gameplay", $"planting.species[{id}].cost", speciesDto.Cost, resources),
+                resourceIndex,
+                Math.Max(1, speciesDto.Amount),
+                techIndex));
+        }
+
+        if (species.Count > 0)
+        {
+            return new PlantingConfig(species);
+        }
+
+        // Starý tvar bloku.
+        int legacyResource = 0;
+        if (dto?.Resource is { } legacyId && !resources.TryIndexOf(legacyId.Trim(), out legacyResource))
+        {
+            throw new ContentLoadException(path, $"'planting.resource' odkazuje na neexistující surovinu '{legacyId}'.");
+        }
+
+        return new PlantingConfig(new[]
+        {
+            new PlantSpecies(
+                "grove",
+                ParseResourceAmounts(path, "gameplay", "planting.cost", dto?.Cost, resources),
+                legacyResource,
+                dto is { Amount: > 0 } ? dto.Amount : 2),
+        });
+    }
+
     private static HistoryConfig? ParseHistory(string path, HistoryDto? dto)
     {
         if (dto is null)
@@ -3219,7 +3304,6 @@ public sealed class ContentLoader
         DistrictCatalog districts,
         SettlementRankLadder settlementRanks,
         CitizenCatalog citizens,
-        NeighbourCatalog neighbours,
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
         SeasonCalendar seasons)
@@ -3256,7 +3340,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, neighbours, elections, milestones, seasons);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons);
         FillGapsFromBaseLanguage(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -3289,7 +3373,6 @@ public sealed class ContentLoader
         DistrictCatalog districts,
         SettlementRankLadder settlementRanks,
         CitizenCatalog citizens,
-        NeighbourCatalog neighbours,
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
         SeasonCalendar seasons)
@@ -3341,7 +3424,6 @@ public sealed class ContentLoader
         required.AddRange(districts.Types.All.Select(d => d.NameKey));
         required.AddRange(settlementRanks.Ranks.Select(r => r.NameKey));
         required.AddRange(citizens.Requests.All.Select(r => r.TextKey));
-        required.AddRange(neighbours.Neighbours.All.Select(n => n.NameKey));
         required.AddRange(elections.Candidates.Select(c => c.NameKey));
         required.AddRange(elections.Candidates.Select(c => c.DescriptionKey));
         required.AddRange(milestones.Select(m => m.NameKey));

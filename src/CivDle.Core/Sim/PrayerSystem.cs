@@ -141,6 +141,33 @@ internal sealed class PrayerSystem
             case "smite_flood":
                 sim.StrikeFlood(targetX, targetY, prayer.RadiusTiles);
                 break;
+
+            case "bless_regrow":
+                // Rychlý růst: to, co pily vykácely, se vrátí naráz. Lesní školka
+                // dělá totéž pomalu a bez rizika — tohle je ta netrpělivá cesta.
+                sim.RegrowArea(targetX, targetY, prayer.RadiusTiles);
+                break;
+
+            case "bless_reveal":
+                sim.Fog.Reveal(targetX, targetY, prayer.RadiusTiles);
+                break;
+
+            case "bless_windfall":
+                // Dar do skladu, ale jen ze surovin, které hráč zná — jinak by
+                // modlitba obcházela celou progresi.
+                sim.GrantKnownResource(magnitude, targetX, targetY);
+                break;
+
+            case "bless_festival":
+                // Obchází ochlazení slavnosti schválně: hráč za to zaplatil vírou
+                // a riskoval nevyslyšení. Kdyby modlitba mlčky nic neudělala jen
+                // proto, že tlačítko zrovna nejde, byla by to past.
+                sim.ForceBoost();
+                break;
+
+            case "smite_blight":
+                sim.BlightArea(targetX, targetY, prayer.RadiusTiles);
+                break;
         }
     }
 }
