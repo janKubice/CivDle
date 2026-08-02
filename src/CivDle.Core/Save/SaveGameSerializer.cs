@@ -62,6 +62,7 @@ public sealed class SaveGameSerializer
     private const string SectionMilestones = "milestones";
     private const string SectionConstruction = "construction";
     private const string SectionNodes = "nodes";
+    private const string SectionFog = "fog";
     private const string SectionPollution = "pollution";
     private const string SectionContracts = "contracts";
     private const string SectionCitizens = "citizens";
@@ -107,6 +108,15 @@ public sealed class SaveGameSerializer
             w.Write(simulation.AutoUpgradeLevelRaw);
             w.Write(simulation.AutoMergeRaw);
             w.Write(simulation.GovernorReserveRaw);
+        });
+        WriteSection(writer, SectionFog, w =>
+        {
+            var keys = simulation.Fog.ExploredKeys;
+            w.Write(keys.Count);
+            foreach (long key in keys)
+            {
+                w.Write(key);
+            }
         });
         WriteSection(writer, SectionKnownResources, w => WriteKnownResources(w, simulation));
         WriteSection(writer, SectionWorldChanges, w => WriteWorldChanges(w, simulation));
@@ -238,6 +248,22 @@ public sealed class SaveGameSerializer
 
             // Smazaný milník v datech se prostě přeskočí.
         }
+    }
+
+    /// <summary>
+    /// Odhalené čtverce mapy. Starší save sekci nemá — hráč pak uvidí jen okolí
+    /// svých budov, což je pořád lepší než celá mapa odkrytá zadarmo.
+    /// </summary>
+    private static void ReadFog(BinaryReader reader, Simulation simulation)
+    {
+        int count = reader.ReadInt32();
+        var keys = new List<long>(Math.Max(0, Math.Min(count, 1_000_000)));
+        for (int i = 0; i < count; i++)
+        {
+            keys.Add(reader.ReadInt64());
+        }
+
+        simulation.Fog.Restore(keys);
     }
 
     private static void ReadGovernor(BinaryReader reader, Simulation simulation)
@@ -384,6 +410,7 @@ public sealed class SaveGameSerializer
             case SectionChallenges: ReadChallenges(section, simulation); break;
             case SectionConstruction: ReadConstruction(section, simulation); break;
             case SectionNodes: ReadNodes(section, simulation); break;
+            case SectionFog: ReadFog(section, simulation); break;
             case SectionPollution: ReadPollution(section, simulation); break;
             case SectionContracts: ReadContracts(section, content, simulation); break;
             case SectionCitizens: ReadCitizens(section, simulation); break;

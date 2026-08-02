@@ -175,8 +175,19 @@ public sealed class Simulation
         _achievementSystem = new AchievementSystem(content);
         _achievementsUnlocked = new bool[content.Achievements.Count];
 
+        // Start je vždycky vidět — hráč musí od první vteřiny vědět, kde stojí.
+        Fog.Reveal(0, 0, FogRevealRadius * 2);
+
         PlaceStartingBuildings();
     }
+
+    /// <summary>
+    /// Mlha války: co hráč neviděl, je tma. Odhaluje se stavěním a ruční těžbou.
+    /// </summary>
+    public FogOfWar Fog { get; } = new();
+
+    /// <summary>Kolik dlaždic kolem sebe odhalí budova nebo ruční sběr.</summary>
+    public const int FogRevealRadius = 10;
 
     /// <summary>
     /// Postaví u startu to, co má svět mít od začátku (data: <c>startingBuildings</c>).
@@ -1817,6 +1828,10 @@ public sealed class Simulation
         resourceIndex = 0;
         amount = 0;
         outcome = HarvestOutcome.Normal;
+
+        // Kam hráč dosáhne rukou, tam taky vidí — ruční sběr je ten druhý
+        // (a v rané hře jediný) způsob, jak se svět otevírá.
+        Fog.Reveal(x, y, FogRevealRadius);
 
         long tile = TileKey.Pack(x, y);
         if (_occupancy.ContainsKey(tile))
@@ -3759,6 +3774,11 @@ public sealed class Simulation
         // tudy prochází i obnova ze savu — jinak by se po načtení zapomněl.
         _settledBiomes[Terrain.BiomeAt(x, y)] = true;
 
+        // Co postavíš, na to i vidíš. Je to tady ze stejného důvodu jako řádek
+        // výš: touhle cestou jde i obnova ze savu, takže i starý save (bez sekce
+        // mlhy) dostane odhalené aspoň okolí svých budov.
+        Fog.Reveal(x, y, FogRevealRadius);
+
         // Cache napojení na silnice mluví o polích, která se právě mění — zneplatni
         // ji TADY, ne až po zavolání RoadBuilderu. Dřív to bylo až na konci
         // TryPlaceBuilding, takže se stihl někdo zeptat na napojení budovy, kterou
@@ -4149,6 +4169,8 @@ public sealed class Simulation
         HighestSettlementRank = -1; // v novém měřítku je i první osada zas událost
         _founders.Clear(); // zakladatelé patří ke světu, který právě skončil
         History.Clear();   // a časosběr taky — nový svět začíná prázdným listem
+        Fog.Clear();       // nový svět se musí objevit znovu
+        Fog.Reveal(0, 0, FogRevealRadius * 2);
         Array.Clear(_neighbourTrades); // sousedi nového měřítka hráče ještě neznají
         PendingCitizenRequest = CitizenRequest.None;
         CitizenCooldownTicks = 0;

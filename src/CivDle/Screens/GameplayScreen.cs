@@ -81,6 +81,9 @@ public sealed class GameplayScreen : IScreen
     private readonly ToastRenderer _toasts;
     private readonly CityScaleRenderer _cityScale;
     private readonly VignetteRenderer _vignette;
+
+    /// <summary>Závoj přes neprozkoumaný svět — kreslí se až nad mapou a budovami.</summary>
+    private readonly FogRenderer _fogRenderer;
     private readonly BubbleSystem _bubbles;
     private readonly CaravanSystem _caravans;
     private readonly GoldenSpawnSystem _golden;
@@ -215,6 +218,7 @@ public sealed class GameplayScreen : IScreen
         _agents = new AgentSystem(screens.Content, screens.Sprites);
         _minimap = new MinimapRenderer(screens.GraphicsDevice, screens.Content.Biomes, screens.WhitePixel);
         _vignette = new VignetteRenderer(screens.GraphicsDevice);
+        _fogRenderer = new FogRenderer(screens.WhitePixel);
         _bubbles = new BubbleSystem(screens.Sprites, screens.Content);
         _caravans = new CaravanSystem(screens.Sprites, screens.Content);
         _golden = new GoldenSpawnSystem(screens.Sprites, screens.Content);
@@ -532,6 +536,13 @@ public sealed class GameplayScreen : IScreen
         }
 
         _weatherRenderer.Draw(spriteBatch, _screens.GraphicsDevice.Viewport); // závoj + srážky nad scénou
+        // Mlha až nad mapou i zástavbou: schovat musí i to, co v neprozkoumaném
+        // stojí. Ve fotorežimu se vypíná — na snímek do obchodu patří svět, ne tma.
+        if (!_captureMode)
+        {
+            _fogRenderer.Draw(spriteBatch, _camera, _simulation.Fog);
+        }
+
         _vignette.Draw(spriteBatch, _screens.GraphicsDevice.Viewport); // decentní sevření pohledu, pod HUD
 
         // Fotorežim: všechno od téhle chvíle je HUD, a ten se do fotky nehodí.
