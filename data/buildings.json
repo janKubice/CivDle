@@ -432,7 +432,8 @@
         "electronics": 50,
         "computer": 40,
         "nanomaterial": 40,
-        "robot": 30
+        "robot": 30,
+        "science": 75
       }
     },
     {
@@ -1493,7 +1494,8 @@
       "storage": {
         "wood": 120,
         "planks": 80,
-        "stone": 100
+        "stone": 100,
+        "science": 60
       },
       "allowedBiomes": [
         "grassland",
@@ -1984,7 +1986,8 @@
         "steel": 3000,
         "machine_parts": 2000,
         "electronics": 2000,
-        "computer": 1500
+        "computer": 1500,
+        "science": 2500
       },
       "powerDemand": 40,
       "allowedBiomes": [
@@ -2664,7 +2667,14 @@
         "forest",
         "taiga",
         "highlands"
-      ]
+      ],
+      "recipe": {
+        "output": {
+          "science": 6
+        },
+        "timeTicks": 60
+      },
+      "workerSlots": 6
     },
     {
       "id": "cathedral",
@@ -2745,7 +2755,198 @@
         "forest",
         "taiga",
         "highlands"
-      ]
+      ],
+      "recipe": {
+        "output": {
+          "science": 20
+        },
+        "timeTicks": 55
+      },
+      "workerSlots": 6
+    },
+    {
+      "id": "library",
+      "category": "science",
+      "mapColor": "#5E86B8",
+      "footprint": [
+        1,
+        1
+      ],
+      "workerSlots": 2,
+      "buildCost": {
+        "planks": 25,
+        "stone": 15
+      },
+      "recipe": {
+        "input": {
+          "planks": 1
+        },
+        "output": {
+          "science": 1
+        },
+        "timeTicks": 60
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "serviceValue": 3,
+      "upkeep": {
+        "food": 1
+      },
+      "autoBuild": true,
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      }
+    },
+    {
+      "id": "school",
+      "category": "science",
+      "mapColor": "#4F79AE",
+      "footprint": [
+        2,
+        2
+      ],
+      "workerSlots": 5,
+      "buildCost": {
+        "planks": 60,
+        "stone": 45,
+        "bronze": 10
+      },
+      "recipe": {
+        "input": {
+          "planks": 2
+        },
+        "output": {
+          "science": 3
+        },
+        "timeTicks": 55
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "serviceValue": 8,
+      "upkeep": {
+        "food": 2
+      },
+      "upgradesTo": "university",
+      "upgradeCost": {
+        "stone": 80,
+        "iron": 30
+      },
+      "autoBuild": true,
+      "milestones": {
+        "every": 4,
+        "bonusPerStep": 0.12,
+        "maxSteps": 10
+      }
+    },
+    {
+      "id": "university",
+      "category": "science",
+      "mapColor": "#3F639B",
+      "footprint": [
+        2,
+        2
+      ],
+      "workerSlots": 10,
+      "buildCost": {
+        "planks": 140,
+        "stone": 120,
+        "iron": 40
+      },
+      "recipe": {
+        "input": {
+          "planks": 3,
+          "tools": 1
+        },
+        "output": {
+          "science": 8
+        },
+        "timeTicks": 50
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "serviceValue": 16,
+      "upkeep": {
+        "food": 4,
+        "tools": 1
+      },
+      "milestones": {
+        "every": 3,
+        "bonusPerStep": 0.15,
+        "maxSteps": 8
+      }
+    },
+    {
+      "id": "research_lab",
+      "category": "science",
+      "mapColor": "#6FA8DC",
+      "footprint": [
+        2,
+        2
+      ],
+      "workerSlots": 14,
+      "buildCost": {
+        "steel": 120,
+        "machine_parts": 40
+      },
+      "recipe": {
+        "input": {
+          "electronics": 1
+        },
+        "output": {
+          "science": 25
+        },
+        "timeTicks": 45
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "serviceValue": 10,
+      "upkeep": {
+        "tools": 2
+      },
+      "powerDemand": 6,
+      "milestones": {
+        "every": 3,
+        "bonusPerStep": 0.15,
+        "maxSteps": 8
+      }
     }
   ]
 }

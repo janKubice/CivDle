@@ -153,6 +153,7 @@ public sealed record ContractDto(
 public sealed record GameplayFileDto(
     int SchemaVersion,
     double StartingPopulation,
+    string[]? StartingBuildings,
     int BaseHousingCapacity,
     double PopulationGrowthPerSecond,
     double FoodPerPersonPerSecond,

@@ -92,7 +92,11 @@
     "productionPenalty": 0.35
   },
   "bulkBuild": {
-    "batches": [1, 5, 25],
+    "batches": [
+      1,
+      5,
+      25
+    ],
     "maxPerAction": 400
   },
   "laser": {
@@ -103,5 +107,8 @@
   "history": {
     "intervalSeconds": 20,
     "maxFrames": 240
-  }
+  },
+  "startingBuildings": [
+    "cottage"
+  ]
 }

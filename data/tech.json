@@ -111,7 +111,8 @@
       "id": "bronze_working",
       "cost": {
         "stone": 40,
-        "tools": 15
+        "tools": 15,
+        "science": 35
       },
       "prerequisites": [
         "tools"
@@ -176,7 +177,8 @@
       "id": "iron_working",
       "cost": {
         "stone": 60,
-        "bronze": 25
+        "bronze": 25,
+        "science": 80
       },
       "prerequisites": [
         "bronze_working"
@@ -217,7 +219,8 @@
       "id": "guilds",
       "cost": {
         "iron": 25,
-        "food": 80
+        "food": 80,
+        "science": 30
       },
       "prerequisites": [
         "toolsmithing"
@@ -239,7 +242,8 @@
       "id": "sanitation",
       "cost": {
         "iron": 30,
-        "stone": 80
+        "stone": 80,
+        "science": 45
       },
       "prerequisites": [
         "aqueducts",
@@ -265,7 +269,8 @@
       "id": "steam_power",
       "cost": {
         "iron": 40,
-        "coal": 40
+        "coal": 40,
+        "science": 200
       },
       "prerequisites": [
         "iron_working"
@@ -414,7 +419,8 @@
       "id": "electronics",
       "cost": {
         "machine_parts": 30,
-        "steel": 30
+        "steel": 30,
+        "science": 600
       },
       "prerequisites": [
         "electrification"
@@ -430,7 +436,8 @@
       "id": "computing",
       "cost": {
         "electronics": 30,
-        "machine_parts": 20
+        "machine_parts": 20,
+        "science": 900
       },
       "prerequisites": [
         "electronics"
@@ -494,7 +501,8 @@
       "id": "fusion",
       "cost": {
         "computer": 30,
-        "electronics": 40
+        "electronics": 40,
+        "science": 2000
       },
       "prerequisites": [
         "computing"
@@ -508,7 +516,8 @@
       "id": "robotics",
       "cost": {
         "nanomaterial": 30,
-        "computer": 25
+        "computer": 25,
+        "science": 1500
       },
       "prerequisites": [
         "fusion"
@@ -732,7 +741,8 @@
       "id": "scriptoria",
       "cost": {
         "planks": 140,
-        "stone": 180
+        "stone": 180,
+        "science": 60
       },
       "prerequisites": [
         "guilds",
@@ -760,7 +770,8 @@
       "id": "astronomy",
       "cost": {
         "stone": 280,
-        "steel": 90
+        "steel": 90,
+        "science": 40
       },
       "prerequisites": [
         "scriptoria",
@@ -768,6 +779,55 @@
       ],
       "unlocks": [
         "observatory"
+      ]
+    },
+    {
+      "id": "writing",
+      "cost": {
+        "planks": 25,
+        "stone": 15
+      },
+      "unlocks": [
+        "library"
+      ]
+    },
+    {
+      "id": "schooling",
+      "cost": {
+        "planks": 60,
+        "science": 25
+      },
+      "prerequisites": [
+        "writing"
+      ],
+      "unlocks": [
+        "school"
+      ]
+    },
+    {
+      "id": "higher_education",
+      "cost": {
+        "stone": 150,
+        "science": 120
+      },
+      "prerequisites": [
+        "schooling"
+      ],
+      "unlocks": [
+        "university"
+      ]
+    },
+    {
+      "id": "scientific_method",
+      "cost": {
+        "science": 400,
+        "steel": 60
+      },
+      "prerequisites": [
+        "higher_education"
+      ],
+      "unlocks": [
+        "research_lab"
       ]
     }
   ]

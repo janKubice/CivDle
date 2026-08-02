@@ -169,6 +169,29 @@ public sealed class Simulation
         _questsCompleted = new bool[content.Quests.Count];
         _achievementSystem = new AchievementSystem(content);
         _achievementsUnlocked = new bool[content.Achievements.Count];
+
+        PlaceStartingBuildings();
+    }
+
+    /// <summary>
+    /// Postaví u startu to, co má svět mít od začátku (data: <c>startingBuildings</c>).
+    ///
+    /// <para>Prázdná mapa je nejhorší první dojem, jaký idle hra může udělat —
+    /// hráč nevidí, o čem hra je. Jeden domek řekne „tohle stavíš" dřív, než
+    /// stihne kliknout.</para>
+    ///
+    /// <para>Staví se zdarma a ve spirále od středu: v konstruktoru ještě nemá kdo
+    /// platit a na souši u startu nemusí být místo hned na první dlaždici. Když se
+    /// budova nevejde ani po celé spirále (ostrov o jedné dlaždici), svět prostě
+    /// začne prázdný — spadnout kvůli tomu by bylo nepřiměřené.</para>
+    /// </summary>
+    private void PlaceStartingBuildings()
+    {
+        var indices = _content.Gameplay.StartingBuildingIndices;
+        for (int i = 0; i < indices.Count; i++)
+        {
+            TryFoundNearCity(indices[i], out _, out _);
+        }
     }
 
     /// <summary>Nekonečný terén, nad kterým simulace běží.</summary>
