@@ -2043,9 +2043,20 @@ public sealed class ContentLoader
                 unlocks.Add(buildingIndex);
             }
 
+            // Cíl efektu je naopak ODKAZ — překlep v názvu suroviny by znamenal
+            // vylepšení, které tiše nedělá nic (CLAUDE.md: fail-fast).
+            int targetResource = -1;
+            if (!string.IsNullOrWhiteSpace(dto.TargetResource)
+                && !resources.TryIndexOf(dto.TargetResource.Trim(), out targetResource))
+            {
+                throw new ContentLoadException(
+                    path, $"Technologie '{id}' míří na neexistující surovinu '{dto.TargetResource}'.");
+            }
+
             // Efekt se NEvaliduje proti seznamu — neznámý se za běhu tiše ignoruje
             // (behavior-ID hook, data smí předběhnout kód).
-            techs.Add(new TechDef(id, cost, prereqs, unlocks, dto.Effect?.Trim() ?? string.Empty, dto.Magnitude));
+            techs.Add(new TechDef(
+                id, cost, prereqs, unlocks, dto.Effect?.Trim() ?? string.Empty, dto.Magnitude, targetResource));
         }
 
         return new DefRegistry<TechDef>(techs, t => t.Id, "technologie", allowEmpty: true);

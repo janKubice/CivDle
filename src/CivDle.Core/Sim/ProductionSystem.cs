@@ -135,6 +135,10 @@ internal sealed class ProductionSystem
                     yield *= seasonFoodMult;
                 }
 
+                // Technologie cílené na jednu surovinu („+5 % dřeva") — drobnosti,
+                // kterými je strom plný, se musí projevit i ve výrobě.
+                yield *= sim.ResourceProductionMult(index);
+
                 resources[index] = Math.Min(resources[index] + yield, storageCaps[index]);
             }
 

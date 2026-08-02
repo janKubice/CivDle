@@ -321,7 +321,8 @@ public sealed record TechDto(
     string[]? Prerequisites,
     string[]? Unlocks,
     string? Effect,
-    double Magnitude);
+    double Magnitude,
+    string? TargetResource);
 
 /// <summary>
 /// Podmínka cíle/achievementu/Vzestupu tak, jak leží v JSON: metrika + práh + volitelný

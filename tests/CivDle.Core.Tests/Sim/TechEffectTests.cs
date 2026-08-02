@@ -66,17 +66,41 @@ public class TechEffectTests
         var content = TestData.LoadRealContent();
         var techs = content.Techs;
 
-        // Strom má být bohatý, ne pár uzlů.
-        Assert.True(techs.Count >= 30, $"tech tree má mít aspoň 30 uzlů, má {techs.Count}");
+        // Strom má být bohatý, ne pár uzlů — drobná vylepšení jsou to, čím je plný.
+        Assert.True(techs.Count >= 90, $"tech tree má mít aspoň 90 uzlů, má {techs.Count}");
 
         int passives = techs.All.Count(t => t.HasPassiveEffect);
-        Assert.True(passives >= 20, $"aspoň 20 technologií má dávat pasivní bonus, dává {passives}");
+        Assert.True(passives >= 50, $"aspoň 50 technologií má dávat pasivní bonus, dává {passives}");
 
-        // „Síť" = existují uzly s víc než jednou prerekvizitou (křížové vazby, ne jen řetěz).
-        int crossLinks = techs.All.Count(t => t.PrerequisiteIndices.Count > 1);
-        Assert.True(crossLinks >= 5, $"síť má mít křížové vazby, uzlů s 2+ prereky je {crossLinks}");
+        // Dřív se tu vyžadovaly křížové vazby („síť"). Záměr se změnil: strom se
+        // kreslí jako hvězdice a ta je bez křížení jen tehdy, když má každý uzel
+        // nejvýš jednoho rodiče. Rozvětvenost proto neměří počet prereků, ale
+        // počet uzlů, které mají víc než jedno dítě.
+        var childCount = new int[techs.Count];
+        foreach (var tech in techs.All)
+        {
+            foreach (int prereq in tech.PrerequisiteIndices)
+            {
+                childCount[prereq]++;
+            }
+        }
 
-        // Kořeny (bez prereků) musí existovat, jinak by nešlo začít.
-        Assert.Contains(techs.All, t => t.PrerequisiteIndices.Count == 0);
+        int branchPoints = childCount.Count(c => c > 1);
+        Assert.True(branchPoints >= 8, $"hvězda má mít víc ramen, větvení je jen {branchPoints}");
+
+        // Právě jeden kořen — jádro hvězdy, od kterého se všechno odvíjí.
+        Assert.Single(techs.All.Where(t => t.PrerequisiteIndices.Count == 0));
+    }
+
+    [Fact]
+    public void RealContent_HasTechsAimedAtSingleResources()
+    {
+        // Drobnosti typu „+5 % dřeva" jsou důvod, proč je strom velký a ne jen
+        // dlouhý seznam téhož globálního bonusu.
+        var techs = TestData.LoadRealContent().Techs;
+
+        int targeted = techs.All.Count(t => t.TargetResourceIndex >= 0);
+
+        Assert.True(targeted >= 12, $"cílených vylepšení má být aspoň 12, je {targeted}");
     }
 }
