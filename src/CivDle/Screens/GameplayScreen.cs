@@ -1,5 +1,6 @@
 using System.Text;
 using CivDle.Audio;
+using CivDle.Core.Config;
 using CivDle.Core.Content;
 using CivDle.Core.Save;
 using CivDle.Core.Sim;
@@ -134,6 +135,13 @@ public sealed class GameplayScreen : IScreen
 
     /// <summary>Tlačítko zakázek; <c>null</c>, když jsou v datech vypnuté.</summary>
     private Button? _contractsButton;
+
+    /// <summary>
+    /// Odehrané sekundy od posledního zápisu do kroniky. Sčítá se v reálném čase
+    /// (ne herním) — hráč se ptá „kolik hodin jsem v tom nechal", ne kolik tiků
+    /// odtikala simulace.
+    /// </summary>
+    private double _unsavedPlaySeconds;
     private Widget _buildMenuPanel = null!;
     private Widget _statusPanel = null!;
     private HorizontalStackPanel _roadModePanel = null!;
@@ -266,6 +274,7 @@ public sealed class GameplayScreen : IScreen
         // Kulisa podle biomu a počasí — atmosféra stála skoro jen na obraze.
         _soundscape.Update(dt, _simulation);
         _hoverSeconds += dt;
+        _unsavedPlaySeconds += dt;
 
         // Pravidelný autosave: idle hra běží hodiny, ztratit ji kvůli pádu
         // nebo zavření okna je to nejhorší, co se může stát.
@@ -543,7 +552,7 @@ public sealed class GameplayScreen : IScreen
             return;
         }
 
-        _desktop.Render();
+        _screens.RenderDesktop(this, _desktop);
 
         // Minimapa, popupy a toasty až nad UI — hráč je nesmí přehlédnout.
         _minimap.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, _camera, _simulation);
@@ -1400,8 +1409,28 @@ public sealed class GameplayScreen : IScreen
     private void SyncChronicle()
     {
         var profile = _screens.Profile;
-        bool changed = profile.RecordBest(
-            _simulation.Population, _simulation.Buildings.Length, _simulation.AscensionLevel);
+        var eras = _screens.Content.Eras;
+        int eraIndex = _simulation.CurrentEraIndex;
+
+        bool changed = profile.RecordRun(new RunRecord(
+            _simulation.Population,
+            _simulation.Buildings.Length,
+            _simulation.AscensionLevel,
+            _simulation.Settlements.Count,
+            eraIndex >= 0 && eraIndex < eras.Count ? eras[eraIndex].Order : -1,
+            eraIndex >= 0 && eraIndex < eras.Count ? eras[eraIndex].Id : string.Empty,
+            _simulation.ContractsCompleted,
+            _simulation.WondersCompleted,
+            _simulation.TickCount / Simulation.TicksPerSecond));
+
+        // Odehraný čas se sčítá po přírůstcích — celek by se každým uložením
+        // připočetl znovu.
+        if (_unsavedPlaySeconds > 0)
+        {
+            profile.AddPlaytime(_unsavedPlaySeconds);
+            _unsavedPlaySeconds = 0;
+            changed = true;
+        }
 
         var biomes = _screens.Content.Biomes;
         for (int i = 0; i < biomes.Count; i++)
@@ -1421,6 +1450,7 @@ public sealed class GameplayScreen : IScreen
     private static Color NotificationColor(NotificationKind kind) => kind switch
     {
         NotificationKind.QuestCompleted => new Color(120, 200, 140),
+        NotificationKind.ContractReady => new Color(150, 220, 150), // stejná zelená jako „✓" na tlačítku zakázek
         NotificationKind.AchievementUnlocked => new Color(230, 200, 110),
         NotificationKind.Ascended => new Color(180, 140, 230),
         NotificationKind.BuildingMilestone => new Color(255, 214, 120), // barva ohňostroje
@@ -1641,6 +1671,14 @@ public sealed class GameplayScreen : IScreen
             stack.Widgets.Add(_contractsButton);
         }
 
+        // Grafy růstu („Moje čísla") přímo z lišty — dřív bydlely jen v pauze
+        // a hráč je tam nehledal. Statistika je odměna, ne systémové nastavení.
+        if (_simulation.HistoryEnabled)
+        {
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.stats"],
+                () => _screens.Push(new StatsScreen(_screens, _simulation.History)), loc["tip.stats"]));
+        }
+
         // Každá funkce se objeví, teprve až si ji hráč odemkne (data/features.json).
         if (_simulation.IsFeatureUnlocked("plant"))
         {
@@ -1709,7 +1747,7 @@ public sealed class GameplayScreen : IScreen
         if (_simulation.IsFeatureUnlocked("ascend"))
         {
             stack.Widgets.Add(UiFactory.SmallButton(loc["hud.ascend"],
-                () => _screens.Push(new AscensionScreen(_screens, _simulation)), loc["tip.ascend"]));
+                () => _screens.Push(new AscensionScreen(_screens, _simulation, _info)), loc["tip.ascend"]));
         }
 
         stack.Widgets.Add(UiFactory.SmallButton(loc["hud.achievements"],
@@ -2053,7 +2091,7 @@ public sealed class GameplayScreen : IScreen
                 break;
 
             case FocusKind.Screen when focus.Target == "ascend":
-                _screens.Push(new AscensionScreen(_screens, _simulation));
+                _screens.Push(new AscensionScreen(_screens, _simulation, _info));
                 break;
         }
     }

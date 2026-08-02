@@ -231,7 +231,7 @@ public sealed class TechScreen : IScreen
 
         spriteBatch.End();
 
-        _desktop.Render();
+        _screens.RenderDesktop(this, _desktop);
 
         // Detail uzlu až nad UI (ať nezmizí pod panelem) a U KURZORU — hráč nemá
         // očima skákat na spodek obrazovky, aby zjistil, na co kouká.

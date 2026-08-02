@@ -544,6 +544,12 @@ public sealed class Simulation
     /// <summary>Zaznamenává se vůbec časosběr?</summary>
     public bool HistoryEnabled => _content.Gameplay.History.IsEnabled;
 
+    /// <summary>
+    /// Sejme snímek kroniky hned teď. Pro okamžiky, které si ho zaslouží bez
+    /// ohledu na hodiny — hlavně těsně před uložením časosběru na disk.
+    /// </summary>
+    public void CaptureHistoryNow() => _historySystem.Capture(this);
+
     /// <summary>Kolik dostavěných budov daného typu se do milníků počítá.</summary>
     public long MilestoneCount(int defIndex) => _milestoneBonuses.CountOf(defIndex);
 

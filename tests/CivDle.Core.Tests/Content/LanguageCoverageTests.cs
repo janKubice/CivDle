@@ -26,6 +26,23 @@ public class LanguageCoverageTests
     }
 
     [Fact]
+    public void EveryShippedLanguageIsFullyTranslated()
+    {
+        // Částečný překlad hra unese (doplní se ze základního jazyka), ale to je
+        // pojistka pro rozpracovaný jazyk — ne stav, ve kterém se hra vydává.
+        // Půl obrazovky česky a půl anglicky vypadá jako chyba, protože to chyba je.
+        var content = TestData.LoadRealContent();
+
+        foreach (var language in content.Languages.All)
+        {
+            Assert.True(
+                language.IsComplete,
+                $"Jazyk '{language.Id}' je přeložený jen z {language.Coverage:P0} — dopřelož ho, "
+                + "nebo ho z data/lang vyřaď.");
+        }
+    }
+
+    [Fact]
     public void EveryLanguageCanAnswerEveryKey()
     {
         // Po doplnění ze základního jazyka musí mít každý jazyk všechny klíče,

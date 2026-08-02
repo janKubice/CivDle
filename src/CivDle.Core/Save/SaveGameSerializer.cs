@@ -188,8 +188,16 @@ public sealed class SaveGameSerializer
             simulation.FinalizeLoad(); // bonusy Vzestupu → přepočet bydlení/skladů + politik
             return (simulation, metadata);
         }
-        catch (Exception ex) when (ex is EndOfStreamException or InvalidDataException or IOException)
+        catch (SaveLoadException)
         {
+            throw; // vlastní hlášky (verze, neznámá budova…) už jsou srozumitelné
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+        {
+            // Jakákoli jiná výjimka odsud znamenala pád celé hry na tlačítku
+            // „Pokračovat" — hráč přišel o partii kvůli chybě čtečky. Save je
+            // vstup z disku a zachází se s ním jako se vstupem: nejhorší povolený
+            // výsledek je hláška „soubor se nepovedlo načíst", ne pád.
             throw new SaveLoadException("Uložená hra je poškozená nebo neúplná.", ex);
         }
     }
@@ -317,7 +325,30 @@ public sealed class SaveGameSerializer
             }
 
             using var section = new BinaryReader(new MemoryStream(payload), Encoding.UTF8);
+            TryApplySection(name, section, content, simulation);
+        }
+    }
+
+    /// <summary>
+    /// Aplikuje jednu sekci a <b>přežije, když se to nepovede</b>.
+    ///
+    /// <para>Sekce jsou nezávislé a v souboru mají svoji délku, takže přeskočit
+    /// tu vadnou je bezpečné. Bez tohohle stačilo, aby se změnil formát jediné
+    /// sekce (nebo se soubor cestou poškodil), a „Pokračovat" shodilo celou hru —
+    /// hráč přišel o rozehranou partii kvůli údaji, bez kterého by se klidně
+    /// obešel (tolerantní savy, viz mvp-roadmap.md).</para>
+    /// </summary>
+    private static void TryApplySection(string name, BinaryReader section, GameContent content, Simulation simulation)
+    {
+        try
+        {
             ApplySection(name, section, content, simulation);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+        {
+            // Zbytek savu je pořád v pořádku — jedna vynechaná sekce znamená
+            // ztrátu jedné vrstvy (třeba časosběru), ne ztrátu rozehrané hry.
+            Console.Error.WriteLine($"Sekce savu '{name}' se nepovedla načíst, přeskakuji: {ex.Message}");
         }
     }
 
@@ -655,43 +686,11 @@ public sealed class SaveGameSerializer
     /// souseda do dat tak nepřehází, s kým už město obchodovalo. Starší savy
     /// sekci nemají a začnou jako cizinci, což je správně.
     /// </summary>
-    private static void WriteHistory(BinaryWriter writer, Simulation simulation)
-    {
-        var history = simulation.History;
-        writer.Write(history.Count);
-        for (int i = 0; i < history.Count; i++)
-        {
-            var frame = history.FrameAt(i);
-            writer.Write(frame.Tick);
-            writer.Write(frame.Population);
-            writer.Write(frame.Buildings);
-            writer.Write(frame.EraIndex);
-            writer.Write(frame.Happiness);
-            writer.Write(frame.HousingCapacity);
-            writer.Write(frame.Pollution);
-            writer.Write(frame.Settlements);
-            writer.Write(history.MaskAt(i));
-        }
-    }
+    private static void WriteHistory(BinaryWriter writer, Simulation simulation) =>
+        TimelapseStore.WriteBody(writer, simulation.History);
 
-    private static void ReadHistory(BinaryReader reader, Simulation simulation)
-    {
-        simulation.History.Clear();
-        int count = reader.ReadInt32();
-        for (int i = 0; i < count; i++)
-        {
-            var frame = new HistoryFrame(
-                reader.ReadInt64(), reader.ReadInt64(), reader.ReadInt32(), reader.ReadInt32(),
-                reader.ReadDouble(), reader.ReadInt64(), reader.ReadDouble(), reader.ReadInt32());
-            var mask = reader.ReadBytes(CityHistory.MaskBytes);
-            if (mask.Length != CityHistory.MaskBytes)
-            {
-                return; // useknutý save — co se přečetlo, to platí; zbytek se zahodí
-            }
-
-            simulation.History.Add(frame, mask);
-        }
-    }
+    private static void ReadHistory(BinaryReader reader, Simulation simulation) =>
+        TimelapseStore.ReadBody(reader, simulation.History);
 
     private static void WriteNeighbours(BinaryWriter writer, GameContent? content, Simulation simulation)
     {
@@ -745,9 +744,13 @@ public sealed class SaveGameSerializer
             int y = reader.ReadInt32();
             float progress = reader.ReadSingle();
 
+            // Neznámé ID = budova z odinstalovaného modu nebo ze zrušeného
+            // obsahu. Vyhodit celé načtení by hráče stálo město kvůli jedné
+            // budově — vynechá se jen ona a zbytek se načte.
             if (!content.Buildings.TryIndexOf(id, out int defIndex))
             {
-                throw new SaveLoadException($"Save odkazuje na budovu '{id}', která v aktuálních datech neexistuje.");
+                Console.Error.WriteLine($"Save odkazuje na neznámou budovu '{id}' — přeskakuji ji.");
+                continue;
             }
 
             simulation.RestoreBuilding(defIndex, x, y, progress);

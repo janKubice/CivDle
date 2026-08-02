@@ -63,7 +63,7 @@ public sealed class HowToPlayScreen : IScreen
             spriteBatch.End();
         }
 
-        _desktop.Render();
+        _screens.RenderDesktop(this, _desktop);
     }
 
     public void Dispose()

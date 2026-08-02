@@ -36,9 +36,15 @@ public readonly record struct HistoryFrame(
 ///
 /// <para>Proč hrubá mřížka a ne skutečná mapa: snímek musí být tak malý, aby se
 /// dal ukládat po stovkách. Jedna buňka je
-/// <see cref="TilesPerCell"/>×<see cref="TilesPerCell"/> dlaždic a celý snímek
-/// je bitová maska o <see cref="MaskBytes"/> bajtech — na tvar města to stačí
-/// a na velikost savu se to nepozná.</para>
+/// <see cref="TilesPerCell"/>×<see cref="TilesPerCell"/> dlaždic a nese jeden
+/// bajt — odkaz do palety barev (0 = prázdno). Přehrávka tak může kreslit
+/// buňky v barvách skutečných budov nad skutečným terénem (terén se
+/// rekonstruuje ze seedu, ten se ukládat nemusí), a snímek pořád váží pár
+/// kilobajtů, které gzip savu složí na zlomek.</para>
+
+/// <para>Paleta patří kronice, ne obsahu hry: buňky odkazují do ní, takže
+/// uložený časosběr zůstane barevně věrný, i když se herní data mezitím
+/// změní nebo hráč odinstaluje mod.</para>
 ///
 /// <para>Kruhový buffer: po naplnění se zahazuje <b>každý druhý starý snímek</b>,
 /// ne ten nejstarší. Kdyby se zahazoval nejstarší, časosběr by časem začínal
@@ -52,14 +58,18 @@ public sealed class CityHistory
     /// <summary>Kolik buněk má mřížka na stranu (čtverec kolem počátku světa).</summary>
     public const int GridSize = 64;
 
-    /// <summary>Kolik bajtů zabere maska jednoho snímku.</summary>
-    public const int MaskBytes = GridSize * GridSize / 8;
+    /// <summary>Kolik bajtů zabere mřížka jednoho snímku (bajt na buňku).</summary>
+    public const int CellBytes = GridSize * GridSize;
+
+    /// <summary>Nejvyšší počet barev palety (0 v buňce znamená prázdno).</summary>
+    public const int MaxPaletteColors = 255;
 
     /// <summary>Kolik dlaždic na stranu časosběr celkem pokryje.</summary>
     public const int CoveredTiles = GridSize * TilesPerCell;
 
     private readonly List<HistoryFrame> _frames = new();
-    private readonly List<byte[]> _masks = new();
+    private readonly List<byte[]> _cells = new();
+    private readonly List<Content.RgbColor> _palette = new();
     private readonly int _maxFrames;
 
     /// <param name="maxFrames">Kolik snímků se nejvýš drží (kruhový buffer).</param>
@@ -77,37 +87,84 @@ public sealed class CityHistory
     /// <summary>Čísla k danému snímku.</summary>
     public HistoryFrame FrameAt(int index) => _frames[index];
 
-    /// <summary>Bitová maska zástavby k danému snímku (jen ke čtení).</summary>
-    public ReadOnlySpan<byte> MaskAt(int index) => _masks[index];
+    /// <summary>Mřížka buněk k danému snímku (bajt na buňku, jen ke čtení).</summary>
+    public ReadOnlySpan<byte> CellsAt(int index) => _cells[index];
+
+    /// <summary>Barvy, na které buňky odkazují (hodnota buňky − 1 = index sem).</summary>
+    public IReadOnlyList<Content.RgbColor> Palette => _palette;
 
     /// <summary>Stálo v téhle buňce mřížky v daném snímku něco?</summary>
-    public bool IsOccupied(int index, int cellX, int cellY)
+    public bool IsOccupied(int index, int cellX, int cellY) => CellAt(index, cellX, cellY) != 0;
+
+    /// <summary>Hodnota buňky: 0 = prázdno, jinak index do palety + 1.</summary>
+    public byte CellAt(int index, int cellX, int cellY)
     {
-        if (index < 0 || index >= _masks.Count || (uint)cellX >= GridSize || (uint)cellY >= GridSize)
+        if (index < 0 || index >= _cells.Count || (uint)cellX >= GridSize || (uint)cellY >= GridSize)
         {
-            return false;
+            return 0;
         }
 
-        int bit = cellY * GridSize + cellX;
-        return (_masks[index][bit >> 3] & (1 << (bit & 7))) != 0;
+        return _cells[index][cellY * GridSize + cellX];
+    }
+
+    /// <summary>Barva buňky; prázdná buňka a poškozený odkaz vrací null.</summary>
+    public Content.RgbColor? ColorAt(int index, int cellX, int cellY)
+    {
+        byte cell = CellAt(index, cellX, cellY);
+        return cell != 0 && cell <= _palette.Count ? _palette[cell - 1] : null;
+    }
+
+    /// <summary>
+    /// Vrátí index barvy v paletě (buňka pak nese index + 1); barvu přidá,
+    /// když ještě není. Po naplnění palety vrací poslední barvu — kreslit
+    /// trochu špatnou barvou je lepší než nekreslit vůbec.
+    /// </summary>
+    public int PaletteIndexOf(Content.RgbColor color)
+    {
+        for (int i = 0; i < _palette.Count; i++)
+        {
+            if (_palette[i] == color)
+            {
+                return i;
+            }
+        }
+
+        if (_palette.Count >= MaxPaletteColors)
+        {
+            return _palette.Count - 1;
+        }
+
+        _palette.Add(color);
+        return _palette.Count - 1;
+    }
+
+    /// <summary>Obnoví paletu ze souboru (save/export). Jen pro čtecí vrstvu.</summary>
+    public void RestorePalette(IEnumerable<Content.RgbColor> colors)
+    {
+        _palette.Clear();
+        foreach (var color in colors.Take(MaxPaletteColors))
+        {
+            _palette.Add(color);
+        }
     }
 
     /// <summary>Zahodí celou kroniku (Vzestup — nový svět začíná s prázdným listem).</summary>
     public void Clear()
     {
         _frames.Clear();
-        _masks.Clear();
+        _cells.Clear();
+        _palette.Clear();
     }
 
     /// <summary>
-    /// Přidá snímek. Maska musí mít přesně <see cref="MaskBytes"/> bajtů; kopíruje
+    /// Přidá snímek. Mřížka musí mít přesně <see cref="CellBytes"/> bajtů; kopíruje
     /// se, takže volající si smí svůj buffer dál přepisovat.
     /// </summary>
-    public void Add(HistoryFrame frame, ReadOnlySpan<byte> mask)
+    public void Add(HistoryFrame frame, ReadOnlySpan<byte> cells)
     {
-        if (mask.Length != MaskBytes)
+        if (cells.Length != CellBytes)
         {
-            throw new ArgumentException($"Maska snímku má mít {MaskBytes} bajtů, má {mask.Length}.", nameof(mask));
+            throw new ArgumentException($"Mřížka snímku má mít {CellBytes} bajtů, má {cells.Length}.", nameof(cells));
         }
 
         if (_frames.Count >= _maxFrames)
@@ -116,7 +173,7 @@ public sealed class CityHistory
         }
 
         _frames.Add(frame);
-        _masks.Add(mask.ToArray());
+        _cells.Add(cells.ToArray());
     }
 
     /// <summary>
@@ -130,12 +187,12 @@ public sealed class CityHistory
         for (int read = 0; read < _frames.Count; read += 2)
         {
             _frames[write] = _frames[read];
-            _masks[write] = _masks[read];
+            _cells[write] = _cells[read];
             write++;
         }
 
         _frames.RemoveRange(write, _frames.Count - write);
-        _masks.RemoveRange(write, _masks.Count - write);
+        _cells.RemoveRange(write, _cells.Count - write);
     }
 
     /// <summary>Převede dlaždici na buňku mřížky; false = leží mimo pokrytou plochu.</summary>

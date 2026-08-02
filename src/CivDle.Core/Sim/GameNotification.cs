@@ -24,6 +24,9 @@ public enum NotificationKind
     /// <summary>Zakázka vypršela, aniž ji hráč splnil (žádný trest, jen odešla).</summary>
     ContractExpired,
 
+    /// <summary>Město právě nastřádalo dost — zakázka jde odevzdat.</summary>
+    ContractReady,
+
     /// <summary>Hráč zakázku odevzdal a dostal zaplaceno.</summary>
     ContractFulfilled,
 

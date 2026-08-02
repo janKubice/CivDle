@@ -27,9 +27,12 @@ public sealed class StatsScreen : IScreen
     /// <summary>Kolik grafů je vedle sebe.</summary>
     private const int Columns = 2;
 
-    private const int ChartWidth = 380;
-    private const int ChartHeight = 120;
-    private const int Gap = 24;
+    private const int Gap = 22;
+
+    /// <summary>Vnitřní okraje karty: nahoře místo na titulek, dole vzduch.</summary>
+    private const int CardPadX = 14;
+    private const int CardPadTop = 34;
+    private const int CardPadBottom = 14;
 
     private readonly ScreenManager _screens;
     private readonly CityHistory _history;
@@ -75,38 +78,67 @@ public sealed class StatsScreen : IScreen
         spriteBatch.Begin();
         spriteBatch.Draw(_screens.WhitePixel, new Rectangle(0, 0, viewport.Width, viewport.Height), Color.Black * 0.85f);
 
+        // Velikost karet podle obrazovky: na velkém monitoru se grafy roztáhnou,
+        // na Steam Decku (800 px) se všech šest pořád vejde bez scrollování.
         int rows = (_series.Count + Columns - 1) / Columns;
-        int totalWidth = Columns * ChartWidth + (Columns - 1) * Gap;
-        int totalHeight = rows * (ChartHeight + Gap + 18);
+        int cardWidth = Math.Clamp((viewport.Width - (Columns + 1) * Gap) / Columns, 340, 620);
+        int cardHeight = Math.Clamp((viewport.Height - 170 - (rows + 1) * Gap) / Math.Max(1, rows), 120, 240);
+
+        int totalWidth = Columns * cardWidth + (Columns - 1) * Gap;
+        int totalHeight = rows * cardHeight + (rows - 1) * Gap;
         int left = (viewport.Width - totalWidth) / 2;
-        int top = (viewport.Height - totalHeight) / 2 + 10;
+        int top = (viewport.Height - totalHeight) / 2 + 14;
 
         for (int i = 0; i < _series.Count; i++)
         {
-            int column = i % Columns;
-            int row = i / Columns;
-            var bounds = new Rectangle(
-                left + column * (ChartWidth + Gap),
-                top + row * (ChartHeight + Gap + 18) + 18,
-                ChartWidth,
-                ChartHeight);
+            var (titleKey, color, values) = _series[i];
+            var card = new Rectangle(
+                left + i % Columns * (cardWidth + Gap),
+                top + i / Columns * (cardHeight + Gap),
+                cardWidth,
+                cardHeight);
 
-            // Jméno a poslední hodnota přímo nad grafem — legenda stranou by
-            // nutila hráče přiřazovat barvy k názvům.
-            var values = _series[i].Values;
-            string label = _screens.Loc[_series[i].TitleKey];
+            // Karta s rámečkem — grafy nalepené přímo na ztmavené hře vypadaly
+            // jako ladicí výpis, ne jako obrazovka pro hráče.
+            spriteBatch.Draw(_screens.WhitePixel, card, new Color(24, 29, 38, 245));
+            DrawBorder(spriteBatch, card, new Color(62, 72, 88));
+
+            // Titulek vlevo, poslední hodnota vpravo a bíle — to je číslo, které
+            // hráč hledá nejdřív. Legenda stranou by nutila přiřazovat barvy.
+            spriteBatch.DrawString(
+                _font, _screens.Loc[titleKey], new Vector2(card.Left + CardPadX, card.Top + 9), color);
             if (values.Count > 0)
             {
-                label += "   " + Format(_series[i].TitleKey, values[^1]);
+                string value = Format(titleKey, values[^1]);
+                float valueWidth = _font.MeasureString(value).X;
+                spriteBatch.DrawString(
+                    _font, value, new Vector2(card.Right - CardPadX - valueWidth, card.Top + 9), Color.White);
             }
 
+            var bounds = new Rectangle(
+                card.Left + CardPadX,
+                card.Top + CardPadTop,
+                cardWidth - 2 * CardPadX,
+                cardHeight - CardPadTop - CardPadBottom);
+            _chart.Draw(spriteBatch, bounds, values, color);
+
+            // Maximum osy u horního okraje — bez měřítka je křivka jen ozdoba.
+            var (_, max) = LineChart.RangeOf(values);
             spriteBatch.DrawString(
-                _font, label, new Vector2(bounds.Left, bounds.Top - 18), _series[i].Color);
-            _chart.Draw(spriteBatch, bounds, values, _series[i].Color);
+                _font, Format(titleKey, max), new Vector2(bounds.Left + 4, bounds.Top + 2), new Color(118, 128, 144));
         }
 
         spriteBatch.End();
-        _desktop.Render();
+        _screens.RenderDesktop(this, _desktop);
+    }
+
+    /// <summary>Jednopixelový rámeček — Myra tu není, karty se kreslí přímo.</summary>
+    private void DrawBorder(SpriteBatch spriteBatch, Rectangle r, Color color)
+    {
+        spriteBatch.Draw(_screens.WhitePixel, new Rectangle(r.Left, r.Top, r.Width, 1), color);
+        spriteBatch.Draw(_screens.WhitePixel, new Rectangle(r.Left, r.Bottom - 1, r.Width, 1), color);
+        spriteBatch.Draw(_screens.WhitePixel, new Rectangle(r.Left, r.Top, 1, r.Height), color);
+        spriteBatch.Draw(_screens.WhitePixel, new Rectangle(r.Right - 1, r.Top, 1, r.Height), color);
     }
 
     public void Dispose()

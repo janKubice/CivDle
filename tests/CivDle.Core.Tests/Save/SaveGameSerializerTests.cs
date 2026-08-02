@@ -266,19 +266,30 @@ public class SaveGameSerializerTests
     }
 
     [Fact]
-    public void Load_UnknownBuildingId_FailsWithClearError()
+    public void Load_UnknownBuildingId_SkipsItAndLoadsTheRest()
     {
+        // Budova z odinstalovaného modu (nebo zrušeného obsahu) nesmí stát
+        // hráče celé město — vynechá se jen ona (tolerantní savy).
         var biomes = new[] { TestContent.WaterBiome(), TestContent.LandBiome("grass") };
-        var contentA = TestContent.Build(biomes, 1, buildings: new[] { TestContent.SimpleBuilding("stara_bouda", biomes.Length) });
-        var contentB = TestContent.Build(biomes, 1, buildings: new[] { TestContent.SimpleBuilding("jina", biomes.Length) });
+        var contentA = TestContent.Build(biomes, 1, buildings: new[]
+        {
+            TestContent.SimpleBuilding("stara_bouda", biomes.Length),
+            TestContent.SimpleBuilding("chalupa", biomes.Length),
+        });
+        var contentB = TestContent.Build(biomes, 1, buildings: new[]
+        {
+            TestContent.SimpleBuilding("chalupa", biomes.Length),
+        });
 
         var sim = new Simulation(contentA, new UniformTerrain(1));
-        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(0, 1, 1));
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(0, 1, 1)); // stara_bouda
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(1, 5, 5)); // chalupa
 
         using var stream = Saved(sim, Metadata with { PresetId = "test" });
-        var ex = Assert.Throws<SaveLoadException>(() => new SaveGameSerializer().Read(stream, contentB));
+        var (loaded, _) = new SaveGameSerializer().Read(stream, contentB);
 
-        Assert.Contains("stara_bouda", ex.Message);
+        var survivor = Assert.Single(loaded.Buildings.ToArray());
+        Assert.Equal("chalupa", contentB.Buildings[survivor.DefIndex].Id);
     }
 
     [Fact]

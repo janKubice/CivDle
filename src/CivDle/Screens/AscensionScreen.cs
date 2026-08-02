@@ -17,16 +17,18 @@ public sealed class AscensionScreen : IScreen
 {
     private readonly ScreenManager _screens;
     private readonly Simulation _simulation;
+    private readonly WorldInfo _info;
     private readonly InputManager _input = new();
     private Desktop _desktop = null!;
 
     /// <summary>Čeká tlačítko Vzestupu na potvrzení? (Nevratný krok na dvě kliknutí.)</summary>
     private bool _confirming;
 
-    public AscensionScreen(ScreenManager screens, Simulation simulation)
+    public AscensionScreen(ScreenManager screens, Simulation simulation, WorldInfo info)
     {
         _screens = screens;
         _simulation = simulation;
+        _info = info;
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
         _screens.UiSettingsChanged += BuildUi;
@@ -53,7 +55,7 @@ public sealed class AscensionScreen : IScreen
         spriteBatch.Draw(_screens.WhitePixel, new Rectangle(0, 0, viewport.Width, viewport.Height), Color.Black * 0.62f);
         spriteBatch.End();
 
-        _desktop.Render();
+        _screens.RenderDesktop(this, _desktop);
     }
 
     public void Dispose()
@@ -128,7 +130,8 @@ public sealed class AscensionScreen : IScreen
             {
                 ready.Widgets.Add(UiFactory.SmallButton(
                     loc["timelapse.beforeAscend"],
-                    () => _screens.Push(new TimelapseScreen(_screens, _simulation.History))));
+                    () => _screens.Push(new TimelapseScreen(
+                        _screens, _simulation.History, _simulation.Terrain, _simulation.Seed, SaveTimelapse))));
             }
 
             var button = new Button
@@ -160,6 +163,11 @@ public sealed class AscensionScreen : IScreen
                 }
 
                 _confirming = false;
+
+                // Časosběr se uloží automaticky — Vzestup ho za okamžik smaže
+                // a „měl sis ho uložit" je přesně ta věta, kterou hráč nemá
+                // nikdy slyšet.
+                SaveTimelapse();
                 if (_simulation.TryAscend() == PlacementResult.Ok)
                 {
                     // Bilance běhu jako tečka za kapitolou — bez ní je Vzestup
@@ -199,6 +207,14 @@ public sealed class AscensionScreen : IScreen
     /// přišel o město, silnice i výzkum, dozvěděl až potom. Nejde o balanc, ale
     /// o informovaný souhlas.</para>
     /// </summary>
+    /// <summary>Uloží časosběr běhu do sbírky (se snímkem aktuální podoby města).</summary>
+    private void SaveTimelapse()
+    {
+        _simulation.CaptureHistoryNow();
+        _screens.Saves.Timelapses.TrySave(
+            _simulation.History, _simulation.Seed, _info.SizeId, _info.PresetId);
+    }
+
     private Widget AscendPreviewPanel(AscensionPreview preview)
     {
         var loc = _screens.Loc;

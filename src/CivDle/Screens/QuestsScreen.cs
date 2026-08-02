@@ -10,9 +10,10 @@ using Myra.Graphics2D.UI;
 namespace CivDle.Screens;
 
 /// <summary>
-/// Úkoly jako overlay: aktivní (s pokrokem a odměnou) a splněné. Pevné úkoly
-/// z <c>quests.json</c> + jeden dynamický, který se pořád posouvá výš. Vede hráče
-/// hrou a dává mu pořád co dělat. Simulace mezitím stojí (jen vrchní obrazovka tiká).
+/// Úkoly jako overlay ve dvou sloupcích: vlevo krátké smyčky (prosba obyvatele,
+/// nástěnka zakázek, dnešní výzvy), vpravo úkoly. Velikost se řídí obrazovkou —
+/// původní jednosloupcová verze s pevnými 460×380 byla „malá a nepřehledná"
+/// doslova podle hráče. Simulace mezitím stojí (jen vrchní obrazovka tiká).
 /// </summary>
 public sealed class QuestsScreen : IScreen
 {
@@ -20,6 +21,13 @@ public sealed class QuestsScreen : IScreen
     private readonly Simulation _simulation;
     private readonly InputManager _input = new();
     private Desktop _desktop = null!;
+
+    /// <summary>
+    /// Potvrzení „Zaplaceno: …" po odevzdání zakázky. Toast ze simulace se ukáže
+    /// až po zavření okna (sim stojí) — hráč ale potřebuje vidět výplatu HNED,
+    /// jinak odevzdání působí, jako by se nic nestalo.
+    /// </summary>
+    private string? _paidLine;
 
     public QuestsScreen(ScreenManager screens, Simulation simulation)
     {
@@ -51,7 +59,7 @@ public sealed class QuestsScreen : IScreen
         spriteBatch.Draw(_screens.WhitePixel, new Rectangle(0, 0, viewport.Width, viewport.Height), Color.Black * 0.55f);
         spriteBatch.End();
 
-        _desktop.Render();
+        _screens.RenderDesktop(this, _desktop);
     }
 
     public void Dispose()
@@ -88,7 +96,7 @@ public sealed class QuestsScreen : IScreen
         }
 
         var content = _screens.Content;
-        var stack = new VerticalStackPanel { Spacing = 3 };
+        var stack = new VerticalStackPanel { Spacing = 3, Width = 440 };
 
         // Jméno a prosba jako jedna věta: „Marek Kovář by rád mlel mouku."
         stack.Widgets.Add(new Label
@@ -143,6 +151,16 @@ public sealed class QuestsScreen : IScreen
 
         list.Widgets.Add(Header(loc["contract.board"]));
 
+        // Výplata z posledního odevzdání — okamžitá odpověď na kliknutí.
+        if (_paidLine is not null)
+        {
+            list.Widgets.Add(new Label
+            {
+                Text = _paidLine,
+                TextColor = new Color(150, 220, 150),
+            });
+        }
+
         bool anyOffer = false;
         for (int slot = 0; slot < _simulation.ContractSlots.Length; slot++)
         {
@@ -164,15 +182,21 @@ public sealed class QuestsScreen : IScreen
         }
     }
 
-    /// <summary>Řádek zakázky: co chce, co za to dá, kolik zbývá času a tlačítko odevzdat.</summary>
+    /// <summary>
+    /// Řádek zakázky: co chce, jak daleko sklad je (progress bar), co za to dá,
+    /// kolik zbývá času — a když je splnitelná, hlasité „Připraveno k odevzdání"
+    /// s velkým tlačítkem. Tichá věta mezi ostatními nestačila: hráč si
+    /// splnitelné zakázky nevšiml.
+    /// </summary>
     private Widget ContractRow(int slot, ContractDef def)
     {
         var loc = _screens.Loc;
         var content = _screens.Content;
         var state = _simulation.ContractSlots[slot];
         bool canDeliver = _simulation.CanFulfilContract(slot);
+        long stock = (long)_simulation.GetResource(def.DemandResourceIndex);
 
-        var stack = new VerticalStackPanel { Spacing = 3 };
+        var stack = new VerticalStackPanel { Spacing = 4, Width = 440 };
         stack.Widgets.Add(new Label { Text = loc[def.NameKey], TextColor = new Color(255, 214, 120) });
         stack.Widgets.Add(new Label
         {
@@ -180,6 +204,18 @@ public sealed class QuestsScreen : IScreen
                 loc[content.Resources[def.DemandResourceIndex].NameKey], state.DemandAmount),
             TextColor = new Color(214, 222, 232),
         });
+
+        // Pokrok skladu vůči objednávce: „jak daleko jsem", ne jen ano/ne.
+        long shown = Math.Min(stock, state.DemandAmount);
+        var bar = new ProgressBar(416, 8);
+        bar.SetProgress(state.DemandAmount > 0 ? shown / (double)state.DemandAmount : 1.0);
+        stack.Widgets.Add(bar.Root);
+        stack.Widgets.Add(new Label
+        {
+            Text = $"{Core.Numbers.Format(shown)} / {Core.Numbers.Format(state.DemandAmount)}",
+            TextColor = canDeliver ? new Color(150, 220, 150) : new Color(186, 198, 214),
+        });
+
         stack.Widgets.Add(new Label
         {
             Text = loc.Format("contract.rewardLabel",
@@ -197,27 +233,38 @@ public sealed class QuestsScreen : IScreen
 
         if (canDeliver)
         {
-            stack.Widgets.Add(UiFactory.SmallButton(loc["contract.deliver"], () =>
+            stack.Widgets.Add(new Label
             {
-                _simulation.TryFulfilContract(slot);
+                Text = "✓ " + loc["contract.ready"],
+                TextColor = new Color(150, 220, 150),
+            });
+            stack.Widgets.Add(UiFactory.MenuButton(loc["contract.deliver"], () =>
+            {
+                // Text odměny se musí složit PŘED odevzdáním — pak už je slot prázdný.
+                string reward = CostFormat.Line(content, loc, _simulation.ContractReward(slot));
+                if (_simulation.TryFulfilContract(slot))
+                {
+                    _paidLine = loc.Format("contract.paid", reward);
+                }
+
                 BuildUi(); // nabídka zmizela, nástěnka se musí překreslit
             }));
         }
         else
         {
-            long missing = state.DemandAmount - (long)_simulation.GetResource(def.DemandResourceIndex);
             stack.Widgets.Add(new Label
             {
-                Text = loc.Format("contract.notEnough", Math.Max(1, missing)),
+                Text = loc.Format("contract.notEnough", Math.Max(1, state.DemandAmount - stock)),
                 TextColor = new Color(235, 170, 110),
             });
         }
 
+        // Splnitelná zakázka svítí: zelený rámeček a nádech pozadí, ne jen text.
         var panel = new Panel
         {
-            Background = new SolidBrush(new Color(32, 42, 58, 200)),
-            Border = new SolidBrush((canDeliver ? new Color(150, 220, 150) : UiFactory.Accent) * 0.55f),
-            BorderThickness = new Thickness(1),
+            Background = new SolidBrush(canDeliver ? new Color(26, 46, 32, 220) : new Color(32, 42, 58, 200)),
+            Border = new SolidBrush(canDeliver ? new Color(150, 220, 150) * 0.9f : UiFactory.Accent * 0.55f),
+            BorderThickness = new Thickness(canDeliver ? 2 : 1),
             Padding = new Thickness(10, 8),
             Tooltip = loc["tip.contracts"],
         };
@@ -268,11 +315,11 @@ public sealed class QuestsScreen : IScreen
         var content = _screens.Content;
         long target = challenge.Condition.Target;
 
-        var stack = new VerticalStackPanel { Spacing = 3 };
+        var stack = new VerticalStackPanel { Spacing = 3, Width = 440 };
         stack.Widgets.Add(new Label { Text = loc[challenge.NameKey], TextColor = new Color(255, 214, 120) });
-        stack.Widgets.Add(new Label { Text = loc[challenge.DescriptionKey], TextColor = new Color(186, 198, 214) });
+        stack.Widgets.Add(new Label { Text = loc[challenge.DescriptionKey], TextColor = new Color(186, 198, 214), Wrap = true });
 
-        var bar = new ProgressBar(320);
+        var bar = new ProgressBar(416);
         bar.SetProgress(target > 0 ? Math.Min(progress, target) / (double)target : 1.0);
         stack.Widgets.Add(bar.Root);
         stack.Widgets.Add(new Label
@@ -297,13 +344,53 @@ public sealed class QuestsScreen : IScreen
     private void BuildUi()
     {
         var loc = _screens.Loc;
+
+        // Levý sloupec: krátké smyčky — prosba, zakázky, dnešní výzvy.
+        var board = new VerticalStackPanel { Spacing = 8 };
+        AddCitizenRequest(board);
+        AddContracts(board);
+        AddDailyChallenges(board);
+
+        // Pravý sloupec: úkoly (aktivní, dynamický, splněné).
+        var quests = new VerticalStackPanel { Spacing = 8 };
+        AddQuests(quests);
+
+        // Výška podle obrazovky, ne pevné číslo — na velkém monitoru se okno
+        // roztáhne, na Steam Decku (800 px) se pořád vejde i s tlačítkem dole.
+        int listHeight = Math.Clamp(_screens.GraphicsDevice.Viewport.Height - 220, 320, 720);
+
+        var columns = new HorizontalStackPanel { Spacing = 20 };
+        if (board.Widgets.Count > 0)
+        {
+            columns.Widgets.Add(new ScrollViewer { Content = board, Height = listHeight, Width = 470 });
+        }
+
+        columns.Widgets.Add(new ScrollViewer { Content = quests, Height = listHeight, Width = 470 });
+
+        var layout = new VerticalStackPanel
+        {
+            Spacing = 12,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        layout.Widgets.Add(new Label { Text = loc["hud.quests"], HorizontalAlignment = HorizontalAlignment.Center });
+        layout.Widgets.Add(columns);
+        layout.Widgets.Add(UiFactory.MenuButton(loc["panel.close"], _screens.Pop));
+
+        var panel = UiFactory.DarkPanel(layout);
+        panel.HorizontalAlignment = HorizontalAlignment.Center;
+        panel.VerticalAlignment = VerticalAlignment.Center;
+
+        var root = new Panel();
+        root.Widgets.Add(panel);
+        _desktop = _screens.NewDesktop(root);
+    }
+
+    /// <summary>Úkoly: aktivní z dat, dynamický (roste s hrou) a splněné.</summary>
+    private void AddQuests(VerticalStackPanel list)
+    {
+        var loc = _screens.Loc;
         var content = _screens.Content;
-
-        var list = new VerticalStackPanel { Spacing = 8 };
-
-        AddCitizenRequest(list);
-        AddContracts(list);
-        AddDailyChallenges(list);
 
         list.Widgets.Add(Header(loc["panel.quests.active"]));
         for (int i = 0; i < content.Quests.Count; i++)
@@ -337,24 +424,6 @@ public sealed class QuestsScreen : IScreen
                 list.Widgets.Add(CompletedRow(loc[content.Quests[i].NameKey]));
             }
         }
-
-        var layout = new VerticalStackPanel
-        {
-            Spacing = 12,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        layout.Widgets.Add(new Label { Text = loc["hud.quests"], HorizontalAlignment = HorizontalAlignment.Center });
-        layout.Widgets.Add(new ScrollViewer { Content = list, Height = 380, Width = 460 });
-        layout.Widgets.Add(UiFactory.MenuButton(loc["panel.close"], _screens.Pop));
-
-        var panel = UiFactory.DarkPanel(layout);
-        panel.HorizontalAlignment = HorizontalAlignment.Center;
-        panel.VerticalAlignment = VerticalAlignment.Center;
-
-        var root = new Panel();
-        root.Widgets.Add(panel);
-        _desktop = _screens.NewDesktop(root);
     }
 
     private static Label Header(string text) => new()
@@ -372,14 +441,14 @@ public sealed class QuestsScreen : IScreen
         var row = new VerticalStackPanel
         {
             Spacing = 3,
-            Width = 436,
+            Width = 440,
             Padding = new Thickness(12, 8),
             Background = new SolidBrush(new Color(28, 36, 50, 235)),
         };
         row.Widgets.Add(new Label { Text = name, TextColor = UiFactory.Accent });
         row.Widgets.Add(new Label { Text = desc, TextColor = Color.LightGray, Wrap = true });
 
-        var bar = new ProgressBar(412, 8);
+        var bar = new ProgressBar(416, 8);
         bar.SetProgress(condition.Target > 0 ? current / (double)condition.Target : 1.0);
         row.Widgets.Add(bar.Root);
         row.Widgets.Add(new Label { Text = $"{current} / {condition.Target}", TextColor = new Color(150, 220, 150) });
@@ -401,7 +470,7 @@ public sealed class QuestsScreen : IScreen
         var row = new HorizontalStackPanel
         {
             Spacing = 8,
-            Width = 436,
+            Width = 440,
             Padding = new Thickness(12, 6),
             Background = new SolidBrush(new Color(24, 34, 28, 235)),
         };
