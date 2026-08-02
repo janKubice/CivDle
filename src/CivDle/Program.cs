@@ -47,8 +47,18 @@ catch (Exception ex)
     // ve spěchu) nečte stack trace odshora.
     Console.Error.WriteLine();
     Console.Error.WriteLine($"CivDle se nespustil: {ex.Message}");
+
+    // U známých pádů (ovladače, blokace od Windows, rozbitá data) rovnou i to,
+    // co s tím dělat — samotná hláška od systému hráči nepomůže.
+    if (StartupDiagnosis.HintFor(ex) is { } hint)
+    {
+        Console.Error.WriteLine();
+        Console.Error.WriteLine(hint);
+    }
+
     if (crashLog.Length > 0)
     {
+        Console.Error.WriteLine();
         Console.Error.WriteLine($"Podrobnosti: {crashLog}");
     }
 
