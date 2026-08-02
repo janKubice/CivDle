@@ -1,3 +1,4 @@
+using CivDle.Audio;
 using CivDle.Capture;
 using CivDle.Core.Config;
 using CivDle.Core.Content;
@@ -84,6 +85,12 @@ public sealed class CivDleGame : Game
     /// <summary>Procedurální sprity a ikony (suroviny, budovy, objekty, agenti).</summary>
     public SpriteLibrary Sprites { get; private set; } = null!;
 
+    /// <summary>
+    /// Sdílené zvuky akcí. Bydlí tady, ne v herní obrazovce: cinknout si potřebuje
+    /// i strom výzkumu, a druhá kopie by znovu generovala tytéž vzorky.
+    /// </summary>
+    public GameSounds Sounds { get; private set; } = null!;
+
     /// <summary>Aktuální uživatelská nastavení.</summary>
     public GameSettings Settings { get; private set; }
 
@@ -108,6 +115,7 @@ public sealed class CivDleGame : Game
         WhitePixel = new Texture2D(GraphicsDevice, 1, 1);
         WhitePixel.SetData(new[] { Color.White });
         Sprites = new SpriteLibrary(GraphicsDevice);
+        Sounds = new GameSounds();
         MyraEnvironment.Game = this;
 
         // Tooltipy Myry se kreslí u kurzoru — hráč nemusí očima skákat na spodní
@@ -177,6 +185,7 @@ public sealed class CivDleGame : Game
     {
         WhitePixel.Dispose();
         Sprites.Dispose();
+        Sounds.Dispose();
         base.UnloadContent();
     }
 

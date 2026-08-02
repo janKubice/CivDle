@@ -2635,13 +2635,42 @@ public sealed class ContentLoader
             ParsePollution(path, file.Pollution),
             ParseBulkBuild(path, file.BulkBuild),
             ParseLaser(path, file.Laser),
-            ParseHistory(path, file.History));
+            ParseHistory(path, file.History),
+            ParseResearch(path, file.Research));
     }
 
     /// <summary>
     /// Nastavení časosběru. Chybí-li blok, nic se nezaznamenává a save zůstává
     /// stejně velký jako dřív.
     /// </summary>
+    /// <summary>
+    /// Škálování cen výzkumu. Chybí-li blok, platí ceny přesně tak, jak jsou
+    /// v tech.json — starší data a mody tím nic neztratí.
+    /// </summary>
+    private static ResearchConfig? ParseResearch(string path, ResearchDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (dto.CostMultiplier is < 0.1 or > 100)
+        {
+            throw new ContentLoadException(path,
+                $"'research.costMultiplier' musí být 0.1–100, je {dto.CostMultiplier}.");
+        }
+
+        // Strop je tu proti překlepu: 0.5 místo 0.05 by po padesáti výzkumech
+        // udělalo z dalšího uzlu nedosažitelnou zeď.
+        if (dto.CostGrowthPerTech is < 0 or > 1)
+        {
+            throw new ContentLoadException(path,
+                $"'research.costGrowthPerTech' musí být 0–1, je {dto.CostGrowthPerTech}.");
+        }
+
+        return new ResearchConfig(dto.CostMultiplier, dto.CostGrowthPerTech);
+    }
+
     private static HistoryConfig? ParseHistory(string path, HistoryDto? dto)
     {
         if (dto is null)

@@ -47,6 +47,9 @@ public enum NotificationKind
 
     /// <summary>Cizí město se stalo součástí říše (odkupem nebo obestavěním).</summary>
     CityJoined,
+
+    /// <summary>Cizí město srovnala se zemí modlitba hráče.</summary>
+    CityStruck,
 }
 
 /// <summary>

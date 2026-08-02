@@ -115,6 +115,14 @@ public sealed class NodeLedger
     /// <summary>Vrátí dlaždici do plného stavu (zasazení háje na vytěžené místo).</summary>
     public void Restore(int x, int y) => _touched.Remove(TileKey.Pack(x, y));
 
+    /// <summary>
+    /// Vypálí dlaždici naráz, bez sběru — les po dopadu meteoritu shoří, nikdo
+    /// ho nevytěžil. Dorůstání běží dál od <paramref name="tick"/>, takže se
+    /// krajina po čase vzpamatuje.
+    /// </summary>
+    public void Deplete(int x, int y, long tick) =>
+        _touched[TileKey.Pack(x, y)] = new NodeState { ChargesLeft = 0, DepletedTick = tick };
+
     /// <summary>Záznamy k uložení do savu.</summary>
     public IEnumerable<(int X, int Y, int ChargesLeft, long DepletedTick)> Entries()
     {

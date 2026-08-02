@@ -239,9 +239,28 @@ public sealed class Simulation
     /// </summary>
     public bool IsCityDiscovered(in NpcCity city) => Fog.IsExplored(city.X, city.Y);
 
-    /// <summary>Města v dohledu kolem místa (pro mapu i pro seznam sídel).</summary>
-    public IEnumerable<NpcCity> CitiesNear(int tileX, int tileY, int radiusTiles) =>
-        NpcCitiesEnabled ? NpcCities.CitiesNear(tileX, tileY, radiusTiles) : Array.Empty<NpcCity>();
+    /// <summary>
+    /// Města v dohledu kolem místa (pro mapu i pro seznam sídel).
+    ///
+    /// <para>Srovnaná města se sem nedostanou. Filtruje se právě tady, na jednom
+    /// místě — kdyby to řešil každý volající sám, dřív nebo později by někde
+    /// zůstal duch zničeného města.</para>
+    /// </summary>
+    public IEnumerable<NpcCity> CitiesNear(int tileX, int tileY, int radiusTiles)
+    {
+        if (!NpcCitiesEnabled)
+        {
+            yield break;
+        }
+
+        foreach (var city in NpcCities.CitiesNear(tileX, tileY, radiusTiles))
+        {
+            if (!NpcStateOf(city.Key).Destroyed)
+            {
+                yield return city;
+            }
+        }
+    }
 
     /// <summary>Cesty mezi cizími městy v okolí — svět si žije i bez hráče.</summary>
     public IEnumerable<NpcCityLink> CityLinksNear(int tileX, int tileY, int radiusTiles) =>
@@ -259,6 +278,11 @@ public sealed class Simulation
         }
 
         var state = NpcStateOf(key);
+        if (state.Destroyed)
+        {
+            return DiplomacyResult.Unavailable; // po tom, co po něm zbylo, se jednat nedá
+        }
+
         if (state.Absorbed)
         {
             return DiplomacyResult.AlreadyYours;
@@ -292,6 +316,11 @@ public sealed class Simulation
         }
 
         var state = NpcStateOf(key);
+        if (state.Destroyed)
+        {
+            return DiplomacyResult.Unavailable; // po tom, co po něm zbylo, se jednat nedá
+        }
+
         if (state.Absorbed)
         {
             return DiplomacyResult.AlreadyYours;
@@ -325,6 +354,11 @@ public sealed class Simulation
         }
 
         var state = NpcStateOf(key);
+        if (state.Destroyed)
+        {
+            return DiplomacyResult.Unavailable; // po tom, co po něm zbylo, se jednat nedá
+        }
+
         if (state.Absorbed)
         {
             return DiplomacyResult.AlreadyYours;
@@ -380,7 +414,7 @@ public sealed class Simulation
         foreach (var city in NpcCities.CitiesNear(CityCenterX, CityCenterY, NpcScanRadius))
         {
             var state = NpcStateOf(city.Key);
-            if (state.Absorbed)
+            if (state.Absorbed || state.Destroyed)
             {
                 continue;
             }
@@ -548,26 +582,45 @@ public sealed class Simulation
     }
 
     /// <summary>
-    /// Meteorit: srovná zástavbu v okolí cíle. Je to trest, ne úklid — proto
-    /// bourá bez náhrady.
+    /// Meteorit: srovná zástavbu v okolí cíle a spálí krajinu. Je to trest,
+    /// ne úklid — proto bourá bez náhrady.
+    ///
+    /// <para>Zasáhne i cizí města, a to je celý smysl té modlitby: hráč má mít
+    /// jedno místo ve hře, kde může někomu jinému doopravdy ublížit. Rána na
+    /// holé pláni taky není nic — po dopadu zůstane spáleniště, aby bylo vidět,
+    /// že se něco stalo.</para>
     /// </summary>
-    internal void StrikeMeteor(int centerX, int centerY, int radiusTiles)
+    /// <returns>Kolik věcí (budov a měst) rána srovnala — UI z toho skládá hlášku.</returns>
+    internal int StrikeMeteor(int centerX, int centerY, int radiusTiles)
     {
+        int hits = 0;
+
         // Odzadu, protože demolice přerovnává pole budov.
         for (int i = _buildingCount - 1; i >= 0; i--)
         {
             if (WithinRadius(_buildings[i].X, _buildings[i].Y, centerX, centerY, radiusTiles))
             {
                 TryDemolish(i);
+                hits++;
             }
         }
 
+        hits += StrikeCities(centerX, centerY, radiusTiles, waterOnly: false);
+        ScorchGround(centerX, centerY, radiusTiles);
+
         Fog.Reveal(centerX, centerY, radiusTiles + 4); // ránu je vidět zdaleka
+        return hits;
     }
 
-    /// <summary>Povodeň: zaplaví okolí — zástavba u vody bere první ránu.</summary>
-    internal void StrikeFlood(int centerX, int centerY, int radiusTiles)
+    /// <summary>
+    /// Povodeň: zaplaví okolí — co stojí u vody, bere první ránu. Na rozdíl od
+    /// meteoritu nespálí krajinu, ale zvedne hladinu: pár dlaždic u břehu zůstane
+    /// pod vodou natrvalo.
+    /// </summary>
+    /// <returns>Kolik věcí voda vzala.</returns>
+    internal int StrikeFlood(int centerX, int centerY, int radiusTiles)
     {
+        int hits = 0;
         for (int i = _buildingCount - 1; i >= 0; i--)
         {
             if (!WithinRadius(_buildings[i].X, _buildings[i].Y, centerX, centerY, radiusTiles))
@@ -580,12 +633,107 @@ public sealed class Simulation
             if (IsWaterNextTo(_buildings[i].X, _buildings[i].Y))
             {
                 TryDemolish(i);
+                hits++;
             }
         }
 
+        hits += StrikeCities(centerX, centerY, radiusTiles, waterOnly: true);
+        RaiseWater(centerX, centerY, radiusTiles);
+
         CleanseArea(centerX, centerY, radiusTiles, 0.5); // voda po sobě aspoň uklidí
         Fog.Reveal(centerX, centerY, radiusTiles + 2);
+        return hits;
     }
+
+    /// <summary>
+    /// Srovná cizí města v dosahu rány. <paramref name="waterOnly"/> = vezme jen
+    /// ta u vody (povodeň).
+    /// </summary>
+    private int StrikeCities(int centerX, int centerY, int radiusTiles, bool waterOnly)
+    {
+        if (!NpcCitiesEnabled)
+        {
+            return 0;
+        }
+
+        int hits = 0;
+        foreach (var city in NpcCities.CitiesNear(centerX, centerY, radiusTiles + NpcCityMap.CellTiles))
+        {
+            if (!WithinRadius(city.X, city.Y, centerX, centerY, radiusTiles))
+            {
+                continue;
+            }
+
+            var state = NpcStateOf(city.Key);
+            if (state.Destroyed || (waterOnly && !IsWaterNextTo(city.X, city.Y)))
+            {
+                continue;
+            }
+
+            state.Destroyed = true;
+            state.RoadLinked = false;
+            state.Relation = 0;
+            _npcStates[city.Key] = state;
+            hits++;
+
+            EnqueueNotification(new GameNotification(
+                NotificationKind.CityStruck, "toast.cityStruck",
+                _content.NpcCities.Archetypes[city.ArchetypeIndex].NameKey));
+        }
+
+        return hits;
+    }
+
+    /// <summary>
+    /// Spáleniště po dopadu: stromy a žíly shoří, hlína zčerná. Kráter je menší
+    /// než dosah rány — jinak by z mapy zbyla po pár modlitbách poušť.
+    /// </summary>
+    private void ScorchGround(int centerX, int centerY, int radiusTiles)
+    {
+        int crater = Math.Max(1, radiusTiles / 2);
+        for (int y = centerY - radiusTiles; y <= centerY + radiusTiles; y++)
+        {
+            for (int x = centerX - radiusTiles; x <= centerX + radiusTiles; x++)
+            {
+                _nodes.Deplete(x, y, TickCount); // les shoří, ale časem doroste
+
+                if (WithinRadius(x, y, centerX, centerY, crater)
+                    && ScorchedBiomeIndex >= 0
+                    && !_content.Biomes[Terrain.BiomeAt(x, y)].IsWater)
+                {
+                    SetBiomeOverride(x, y, (byte)ScorchedBiomeIndex);
+                }
+            }
+        }
+    }
+
+    /// <summary>Zaplavené pobřeží: dlaždice u vody zůstanou pod hladinou.</summary>
+    private void RaiseWater(int centerX, int centerY, int radiusTiles)
+    {
+        if (FloodedBiomeIndex < 0)
+        {
+            return;
+        }
+
+        for (int y = centerY - radiusTiles; y <= centerY + radiusTiles; y++)
+        {
+            for (int x = centerX - radiusTiles; x <= centerX + radiusTiles; x++)
+            {
+                if (!_content.Biomes[Terrain.BiomeAt(x, y)].IsWater && IsWaterNextTo(x, y))
+                {
+                    SetBiomeOverride(x, y, (byte)FloodedBiomeIndex);
+                }
+            }
+        }
+    }
+
+    /// <summary>Biom spáleniště; −1 = data ho nemají a kráter se nekreslí.</summary>
+    private int ScorchedBiomeIndex =>
+        _content.Biomes.TryIndexOf("badlands", out int index) ? index : -1;
+
+    /// <summary>Biom mělčiny, kterou po sobě nechá povodeň.</summary>
+    private int FloodedBiomeIndex =>
+        _content.Biomes.TryIndexOf("shallow_water", out int index) ? index : -1;
 
     /// <summary>Sousedí dlaždice s vodou? (Povodeň bere jen to, co stojí u ní.)</summary>
     private bool IsWaterNextTo(int x, int y) =>
@@ -779,7 +927,7 @@ public sealed class Simulation
         foreach (var city in NpcCities.CitiesNear(CityCenterX, CityCenterY, NpcScanRadius))
         {
             var state = NpcStateOf(city.Key);
-            if (state.Absorbed || !IsCityDiscovered(city) || !HasTradeLink(city, state))
+            if (state.Absorbed || state.Destroyed || !IsCityDiscovered(city) || !HasTradeLink(city, state))
             {
                 continue;
             }
@@ -4103,14 +4251,37 @@ public sealed class Simulation
     }
 
     /// <summary>
-    /// Cena výzkumu po slevě z Vzestupu. Nikdy neklesne pod 1 — technologie zadarmo
-    /// by rozbila celou progresi.
+    /// Cena výzkumu: základ z dat × škálování × sleva z Vzestupu.
+    ///
+    /// <para>Škálování roste s počtem už hotových technologií — první uzly jsou
+    /// svižné, pozdější stojí za rozmyšlenou. Bez toho měl celý strom prakticky
+    /// stejnou cenu a v druhé půlce hry se proklikal za pár minut.</para>
+    ///
+    /// <para>Nikdy neklesne pod 1 — technologie zadarmo by rozbila progresi.</para>
     /// </summary>
-    public int ResearchCost(int baseAmount) =>
-        Math.Max(1, (int)Math.Round(baseAmount * (1.0 - Math.Min(0.9, _bonuses.ResearchDiscount + ElectionResearchDiscount))));
+    public int ResearchCost(int baseAmount)
+    {
+        double scaled = baseAmount * _content.Gameplay.Research.ScaleAfter(TechsResearched);
+        double discount = Math.Min(0.9, _bonuses.ResearchDiscount + ElectionResearchDiscount);
+        return Math.Max(1, (int)Math.Round(scaled * (1.0 - discount)));
+    }
+
+    /// <summary>
+    /// Kolik technologií je už hotových (vstupuje do ceny další).
+    ///
+    /// <para>Drží se jako číslo, ne jako průchod polem: cena výzkumu se počítá
+    /// při každém překreslení stromu pro každý uzel a každou surovinu, a procházet
+    /// při tom stovku příznaků by bylo zbytečné.</para>
+    /// </summary>
+    public int TechsResearched { get; private set; }
 
     private void UnlockTech(int techIndex)
     {
+        if (!_techResearched[techIndex])
+        {
+            TechsResearched++;
+        }
+
         _techResearched[techIndex] = true;
         foreach (int buildingIndex in _content.Techs[techIndex].UnlockedBuildingIndices)
         {
@@ -4597,6 +4768,7 @@ public sealed class Simulation
         _buildingCount = 0;
 
         Array.Clear(_techResearched);
+        TechsResearched = 0; // nové měřítko se zkoumá od nuly, i cenami
         Array.Fill(_buildingUnlocked, true);
         foreach (var tech in _content.Techs.All)
         {

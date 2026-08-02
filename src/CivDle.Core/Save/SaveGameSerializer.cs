@@ -123,8 +123,13 @@ public sealed class SaveGameSerializer
         WriteSection(writer, SectionNpcCities, w =>
         {
             // Poloha měst se neukládá — plyne ze seedu. Do savu jde jen to,
-            // co hráč změnil: vztah, obchody, cesta, pohlcení.
+            // co hráč změnil: vztah, obchody, cesta, pohlcení, zkáza.
+            //
+            // Záporné číslo na začátku je značka verze záznamu. Starší savy tu
+            // mají rovnou počet (a ten je vždycky ≥ 0), takže se obě podoby
+            // rozeznají bez hádání.
             var states = simulation.NpcStates;
+            w.Write(NpcCityEntryVersion2);
             w.Write(states.Count);
             foreach (var pair in states)
             {
@@ -133,6 +138,7 @@ public sealed class SaveGameSerializer
                 w.Write(pair.Value.Trades);
                 w.Write(pair.Value.RoadLinked);
                 w.Write(pair.Value.Absorbed);
+                w.Write(pair.Value.Destroyed);
             }
         });
         WriteSection(writer, SectionKnownResources, w => WriteKnownResources(w, simulation));
@@ -283,9 +289,15 @@ public sealed class SaveGameSerializer
     }
 
     /// <summary>Vztahy k cizím městům. Chybějící sekce = hráč zatím žádné nepotkal.</summary>
+    /// <summary>Značka druhé podoby záznamu cizího města (přibyla zkáza).</summary>
+    private const int NpcCityEntryVersion2 = -2;
+
     private static void ReadNpcCities(BinaryReader reader, Simulation simulation)
     {
-        int count = reader.ReadInt32();
+        int first = reader.ReadInt32();
+        bool hasDestroyed = first == NpcCityEntryVersion2;
+        int count = hasDestroyed ? reader.ReadInt32() : first;
+
         for (int i = 0; i < count; i++)
         {
             long key = reader.ReadInt64();
@@ -295,6 +307,7 @@ public sealed class SaveGameSerializer
                 Trades = reader.ReadInt64(),
                 RoadLinked = reader.ReadBoolean(),
                 Absorbed = reader.ReadBoolean(),
+                Destroyed = hasDestroyed && reader.ReadBoolean(),
             });
         }
     }

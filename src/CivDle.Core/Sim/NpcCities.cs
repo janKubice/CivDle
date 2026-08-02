@@ -32,6 +32,15 @@ public struct NpcCityState
 
     /// <summary>Je město už součástí hráčovy civilizace?</summary>
     public bool Absorbed;
+
+    /// <summary>
+    /// Srovnal ho meteorit nebo povodeň se zemí.
+    ///
+    /// <para>Poloha města plyne ze seedu a tu smazat nejde — proto se zkáza musí
+    /// uložit jako příznak. Zničené město zmizí z mapy i ze seznamu sídel
+    /// a nevrátí se.</para>
+    /// </summary>
+    public bool Destroyed;
 }
 
 /// <summary>

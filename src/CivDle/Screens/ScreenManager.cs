@@ -68,6 +68,9 @@ public sealed class ScreenManager
     /// <summary>Procedurální sprity a ikony (suroviny, budovy, objekty, agenti).</summary>
     public Rendering.Sprites.SpriteLibrary Sprites => Game.Sprites;
 
+    /// <summary>Sdílené zvuky akcí — cinknutí, žuchnutí, seknutí.</summary>
+    public Audio.GameSounds Sounds => Game.Sounds;
+
     private MenuBackground? _menuBackground;
 
     /// <summary>Sdílené živé město na pozadí menu (líně vytvořené, roste napříč obrazovkami menu).</summary>

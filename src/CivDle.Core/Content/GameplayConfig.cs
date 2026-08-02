@@ -364,6 +364,29 @@ public sealed record HistoryConfig(double IntervalSeconds, int MaxFrames)
     public bool IsEnabled => IntervalSeconds > 0 && MaxFrames > 1;
 }
 
+/// <summary>
+/// Jak drahý je výzkum.
+///
+/// <para>Ceny v <c>tech.json</c> jsou <b>základ</b>, ne konečná částka. Násobič
+/// je tu proto, aby se dal celý strom zdražit jedním číslem, a ne přepisováním
+/// stovky uzlů. Růst za každou hotovou technologii dělá to, co idle hra
+/// potřebuje: první výzkumy jsou svižné, pozdější stojí za rozmyšlenou.</para>
+///
+/// <para>Růst je záměrně <b>lineární</b>, ne složený. Složený by po stovce uzlů
+/// vyskočil o dva řády a poslední větev stromu by se stala nedosažitelnou.</para>
+/// </summary>
+/// <param name="CostMultiplier">Čím se násobí základní cena z dat.</param>
+/// <param name="CostGrowthPerTech">O kolik zdraží každá už hotová technologie (0.05 = +5 %).</param>
+public sealed record ResearchConfig(double CostMultiplier, double CostGrowthPerTech)
+{
+    /// <summary>Ceny přesně podle dat — výchozí stav pro obsah bez sekce.</summary>
+    public static ResearchConfig Plain { get; } = new(1.0, 0.0);
+
+    /// <summary>Násobič ceny po <paramref name="researched"/> hotových technologiích.</summary>
+    public double ScaleAfter(int researched) =>
+        CostMultiplier * (1.0 + CostGrowthPerTech * Math.Max(0, researched));
+}
+
 /// <param name="StartingBuildingIndices">
 /// Budovy, které stojí na mapě hned po založení světa (indexy do registru).
 ///
@@ -398,10 +421,14 @@ public sealed record GameplayConfig(
     PollutionConfig? PollutionOrNull = null,
     BulkBuildConfig? BulkBuildOrNull = null,
     LaserConfig? LaserOrNull = null,
-    HistoryConfig? HistoryOrNull = null)
+    HistoryConfig? HistoryOrNull = null,
+    ResearchConfig? ResearchOrNull = null)
 {
     /// <summary>Nastavení časosběru; chybí-li v datech, se nic nezaznamenává.</summary>
     public HistoryConfig History => HistoryOrNull ?? HistoryConfig.Disabled;
+
+    /// <summary>Škálování cen výzkumu; chybí-li v datech, platí ceny tak, jak jsou.</summary>
+    public ResearchConfig Research => ResearchOrNull ?? ResearchConfig.Plain;
 
     /// <summary>Nastavení těžebního laseru; chybí-li v datech, je vrstva vypnutá.</summary>
     public LaserConfig Laser => LaserOrNull ?? LaserConfig.Disabled;

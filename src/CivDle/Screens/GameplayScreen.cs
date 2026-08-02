@@ -74,7 +74,7 @@ public sealed class GameplayScreen : IScreen
 
     /// <summary>Kolik sekund zbývá do dalšího zásahu těžebního paprsku.</summary>
     private float _laserCooldown;
-    private readonly GameSounds _sounds = new();
+    private readonly GameSounds _sounds;
     private readonly AmbientMusic _ambient = new();
     private readonly AmbientSoundscape _soundscape;
     private readonly MinimapRenderer _minimap;
@@ -93,6 +93,12 @@ public sealed class GameplayScreen : IScreen
     private readonly Dictionary<int, string> _popupTextCache = new();
 
     private Desktop _desktop = null!;
+    /// <summary>Rezervovaná šířka pro „zásoba/kapacita" — drží horní lištu v klidu.</summary>
+    private const int AmountLabelWidth = 96;
+
+    /// <summary>Rezervovaná šířka pro „+x/s" — ticker se objevuje a mizí, lišta se hýbat nesmí.</summary>
+    private const int RateLabelWidth = 56;
+
     private Label[] _resourceLabels = Array.Empty<Label>();
     private Label[] _resourceRateLabels = Array.Empty<Label>();
     private Widget[] _resourceChips = Array.Empty<Widget>();
@@ -213,6 +219,7 @@ public sealed class GameplayScreen : IScreen
         _pollutionRenderer = new PollutionRenderer(screens.WhitePixel, screens.Content);
         _landmarkRenderer = new LandmarkRenderer(screens.WhitePixel, screens.Content);
         _ufoRenderer = new UfoRenderer(screens.WhitePixel);
+        _sounds = screens.Sounds;
         _soundscape = new AmbientSoundscape(screens.Content);
         _tools = new MapTools(simulation, _camera, _input, screens.Content);
         _weatherRenderer = new WeatherRenderer(screens.WhitePixel, screens.Content);
@@ -352,10 +359,15 @@ public sealed class GameplayScreen : IScreen
         bool mouseOverUi = _desktop.IsMouseOverGUI;
         UpdateCamera(dt, mouseOverUi);
 
-        // Nástroj si vstup buď vezme (staví, maluje, přesouvá), nebo ho pustí dál
-        // na ruční těžbu — jediné místo, kde se to rozhoduje.
-        if (!_tools.Update(mouseOverUi))
+        // Modlitba čekající na cíl má přednost přede vším ostatním — hráč právě
+        // ukazuje, kam má dopadnout. Musí se vyřídit DŘÍV než nástroje a laser:
+        // ty klik spolknou a modlitba by zmizela do prázdna (přesně tenhle bug
+        // dělal z meteoritu tlačítko, po kterém se nic nedělo).
+        if (!ResolvePendingPrayer(mouseOverUi)
+            && !_tools.Update(mouseOverUi))
         {
+            // Nástroj si vstup buď vezme (staví, maluje, přesouvá), nebo ho pustí
+            // dál na ruční těžbu — jediné místo, kde se to rozhoduje.
             UpdateHarvest(dt, mouseOverUi);
         }
 
@@ -722,7 +734,6 @@ public sealed class GameplayScreen : IScreen
         _ambient.Dispose();
         _soundscape.Stop();
         _soundscape.Dispose();
-        _sounds.Dispose();
     }
 
     // ----- vstup -----
@@ -918,16 +929,6 @@ public sealed class GameplayScreen : IScreen
 
         if (!_input.WasLeftPressed)
         {
-            return;
-        }
-
-        // Modlitba čekající na cíl má přednost přede vším ostatním: hráč právě
-        // ukazuje, kam má dopadnout, ne že chce těžit.
-        if (_pendingPrayer >= 0)
-        {
-            var prayerOutcome = _simulation.TryPray(_pendingPrayer, _pendingPrayerStrength, tileX, tileY);
-            _pendingPrayer = -1;
-            ShowPrayerOutcome(prayerOutcome, world);
             return;
         }
 
@@ -1525,7 +1526,7 @@ public sealed class GameplayScreen : IScreen
         var content = _screens.Content;
 
         // Horní pruh: suroviny (ikony) + zásoba/kapacita + přírůstek za sekundu.
-        var resourceBar = new HorizontalStackPanel { Spacing = 18 };
+        var resourceBar = new HorizontalStackPanel { Spacing = 14 };
         _resourceLabels = new Label[content.Resources.Count];
         _resourceRateLabels = new Label[content.Resources.Count];
         _resourceChips = new Widget[content.Resources.Count];
@@ -1548,9 +1549,22 @@ public sealed class GameplayScreen : IScreen
                 });
             }
 
-            _resourceLabels[i] = new Label { VerticalAlignment = VerticalAlignment.Center };
+            // Pevná šířka obou popisků. Bez ní se pruh při každé změně čísla
+            // přeskládal — „9/1000" je užší než „10/1000", takže se posunulo
+            // úplně všechno vpravo od té suroviny. Rezervované místo znamená,
+            // že se čísla mění uvnitř svého okénka a lišta stojí.
+            _resourceLabels[i] = new Label
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                MinWidth = AmountLabelWidth,
+            };
             chip.Widgets.Add(_resourceLabels[i]);
-            _resourceRateLabels[i] = new Label { VerticalAlignment = VerticalAlignment.Center, TextColor = new Color(120, 190, 130) };
+            _resourceRateLabels[i] = new Label
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                TextColor = new Color(120, 190, 130),
+                MinWidth = RateLabelWidth,
+            };
             chip.Widgets.Add(_resourceRateLabels[i]);
             chip.Tooltip = ResourceTooltip(i);
             // Neznámá surovina se v pruhu vůbec neukáže — hra nesmí prozrazovat
@@ -1560,7 +1574,12 @@ public sealed class GameplayScreen : IScreen
             resourceBar.Widgets.Add(chip);
         }
 
-        _populationLabel = new Label { VerticalAlignment = VerticalAlignment.Center, TextColor = UiFactory.Accent };
+        _populationLabel = new Label
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            TextColor = UiFactory.Accent,
+            MinWidth = AmountLabelWidth, // ať rostoucí počet obyvatel netlačí hlášku vedle sebe
+        };
         resourceBar.Widgets.Add(_populationLabel);
 
         // Nevyužité budovy se musí ohlásit: bez dělníků nevyrábějí a hráč by jinak
@@ -1712,7 +1731,73 @@ public sealed class GameplayScreen : IScreen
     {
         _pendingPrayer = prayerIndex;
         _pendingPrayerStrength = strength;
+        _tools.Clear(); // rozestavěná budova by cíl přebila
         _toasts.Add(_screens.Loc["faith.pickTarget"], new Color(255, 226, 150));
+    }
+
+    /// <summary>
+    /// Vyřídí modlitbu čekající na cíl. Vrací <c>true</c>, když si klik vzala —
+    /// pak už ho nikdo jiný nedostane.
+    /// </summary>
+    private bool ResolvePendingPrayer(bool mouseOverUi)
+    {
+        if (_pendingPrayer < 0)
+        {
+            return false;
+        }
+
+        // Pravý klik (nebo Esc) modlitbu zruší, ať hráč nezůstane v pasti
+        // s kurzorem, který dělá něco jiného, než čeká.
+        if (_input.WasRightPressed || _input.WasPressed(Keys.Escape))
+        {
+            _pendingPrayer = -1;
+            _toasts.Add(_screens.Loc["faith.targetCancelled"], new Color(150, 155, 170));
+            return true;
+        }
+
+        if (mouseOverUi || !_input.WasLeftPressed)
+        {
+            return true; // cíl se pořád vybírá — klik nikam jinam nepustíme
+        }
+
+        var world = _camera.ScreenToWorld(_input.MousePosition.ToVector2());
+        int tileX = (int)MathF.Floor(world.X / TerrainRenderer.TileSize);
+        int tileY = (int)MathF.Floor(world.Y / TerrainRenderer.TileSize);
+
+        string effect = _screens.Content.Faith.Prayers[_pendingPrayer].Effect;
+        var outcome = _simulation.TryPray(_pendingPrayer, _pendingPrayerStrength, tileX, tileY);
+        _pendingPrayer = -1;
+
+        ShowPrayerOutcome(outcome, world);
+        if (outcome == PrayerOutcome.Answered)
+        {
+            ShowStrikeImpact(effect, world);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Podívaná po vyslyšené ráně. Bez ní vypadal i úspěšný meteorit na prázdné
+    /// pláni jako by se nestalo nic — a hráč neměl jak poznat, že modlitba vyšla.
+    /// </summary>
+    private void ShowStrikeImpact(string effect, Vector2 world)
+    {
+        switch (effect)
+        {
+            case "smite_meteor":
+                _particles.SpawnBurst(world, new Color(255, 150, 60), 60, 90f, 420f);
+                _particles.SpawnBurst(world, new Color(70, 60, 55), 40, 40f, 220f);
+                _fireworks.Burst(world, HashCode.Combine((int)world.X, (int)world.Y));
+                _sounds.PlayPlace();
+                break;
+
+            case "smite_flood":
+                _particles.SpawnBurst(world, new Color(110, 180, 235), 60, 60f, 320f);
+                _particles.SpawnBurst(world, new Color(200, 230, 245), 30, 30f, 160f);
+                _sounds.PlayPlace();
+                break;
+        }
     }
 
     private Widget BuildToolButtons()

@@ -200,7 +200,11 @@ public sealed record GameplayFileDto(
     PollutionDto? Pollution,
     BulkBuildDto? BulkBuild,
     LaserDto? Laser,
-    HistoryDto? History);
+    HistoryDto? History,
+    ResearchDto? Research);
+
+/// <summary>Škálování cen výzkumu tak, jak leží v JSON.</summary>
+public sealed record ResearchDto(double CostMultiplier, double CostGrowthPerTech);
 
 /// <summary>Časosběr tak, jak leží v JSON.</summary>
 public sealed record HistoryDto(double IntervalSeconds, int MaxFrames);

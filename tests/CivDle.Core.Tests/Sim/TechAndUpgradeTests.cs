@@ -71,11 +71,41 @@ public class TechAndUpgradeTests
         int wood = content.Resources.IndexOf("wood");
         double woodBefore = sim.GetResource(wood);
 
+        // Cena z dat je základ, ne konečná částka — strhnout se musí přesně to,
+        // co hráč vidí v UI (obojí jde přes ResearchCost).
+        int charged = sim.ResearchCost(40); // milling: wood 40
+
         Assert.Equal(PlacementResult.Ok, sim.TryResearch(milling));
 
         Assert.True(sim.IsTechResearched(milling));
         Assert.True(sim.IsBuildingUnlocked(content.Buildings.IndexOf("windmill")));
-        Assert.Equal(woodBefore - 40, sim.GetResource(wood)); // milling: wood 40
+        Assert.Equal(woodBefore - charged, sim.GetResource(wood));
+    }
+
+    [Fact]
+    public void EachFinishedTechMakesTheNextOneDearer()
+    {
+        // Bez toho měl celý strom prakticky stejnou cenu a druhá půlka hry se
+        // proklikala za pár minut.
+        var sim = Grass(out var content);
+        TopUp(sim, content);
+
+        int before = sim.ResearchCost(100);
+        Assert.Equal(PlacementResult.Ok, sim.TryResearch(content.Techs.IndexOf("milling")));
+        int after = sim.ResearchCost(100);
+
+        Assert.True(after > before, $"po výzkumu má být dráž, je {after} vs {before}");
+    }
+
+    [Fact]
+    public void RealContent_ResearchIsNotACheapClickthrough()
+    {
+        // Ceny v datech jsou základ; násobič je to, co drží strom drahý. Kdyby
+        // někdo blok z gameplay.json vyhodil, tenhle test to chytí.
+        var research = TestData.LoadRealContent().Gameplay.Research;
+
+        Assert.True(research.CostMultiplier >= 2.0, "strom má stát aspoň dvakrát tolik co základ");
+        Assert.True(research.CostGrowthPerTech > 0, "každý další výzkum má stát víc");
     }
 
     [Fact]
