@@ -259,8 +259,11 @@ public sealed class CivDleGame : Game
     /// <summary>Profil (achievementy) patří do profilu uživatele, mimo per-hra save.</summary>
     private static string GetProfilePath() => Path.Combine(GetProfileDirectory(), "profile.json");
 
-    /// <summary>Složka profilu hry (nastavení, savy).</summary>
-    private static string GetProfileDirectory() => Path.Combine(
+    /// <summary>
+    /// Složka profilu hry (nastavení, savy). Internal, protože sem míří i
+    /// crash.log — vedle exe nemusí být právo zápisu, ve Steamu obzvlášť.
+    /// </summary>
+    internal static string GetProfileDirectory() => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "CivDle");
 }

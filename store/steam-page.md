@@ -146,19 +146,25 @@ Simulation, Strategy, Casual, Indie
 - OS: Windows 10 64-bit
 - Procesor: dvoujádro 2,0 GHz
 - Paměť: 4 GB RAM
-- Grafika: cokoli s OpenGL 3.0 (integrovaná stačí)
+- Grafika: cokoli s DirectX 11 (integrovaná stačí)
 - Místo na disku: 200 MB
 
 **Doporučené (Windows)**
 - OS: Windows 11 64-bit
 - Procesor: čtyřjádro 3,0 GHz
 - Paměť: 8 GB RAM
-- Grafika: dedikovaná s OpenGL 3.0
+- Grafika: dedikovaná, DirectX 11
 - Místo na disku: 200 MB
 
 **Linux**
 - OS: Ubuntu 22.04 nebo novější
+- Grafika: OpenGL 3.0 (linuxový build jede na OpenGL)
 - Zbytek jako Windows
+
+> Windows build jede schválně na **DirectX**, ne na OpenGL. Bez ovladačů od
+> výrobce podstrčí Windows nouzový ovladač, který umí jen OpenGL 1.1 — na něm
+> by hra vůbec nenaběhla, i když na tom stroji všechno ostatní běží. DirectX 11
+> je na Windows 10+ vždycky, takže tenhle typ „mně se to nespustí" odpadá.
 
 > Čísla vycházejí z toho, co hra opravdu dělá: zátěžové měření drží simulaci
 > 250 000 budov na ~2,4 % rozpočtu tiku, takže úzké hrdlo je vykreslování, ne

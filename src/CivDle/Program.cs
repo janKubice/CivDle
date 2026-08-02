@@ -1,7 +1,17 @@
 using CivDle;
 
-// Vstupní bod hry. Chyby (typicky rozbitá herní data — loader je fail-fast)
-// se zapíšou do crash.log vedle exe, protože Windows build nemá konzoli.
+// Vstupní bod hry. Když start selže, musí se to hráč dozvědět — viz katalog
+// příčin v StartupDiagnosis a tři cesty ven: okno (Steam), konzole (terminál)
+// a crash.log (když si o něj někdo řekne).
+
+// Automatické režimy nesmí NIKDY vyskočit modální okno: v CI by na něj nikdo
+// neklikl a běh by visel až do timeoutu. Zjišťuje se to před try, aby platilo
+// i v případě, že spadne rovnou konstruktor hry.
+bool automated = args.Contains("--smoke")
+    || args.Contains("--perf")
+    || args.Contains("--capture")
+    || args.Contains("--capsules");
+
 try
 {
     // --capture <složka>: nafotí sadu snímků do obchodu a skončí. Běžný start
@@ -33,26 +43,60 @@ catch (Exception ex)
     // stopy a hra by se z pohledu hráče „prostě nespustila".
     StartupConsole.AttachToParentIfPossible();
 
-    string crashLog = Path.Combine(AppContext.BaseDirectory, "crash.log");
-    try
-    {
-        File.WriteAllText(crashLog, ex.ToString());
-    }
-    catch (Exception logFailure) when (logFailure is IOException or UnauthorizedAccessException)
-    {
-        crashLog = string.Empty; // nezapsalo se; níž se na něj neodkazuj
-    }
+    string summary = $"CivDle se nespustil: {ex.Message}";
+    string? hint = StartupDiagnosis.HintFor(ex);
+    string crashLog = WriteCrashLog(ex);
 
     // Napřed jedna věta, o co jde, teprve pak celý výpis — hráč (ani vývojář
     // ve spěchu) nečte stack trace odshora.
     Console.Error.WriteLine();
-    Console.Error.WriteLine($"CivDle se nespustil: {ex.Message}");
+    Console.Error.WriteLine(summary);
+
+    // U známých pádů (ovladače, blokace od Windows, rozbitá data) rovnou i to,
+    // co s tím dělat — samotná hláška od systému hráči nepomůže.
+    if (hint is not null)
+    {
+        Console.Error.WriteLine();
+        Console.Error.WriteLine(hint);
+    }
+
     if (crashLog.Length > 0)
     {
+        Console.Error.WriteLine();
         Console.Error.WriteLine($"Podrobnosti: {crashLog}");
     }
 
     Console.Error.WriteLine();
     Console.Error.WriteLine(ex);
+
+    // Hráč ze Steamu konzoli nevidí. Bez tohohle okna mu hra jen tiše nenaběhne
+    // — a místo aktualizace ovladačů následuje vrácení peněz.
+    if (!automated)
+    {
+        StartupAlert.Show(summary, hint, crashLog);
+    }
+
     return 1;
+}
+
+// Výpis do profilu uživatele, ne vedle exe: složka hry ve Steamu nemusí být
+// zapisovatelná a hráč do ní stejně nehledá. Vedle exe zůstává jako záloha.
+static string WriteCrashLog(Exception ex)
+{
+    foreach (string directory in new[] { CivDleGame.GetProfileDirectory(), AppContext.BaseDirectory })
+    {
+        try
+        {
+            Directory.CreateDirectory(directory);
+            string path = Path.Combine(directory, "crash.log");
+            File.WriteAllText(path, ex.ToString());
+            return path;
+        }
+        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException)
+        {
+            // Zkus další místo; nemožnost zapsat log nesmí přebít hlášení chyby.
+        }
+    }
+
+    return string.Empty;
 }
