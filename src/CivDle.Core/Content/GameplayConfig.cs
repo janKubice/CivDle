@@ -364,12 +364,20 @@ public sealed record HistoryConfig(double IntervalSeconds, int MaxFrames)
     public bool IsEnabled => IntervalSeconds > 0 && MaxFrames > 1;
 }
 
+/// <param name="StartingBuildingIndices">
+/// Budovy, které stojí na mapě hned po založení světa (indexy do registru).
+///
+/// <para>Prázdná mapa je nejhorší první dojem, jaký idle hra může udělat —
+/// hráč nevidí, o čem hra je. Jeden domek u startu řekne „tohle stavíš" dřív,
+/// než stihne kliknout.</para>
+/// </param>
 /// <param name="Settlements">Nastavení detekce osad.</param>
 /// <param name="DayNight">Denní/noční cyklus.</param>
 /// <param name="Boost">Nastavení slavnosti (dočasný boost).</param>
 /// <param name="Harvest">Nastavení kritického sběru.</param>
 public sealed record GameplayConfig(
     double StartingPopulation,
+    IReadOnlyList<int> StartingBuildingIndices,
     int BaseHousingCapacity,
     double PopulationGrowthPerSecond,
     double FoodPerPersonPerSecond,

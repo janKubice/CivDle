@@ -83,6 +83,9 @@ public sealed class Simulation
     private readonly Queue<GameNotification> _notifications = new();
     private PrestigeBonuses _bonuses = PrestigeBonuses.None;
 
+    /// <summary>Násobiče výroby po surovinách z cílených technologií (index = surovina).</summary>
+    private readonly double[] _resourceProductionMult;
+
     private int _boostTicksRemaining;    // slavnost aktivní, dokud > 0
     private int _boostCooldownRemaining;  // dokud > 0, nejde spustit další
     private long _harvestCounter;         // pořadí sběru — seed deterministického kritu
@@ -126,6 +129,8 @@ public sealed class Simulation
 
         _resources = new double[content.Resources.Count];
         _storageCaps = new double[content.Resources.Count];
+        _resourceProductionMult = new double[content.Resources.Count];
+        Array.Fill(_resourceProductionMult, 1.0);
         for (int i = 0; i < _resources.Length; i++)
         {
             _storageCaps[i] = content.Resources[i].BaseStorage;
@@ -169,6 +174,29 @@ public sealed class Simulation
         _questsCompleted = new bool[content.Quests.Count];
         _achievementSystem = new AchievementSystem(content);
         _achievementsUnlocked = new bool[content.Achievements.Count];
+
+        PlaceStartingBuildings();
+    }
+
+    /// <summary>
+    /// Postaví u startu to, co má svět mít od začátku (data: <c>startingBuildings</c>).
+    ///
+    /// <para>Prázdná mapa je nejhorší první dojem, jaký idle hra může udělat —
+    /// hráč nevidí, o čem hra je. Jeden domek řekne „tohle stavíš" dřív, než
+    /// stihne kliknout.</para>
+    ///
+    /// <para>Staví se zdarma a ve spirále od středu: v konstruktoru ještě nemá kdo
+    /// platit a na souši u startu nemusí být místo hned na první dlaždici. Když se
+    /// budova nevejde ani po celé spirále (ostrov o jedné dlaždici), svět prostě
+    /// začne prázdný — spadnout kvůli tomu by bylo nepřiměřené.</para>
+    /// </summary>
+    private void PlaceStartingBuildings()
+    {
+        var indices = _content.Gameplay.StartingBuildingIndices;
+        for (int i = 0; i < indices.Count; i++)
+        {
+            TryFoundNearCity(indices[i], out _, out _);
+        }
     }
 
     /// <summary>Nekonečný terén, nad kterým simulace běží.</summary>
@@ -1168,6 +1196,12 @@ public sealed class Simulation
 
     /// <summary>Zásoby pro systémy simulace (mutace jen uvnitř assembly).</summary>
     internal double[] Resources => _resources;
+
+    /// <summary>
+    /// Násobič výroby jedné suroviny z cílených technologií (1.0 = beze změny).
+    /// Odděleno od globálního bonusu, aby „+5 % dřeva" nezvedlo i ocel.
+    /// </summary>
+    public double ResourceProductionMult(int resourceIndex) => _resourceProductionMult[resourceIndex];
 
     /// <summary>Kapacity skladů pro systémy simulace.</summary>
     internal double[] StorageCaps => _storageCaps;
@@ -3486,6 +3520,16 @@ public sealed class Simulation
 
     // ----- tech tree -----
 
+    /// <summary>
+    /// Zná hráč tuhle technologii, nebo je pro něj zatím jen tečka v mlze?
+    ///
+    /// <para>Známé je hotové a to, co jde vyzkoumat hned — tedy přesně jeden krok
+    /// dopředu. Dál se strom nečte: kdyby hráč viděl celou budoucnost, ubral by si
+    /// tím to nejlepší, co strom nabízí — zvědavost, co je za dalším uzlem.</para>
+    /// </summary>
+    public bool IsTechKnown(int techIndex) =>
+        _techResearched[techIndex] || CanResearch(techIndex) != PlacementResult.NotUnlocked;
+
     /// <summary>Lze technologii vyzkoumat (prerekvizity splněny, dost surovin, není hotová)?</summary>
     public PlacementResult CanResearch(int techIndex)
     {
@@ -3924,13 +3968,28 @@ public sealed class Simulation
 
         // Vyzkoumané technologie dávají trvalé pasivní bonusy stejnými behavior-ID
         // jako upgrady Vzestupu — jen platí v rámci běhu (Vzestup výzkum resetuje).
+        // Cílené efekty jdou do vlastního pole; globální zůstávají v Apply.
+        // Bez toho by „+5 % dřeva" zvedlo i výrobu oceli.
+        Array.Fill(_resourceProductionMult, 1.0);
         for (int i = 0; i < _techResearched.Length; i++)
         {
-            if (_techResearched[i])
+            if (!_techResearched[i])
             {
-                var tech = _content.Techs[i];
-                Apply(tech.Effect, tech.Magnitude);
+                continue;
             }
+
+            var tech = _content.Techs[i];
+            if (tech.TargetResourceIndex >= 0)
+            {
+                if (tech.Effect == "production_mult")
+                {
+                    _resourceProductionMult[tech.TargetResourceIndex] += tech.Magnitude;
+                }
+
+                continue;
+            }
+
+            Apply(tech.Effect, tech.Magnitude);
         }
 
         _bonuses = new PrestigeBonuses(production, harvest, growth, housing, storage, start, offline,

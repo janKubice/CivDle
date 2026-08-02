@@ -153,6 +153,7 @@ public sealed record ContractDto(
 public sealed record GameplayFileDto(
     int SchemaVersion,
     double StartingPopulation,
+    string[]? StartingBuildings,
     int BaseHousingCapacity,
     double PopulationGrowthPerSecond,
     double FoodPerPersonPerSecond,
@@ -320,7 +321,8 @@ public sealed record TechDto(
     string[]? Prerequisites,
     string[]? Unlocks,
     string? Effect,
-    double Magnitude);
+    double Magnitude,
+    string? TargetResource);
 
 /// <summary>
 /// Podmínka cíle/achievementu/Vzestupu tak, jak leží v JSON: metrika + práh + volitelný

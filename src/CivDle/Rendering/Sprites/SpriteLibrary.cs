@@ -40,6 +40,7 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "icon.iron", IconSize, canvas => IngotIcon(canvas, new Color(168, 170, 176)));
         Add(device, "icon.steel", IconSize, canvas => IngotIcon(canvas, new Color(126, 140, 158)));
         Add(device, "icon.nanomaterial", IconSize, canvas => IngotIcon(canvas, new Color(178, 132, 220)));
+        Add(device, "icon.science", IconSize, ScienceIcon);
         Add(device, "icon.machine_parts", IconSize, GearIcon);
         Add(device, "icon.electronics", IconSize, ChipIcon);
         Add(device, "icon.computer", IconSize, ComputerIcon);
@@ -70,6 +71,13 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.windmill", SpriteSize, Windmill);
         Add(device, "building.market", SpriteSize, Market);
         Add(device, "building.toolmaker", SpriteSize, Toolmaker);
+
+        // Věda. Jeden tvar ve třech velikostech čte hráč jako jednu rodinu —
+        // „tady se bádá" pozná i bez popisku.
+        Add(device, "building.library", SpriteSize, canvas => Schoolhouse(canvas, floors: 1));
+        Add(device, "building.school", SpriteSize, canvas => Schoolhouse(canvas, floors: 2));
+        Add(device, "building.university", SpriteSize, canvas => Schoolhouse(canvas, floors: 3));
+        Add(device, "building.research_lab", SpriteSize, ResearchLab);
 
         // Éra kamene a dřeva.
         Add(device, "building.granary", SpriteSize, Granary);
@@ -505,6 +513,46 @@ public sealed class SpriteLibrary : IDisposable
         c.FillCircle(16f, 14f, 4.2f, new Color(238, 232, 214));           // ciferník
         c.FillRect(15, 11, 2, 4, new Color(60, 54, 46));                  // ručičky
         c.FillRect(16, 13, 4, 2, new Color(60, 54, 46));
+    }
+
+    /// <summary>
+    /// Budova vědy: cihlový dům se štítem, hodinami a rozsvícenými okny. Počet
+    /// pater odlišuje knihovnu, školu a univerzitu — stejná rodina, jiná váha.
+    /// </summary>
+    private static void Schoolhouse(PixelCanvas c, int floors)
+    {
+        var wall = new Color(178, 156, 132);
+        var roof = new Color(96, 110, 134);
+        var window = new Color(126, 178, 226);
+
+        int top = Math.Max(4, 22 - floors * 6);
+        c.FillRect(4, top, 24, 30 - top, wall);
+        c.FillTriangle(2f, top, 30f, top, 16f, top - 5f, roof);
+
+        // Okna po patrech — rozsvícená, protože se v nich pracuje i po setmění.
+        for (int floor = 0; floor < floors; floor++)
+        {
+            int y = top + 3 + floor * 6;
+            for (int i = 0; i < 3; i++)
+            {
+                c.FillRect(7 + i * 7, y, 4, 4, window);
+            }
+        }
+
+        c.FillRect(14, 24, 5, 6, new Color(120, 92, 64)); // dveře
+    }
+
+    /// <summary>Výzkumný ústav: nízká hala s kopulí a anténou — věda pozdní éry.</summary>
+    private static void ResearchLab(PixelCanvas c)
+    {
+        c.FillRect(3, 16, 26, 14, new Color(196, 202, 212));
+        c.FillCircle(16, 15, 8, new Color(150, 176, 206)); // kopule
+        c.FillRect(15, 2, 2, 8, new Color(120, 128, 140)); // anténa
+        c.FillCircle(16, 3, 2, new Color(226, 138, 92));
+        for (int i = 0; i < 4; i++)
+        {
+            c.FillRect(5 + i * 6, 20, 4, 5, new Color(126, 178, 226));
+        }
     }
 
     private static void GrandLibrary(PixelCanvas c)
@@ -1061,6 +1109,19 @@ public sealed class SpriteLibrary : IDisposable
         c.FillRect(6, 9, 12, 8, metal);
         c.FillRect(6, 9, 12, 2, metal * 1.25f); // odlesk na horní hraně
         c.FillRect(3, 17, 18, 2, metal * 0.7f);
+    }
+
+    /// <summary>Věda: otevřená kniha se záložkou — čitelná i na 24 pixelech.</summary>
+    private static void ScienceIcon(PixelCanvas c)
+    {
+        var cover = new Color(74, 116, 168);
+        var page = new Color(238, 240, 246);
+
+        c.FillRect(3, 6, 18, 13, cover);
+        c.FillRect(4, 7, 7, 11, page);   // levá strana
+        c.FillRect(13, 7, 7, 11, page);  // pravá strana
+        c.FillRect(11, 6, 2, 13, new Color(52, 84, 126)); // hřbet
+        c.FillRect(17, 4, 3, 8, new Color(214, 118, 92)); // záložka
     }
 
     private static void GearIcon(PixelCanvas c)

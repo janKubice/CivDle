@@ -132,7 +132,9 @@ internal static class TestContent
 
     /// <summary>Výchozí gameplay config testů (auto-stavba na dlouhém intervalu, ať do testů nezasahuje).</summary>
     public static GameplayConfig DefaultGameplay => new(
-        StartingPopulation: 5, BaseHousingCapacity: 6,
+        // Testy začínají na prázdné mapě schválně: každý test si postaví přesně
+        // to, co měří. Startovní domek se testuje zvlášť (StartingBuildingsTests).
+        StartingPopulation: 5, StartingBuildingIndices: Array.Empty<int>(), BaseHousingCapacity: 6,
         PopulationGrowthPerSecond: 0.12, FoodPerPersonPerSecond: 0.04, FoodResourceIndex: 0,
         AutoBuild: new AutoBuildConfig(IntervalTicks: 100_000, SearchRadius: 6, PopulationHeadroom: 2),
         Roads: new RoadConfig(new RgbColor(150, 145, 130), MaxSearchDistance: 60),

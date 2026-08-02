@@ -28,6 +28,9 @@ public sealed class TechScreen : IScreen
     private static readonly Color UnaffordableColor = new(160, 130, 80);
     private static readonly Color LockedColor = new(78, 88, 108);
     private static readonly Color EdgeDoneColor = new(110, 210, 150, 190);
+    /// <summary>Uzel, ke kterému se hráč ještě nedostal — jen matná tečka.</summary>
+    private static readonly Color UnknownColor = new(64, 72, 92);
+
     private static readonly Color EdgeColor = new(70, 82, 105, 130);
 
     private readonly ScreenManager _screens;
@@ -179,6 +182,15 @@ public sealed class TechScreen : IScreen
                 continue; // culling — u velkého souhvězdí se vyplatí
             }
 
+            // Dál než krok dopředu se strom nečte — neznámý uzel je jen tečka
+            // v mlze. Tvar souhvězdí zůstává vidět (hráč tuší, kolik ho čeká),
+            // obsah ne.
+            if (!_simulation.IsTechKnown(i))
+            {
+                DrawDiamond(spriteBatch, pixel, center, star * 0.55f, UnknownColor);
+                continue;
+            }
+
             bool researched = _simulation.IsTechResearched(i);
             var status = _simulation.CanResearch(i);
             var color = researched ? ResearchedColor
@@ -235,7 +247,14 @@ public sealed class TechScreen : IScreen
 
         // Detail uzlu až nad UI (ať nezmizí pod panelem) a U KURZORU — hráč nemá
         // očima skákat na spodek obrazovky, aby zjistil, na co kouká.
-        if (_hovered >= 0)
+        if (_hovered >= 0 && !_simulation.IsTechKnown(_hovered))
+        {
+            // Neznámý uzel neprozradí ani jméno — jinak by stačilo přejet myší
+            // a celý strom by byl přečtený dopředu.
+            HoverTooltip.Draw(spriteBatch, pixel, _font, viewport, _input.MousePosition,
+                loc["tech.unknown"], loc["tech.unknown.desc"], new Color(120, 130, 150));
+        }
+        else if (_hovered >= 0)
         {
             var tech = techs[_hovered];
             bool researched = _simulation.IsTechResearched(_hovered);

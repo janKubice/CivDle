@@ -79,7 +79,7 @@ public sealed class ContentLoader
         var seasons = LoadSeasons(Path.Combine(dataDirectory, "seasons.json"), resources);
         var tutorial = LoadTutorial(Path.Combine(dataDirectory, "tutorial.json"), resources, buildings, techs);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
-        var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources);
+        var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources, buildings);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
         var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, neighbours, elections, milestones, seasons);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
@@ -2043,9 +2043,20 @@ public sealed class ContentLoader
                 unlocks.Add(buildingIndex);
             }
 
+            // Cíl efektu je naopak ODKAZ — překlep v názvu suroviny by znamenal
+            // vylepšení, které tiše nedělá nic (CLAUDE.md: fail-fast).
+            int targetResource = -1;
+            if (!string.IsNullOrWhiteSpace(dto.TargetResource)
+                && !resources.TryIndexOf(dto.TargetResource.Trim(), out targetResource))
+            {
+                throw new ContentLoadException(
+                    path, $"Technologie '{id}' míří na neexistující surovinu '{dto.TargetResource}'.");
+            }
+
             // Efekt se NEvaliduje proti seznamu — neznámý se za běhu tiše ignoruje
             // (behavior-ID hook, data smí předběhnout kód).
-            techs.Add(new TechDef(id, cost, prereqs, unlocks, dto.Effect?.Trim() ?? string.Empty, dto.Magnitude));
+            techs.Add(new TechDef(
+                id, cost, prereqs, unlocks, dto.Effect?.Trim() ?? string.Empty, dto.Magnitude, targetResource));
         }
 
         return new DefRegistry<TechDef>(techs, t => t.Id, "technologie", allowEmpty: true);
@@ -2365,7 +2376,7 @@ public sealed class ContentLoader
 
     // ----- gameplay -----
 
-    private GameplayConfig LoadGameplay(string path, DefRegistry<Resource> resources)
+    private GameplayConfig LoadGameplay(string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings)
     {
         var file = ReadFile<GameplayFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -2393,6 +2404,20 @@ public sealed class ContentLoader
         if (string.IsNullOrWhiteSpace(file.FoodResource))
         {
             throw new ContentLoadException(path, "Chybí 'foodResource' — která surovina je jídlo.");
+        }
+
+        // Startovní budovy: překlep v ID by znamenal prázdnou mapu bez vysvětlení,
+        // proto se odkaz ověří hned při načtení (CLAUDE.md: fail-fast).
+        var startingBuildings = new List<int>();
+        foreach (string id in file.StartingBuildings ?? Array.Empty<string>())
+        {
+            if (!buildings.TryIndexOf(id.Trim(), out int buildingIndex))
+            {
+                throw new ContentLoadException(
+                    path, $"'startingBuildings' odkazuje na neexistující budovu '{id}'.");
+            }
+
+            startingBuildings.Add(buildingIndex);
         }
 
         if (!resources.TryIndexOf(file.FoodResource.Trim(), out int foodIndex))
@@ -2530,6 +2555,7 @@ public sealed class ContentLoader
 
         return new GameplayConfig(
             file.StartingPopulation,
+            startingBuildings,
             file.BaseHousingCapacity,
             file.PopulationGrowthPerSecond,
             file.FoodPerPersonPerSecond,
