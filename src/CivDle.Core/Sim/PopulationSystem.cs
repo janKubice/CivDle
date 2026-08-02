@@ -41,7 +41,7 @@ internal sealed class PopulationSystem
                 ceiling,
                 sim.Population + _config.PopulationGrowthPerSecond * dt
                     * sim.Bonuses.GrowthMult * sim.HappinessGrowthFactor * sim.ElectionGrowthMult
-                    * sim.SeasonGrowthMult);
+                    * sim.SeasonGrowthMult * sim.BlessedGrowthMult);
         }
 
         // Vrchol běhu se sleduje tady, kde populace jediné místo roste. Bilance

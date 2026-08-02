@@ -86,10 +86,64 @@ public sealed class ContentLoader
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
         var vehicles = LoadVehicles(Path.Combine(dataDirectory, "vehicles.json"));
+        var faith = LoadFaith(Path.Combine(dataDirectory, "faith.json"), resources);
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, neighbours, elections, milestones, seasons, vehicles, mods);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, neighbours, elections, milestones, seasons, faith, vehicles, mods);
+    }
+
+    // ----- víra -----
+
+    /// <summary>
+    /// Načte modlitby. Chybějící soubor <b>není chyba</b> — víra je volitelná
+    /// mechanika a hra bez ní musí naběhnout (a všechny starší mody taky).
+    /// </summary>
+    private FaithCatalog LoadFaith(string path, DefRegistry<Resource> resources)
+    {
+        if (!File.Exists(path))
+        {
+            return FaithCatalog.Empty;
+        }
+
+        var file = ReadFile<FaithFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        if (string.IsNullOrWhiteSpace(file.FaithResource)
+            || !resources.TryIndexOf(file.FaithResource.Trim(), out int faithIndex))
+        {
+            throw new ContentLoadException(
+                path, $"'faithResource' odkazuje na neexistující surovinu '{file.FaithResource}'.");
+        }
+
+        var prayers = new List<PrayerDef>();
+        foreach (var dto in file.Prayers ?? new List<PrayerDto>())
+        {
+            string id = dto.Id?.Trim() ?? string.Empty;
+            if (id.Length == 0)
+            {
+                throw new ContentLoadException(path, "Modlitba bez 'id'.");
+            }
+
+            if (dto.BaseChance is <= 0 or > 1)
+            {
+                throw new ContentLoadException(path, $"Modlitba '{id}': 'baseChance' musí být 0–1, je {dto.BaseChance}.");
+            }
+
+            if (dto.BaseCost <= 0)
+            {
+                throw new ContentLoadException(path, $"Modlitba '{id}': 'baseCost' musí být kladný.");
+            }
+
+            // Účinek se NEvaliduje proti seznamu — behavior-ID hook, data smí
+            // předběhnout kód (neznámý účinek = nevyslyšená modlitba).
+            prayers.Add(new PrayerDef(
+                id, dto.Effect?.Trim() ?? string.Empty, dto.BaseCost, dto.BaseChance,
+                dto.ChanceFalloff, dto.Magnitude, Math.Max(0, dto.Radius)));
+        }
+
+        return new FaithCatalog(
+            faithIndex, new DefRegistry<PrayerDef>(prayers, p => p.Id, "modlitba", allowEmpty: true));
     }
 
     // ----- roční období -----

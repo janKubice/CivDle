@@ -63,6 +63,7 @@ public sealed class SaveGameSerializer
     private const string SectionConstruction = "construction";
     private const string SectionNodes = "nodes";
     private const string SectionFog = "fog";
+    private const string SectionFaith = "faith";
     private const string SectionPollution = "pollution";
     private const string SectionContracts = "contracts";
     private const string SectionCitizens = "citizens";
@@ -118,6 +119,7 @@ public sealed class SaveGameSerializer
                 w.Write(key);
             }
         });
+        WriteSection(writer, SectionFaith, w => w.Write(simulation.PrayerCount));
         WriteSection(writer, SectionKnownResources, w => WriteKnownResources(w, simulation));
         WriteSection(writer, SectionWorldChanges, w => WriteWorldChanges(w, simulation));
         WriteSection(writer, SectionTutorial, w => w.Write(simulation.TutorialStep));
@@ -411,6 +413,7 @@ public sealed class SaveGameSerializer
             case SectionConstruction: ReadConstruction(section, simulation); break;
             case SectionNodes: ReadNodes(section, simulation); break;
             case SectionFog: ReadFog(section, simulation); break;
+            case SectionFaith: simulation.RestorePrayerCount(section.ReadInt64()); break;
             case SectionPollution: ReadPollution(section, simulation); break;
             case SectionContracts: ReadContracts(section, content, simulation); break;
             case SectionCitizens: ReadCitizens(section, simulation); break;

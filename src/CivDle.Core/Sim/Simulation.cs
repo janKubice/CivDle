@@ -81,6 +81,8 @@ public sealed class Simulation
     private long[] _neighbourTrades = Array.Empty<long>(); // kolik obchodů už s kterým sousedem proběhlo
     private readonly Dictionary<long, byte> _biomeOverrides = new(); // terraformované dlaždice (UFO)
     private readonly Queue<GameNotification> _notifications = new();
+    private readonly PrayerSystem _prayerSystem;
+
     private PrestigeBonuses _bonuses = PrestigeBonuses.None;
 
     /// <summary>Násobiče výroby po surovinách z cílených technologií (index = surovina).</summary>
@@ -146,6 +148,7 @@ public sealed class Simulation
         _toolsSystem = new ToolsSystem(content);
         _pollutionSystem = new PollutionSystem(content);
         _contractSystem = new ContractSystem(content, seed);
+        _prayerSystem = new PrayerSystem(content, seed);
         _districtSystem = new DistrictSystem(content);
         _citizenSystem = new CitizenSystem(content, seed);
         _milestoneBonuses = new BuildingMilestoneSystem(content);
@@ -188,6 +191,144 @@ public sealed class Simulation
 
     /// <summary>Kolik dlaždic kolem sebe odhalí budova nebo ruční sběr.</summary>
     public const int FogRevealRadius = 10;
+
+    // ----- víra: modlitby, požehnání a zásahy -----
+
+    /// <summary>Jak dlouho vydrží požehnání ze zodpovězené modlitby.</summary>
+    private const int BlessingTicks = (int)(TicksPerSecond * 120);
+
+    private int _rainTicksLeft;
+    private double _rainMagnitude;
+    private int _growthTicksLeft;
+    private double _growthMagnitude;
+
+    /// <summary>Běží déšť z vyslyšené modlitby?</summary>
+    public bool RainBlessingActive => _rainTicksLeft > 0;
+
+    /// <summary>Běží plodnost z vyslyšené modlitby?</summary>
+    public bool GrowthBlessingActive => _growthTicksLeft > 0;
+
+    /// <summary>Násobič výroby jídla z deště (1.0 = beze změny).</summary>
+    public double RainFoodMult => _rainTicksLeft > 0 ? 1.0 + _rainMagnitude : 1.0;
+
+    /// <summary>Násobič růstu obyvatel z plodnosti (1.0 = beze změny).</summary>
+    public double BlessedGrowthMult => _growthTicksLeft > 0 ? 1.0 + _growthMagnitude : 1.0;
+
+    /// <summary>Je víra v datech zapnutá?</summary>
+    public bool FaithEnabled => _content.Faith.IsEnabled;
+
+    /// <summary>Nejvyšší síla, na kterou jde modlitbu vystupňovat.</summary>
+    public const int MaxPrayerStrength = PrayerSystem.MaxStrength;
+
+    /// <summary>Kolikrát se hráč modlil (statistika, kronika, achievementy).</summary>
+    public long PrayerCount => _prayerSystem.PrayerCount;
+
+    /// <summary>Obnoví počítadlo modliteb ze savu.</summary>
+    internal void RestorePrayerCount(long count) => _prayerSystem.RestoreCount(count);
+
+    /// <summary>
+    /// Příkaz hráče: pronést modlitbu. Víra se obětuje předem, výsledek je
+    /// nejistý — v tom je celé to rozhodnutí.
+    /// </summary>
+    public PrayerOutcome TryPray(int prayerIndex, int strength, int targetX, int targetY) =>
+        _prayerSystem.Pray(this, prayerIndex, strength, targetX, targetY);
+
+    /// <summary>Zapne dočasné požehnání (volá se z účinku modlitby).</summary>
+    internal void StartBlessing(BlessingKind kind, double magnitude, int radiusTiles, int targetX, int targetY)
+    {
+        _ = radiusTiles; // požehnání platí pro celé město; cíl je zatím jen místo obřadu
+        _ = targetX;
+        _ = targetY;
+        if (kind == BlessingKind.Rain)
+        {
+            _rainTicksLeft = BlessingTicks;
+            _rainMagnitude = magnitude;
+            return;
+        }
+
+        _growthTicksLeft = BlessingTicks;
+        _growthMagnitude = magnitude;
+    }
+
+    /// <summary>Očistí okolí od znečištění — odpověď na modlitbu za čistou zemi.</summary>
+    internal void CleanseArea(int centerX, int centerY, int radiusTiles, double magnitude)
+    {
+        int step = PollutionGrid.CellTiles;
+        for (int y = centerY - radiusTiles; y <= centerY + radiusTiles; y += step)
+        {
+            for (int x = centerX - radiusTiles; x <= centerX + radiusTiles; x += step)
+            {
+                foreach (var kind in new[] { PollutionKind.Air, PollutionKind.Water, PollutionKind.Soil })
+                {
+                    _pollution.Emit(x, y, kind, -_pollution.At(x, y, kind) * Math.Clamp(magnitude, 0, 1));
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Meteorit: srovná zástavbu v okolí cíle. Je to trest, ne úklid — proto
+    /// bourá bez náhrady.
+    /// </summary>
+    internal void StrikeMeteor(int centerX, int centerY, int radiusTiles)
+    {
+        // Odzadu, protože demolice přerovnává pole budov.
+        for (int i = _buildingCount - 1; i >= 0; i--)
+        {
+            if (WithinRadius(_buildings[i].X, _buildings[i].Y, centerX, centerY, radiusTiles))
+            {
+                TryDemolish(i);
+            }
+        }
+
+        Fog.Reveal(centerX, centerY, radiusTiles + 4); // ránu je vidět zdaleka
+    }
+
+    /// <summary>Povodeň: zaplaví okolí — zástavba u vody bere první ránu.</summary>
+    internal void StrikeFlood(int centerX, int centerY, int radiusTiles)
+    {
+        for (int i = _buildingCount - 1; i >= 0; i--)
+        {
+            if (!WithinRadius(_buildings[i].X, _buildings[i].Y, centerX, centerY, radiusTiles))
+            {
+                continue;
+            }
+
+            // Povodeň bere jen to, co stojí nízko u vody — jinak by byla jen
+            // druhým meteoritem s jiným jménem.
+            if (IsWaterNextTo(_buildings[i].X, _buildings[i].Y))
+            {
+                TryDemolish(i);
+            }
+        }
+
+        CleanseArea(centerX, centerY, radiusTiles, 0.5); // voda po sobě aspoň uklidí
+        Fog.Reveal(centerX, centerY, radiusTiles + 2);
+    }
+
+    /// <summary>Sousedí dlaždice s vodou? (Povodeň bere jen to, co stojí u ní.)</summary>
+    private bool IsWaterNextTo(int x, int y) =>
+        _content.Biomes[Terrain.BiomeAt(x + 1, y)].IsWater
+        || _content.Biomes[Terrain.BiomeAt(x - 1, y)].IsWater
+        || _content.Biomes[Terrain.BiomeAt(x, y + 1)].IsWater
+        || _content.Biomes[Terrain.BiomeAt(x, y - 1)].IsWater;
+
+    private static bool WithinRadius(int x, int y, int centerX, int centerY, int radius) =>
+        Math.Abs(x - centerX) <= radius && Math.Abs(y - centerY) <= radius;
+
+    /// <summary>Odtikne požehnání. Volá se z hlavního tiku.</summary>
+    private void TickBlessings()
+    {
+        if (_rainTicksLeft > 0)
+        {
+            _rainTicksLeft--;
+        }
+
+        if (_growthTicksLeft > 0)
+        {
+            _growthTicksLeft--;
+        }
+    }
 
     /// <summary>
     /// Postaví u startu to, co má svět mít od začátku (data: <c>startingBuildings</c>).
@@ -1591,6 +1732,7 @@ public sealed class Simulation
     public void Tick()
     {
         TickCount++;
+        TickBlessings(); // požehnání z modliteb dobíhají spolu se slavností
         if (_boostTicksRemaining > 0)
         {
             _boostTicksRemaining--;

@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "faithResource": "faith",
+  "prayers": [
+    {
+      "id": "rain",
+      "effect": "bless_rain",
+      "baseCost": 20,
+      "baseChance": 0.85,
+      "chanceFalloff": 0.12,
+      "magnitude": 1.0,
+      "radius": 12
+    },
+    {
+      "id": "bountiful_harvest",
+      "effect": "bless_harvest",
+      "baseCost": 35,
+      "baseChance": 0.75,
+      "chanceFalloff": 0.15,
+      "magnitude": 60,
+      "radius": 8
+    },
+    {
+      "id": "fertility",
+      "effect": "bless_growth",
+      "baseCost": 60,
+      "baseChance": 0.65,
+      "chanceFalloff": 0.18,
+      "magnitude": 0.5,
+      "radius": 0
+    },
+    {
+      "id": "cleansing",
+      "effect": "bless_cleanse",
+      "baseCost": 45,
+      "baseChance": 0.7,
+      "chanceFalloff": 0.15,
+      "magnitude": 1.0,
+      "radius": 10
+    },
+    {
+      "id": "meteor",
+      "effect": "smite_meteor",
+      "baseCost": 150,
+      "baseChance": 0.45,
+      "chanceFalloff": 0.22,
+      "magnitude": 1.0,
+      "radius": 5
+    },
+    {
+      "id": "deluge",
+      "effect": "smite_flood",
+      "baseCost": 120,
+      "baseChance": 0.5,
+      "chanceFalloff": 0.2,
+      "magnitude": 1.0,
+      "radius": 7
+    }
+  ]
+}

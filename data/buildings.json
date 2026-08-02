@@ -433,7 +433,8 @@
         "computer": 40,
         "nanomaterial": 40,
         "robot": 30,
-        "science": 75
+        "science": 75,
+        "faith": 60
       }
     },
     {
@@ -1495,7 +1496,8 @@
         "wood": 120,
         "planks": 80,
         "stone": 100,
-        "science": 60
+        "science": 60,
+        "faith": 48
       },
       "allowedBiomes": [
         "grassland",
@@ -1987,7 +1989,8 @@
         "machine_parts": 2000,
         "electronics": 2000,
         "computer": 1500,
-        "science": 2500
+        "science": 2500,
+        "faith": 2000
       },
       "powerDemand": 40,
       "allowedBiomes": [
@@ -2702,7 +2705,14 @@
         "forest",
         "taiga",
         "highlands"
-      ]
+      ],
+      "recipe": {
+        "output": {
+          "faith": 25
+        },
+        "timeTicks": 55
+      },
+      "workerSlots": 12
     },
     {
       "id": "clock_tower",
@@ -2942,6 +2952,136 @@
         "tools": 2
       },
       "powerDemand": 6,
+      "milestones": {
+        "every": 3,
+        "bonusPerStep": 0.15,
+        "maxSteps": 8
+      }
+    },
+    {
+      "id": "shrine",
+      "category": "faith",
+      "mapColor": "#D8C070",
+      "footprint": [
+        1,
+        1
+      ],
+      "workerSlots": 1,
+      "buildCost": {
+        "wood": 20,
+        "stone": 15
+      },
+      "recipe": {
+        "output": {
+          "faith": 1
+        },
+        "timeTicks": 70
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "serviceValue": 3,
+      "upkeep": {
+        "food": 1
+      },
+      "autoBuild": true,
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      }
+    },
+    {
+      "id": "temple",
+      "category": "faith",
+      "mapColor": "#C8A850",
+      "footprint": [
+        2,
+        2
+      ],
+      "workerSlots": 4,
+      "buildCost": {
+        "planks": 50,
+        "stone": 60
+      },
+      "recipe": {
+        "input": {
+          "food": 1
+        },
+        "output": {
+          "faith": 4
+        },
+        "timeTicks": 60
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "serviceValue": 10,
+      "upkeep": {
+        "food": 2
+      },
+      "autoBuild": true,
+      "milestones": {
+        "every": 4,
+        "bonusPerStep": 0.12,
+        "maxSteps": 10
+      }
+    },
+    {
+      "id": "monastery",
+      "category": "faith",
+      "mapColor": "#A88C3C",
+      "footprint": [
+        2,
+        2
+      ],
+      "workerSlots": 8,
+      "buildCost": {
+        "stone": 140,
+        "planks": 90,
+        "bronze": 20
+      },
+      "recipe": {
+        "input": {
+          "food": 2
+        },
+        "output": {
+          "faith": 10,
+          "science": 2
+        },
+        "timeTicks": 55
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "serviceValue": 14,
+      "upkeep": {
+        "food": 4
+      },
       "milestones": {
         "every": 3,
         "bonusPerStep": 0.15,
