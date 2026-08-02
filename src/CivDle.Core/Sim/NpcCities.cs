@@ -10,6 +10,14 @@ namespace CivDle.Core.Sim;
 /// <param name="NameIndex">Index do seznamu jmen.</param>
 public readonly record struct NpcCity(long Key, int X, int Y, int ArchetypeIndex, int NameIndex);
 
+/// <summary>
+/// Cesta mezi dvěma cizími městy. Cizí města si mezi sebou obchodují bez ohledu
+/// na hráče — tohle je to, co z toho jde vidět.
+/// </summary>
+/// <param name="From">Město na jednom konci.</param>
+/// <param name="To">Město na druhém konci.</param>
+public readonly record struct NpcCityLink(NpcCity From, NpcCity To);
+
 /// <summary>Co hráč s daným městem zatím zažil.</summary>
 public struct NpcCityState
 {
@@ -51,6 +59,9 @@ public sealed class NpcCityMap
 
     /// <summary>Jak často v buňce město opravdu stojí (0–1).</summary>
     private const double Density = 0.55;
+
+    /// <summary>Jak často spolu dvě sousední města obchodují — a mají tedy cestu (0–1).</summary>
+    private const double LinkDensity = 0.62;
 
     private readonly long _seed;
     private readonly int _archetypeCount;
@@ -120,6 +131,60 @@ public sealed class NpcCityMap
     /// <summary>Město pod klíčem — pro obnovu ze savu a pro akce z UI.</summary>
     public bool TryCityByKey(long key, out NpcCity city) =>
         TryCityIn((int)(key >> 32), (int)(key & 0xFFFFFFFF), out city);
+
+    /// <summary>
+    /// Silnice mezi dvěma cizími městy v okolí dlaždice.
+    ///
+    /// <para>Spojení se hledá jen na východ a na jih od každé buňky. Není to
+    /// lenost: kdyby se koukalo na všechny čtyři strany, každá cesta by vyšla
+    /// dvakrát a render by ji dvakrát kreslil.</para>
+    ///
+    /// <para>Cesta nevede mezi každou dvojicí — ať je vidět, že svět má svoje
+    /// spády a ne pravidelnou mříž.</para>
+    /// </summary>
+    public IEnumerable<NpcCityLink> LinksNear(int tileX, int tileY, int radiusTiles)
+    {
+        int minCellX = FloorDiv(tileX - radiusTiles, CellTiles) - 1;
+        int maxCellX = FloorDiv(tileX + radiusTiles, CellTiles);
+        int minCellY = FloorDiv(tileY - radiusTiles, CellTiles) - 1;
+        int maxCellY = FloorDiv(tileY + radiusTiles, CellTiles);
+
+        for (int cy = minCellY; cy <= maxCellY; cy++)
+        {
+            for (int cx = minCellX; cx <= maxCellX; cx++)
+            {
+                if (!TryCityIn(cx, cy, out var from))
+                {
+                    continue;
+                }
+
+                if (TryCityIn(cx + 1, cy, out var east) && HasLink(from.Key, east.Key))
+                {
+                    yield return new NpcCityLink(from, east);
+                }
+
+                if (TryCityIn(cx, cy + 1, out var south) && HasLink(from.Key, south.Key))
+                {
+                    yield return new NpcCityLink(from, south);
+                }
+            }
+        }
+    }
+
+    /// <summary>Vede mezi těmi dvěma městy cesta? Čistá funkce klíčů a seedu.</summary>
+    private bool HasLink(long a, long b)
+    {
+        unchecked
+        {
+            ulong h = (ulong)_seed * 0xD6E8FEB86659FD93UL;
+            h ^= (ulong)a * 0xA24BAED4963EE407UL;
+            h ^= (ulong)b * 0x9FB21C651E98DF25UL;
+            h ^= h >> 29;
+            h *= 0xBF58476D1CE4E5B9UL;
+            h ^= h >> 32;
+            return (h & 0xFFFF) / (double)0x10000 < LinkDensity;
+        }
+    }
 
     private ulong Hash(int cellX, int cellY)
     {

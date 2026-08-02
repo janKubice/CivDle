@@ -84,6 +84,7 @@ public sealed class GameplayScreen : IScreen
 
     /// <summary>Závoj přes neprozkoumaný svět — kreslí se až nad mapou a budovami.</summary>
     private readonly FogRenderer _fogRenderer;
+    private readonly NpcCityRenderer _npcCityRenderer;
     private readonly BubbleSystem _bubbles;
     private readonly CaravanSystem _caravans;
     private readonly GoldenSpawnSystem _golden;
@@ -235,6 +236,7 @@ public sealed class GameplayScreen : IScreen
         _toasts = new ToastRenderer(screens.WhitePixel, _popupFont);
         _cityScale = new CityScaleRenderer(screens.WhitePixel, _popupFont);
         _districtRenderer = new DistrictRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont);
+        _npcCityRenderer = new NpcCityRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont);
 
         var viewport = screens.GraphicsDevice.Viewport;
         _camera.SetViewport(viewport.Width, viewport.Height);
@@ -389,6 +391,7 @@ public sealed class GameplayScreen : IScreen
             _discoveries.Update(dt);
         }
 
+        _npcCityRenderer.Update(dt); // karavany mezi cizími městy jezdí i z dálky
         _weatherRenderer.Update(dt, _simulation, _screens.GraphicsDevice.Viewport);
         _minimap.Update(dt, _camera, _simulation);
         DrainNotifications();
@@ -409,6 +412,11 @@ public sealed class GameplayScreen : IScreen
         {
             _landmarkRenderer.Draw(spriteBatch, _camera, _simulation);
         }
+
+        // Cizí města pod hráčovou zástavbou: svět, do kterého hráč přišel, má
+        // ležet POD tím, co postavil. Mlha se kreslí až úplně nakonec, takže
+        // neobjevené město zůstane schované samo od sebe.
+        _npcCityRenderer.Draw(spriteBatch, _camera, _simulation);
 
         // Velké oddálení → agregátní pohled na měřítko (hustota + populace) místo
         // drobných jednotlivců (game-feel-wow: „koukni, jak to vyrostlo").
@@ -2066,11 +2074,11 @@ public sealed class GameplayScreen : IScreen
 
         _caravans.Update(dt, _simulation);
         if (_caravans.TryCollectArrival(
-            _simulation, out int resourceIndex, out int amount, out var position, out int neighbourIndex))
+            _simulation, out int resourceIndex, out int amount, out var position, out long cityKey))
         {
             // Výplatu i vztah řeší simulace — obrazovka jen hlásí, že karavana
             // dojela, a ukáže výsledek (CLAUDE.md, vrstvy).
-            int paid = _simulation.CompleteCaravan(neighbourIndex, resourceIndex, amount);
+            int paid = _simulation.CompleteCaravan(cityKey, resourceIndex, amount);
             CollectFeedback(resourceIndex, paid, position);
         }
     }

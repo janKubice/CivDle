@@ -35,9 +35,13 @@ public sealed class NpcCityCatalog
         IReadOnlyList<ResourceAmount> buyCost,
         int surroundRadius,
         int surroundBuildings,
+        int tradeRelation,
+        double caravanBonusAtFullRelation,
         DefRegistry<NpcCityArchetype> archetypes,
         IReadOnlyList<string> names)
     {
+        TradeRelation = tradeRelation;
+        CaravanBonusAtFullRelation = caravanBonusAtFullRelation;
         GiftCost = giftCost;
         GiftRelation = giftRelation;
         RoadCost = roadCost;
@@ -74,6 +78,15 @@ public sealed class NpcCityCatalog
     /// <summary>Kolik budov v okruhu znamená, že město srostlo s hráčovým.</summary>
     public int SurroundBuildings { get; }
 
+    /// <summary>O kolik zvedne vztah jedna doručená karavana.</summary>
+    public int TradeRelation { get; }
+
+    /// <summary>
+    /// O kolik líp platí karavana od města s plným vztahem (0.6 = +60 %).
+    /// Odměna za to, že si hráč sousedy hýčkal.
+    /// </summary>
+    public double CaravanBonusAtFullRelation { get; }
+
     /// <summary>Druhy měst.</summary>
     public DefRegistry<NpcCityArchetype> Archetypes { get; }
 
@@ -86,7 +99,7 @@ public sealed class NpcCityCatalog
     /// <summary>Vypnutá mechanika — pro testy a data bez npc-cities.json.</summary>
     public static NpcCityCatalog Empty { get; } = new(
         Array.Empty<ResourceAmount>(), 0, Array.Empty<ResourceAmount>(), 600, 100,
-        Array.Empty<ResourceAmount>(), 0, 0,
+        Array.Empty<ResourceAmount>(), 0, 0, 1, 0.0,
         new DefRegistry<NpcCityArchetype>(Array.Empty<NpcCityArchetype>(), a => a.Id, "cizí město", allowEmpty: true),
         Array.Empty<string>());
 }

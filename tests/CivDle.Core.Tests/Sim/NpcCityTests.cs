@@ -34,6 +34,8 @@ public class NpcCityTests
             buyCost: new[] { new ResourceAmount(0, 50) },
             surroundRadius: 6,
             surroundBuildings: surroundBuildings,
+            tradeRelation: 2,
+            caravanBonusAtFullRelation: 1.0,
             archetypes: new DefRegistry<NpcCityArchetype>(archetypes, a => a.Id, "cizí město"),
             names: new[] { "Testov" });
     }
@@ -238,6 +240,55 @@ public class NpcCityTests
         Assert.False(sim.NpcCitiesEnabled);
         Assert.Empty(sim.CitiesNear(0, 0, 1000));
         Assert.Equal(DiplomacyResult.Unavailable, sim.TryGiftCity(0));
+    }
+
+    [Fact]
+    public void ForeignCitiesHaveTheirOwnRoads()
+    {
+        // Svět má vypadat, že existoval dřív, než tam hráč přišel: cizí města
+        // spolu obchodují bez ohledu na něj. Cesty musí být odvozené ze seedu,
+        // jinak by se při každém pohledu překreslily jinam.
+        var map = new NpcCityMap(1234, 3, 5);
+
+        var first = map.LinksNear(0, 0, 600).Select(l => (l.From.Key, l.To.Key)).ToList();
+        var second = map.LinksNear(0, 0, 600).Select(l => (l.From.Key, l.To.Key)).ToList();
+
+        Assert.NotEmpty(first);
+        Assert.Equal(first, second);
+
+        // Každá cesta právě jednou — jinak by render kreslil dvojmo.
+        Assert.Equal(first.Count, first.Distinct().Count());
+    }
+
+    [Fact]
+    public void ARoadlessCitySendsNoCaravan()
+    {
+        // Karavana je vidět důsledek spojení. Bez cesty nemá kdo poslat.
+        var sim = NewSim();
+        var city = FirstCity(sim);
+        sim.Fog.Reveal(city.X, city.Y, 4);
+
+        Assert.False(sim.TryPickTradeCity(out _));
+
+        Assert.Equal(DiplomacyResult.Ok, sim.TryConnectCity(city.Key));
+        Assert.True(sim.TryPickTradeCity(out long key));
+        Assert.Equal(city.Key, key);
+    }
+
+    [Fact]
+    public void ADeliveredCaravanWarmsTheRelation()
+    {
+        var sim = NewSim();
+        var city = FirstCity(sim);
+        sim.Fog.Reveal(city.X, city.Y, 4);
+        sim.TryConnectCity(city.Key);
+
+        int paid = sim.CompleteCaravan(city.Key, resourceIndex: 0, basePayout: 100);
+
+        var state = sim.NpcStateOf(city.Key);
+        Assert.Equal(1, state.Trades);
+        Assert.Equal(2, state.Relation);       // tradeRelation z katalogu
+        Assert.True(paid > 100);               // přátelé platí líp
     }
 
     [Fact]

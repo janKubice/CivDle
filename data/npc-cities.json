@@ -18,6 +18,8 @@
   },
   "surroundRadius": 14,
   "surroundBuildings": 12,
+  "tradeRelation": 2,
+  "caravanBonusAtFullRelation": 0.75,
   "archetypes": [
     {
       "id": "farmtown",

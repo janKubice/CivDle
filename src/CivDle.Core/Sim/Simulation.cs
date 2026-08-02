@@ -78,7 +78,6 @@ public sealed class Simulation
     private ContractSlot[] _contractSlots = Array.Empty<ContractSlot>(); // nástěnka zakázek
     private readonly List<District> _districts = new(); // rozpoznané čtvrti (odvozený stav)
     private readonly Dictionary<long, long> _founders = new(); // kdo kterou budovu založil (dlaždice → jméno)
-    private long[] _neighbourTrades = Array.Empty<long>(); // kolik obchodů už s kterým sousedem proběhlo
     private readonly Dictionary<long, byte> _biomeOverrides = new(); // terraformované dlaždice (UFO)
     private readonly Queue<GameNotification> _notifications = new();
     private readonly PrayerSystem _prayerSystem;
@@ -155,7 +154,6 @@ public sealed class Simulation
         _milestoneBonuses = new BuildingMilestoneSystem(content);
         _historySystem = new HistorySystem(content);
         History = new CityHistory(content.Gameplay.History.MaxFrames);
-        _neighbourTrades = new long[content.Neighbours.Neighbours.Count];
         _constructionSystem = new ConstructionSystem(content);
         ResetContractBoard();
         _populationSystem = new PopulationSystem(content.Gameplay);
@@ -245,6 +243,10 @@ public sealed class Simulation
     public IEnumerable<NpcCity> CitiesNear(int tileX, int tileY, int radiusTiles) =>
         NpcCitiesEnabled ? NpcCities.CitiesNear(tileX, tileY, radiusTiles) : Array.Empty<NpcCity>();
 
+    /// <summary>Cesty mezi cizími městy v okolí — svět si žije i bez hráče.</summary>
+    public IEnumerable<NpcCityLink> CityLinksNear(int tileX, int tileY, int radiusTiles) =>
+        NpcCitiesEnabled ? NpcCities.LinksNear(tileX, tileY, radiusTiles) : Array.Empty<NpcCityLink>();
+
     /// <summary>
     /// Dar cizímu městu: zaplatíš a vztah povyroste. Nejlevnější způsob, jak se
     /// k městu dostat blíž — a jediný, který jde použít hned po objevení.
@@ -269,7 +271,7 @@ public sealed class Simulation
         }
 
         Pay(catalog.GiftCost);
-        state.Relation = Math.Min(100, state.Relation + catalog.GiftRelation);
+        state.Relation = Math.Min(MaxRelation, state.Relation + catalog.GiftRelation);
         _npcStates[key] = state;
         return DiplomacyResult.Ok;
     }
@@ -410,6 +412,9 @@ public sealed class Simulation
 
     /// <summary>Jak daleko se cizí města ještě řeší (dál by to byla práce nazmar).</summary>
     private const int NpcScanRadius = NpcCityMap.CellTiles * 3;
+
+    /// <summary>Nejvyšší možný vztah s cizím městem. UI ho ukazuje jako „x / 100".</summary>
+    public const int MaxRelation = 100;
 
     /// <summary>
     /// Dá se s městem obchodovat? Buď vede cesta, nebo obě strany leží u vody
@@ -749,95 +754,86 @@ public sealed class Simulation
     /// <summary>Kolik tiků zbývá, než se ozve někdo další.</summary>
     internal int CitizenCooldownTicks { get; set; }
 
-    /// <summary>Jsou sousedé v datech zapnutí? (UI podle toho skrývá seznam.)</summary>
-    public bool NeighboursEnabled => _content.Neighbours.IsEnabled;
-
-    /// <summary>Kolik obchodů už s daným sousedem proběhlo.</summary>
-    public long NeighbourTrades(int neighbourIndex) =>
-        neighbourIndex >= 0 && neighbourIndex < _neighbourTrades.Length ? _neighbourTrades[neighbourIndex] : 0;
-
-    /// <summary>Stupeň vztahu s daným sousedem (0 = cizinci).</summary>
-    public int NeighbourLevel(int neighbourIndex) =>
-        _content.Neighbours.LevelFor(NeighbourTrades(neighbourIndex));
-
     /// <summary>
-    /// Kdo pošle příští karavanu. Vybírá se deterministicky z tiku, takže render
-    /// nemusí držet vlastní náhodu — a soused, se kterým se dlouho neobchodovalo,
-    /// dostane přednost.
+    /// Kdo pošle příští karavanu.
     ///
-    /// <para>Proč přednost: bez ní by hráč obchodoval pořád s tím samým a ostatní
-    /// sousedé by zůstali navždy cizinci. Takhle se vztahy rozvíjejí do šířky
-    /// a hráč pozná celé okolí.</para>
+    /// <para>Dřív to byl anonymní seznam sousedů z dat. Teď karavany posílají
+    /// města, která hráč sám našel a spojil — karavana na silnici má být vidět
+    /// jako důsledek toho, že někam vede cesta, ne jako náhodná událost.</para>
+    ///
+    /// <para>Přednost dostane město, se kterým se dlouho neobchodovalo. Bez toho
+    /// by hráč obchodoval pořád s prvním nalezeným a zbytek okolí by zůstal
+    /// cizí.</para>
     /// </summary>
-    public int PickNeighbour()
+    /// <param name="key">Klíč vybraného města; platný jen když metoda vrátí <c>true</c>.</param>
+    public bool TryPickTradeCity(out long key)
     {
-        if (!_content.Neighbours.IsEnabled)
+        key = 0;
+        if (!NpcCitiesEnabled)
         {
-            return -1;
+            return false;
         }
 
-        int best = 0;
-        for (int i = 1; i < _neighbourTrades.Length; i++)
+        long fewestTrades = long.MaxValue;
+        bool found = false;
+        foreach (var city in NpcCities.CitiesNear(CityCenterX, CityCenterY, NpcScanRadius))
         {
-            if (_neighbourTrades[i] < _neighbourTrades[best])
+            var state = NpcStateOf(city.Key);
+            if (state.Absorbed || !IsCityDiscovered(city) || !HasTradeLink(city, state))
             {
-                best = i;
+                continue;
+            }
+
+            if (state.Trades < fewestTrades)
+            {
+                fewestTrades = state.Trades;
+                key = city.Key;
+                found = true;
             }
         }
 
-        return best;
+        return found;
     }
 
     /// <summary>
-    /// Karavana dorazila: připíše obchod, vyplatí (s bonusem za vztah) a ohlásí
-    /// případné utužení vztahu.
+    /// Karavana dorazila: připíše obchod, utuží vztah a vyplatí (s bonusem za vztah).
     ///
     /// <para>Pravidla vztahu i výplata jsou tady, ne v renderu, který karavanu
     /// kreslí — obrazovka jen hlásí, že dojela (CLAUDE.md, vrstvy).</para>
     /// </summary>
-    /// <param name="neighbourIndex">Kdo karavanu poslal; −1 = anonymní (staré chování).</param>
+    /// <param name="cityKey">Kdo karavanu poslal (z <see cref="TryPickTradeCity"/>).</param>
     /// <param name="resourceIndex">Čím se platí.</param>
     /// <param name="basePayout">Základní výplata před bonusem za vztah.</param>
     /// <returns>Kolik se nakonec vyplatilo.</returns>
-    public int CompleteCaravan(int neighbourIndex, int resourceIndex, int basePayout)
+    public int CompleteCaravan(long cityKey, int resourceIndex, int basePayout)
     {
         double multiplier = 1.0;
-        if (neighbourIndex >= 0 && neighbourIndex < _neighbourTrades.Length)
+        if (NpcCitiesEnabled && _npcStates.TryGetValue(cityKey, out var state)
+            && NpcCities.TryCityByKey(cityKey, out var city))
         {
-            int levelBefore = NeighbourLevel(neighbourIndex);
-            _neighbourTrades[neighbourIndex]++;
-            multiplier = _content.Neighbours.PayoutMultiplier(_neighbourTrades[neighbourIndex]);
+            int relationBefore = state.Relation;
+            state.Trades++;
+            state.Relation = Math.Min(MaxRelation, state.Relation + _content.NpcCities.TradeRelation);
+            _npcStates[cityKey] = state;
 
-            if (NeighbourLevel(neighbourIndex) > levelBefore)
+            // Bonus roste plynule se vztahem: přátelé platí líp, ale nikdy víc,
+            // než kolik dovolí data.
+            multiplier = 1.0 + _content.NpcCities.CaravanBonusAtFullRelation * (state.Relation / (double)MaxRelation);
+
+            // Hlásí se jen překročení desítky, ne každý bod — jinak by toasty
+            // chodily po každé karavaně a přestaly by cokoli znamenat.
+            if (state.Relation / 10 > relationBefore / 10)
             {
                 EnqueueNotification(new GameNotification(
-                    NotificationKind.NeighbourFriendlier,
-                    "toast.neighbourLevel",
-                    _content.Neighbours.Neighbours[neighbourIndex].NameKey));
+                    NotificationKind.CityFriendlier,
+                    "toast.cityLevel",
+                    _content.NpcCities.Archetypes[city.ArchetypeIndex].NameKey));
             }
         }
 
         int payout = Math.Max(1, (int)Math.Round(basePayout * multiplier));
         AddResource(resourceIndex, payout);
         return payout;
-    }
-
-    /// <summary>ID sousedů v pořadí indexů — save je ukládá přes ID, ne index.</summary>
-    public IEnumerable<string> NeighbourIds()
-    {
-        for (int i = 0; i < _content.Neighbours.Neighbours.Count; i++)
-        {
-            yield return _content.Neighbours.Neighbours[i].Id;
-        }
-    }
-
-    /// <summary>Obnoví počet obchodů se sousedem ze savu.</summary>
-    internal void RestoreNeighbourTrades(int neighbourIndex, long trades)
-    {
-        if (neighbourIndex >= 0 && neighbourIndex < _neighbourTrades.Length)
-        {
-            _neighbourTrades[neighbourIndex] = Math.Max(0, trades);
-        }
     }
 
     /// <summary>Jsou pojmenovaní obyvatelé v datech zapnutí? (UI podle toho skrývá panel.)</summary>
@@ -4591,9 +4587,9 @@ public sealed class Simulation
         HighestSettlementRank = -1; // v novém měřítku je i první osada zas událost
         _founders.Clear(); // zakladatelé patří ke světu, který právě skončil
         History.Clear();   // a časosběr taky — nový svět začíná prázdným listem
+        _npcStates.Clear(); // cizí města nového měřítka hráče ještě neznají
         Fog.Clear();       // nový svět se musí objevit znovu
         Fog.Reveal(0, 0, FogRevealRadius * 2);
-        Array.Clear(_neighbourTrades); // sousedi nového měřítka hráče ještě neznají
         PendingCitizenRequest = CitizenRequest.None;
         CitizenCooldownTicks = 0;
         ResetContractBoard(); // zákazníci z minulého měřítka na novou nástěnku nepatří
