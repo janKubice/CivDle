@@ -2463,9 +2463,100 @@ public sealed class Simulation
     /// </summary>
     public int AutoUpgradeLevel => IsGovernorUnlocked ? _autoUpgradeLevel : 0;
 
-    /// <summary>Příkaz hráče: nastaví míru automatického vylepšování (ořízne se do rozsahu).</summary>
+    /// <summary>ID technologií, které postupně otevírají vyšší stupně správy.</summary>
+    public const string GovernorLevel2TechId = "civil_service";
+
+    /// <summary>Technologie pro nejvyšší stupeň guvernérovy správy.</summary>
+    public const string GovernorLevel3TechId = "city_planning_office";
+
+    /// <summary>
+    /// Nejvyšší stupeň, na který jde guvernéra právě teď nastavit.
+    ///
+    /// <para>Stupně se ODEMYKAJÍ výzkumem, nejsou to volné posuvníky: automatizace
+    /// je odměna za postup, ne přepínač dostupný od začátku (living-city.md §4).
+    /// Bez toho by hráč hned na začátku přepnul na „vše a svižně" a přišel o celou
+    /// střední hru.</para>
+    /// </summary>
+    public int MaxUnlockedAutoUpgradeLevel
+    {
+        get
+        {
+            if (!IsGovernorUnlocked)
+            {
+                return 0;
+            }
+
+            if (IsTechResearchedById(GovernorLevel3TechId))
+            {
+                return MaxAutoUpgradeLevel;
+            }
+
+            return IsTechResearchedById(GovernorLevel2TechId) ? 2 : 1;
+        }
+    }
+
+    /// <summary>Je technologie daného ID vyzkoumaná? (Neznámé ID = ne.)</summary>
+    private bool IsTechResearchedById(string techId) =>
+        _content.Techs.TryIndexOf(techId, out int index) && _techResearched[index];
+
+    /// <summary>Příkaz hráče: nastaví míru automatického vylepšování (ořízne se do odemčeného rozsahu).</summary>
     public void SetAutoUpgradeLevel(int level) =>
-        _autoUpgradeLevel = Math.Clamp(level, 0, MaxAutoUpgradeLevel);
+        _autoUpgradeLevel = Math.Clamp(level, 0, MaxUnlockedAutoUpgradeLevel);
+
+    // ----- guvernér: rezerva surovin -----
+
+    /// <summary>Technologie, která odemyká nastavení rezervy.</summary>
+    public const string GovernorReserveTechId = "works_department";
+
+    private double _governorReserve;
+
+    /// <summary>Umí guvernér šetřit (je rezerva odemčená)?</summary>
+    public bool IsGovernorReserveUnlocked =>
+        IsGovernorUnlocked && IsTechResearchedById(GovernorReserveTechId);
+
+    /// <summary>
+    /// Podíl zásob (0–0.9), který guvernér nesmí utratit.
+    ///
+    /// <para>Bez rezervy sebere automatika i to, co si hráč schovával na konkrétní
+    /// stavbu — a to je nejrychlejší cesta, jak si hráč automatizaci zase vypne.
+    /// Tohle je ta pojistka, díky které ji nechá zapnutou.</para>
+    /// </summary>
+    public double GovernorReserve => IsGovernorReserveUnlocked ? _governorReserve : 0.0;
+
+    /// <summary>Příkaz hráče: nastaví rezervu (ořízne se na 0–90 %).</summary>
+    public void SetGovernorReserve(double fraction) =>
+        _governorReserve = Math.Clamp(fraction, 0.0, 0.9);
+
+    /// <summary>Surová rezerva pro save (bez ohledu na odemčení).</summary>
+    internal double GovernorReserveRaw => _governorReserve;
+
+    /// <summary>Obnoví rezervu ze savu.</summary>
+    internal void RestoreGovernorReserve(double fraction) => SetGovernorReserve(fraction);
+
+    /// <summary>
+    /// Smí automatika utratit tuhle cenu, aniž by sáhla do rezervy? Počítá se
+    /// proti kapacitě skladu, ne proti aktuálnímu stavu — jinak by se rezerva
+    /// sama snižovala tím, jak zásoby ubývají.
+    /// </summary>
+    internal bool AutomationCanSpend(IReadOnlyList<ResourceAmount> cost)
+    {
+        double reserve = GovernorReserve;
+        if (reserve <= 0)
+        {
+            return true;
+        }
+
+        for (int i = 0; i < cost.Count; i++)
+        {
+            int index = cost[i].ResourceIndex;
+            if (_resources[index] - cost[i].Amount < _storageCaps[index] * reserve)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     /// <summary>ID technologie, po které umí guvernér i slučovat bloky (data-driven odkaz).</summary>
     public const string GovernorMergeTechId = "urban_planning";

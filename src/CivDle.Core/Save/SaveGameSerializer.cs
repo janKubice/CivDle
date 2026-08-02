@@ -106,6 +106,7 @@ public sealed class SaveGameSerializer
         {
             w.Write(simulation.AutoUpgradeLevelRaw);
             w.Write(simulation.AutoMergeRaw);
+            w.Write(simulation.GovernorReserveRaw);
         });
         WriteSection(writer, SectionKnownResources, w => WriteKnownResources(w, simulation));
         WriteSection(writer, SectionWorldChanges, w => WriteWorldChanges(w, simulation));
@@ -247,6 +248,12 @@ public sealed class SaveGameSerializer
         if (reader.BaseStream.Position < reader.BaseStream.Length)
         {
             simulation.RestoreAutoMerge(reader.ReadBoolean());
+        }
+
+        // Rezerva přibyla ještě později; starší save prostě žádnou nemá.
+        if (reader.BaseStream.Position < reader.BaseStream.Length)
+        {
+            simulation.RestoreGovernorReserve(reader.ReadDouble());
         }
     }
 

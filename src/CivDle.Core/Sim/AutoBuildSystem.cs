@@ -435,6 +435,13 @@ internal sealed class AutoBuildSystem
 
     private bool TryBuildNear(Simulation sim, int defIndex, int anchorX, int anchorY)
     {
+        // Rezerva guvernéra: co si hráč schoval, automatika neutratí. Kontrola je
+        // před hledáním místa — cena na místě nezávisí.
+        if (!sim.AutomationCanSpend(_content.Buildings[defIndex].BuildCost))
+        {
+            return false;
+        }
+
         foreach (var (offsetX, offsetY) in _searchOffsets)
         {
             var result = sim.CanPlace(defIndex, anchorX + offsetX, anchorY + offsetY);
