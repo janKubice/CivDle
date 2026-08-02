@@ -29,15 +29,30 @@ try
 }
 catch (Exception ex)
 {
+    // Windows build je WinExe (bez konzole) — bez tohohle by chyba zmizela beze
+    // stopy a hra by se z pohledu hráče „prostě nespustila".
+    StartupConsole.AttachToParentIfPossible();
+
+    string crashLog = Path.Combine(AppContext.BaseDirectory, "crash.log");
     try
     {
-        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "crash.log"), ex.ToString());
+        File.WriteAllText(crashLog, ex.ToString());
     }
-    catch (IOException)
+    catch (Exception logFailure) when (logFailure is IOException or UnauthorizedAccessException)
     {
-        // Nezapisovatelný disk — aspoň stderr níže.
+        crashLog = string.Empty; // nezapsalo se; níž se na něj neodkazuj
     }
 
+    // Napřed jedna věta, o co jde, teprve pak celý výpis — hráč (ani vývojář
+    // ve spěchu) nečte stack trace odshora.
+    Console.Error.WriteLine();
+    Console.Error.WriteLine($"CivDle se nespustil: {ex.Message}");
+    if (crashLog.Length > 0)
+    {
+        Console.Error.WriteLine($"Podrobnosti: {crashLog}");
+    }
+
+    Console.Error.WriteLine();
     Console.Error.WriteLine(ex);
     return 1;
 }
