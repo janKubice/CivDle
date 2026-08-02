@@ -15,7 +15,15 @@ namespace CivDle.Rendering.Effects;
 /// </summary>
 public sealed class AgentSystem
 {
-    private const int MaxAgents = 48;
+    /// <summary>
+    /// Strop počtu chodců. Zvednutý proti původním 48: velkoměsto vypadalo stejně
+    /// živě jako vesnice o dvanácti domech, protože počet vycházel jen z budov
+    /// a strop se vyčerpal hned. Kreslí se pár desítek spritů — to hru nestojí nic.
+    /// </summary>
+    private const int MaxAgents = 96;
+
+    /// <summary>Kolik obyvatel přidá jednoho chodce navíc (nad počet z budov).</summary>
+    private const double PeoplePerAgent = 25.0;
     private const float MinZoom = 0.6f;
     private const float SpawnCooldownSeconds = 0.25f;
     private const float DespawnMargin = 120f;
@@ -178,8 +186,11 @@ public sealed class AgentSystem
     private void TrySpawn(float dt, Camera2D camera, Simulation simulation, Vector2 min, Vector2 max)
     {
         _spawnTimer -= dt;
-        // Cíl počtu roste s viditelnými budovami; strop drží výkon.
-        int desired = Math.Min(MaxAgents, 4 + simulation.Buildings.Length);
+        // Cíl počtu roste s městem — jak zástavbou, tak lidmi. Bez populace by
+        // aglomerace o milionu vypadala stejně prázdně jako první osada.
+        int desired = Math.Min(
+            MaxAgents,
+            4 + simulation.Buildings.Length + (int)(simulation.Population / PeoplePerAgent));
         if (_spawnTimer > 0f || _count >= desired)
         {
             return;

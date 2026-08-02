@@ -142,4 +142,56 @@ internal static class BuildingSummary
 
     private static string Rate(double perSecond) =>
         perSecond >= 1 ? perSecond.ToString("0.#") : perSecond.ToString("0.##");
+
+    /// <summary>
+    /// Jedna řádka „co ta budova dělá" přímo pod ikonu ve stavebním menu:
+    /// <c>+1,2 dřevo/s</c>, <c>+8 bydlení</c>, <c>+500 sklad</c>.
+    ///
+    /// <para>Proč to nestačí mít v bublině: hráč vybírá z řady ikon a nemá jak
+    /// poznat, čím se od sebe liší, dokud na každou zvlášť nenajede. Nejdůležitější
+    /// věc musí být vidět rovnou; podrobnosti zůstávají v bublině.</para>
+    ///
+    /// <para>Prázdný řetězec = budova nemá co hlásit (dekorace, monument).</para>
+    /// </summary>
+    public static string Effect(GameContent content, Localization loc, BuildingDef def)
+    {
+        if (def.Recipe is { Outputs.Count: > 0 } recipe)
+        {
+            double perSecond = Simulation.TicksPerSecond / (double)recipe.TimeTicks;
+            var parts = new List<string>();
+            for (int i = 0; i < recipe.Outputs.Count; i++)
+            {
+                var output = recipe.Outputs[i];
+                parts.Add($"+{Rate(output.Amount * perSecond)} {loc[content.Resources[output.ResourceIndex].NameKey]}/s");
+            }
+
+            return string.Join(", ", parts);
+        }
+
+        if (def.HousingCapacity > 0)
+        {
+            return loc.Format("tip.build.housing", def.HousingCapacity);
+        }
+
+        if (def.StorageBonus.Count > 0)
+        {
+            return loc.Format("tip.build.storage", CostFormat.Line(content, loc, def.StorageBonus));
+        }
+
+        if (def.PowerSupply > 0)
+        {
+            return loc.Format("tip.build.power", def.PowerSupply);
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>
+    /// Co budova potřebuje, aby vyráběla — vstupy receptu jako <c>2 dřevo</c>.
+    /// Prázdný řetězec = bere si z krajiny nebo nepotřebuje nic.
+    /// </summary>
+    public static string Needs(GameContent content, Localization loc, BuildingDef def) =>
+        def.Recipe is { Inputs.Count: > 0 } recipe
+            ? CostFormat.Line(content, loc, recipe.Inputs)
+            : string.Empty;
 }

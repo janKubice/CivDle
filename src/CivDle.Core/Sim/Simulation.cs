@@ -763,6 +763,60 @@ public sealed class Simulation
         return true;
     }
 
+    /// <summary>
+    /// Vrátí vytěženou krajinu v okolí naráz. Rychlá (a nejistá) obdoba lesní
+    /// školky — modlitba za rychlý růst.
+    /// </summary>
+    internal void RegrowArea(int centerX, int centerY, int radiusTiles)
+    {
+        for (int y = centerY - radiusTiles; y <= centerY + radiusTiles; y++)
+        {
+            for (int x = centerX - radiusTiles; x <= centerX + radiusTiles; x++)
+            {
+                TryRestoreTerrain(x, y);
+            }
+        }
+
+        Fog.Reveal(centerX, centerY, radiusTiles);
+    }
+
+    /// <summary>
+    /// Sucho: krajina v okolí vyschne. Opak <see cref="RegrowArea"/> — dopadá
+    /// na okolí cizího města stejně jako na hráčovo.
+    /// </summary>
+    internal void BlightArea(int centerX, int centerY, int radiusTiles)
+    {
+        for (int y = centerY - radiusTiles; y <= centerY + radiusTiles; y++)
+        {
+            for (int x = centerX - radiusTiles; x <= centerX + radiusTiles; x++)
+            {
+                _nodes.Deplete(x, y, TickCount);
+            }
+        }
+
+        Fog.Reveal(centerX, centerY, radiusTiles);
+    }
+
+    /// <summary>
+    /// Přidá dávku suroviny, kterou hráč <b>zná</b>. Losuje se z cíle a tiku,
+    /// takže je to deterministické jako všechno ostatní v modlitbách.
+    /// </summary>
+    internal void GrantKnownResource(double amount, int targetX, int targetY)
+    {
+        int known = KnownResourceCount;
+        if (known == 0)
+        {
+            return;
+        }
+
+        int pick = (int)(((uint)(targetX * 73856093 ^ targetY * 19349663 ^ (int)TickCount)) % (uint)known);
+        int index = KnownResourceAt(pick);
+        if (index >= 0)
+        {
+            AddResource(index, amount);
+        }
+    }
+
     /// <summary>Je na dlaždici voda? (Render z toho hledá, kam vyplout.)</summary>
     public bool IsWaterAt(int x, int y) => _content.Biomes[BiomeAt(x, y)].IsWater;
 
@@ -1498,6 +1552,16 @@ public sealed class Simulation
         _boostTicksRemaining = (int)(_content.Gameplay.Boost.DurationSeconds * TicksPerSecond);
         _boostCooldownRemaining = (int)(_content.Gameplay.Boost.CooldownSeconds * TicksPerSecond);
         return true;
+    }
+
+    /// <summary>
+    /// Vyhlásí slavnost bez ohledu na ochlazení. Používá jen modlitba: hráč za
+    /// ni zaplatil vírou a riskoval, že nebude vyslyšena — to je ta cena.
+    /// </summary>
+    internal void ForceBoost()
+    {
+        _boostTicksRemaining = (int)(_content.Gameplay.Boost.DurationSeconds * TicksPerSecond);
+        _boostCooldownRemaining = (int)(_content.Gameplay.Boost.CooldownSeconds * TicksPerSecond);
     }
 
     /// <summary>Kolik lidí se vejde (základní tábor + domy).</summary>

@@ -100,7 +100,9 @@ public sealed class TrafficSystemTests
 
         Run(traffic, NewCamera(), sim, 1800);
 
-        Assert.InRange(traffic.ActiveCount, 1, 40);
+        // Horní mez je strop systému, ne konkrétní číslo z dat — kdyby se
+        // zvedla hustota provozu, test má hlídat pořád tu samou vlastnost.
+        Assert.InRange(traffic.ActiveCount, 1, TrafficSystem.MaxActive);
     }
 
     [Fact]

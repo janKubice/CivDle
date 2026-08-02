@@ -1853,6 +1853,23 @@ public sealed class GameplayScreen : IScreen
                 _particles.SpawnBurst(world, new Color(200, 230, 245), 30, 30f, 160f);
                 _sounds.PlayPlace();
                 break;
+
+            case "smite_blight":
+                _particles.SpawnBurst(world, new Color(150, 130, 70), 45, 30f, 200f);
+                _sounds.PlayPlace();
+                break;
+
+            case "bless_regrow":
+                _particles.SpawnBurst(world, new Color(120, 220, 120), 45, 40f, 240f);
+                break;
+
+            case "bless_reveal":
+                _particles.SpawnBurst(world, new Color(170, 220, 255), 40, 60f, 300f);
+                break;
+
+            case "bless_festival":
+                _fireworks.Burst(world, HashCode.Combine((int)world.X, (int)world.Y));
+                break;
         }
     }
 
@@ -2377,6 +2394,31 @@ public sealed class GameplayScreen : IScreen
             HorizontalAlignment = HorizontalAlignment.Center,
         };
         caption.Widgets.Add(priceLabel);
+
+        // Co budova DĚLÁ a co k tomu POTŘEBUJE, přímo pod ikonu. Bublina to říká
+        // taky, ale hráč vybírá z řady ikon a nemá jak poznat, čím se liší, dokud
+        // na každou zvlášť nenajede.
+        string effect = BuildingSummary.Effect(content, loc, def);
+        if (effect.Length > 0)
+        {
+            caption.Widgets.Add(new Label
+            {
+                Text = effect,
+                TextColor = new Color(140, 210, 150),
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+        }
+
+        string needs = BuildingSummary.Needs(content, loc, def);
+        if (needs.Length > 0)
+        {
+            caption.Widgets.Add(new Label
+            {
+                Text = loc.Format("hud.build.needs", needs),
+                TextColor = new Color(220, 180, 120),
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+        }
 
         var button = new Button
         {
