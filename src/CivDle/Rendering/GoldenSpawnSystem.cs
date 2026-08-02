@@ -77,7 +77,21 @@ public sealed class GoldenSpawnSystem
             return false;
         }
 
-        resourceIndex = _rng.Next(simulation.ResourceCount);
+        // Jen ze surovin, které hráč zná. Losovat z celého registru znamenalo, že
+        // ze zlatého nálezu padl nanomateriál dřív, než hráč tušil, že existuje —
+        // pokazí to progresi i překvapení z první vlastní výroby.
+        int known = simulation.KnownResourceCount;
+        if (known == 0)
+        {
+            return false;
+        }
+
+        resourceIndex = simulation.KnownResourceAt(_rng.Next(known));
+        if (resourceIndex < 0)
+        {
+            return false;
+        }
+
         amount = (int)Math.Max(15, simulation.GetStorageCap(resourceIndex) * 0.08);
         simulation.AddResource(resourceIndex, amount);
         position = new Vector2(_worldX, _worldY);

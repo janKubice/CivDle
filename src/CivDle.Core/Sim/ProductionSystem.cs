@@ -70,14 +70,25 @@ internal sealed class ProductionSystem
             ref var building = ref buildings[i];
             var def = _defs[building.DefIndex];
             var recipe = def.Recipe;
-            if (recipe is null || !building.IsComplete)
+            if (recipe is null)
             {
+                building.Stall = BuildingStall.None; // budova bez receptu nemá co stát
+                continue;
+            }
+
+            if (!building.IsComplete)
+            {
+                building.Stall = BuildingStall.UnderConstruction;
                 continue; // staveniště nevyrábí, dokud nestojí
             }
 
             float staffing = def.WorkerSlots > 0 ? _assigned[i] / (float)def.WorkerSlots : 1f;
             if (staffing <= 0f)
             {
+                // Nejčastější tichá příčina „proč se nic neděje": budovu nemá kdo
+                // obsluhovat. Bez tohohle příznaku nedostala ani červený roh,
+                // protože se nikdy nedopracovala na konec cyklu.
+                building.Stall = BuildingStall.NoWorkers;
                 continue;
             }
 
@@ -103,6 +114,7 @@ internal sealed class ProductionSystem
                 // Stall: cyklus je „hotový", ale čeká na vstupy — dokončí se hned,
                 // jak suroviny dotečou.
                 building.Progress = recipe.TimeTicks;
+                building.Stall = BuildingStall.MissingInput;
                 continue;
             }
 
@@ -113,8 +125,11 @@ internal sealed class ProductionSystem
             if (def.HarvestsTerrain && !sim.TryConsumeTerrain(ref building, def))
             {
                 building.Progress = recipe.TimeTicks;
+                building.Stall = BuildingStall.NoTerrain;
                 continue;
             }
+
+            building.Stall = BuildingStall.None;
 
             for (int j = 0; j < recipe.Inputs.Count; j++)
             {

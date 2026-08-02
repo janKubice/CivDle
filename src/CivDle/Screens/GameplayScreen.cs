@@ -85,6 +85,7 @@ public sealed class GameplayScreen : IScreen
     /// <summary>Závoj přes neprozkoumaný svět — kreslí se až nad mapou a budovami.</summary>
     private readonly FogRenderer _fogRenderer;
     private readonly NpcCityRenderer _npcCityRenderer;
+    private readonly BoatSystem _boats;
     private readonly BubbleSystem _bubbles;
     private readonly CaravanSystem _caravans;
     private readonly GoldenSpawnSystem _golden;
@@ -244,6 +245,7 @@ public sealed class GameplayScreen : IScreen
         _cityScale = new CityScaleRenderer(screens.WhitePixel, _popupFont);
         _districtRenderer = new DistrictRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont);
         _npcCityRenderer = new NpcCityRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont);
+        _boats = new BoatSystem(screens.Content);
 
         var viewport = screens.GraphicsDevice.Viewport;
         _camera.SetViewport(viewport.Width, viewport.Height);
@@ -395,6 +397,7 @@ public sealed class GameplayScreen : IScreen
         if (_camera.Zoom >= CityScaleRenderer.ThresholdZoom)
         {
             _fauna.Update(dt, _camera, _simulation);
+            _boats.Update(dt, _camera, _simulation);
             _traffic.Update(dt, _camera, _simulation);
             _agents.Update(dt, _camera, _simulation);
             _bubbles.Update(dt, _simulation);
@@ -442,6 +445,7 @@ public sealed class GameplayScreen : IScreen
             _buildingRenderer.Draw(spriteBatch, _camera, _simulation);
             _agents.Draw(spriteBatch, _camera);
             _fauna.Draw(spriteBatch, _screens.WhitePixel, _camera);
+            _boats.Draw(spriteBatch, _screens.WhitePixel, _camera);
             _bubbles.Draw(spriteBatch, _camera);
             _caravans.Draw(spriteBatch, _camera);
             _golden.Draw(spriteBatch, _camera);
@@ -662,6 +666,19 @@ public sealed class GameplayScreen : IScreen
         string? body = null;
         Color? accent = null;
 
+        // Stojící budova má přednost přede vším ostatním na dlaždici: hráč na ni
+        // najel právě proto, že se diví, proč nic nedělá.
+        if (_simulation.TryGetBuildingAt(tileX, tileY, out int hoveredBuilding)
+            && StallText(_simulation.Buildings[hoveredBuilding].Stall) is { } stallKey)
+        {
+            var def = content.Buildings[_simulation.Buildings[hoveredBuilding].DefIndex];
+            HoverTooltip.Draw(spriteBatch, _screens.WhitePixel, _popupFont,
+                _screens.GraphicsDevice.Viewport, _input.MousePosition,
+                loc[def.NameKey], loc[stallKey],
+                BuildingRenderer.StallColor(_simulation.Buildings[hoveredBuilding].Stall));
+            return;
+        }
+
         int landmark = _simulation.LandmarkAt(tileX, tileY);
         if (landmark >= 0)
         {
@@ -685,6 +702,18 @@ public sealed class GameplayScreen : IScreen
         HoverTooltip.Draw(spriteBatch, _screens.WhitePixel, _popupFont,
             _screens.GraphicsDevice.Viewport, _input.MousePosition, title, body, accent);
     }
+
+    /// <summary>
+    /// Lokalizační klíč vysvětlení, proč budova stojí; <c>null</c> = pracuje.
+    /// Rozestavěná budova se nehlásí — lešení a pruh postupu mluví samy.
+    /// </summary>
+    internal static string? StallText(BuildingStall stall) => stall switch
+    {
+        BuildingStall.NoWorkers => "stall.noWorkers",
+        BuildingStall.MissingInput => "stall.missingInput",
+        BuildingStall.NoTerrain => "stall.noTerrain",
+        _ => null,
+    };
 
     /// <summary>Jmenovky osad ve screen-space nad těžištěm shluku (orientace na mapě, fáze 4).</summary>
     private void DrawSettlementLabels(SpriteBatch spriteBatch)

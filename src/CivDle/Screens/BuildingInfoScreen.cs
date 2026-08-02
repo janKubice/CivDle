@@ -101,6 +101,20 @@ public sealed class BuildingInfoScreen : IScreen
             HorizontalAlignment = HorizontalAlignment.Center,
         });
 
+        // Proč budova nevyrábí, hned pod jménem. Tohle je první věc, na kterou se
+        // hráč ptá, když ji rozklikne — a dřív mu na ni nikdo neodpověděl.
+        if (GameplayScreen.StallText(instance.Stall) is { } stallKey)
+        {
+            layout.Widgets.Add(new Label
+            {
+                Text = loc[stallKey],
+                TextColor = Rendering.BuildingRenderer.StallColor(instance.Stall),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Wrap = true,
+                Width = 380,
+            });
+        }
+
         // Napojení na síť: bez cesty vyrábí budova pomaleji, a hráč musí mít
         // šanci to zjistit jinak než z tabulky v hlavě.
         if (def.Recipe is not null && content.Gameplay.Roads.DisconnectedProductionMult < 1.0)

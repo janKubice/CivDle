@@ -10,7 +10,20 @@
     <RootNamespace>CivDle</RootNamespace>
     <!-- Nativní knihovny (SDL, OpenAL) se při single-file publish zabalí přímo do exe. -->
     <IncludeNativeLibrariesForSelfExtraction>true</IncludeNativeLibrariesForSelfExtraction>
+
+    <!--
+      Ikona exe (Windows) i okna. Bez ní má hra ve Steamu, na liště i na ploše
+      výchozí prázdný obdélník — první, co o ní člověk uvidí, je, že vypadá
+      nedodělaně.
+    -->
+    <ApplicationIcon>Icon.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- PNG kopie pro okno na Linuxu/macOS: SDL bere ikonu za běhu, ne z exe. -->
+    <None Update="Icon.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Icon.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 
   <!--
     Grafický backend podle cílové platformy.

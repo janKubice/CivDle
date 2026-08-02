@@ -735,6 +735,9 @@ public sealed class Simulation
     private int FloodedBiomeIndex =>
         _content.Biomes.TryIndexOf("shallow_water", out int index) ? index : -1;
 
+    /// <summary>Je na dlaždici voda? (Render z toho hledá, kam vyplout.)</summary>
+    public bool IsWaterAt(int x, int y) => _content.Biomes[BiomeAt(x, y)].IsWater;
+
     /// <summary>Sousedí dlaždice s vodou? (Povodeň bere jen to, co stojí u ní.)</summary>
     private bool IsWaterNextTo(int x, int y) =>
         _content.Biomes[Terrain.BiomeAt(x + 1, y)].IsWater
@@ -1692,6 +1695,26 @@ public sealed class Simulation
 
             return count;
         }
+    }
+
+    /// <summary>
+    /// <paramref name="ordinal"/>-tá známá surovina; −1 = hráč nezná žádnou.
+    ///
+    /// <para>Slouží k losování odměn. Odměna smí padnout jen ze surovin, které
+    /// hráč už viděl — jinak mu ze zlatého nálezu přiletí nanomateriál dřív, než
+    /// tuší, že něco takového existuje, a rozbije mu to progresi i překvapení.</para>
+    /// </summary>
+    public int KnownResourceAt(int ordinal)
+    {
+        for (int i = 0, seen = 0; i < _resourceKnown.Length; i++)
+        {
+            if (_resourceKnown[i] && seen++ == ordinal)
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     /// <summary>Označí surovinu za známou (hráč ji získal). Idempotentní.</summary>
