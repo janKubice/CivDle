@@ -12,8 +12,39 @@
     <IncludeNativeLibrariesForSelfExtraction>true</IncludeNativeLibrariesForSelfExtraction>
   </PropertyGroup>
 
+  <!--
+    Grafický backend podle cílové platformy.
+
+    Windows jede na DirectX, protože OpenGL tam pro spoustu lidí není: když si
+    uživatel nenainstaloval ovladače od výrobce grafiky, Windows nasadí nouzový
+    ovladač, který umí jen OpenGL 1.1 — a hra na něm vůbec nenastartuje, i když
+    ta grafika je jinak v pořádku a všechny ostatní hry na ní běží (ty jedou na
+    DirectX). D3D11 je na Windows 10+ vždycky. Linux a macOS zůstávají na OpenGL,
+    tam je to jediná rozumná cesta.
+
+    Rozhoduje CÍL, ne stroj: publish s win-* RID dostane DirectX i při překladu
+    z Linuxu (CI). Bez RID se jede podle toho, kde se staví. Vynutit jde ručně:
+    `dotnet build -p:UseDirectX=true|false`.
+  -->
+  <PropertyGroup>
+    <UseDirectX Condition="'$(UseDirectX)' == '' and $(RuntimeIdentifier.StartsWith('win'))">true</UseDirectX>
+    <UseDirectX Condition="'$(UseDirectX)' == '' and '$(RuntimeIdentifier)' == '' and '$(OS)' == 'Windows_NT'">true</UseDirectX>
+    <UseDirectX Condition="'$(UseDirectX)' == ''">false</UseDirectX>
+
+    <!-- WindowsDX je windows-only balíček, takže s ním musí jít i cílová platforma. -->
+    <TargetFramework Condition="'$(UseDirectX)' == 'true'">net8.0-windows</TargetFramework>
+    <!-- Bez tohohle nejde DirectX verzi přeložit jinde než na Windows (chybí targeting pack). -->
+    <EnableWindowsTargeting Condition="'$(UseDirectX)' == 'true'">true</EnableWindowsTargeting>
+  </PropertyGroup>
+
   <ItemGroup>
-    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5" />
+    <!--
+      Myra ani FontStashSharp na konkrétním backendu nevisí — vážou se na
+      assembly MonoGame.Framework, kterou dodá kterýkoli z nich. Proto stačí
+      vyměnit tenhle jeden balíček.
+    -->
+    <PackageReference Include="MonoGame.Framework.WindowsDX" Version="3.8.5" Condition="'$(UseDirectX)' == 'true'" />
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5" Condition="'$(UseDirectX)' != 'true'" />
     <PackageReference Include="Myra" Version="1.5.11" />
   </ItemGroup>
 

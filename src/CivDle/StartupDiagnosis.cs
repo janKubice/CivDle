@@ -28,13 +28,21 @@ internal static class StartupDiagnosis
     /// </summary>
     public static string? HintFor(Exception exception) => exception switch
     {
-        // Nejčastější pád na cizím stroji: OpenGL bez framebufferů. To není stará
-        // karta — to je Windows, který podstrčil softwarový GDI renderer.
+        // Rada se liší podle backendu: Windows build jede na DirectX, ostatní
+        // na OpenGL (viz UseDirectX v CivDle.csproj). Poslat hráče řešit OpenGL
+        // na stroji, kde hra OpenGL vůbec nepoužívá, je horší než mlčet.
+        NoSuitableGraphicsDeviceException when OperatingSystem.IsWindows() => string.Join(
+            Environment.NewLine,
+            "Grafiku se nepodařilo spustit (hra potřebuje DirectX 11).",
+            "  • Nainstaluj ovladače přímo od výrobce grafiky (NVIDIA / AMD / Intel), ne z Windows Update.",
+            "  • Ve virtuálu zapni 3D akceleraci.",
+            "  • Na Windows starších než 10 hra nepoběží."),
+
         NoSuitableGraphicsDeviceException => string.Join(
             Environment.NewLine,
-            "Grafika neumí, co hra potřebuje (OpenGL s framebuffery).",
-            "  • Nainstaluj ovladače přímo od výrobce grafiky (NVIDIA / AMD / Intel), ne z Windows Update.",
-            "  • Přes Vzdálenou plochu hra nepoběží — ta OpenGL 3 nenabízí. Spusť ji přímo u počítače.",
+            "Grafika neumí, co hra potřebuje (OpenGL 3 s framebuffery).",
+            "  • Doinstaluj ovladače grafiky (na Linuxu balíčky Mesa pro tvou kartu).",
+            "  • Přes vzdálenou plochu ani přes samotné X forwarding hra nepoběží — spusť ji přímo u počítače.",
             "  • Ve virtuálu zapni 3D akceleraci."),
 
         // Windows umí zablokovat nepodepsanou knihovnu dřív, než ji hra načte.
