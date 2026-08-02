@@ -8,13 +8,16 @@ namespace CivDle.Screens;
 /// technologie na prstenci podle toho, jak daleko je od kořene. Strom se čte
 /// jako výbuch od středu ven.
 ///
-/// <para>Klíč k tomu, aby se hrany nekřížily, není v rozvržení, ale v datech:
-/// hvězdice je bez křížení <b>jen když je graf strom</b> (každý uzel má nejvýš
-/// jednoho rodiče). Předchozí verze byla hvězdice nad obecným grafem a křížení
-/// do ní byla zabudovaná — technologie s prerekvizitami ve dvou ramenech musela
-/// nutně vést spoj přes celý kruh; proto se tehdy ustoupilo k vrstvám. Teď je
-/// <c>tech.json</c> skutečný strom, takže hvězdice funguje: každému podstromu
-/// patří vlastní úhlová výseč a hrany z ní nikdy nevystoupí.</para>
+/// <para>Aby se hrany nekřížily, musí platit dvě věci najednou. První je
+/// v datech: hvězdice unese jen <b>strom</b> (každý uzel nejvýš jeden rodič).
+/// Předchozí verze byla hvězdice nad obecným grafem a křížení do ní byla
+/// zabudovaná — technologie s prerekvizitami ve dvou ramenech musela vést spoj
+/// přes celý kruh; proto se tehdy ustoupilo k vrstvám.</para>
+///
+/// <para>Druhá je v <b>routování</b>, viz <see cref="AppendEdgePoints"/>. Strom
+/// sám o sobě nestačí: rodič sedí uprostřed své výseče, a když je ta výseč
+/// široká, rovná tětiva k okrajovému dítěti projede skrz výseče sourozenců.
+/// Proto spojnice nevedou rovně, ale po prstenci rodiče a pak paprsčitě ven.</para>
 ///
 /// <para>Šířka výseče je úměrná <b>počtu listů</b> podstromu, ne počtu dětí —
 /// jinak by hubená větev dostala stejný prostor jako celá průmyslová éra
@@ -46,11 +49,21 @@ public sealed class TechGraphLayout
     private readonly Vector2[] _centers;
     private readonly int[] _parent;
 
+    /// <summary>Úhel hvězdy ve výseči — spojnice ho potřebují, aby vedly radiálně.</summary>
+    private readonly double[] _angle;
+
+    /// <summary>Prstenec hvězdy; spojnice z něj počítá mezikruží pro oblouk.</summary>
+    private readonly int[] _depth;
+
+    private Vector2 _origin;
+
     public TechGraphLayout(DefRegistry<TechDef> techs)
     {
         int count = techs.Count;
         _centers = new Vector2[count];
         _parent = new int[count];
+        _angle = new double[count];
+        _depth = new int[count];
         if (count == 0)
         {
             Width = Height = 1;
@@ -60,6 +73,7 @@ public sealed class TechGraphLayout
         var children = BuildTree(techs, _parent);
         int[] leaves = CountLeaves(children, _parent);
         int[] depth = ComputeDepth(_parent);
+        Array.Copy(depth, _depth, count);
 
         int maxDepth = 0;
         for (int i = 0; i < count; i++)
@@ -70,6 +84,7 @@ public sealed class TechGraphLayout
         int radius = InnerRadius + maxDepth * RingSpacing;
         Width = Height = 2 * (radius + Margin);
         var origin = new Vector2(Width / 2f, Height / 2f);
+        _origin = origin;
 
         // Kořeny si rozdělí celý kruh podle svých listů; každý pak dělí svou výseč
         // dál mezi děti. Tím je zaručeno, že se podstromy úhlově nepřekryjí.
@@ -106,16 +121,65 @@ public sealed class TechGraphLayout
     public Vector2 Center(int techIndex) => _centers[techIndex];
 
     /// <summary>
-    /// Body spojnice mezi prerekvizitou a technologií. V hvězdici je to úsečka —
-    /// obě hvězdy leží na sousedních prstencích ve stejné výseči, takže mezi nimi
-    /// nic není.
+    /// Body spojnice mezi prerekvizitou a technologií: <b>radiálně ven — obloukem
+    /// — radiálně ven</b>.
+    ///
+    /// <para>Rovná tětiva mezi prstenci vypadá lákavě, ale kříží se. Úsečka mezi
+    /// dvěma body na různých poloměrech se vybouluje ven až k poloměru toho
+    /// vzdálenějšího, takže u široké výseče projede pásmem, kde už sedí vnukové
+    /// jiné větve — přesně tohle dělalo v hvězdici pavučinu.</para>
+    ///
+    /// <para>Lomená spojnice to vylučuje z principu: obě radiální části leží na
+    /// úhlu své hvězdy (a ten je uvnitř výseče rodiče), oblouk vede v mezikruží
+    /// mezi prstenci a taky nevystoupí z výseče rodiče. Výseče sourozenců jsou
+    /// disjunktní a různé hloubky mají různá mezikruží — dvě spojnice tedy nemají
+    /// kde se potkat.</para>
     /// </summary>
     public void AppendEdgePoints(int from, int to, List<Vector2> points)
     {
         points.Clear();
         points.Add(_centers[from]);
+
+        float ringRadius = RadiusAt(_depth[from]);
+        double fromAngle = _angle[from];
+        double toAngle = _angle[to];
+
+        // Kořen leží ve středu, kde úhel nic neznamená — z něj vede rovná paprsčitá
+        // čára. Dítě přesně na úhlu rodiče je taky jen paprsek.
+        if (ringRadius > 0f && Math.Abs(toAngle - fromAngle) > 1e-6)
+        {
+            // Vrcholy oblouku sedí na SPOLEČNÉ úhlové mřížce. Sourozenecké oblouky
+            // se na společném prstenci nutně překrývají; kdyby si každý dělil svůj
+            // rozsah po svém, lámaly by se v jiných bodech a vzájemně se protínaly.
+            // Na mřížce jsou překryté úseky totožné, takže se protnout nemají kde.
+            double step = toAngle > fromAngle ? ArcStep : -ArcStep;
+            for (double angle = Snap(fromAngle, step);
+                 (toAngle - angle) * step > 0;
+                 angle += step)
+            {
+                points.Add(PointAt(angle, ringRadius));
+            }
+
+            points.Add(PointAt(toAngle, ringRadius));
+        }
+
         points.Add(_centers[to]);
     }
+
+    /// <summary>Úhlová mřížka oblouku (~2°) — jemnější už oko nerozezná, jen přibudou body.</summary>
+    private const double ArcStep = Math.PI / 90;
+
+    /// <summary>První bod mřížky za daným úhlem ve směru kroku.</summary>
+    private static double Snap(double angle, double step) =>
+        step > 0
+            ? Math.Ceiling(angle / ArcStep + 1e-9) * ArcStep
+            : Math.Floor(angle / ArcStep - 1e-9) * ArcStep;
+
+    private Vector2 PointAt(double angle, float radius) => _origin + new Vector2(
+        (float)(Math.Cos(angle) * radius),
+        (float)(Math.Sin(angle) * radius));
+
+    private static float RadiusAt(int depth) => depth == 0 ? 0f : InnerRadius + (depth - 1) * RingSpacing;
 
     /// <summary>Klikací čtverec kolem hvězdy (hit test i culling).</summary>
     public Rectangle Bounds(int techIndex)
@@ -133,7 +197,8 @@ public sealed class TechGraphLayout
         List<int>[] children, Vector2 origin)
     {
         double middle = (from + to) / 2;
-        double radius = depth[node] == 0 ? 0 : InnerRadius + (depth[node] - 1) * RingSpacing;
+        double radius = RadiusAt(depth[node]);
+        _angle[node] = middle;
         _centers[node] = origin + new Vector2(
             (float)(Math.Cos(middle) * radius),
             (float)(Math.Sin(middle) * radius));
