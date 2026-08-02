@@ -46,6 +46,7 @@ public sealed class GameContent
         IReadOnlyList<MilestoneDef> milestones,
         SeasonCalendar seasons,
         FaithCatalog? faith,
+        NpcCityCatalog? npcCities,
         IReadOnlyList<VehicleDef>? vehicles = null,
         IReadOnlyList<Mods.ModPackage>? mods = null)
     {
@@ -89,6 +90,7 @@ public sealed class GameContent
         Milestones = milestones;
         Seasons = seasons;
         Faith = faith ?? FaithCatalog.Empty;
+        NpcCities = npcCities ?? NpcCityCatalog.Empty;
     }
 
     /// <summary>Sousedé a vztahy s nimi z <c>data/neighbours.json</c> (smí být prázdné).</summary>
@@ -111,6 +113,9 @@ public sealed class GameContent
 
     /// <summary>Víra a modlitby z <c>data/faith.json</c> (smí být vypnutá).</summary>
     public FaithCatalog Faith { get; }
+
+    /// <summary>Cizí města z <c>data/npc-cities.json</c> (smí být vypnutá).</summary>
+    public NpcCityCatalog NpcCities { get; }
 
     /// <summary>Definice technologií z <c>data/tech.json</c> (tech tree).</summary>
     public DefRegistry<TechDef> Techs { get; }
@@ -172,7 +177,7 @@ public sealed class GameContent
         Biomes, Resources, Buildings, Techs, Prestige, PrestigeUpgrades, Quests, QuestsDynamic,
         Achievements, Events, Eras, WorldGen, gameplay, Languages, SettlementNames, Decorations,
         Fauna, Devlog, ZoneTypes, Policies, AscensionTiers, Weather, Landmarks, Features, Ufo,
-        Ambience, Terraform, Tutorial, Challenges, Contracts, Districts, SettlementRanks, Citizens, Neighbours, Elections, Milestones, Seasons, Faith, Vehicles, Mods);
+        Ambience, Terraform, Tutorial, Challenges, Contracts, Districts, SettlementRanks, Citizens, Neighbours, Elections, Milestones, Seasons, Faith, NpcCities, Vehicles, Mods);
 
     /// <summary>Milníky postupu z <c>data/milestones.json</c> (smí být prázdné).</summary>
     public IReadOnlyList<MilestoneDef> Milestones { get; }

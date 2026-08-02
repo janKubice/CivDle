@@ -149,6 +149,27 @@ public sealed record ContractDto(
     double DurationSeconds,
     GoalConditionDto? Requires);
 
+/// <summary>Obsah souboru <c>data/npc-cities.json</c>.</summary>
+public sealed record NpcCitiesFileDto(
+    int SchemaVersion,
+    Dictionary<string, int>? GiftCost,
+    int GiftRelation,
+    Dictionary<string, int>? RoadCost,
+    double TradeIntervalSeconds,
+    int BuyRelation,
+    Dictionary<string, int>? BuyCost,
+    int SurroundRadius,
+    int SurroundBuildings,
+    List<NpcArchetypeDto>? Archetypes,
+    List<string>? Names);
+
+/// <summary>Jeden druh cizího města tak, jak leží v JSON.</summary>
+public sealed record NpcArchetypeDto(
+    string? Id,
+    string? MapColor,
+    int Population,
+    Dictionary<string, int>? Trade);
+
 /// <summary>Obsah souboru <c>data/faith.json</c>.</summary>
 public sealed record FaithFileDto(int SchemaVersion, string? FaithResource, List<PrayerDto>? Prayers);
 

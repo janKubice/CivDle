@@ -44,6 +44,9 @@ public enum NotificationKind
 
     /// <summary>Budov jednoho typu přibylo tolik, že všechny dostaly další stupeň.</summary>
     BuildingMilestone,
+
+    /// <summary>Cizí město se stalo součástí říše (odkupem nebo obestavěním).</summary>
+    CityJoined,
 }
 
 /// <summary>

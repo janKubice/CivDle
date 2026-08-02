@@ -64,6 +64,7 @@ public sealed class SaveGameSerializer
     private const string SectionNodes = "nodes";
     private const string SectionFog = "fog";
     private const string SectionFaith = "faith";
+    private const string SectionNpcCities = "npccities";
     private const string SectionPollution = "pollution";
     private const string SectionContracts = "contracts";
     private const string SectionCitizens = "citizens";
@@ -120,6 +121,21 @@ public sealed class SaveGameSerializer
             }
         });
         WriteSection(writer, SectionFaith, w => w.Write(simulation.PrayerCount));
+        WriteSection(writer, SectionNpcCities, w =>
+        {
+            // Poloha měst se neukládá — plyne ze seedu. Do savu jde jen to,
+            // co hráč změnil: vztah, obchody, cesta, pohlcení.
+            var states = simulation.NpcStates;
+            w.Write(states.Count);
+            foreach (var pair in states)
+            {
+                w.Write(pair.Key);
+                w.Write(pair.Value.Relation);
+                w.Write(pair.Value.Trades);
+                w.Write(pair.Value.RoadLinked);
+                w.Write(pair.Value.Absorbed);
+            }
+        });
         WriteSection(writer, SectionKnownResources, w => WriteKnownResources(w, simulation));
         WriteSection(writer, SectionWorldChanges, w => WriteWorldChanges(w, simulation));
         WriteSection(writer, SectionTutorial, w => w.Write(simulation.TutorialStep));
@@ -268,6 +284,23 @@ public sealed class SaveGameSerializer
         simulation.Fog.Restore(keys);
     }
 
+    /// <summary>Vztahy k cizím městům. Chybějící sekce = hráč zatím žádné nepotkal.</summary>
+    private static void ReadNpcCities(BinaryReader reader, Simulation simulation)
+    {
+        int count = reader.ReadInt32();
+        for (int i = 0; i < count; i++)
+        {
+            long key = reader.ReadInt64();
+            simulation.RestoreNpcState(key, new NpcCityState
+            {
+                Relation = reader.ReadInt32(),
+                Trades = reader.ReadInt64(),
+                RoadLinked = reader.ReadBoolean(),
+                Absorbed = reader.ReadBoolean(),
+            });
+        }
+    }
+
     private static void ReadGovernor(BinaryReader reader, Simulation simulation)
     {
         simulation.RestoreAutoUpgradeLevel(reader.ReadInt32());
@@ -414,6 +447,7 @@ public sealed class SaveGameSerializer
             case SectionNodes: ReadNodes(section, simulation); break;
             case SectionFog: ReadFog(section, simulation); break;
             case SectionFaith: simulation.RestorePrayerCount(section.ReadInt64()); break;
+            case SectionNpcCities: ReadNpcCities(section, simulation); break;
             case SectionPollution: ReadPollution(section, simulation); break;
             case SectionContracts: ReadContracts(section, content, simulation); break;
             case SectionCitizens: ReadCitizens(section, simulation); break;

@@ -149,6 +149,7 @@ public sealed class Simulation
         _pollutionSystem = new PollutionSystem(content);
         _contractSystem = new ContractSystem(content, seed);
         _prayerSystem = new PrayerSystem(content, seed);
+        NpcCities = new NpcCityMap(seed, content.NpcCities.Archetypes.Count, content.NpcCities.Names.Count);
         _districtSystem = new DistrictSystem(content);
         _citizenSystem = new CitizenSystem(content, seed);
         _milestoneBonuses = new BuildingMilestoneSystem(content);
@@ -191,6 +192,281 @@ public sealed class Simulation
 
     /// <summary>Kolik dlaždic kolem sebe odhalí budova nebo ruční sběr.</summary>
     public const int FogRevealRadius = 10;
+
+    // ----- cizí města: objevení, obchod, pohlcení -----
+
+    /// <summary>Mapa cizích měst (odvozená ze seedu, neukládá se).</summary>
+    public NpcCityMap NpcCities { get; private set; } = null!;
+
+    /// <summary>Co hráč s kterým městem zažil. Ukládá se jen tohle.</summary>
+    private readonly Dictionary<long, NpcCityState> _npcStates = new();
+
+    /// <summary>Tik posledního obchodu s městem — kvůli intervalu dodávek.</summary>
+    private readonly Dictionary<long, long> _npcLastTrade = new();
+
+    /// <summary>Jsou cizí města v datech zapnutá?</summary>
+    public bool NpcCitiesEnabled => _content.NpcCities.IsEnabled;
+
+    /// <summary>Stav vztahu k městu (výchozí = nedotčené).</summary>
+    public NpcCityState NpcStateOf(long key) =>
+        _npcStates.TryGetValue(key, out var state) ? state : default;
+
+    /// <summary>Kolik cizích měst už je součástí říše (odkupem nebo obestavěním).</summary>
+    public int CitiesJoined
+    {
+        get
+        {
+            int count = 0;
+            foreach (var pair in _npcStates)
+            {
+                if (pair.Value.Absorbed)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
+    /// <summary>Klíče měst, se kterými už hráč něco měl — pro save i pro seznam.</summary>
+    public IReadOnlyDictionary<long, NpcCityState> NpcStates => _npcStates;
+
+    /// <summary>Obnoví vztah k městu ze savu.</summary>
+    internal void RestoreNpcState(long key, NpcCityState state) => _npcStates[key] = state;
+
+    /// <summary>
+    /// Objevil už hráč tohle město? Objevení se neukládá — plyne z mlhy, takže
+    /// se nemůže rozejít s tím, co hráč vidí.
+    /// </summary>
+    public bool IsCityDiscovered(in NpcCity city) => Fog.IsExplored(city.X, city.Y);
+
+    /// <summary>Města v dohledu kolem místa (pro mapu i pro seznam sídel).</summary>
+    public IEnumerable<NpcCity> CitiesNear(int tileX, int tileY, int radiusTiles) =>
+        NpcCitiesEnabled ? NpcCities.CitiesNear(tileX, tileY, radiusTiles) : Array.Empty<NpcCity>();
+
+    /// <summary>
+    /// Dar cizímu městu: zaplatíš a vztah povyroste. Nejlevnější způsob, jak se
+    /// k městu dostat blíž — a jediný, který jde použít hned po objevení.
+    /// </summary>
+    public DiplomacyResult TryGiftCity(long key)
+    {
+        if (!NpcCitiesEnabled || !NpcCities.TryCityByKey(key, out _))
+        {
+            return DiplomacyResult.Unavailable;
+        }
+
+        var state = NpcStateOf(key);
+        if (state.Absorbed)
+        {
+            return DiplomacyResult.AlreadyYours;
+        }
+
+        var catalog = _content.NpcCities;
+        if (!CanPay(catalog.GiftCost))
+        {
+            return DiplomacyResult.NotEnoughResources;
+        }
+
+        Pay(catalog.GiftCost);
+        state.Relation = Math.Min(100, state.Relation + catalog.GiftRelation);
+        _npcStates[key] = state;
+        return DiplomacyResult.Ok;
+    }
+
+    /// <summary>
+    /// Postaví cestu k městu. Bez cesty se obchodovat nedá — a to je celý důvod,
+    /// proč silnice v téhle hře nejsou dekorace.
+    ///
+    /// <para>Cesta se nekreslí dlaždici po dlaždici: platí se jednou a spojení
+    /// vznikne. Trasovat stovky dlaždic přes půl mapy by byla práce navíc pro
+    /// hráče i pro procesor, a nic by to nepřineslo.</para>
+    /// </summary>
+    public DiplomacyResult TryConnectCity(long key)
+    {
+        if (!NpcCitiesEnabled || !NpcCities.TryCityByKey(key, out _))
+        {
+            return DiplomacyResult.Unavailable;
+        }
+
+        var state = NpcStateOf(key);
+        if (state.Absorbed)
+        {
+            return DiplomacyResult.AlreadyYours;
+        }
+
+        if (state.RoadLinked)
+        {
+            return DiplomacyResult.Ok;
+        }
+
+        if (!CanPay(_content.NpcCities.RoadCost))
+        {
+            return DiplomacyResult.NotEnoughResources;
+        }
+
+        Pay(_content.NpcCities.RoadCost);
+        state.RoadLinked = true;
+        _npcStates[key] = state;
+        return DiplomacyResult.Ok;
+    }
+
+    /// <summary>
+    /// Odkoupí město. Chce vysoký vztah <b>i</b> hodně surovin: koupit se dá
+    /// jen to, co už tě má rádo — jinak by z diplomacie byl jen nákup.
+    /// </summary>
+    public DiplomacyResult TryBuyCity(long key)
+    {
+        if (!NpcCitiesEnabled || !NpcCities.TryCityByKey(key, out var city))
+        {
+            return DiplomacyResult.Unavailable;
+        }
+
+        var state = NpcStateOf(key);
+        if (state.Absorbed)
+        {
+            return DiplomacyResult.AlreadyYours;
+        }
+
+        if (state.Relation < _content.NpcCities.BuyRelation)
+        {
+            return DiplomacyResult.RelationTooLow;
+        }
+
+        if (!CanPay(_content.NpcCities.BuyCost))
+        {
+            return DiplomacyResult.NotEnoughResources;
+        }
+
+        Pay(_content.NpcCities.BuyCost);
+        AbsorbCity(key, city);
+        return DiplomacyResult.Ok;
+    }
+
+    /// <summary>
+    /// Město se stalo součástí říše: přinese své lidi a přestane být cizí.
+    /// Volá se z odkupu i z obestavění.
+    /// </summary>
+    private void AbsorbCity(long key, in NpcCity city)
+    {
+        var state = NpcStateOf(key);
+        state.Absorbed = true;
+        state.Relation = 100;
+        _npcStates[key] = state;
+
+        var archetype = _content.NpcCities.Archetypes[city.ArchetypeIndex];
+        Population += archetype.Population;
+        Fog.Reveal(city.X, city.Y, FogRevealRadius);
+        EnqueueNotification(new GameNotification(
+            NotificationKind.CityJoined, "toast.cityJoined", archetype.NameKey));
+    }
+
+    /// <summary>
+    /// Dodávky od spřátelených měst a tiché pohlcování obestavěných.
+    ///
+    /// <para>Běží na nízké frekvenci nad městy v okolí, ne nad celou mapou —
+    /// cizích měst je nekonečně mnoho, ale zajímavá jsou jen ta blízko.</para>
+    /// </summary>
+    private void TickNpcCities()
+    {
+        var catalog = _content.NpcCities;
+        if (!catalog.IsEnabled || TickCount % catalog.TradeIntervalTicks != 0)
+        {
+            return;
+        }
+
+        foreach (var city in NpcCities.CitiesNear(CityCenterX, CityCenterY, NpcScanRadius))
+        {
+            var state = NpcStateOf(city.Key);
+            if (state.Absorbed)
+            {
+                continue;
+            }
+
+            // Obestavěné město sroste s hráčovým samo — nikdo ho nedobývá,
+            // jen se kolem něj rozrostlo město a hranice přestala dávat smysl.
+            if (CountOwnBuildingsAround(city.X, city.Y, catalog.SurroundRadius) >= catalog.SurroundBuildings)
+            {
+                AbsorbCity(city.Key, city);
+                continue;
+            }
+
+            if (!IsCityDiscovered(city) || !HasTradeLink(city, state))
+            {
+                continue;
+            }
+
+            var trade = catalog.Archetypes[city.ArchetypeIndex].Trade;
+            for (int i = 0; i < trade.Count; i++)
+            {
+                AddResource(trade[i].ResourceIndex, trade[i].Amount);
+            }
+
+            state.Trades++;
+            state.Relation = Math.Min(100, state.Relation + 1); // obchod sbližuje
+            _npcStates[city.Key] = state;
+        }
+    }
+
+    /// <summary>Jak daleko se cizí města ještě řeší (dál by to byla práce nazmar).</summary>
+    private const int NpcScanRadius = NpcCityMap.CellTiles * 3;
+
+    /// <summary>
+    /// Dá se s městem obchodovat? Buď vede cesta, nebo obě strany leží u vody
+    /// a hráč má přístav — moře je cesta, kterou nikdo nemusel stavět.
+    /// </summary>
+    private bool HasTradeLink(in NpcCity city, in NpcCityState state) =>
+        state.RoadLinked || (IsWaterNextTo(city.X, city.Y) && HasHarbour());
+
+    /// <summary>Má hráč přístav? (Námořní obchod bez něj nedává smysl.)</summary>
+    private bool HasHarbour()
+    {
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            if (_buildings[i].IsComplete && _content.Buildings[_buildings[i].DefIndex].NeedsWaterAccess)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Kolik hráčových budov stojí v okruhu kolem místa.</summary>
+    private int CountOwnBuildingsAround(int centerX, int centerY, int radius)
+    {
+        int count = 0;
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            if (WithinRadius(_buildings[i].X, _buildings[i].Y, centerX, centerY, radius))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private bool CanPay(IReadOnlyList<ResourceAmount> cost)
+    {
+        for (int i = 0; i < cost.Count; i++)
+        {
+            if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void Pay(IReadOnlyList<ResourceAmount> cost)
+    {
+        for (int i = 0; i < cost.Count; i++)
+        {
+            _resources[cost[i].ResourceIndex] -= cost[i].Amount;
+        }
+    }
 
     // ----- víra: modlitby, požehnání a zásahy -----
 
@@ -1733,6 +2009,7 @@ public sealed class Simulation
     {
         TickCount++;
         TickBlessings(); // požehnání z modliteb dobíhají spolu se slavností
+        TickNpcCities(); // dodávky od sousedů a tiché srůstání obestavěných
         if (_boostTicksRemaining > 0)
         {
             _boostTicksRemaining--;
@@ -3022,6 +3299,9 @@ public sealed class Simulation
         MetricKind.TerraformedTiles => TerraformedTiles,
         MetricKind.MergedBuildings => MergedBuildings,
         MetricKind.WondersCompleted => WondersCompleted,
+        MetricKind.Prayers => PrayerCount,
+        MetricKind.CitiesJoined => CitiesJoined,
+        MetricKind.Explored => Fog.ExploredChunks,
         _ => 0,
     };
 

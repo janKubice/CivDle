@@ -87,10 +87,62 @@ public sealed class ContentLoader
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
         var vehicles = LoadVehicles(Path.Combine(dataDirectory, "vehicles.json"));
         var faith = LoadFaith(Path.Combine(dataDirectory, "faith.json"), resources);
+        var npcCities = LoadNpcCities(Path.Combine(dataDirectory, "npc-cities.json"), resources);
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, neighbours, elections, milestones, seasons, faith, vehicles, mods);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, neighbours, elections, milestones, seasons, faith, npcCities, vehicles, mods);
+    }
+
+    // ----- cizí města -----
+
+    /// <summary>
+    /// Načte pravidla soužití s cizími městy. Chybějící soubor není chyba —
+    /// mechanika je volitelná a hra (i starší mody) musí naběhnout bez ní.
+    /// </summary>
+    private NpcCityCatalog LoadNpcCities(string path, DefRegistry<Resource> resources)
+    {
+        if (!File.Exists(path))
+        {
+            return NpcCityCatalog.Empty;
+        }
+
+        var file = ReadFile<NpcCitiesFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var archetypes = new List<NpcCityArchetype>();
+        foreach (var dto in file.Archetypes ?? new List<NpcArchetypeDto>())
+        {
+            string id = dto.Id?.Trim() ?? string.Empty;
+            if (id.Length == 0)
+            {
+                throw new ContentLoadException(path, "Druh cizího města bez 'id'.");
+            }
+
+            archetypes.Add(new NpcCityArchetype(
+                id,
+                ParseColor(path, dto.MapColor, $"cizí město '{id}'"),
+                Math.Max(0, dto.Population),
+                ParseResourceAmounts(path, id, "trade", dto.Trade, resources)));
+        }
+
+        var names = file.Names ?? new List<string>();
+        if (archetypes.Count > 0 && names.Count == 0)
+        {
+            throw new ContentLoadException(path, "Cizí města nemají žádná jména ('names').");
+        }
+
+        return new NpcCityCatalog(
+            ParseResourceAmounts(path, "npc", "giftCost", file.GiftCost, resources),
+            Math.Max(0, file.GiftRelation),
+            ParseResourceAmounts(path, "npc", "roadCost", file.RoadCost, resources),
+            (int)Math.Round(file.TradeIntervalSeconds * 10),
+            Math.Clamp(file.BuyRelation, 0, 100),
+            ParseResourceAmounts(path, "npc", "buyCost", file.BuyCost, resources),
+            Math.Max(1, file.SurroundRadius),
+            Math.Max(1, file.SurroundBuildings),
+            new DefRegistry<NpcCityArchetype>(archetypes, a => a.Id, "cizí město", allowEmpty: true),
+            names);
     }
 
     // ----- víra -----
@@ -2382,6 +2434,9 @@ public sealed class ContentLoader
             case "terraformed": return (MetricKind.TerraformedTiles, -1);
             case "merged": return (MetricKind.MergedBuildings, -1);
             case "wonders": return (MetricKind.WondersCompleted, -1);
+            case "prayers": return (MetricKind.Prayers, -1);
+            case "cities": return (MetricKind.CitiesJoined, -1);
+            case "explored": return (MetricKind.Explored, -1);
             case "harvested": return (MetricKind.Harvested, ResolveRef(path, owner, "resource", resource, resources));
             case "resource": return (MetricKind.ResourceStock, ResolveRef(path, owner, "resource", resource, resources));
             case "building": return (MetricKind.BuildingOfType, ResolveRef(path, owner, "building", building, buildings));
