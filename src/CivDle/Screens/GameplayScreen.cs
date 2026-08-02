@@ -1755,6 +1755,33 @@ public sealed class GameplayScreen : IScreen
     /// Vodorovný pruh DOLE nad stavebním menu — spodek obrazovky patří akcím,
     /// horní okraj zůstává na suroviny a stav světa.
     /// </summary>
+    /// <summary>Tlačítko s vybraným druhem k zasazení; null = druhy nejsou.</summary>
+    private Widget? _plantSpeciesButton;
+
+    /// <summary>Popisek „Sázet: Háj" — jméno druhu přichází z dat, ne z kódu.</summary>
+    private string PlantSpeciesLabel()
+    {
+        var species = _simulation.SelectedPlantSpecies;
+        return species is null
+            ? _screens.Loc["hud.plant"]
+            : _screens.Loc.Format("hud.plantSpecies", _screens.Loc[species.NameKey]);
+    }
+
+    /// <summary>Přepne druh a rovnou zapne sázení — hráč chtěl sázet, ne listovat.</summary>
+    private void CyclePlantSpecies()
+    {
+        _simulation.CyclePlantSpecies();
+        if (_plantSpeciesButton is Button button && button.Content is Label label)
+        {
+            label.Text = PlantSpeciesLabel();
+        }
+
+        if (!_tools.PlantMode)
+        {
+            _tools.TogglePlant();
+        }
+    }
+
     /// <summary>Modlitba čeká na ukázání cíle na mapě; další klik ji pronese.</summary>
     private void StartPrayerTargeting(int prayerIndex, int strength)
     {
@@ -1866,6 +1893,15 @@ public sealed class GameplayScreen : IScreen
         if (_simulation.IsFeatureUnlocked("plant"))
         {
             stack.Widgets.Add(UiFactory.SmallButton(loc["hud.plant"], _tools.TogglePlant, loc["tip.plant"]));
+
+            // Druhý knoflík vedle: čím se sází. Přepínat druh schovaným klikem do
+            // téhož tlačítka by znamenalo, že hráč nemá jak zjistit, že jich je víc.
+            if (_screens.Content.Gameplay.Planting.Species.Count > 1)
+            {
+                _plantSpeciesButton = UiFactory.SmallButton(
+                    PlantSpeciesLabel(), CyclePlantSpecies, loc["tip.plantSpecies"]);
+                stack.Widgets.Add(_plantSpeciesButton);
+            }
         }
 
         // Silnice: tvar sítě má být na hráči — auto-silnice řeší jen nutné napojení.
@@ -2609,7 +2645,7 @@ public sealed class GameplayScreen : IScreen
 
         if (_tools.PlantMode)
         {
-            _statusLabel.Text = loc["hud.planting"];
+            _statusLabel.Text = PlantSpeciesLabel();
             _statusLabel.TextColor = UiFactory.Accent;
             return;
         }

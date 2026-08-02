@@ -299,7 +299,35 @@ public sealed record DailyRewardConfig(IReadOnlyList<ResourceAmount> BaseReward,
 /// <param name="Cost">Cena zasazení.</param>
 /// <param name="ResourceIndex">Kterou surovinu zasazený uzel dává.</param>
 /// <param name="Amount">Výnos jednoho sběru zasazeného uzlu.</param>
-public sealed record PlantingConfig(IReadOnlyList<ResourceAmount> Cost, int ResourceIndex, int Amount);
+/// <summary>
+/// Jeden druh, který jde zasadit.
+///
+/// <para>Sázení bylo do téhle chvíle jediná věc za pevnou cenu. Druhy z něj
+/// dělají nástroj, který roste s hrou: háj hned na začátku, sad a posvátný háj
+/// až za výzkumem. Odemčení je v datech (<c>requiresTech</c>), ne v kódu.</para>
+/// </summary>
+/// <param name="Id">Stabilní ID (do lokalizace a do UI).</param>
+/// <param name="Cost">Co zasazení stojí.</param>
+/// <param name="ResourceIndex">Co se z něj pak sbírá.</param>
+/// <param name="Amount">Kolik dá jeden sběr.</param>
+/// <param name="RequiredTechIndex">Technologie, která ho odemyká; −1 = od začátku.</param>
+public sealed record PlantSpecies(
+    string Id,
+    IReadOnlyList<ResourceAmount> Cost,
+    int ResourceIndex,
+    int Amount,
+    int RequiredTechIndex = -1)
+{
+    /// <summary>Lokalizační klíč jména druhu.</summary>
+    public string NameKey => $"plant.{Id}";
+}
+
+/// <summary>Co všechno jde zasadit. Prázdný seznam = sázení je vypnuté.</summary>
+public sealed record PlantingConfig(IReadOnlyList<PlantSpecies> Species)
+{
+    /// <summary>Je vůbec co sázet?</summary>
+    public bool IsEnabled => Species.Count > 0;
+}
 
 /// <summary>
 /// Hromadné stavění: násobiče v liště a strop na jedno gesto.

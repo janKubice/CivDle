@@ -100,10 +100,131 @@ internal sealed class DistrictSystem
             buildings[i].DistrictMult = 1f;
         }
 
+        // Shluky se nejdřív jen posbírají. Usadí se až potom, protože teprve nad
+        // celým seznamem jde poznat, že se dvě čtvrti překrývají nebo že jedna
+        // leží uvnitř druhé — a to je přesně to, co dělalo „rezidenční čtvrť
+        // uprostřed obří průmyslové".
+        _clusters.Clear();
         var types = _content.Districts.Types;
         for (int typeIndex = 0; typeIndex < types.Count; typeIndex++)
         {
             FindClusters(sim, buildings, typeIndex, types[typeIndex]);
+        }
+
+        ResolveOverlaps(buildings);
+        Commit(sim, buildings);
+    }
+
+    /// <summary>Rozpracovaný shluk, než se z něj stane čtvrť.</summary>
+    private sealed class Cluster
+    {
+        public int TypeIndex;
+        public int MinX, MinY, MaxX, MaxY;
+        public readonly List<int> Members = new();
+        public bool Dropped;
+
+        public long Area => (long)(MaxX - MinX + 1) * (MaxY - MinY + 1);
+    }
+
+    private readonly List<Cluster> _clusters = new();
+
+    /// <summary>
+    /// Kolik plochy své obálky musí čtvrť opravdu zabírat. Bez tohohle se z pěti
+    /// továren rozházených přes půl města stala „průmyslová čtvrť" o rozloze
+    /// centra — a všechno ostatní se pak ocitlo uvnitř ní.
+    /// </summary>
+    private const double MinDensity = 0.18;
+
+    /// <summary>
+    /// Od jakého překryvu se dvě čtvrti považují za jednu věc. Menší z nich pak
+    /// ustoupí (nebo se sloučí, jde-li o týž druh) — čtvrť ve čtvrti nedává smysl
+    /// ani na mapě, ani ve výkladu.
+    /// </summary>
+    private const double MaxOverlap = 0.35;
+
+    /// <summary>
+    /// Vyřídí překryvy: stejný druh se slije v jednu čtvrť, cizí druh ustoupí té
+    /// větší. Prochází se od největší k nejmenší, takže o vítězi rozhoduje počet
+    /// budov, ne pořadí v datech.
+    /// </summary>
+    private void ResolveOverlaps(Span<BuildingInstance> buildings)
+    {
+        _clusters.Sort((a, b) => b.Members.Count.CompareTo(a.Members.Count));
+
+        for (int i = 0; i < _clusters.Count; i++)
+        {
+            var big = _clusters[i];
+            if (big.Dropped)
+            {
+                continue;
+            }
+
+            for (int j = i + 1; j < _clusters.Count; j++)
+            {
+                var small = _clusters[j];
+                if (small.Dropped || OverlapRatio(big, small) < MaxOverlap)
+                {
+                    continue;
+                }
+
+                small.Dropped = true;
+                if (small.TypeIndex != big.TypeIndex)
+                {
+                    continue; // cizí druh prostě ustoupí — jeho budovy zůstanou bez čtvrti
+                }
+
+                // Týž druh: nejsou to dvě čtvrti, je to jedna rozkročená.
+                big.Members.AddRange(small.Members);
+                big.MinX = Math.Min(big.MinX, small.MinX);
+                big.MinY = Math.Min(big.MinY, small.MinY);
+                big.MaxX = Math.Max(big.MaxX, small.MaxX);
+                big.MaxY = Math.Max(big.MaxY, small.MaxY);
+            }
+        }
+
+        _ = buildings;
+    }
+
+    /// <summary>Jak velká část menší obálky leží uvnitř větší (0–1).</summary>
+    private static double OverlapRatio(Cluster a, Cluster b)
+    {
+        long width = Math.Min(a.MaxX, b.MaxX) - Math.Max(a.MinX, b.MinX) + 1;
+        long height = Math.Min(a.MaxY, b.MaxY) - Math.Max(a.MinY, b.MinY) + 1;
+        if (width <= 0 || height <= 0)
+        {
+            return 0;
+        }
+
+        return width * height / (double)Math.Min(a.Area, b.Area);
+    }
+
+    /// <summary>Z přeživších shluků udělá čtvrti a rozdá budovám bonusy.</summary>
+    private void Commit(Simulation sim, Span<BuildingInstance> buildings)
+    {
+        var districts = sim.DistrictsMutable;
+        var types = _content.Districts.Types;
+
+        for (int i = 0; i < _clusters.Count; i++)
+        {
+            var cluster = _clusters[i];
+            var type = types[cluster.TypeIndex];
+            if (cluster.Dropped || cluster.Members.Count < type.MinBuildings)
+            {
+                continue;
+            }
+
+            int districtIndex = districts.Count;
+            districts.Add(new District(
+                cluster.TypeIndex, cluster.MinX, cluster.MinY, cluster.MaxX, cluster.MaxY,
+                cluster.Members.Count));
+
+            float synergy = (float)type.SynergyFor(cluster.Members.Count);
+            for (int m = 0; m < cluster.Members.Count; m++)
+            {
+                ref var building = ref buildings[cluster.Members[m]];
+                building.DistrictIndex = districtIndex;
+                building.DistrictMult = synergy;
+            }
         }
     }
 
@@ -144,7 +265,7 @@ internal sealed class DistrictSystem
             }
         }
 
-        var districts = sim.DistrictsMutable;
+        _ = sim;
         for (int root = 0; root < count; root++)
         {
             if (Find(root) != root)
@@ -152,8 +273,16 @@ internal sealed class DistrictSystem
                 continue;
             }
 
-            int size = 0;
-            int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
+            var cluster = new Cluster
+            {
+                TypeIndex = typeIndex,
+                MinX = int.MaxValue,
+                MinY = int.MaxValue,
+                MaxX = int.MinValue,
+                MaxY = int.MinValue,
+            };
+
+            long footprint = 0;
             for (int i = 0; i < count; i++)
             {
                 if (Find(i) != root)
@@ -163,31 +292,23 @@ internal sealed class DistrictSystem
 
                 ref var building = ref buildings[_members[i]];
                 var def = _content.Buildings[building.DefIndex];
-                size++;
-                minX = Math.Min(minX, building.X);
-                minY = Math.Min(minY, building.Y);
-                maxX = Math.Max(maxX, building.X + def.FootprintWidth - 1);
-                maxY = Math.Max(maxY, building.Y + def.FootprintHeight - 1);
+                cluster.Members.Add(_members[i]);
+                footprint += (long)def.FootprintWidth * def.FootprintHeight;
+                cluster.MinX = Math.Min(cluster.MinX, building.X);
+                cluster.MinY = Math.Min(cluster.MinY, building.Y);
+                cluster.MaxX = Math.Max(cluster.MaxX, building.X + def.FootprintWidth - 1);
+                cluster.MaxY = Math.Max(cluster.MaxY, building.Y + def.FootprintHeight - 1);
             }
 
-            if (size < type.MinBuildings)
+            // Řídký shluk není čtvrť, jen pár budov rozházených po okolí. Kdyby
+            // se uznal, jeho obálka by pohltila půl města — i všechno, co v něm
+            // stojí a s tou čtvrtí nemá nic společného.
+            if (cluster.Members.Count < type.MinBuildings || footprint < cluster.Area * MinDensity)
             {
                 continue;
             }
 
-            int districtIndex = districts.Count;
-            districts.Add(new District(typeIndex, minX, minY, maxX, maxY, size));
-
-            float synergy = (float)type.SynergyFor(size);
-            for (int i = 0; i < count; i++)
-            {
-                if (Find(i) == root)
-                {
-                    ref var building = ref buildings[_members[i]];
-                    building.DistrictIndex = districtIndex;
-                    building.DistrictMult = synergy;
-                }
-            }
+            _clusters.Add(cluster);
         }
     }
 

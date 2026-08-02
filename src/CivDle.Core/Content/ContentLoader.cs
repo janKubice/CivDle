@@ -78,7 +78,7 @@ public sealed class ContentLoader
         var seasons = LoadSeasons(Path.Combine(dataDirectory, "seasons.json"), resources);
         var tutorial = LoadTutorial(Path.Combine(dataDirectory, "tutorial.json"), resources, buildings, techs);
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
-        var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources, buildings);
+        var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources, buildings, techs);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
         var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
@@ -1850,6 +1850,14 @@ public sealed class ContentLoader
                 $"Budova '{id}' má 'terrainHarvestRadius', ale nic nevyrábí — nemá co z krajiny brát.");
         }
 
+        // Reforestace: příliš velký okruh by z jedné školky udělal nekonečný les
+        // a těžba by přestala mít cenu.
+        if (dto.ReforestRadius is < 0 or > 24)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': 'reforestRadius' musí být 0–24, je {dto.ReforestRadius}.");
+        }
+
         // Doba stavby: strop je tu proto, aby překlep v datech neudělal budovu,
         // která se staví déle, než kdo kdy bude hrát.
         if (dto.BuildTicks is < 0 or > 1_000_000)
@@ -1865,7 +1873,8 @@ public sealed class ContentLoader
             dto.ServiceValue, upkeep, mergesToIndex, mergeCost, adjacency, dto.BuildTicks,
             dto.TerrainHarvestRadius, pollution, ParseMinSettlementRank(path, id, dto.MinSettlementRank, ranks),
             ParseMilestones(path, id, dto.Milestones),
-            ParseSpectacle(path, id, dto.Spectacle));
+            ParseSpectacle(path, id, dto.Spectacle),
+            dto.ReforestRadius);
     }
 
     /// <summary>
@@ -2429,7 +2438,9 @@ public sealed class ContentLoader
 
     // ----- gameplay -----
 
-    private GameplayConfig LoadGameplay(string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings)
+    private GameplayConfig LoadGameplay(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings,
+        DefRegistry<TechDef> techs)
     {
         var file = ReadFile<GameplayFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -2593,18 +2604,7 @@ public sealed class ContentLoader
             ParseResourceAmounts(path, "gameplay", "dailyReward.reward", file.DailyReward?.Reward, resources),
             file.DailyReward is { StreakCap: > 0 } ? file.DailyReward.StreakCap : 7);
 
-        // Sázení: volitelný blok. Bez něj se vysazuje háj dávající první surovinu.
-        int plantResource = 0;
-        if (file.Planting?.Resource is { } plantResId && !resources.TryIndexOf(plantResId.Trim(), out plantResource))
-        {
-            throw new ContentLoadException(path, $"'planting.resource' odkazuje na neexistující surovinu '{plantResId}'.");
-        }
-
-        int plantAmount = file.Planting is { Amount: > 0 } ? file.Planting.Amount : 2;
-        var planting = new PlantingConfig(
-            ParseResourceAmounts(path, "gameplay", "planting.cost", file.Planting?.Cost, resources),
-            plantResource,
-            plantAmount);
+        var planting = ParsePlanting(path, file.Planting, resources, techs);
 
         return new GameplayConfig(
             file.StartingPopulation,
@@ -2669,6 +2669,63 @@ public sealed class ContentLoader
         }
 
         return new ResearchConfig(dto.CostMultiplier, dto.CostGrowthPerTech);
+    }
+
+    /// <summary>
+    /// Co všechno jde zasadit. Starší data mají jen jeden druh psaný přímo
+    /// v bloku (<c>cost/resource/amount</c>) — ten se bere jako první druh, aby
+    /// se hra i mody s takovými daty chovaly jako dřív.
+    /// </summary>
+    private static PlantingConfig ParsePlanting(
+        string path, PlantingDto? dto, DefRegistry<Resource> resources, DefRegistry<TechDef> techs)
+    {
+        var species = new List<PlantSpecies>();
+
+        foreach (var speciesDto in dto?.Species ?? new List<PlantSpeciesDto>())
+        {
+            string id = RequireId(path, speciesDto.Id, "Druh k zasazení");
+            if (!resources.TryIndexOf((speciesDto.Resource ?? string.Empty).Trim(), out int resourceIndex))
+            {
+                throw new ContentLoadException(path,
+                    $"'planting.species[{id}].resource' odkazuje na neexistující surovinu '{speciesDto.Resource}'.");
+            }
+
+            int techIndex = -1;
+            if (speciesDto.RequiresTech is { Length: > 0 } techId
+                && !techs.TryIndexOf(techId.Trim(), out techIndex))
+            {
+                throw new ContentLoadException(path,
+                    $"'planting.species[{id}].requiresTech' odkazuje na neexistující technologii '{techId}'.");
+            }
+
+            species.Add(new PlantSpecies(
+                id,
+                ParseResourceAmounts(path, "gameplay", $"planting.species[{id}].cost", speciesDto.Cost, resources),
+                resourceIndex,
+                Math.Max(1, speciesDto.Amount),
+                techIndex));
+        }
+
+        if (species.Count > 0)
+        {
+            return new PlantingConfig(species);
+        }
+
+        // Starý tvar bloku.
+        int legacyResource = 0;
+        if (dto?.Resource is { } legacyId && !resources.TryIndexOf(legacyId.Trim(), out legacyResource))
+        {
+            throw new ContentLoadException(path, $"'planting.resource' odkazuje na neexistující surovinu '{legacyId}'.");
+        }
+
+        return new PlantingConfig(new[]
+        {
+            new PlantSpecies(
+                "grove",
+                ParseResourceAmounts(path, "gameplay", "planting.cost", dto?.Cost, resources),
+                legacyResource,
+                dto is { Amount: > 0 } ? dto.Amount : 2),
+        });
     }
 
     private static HistoryConfig? ParseHistory(string path, HistoryDto? dto)

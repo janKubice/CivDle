@@ -75,6 +75,20 @@
       "magnitude": 0.15
     },
     {
+      "id": "silviculture",
+      "cost": {
+        "planks": 60,
+        "tools": 15,
+        "science": 60
+      },
+      "prerequisites": [
+        "joinery"
+      ],
+      "unlocks": [
+        "tree_nursery"
+      ]
+    },
+    {
       "id": "granary",
       "cost": {
         "planks": 40,

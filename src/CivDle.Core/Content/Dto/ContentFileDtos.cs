@@ -61,7 +61,8 @@ public sealed record BuildingDto(
     BuildingPollutionDto? Pollution,
     string? MinSettlementRank,
     BuildingMilestonesDto? Milestones,
-    BuildingSpectacleDto? Spectacle);
+    BuildingSpectacleDto? Spectacle,
+    int ReforestRadius);
 
 /// <summary>Podívaná megastruktury tak, jak leží v JSON.</summary>
 public sealed record BuildingSpectacleDto(string? Effect, double IntervalSeconds);
@@ -279,7 +280,19 @@ public sealed record HarvestDto(double CritChance, double CritMultiplier, double
 public sealed record DailyRewardDto(Dictionary<string, int>? Reward, int StreakCap);
 
 /// <summary>Sázení tak, jak leží v JSON.</summary>
-public sealed record PlantingDto(Dictionary<string, int>? Cost, string? Resource, int Amount);
+public sealed record PlantingDto(
+    Dictionary<string, int>? Cost,
+    string? Resource,
+    int Amount,
+    List<PlantSpeciesDto>? Species);
+
+/// <summary>Jeden druh k zasazení tak, jak leží v JSON.</summary>
+public sealed record PlantSpeciesDto(
+    string? Id,
+    Dictionary<string, int>? Cost,
+    string? Resource,
+    int Amount,
+    string? RequiresTech);
 
 /// <summary>Denní/noční cyklus tak, jak leží v JSON.</summary>
 public sealed record DayNightDto(

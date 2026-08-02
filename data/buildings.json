@@ -162,6 +162,56 @@
       "terrainHarvestRadius": 5
     },
     {
+      "id": "tree_nursery",
+      "category": "production",
+      "mapColor": "#4E7A3A",
+      "footprint": [
+        2,
+        2
+      ],
+      "workerSlots": 3,
+      "buildCost": {
+        "planks": 40,
+        "tools": 10
+      },
+      "recipe": {
+        "input": {
+          "food": 2
+        },
+        "output": {
+          "wood": 1
+        },
+        "timeTicks": 60
+      },
+      "allowedBiomes": [
+        "grassland",
+        "forest",
+        "taiga",
+        "jungle",
+        "steppe",
+        "savanna",
+        "highlands",
+        "mangrove"
+      ],
+      "reforestRadius": 8,
+      "adjacency": {
+        "biomes": [
+          "forest",
+          "taiga",
+          "jungle",
+          "mangrove"
+        ],
+        "radius": 2,
+        "perTile": 0.02,
+        "max": 0.2
+      },
+      "milestones": {
+        "every": 3,
+        "bonusPerStep": 0.08,
+        "maxSteps": 6
+      }
+    },
+    {
       "id": "sawmill",
       "category": "production",
       "mapColor": "#8A6D3B",

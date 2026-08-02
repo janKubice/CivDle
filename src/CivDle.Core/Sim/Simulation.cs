@@ -37,6 +37,7 @@ public sealed class Simulation
     private readonly CitizenSystem _citizenSystem;
     private readonly BuildingMilestoneSystem _milestoneBonuses;
     private readonly HistorySystem _historySystem;
+    private readonly ReforestSystem _reforestSystem;
     private readonly ConstructionSystem _constructionSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
@@ -153,6 +154,7 @@ public sealed class Simulation
         _citizenSystem = new CitizenSystem(content, seed);
         _milestoneBonuses = new BuildingMilestoneSystem(content);
         _historySystem = new HistorySystem(content);
+        _reforestSystem = new ReforestSystem(content);
         History = new CityHistory(content.Gameplay.History.MaxFrames);
         _constructionSystem = new ConstructionSystem(content);
         ResetContractBoard();
@@ -734,6 +736,32 @@ public sealed class Simulation
     /// <summary>Biom mělčiny, kterou po sobě nechá povodeň.</summary>
     private int FloodedBiomeIndex =>
         _content.Biomes.TryIndexOf("shallow_water", out int index) ? index : -1;
+
+    /// <summary>
+    /// Vrátí vytěženou dlaždici do plného stavu. Vrací <c>false</c>, když tam
+    /// není co obnovovat — dlaždice je zastavěná, je pod ní voda, nebo se na ní
+    /// nikdy netěžilo.
+    ///
+    /// <para>Volá to reforestace; ruční sázení má vlastní cestu, protože kromě
+    /// obnovy uzlu ještě zakládá nový druh.</para>
+    /// </summary>
+    internal bool TryRestoreTerrain(int x, int y)
+    {
+        long tile = TileKey.Pack(x, y);
+        if (_occupancy.ContainsKey(tile) || _plantedNodes.ContainsKey(tile))
+        {
+            return false;
+        }
+
+        var yield = _content.Biomes[BiomeAt(x, y)].ClickYield;
+        if (yield is null || !yield.IsExhaustible || _nodes.IsAvailable(x, y, yield, TickCount))
+        {
+            return false; // buď tu není co těžit, nebo je dlaždice plná
+        }
+
+        _nodes.Restore(x, y);
+        return true;
+    }
 
     /// <summary>Je na dlaždici voda? (Render z toho hledá, kam vyplout.)</summary>
     public bool IsWaterAt(int x, int y) => _content.Biomes[BiomeAt(x, y)].IsWater;
@@ -2200,6 +2228,7 @@ public sealed class Simulation
         _zoneFill.Tick(this);
         _colonySystem.Tick(this); // guvernér: expanze do nových kolonií
         _settlementSystem.Tick(this);
+        _reforestSystem.Tick(this);
         _districtSystem.Tick(this);
         _milestoneBonuses.Tick(this);
         _historySystem.Tick(this);
@@ -2556,16 +2585,79 @@ public sealed class Simulation
             return PlacementResult.Occupied;
         }
 
-        var cost = _content.Gameplay.Planting.Cost;
-        for (int i = 0; i < cost.Count; i++)
+        var species = SelectedPlantSpecies;
+        if (species is null)
         {
-            if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
+            return PlacementResult.NotUnlocked;
+        }
+
+        for (int i = 0; i < species.Cost.Count; i++)
+        {
+            if (_resources[species.Cost[i].ResourceIndex] < species.Cost[i].Amount)
             {
                 return PlacementResult.NotEnoughResources;
             }
         }
 
         return PlacementResult.Ok;
+    }
+
+    /// <summary>
+    /// Který druh se zrovna sází. Index do <see cref="PlantingConfig.Species"/>;
+    /// neodemčený nebo neplatný se tiše sveze na první dostupný, ať se hráč
+    /// nemůže zaseknout na něčem, co nemá.
+    /// </summary>
+    public int PlantSpeciesIndex { get; private set; }
+
+    /// <summary>Vybraný druh k zasazení; <c>null</c> = není co sázet.</summary>
+    public PlantSpecies? SelectedPlantSpecies
+    {
+        get
+        {
+            var all = _content.Gameplay.Planting.Species;
+            if (PlantSpeciesIndex >= 0 && PlantSpeciesIndex < all.Count && IsPlantSpeciesUnlocked(PlantSpeciesIndex))
+            {
+                return all[PlantSpeciesIndex];
+            }
+
+            for (int i = 0; i < all.Count; i++)
+            {
+                if (IsPlantSpeciesUnlocked(i))
+                {
+                    return all[i];
+                }
+            }
+
+            return null;
+        }
+    }
+
+    /// <summary>Je druh odemčený? (Výzkum je v datech, ne v kódu.)</summary>
+    public bool IsPlantSpeciesUnlocked(int speciesIndex)
+    {
+        var all = _content.Gameplay.Planting.Species;
+        if (speciesIndex < 0 || speciesIndex >= all.Count)
+        {
+            return false;
+        }
+
+        int tech = all[speciesIndex].RequiredTechIndex;
+        return tech < 0 || _techResearched[tech];
+    }
+
+    /// <summary>Přepne na další odemčený druh (tlačítko sázení v liště).</summary>
+    public void CyclePlantSpecies()
+    {
+        var all = _content.Gameplay.Planting.Species;
+        for (int step = 1; step <= all.Count; step++)
+        {
+            int candidate = (PlantSpeciesIndex + step) % all.Count;
+            if (IsPlantSpeciesUnlocked(candidate))
+            {
+                PlantSpeciesIndex = candidate;
+                return;
+            }
+        }
     }
 
     /// <summary>Příkaz hráče: zasadí obnovitelný zdroj (háj) — pak se dá těžit klikem jako přírodní.</summary>
@@ -2577,13 +2669,13 @@ public sealed class Simulation
             return result;
         }
 
-        var planting = _content.Gameplay.Planting;
-        for (int i = 0; i < planting.Cost.Count; i++)
+        var species = SelectedPlantSpecies!;
+        for (int i = 0; i < species.Cost.Count; i++)
         {
-            _resources[planting.Cost[i].ResourceIndex] -= planting.Cost[i].Amount;
+            _resources[species.Cost[i].ResourceIndex] -= species.Cost[i].Amount;
         }
 
-        _plantedNodes[TileKey.Pack(x, y)] = new ClickYield(planting.ResourceIndex, planting.Amount);
+        _plantedNodes[TileKey.Pack(x, y)] = new ClickYield(species.ResourceIndex, species.Amount);
         _nodes.Restore(x, y); // zasazený háj stojí na plném uzlu, i když se tu předtím těžilo
         return PlacementResult.Ok;
     }
@@ -2899,7 +2991,15 @@ public sealed class Simulation
     /// <summary>Zaseje sklizitelný porost na volné dlaždice kolem zásahu (kruh v obilí).</summary>
     private bool PlantUfoPatch(int x, int y, int tiles)
     {
-        var planting = _content.Gameplay.Planting;
+        // UFO seje ten nejzákladnější druh — kruh v obilí není odměna za výzkum.
+        var species = _content.Gameplay.Planting.Species.Count > 0
+            ? _content.Gameplay.Planting.Species[0]
+            : null;
+        if (species is null)
+        {
+            return false;
+        }
+
         bool any = false;
         for (int i = 0; i < tiles; i++)
         {
@@ -2912,7 +3012,7 @@ public sealed class Simulation
                 continue;
             }
 
-            _plantedNodes[tile] = new ClickYield(planting.ResourceIndex, planting.Amount);
+            _plantedNodes[tile] = new ClickYield(species.ResourceIndex, species.Amount);
             any = true;
         }
 

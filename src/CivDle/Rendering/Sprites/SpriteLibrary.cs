@@ -63,6 +63,7 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.cottage", SpriteSize, canvas => House(canvas, new Color(176, 86, 74)));
         Add(device, "building.lumber_camp", SpriteSize, LumberCamp);
         Add(device, "building.lumberyard", SpriteSize, LumberCamp);
+        Add(device, "building.tree_nursery", SpriteSize, TreeNursery);
         Add(device, "building.sawmill", SpriteSize, Sawmill);
         Add(device, "building.quarry", SpriteSize, Quarry);
         Add(device, "building.mine", SpriteSize, Mine);
@@ -601,6 +602,23 @@ public sealed class SpriteLibrary : IDisposable
         // Hromada klád vedle.
         c.FillRect(6, 24, 8, 3, new Color(150, 110, 66));
         c.FillRect(6, 27, 8, 3, new Color(128, 92, 52));
+    }
+
+    /// <summary>Lesní školka: nízký srub a řádky sazenic — opak hromady klád.</summary>
+    private static void TreeNursery(PixelCanvas c)
+    {
+        c.FillRect(3, 20, 12, 10, new Color(118, 96, 62));
+        c.FillTriangle(1f, 20f, 17f, 20f, 9f, 13f, new Color(90, 72, 46));
+
+        // Řádky sazenic ve školce.
+        for (int i = 0; i < 3; i++)
+        {
+            int x = 19 + i * 4;
+            c.FillRect(x, 26, 1, 4, new Color(110, 84, 52));
+            c.FillCircle(x + 0.5f, 24f, 2.6f, new Color(88, 150, 72));
+        }
+
+        c.FillRect(18, 30, 12, 1, new Color(70, 96, 58));
     }
 
     private static void Sawmill(PixelCanvas c)
