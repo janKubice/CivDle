@@ -53,10 +53,10 @@ public readonly record struct HistoryFrame(
 public sealed class CityHistory
 {
     /// <summary>Kolik dlaždic pokryje jedna buňka mřížky.</summary>
-    public const int TilesPerCell = 8;
+    public const int TilesPerCell = 2;
 
     /// <summary>Kolik buněk má mřížka na stranu (čtverec kolem počátku světa).</summary>
-    public const int GridSize = 64;
+    public const int GridSize = 256;
 
     /// <summary>Kolik bajtů zabere mřížka jednoho snímku (bajt na buňku).</summary>
     public const int CellBytes = GridSize * GridSize;

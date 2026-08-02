@@ -65,6 +65,22 @@ internal sealed class HistorySystem
 
         Array.Clear(_cells);
 
+        // Silnice první, aby je zástavba mohla přepsat: na křižovatce budovy
+        // a cesty patří buňka budově. Bez silnic vypadala přehrávka jako ostrůvky
+        // baráků ve vzduchoprázdnu — město drží pohromadě právě síť mezi nimi.
+        var roads = sim.RoadTiles;
+
+        // Barva silnic se do palety přidá, teprve až nějaká silnice stojí —
+        // jinak by paleta každého savu nesla barvu, kterou nic nepoužívá.
+        byte roadValue = roads.Count > 0 ? RoadValue(sim.History) : (byte)0;
+        for (int i = 0; i < roads.Count; i++)
+        {
+            if (CityHistory.TryCellOf(roads[i].X, roads[i].Y, out int roadCellX, out int roadCellY))
+            {
+                _cells[roadCellY * CityHistory.GridSize + roadCellX] = roadValue;
+            }
+        }
+
         var buildings = sim.Buildings;
         for (int i = 0; i < buildings.Length; i++)
         {
@@ -73,11 +89,19 @@ internal sealed class HistorySystem
                 continue; // staveniště ještě není město
             }
 
-            if (CityHistory.TryCellOf(buildings[i].X, buildings[i].Y, out int cellX, out int cellY))
+            // Celý půdorys, ne jen roh: na jemné mřížce je velká budova opravdu
+            // velká a hráč na přehrávce pozná huť od chalupy.
+            var def = _content.Buildings[buildings[i].DefIndex];
+            byte value = CellValueOf(sim.History, buildings[i].DefIndex);
+            for (int ty = 0; ty < def.FootprintHeight; ty++)
             {
-                // Poslední budova v buňce vyhrává — na hrubé mřížce je jedno
-                // která, hlavně že buňka nese barvu skutečné zástavby.
-                _cells[cellY * CityHistory.GridSize + cellX] = CellValueOf(sim.History, buildings[i].DefIndex);
+                for (int tx = 0; tx < def.FootprintWidth; tx++)
+                {
+                    if (CityHistory.TryCellOf(buildings[i].X + tx, buildings[i].Y + ty, out int cellX, out int cellY))
+                    {
+                        _cells[cellY * CityHistory.GridSize + cellX] = value;
+                    }
+                }
             }
         }
 
@@ -95,6 +119,13 @@ internal sealed class HistorySystem
                 sim.Settlements.Count),
             _cells);
     }
+
+    /// <summary>
+    /// Hodnota buňky pro silnici. Bere barvu z dat (stejnou, jakou má síť na
+    /// mapě), takže přehrávka vypadá jako to město, ne jako schéma.
+    /// </summary>
+    private byte RoadValue(CityHistory history) =>
+        (byte)(history.PaletteIndexOf(_content.Gameplay.Roads.MapColor) + 1);
 
     /// <summary>
     /// Hodnota buňky pro definici budovy. Barva se do palety kroniky přidává
