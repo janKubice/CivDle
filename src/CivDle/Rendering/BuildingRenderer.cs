@@ -36,7 +36,6 @@ public sealed class BuildingRenderer
     /// <summary>Vykreslí všechny viditelné budovy.</summary>
     public void Draw(SpriteBatch spriteBatch, Camera2D camera, Simulation simulation)
     {
-        const int tileSize = TerrainRenderer.TileSize;
         var (min, max) = camera.VisibleWorldBounds();
 
         // Zjednodušený režim: při oddálení jsou budovy pár pixelů velké, takže
@@ -49,83 +48,129 @@ public sealed class BuildingRenderer
         bool showsProsperity = detailed;
 
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
+
         var buildings = simulation.Buildings;
         for (int i = 0; i < buildings.Length; i++)
         {
             ref readonly var building = ref buildings[i];
-            var def = _content.Buildings[building.DefIndex];
-
-            int x = building.X * tileSize;
-            int y = building.Y * tileSize;
-            int width = def.FootprintWidth * tileSize;
-            int height = def.FootprintHeight * tileSize;
-            if (x + width < min.X || x > max.X || y + height < min.Y || y > max.Y)
+            if (!IsVisible(building, min, max, out var def, out var bounds))
             {
                 continue;
             }
 
-            if (!detailed)
+            if (detailed && !building.IsComplete)
             {
-                spriteBatch.Draw(_pixel, new Rectangle(x, y, width, height), def.MapColor.ToXna());
-                continue;
-            }
-
-            // Staveniště (divy světa): budova je vidět jen zpola vztyčená a nad ní
-            // roste pruh postupu. Bez toho by rozestavěný div vypadal jako hotový,
-            // který se z neznámého důvodu fláká.
-            if (!building.IsComplete)
-            {
-                DrawConstructionSite(spriteBatch, def, x, y, width, height, simulation.ConstructionProgress01(i));
+                // Staveniště (divy světa): budova je vidět jen zpola vztyčená a nad ní
+                // roste pruh postupu. Bez toho by rozestavěný div vypadal jako hotový,
+                // který se z neznámého důvodu fláká.
+                DrawConstructionSite(spriteBatch, def, bounds, simulation.ConstructionProgress01(i));
                 continue;
             }
 
             // Jak se tomuhle místu daří — z toho se odvodí nádech i ozdoby.
             // Prosperita je vlastnost světa; render ji jen zobrazuje.
             double prosperity = showsProsperity ? simulation.ProsperityAt(building.X, building.Y) : 1.0;
-            var tint = ProsperityLook.Tint(prosperity);
+            DrawBuilding(spriteBatch, building, def, bounds, detailed, showsProsperity, prosperity, i);
+        }
 
-            var sprite = _sprites.Get($"building.{def.Id}");
-            if (sprite is not null)
+        // Cizí města. Jsou to tytéž instance budov, takže se kreslí týmž kódem —
+        // kdyby měla vlastní, začala by se od hráčovy zástavby lišit hned po
+        // první změně tady a vypadala by jako nalepená z jiné hry.
+        var foreign = simulation.NpcBuildings;
+        for (int i = 0; i < foreign.Length; i++)
+        {
+            ref readonly var building = ref foreign[i];
+            if (IsVisible(building, min, max, out var def, out var bounds))
             {
-                // Jemný stín pod budovou, ať „sedí" na terénu.
-                spriteBatch.Draw(_pixel, new Rectangle(x + 2, y + height - 3, width - 2, 3), Color.Black * 0.25f);
-                spriteBatch.Draw(sprite, new Rectangle(x, y, width, height), tint);
+                // Prosperita cizího města je věc jeho vlastníků, ne hráčova mřížka:
+                // dosadí se neutrální 1.0, takže dům vypadá udržovaně, ale bez ozdob.
+                DrawBuilding(spriteBatch, building, def, bounds, detailed,
+                    showsProsperity: false, prosperity: 1.0, ornamentSeed: i);
             }
-            else
-            {
-                spriteBatch.Draw(_pixel, new Rectangle(x, y, width, height), Color.Black * 0.6f);
-                spriteBatch.Draw(
-                    _pixel,
-                    new Rectangle(x + Inset, y + Inset, width - 2 * Inset, height - 2 * Inset),
-                    ProsperityLook.Modulate(def.MapColor.ToXna(), tint));
-            }
-
-            if (showsProsperity)
-            {
-                DrawProsperityDetail(spriteBatch, i, prosperity, x, y, width, height);
-            }
-
-            // Balon nad kotvištěm opravdu létá: houpe se a stoupá. Statická
-            // ikona balonu je jen obrázek balonu — tenhle pohyb je celý důvod,
-            // proč si hráč všimne, že ta budova něco dělá.
-            if (def.Scouts && def.FootprintWidth == 1)
-            {
-                float bob = MathF.Sin(_time * 1.3f + building.X * 0.7f + building.Y * 0.4f);
-                var balloon = new Rectangle(x + width / 2 - 5, y - 14 + (int)(bob * 4f), 10, 12);
-                spriteBatch.Draw(_pixel, new Rectangle(x + width / 2, y - 2 + (int)(bob * 4f), 1, 12),
-                    new Color(180, 170, 150)); // lano
-                spriteBatch.Draw(_pixel, balloon, new Color(200, 106, 106));
-                spriteBatch.Draw(_pixel, new Rectangle(balloon.X + 2, balloon.Y + 2, 6, 5),
-                    new Color(224, 140, 132));
-            }
-
-            // Stojící budova má být VIDĚT — a hlavně má být poznat PROČ. Jeden
-            // červený roh pro všechno znamenal, že hráč viděl „něco je špatně"
-            // a musel hádat; barva teď důvod rozliší a bublina ho pojmenuje.
-            DrawStallBadge(spriteBatch, building.Stall, x, y, width);
         }
 
         spriteBatch.End();
+    }
+
+    /// <summary>Je budova ve výřezu? Vrací i její definici a obdélník ve světě.</summary>
+    private bool IsVisible(
+        in BuildingInstance building, Vector2 min, Vector2 max,
+        out BuildingDef def, out Rectangle bounds)
+    {
+        const int tileSize = TerrainRenderer.TileSize;
+        def = _content.Buildings[building.DefIndex];
+        bounds = new Rectangle(
+            building.X * tileSize, building.Y * tileSize,
+            def.FootprintWidth * tileSize, def.FootprintHeight * tileSize);
+
+        return bounds.Right >= min.X && bounds.X <= max.X
+            && bounds.Bottom >= min.Y && bounds.Y <= max.Y;
+    }
+
+    /// <summary>
+    /// Jedna hotová budova — sprite, stín, ozdoby, balon, odznak.
+    ///
+    /// <para>Jediné místo, kde se budova kreslí. Hráčova i cizí sem chodí stejnou
+    /// cestou; liší se jen tím, co se do ní dosadí.</para>
+    /// </summary>
+    private void DrawBuilding(
+        SpriteBatch spriteBatch, in BuildingInstance building, BuildingDef def, Rectangle bounds,
+        bool detailed, bool showsProsperity, double prosperity, int ornamentSeed)
+    {
+        if (!detailed)
+        {
+            spriteBatch.Draw(_pixel, bounds, def.MapColor.ToXna());
+            return;
+        }
+
+        var tint = ProsperityLook.Tint(prosperity);
+        var sprite = _sprites.Get($"building.{def.Id}");
+        if (sprite is not null)
+        {
+            // Jemný stín pod budovou, ať „sedí" na terénu.
+            spriteBatch.Draw(
+                _pixel, new Rectangle(bounds.X + 2, bounds.Bottom - 3, bounds.Width - 2, 3), Color.Black * 0.25f);
+            spriteBatch.Draw(sprite, bounds, tint);
+        }
+        else
+        {
+            spriteBatch.Draw(_pixel, bounds, Color.Black * 0.6f);
+            spriteBatch.Draw(
+                _pixel,
+                new Rectangle(bounds.X + Inset, bounds.Y + Inset, bounds.Width - 2 * Inset, bounds.Height - 2 * Inset),
+                ProsperityLook.Modulate(def.MapColor.ToXna(), tint));
+        }
+
+        if (showsProsperity)
+        {
+            DrawProsperityDetail(spriteBatch, ornamentSeed, prosperity, bounds);
+        }
+
+        // Balon nad kotvištěm opravdu létá: houpe se a stoupá. Statická
+        // ikona balonu je jen obrázek balonu — tenhle pohyb je celý důvod,
+        // proč si hráč všimne, že ta budova něco dělá.
+        if (def.Scouts && def.FootprintWidth == 1)
+        {
+            DrawBalloon(spriteBatch, building, bounds);
+        }
+
+        // Stojící budova má být VIDĚT — a hlavně má být poznat PROČ. Jeden
+        // červený roh pro všechno znamenal, že hráč viděl „něco je špatně"
+        // a musel hádat; barva teď důvod rozliší a bublina ho pojmenuje.
+        DrawStallBadge(spriteBatch, building.Stall, bounds);
+    }
+
+    /// <summary>Houpající se balon nad kotvištěm.</summary>
+    private void DrawBalloon(SpriteBatch spriteBatch, in BuildingInstance building, Rectangle bounds)
+    {
+        float bob = MathF.Sin(_time * 1.3f + building.X * 0.7f + building.Y * 0.4f);
+        int centerX = bounds.X + bounds.Width / 2;
+        var balloon = new Rectangle(centerX - 5, bounds.Y - 14 + (int)(bob * 4f), 10, 12);
+
+        spriteBatch.Draw(_pixel, new Rectangle(centerX, bounds.Y - 2 + (int)(bob * 4f), 1, 12),
+            new Color(180, 170, 150)); // lano
+        spriteBatch.Draw(_pixel, balloon, new Color(200, 106, 106));
+        spriteBatch.Draw(_pixel, new Rectangle(balloon.X + 2, balloon.Y + 2, 6, 5), new Color(224, 140, 132));
     }
 
     /// <summary>Barva odznaku podle důvodu, proč budova stojí.</summary>
@@ -141,7 +186,7 @@ public sealed class BuildingRenderer
     /// Odznak v rohu budovy. Rozestavěná budova ho nedostane — u té je vidět
     /// lešení i pruh postupu, druhá cedule by jen šuměla.
     /// </summary>
-    private void DrawStallBadge(SpriteBatch spriteBatch, BuildingStall stall, int x, int y, int width)
+    private void DrawStallBadge(SpriteBatch spriteBatch, BuildingStall stall, Rectangle bounds)
     {
         var color = StallColor(stall);
         if (color == Color.Transparent)
@@ -149,8 +194,8 @@ public sealed class BuildingRenderer
             return;
         }
 
-        spriteBatch.Draw(_pixel, new Rectangle(x + width - 8, y + 2, 6, 6), Color.Black * 0.5f);
-        spriteBatch.Draw(_pixel, new Rectangle(x + width - 7, y + 3, 4, 4), color);
+        spriteBatch.Draw(_pixel, new Rectangle(bounds.Right - 8, bounds.Y + 2, 6, 6), Color.Black * 0.5f);
+        spriteBatch.Draw(_pixel, new Rectangle(bounds.Right - 7, bounds.Y + 3, 4, 4), color);
     }
 
     /// <summary>
@@ -161,15 +206,15 @@ public sealed class BuildingRenderer
     /// Hráč si má všimnout, že ulice zezelenala, ne číst ikonky.</para>
     /// </summary>
     private void DrawProsperityDetail(
-        SpriteBatch spriteBatch, int buildingIndex, double prosperity, int x, int y, int width, int height)
+        SpriteBatch spriteBatch, int buildingIndex, double prosperity, Rectangle bounds)
     {
         if (ProsperityLook.HasOrnament(prosperity))
         {
             // Truhlík na parapetu: vodorovný proužek u spodní hrany.
-            int boxWidth = Math.Max(2, width / 3);
+            int boxWidth = Math.Max(2, bounds.Width / 3);
             spriteBatch.Draw(
                 _pixel,
-                new Rectangle(x + width / 2 - boxWidth / 2, y + height - 5, boxWidth, 2),
+                new Rectangle(bounds.X + bounds.Width / 2 - boxWidth / 2, bounds.Bottom - 5, boxWidth, 2),
                 ProsperityLook.OrnamentColor(buildingIndex));
             return;
         }
@@ -179,7 +224,7 @@ public sealed class BuildingRenderer
             // Šmouha po zdi: svislý tmavý pruh od střechy dolů.
             spriteBatch.Draw(
                 _pixel,
-                new Rectangle(x + width / 4, y + 2, 1, Math.Max(2, height / 2)),
+                new Rectangle(bounds.X + bounds.Width / 4, bounds.Y + 2, 1, Math.Max(2, bounds.Height / 2)),
                 new Color(40, 38, 34) * 0.35f);
         }
     }
@@ -190,8 +235,13 @@ public sealed class BuildingRenderer
     /// kdy pruh splývá.
     /// </summary>
     private void DrawConstructionSite(
-        SpriteBatch spriteBatch, BuildingDef def, int x, int y, int width, int height, double progress)
+        SpriteBatch spriteBatch, BuildingDef def, Rectangle bounds, double progress)
     {
+        int x = bounds.X;
+        int y = bounds.Y;
+        int width = bounds.Width;
+        int height = bounds.Height;
+
         spriteBatch.Draw(_pixel, new Rectangle(x + 2, y + height - 3, width - 2, 3), Color.Black * 0.25f);
 
         // Základy: obrys rozestavěné budovy, ať je vidět, kolik místa zabere.

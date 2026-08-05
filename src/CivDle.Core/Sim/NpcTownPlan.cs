@@ -1,5 +1,5 @@
-using CivDle.Core.World;
 using CivDle.Core.Content;
+using CivDle.Core.World;
 
 namespace CivDle.Core.Sim;
 
@@ -9,110 +9,335 @@ namespace CivDle.Core.Sim;
 /// <param name="Y">Levý horní roh v dlaždicích.</param>
 public readonly record struct NpcTownBuilding(int DefIndex, int X, int Y);
 
-/// <summary>
-/// Postavené cizí město: skutečné budovy na skutečných dlaždicích a silnice mezi
-/// nimi.
-///
-/// <para>Do téhle chvíle bylo cizí město namalovaná kulisa — pár barevných
-/// obdélníků, které se nepodobaly ničemu, co hráč staví, a spojnice, které nebyly
-/// silnice. Vypadalo to jako cedule „tady je město", ne jako město. Teď se
-/// skládá ze stejných definic budov a stejných silničních dlaždic, takže se
-/// kreslí týmiž sprity, chodí po něm lidé a po pohlcení ho hráč prostě
-/// <b>dostane</b>.</para>
-/// </summary>
-public sealed class NpcTown
-{
-    public NpcTown(long key, IReadOnlyList<NpcTownBuilding> buildings, IReadOnlyList<RoadTile> roads)
-    {
-        Key = key;
-        Buildings = buildings;
-        Roads = roads;
-    }
-
-    /// <summary>Klíč města, ke kterému plán patří.</summary>
-    public long Key { get; }
-
-    /// <summary>Co ve městě stojí.</summary>
-    public IReadOnlyList<NpcTownBuilding> Buildings { get; }
-
-    /// <summary>Silnice uvnitř města.</summary>
-    public IReadOnlyList<RoadTile> Roads { get; }
-}
+/// <summary>Rozvrh cizího města: co kde postavit a kudy vést ulice.</summary>
+/// <param name="Key">Klíč města, ke kterému rozvrh patří.</param>
+/// <param name="Buildings">Domy k postavení.</param>
+/// <param name="Roads">Dlaždice ulic.</param>
+public readonly record struct NpcTownPlan(
+    long Key,
+    IReadOnlyList<NpcTownBuilding> Buildings,
+    IReadOnlyList<RoadTile> Roads);
 
 /// <summary>
 /// Rozvrhne cizí město do dlaždic.
 ///
 /// <para>Rozvržení je <b>čistá funkce</b> klíče města a seedu světa: na nekonečné
-/// mapě se města neukládají, takže musí vyjít pokaždé stejně. Z toho plyne i to,
-/// co plán <b>nesmí</b> brát v úvahu — hráčův výzkum, jeho suroviny ani stav hry.
-/// Cizí město stojí, ať hráč umí cokoli.</para>
+/// mapě se plán neukládá, takže musí vyjít pokaždé stejně. Z toho plyne i to,
+/// co plán <b>nesmí</b> brát v úvahu — hráčův výzkum ani jeho suroviny. Cizí
+/// město stojí, ať hráč umí cokoli.</para>
 ///
-/// <para>Které budovy se použijí, je v datech (paleta u druhu města), ne v kódu:
-/// selské městečko má chalupy a pole, hornická osada doly. Kód řeší jen
-/// <b>jak</b> je rozestavět — podél ulice, ať to čte jako vesnice a ne jako
-/// hromada.</para>
+/// <para>Tvar: <b>náměstí, hlavní třída, příčná ulice a kolmé uličky</b>, domy
+/// po obou stranách každé ulice a hustota klesající od středu. Předchozí verze
+/// stavěla jednu řadu domků podél jedné čáry — vypadalo to jako plot, ne jako
+/// sídlo. Náměstí uprostřed je to, z čeho oko pozná město: shluk domů je
+/// vesnice, shluk domů kolem prázdného čtverce je město.</para>
+///
+/// <para>Dům stojí <b>čelem k ulici</b>: kotva se posune tak, aby se půdorys
+/// dotýkal silnice tou stranou, u které leží. Bez toho by dvoupolní budova
+/// vyrostla přes ulici na druhou stranu a řada by se rozpadla.</para>
+///
+/// <para>Terén rozhoduje: dům se postaví, jen když ho jeho definice na tom biomu
+/// dovoluje a dlaždice je volná. Paleta u druhu města je <b>seznam přání</b>,
+/// ne příkaz — u vody vyroste jiné město než na stepi, stejně jako hráči.</para>
 /// </summary>
 public static class NpcTownPlanner
 {
-    /// <summary>Jak daleko od středu můžou stát domy (dlaždice).</summary>
-    private const int Spread = 7;
+    /// <summary>Polovina hrany náměstí — 1 znamená čtverec 3×3.</summary>
+    private const int PlazaHalf = 1;
 
-    /// <summary>Rozvrhne město. Vrací prázdný plán, když druh nemá paletu budov.</summary>
-    public static NpcTown Plan(GameContent content, long seed, in NpcCity city)
+    /// <summary>Nejmenší dosah hlavní třídy od středu (v dlaždicích).</summary>
+    private const int MinReach = 7;
+
+    /// <summary>O kolik obyvatel se dosah zvětší o dlaždici.</summary>
+    private const int TilesPerPopulation = 18;
+
+    /// <summary>Nejdelší dosah — dál už by se město slilo se sousedním.</summary>
+    private const int MaxReach = 16;
+
+    /// <summary>Nejmenší rozestup uliček podél hlavní třídy.</summary>
+    private const int MinSideGap = 3;
+
+    /// <summary>Rozptyl rozestupu uliček — pravidelná mříž vypadá jako tabulka.</summary>
+    private const int SideGapSpread = 3;
+
+    /// <summary>Odkud výš se městu vyplatí obchvat kolem dokola.</summary>
+    private const int RingReach = 12;
+
+    /// <summary>Jak daleko se hledá suchá zem, když střed z mřížky padne do vody.</summary>
+    private const int OriginSearch = 10;
+
+    /// <summary>
+    /// Rozvrhne město.
+    /// </summary>
+    /// <param name="content">Registry — paleta budov druhu města a jejich půdorysy.</param>
+    /// <param name="seed">Seed světa: tentýž svět postaví totéž město.</param>
+    /// <param name="city">Město, jehož střed a druh se rozvrhují.</param>
+    /// <param name="canBuild">
+    /// Smí daná definice stát na daném místě? Tudy do plánu vstupuje terén i to,
+    /// co už kolem stojí. <b>Nesmí</b> se ptát na hráčův výzkum ani na jeho
+    /// suroviny — cizí město si o dovolení nežádá.
+    /// </param>
+    /// <param name="canPave">
+    /// Smí na dlaždici ležet ulice? Bez tohohle vedla hlavní třída rovnou přes
+    /// zátoku a z pobřežního města se stal molo-labyrint nad mořem.
+    /// </param>
+    public static NpcTownPlan Plan(
+        GameContent content, long seed, in NpcCity city,
+        Func<int, int, int, bool> canBuild, Func<int, int, bool> canPave)
     {
         var archetype = content.NpcCities.Archetypes[city.ArchetypeIndex];
         var palette = archetype.BuildingIndices;
-        if (palette.Count == 0)
+        if (palette.Count == 0 || !TryFindOrigin(city, canPave, out int originX, out int originY))
         {
-            return new NpcTown(city.Key, Array.Empty<NpcTownBuilding>(), Array.Empty<RoadTile>());
+            return new NpcTownPlan(city.Key, Array.Empty<NpcTownBuilding>(), Array.Empty<RoadTile>());
         }
 
-        var buildings = new List<NpcTownBuilding>();
+        ulong hash = Mix((ulong)seed ^ (ulong)city.Key * 0x9E3779B97F4A7C15UL);
+        bool horizontal = (hash & 0x100) == 0;
+        int reach = Math.Clamp(MinReach + archetype.Population / TilesPerPopulation, MinReach, MaxReach);
+
         var roads = new List<RoadTile>();
         var taken = new HashSet<long>();
+        var buildings = new List<NpcTownBuilding>();
 
-        ulong hash = Mix((ulong)seed ^ (ulong)city.Key);
-        int houses = 6 + (int)(hash % 7); // 6–12 budov: vesnice, ne metropole
+        LayOutStreets(originX, originY, hash, horizontal, reach, canPave, roads, taken);
+        FillPlots(content, originX, originY, hash, reach, palette, canBuild, roads, taken, buildings);
 
-        // Hlavní ulice středem. Bez ní by domy stály v neuspořádané kupě —
-        // a hlavně: silnice je to, co z toho dělá město, ne jen shluk staveb.
-        bool horizontal = (hash & 0x100) == 0;
-        for (int i = -Spread; i <= Spread; i++)
-        {
-            int rx = horizontal ? city.X + i : city.X;
-            int ry = horizontal ? city.Y : city.Y + i;
-            roads.Add(new RoadTile(rx, ry));
-            taken.Add(TileKey.Pack(rx, ry));
-        }
-
-        // Domy střídavě po obou stranách ulice, od středu ven — tak roste
-        // skutečná vesnice a zároveň je zaručeno, že každý dům u cesty stojí.
-        for (int i = 0; i < houses; i++)
-        {
-            ulong roll = Mix(hash + (ulong)i * 0x9E3779B97F4A7C15UL);
-            int defIndex = palette[(int)(roll % (ulong)palette.Count)];
-            var def = content.Buildings[defIndex];
-
-            int along = (i / 2) - houses / 4;
-            int side = (i % 2 == 0) ? 1 : -1;
-            int gap = 1 + (int)((roll >> 8) % 2);
-
-            int x = horizontal ? city.X + along * 2 : city.X + side * gap;
-            int y = horizontal ? city.Y + side * gap : city.Y + along * 2;
-
-            if (!TryReserve(taken, x, y, def.FootprintWidth, def.FootprintHeight))
-            {
-                continue; // místo je zabrané ulicí nebo sousedem — dům se vynechá
-            }
-
-            buildings.Add(new NpcTownBuilding(defIndex, x, y));
-        }
-
-        return new NpcTown(city.Key, buildings, roads);
+        return new NpcTownPlan(city.Key, buildings, roads);
     }
 
-    /// <summary>Zabere půdorys, pokud je volný. Vrací <c>false</c>, když se nevejde.</summary>
-    private static bool TryReserve(HashSet<long> taken, int x, int y, int width, int height)
+    /// <summary>Kolem kolika dlaždic se u kandidáta na střed zjišťuje, kolik je tam země.</summary>
+    private const int OriginProbe = 3;
+
+    /// <summary>
+    /// Střed města posunutý na suchou zem.
+    ///
+    /// <para>Poloha měst plyne z hrubé mřížky, která o terénu neví — občas tedy
+    /// padne doprostřed zálivu. Nejbližší suchá dlaždice ale nestačí: bývá na
+    /// samém cípu mysu, takže půlka rozvržení zůstane v moři a z města je pár
+    /// domků rozsypaných po pobřeží. Proto se z okolí vybírá místo s <b>nejvíc
+    /// zemí kolem</b>, při shodě to bližší ke značce na mapě.</para>
+    ///
+    /// <para>Když do <see cref="OriginSearch"/> dlaždic žádná zem není, město se
+    /// nestaví vůbec — je to bod uprostřed oceánu a značka na mapě tam stačí.</para>
+    /// </summary>
+    private static bool TryFindOrigin(
+        in NpcCity city, Func<int, int, bool> canPave, out int originX, out int originY)
+    {
+        originX = city.X;
+        originY = city.Y;
+
+        int bestLand = 0;
+        int bestDistance = int.MaxValue;
+
+        for (int dy = -OriginSearch; dy <= OriginSearch; dy++)
+        {
+            for (int dx = -OriginSearch; dx <= OriginSearch; dx++)
+            {
+                int x = city.X + dx;
+                int y = city.Y + dy;
+                if (!canPave(x, y))
+                {
+                    continue;
+                }
+
+                int land = CountLandAround(canPave, x, y);
+                int distance = Math.Abs(dx) + Math.Abs(dy);
+                if (land > bestLand || (land == bestLand && distance < bestDistance))
+                {
+                    bestLand = land;
+                    bestDistance = distance;
+                    originX = x;
+                    originY = y;
+                }
+            }
+        }
+
+        return bestLand > 0;
+    }
+
+    /// <summary>Kolik dlaždic v okolí kandidáta se dá zastavět.</summary>
+    private static int CountLandAround(Func<int, int, bool> canPave, int x, int y)
+    {
+        int land = 0;
+        for (int dy = -OriginProbe; dy <= OriginProbe; dy++)
+        {
+            for (int dx = -OriginProbe; dx <= OriginProbe; dx++)
+            {
+                if (canPave(x + dx, y + dy))
+                {
+                    land++;
+                }
+            }
+        }
+
+        return land;
+    }
+
+    /// <summary>
+    /// Uliční síť: náměstí, hlavní třída, příčná ulice, kolmé uličky a u větších
+    /// měst obchvat. Uličky jsou různě dlouhé a nestejně daleko od sebe —
+    /// souměrná mříž vypadá jako tabulka, ne jako město, které rostlo.
+    /// </summary>
+    private static void LayOutStreets(
+        int originX, int originY, ulong hash, bool horizontal, int reach,
+        Func<int, int, bool> canPave, List<RoadTile> roads, HashSet<long> taken)
+    {
+        // Náměstí: prázdný čtverec uprostřed. Domy se o něj opřou ze všech stran.
+        for (int dy = -PlazaHalf; dy <= PlazaHalf; dy++)
+        {
+            for (int dx = -PlazaHalf; dx <= PlazaHalf; dx++)
+            {
+                AddRoad(roads, taken, canPave, originX + dx, originY + dy);
+            }
+        }
+
+        // Hlavní třída přes celé město a kratší příčná ulice — křižovatka
+        // u náměstí dá městu střed, ze kterého se dá odbočit.
+        AddRun(roads, taken, canPave, originX, originY, horizontal, offset: 0, from: -reach, to: reach);
+        AddRun(roads, taken, canPave, originX, originY, !horizontal, offset: 0, from: -reach / 2, to: reach / 2);
+
+        // Uličky kolmo na hlavní třídu, každá jinak dlouhá a jinak daleko.
+        for (int offset = -reach + 2; offset <= reach - 2;)
+        {
+            ulong roll = Mix(hash + (ulong)(offset + 128) * 0xD6E8FEB86659FD93UL);
+            if (offset != 0)
+            {
+                int up = 2 + (int)(roll % (ulong)(reach / 2 + 1));
+                int down = 2 + (int)((roll >> 12) % (ulong)(reach / 2 + 1));
+                AddRun(roads, taken, canPave, originX, originY, !horizontal, offset, -down, up);
+            }
+
+            offset += MinSideGap + (int)((roll >> 24) % SideGapSpread);
+        }
+
+        if (reach >= RingReach)
+        {
+            AddRing(roads, taken, canPave, originX, originY, reach - 3);
+        }
+    }
+
+    /// <summary>
+    /// Rovný úsek ulice. <paramref name="along"/> říká, jestli běží po ose X;
+    /// <paramref name="offset"/> je odsazení od středu na kolmé ose.
+    /// </summary>
+    private static void AddRun(
+        List<RoadTile> roads, HashSet<long> taken, Func<int, int, bool> canPave,
+        int originX, int originY, bool along, int offset, int from, int to)
+    {
+        for (int i = from; i <= to; i++)
+        {
+            AddRoad(
+                roads, taken, canPave,
+                along ? originX + i : originX + offset,
+                along ? originY + offset : originY + i);
+        }
+    }
+
+    /// <summary>Obchvat kolem města — jen u těch, která na něj velikostí dorostla.</summary>
+    private static void AddRing(
+        List<RoadTile> roads, HashSet<long> taken, Func<int, int, bool> canPave,
+        int originX, int originY, int radius)
+    {
+        for (int i = -radius; i <= radius; i++)
+        {
+            AddRoad(roads, taken, canPave, originX + i, originY - radius);
+            AddRoad(roads, taken, canPave, originX + i, originY + radius);
+            AddRoad(roads, taken, canPave, originX - radius, originY + i);
+            AddRoad(roads, taken, canPave, originX + radius, originY + i);
+        }
+    }
+
+    /// <summary>
+    /// Obestaví ulice domy. Prochází se dlaždice <b>vedle silnic</b>: dům u cesty
+    /// je to, co odlišuje město od náhodných staveb v poli.
+    /// </summary>
+    private static void FillPlots(
+        GameContent content, int originX, int originY, ulong hash, int reach,
+        IReadOnlyList<int> palette, Func<int, int, int, bool> canBuild,
+        List<RoadTile> roads, HashSet<long> taken, List<NpcTownBuilding> buildings)
+    {
+        // Kolem každé silnice se zkouší všechny čtyři strany — nároží je pak
+        // zastavěné taky a ulice nekončí uprostřed pole.
+        Span<int> sideX = [0, 0, -1, 1];
+        Span<int> sideY = [-1, 1, 0, 0];
+
+        // Kopie: seznam silnic se během osazování nemění, ale procházíme ho
+        // podle indexu a plán musí být nezávislý na tom, kolik domů už stojí.
+        int roadCount = roads.Count;
+        for (int i = 0; i < roadCount; i++)
+        {
+            var road = roads[i];
+            for (int side = 0; side < 4; side++)
+            {
+                ulong roll = Mix(hash + (ulong)(i * 4 + side + 1) * 0xBF58476D1CE4E5B9UL);
+
+                // Hustota klesá od středu: jádro je sevřené, okraj se rozpadá do
+                // samot. Bez toho má město ostrou hranu jako vystřižený papír.
+                int distance = Math.Abs(road.X - originX) + Math.Abs(road.Y - originY);
+                int keepChance = Math.Max(20, 92 - distance * 80 / Math.Max(1, reach * 2));
+                if ((int)(roll % 100) >= keepChance)
+                {
+                    continue;
+                }
+
+                if (TryPlaceBeside(
+                        content, palette, canBuild, taken,
+                        road.X, road.Y, sideX[side], sideY[side], roll, out var placed))
+                {
+                    buildings.Add(placed);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Zkusí na sousední parcelu posadit dům z palety. Prochází paletu od
+    /// losovaného místa dokola, takže když se první přání na daný terén nehodí,
+    /// zkusí se další — a městečko u vody vypadá jinak než v horách.
+    /// </summary>
+    private static bool TryPlaceBeside(
+        GameContent content, IReadOnlyList<int> palette, Func<int, int, int, bool> canBuild,
+        HashSet<long> taken, int roadX, int roadY, int dx, int dy, ulong roll,
+        out NpcTownBuilding placed)
+    {
+        int start = (int)(roll % (ulong)palette.Count);
+        for (int step = 0; step < palette.Count; step++)
+        {
+            int defIndex = palette[(start + step) % palette.Count];
+            var def = content.Buildings[defIndex];
+
+            // Kotva tak, aby se dům dotýkal ulice tou stranou, u které stojí.
+            int x = dx < 0 ? roadX - def.FootprintWidth : roadX + dx;
+            int y = dy < 0 ? roadY - def.FootprintHeight : roadY + dy;
+
+            if (IsFree(taken, x, y, def.FootprintWidth, def.FootprintHeight)
+                && canBuild(defIndex, x, y))
+            {
+                Reserve(taken, x, y, def.FootprintWidth, def.FootprintHeight);
+                placed = new NpcTownBuilding(defIndex, x, y);
+                return true;
+            }
+        }
+
+        placed = default;
+        return false;
+    }
+
+    /// <summary>
+    /// Položí dlaždici ulice, pokud tam ulice smí ležet. Zamítnutá dlaždice se
+    /// <b>neblokuje</b>: přes vodu ulice nevede, ale dům na břehu tam stát může.
+    /// </summary>
+    private static void AddRoad(
+        List<RoadTile> roads, HashSet<long> taken, Func<int, int, bool> canPave, int x, int y)
+    {
+        if (canPave(x, y) && taken.Add(TileKey.Pack(x, y)))
+        {
+            roads.Add(new RoadTile(x, y));
+        }
+    }
+
+    private static bool IsFree(HashSet<long> taken, int x, int y, int width, int height)
     {
         for (int dy = 0; dy < height; dy++)
         {
@@ -125,6 +350,11 @@ public static class NpcTownPlanner
             }
         }
 
+        return true;
+    }
+
+    private static void Reserve(HashSet<long> taken, int x, int y, int width, int height)
+    {
         for (int dy = 0; dy < height; dy++)
         {
             for (int dx = 0; dx < width; dx++)
@@ -132,8 +362,6 @@ public static class NpcTownPlanner
                 taken.Add(TileKey.Pack(x + dx, y + dy));
             }
         }
-
-        return true;
     }
 
     private static ulong Mix(ulong value)

@@ -187,7 +187,7 @@ public sealed class AgentSystem
     /// Vybere dům, u kterého se někdo objeví. Střídá hráčovy budovy a domy
     /// objevených cizích měst — obojí je zástavba, ve které se má chodit.
     /// </summary>
-    private static bool TryPickAnchor(Simulation simulation, out Vector2 center, out NpcTownBuilding anchor)
+    private static bool TryPickAnchor(Simulation simulation, out Vector2 center, out BuildingInstance anchor)
     {
         const int tileSize = TerrainRenderer.TileSize;
         center = Vector2.Zero;
@@ -195,25 +195,17 @@ public sealed class AgentSystem
 
         // Nejdřív se zkusí cizí město: hráčových budov bývá o řády víc, takže by
         // se na cizí při rovnoměrném losování skoro nikdy nedostalo.
-        if (Random.Shared.Next(3) == 0)
-        {
-            foreach (var town in simulation.DiscoveredTownsNear(
-                simulation.CityCenterX, simulation.CityCenterY, NpcCityMap.CellTiles * 2))
-            {
-                anchor = town.Buildings[Random.Shared.Next(town.Buildings.Count)];
-                center = new Vector2((anchor.X + 0.5f) * tileSize, (anchor.Y + 0.5f) * tileSize);
-                return true;
-            }
-        }
+        var foreign = simulation.NpcBuildings;
+        var buildings = Random.Shared.Next(3) == 0 && foreign.Length > 0
+            ? foreign
+            : simulation.Buildings;
 
-        var buildings = simulation.Buildings;
         if (buildings.Length == 0)
         {
             return false;
         }
 
-        ref readonly var building = ref buildings[Random.Shared.Next(buildings.Length)];
-        anchor = new NpcTownBuilding(building.DefIndex, building.X, building.Y);
+        anchor = buildings[Random.Shared.Next(buildings.Length)];
         center = new Vector2((anchor.X + 0.5f) * tileSize, (anchor.Y + 0.5f) * tileSize);
         return true;
     }
@@ -272,14 +264,15 @@ public sealed class AgentSystem
             return;
         }
 
-        // Vozíky jen když je kam jet (existují cesty); jinak chodci.
-        bool cart = simulation.RoadTiles.Count > 0 && Random.Shared.NextSingle() < 0.25f;
+        // Vozíky jen když je kam jet (existují cesty); jinak chodci. Ulice cizích
+        // měst se počítají taky — i tam se má jezdit.
+        bool anyRoads = simulation.RoadTiles.Count > 0 || simulation.NpcRoadTiles.Count > 0;
+        bool cart = anyRoads && Random.Shared.NextSingle() < 0.25f;
 
         // Vůz po silnici jezdí vždycky — jinak by cesty neměly smysl ani opticky.
         // Chodec se silnice drží zhruba v polovině případů: město tak působí živě,
         // ale ne jako mravenčí kolona po jedné lince.
-        bool followsRoads = cart
-            || (simulation.RoadTiles.Count > 0 && Random.Shared.NextSingle() < PedestrianRoadShare);
+        bool followsRoads = cart || (anyRoads && Random.Shared.NextSingle() < PedestrianRoadShare);
 
         _agents[_count++] = new Agent
         {
@@ -338,7 +331,7 @@ public sealed class AgentSystem
 
         foreach (var (dx, dy) in steps)
         {
-            if (!simulation.IsRoad(x + dx, y + dy))
+            if (!simulation.HasRoadAt(x + dx, y + dy))
             {
                 continue;
             }
@@ -405,7 +398,7 @@ public sealed class AgentSystem
         return shore && allowed <= 2;
     }
 
-    private bool TryFindWaterNear(Simulation simulation, in NpcTownBuilding building, out Vector2 position)
+    private bool TryFindWaterNear(Simulation simulation, in BuildingInstance building, out Vector2 position)
     {
         var def = _content.Buildings[building.DefIndex];
         for (int y = building.Y - 1; y <= building.Y + def.FootprintHeight; y++)
@@ -452,14 +445,15 @@ public sealed class AgentSystem
     /// <summary>Volná voda (ne most, ne budova) — loď po mostě neplave.</summary>
     private bool IsOpenWater(Simulation simulation, int x, int y) =>
         _content.Biomes[simulation.BiomeAt(x, y)].IsWater
-        && !simulation.IsRoad(x, y)
-        && !simulation.IsOccupied(x, y);
+        && !simulation.HasRoadAt(x, y)
+        && !simulation.IsOccupied(x, y)
+        && !simulation.IsNpcOccupied(x, y);
 
     private bool IsPassable(Simulation simulation, Vector2 worldPos)
     {
         int tileX = (int)MathF.Floor(worldPos.X / TerrainRenderer.TileSize);
         int tileY = (int)MathF.Floor(worldPos.Y / TerrainRenderer.TileSize);
-        if (simulation.IsOccupied(tileX, tileY))
+        if (simulation.IsOccupied(tileX, tileY) || simulation.IsNpcOccupied(tileX, tileY))
         {
             return false;
         }
