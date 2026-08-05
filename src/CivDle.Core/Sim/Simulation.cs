@@ -38,6 +38,7 @@ public sealed class Simulation
     private readonly BuildingMilestoneSystem _milestoneBonuses;
     private readonly HistorySystem _historySystem;
     private readonly ReforestSystem _reforestSystem;
+    private readonly NpcTownSystem _npcTowns; // postavená cizí města (skutečné budovy a silnice)
     private readonly ConstructionSystem _constructionSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
@@ -155,6 +156,7 @@ public sealed class Simulation
         _milestoneBonuses = new BuildingMilestoneSystem(content);
         _historySystem = new HistorySystem(content);
         _reforestSystem = new ReforestSystem(content);
+        _npcTowns = new NpcTownSystem(content);
         History = new CityHistory(content.Gameplay.History.MaxFrames);
         _constructionSystem = new ConstructionSystem(content);
         ResetContractBoard();
@@ -265,45 +267,153 @@ public sealed class Simulation
     }
 
     /// <summary>
-    /// Rozvržení objevených cizích měst. Plán je čistá funkce seedu, takže se
-    /// neukládá — jen se drží spočítaný, aby se nepočítal každý snímek.
+    /// Budovy objevených cizích měst — <b>skutečné instance</b>, tytéž jaké staví
+    /// hráč. Render je kreslí stejným kódem jako hráčovy; kdyby měl vlastní,
+    /// vypadala by cizí města jako jiná hra.
     /// </summary>
-    private readonly Dictionary<long, NpcTown> _npcTowns = new();
+    public ReadOnlySpan<BuildingInstance> NpcBuildings => _npcTowns.Buildings;
+
+    /// <summary>Ulice cizích měst a cesty mezi nimi — skutečné silniční dlaždice.</summary>
+    public IReadOnlyList<RoadTile> NpcRoadTiles => _npcTowns.RoadTiles;
+
+    /// <summary>Je na dlaždici cizí silnice? (Hráčova síť to není — obchod se z ní neodvozuje.)</summary>
+    public bool IsNpcRoad(int x, int y) => _npcTowns.IsRoad(x, y);
+
+    /// <summary>Stojí na dlaždici cizí budova?</summary>
+    public bool IsNpcOccupied(int x, int y) => _npcTowns.IsOccupied(x, y);
 
     /// <summary>
-    /// Postavené cizí město (budovy a silnice). Vrací <c>null</c>, dokud ho hráč
-    /// neobjevil — město za mlhou nemá co kreslit ani obydlovat.
+    /// Je na dlaždici silnice, ať už čí. Pro render a chodce: po cizí ulici se
+    /// chodí stejně jako po hráčově, i když do jeho sítě nepatří.
     /// </summary>
-    public NpcTown? TownOf(in NpcCity city)
+    public bool HasRoadAt(int x, int y) => IsRoad(x, y) || IsNpcRoad(x, y);
+
+    /// <summary>
+    /// Objevené cizí město pod dlaždicí. Trefa se počítá na celé jeho zástavbě,
+    /// ne jen na středu — hráč míří na město, ne na jeden pixel.
+    /// </summary>
+    public bool TryNpcCityAt(int tileX, int tileY, out NpcCity city)
     {
-        if (!IsCityDiscovered(city) || NpcStateOf(city.Key).Destroyed)
-        {
-            return null;
-        }
-
-        if (!_npcTowns.TryGetValue(city.Key, out var town))
-        {
-            town = NpcTownPlanner.Plan(_content, Seed, city);
-            _npcTowns[city.Key] = town;
-        }
-
-        return town;
+        city = default;
+        return NpcCitiesEnabled
+            && _npcTowns.TryOwnerAt(tileX, tileY, out long key)
+            && NpcCities.TryCityByKey(key, out city);
     }
 
     /// <summary>
-    /// Postavená cizí města v okolí. Render z toho bere, kde mají chodit lidé —
-    /// objevené město má vypadat obydlené, ne jako opuštěná kulisa.
+    /// Postaví objevená cizí města v okolí a cesty mezi nimi.
+    ///
+    /// <para>Staví se až po objevení, a ne dřív: město za mlhou by muselo řešit
+    /// kolize se zástavbou, kterou hráč teprve postaví. Běží na nízké frekvenci
+    /// nad hrubou mřížkou měst — postavené město se pak už jen kreslí.</para>
     /// </summary>
-    public IEnumerable<NpcTown> DiscoveredTownsNear(int tileX, int tileY, int radiusTiles)
+    private void TickNpcTowns()
     {
-        foreach (var city in CitiesNear(tileX, tileY, radiusTiles))
+        if (!NpcCitiesEnabled || TickCount % NpcTownIntervalTicks != 0)
         {
-            if (TownOf(city) is { } town && town.Buildings.Count > 0)
+            return;
+        }
+
+        foreach (var city in NpcCities.CitiesNear(CityCenterX, CityCenterY, NpcScanRadius))
+        {
+            var state = NpcStateOf(city.Key);
+            if (state.Absorbed || state.Destroyed || _npcTowns.IsBuilt(city.Key)
+                || !IsCityDiscovered(city))
             {
-                yield return town;
+                continue;
+            }
+
+            _npcTowns.Build(Seed, city, NpcCanBuild, NpcCanPave);
+        }
+
+        foreach (var link in NpcCities.LinksNear(CityCenterX, CityCenterY, NpcScanRadius))
+        {
+            // Cesta se objeví, teprve až hráč zná oba konce — jinak by z mlhy
+            // trčela silnice odnikud nikam a prozradila by, kde město stojí.
+            if (_npcTowns.IsLinked(link.From.Key, link.To.Key)
+                || !IsCityDiscovered(link.From) || !IsCityDiscovered(link.To))
+            {
+                continue;
+            }
+
+            _npcTowns.Link(link, NpcCanPave);
+        }
+    }
+
+    /// <summary>
+    /// Smí cizí město postavit tuhle budovu na tomhle místě? Ptá se jen na terén
+    /// a na kolize — <b>ne</b> na hráčův výzkum ani jeho suroviny. Cizí město
+    /// stálo dřív, než tam hráč přišel.
+    /// </summary>
+    private bool NpcCanBuild(int defIndex, int x, int y)
+    {
+        var def = _content.Buildings[defIndex];
+
+        for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
+        {
+            for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
+            {
+                long tile = TileKey.Pack(tileX, tileY);
+                if (_occupancy.ContainsKey(tile) || _roads.Contains(tile)
+                    || _plantedNodes.ContainsKey(tile) || _npcTowns.Blocks(tileX, tileY))
+                {
+                    return false;
+                }
+
+                if (!def.IsBiomeAllowed(Terrain.BiomeAt(tileX, tileY)))
+                {
+                    return false;
+                }
             }
         }
+
+        return !def.NeedsWaterAccess || HasAdjacentWater(def, x, y);
     }
+
+    /// <summary>Jak daleko od středu pohlceného města si sídlo ještě nese jeho jméno.</summary>
+    private const int InheritedNameRadius = 20;
+
+    /// <summary>
+    /// Jméno zděděné po pohlceném cizím městě poblíž místa; <c>−1</c> = žádné.
+    ///
+    /// <para>Když se město přidá k říši, jeho domy zůstanou stát — a sídlo, které
+    /// z nich <see cref="SettlementSystem"/> pozná, si má nechat jeho jméno.
+    /// Bez tohohle by se hráči po pohlcení „založilo vedle další město": tytéž
+    /// domy, ale s náhodným jménem z klobouku, takže to vypadalo, že původní
+    /// zmizelo.</para>
+    ///
+    /// <para>Neukládá se: pohlcení měst v savu je, poloha i jméno města plynou
+    /// ze seedu, takže se to po načtení dopočítá stejně.</para>
+    /// </summary>
+    public int InheritedNameAt(float x, float y)
+    {
+        if (!NpcCitiesEnabled)
+        {
+            return -1;
+        }
+
+        foreach (var (key, state) in _npcStates)
+        {
+            if (!state.Absorbed || !NpcCities.TryCityByKey(key, out var city))
+            {
+                continue;
+            }
+
+            if (Math.Abs(city.X - x) <= InheritedNameRadius && Math.Abs(city.Y - y) <= InheritedNameRadius)
+            {
+                return city.NameIndex;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>Smí na dlaždici ležet cizí cesta? Přes vodu ne — most by tam nikdo nestavěl.</summary>
+    private bool NpcCanPave(int x, int y) =>
+        !_occupancy.ContainsKey(TileKey.Pack(x, y))
+        && !_roads.Contains(TileKey.Pack(x, y))
+        && !_npcTowns.IsOccupied(x, y)
+        && !_content.Biomes[Terrain.BiomeAt(x, y)].IsWater;
 
     /// <summary>Cesty mezi cizími městy v okolí — svět si žije i bez hráče.</summary>
     public IEnumerable<NpcCityLink> CityLinksNear(int tileX, int tileY, int radiusTiles) =>
@@ -440,48 +550,60 @@ public sealed class Simulation
         // Hráč město nedostane jako číslo, ale jako MĚSTO: jeho domy a ulice
         // přejdou do jeho vlastnictví. To je celý smysl obestavění — sroste to
         // s jeho zástavbou, ne že se někde připíše populace.
-        HandOverTown(city);
+        //
+        // Objevit se ještě nemuselo (obestavět jde i město za mlhou) — pak se
+        // teď postaví, aby bylo co předávat.
+        if (!_npcTowns.IsBuilt(key))
+        {
+            _npcTowns.Build(Seed, city, NpcCanBuild, NpcCanPave);
+        }
+
+        HandOverTown(key);
 
         EnqueueNotification(new GameNotification(
             NotificationKind.CityJoined, "toast.cityJoined", archetype.NameKey));
     }
 
     /// <summary>
-    /// Převede budovy a silnice cizího města hráči. Obsazené dlaždice se
-    /// přeskočí — když si hráč mezitím na místo něco postavil, jeho stavba má
-    /// přednost.
+    /// Převede budovy a ulice cizího města hráči.
+    ///
+    /// <para><b>Nic se nestaví znovu.</b> Jsou to tytéž instance, jaké ve světě
+    /// stály — jen změní majitele. Dřív se tady volalo <c>CanPlace</c>, což znamenalo,
+    /// že se nepředalo skoro nic: cizí město stojí i z budov, které hráč ještě nemá
+    /// vyzkoumané, a ty všechny umístění zamítlo. Město tak zmizelo a hráči
+    /// nezůstalo nic než přičtená populace.</para>
     /// </summary>
-    private void HandOverTown(in NpcCity city)
+    private void HandOverTown(long key)
     {
-        var town = TownOf(city);
-        if (town is null)
+        var handover = _npcTowns.Take(key);
+
+        for (int i = 0; i < handover.Roads.Count; i++)
         {
-            return;
+            AddRoadTile(handover.Roads[i].X, handover.Roads[i].Y);
         }
 
-        for (int i = 0; i < town.Roads.Count; i++)
+        for (int i = 0; i < handover.Buildings.Count; i++)
         {
-            var road = town.Roads[i];
-            if (!_occupancy.ContainsKey(TileKey.Pack(road.X, road.Y)))
-            {
-                AddRoadTile(road.X, road.Y);
-            }
+            AdoptBuilding(handover.Buildings[i]);
         }
 
-        for (int i = 0; i < town.Buildings.Count; i++)
-        {
-            var planned = town.Buildings[i];
-            if (CanPlace(planned.DefIndex, planned.X, planned.Y) != PlacementResult.Ok)
-            {
-                continue;
-            }
-
-            // Postavené, ne staveniště: město tam stálo dávno před hráčem.
-            AddBuilding(planned.DefIndex, planned.X, planned.Y, progress: 0f, asConstructionSite: false);
-        }
-
-        _npcTowns.Remove(city.Key); // od téhle chvíle jsou to hráčovy budovy
+        SettlementsDirty = true;
+        DistrictsDirty = true; // nová čtvrť zástavby může vzniknout i zaniknout
+        HaulDirty = true;      // sklady připojeného města mění svoz i okolí
+        _roadLinksDirty = true;
         RecomputeDerivedState();
+    }
+
+    /// <summary>
+    /// Přijme hotovou budovu do říše bez placení a bez kontroly umístění.
+    ///
+    /// <para>Kontrolovat se nemá co: budova na tom místě už stojí a hráč ji
+    /// dostává, ne staví. Násobiče se dopočítají tady — cizímu městu byly
+    /// k ničemu, hráči na nich záleží.</para>
+    /// </summary>
+    private void AdoptBuilding(in BuildingInstance instance)
+    {
+        AddBuilding(instance.DefIndex, instance.X, instance.Y, progress: 0f, asConstructionSite: false);
     }
 
     /// <summary>
@@ -533,6 +655,13 @@ public sealed class Simulation
 
     /// <summary>Jak daleko se cizí města ještě řeší (dál by to byla práce nazmar).</summary>
     private const int NpcScanRadius = NpcCityMap.CellTiles * 3;
+
+    /// <summary>
+    /// Jak často se objevená cizí města staví. Sekunda: dost rychle na to, aby
+    /// město stálo, než hráč doroluje, a dost pomalu na to, aby procházení hrubé
+    /// mřížky měst nic nestálo.
+    /// </summary>
+    private const int NpcTownIntervalTicks = (int)TicksPerSecond;
 
     /// <summary>Nejvyšší možný vztah s cizím městem. UI ho ukazuje jako „x / 100".</summary>
     public const int MaxRelation = 100;
@@ -761,6 +890,7 @@ public sealed class Simulation
             state.RoadLinked = false;
             state.Relation = 0;
             _npcStates[city.Key] = state;
+            _npcTowns.Forget(city.Key); // po ráně tam nesmí zůstat stát domy
             hits++;
 
             EnqueueNotification(new GameNotification(
@@ -2315,7 +2445,8 @@ public sealed class Simulation
             return PlacementResult.Occupied;
         }
 
-        if (_occupancy.ContainsKey(tile) || _plantedNodes.ContainsKey(tile))
+        if (_occupancy.ContainsKey(tile) || _plantedNodes.ContainsKey(tile)
+            || _npcTowns.Blocks(x, y))
         {
             return PlacementResult.Occupied;
         }
@@ -2388,6 +2519,7 @@ public sealed class Simulation
     {
         TickCount++;
         TickBlessings(); // požehnání z modliteb dobíhají spolu se slavností
+        TickNpcTowns();  // objevené cizí město se postaví ze skutečných budov a ulic
         TickNpcCities(); // dodávky od sousedů a tiché srůstání obestavěných
         if (_boostTicksRemaining > 0)
         {
@@ -2466,7 +2598,10 @@ public sealed class Simulation
             for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
             {
                 long key = TileKey.Pack(tileX, tileY);
-                if (_occupancy.ContainsKey(key) || _roads.Contains(key))
+                // Cizí město je na mapě stejně skutečné jako hráčova zástavba —
+                // stavět skrz cizí domy a ulice nejde.
+                if (_occupancy.ContainsKey(key) || _roads.Contains(key)
+                    || _npcTowns.Blocks(tileX, tileY))
                 {
                     return PlacementResult.Occupied;
                 }
@@ -5067,6 +5202,7 @@ public sealed class Simulation
         _founders.Clear(); // zakladatelé patří ke světu, který právě skončil
         History.Clear();   // a časosběr taky — nový svět začíná prázdným listem
         _npcStates.Clear(); // cizí města nového měřítka hráče ještě neznají
+        _npcTowns.Clear();  // a jejich zástavba se postaví znovu, až je hráč najde
         Fog.Clear();       // nový svět se musí objevit znovu
         Fog.Reveal(0, 0, FogRevealRadius * 2);
         PendingCitizenRequest = CitizenRequest.None;

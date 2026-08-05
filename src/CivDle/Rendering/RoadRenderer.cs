@@ -27,19 +27,28 @@ public sealed class RoadRenderer
 
     public void Draw(SpriteBatch spriteBatch, Camera2D camera, Simulation simulation)
     {
-        var roadTiles = simulation.RoadTiles;
-        if (roadTiles.Count == 0)
-        {
-            return;
-        }
+        var (min, max) = camera.VisibleWorldBounds();
 
+        spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
+        DrawTiles(spriteBatch, simulation, simulation.RoadTiles, min, max);
+
+        // Ulice cizích měst a cesty mezi nimi. Jsou to tytéž silniční dlaždice,
+        // takže se kreslí týmž kódem — dřív to byly čáry přes mapu a bylo na
+        // první pohled poznat, že to nejsou silnice, po kterých se dá jet.
+        DrawTiles(spriteBatch, simulation, simulation.NpcRoadTiles, min, max);
+        spriteBatch.End();
+    }
+
+    /// <summary>Vykreslí jeden seznam silničních dlaždic. Vlastník na vzhled nemá vliv.</summary>
+    private void DrawTiles(
+        SpriteBatch spriteBatch, Simulation simulation, IReadOnlyList<RoadTile> roadTiles,
+        Vector2 min, Vector2 max)
+    {
         const int tileSize = TerrainRenderer.TileSize;
         var roadColor = _content.Gameplay.Roads.MapColor.ToXna();
         // Most = silnice po vodě. Dřevěná deska pod cestou ho odliší od běžné pěšiny.
         var bridgeColor = new Color(122, 88, 56);
-        var (min, max) = camera.VisibleWorldBounds();
 
-        spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
         for (int i = 0; i < roadTiles.Count; i++)
         {
             int tileX = roadTiles[i].X;
@@ -81,11 +90,13 @@ public sealed class RoadRenderer
                 spriteBatch.Draw(_pixel, new Rectangle(x + Pad, y, Thickness, Pad), color);
             }
         }
-
-        spriteBatch.End();
     }
 
-    /// <summary>Rameno se kreslí k sousední silnici i k budově (vizuální napojení na vchod).</summary>
+    /// <summary>
+    /// Rameno se kreslí k sousední silnici i k budově (vizuální napojení na vchod).
+    /// Cizí ulice a domy se počítají taky — jinak by se hráčova silnice před
+    /// cizím městem zastavila a mezi nimi zůstala mezera.
+    /// </summary>
     private static bool Connects(Simulation simulation, int x, int y) =>
-        simulation.IsRoad(x, y) || simulation.IsOccupied(x, y);
+        simulation.HasRoadAt(x, y) || simulation.IsOccupied(x, y) || simulation.IsNpcOccupied(x, y);
 }

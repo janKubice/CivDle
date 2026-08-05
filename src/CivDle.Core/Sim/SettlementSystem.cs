@@ -110,10 +110,21 @@ internal sealed class SettlementSystem
                 continue;
             }
 
-            var rng = new SplitMix64(unchecked((ulong)_seed ^ ((ulong)oldest * 0xBF58476D1CE4E5B9UL)));
-            int nameIndex = (int)(rng.Next() % (ulong)_content.SettlementNames.Count);
+            float centerX = sumX / count;
+            float centerY = sumY / count;
+
+            // Sídlo vyrostlé na pohlceném cizím městě si nechá jeho jméno —
+            // hráč dostal město, ne stavební parcelu. Až když tam žádné nebylo,
+            // losuje se ze seedu jako u každé jiné osady.
+            int nameIndex = sim.InheritedNameAt(centerX, centerY);
+            if (nameIndex < 0)
+            {
+                var rng = new SplitMix64(unchecked((ulong)_seed ^ ((ulong)oldest * 0xBF58476D1CE4E5B9UL)));
+                nameIndex = (int)(rng.Next() % (ulong)_content.SettlementNames.Count);
+            }
+
             int rankIndex = _content.SettlementRanks.RankFor(count);
-            result.Add(new Settlement(sumX / count, sumY / count, count, nameIndex, rankIndex));
+            result.Add(new Settlement(centerX, centerY, count, nameIndex, rankIndex));
 
             // Povýšení se hlásí jen tehdy, když je to pro celou hru poprvé.
             // Kdyby se ohlašovalo u každého sídla zvlášť, hráč by při rozrůstání

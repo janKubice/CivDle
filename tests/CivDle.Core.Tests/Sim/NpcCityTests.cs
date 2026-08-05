@@ -55,6 +55,15 @@ public class NpcCityTests
         return new Simulation(content, new UniformTerrain(1));
     }
 
+    /// <summary>Odtiká simulaci. Cizí města se staví v tiku, ne na požádání z renderu.</summary>
+    private static void Tick(Simulation sim, int ticks)
+    {
+        for (int i = 0; i < ticks; i++)
+        {
+            sim.Tick();
+        }
+    }
+
     /// <summary>První město v dosahu — na nekonečné mapě jich je nekonečně, hledá se od středu.</summary>
     private static NpcCity FirstCity(Simulation sim)
     {
@@ -296,50 +305,93 @@ public class NpcCityTests
     public void ADiscoveredTownIsBuiltFromTheSameBuildingsAsThePlayers()
     {
         // Hráč si stěžoval, že cizí město nevypadá jako město: byly to barevné
-        // obdélníky. Teď musí stát z týchž definic, jaké staví on — a mít ulici.
+        // obdélníky se svým vlastním kreslením. Teď musí ve světě opravdu STÁT —
+        // ze stejných instancí budov a stejných silničních dlaždic jako hráčovy.
         var sim = NewSim();
         var city = FirstCity(sim);
 
-        Assert.Null(sim.TownOf(city)); // za mlhou se nic nestaví
+        Tick(sim, 20);
+        Assert.Empty(sim.NpcBuildings.ToArray()); // za mlhou se nic nestaví
 
-        sim.Fog.Reveal(city.X, city.Y, 12);
-        var town = sim.TownOf(city);
+        sim.Fog.Reveal(city.X, city.Y, 20);
+        Tick(sim, 20);
 
-        Assert.NotNull(town);
-        Assert.NotEmpty(town!.Buildings);
-        Assert.NotEmpty(town.Roads);
-        Assert.All(town.Buildings, b => Assert.InRange(b.DefIndex, 0, 0)); // paleta testu má jedinou budovu
+        Assert.NotEmpty(sim.NpcBuildings.ToArray());
+        Assert.NotEmpty(sim.NpcRoadTiles);
+        Assert.All(sim.NpcBuildings.ToArray(), b => Assert.InRange(b.DefIndex, 0, 0)); // paleta testu má jedinou budovu
+        Assert.All(sim.NpcBuildings.ToArray(), b => Assert.True(b.IsComplete)); // město tam stálo dřív než hráč
+    }
+
+    [Fact]
+    public void ForeignBuildingsBlockThePlayersOwn()
+    {
+        // Kdyby cizí město nebylo pro umisťování překážka, dalo by se do něj
+        // stavět skrz — a byla by to zase jen kulisa.
+        var sim = NewSim();
+        var city = FirstCity(sim);
+        sim.Fog.Reveal(city.X, city.Y, 20);
+        Tick(sim, 20);
+
+        var house = sim.NpcBuildings[0];
+        Assert.Equal(PlacementResult.Occupied, sim.CanPlace(house.DefIndex, house.X, house.Y));
+
+        var street = sim.NpcRoadTiles[0];
+        Assert.Equal(PlacementResult.Occupied, sim.CanBuildRoad(street.X, street.Y));
     }
 
     [Fact]
     public void TheTownLooksTheSameEveryTime()
     {
         // Plán se neukládá — na nekonečné mapě musí vyjít pokaždé stejně, jinak
-        // by se město po každém načtení přestavělo.
+        // by se město po každém načtení přestavělo jinak.
         var sim = NewSim();
         var city = FirstCity(sim);
-        sim.Fog.Reveal(city.X, city.Y, 12);
+        sim.Fog.Reveal(city.X, city.Y, 20);
+        Tick(sim, 20);
 
-        var first = sim.TownOf(city)!;
-        var second = NpcTownPlanner.Plan(TestContent.Build(
-            new[] { TestContent.WaterBiome(), TestContent.LandBiome("grass") }, 1,
-            new[] { new Resource("wood", new RgbColor(1, 1, 1), StartAmount: 1000, BaseStorage: 100_000) },
-            gameplay: TestContent.DefaultGameplay, npcCities: Catalog()), sim.Seed, city);
+        var again = NewSim();
+        again.Fog.Reveal(city.X, city.Y, 20);
+        Tick(again, 20);
 
-        Assert.Equal(first.Buildings.Count, second.Buildings.Count);
-        Assert.Equal(first.Roads.Count, second.Roads.Count);
+        Assert.Equal(sim.NpcBuildings.Length, again.NpcBuildings.Length);
+        Assert.Equal(sim.NpcRoadTiles.Count, again.NpcRoadTiles.Count);
+        for (int i = 0; i < sim.NpcBuildings.Length; i++)
+        {
+            Assert.Equal(sim.NpcBuildings[i].X, again.NpcBuildings[i].X);
+            Assert.Equal(sim.NpcBuildings[i].Y, again.NpcBuildings[i].Y);
+        }
     }
 
     [Fact]
-    public void JoiningACityHandsOverItsBuildings()
+    public void ClickingAnywhereInTheTownFindsTheCity()
     {
-        // Tohle je celý smysl obestavění: hráč nedostane číslo, ale město.
+        // Menu města se otevírá klikem na město — a městem je celá jeho zástavba,
+        // ne jeden pixel uprostřed.
         var sim = NewSim();
         var city = FirstCity(sim);
-        sim.Fog.Reveal(city.X, city.Y, 12);
+        sim.Fog.Reveal(city.X, city.Y, 20);
+        Tick(sim, 20);
 
-        var town = sim.TownOf(city)!;
-        Assert.NotEmpty(town.Buildings);
+        var house = sim.NpcBuildings[0];
+        Assert.True(sim.TryNpcCityAt(house.X, house.Y, out var hit));
+        Assert.Equal(city.Key, hit.Key);
+    }
+
+    [Fact]
+    public void JoiningACityHandsOverTheSameBuildingsThatStoodThere()
+    {
+        // Tohle je celý smysl obestavění: hráč nedostane číslo, ale město.
+        // A dostane ho CELÉ — dřív se předávané budovy hnaly přes CanPlace, což
+        // znamenalo, že se nepředalo skoro nic (cizí město stojí i z budov, které
+        // hráč ještě nemá vyzkoumané) a město prostě zmizelo.
+        var sim = NewSim();
+        var city = FirstCity(sim);
+        sim.Fog.Reveal(city.X, city.Y, 20);
+        Tick(sim, 20);
+
+        var stood = sim.NpcBuildings.ToArray();
+        var streets = sim.NpcRoadTiles.ToList();
+        Assert.NotEmpty(stood);
 
         int buildingsBefore = sim.Buildings.Length;
         int roadsBefore = sim.RoadTiles.Count;
@@ -348,10 +400,66 @@ public class NpcCityTests
         sim.TryGiftCity(city.Key);
         Assert.Equal(DiplomacyResult.Ok, sim.TryBuyCity(city.Key));
 
-        Assert.True(sim.Buildings.Length > buildingsBefore,
-            "po připojení má hráč vlastnit i domy toho města");
-        Assert.True(sim.RoadTiles.Count > roadsBefore,
-            "ulice připojeného města patří taky hráči");
+        Assert.Equal(buildingsBefore + stood.Length, sim.Buildings.Length);
+        Assert.Equal(roadsBefore + streets.Count, sim.RoadTiles.Count);
+        Assert.Empty(sim.NpcBuildings.ToArray()); // přestaly být cizí, ne zmizely
+
+        // A stojí tam, kde stály — nepřestavěly se vedle.
+        var owned = sim.Buildings.ToArray();
+        Assert.All(stood, b => Assert.Contains(owned, o => o.X == b.X && o.Y == b.Y && o.DefIndex == b.DefIndex));
+        Assert.All(streets, r => Assert.True(sim.IsRoad(r.X, r.Y)));
+    }
+
+    [Fact]
+    public void AJoinedTownKeepsItsName()
+    {
+        // Hráč si stěžoval, že se mu po pohlcení „vedle založí další město".
+        // Bylo to tím, že sídlo z těch domů dostalo náhodné jméno z klobouku —
+        // původní tím zmizelo. Zděděné město si své jméno nechává.
+        var sim = NewSim();
+        var city = FirstCity(sim);
+        sim.Fog.Reveal(city.X, city.Y, 20);
+        Tick(sim, 20);
+
+        Assert.Equal(-1, sim.InheritedNameAt(city.X, city.Y)); // dokud je cizí, nic nedědí
+
+        sim.TryGiftCity(city.Key);
+        sim.TryGiftCity(city.Key);
+        Assert.Equal(DiplomacyResult.Ok, sim.TryBuyCity(city.Key));
+
+        Assert.Equal(city.NameIndex, sim.InheritedNameAt(city.X, city.Y));
+        Assert.Equal(-1, sim.InheritedNameAt(city.X + 200, city.Y)); // na druhém konci mapy ne
+    }
+
+    [Fact]
+    public void ARazedCityLeavesNoHousesStanding()
+    {
+        // Zničené město nesmí dál stát — jinak by po meteoritu zbyla nedotčená
+        // zástavba bez majitele.
+        var meteor = new PrayerDef(
+            "meteor", "smite_meteor", BaseCost: 1, BaseChance: 1.0, ChanceFalloff: 0.0,
+            Magnitude: 10, RadiusTiles: 12);
+        var content = TestContent.Build(
+            new[] { TestContent.WaterBiome(), TestContent.LandBiome("grass") }, 1,
+            new[]
+            {
+                new Resource("wood", new RgbColor(1, 1, 1), StartAmount: 1000, BaseStorage: 100_000),
+                new Resource("faith", new RgbColor(1, 1, 1), StartAmount: 1000, BaseStorage: 10_000),
+            },
+            npcCities: Catalog(),
+            faith: new FaithCatalog(
+                1, new DefRegistry<PrayerDef>(new[] { meteor }, p => p.Id, "modlitba")));
+
+        var sim = new Simulation(content, new UniformTerrain(1));
+        var city = FirstCity(sim);
+        sim.Fog.Reveal(city.X, city.Y, 20);
+        Tick(sim, 20);
+        Assert.NotEmpty(sim.NpcBuildings.ToArray());
+
+        Assert.Equal(PrayerOutcome.Answered, sim.TryPray(0, 1, city.X, city.Y));
+
+        Assert.Empty(sim.NpcBuildings.ToArray());
+        Assert.True(sim.NpcStateOf(city.Key).Destroyed);
     }
 
     [Fact]

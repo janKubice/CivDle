@@ -283,7 +283,7 @@ public sealed class GameplayScreen : IScreen
         _toasts = new ToastRenderer(screens.WhitePixel, _popupFont);
         _cityScale = new CityScaleRenderer(screens.WhitePixel, _popupFont);
         _districtRenderer = new DistrictRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont);
-        _npcCityRenderer = new NpcCityRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont, screens.Sprites);
+        _npcCityRenderer = new NpcCityRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont);
 
         var viewport = screens.GraphicsDevice.Viewport;
         _camera.SetViewport(viewport.Width, viewport.Height);
@@ -443,7 +443,6 @@ public sealed class GameplayScreen : IScreen
             _discoveries.Update(dt);
         }
 
-        _npcCityRenderer.Update(dt); // karavany mezi cizími městy jezdí i z dálky
         _buildingRenderer.Update(dt); // balony nad kotvišti se houpou
         _weatherRenderer.Update(dt, _simulation, _screens.GraphicsDevice.Viewport);
         _minimap.Update(dt, _camera, _simulation);
@@ -742,47 +741,11 @@ public sealed class GameplayScreen : IScreen
 
     /// <summary>
     /// Objevené cizí město pod dlaždicí. Trefa se počítá na celé jeho zástavbě,
-    /// ne jen na středu — hráč míří na město, ne na jeden pixel.
+    /// ne jen na středu — hráč míří na město, ne na jeden pixel. Zástavbu zná
+    /// simulace (jsou to skutečné budovy a ulice), takže se jen zeptáme jí.
     /// </summary>
-    private bool TryGetCityAt(int tileX, int tileY, out NpcCity city)
-    {
-        city = default;
-        if (!_simulation.NpcCitiesEnabled)
-        {
-            return false;
-        }
-
-        foreach (var candidate in _simulation.CitiesNear(tileX, tileY, NpcCityMap.CellTiles))
-        {
-            if (_simulation.TownOf(candidate) is not { } town)
-            {
-                continue;
-            }
-
-            for (int i = 0; i < town.Buildings.Count; i++)
-            {
-                var planned = town.Buildings[i];
-                var def = _screens.Content.Buildings[planned.DefIndex];
-                if (tileX >= planned.X && tileX < planned.X + def.FootprintWidth
-                    && tileY >= planned.Y && tileY < planned.Y + def.FootprintHeight)
-                {
-                    city = candidate;
-                    return true;
-                }
-            }
-
-            for (int i = 0; i < town.Roads.Count; i++)
-            {
-                if (town.Roads[i].X == tileX && town.Roads[i].Y == tileY)
-                {
-                    city = candidate;
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
+    private bool TryGetCityAt(int tileX, int tileY, out NpcCity city) =>
+        _simulation.TryNpcCityAt(tileX, tileY, out city);
 
     /// <summary>
     /// Lokalizační klíč vysvětlení, proč budova stojí; <c>null</c> = pracuje.
