@@ -183,6 +183,41 @@ public sealed class AgentSystem
         }
     }
 
+    /// <summary>
+    /// Vybere dům, u kterého se někdo objeví. Střídá hráčovy budovy a domy
+    /// objevených cizích měst — obojí je zástavba, ve které se má chodit.
+    /// </summary>
+    private static bool TryPickAnchor(Simulation simulation, out Vector2 center, out NpcTownBuilding anchor)
+    {
+        const int tileSize = TerrainRenderer.TileSize;
+        center = Vector2.Zero;
+        anchor = default;
+
+        // Nejdřív se zkusí cizí město: hráčových budov bývá o řády víc, takže by
+        // se na cizí při rovnoměrném losování skoro nikdy nedostalo.
+        if (Random.Shared.Next(3) == 0)
+        {
+            foreach (var town in simulation.DiscoveredTownsNear(
+                simulation.CityCenterX, simulation.CityCenterY, NpcCityMap.CellTiles * 2))
+            {
+                anchor = town.Buildings[Random.Shared.Next(town.Buildings.Count)];
+                center = new Vector2((anchor.X + 0.5f) * tileSize, (anchor.Y + 0.5f) * tileSize);
+                return true;
+            }
+        }
+
+        var buildings = simulation.Buildings;
+        if (buildings.Length == 0)
+        {
+            return false;
+        }
+
+        ref readonly var building = ref buildings[Random.Shared.Next(buildings.Length)];
+        anchor = new NpcTownBuilding(building.DefIndex, building.X, building.Y);
+        center = new Vector2((anchor.X + 0.5f) * tileSize, (anchor.Y + 0.5f) * tileSize);
+        return true;
+    }
+
     private void TrySpawn(float dt, Camera2D camera, Simulation simulation, Vector2 min, Vector2 max)
     {
         _spawnTimer -= dt;
@@ -198,12 +233,14 @@ public sealed class AgentSystem
 
         _spawnTimer = SpawnCooldownSeconds;
 
-        // Spawn poblíž náhodné budovy ve výřezu.
-        var buildings = simulation.Buildings;
-        var anchor = buildings[Random.Shared.Next(buildings.Length)];
-        var center = new Vector2(
-            (anchor.X + 0.5f) * TerrainRenderer.TileSize,
-            (anchor.Y + 0.5f) * TerrainRenderer.TileSize);
+        // Spawn poblíž náhodné budovy ve výřezu — vlastní i cizí. Objevené cizí
+        // město bez lidí vypadá jako vyhořelé; když už z něj stojí domy, mají
+        // v nich někoho mít.
+        if (!TryPickAnchor(simulation, out var center, out var anchor))
+        {
+            return;
+        }
+
         if (center.X < min.X || center.X > max.X || center.Y < min.Y || center.Y > max.Y)
         {
             return; // budova mimo pohled — spawn počká na jinou
@@ -219,7 +256,7 @@ public sealed class AgentSystem
 
         // Přístavní budova = šance na loďku. Vyplouvá z vody vedle budovy, takže
         // je hned vidět, odkud jede — právě ten detail dělá pobřeží živým.
-        if (_content.Buildings[anchor.DefIndex].NeedsWaterAccess
+        if (WorksOnWater(_content, _content.Buildings[anchor.DefIndex])
             && Random.Shared.NextSingle() < BoatChance
             && TryFindWaterNear(simulation, anchor, out var launch))
         {
@@ -337,7 +374,38 @@ public sealed class AgentSystem
     }
 
     /// <summary>Najde vodní dlaždici hned vedle budovy — odtud loďka vyplouvá.</summary>
-    private bool TryFindWaterNear(Simulation simulation, in BuildingInstance building, out Vector2 position)
+    /// <summary>
+    /// Pracuje budova na vodě? Poznává se to z dat, ne ze seznamu ID.
+    ///
+    /// <para>Dřív stačilo <c>requiresAdjacentWater</c> — jenže rybářská chatrč
+    /// ho nemá (stojí na pláži), takže z ní nikdy žádná loď nevyplula, i když je
+    /// to ta nejrybářštější budova ve hře. Druhé kritérium je proto „smí stát jen
+    /// na pár pobřežních biomech".</para>
+    /// </summary>
+    private static bool WorksOnWater(GameContent content, BuildingDef def)
+    {
+        if (def.NeedsWaterAccess)
+        {
+            return true;
+        }
+
+        int allowed = 0;
+        bool shore = false;
+        for (int i = 0; i < content.Biomes.Count; i++)
+        {
+            if (!def.IsBiomeAllowed(i))
+            {
+                continue;
+            }
+
+            allowed++;
+            shore |= content.Biomes[i].Id is "beach" or "mangrove";
+        }
+
+        return shore && allowed <= 2;
+    }
+
+    private bool TryFindWaterNear(Simulation simulation, in NpcTownBuilding building, out Vector2 position)
     {
         var def = _content.Buildings[building.DefIndex];
         for (int y = building.Y - 1; y <= building.Y + def.FootprintHeight; y++)

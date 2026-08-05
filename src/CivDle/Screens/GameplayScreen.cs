@@ -85,7 +85,6 @@ public sealed class GameplayScreen : IScreen
     /// <summary>Závoj přes neprozkoumaný svět — kreslí se až nad mapou a budovami.</summary>
     private readonly FogRenderer _fogRenderer;
     private readonly NpcCityRenderer _npcCityRenderer;
-    private readonly BoatSystem _boats;
     private readonly BubbleSystem _bubbles;
     private readonly CaravanSystem _caravans;
     private readonly GoldenSpawnSystem _golden;
@@ -244,8 +243,7 @@ public sealed class GameplayScreen : IScreen
         _toasts = new ToastRenderer(screens.WhitePixel, _popupFont);
         _cityScale = new CityScaleRenderer(screens.WhitePixel, _popupFont);
         _districtRenderer = new DistrictRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont);
-        _npcCityRenderer = new NpcCityRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont);
-        _boats = new BoatSystem(screens.Content);
+        _npcCityRenderer = new NpcCityRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont, screens.Sprites);
 
         var viewport = screens.GraphicsDevice.Viewport;
         _camera.SetViewport(viewport.Width, viewport.Height);
@@ -397,7 +395,6 @@ public sealed class GameplayScreen : IScreen
         if (_camera.Zoom >= CityScaleRenderer.ThresholdZoom)
         {
             _fauna.Update(dt, _camera, _simulation);
-            _boats.Update(dt, _camera, _simulation);
             _traffic.Update(dt, _camera, _simulation);
             _agents.Update(dt, _camera, _simulation);
             _bubbles.Update(dt, _simulation);
@@ -445,7 +442,6 @@ public sealed class GameplayScreen : IScreen
             _buildingRenderer.Draw(spriteBatch, _camera, _simulation);
             _agents.Draw(spriteBatch, _camera);
             _fauna.Draw(spriteBatch, _screens.WhitePixel, _camera);
-            _boats.Draw(spriteBatch, _screens.WhitePixel, _camera);
             _bubbles.Draw(spriteBatch, _camera);
             _caravans.Draw(spriteBatch, _camera);
             _golden.Draw(spriteBatch, _camera);
@@ -701,6 +697,50 @@ public sealed class GameplayScreen : IScreen
 
         HoverTooltip.Draw(spriteBatch, _screens.WhitePixel, _popupFont,
             _screens.GraphicsDevice.Viewport, _input.MousePosition, title, body, accent);
+    }
+
+    /// <summary>
+    /// Objevené cizí město pod dlaždicí. Trefa se počítá na celé jeho zástavbě,
+    /// ne jen na středu — hráč míří na město, ne na jeden pixel.
+    /// </summary>
+    private bool TryGetCityAt(int tileX, int tileY, out NpcCity city)
+    {
+        city = default;
+        if (!_simulation.NpcCitiesEnabled)
+        {
+            return false;
+        }
+
+        foreach (var candidate in _simulation.CitiesNear(tileX, tileY, NpcCityMap.CellTiles))
+        {
+            if (_simulation.TownOf(candidate) is not { } town)
+            {
+                continue;
+            }
+
+            for (int i = 0; i < town.Buildings.Count; i++)
+            {
+                var planned = town.Buildings[i];
+                var def = _screens.Content.Buildings[planned.DefIndex];
+                if (tileX >= planned.X && tileX < planned.X + def.FootprintWidth
+                    && tileY >= planned.Y && tileY < planned.Y + def.FootprintHeight)
+                {
+                    city = candidate;
+                    return true;
+                }
+            }
+
+            for (int i = 0; i < town.Roads.Count; i++)
+            {
+                if (town.Roads[i].X == tileX && town.Roads[i].Y == tileY)
+                {
+                    city = candidate;
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -989,6 +1029,15 @@ public sealed class GameplayScreen : IScreen
         {
             var center = new Vector2((tileX + 0.5f) * TerrainRenderer.TileSize, (tileY + 0.5f) * TerrainRenderer.TileSize);
             CollectFeedback(discRes, discAmt, center);
+            return;
+        }
+
+        // Klik na cizí město otevře jeho obrazovku. Je před budovou schválně:
+        // město je celek, a když na něj hráč klikne, chce jednat s ním — ne
+        // rozklikávat jeden jeho dům.
+        if (TryGetCityAt(tileX, tileY, out var clickedCity))
+        {
+            _screens.Push(new CityScreen(_screens, _simulation, _camera, clickedCity));
             return;
         }
 

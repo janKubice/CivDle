@@ -86,7 +86,7 @@ public sealed class ContentLoader
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
         var vehicles = LoadVehicles(Path.Combine(dataDirectory, "vehicles.json"));
         var faith = LoadFaith(Path.Combine(dataDirectory, "faith.json"), resources);
-        var npcCities = LoadNpcCities(Path.Combine(dataDirectory, "npc-cities.json"), resources);
+        var npcCities = LoadNpcCities(Path.Combine(dataDirectory, "npc-cities.json"), resources, buildings, settlementNames);
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
@@ -99,7 +99,9 @@ public sealed class ContentLoader
     /// Načte pravidla soužití s cizími městy. Chybějící soubor není chyba —
     /// mechanika je volitelná a hra (i starší mody) musí naběhnout bez ní.
     /// </summary>
-    private NpcCityCatalog LoadNpcCities(string path, DefRegistry<Resource> resources)
+    private NpcCityCatalog LoadNpcCities(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings,
+        IReadOnlyList<string> settlementNames)
     {
         if (!File.Exists(path))
         {
@@ -118,17 +120,34 @@ public sealed class ContentLoader
                 throw new ContentLoadException(path, "Druh cizího města bez 'id'.");
             }
 
+            // Z čeho město stojí. Odkaz na neexistující budovu je chyba obsahu —
+            // fail-fast při startu, ne prázdné město po hodině hraní.
+            var palette = new List<int>();
+            foreach (string buildingId in dto.Buildings ?? new List<string>())
+            {
+                if (!buildings.TryIndexOf(buildingId.Trim(), out int buildingIndex))
+                {
+                    throw new ContentLoadException(path,
+                        $"Cizí město '{id}' staví z neexistující budovy '{buildingId}'.");
+                }
+
+                palette.Add(buildingIndex);
+            }
+
             archetypes.Add(new NpcCityArchetype(
                 id,
                 ParseColor(path, dto.MapColor, $"cizí město '{id}'"),
                 Math.Max(0, dto.Population),
-                ParseResourceAmounts(path, id, "trade", dto.Trade, resources)));
+                ParseResourceAmounts(path, id, "trade", dto.Trade, resources),
+                palette));
         }
 
-        var names = file.Names ?? new List<string>();
+        // Jména se berou ze STEJNÉ množiny jako hráčova sídla. Vlastní seznam
+        // dělal z cizích měst jiný svět; sdílená množina je drží ve stejném.
+        var names = settlementNames;
         if (archetypes.Count > 0 && names.Count == 0)
         {
-            throw new ContentLoadException(path, "Cizí města nemají žádná jména ('names').");
+            throw new ContentLoadException(path, "Cizí města nemají odkud vzít jména (settlement-names.json je prázdný).");
         }
 
         return new NpcCityCatalog(

@@ -93,8 +93,11 @@ public sealed class SettlementsScreen : IScreen
         var scroll = new ScrollViewer
         {
             Content = list,
-            Height = 340,
-            Width = 360,
+            // Původních 340×360 bylo na seznam měst s diplomacií málo: karty se
+            // mačkaly a text se lámal doprostřed slova. Panel je teď tak velký,
+            // jak velký ten obsah je.
+            Height = 560,
+            Width = 660,
         };
 
         var layout = new VerticalStackPanel
@@ -165,79 +168,65 @@ public sealed class SettlementsScreen : IScreen
             {
                 Text = loc["npc.none"],
                 Wrap = true,
-                Width = 420,
+                Width = 600,
                 TextColor = new Color(150, 160, 175),
             });
         }
     }
 
+    /// <summary>
+    /// Karta jednoho města: jméno, druh, vztah a stav spojení. Klik otevře
+    /// <see cref="CityScreen"/>.
+    ///
+    /// <para>Diplomacie se dřív celá mačkala sem — tři tlačítka, čtyři řádky
+    /// textu a pruh 430 px. Seznam má odpovědět na „koho znám a jak si stojíme",
+    /// ne na „co teď udělám"; to druhé patří na obrazovku toho města.</para>
+    /// </summary>
     private Widget CityRow(CivDle.Core.Content.Localization loc, CivDle.Core.Content.NpcCityCatalog catalog, NpcCity city)
     {
         var state = _simulation.NpcStateOf(city.Key);
         var archetype = catalog.Archetypes[city.ArchetypeIndex];
 
-        var stack = new VerticalStackPanel { Spacing = 3, Width = 430 };
-        stack.Widgets.Add(new Label
+        var caption = new VerticalStackPanel { Spacing = 4 };
+        caption.Widgets.Add(new Label
         {
-            Text = catalog.Names[city.NameIndex % catalog.Names.Count] + " — " + loc[archetype.NameKey],
+            Text = CityScreen.NameOf(_screens.Content, city),
             TextColor = archetype.MapColor.ToXna(),
+        });
+        caption.Widgets.Add(new Label
+        {
+            Text = loc[archetype.NameKey],
+            TextColor = Color.Gray,
         });
 
         if (state.Absorbed)
         {
-            stack.Widgets.Add(new Label { Text = loc["npc.joined"], TextColor = new Color(150, 220, 150) });
-            return Framed(stack);
-        }
-
-        stack.Widgets.Add(new Label
-        {
-            Text = loc.Format("npc.relation", state.Relation) + "   " + loc.Format("npc.trades", state.Trades),
-            TextColor = Color.LightGray,
-        });
-
-        stack.Widgets.Add(new Label
-        {
-            Text = state.RoadLinked ? loc["npc.linked"] : loc["npc.noLink"],
-            TextColor = state.RoadLinked ? new Color(150, 220, 150) : new Color(235, 170, 110),
-            Wrap = true,
-        });
-
-        var buttons = new HorizontalStackPanel { Spacing = 6 };
-        buttons.Widgets.Add(UiFactory.SmallButton(loc["npc.gift"], () =>
-        {
-            _simulation.TryGiftCity(city.Key);
-            BuildUi();
-        }));
-
-        if (!state.RoadLinked)
-        {
-            buttons.Widgets.Add(UiFactory.SmallButton(loc["npc.connect"], () =>
-            {
-                _simulation.TryConnectCity(city.Key);
-                BuildUi();
-            }));
-        }
-
-        if (state.Relation >= catalog.BuyRelation)
-        {
-            buttons.Widgets.Add(UiFactory.SmallButton(loc["npc.buy"], () =>
-            {
-                _simulation.TryBuyCity(city.Key);
-                BuildUi();
-            }));
+            caption.Widgets.Add(new Label { Text = loc["npc.joined"], TextColor = new Color(150, 220, 150) });
         }
         else
         {
-            stack.Widgets.Add(new Label
+            caption.Widgets.Add(new Label
             {
-                Text = loc.Format("npc.needRelation", catalog.BuyRelation),
-                TextColor = new Color(160, 168, 184),
+                Text = loc.Format("npc.relation", state.Relation) + "   " + loc.Format("npc.trades", state.Trades),
+                TextColor = Color.LightGray,
+            });
+            caption.Widgets.Add(new Label
+            {
+                Text = state.RoadLinked ? loc["npc.linked"] : loc["npc.noLink"],
+                TextColor = state.RoadLinked ? new Color(150, 220, 150) : new Color(235, 170, 110),
             });
         }
 
-        stack.Widgets.Add(buttons);
-        stack.Widgets.Add(new Label { Text = loc["npc.surround"], TextColor = new Color(140, 148, 165), Wrap = true });
-        return Framed(stack);
+        var button = new Button
+        {
+            Content = caption,
+            Width = 600,
+            Padding = new Thickness(14, 10),
+            Background = new SolidBrush(new Color(34, 40, 52, 235)),
+            Tooltip = loc["npc.openTip"],
+        };
+        button.Click += (_, _) => _screens.Push(new CityScreen(_screens, _simulation, _camera, city));
+        return button;
     }
 
     private static Widget Framed(Widget content)
@@ -274,7 +263,7 @@ public sealed class SettlementsScreen : IScreen
         var button = new Button
         {
             Content = caption,
-            Width = 336,
+            Width = 600,
             Padding = new Thickness(12, 8),
             Background = new SolidBrush(new Color(38, 48, 64, 235)),
         };

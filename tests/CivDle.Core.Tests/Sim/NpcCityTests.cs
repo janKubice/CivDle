@@ -22,7 +22,8 @@ public class NpcCityTests
         var archetypes = new[]
         {
             new NpcCityArchetype("farmtown", new RgbColor(1, 1, 1), Population: 25,
-                Trade: new[] { new ResourceAmount(0, 7) }),
+                Trade: new[] { new ResourceAmount(0, 7) },
+                BuildingIndices: new[] { 0 }),
         };
 
         return new NpcCityCatalog(
@@ -289,6 +290,87 @@ public class NpcCityTests
         Assert.Equal(1, state.Trades);
         Assert.Equal(2, state.Relation);       // tradeRelation z katalogu
         Assert.True(paid > 100);               // přátelé platí líp
+    }
+
+    [Fact]
+    public void ADiscoveredTownIsBuiltFromTheSameBuildingsAsThePlayers()
+    {
+        // Hráč si stěžoval, že cizí město nevypadá jako město: byly to barevné
+        // obdélníky. Teď musí stát z týchž definic, jaké staví on — a mít ulici.
+        var sim = NewSim();
+        var city = FirstCity(sim);
+
+        Assert.Null(sim.TownOf(city)); // za mlhou se nic nestaví
+
+        sim.Fog.Reveal(city.X, city.Y, 12);
+        var town = sim.TownOf(city);
+
+        Assert.NotNull(town);
+        Assert.NotEmpty(town!.Buildings);
+        Assert.NotEmpty(town.Roads);
+        Assert.All(town.Buildings, b => Assert.InRange(b.DefIndex, 0, 0)); // paleta testu má jedinou budovu
+    }
+
+    [Fact]
+    public void TheTownLooksTheSameEveryTime()
+    {
+        // Plán se neukládá — na nekonečné mapě musí vyjít pokaždé stejně, jinak
+        // by se město po každém načtení přestavělo.
+        var sim = NewSim();
+        var city = FirstCity(sim);
+        sim.Fog.Reveal(city.X, city.Y, 12);
+
+        var first = sim.TownOf(city)!;
+        var second = NpcTownPlanner.Plan(TestContent.Build(
+            new[] { TestContent.WaterBiome(), TestContent.LandBiome("grass") }, 1,
+            new[] { new Resource("wood", new RgbColor(1, 1, 1), StartAmount: 1000, BaseStorage: 100_000) },
+            gameplay: TestContent.DefaultGameplay, npcCities: Catalog()), sim.Seed, city);
+
+        Assert.Equal(first.Buildings.Count, second.Buildings.Count);
+        Assert.Equal(first.Roads.Count, second.Roads.Count);
+    }
+
+    [Fact]
+    public void JoiningACityHandsOverItsBuildings()
+    {
+        // Tohle je celý smysl obestavění: hráč nedostane číslo, ale město.
+        var sim = NewSim();
+        var city = FirstCity(sim);
+        sim.Fog.Reveal(city.X, city.Y, 12);
+
+        var town = sim.TownOf(city)!;
+        Assert.NotEmpty(town.Buildings);
+
+        int buildingsBefore = sim.Buildings.Length;
+        int roadsBefore = sim.RoadTiles.Count;
+
+        sim.TryGiftCity(city.Key);
+        sim.TryGiftCity(city.Key);
+        Assert.Equal(DiplomacyResult.Ok, sim.TryBuyCity(city.Key));
+
+        Assert.True(sim.Buildings.Length > buildingsBefore,
+            "po připojení má hráč vlastnit i domy toho města");
+        Assert.True(sim.RoadTiles.Count > roadsBefore,
+            "ulice připojeného města patří taky hráči");
+    }
+
+    [Fact]
+    public void RealContent_CitiesAreBuiltFromRealBuildings()
+    {
+        // Kdyby někdo paletu z dat vyhodil, města by byla zase prázdná.
+        var catalog = TestData.LoadRealContent().NpcCities;
+
+        Assert.All(catalog.Archetypes.All, a =>
+            Assert.True(a.BuildingIndices.Count > 0, $"druh '{a.Id}' nemá z čeho stavět"));
+    }
+
+    [Fact]
+    public void RealContent_CitiesShareNamesWithThePlayersSettlements()
+    {
+        // Vlastní seznam jmen dělal z cizích měst jiný svět.
+        var content = TestData.LoadRealContent();
+
+        Assert.Equal(content.SettlementNames, content.NpcCities.Names);
     }
 
     [Fact]

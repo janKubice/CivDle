@@ -7,11 +7,17 @@ namespace CivDle.Core.Content;
 /// <param name="MapColor">Barva značky na mapě.</param>
 /// <param name="Population">Kolik lidí přinese, když se město stane součástí říše.</param>
 /// <param name="Trade">Co pošle v jedné dodávce.</param>
+/// <param name="BuildingIndices">
+/// Z čeho se město staví — indexy do registru budov, <b>tytéž definice, jaké
+/// staví hráč</b>. Paleta je v datech schválně: čím se liší hornická osada od
+/// selského městečka, je obsah, ne kód.
+/// </param>
 public sealed record NpcCityArchetype(
     string Id,
     RgbColor MapColor,
     int Population,
-    IReadOnlyList<ResourceAmount> Trade)
+    IReadOnlyList<ResourceAmount> Trade,
+    IReadOnlyList<int> BuildingIndices)
 {
     /// <summary>Lokalizační klíč druhu města.</summary>
     public string NameKey => $"npc.{Id}";

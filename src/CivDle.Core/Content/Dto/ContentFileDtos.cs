@@ -161,7 +161,8 @@ public sealed record NpcArchetypeDto(
     string? Id,
     string? MapColor,
     int Population,
-    Dictionary<string, int>? Trade);
+    Dictionary<string, int>? Trade,
+    List<string>? Buildings);
 
 /// <summary>Obsah souboru <c>data/faith.json</c>.</summary>
 public sealed record FaithFileDto(int SchemaVersion, string? FaithResource, List<PrayerDto>? Prayers);
