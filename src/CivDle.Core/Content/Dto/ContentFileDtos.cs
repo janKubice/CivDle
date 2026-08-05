@@ -62,7 +62,8 @@ public sealed record BuildingDto(
     string? MinSettlementRank,
     BuildingMilestonesDto? Milestones,
     BuildingSpectacleDto? Spectacle,
-    int ReforestRadius);
+    int ReforestRadius,
+    int ScoutRadius);
 
 /// <summary>Podívaná megastruktury tak, jak leží v JSON.</summary>
 public sealed record BuildingSpectacleDto(string? Effect, double IntervalSeconds);

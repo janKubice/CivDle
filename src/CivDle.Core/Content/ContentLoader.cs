@@ -1823,14 +1823,17 @@ public sealed class ContentLoader
 
         var pollution = ParseBuildingPollution(path, id, dto.Pollution);
 
-        // Údržba musí mít protihodnotu. Legitimní jsou dvě: budova obsluhuje lidi
-        // (serviceValue), nebo čistí okolí — čističku taky nemá smysl stavět a pak
-        // na ni zapomenout. Údržba bez obojího je jen daň za nic.
+        // Údržba musí mít protihodnotu, jinak je to jen daň za nic. Legitimní
+        // důvody: budova obsluhuje lidi (serviceValue), čistí okolí (čističku taky
+        // nemá smysl postavit a zapomenout na ni), nebo hlídá obzor — pátrací
+        // stanice nic nevyrábí a přesto se vyplatí ji držet v provozu.
         var upkeep = ParseResourceAmounts(path, id, "upkeep", dto.Upkeep, resources);
-        if (upkeep.Count > 0 && dto.ServiceValue <= 0 && pollution?.IsCleaner != true)
+        if (upkeep.Count > 0 && dto.ServiceValue <= 0 && pollution?.IsCleaner != true
+            && dto.ScoutRadius <= 0)
         {
             throw new ContentLoadException(path,
-                $"Budova '{id}' má 'upkeep', ale nulový 'serviceValue' a nic nečistí — platila by se údržba za nic.");
+                $"Budova '{id}' má 'upkeep', ale nulový 'serviceValue', nic nečistí a nic nehlídá — "
+                + "platila by se údržba za nic.");
         }
 
         // Sloučení bloku 2×2: cíl se řeší přes ID → index stejně jako vylepšení.
@@ -1869,6 +1872,14 @@ public sealed class ContentLoader
                 $"Budova '{id}' má 'terrainHarvestRadius', ale nic nevyrábí — nemá co z krajiny brát.");
         }
 
+        // Dohled: příliš velký okruh by jednou budovou odhalil půl světa a mlha
+        // by přestala být důvod někam jít.
+        if (dto.ScoutRadius is < 0 or > 120)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': 'scoutRadius' musí být 0–120, je {dto.ScoutRadius}.");
+        }
+
         // Reforestace: příliš velký okruh by z jedné školky udělal nekonečný les
         // a těžba by přestala mít cenu.
         if (dto.ReforestRadius is < 0 or > 24)
@@ -1893,7 +1904,8 @@ public sealed class ContentLoader
             dto.TerrainHarvestRadius, pollution, ParseMinSettlementRank(path, id, dto.MinSettlementRank, ranks),
             ParseMilestones(path, id, dto.Milestones),
             ParseSpectacle(path, id, dto.Spectacle),
-            dto.ReforestRadius);
+            dto.ReforestRadius,
+            dto.ScoutRadius);
     }
 
     /// <summary>

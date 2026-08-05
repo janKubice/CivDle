@@ -64,6 +64,8 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.lumber_camp", SpriteSize, LumberCamp);
         Add(device, "building.lumberyard", SpriteSize, LumberCamp);
         Add(device, "building.tree_nursery", SpriteSize, TreeNursery);
+        Add(device, "building.scout_balloon", SpriteSize, ScoutBalloon);
+        Add(device, "building.radar_station", SpriteSize, RadarStation);
         Add(device, "building.sawmill", SpriteSize, Sawmill);
         Add(device, "building.quarry", SpriteSize, Quarry);
         Add(device, "building.mine", SpriteSize, Mine);
@@ -619,6 +621,26 @@ public sealed class SpriteLibrary : IDisposable
         }
 
         c.FillRect(18, 30, 12, 1, new Color(70, 96, 58));
+    }
+
+    /// <summary>Pátrací balon: kotviště a nad ním balon na laně.</summary>
+    private static void ScoutBalloon(PixelCanvas c)
+    {
+        c.FillRect(10, 26, 12, 5, new Color(110, 92, 64));       // kotviště
+        c.FillRect(15, 14, 1, 12, new Color(180, 170, 150));     // lano
+        c.FillCircle(16f, 10f, 7.5f, new Color(200, 106, 106));  // obal
+        c.FillCircle(16f, 10f, 4.5f, new Color(224, 140, 132));
+        c.FillRect(14, 17, 5, 3, new Color(120, 96, 62));        // koš
+    }
+
+    /// <summary>Radar: budova s otočnou parabolou.</summary>
+    private static void RadarStation(PixelCanvas c)
+    {
+        c.FillRect(6, 20, 20, 11, new Color(96, 108, 118));
+        c.FillRect(8, 22, 16, 3, new Color(70, 82, 92));
+        c.FillRect(15, 12, 2, 9, new Color(150, 160, 170));      // stožár
+        c.FillTriangle(9f, 6f, 23f, 12f, 16f, 14f, new Color(190, 205, 215)); // parabola
+        c.FillCircle(16f, 11f, 1.6f, new Color(120, 200, 210));
     }
 
     private static void Sawmill(PixelCanvas c)

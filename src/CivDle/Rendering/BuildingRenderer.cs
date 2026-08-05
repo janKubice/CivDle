@@ -27,6 +27,12 @@ public sealed class BuildingRenderer
         _sprites = sprites;
     }
 
+    /// <summary>Posun animací (létající balon). Jediný stav rendereru.</summary>
+    private float _time;
+
+    /// <summary>Posune animace budov (houpající se balon nad kotvištěm).</summary>
+    public void Update(float dt) => _time += dt;
+
     /// <summary>Vykreslí všechny viditelné budovy.</summary>
     public void Draw(SpriteBatch spriteBatch, Camera2D camera, Simulation simulation)
     {
@@ -97,6 +103,20 @@ public sealed class BuildingRenderer
             if (showsProsperity)
             {
                 DrawProsperityDetail(spriteBatch, i, prosperity, x, y, width, height);
+            }
+
+            // Balon nad kotvištěm opravdu létá: houpe se a stoupá. Statická
+            // ikona balonu je jen obrázek balonu — tenhle pohyb je celý důvod,
+            // proč si hráč všimne, že ta budova něco dělá.
+            if (def.Scouts && def.FootprintWidth == 1)
+            {
+                float bob = MathF.Sin(_time * 1.3f + building.X * 0.7f + building.Y * 0.4f);
+                var balloon = new Rectangle(x + width / 2 - 5, y - 14 + (int)(bob * 4f), 10, 12);
+                spriteBatch.Draw(_pixel, new Rectangle(x + width / 2, y - 2 + (int)(bob * 4f), 1, 12),
+                    new Color(180, 170, 150)); // lano
+                spriteBatch.Draw(_pixel, balloon, new Color(200, 106, 106));
+                spriteBatch.Draw(_pixel, new Rectangle(balloon.X + 2, balloon.Y + 2, 6, 5),
+                    new Color(224, 140, 132));
             }
 
             // Stojící budova má být VIDĚT — a hlavně má být poznat PROČ. Jeden

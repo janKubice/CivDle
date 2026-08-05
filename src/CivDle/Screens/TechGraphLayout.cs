@@ -38,11 +38,21 @@ public sealed class TechGraphLayout
     /// <summary>Klikací (a hover) čtverec kolem hvězdy.</summary>
     public const int HitSize = 52;
 
-    /// <summary>Rozestup prstenců. Vnitřní jsou hustší, vnější potřebují víc místa.</summary>
-    private const int RingSpacing = 190;
+    /// <summary>
+    /// Nejmenší rozestup prstenců. Skutečný se dopočítá z počtu listů — viz
+    /// <see cref="SpacingFor"/>. Kdyby byl pevný, každé přidání pár technologií
+    /// by hvězdy na okraji naskládalo na sebe.
+    /// </summary>
+    private const int MinRingSpacing = 190;
 
-    /// <summary>Poloměr prvního prstence — kolem kořene musí zbýt místo na popisek.</summary>
-    private const int InnerRadius = 150;
+    /// <summary>Rozestup prstenců téhle hvězdice (spočítaný v konstruktoru).</summary>
+    private readonly int _ringSpacing;
+
+    /// <summary>Nejmenší poloměr prvního prstence — kolem kořene musí zbýt místo na popisek.</summary>
+    private const int MinInnerRadius = 150;
+
+    /// <summary>Poloměr prvního prstence téhle hvězdice (spočítaný v konstruktoru).</summary>
+    private readonly int _innerRadius;
 
     private const int Margin = 170;
 
@@ -81,7 +91,18 @@ public sealed class TechGraphLayout
             maxDepth = Math.Max(maxDepth, depth[i]);
         }
 
-        int radius = InnerRadius + maxDepth * RingSpacing;
+        int totalLeavesForSpacing = 0;
+        for (int i = 0; i < count; i++)
+        {
+            if (_parent[i] < 0)
+            {
+                totalLeavesForSpacing += leaves[i];
+            }
+        }
+
+        _innerRadius = InnerRadiusFor(totalLeavesForSpacing);
+        _ringSpacing = MinRingSpacing;
+        int radius = _innerRadius + maxDepth * _ringSpacing;
         Width = Height = 2 * (radius + Margin);
         var origin = new Vector2(Width / 2f, Height / 2f);
         _origin = origin;
@@ -179,7 +200,26 @@ public sealed class TechGraphLayout
         (float)(Math.Cos(angle) * radius),
         (float)(Math.Sin(angle) * radius));
 
-    private static float RadiusAt(int depth) => depth == 0 ? 0f : InnerRadius + (depth - 1) * RingSpacing;
+    private float RadiusAt(int depth) => depth == 0 ? 0f : _innerRadius + (depth - 1) * _ringSpacing;
+
+    /// <summary>
+    /// Jak velký musí být PRVNÍ prstenec, aby se žádné dvě hvězdy nedotýkaly.
+    ///
+    /// <para>Úhlová šířka uzlu je úměrná jeho listům, takže na jeden list připadá
+    /// oblouk <c>2πR / listy</c>. Nejtěsněji je proto tam, kde list sedí
+    /// <b>nejblíž středu</b> — ne na nejzazším prstenci, jak by se čekalo.
+    /// (Tuhle úvahu jsem měl napoprvé obráceně a rozestup prstenců problém
+    /// neřešil: sourozenci <c>ledgers</c> a <c>market_scales</c> na druhém
+    /// prstenci zůstali 33 px od sebe.)</para>
+    ///
+    /// <para>Když tedy vyjde první prstenec dost velký, jsou v pořádku i všechny
+    /// další — a strom snese libovolný počet technologií, aniž by se okraj slil.</para>
+    /// </summary>
+    private static int InnerRadiusFor(int totalLeaves)
+    {
+        const float perLeaf = StarSize * 2.6f; // hvězda a k tomu dýchací prostor
+        return Math.Max(MinInnerRadius, (int)MathF.Ceiling(totalLeaves * perLeaf / MathF.Tau));
+    }
 
     /// <summary>Klikací čtverec kolem hvězdy (hit test i culling).</summary>
     public Rectangle Bounds(int techIndex)
