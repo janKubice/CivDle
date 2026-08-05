@@ -1,0 +1,1732 @@
+From c410b04c3c99688b04d09be5fa85c8a3344a319f Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 5 Aug 2026 09:47:13 +0000
+Subject: [PATCH 2/2] =?UTF-8?q?Dohled=20do=20mlhy,=20zabalen=C3=A1=20li?=
+ =?UTF-8?q?=C5=A1ta=20surovin=20a=2018=20drobn=C3=BDch=20v=C3=BDzkum=C5=AF?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Objevování bylo jen chůze. Pátrací balon (za Vzduchoplavbou) a radarová
+stanice (za Radarem) odhalují mlhu samy a efekt se sčítá — víc stanic vidí
+dál. Odhaluje se po prstencích ven, ne celý okruh naráz: radar s dosahem 70
+dlaždic by jinak jedním voláním prošel skoro dvacet tisíc dlaždic. Balon
+nad kotvištěm opravdu létá.
+
+Lišta surovin se zabalila do řádků podle šířky okna. S devatenácti
+surovinami by v jedné řadě přetekla z obrazovky; skládají se do ní jen ty
+známé, takže se nedělají díry po neobjevených.
+
+Strom výzkumu dostal 18 drobných uzlů (provaznictví, milíře, sklepy,
+rozhledny…). Každý visí pod už dosažitelnou technologií a platí se jen tím,
+co v tu chvíli existuje — prošlo to testem ekonomické průchodnosti.
+
+Dvě věci, které to odhalilo:
+- Pravidlo o údržbě neznalo dohled a shodilo start: budova s upkeep musela
+  mít serviceValue nebo čistit. Pátrací stanice je třetí legitimní důvod.
+- V hvězdici se dvě hvězdy dotkly. Napoprvé jsem to spočítal obráceně —
+  omezující není nejzazší prstenec, ale list NEJBLÍŽ středu, protože úhlová
+  šířka je úměrná listům. Poloměr prvního prstence se teď dopočítá z počtu
+  listů, takže strom snese libovolný počet technologií.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01L1ujUYBWCiur9RrBhEzUtp
+---
+ data/buildings.json                           |  59 ++++
+ data/lang/cs.json                             |  44 +++
+ data/lang/de.json                             |  44 +++
+ data/lang/en.json                             |  44 +++
+ data/lang/es.json                             |  44 +++
+ data/lang/pl.json                             |  44 +++
+ data/tech.json                                | 251 ++++++++++++++++++
+ src/CivDle.Core/Content/BuildingDef.cs        |  12 +-
+ src/CivDle.Core/Content/ContentLoader.cs      |  24 +-
+ .../Content/Dto/ContentFileDtos.cs            |   3 +-
+ src/CivDle.Core/Sim/Simulation.cs             |  36 +++
+ src/CivDle/Rendering/BuildingRenderer.cs      |  20 ++
+ src/CivDle/Rendering/Sprites/SpriteLibrary.cs |  22 ++
+ src/CivDle/Screens/GameplayScreen.cs          |  66 ++++-
+ src/CivDle/Screens/TechGraphLayout.cs         |  52 +++-
+ tests/CivDle.Core.Tests/Sim/ReforestTests.cs  |  10 +
+ 16 files changed, 753 insertions(+), 22 deletions(-)
+
+diff --git a/data/buildings.json b/data/buildings.json
+index f92d5c8..9a65f71 100644
+--- a/data/buildings.json
++++ b/data/buildings.json
+@@ -2418,6 +2418,65 @@
+       ],
+       "autoBuild": true
+     },
++    {
++      "id": "scout_balloon",
++      "category": "civic",
++      "mapColor": "#C86A6A",
++      "footprint": [
++        1,
++        1
++      ],
++      "workerSlots": 1,
++      "buildCost": {
++        "planks": 35,
++        "tools": 8
++      },
++      "allowedBiomes": [
++        "grassland",
++        "steppe",
++        "savanna",
++        "tundra",
++        "desert",
++        "highlands",
++        "forest",
++        "taiga",
++        "beach"
++      ],
++      "scoutRadius": 26,
++      "upkeep": {
++        "food": 1
++      }
++    },
++    {
++      "id": "radar_station",
++      "category": "civic",
++      "mapColor": "#6AC8C8",
++      "footprint": [
++        2,
++        2
++      ],
++      "workerSlots": 3,
++      "buildCost": {
++        "steel": 60,
++        "electronics": 20
++      },
++      "allowedBiomes": [
++        "grassland",
++        "steppe",
++        "savanna",
++        "tundra",
++        "desert",
++        "highlands",
++        "forest",
++        "taiga",
++        "beach"
++      ],
++      "scoutRadius": 70,
++      "powerDemand": 4,
++      "upkeep": {
++        "tools": 1
++      }
++    },
+     {
+       "id": "fountain_square",
+       "category": "civic",
+diff --git a/data/lang/cs.json b/data/lang/cs.json
+index 4aa2ef8..13b8011 100644
+--- a/data/lang/cs.json
++++ b/data/lang/cs.json
+@@ -296,12 +296,16 @@
+     "building.pollutesArea": "Špiní okolí",
+     "building.pollutionPenalty": "Zamořené okolí: výroba {0}",
+     "building.quarry": "Kamenolom",
++    "building.radar_station": "Radarová stanice",
++    "building.radar_station.desc": "Prohledává obzor daleko za dohled balonů. Žere proud i nástroje.",
+     "building.research_lab": "Výzkumný ústav",
+     "building.roadConnected": "Napojeno na silniční síť",
+     "building.roadMissing": "Bez napojení na silnici — vyrábí jen na {0} %. Cesta se natáhne sama, až poblíž vyroste další budova.",
+     "building.robotics_lab": "Robotická laboratoř",
+     "building.sawmill": "Pila",
+     "building.school": "Škola",
++    "building.scout_balloon": "Pátrací balon",
++    "building.scout_balloon.desc": "Vzlétne nad krajinu a postupně odhaluje mlhu kolem sebe. Víc balonů dohlédne dál.",
+     "building.shrine": "Svatyně",
+     "building.silicon_mine": "Křemíkový důl",
+     "building.smeltery": "Huť",
+@@ -1107,8 +1111,12 @@
+     "status.roadErase": "Tažením strhni silnici.",
+     "tech.academies": "Akademie",
+     "tech.academies.desc": "Výroba vědy 25 % vyšší.",
++    "tech.aeronautics": "Vzduchoplavba",
++    "tech.aeronautics.desc": "Co se vznese, dohlédne dál než kdokoli pěšky. Odemyká pátrací balon.",
+     "tech.alloys": "Slitiny",
+     "tech.alloys.desc": "Odemyká bronzovou kovárnu (bronz + prkna → nástroje).",
++    "tech.apprenticeships": "Učednictví",
++    "tech.apprenticeships.desc": "Drobné vylepšení, ale sčítá se.",
+     "tech.aqueducts": "Akvadukty",
+     "tech.aqueducts.desc": "Růst populace +30 %.",
+     "tech.arcology_design": "Návrh arkologií",
+@@ -1138,6 +1146,12 @@
+     "tech.canResearch": "▸ Můžeš vyzkoumat hned",
+     "tech.cartography": "Kartografie",
+     "tech.cartography.desc": "Offline postup +25 %.",
++    "tech.cellars": "Sklepy",
++    "tech.cellars.desc": "Drobné vylepšení, ale sčítá se.",
++    "tech.charcoal_pits": "Milíře",
++    "tech.charcoal_pits.desc": "Drobné vylepšení, ale sčítá se.",
++    "tech.chisels": "Dláta",
++    "tech.chisels.desc": "Drobné vylepšení, ale sčítá se.",
+     "tech.city_blocks": "Městské bloky",
+     "tech.city_blocks.desc": "Slouč čtyři domy nebo chalupy v jednu větší budovu.",
+     "tech.city_planning_office": "Útvar hlavního architekta",
+@@ -1160,8 +1174,12 @@
+     "tech.crop_rotation.desc": "Růst populace +20 %.",
+     "tech.crop_rotation_beans": "Luskoviny v osevu",
+     "tech.crop_rotation_beans.desc": "Výroba jídla 8 % vyšší.",
++    "tech.crop_terraces": "Terasová pole",
++    "tech.crop_terraces.desc": "Drobné vylepšení, ale sčítá se.",
+     "tech.crucible_steel": "Kelímková ocel",
+     "tech.crucible_steel.desc": "Výroba oceli 12 % vyšší.",
++    "tech.crucibles": "Kelímky",
++    "tech.crucibles.desc": "Drobné vylepšení, ale sčítá se.",
+     "tech.deep_mining": "Hlubinná těžba",
+     "tech.deep_mining.desc": "Ruční sběr +40 %.",
+     "tech.earthmoving": "Zemní práce",
+@@ -1174,6 +1192,8 @@
+     "tech.environmental_engineering.desc": "Odemkne čističku vzduchu a čističku vod.",
+     "tech.festival_calendar": "Kalendář svátků",
+     "tech.festival_calendar.desc": "Slavnosti o 20 % silnější.",
++    "tech.festival_lanterns": "Slavnostní lampiony",
++    "tech.festival_lanterns.desc": "Drobné vylepšení, ale sčítá se.",
+     "tech.file_and_rasp": "Pilník a rašple",
+     "tech.file_and_rasp.desc": "Výroba nástrojů 8 % vyšší.",
+     "tech.forest_roads": "Lesní cesty",
+@@ -1182,6 +1202,8 @@
+     "tech.fusion.desc": "Odemyká fúzní elektrárnu a nanovýrobnu — věk budoucnosti.",
+     "tech.genomics": "Genomika",
+     "tech.genomics.desc": "Růst populace +80 %.",
++    "tech.grain_drying": "Sušení obilí",
++    "tech.grain_drying.desc": "Drobné vylepšení, ale sčítá se.",
+     "tech.granary": "Sýpky",
+     "tech.granary.desc": "Kapacita skladů +25 %.",
+     "tech.graphHelp": "Táhni myší nebo WASD · kolečkem přiblížíš · najeď na hvězdu · klikni a vyzkoumej",
+@@ -1205,6 +1227,8 @@
+     "tech.land_reclamation.desc": "Odemkne sanaci půdy — otrávenou zem jde vrátit do pořádku.",
+     "tech.lecture_halls": "Přednáškové sály",
+     "tech.lecture_halls.desc": "Výroba vědy 20 % vyšší.",
++    "tech.ledgers": "Účetní knihy",
++    "tech.ledgers.desc": "Drobné vylepšení, ale sčítá se.",
+     "tech.lifts": "Výtahy",
+     "tech.lifts.desc": "Budovy ubytují o 15 % víc lidí.",
+     "tech.load_manifests": "Nákladní listy",
+@@ -1214,8 +1238,12 @@
+     "tech.logistics_ai.desc": "Kapacita skladů +100 %.",
+     "tech.longevity": "Dlouhověkost",
+     "tech.longevity.desc": "Růst populace +150 %.",
++    "tech.lookout_posts": "Rozhledny",
++    "tech.lookout_posts.desc": "Drobné vylepšení, ale sčítá se.",
+     "tech.lucky_strike": "Šťastná ruka",
+     "tech.lucky_strike.desc": "Šance na trefu o 3 % vyšší.",
++    "tech.market_scales": "Tržní váhy",
++    "tech.market_scales.desc": "Drobné vylepšení, ale sčítá se.",
+     "tech.masonry": "Zednictví",
+     "tech.masonry.desc": "Bydlení z budov +20 %.",
+     "tech.matter_synthesis": "Syntéza hmoty",
+@@ -1233,6 +1261,8 @@
+     "tech.needs": "Chybí: {0}",
+     "tech.networks": "Sítě",
+     "tech.networks.desc": "Offline postup +75 %.",
++    "tech.night_shifts": "Noční směny",
++    "tech.night_shifts.desc": "Drobné vylepšení, ale sčítá se.",
+     "tech.orbital_survey": "Orbitální průzkum",
+     "tech.orbital_survey.desc": "Offline postup +150 %.",
+     "tech.ore_sorting": "Třídění rudy",
+@@ -1257,6 +1287,8 @@
+     "tech.quarry_ramps.desc": "Výroba kamene 9 % vyšší.",
+     "tech.quenching": "Kalení",
+     "tech.quenching.desc": "Výroba nástrojů 10 % vyšší.",
++    "tech.radar": "Radar",
++    "tech.radar.desc": "Obzor se dá prohledávat i bez očí. Odemyká radarovou stanici.",
+     "tech.rail_freight": "Nákladní železnice",
+     "tech.rail_freight.desc": "Kapacita skladů +60 %.",
+     "tech.research": "Vyzkoumat",
+@@ -1265,6 +1297,8 @@
+     "tech.rituals.desc": "Odemkne svatyni — první budovu, která nese víru.",
+     "tech.robotics": "Robotika",
+     "tech.robotics.desc": "Odemyká robotickou laboratoř (počítače + nanomateriál → roboti).",
++    "tech.rope_making": "Provaznictví",
++    "tech.rope_making.desc": "Drobné vylepšení, ale sčítá se.",
+     "tech.sacred_architecture": "Sakrální architektura",
+     "tech.sacred_architecture.desc": "Katedrála: práce na generace, vidět odevšad.",
+     "tech.sanitation": "Kanalizace",
+@@ -1277,6 +1311,8 @@
+     "tech.scriptoria.desc": "Velká knihovna. Vědění, které si zaslouží pořádnou střechu.",
+     "tech.seasoned_timber": "Vyzrálé dřevo",
+     "tech.seasoned_timber.desc": "Výroba prken 8 % vyšší.",
++    "tech.seed_selection": "Výběr semen",
++    "tech.seed_selection.desc": "Drobné vylepšení, ale sčítá se.",
+     "tech.selective_breeding": "Šlechtění",
+     "tech.selective_breeding.desc": "Výroba jídla 12 % vyšší.",
+     "tech.self_assembly": "Samosestavení",
+@@ -1291,8 +1327,14 @@
+     "tech.steam_power.desc": "Odemyká ocelárnu (železo + uhlí → ocel) — nástup průmyslu.",
+     "tech.steel_frames": "Ocelové skelety",
+     "tech.steel_frames.desc": "Bydlení z budov +50 %.",
++    "tech.stone_sledges": "Kamenné smyky",
++    "tech.stone_sledges.desc": "Drobné vylepšení, ale sčítá se.",
++    "tech.street_wells": "Pouliční studny",
++    "tech.street_wells.desc": "Drobné vylepšení, ale sčítá se.",
+     "tech.sturdy_handles": "Pevná topůrka",
+     "tech.sturdy_handles.desc": "Výroba dřeva 5 % vyšší.",
++    "tech.surveying": "Zeměměřičství",
++    "tech.surveying.desc": "Drobné vylepšení, ale sčítá se.",
+     "tech.telegraph": "Telegraf",
+     "tech.telegraph.desc": "Offline postup +40 %.",
+     "tech.tenement_codes": "Stavební řád",
+@@ -1301,6 +1343,8 @@
+     "tech.terraforming.desc": "Odemyká přetváření krajiny — zavlažování, odvodňování a zalesňování.",
+     "tech.theology": "Teologie",
+     "tech.theology.desc": "Odemkne klášter — víra i vědění pod jednou střechou.",
++    "tech.tiled_roofs": "Taškové střechy",
++    "tech.tiled_roofs.desc": "Drobné vylepšení, ale sčítá se.",
+     "tech.tooExpensive": "▸ Zatím nemáš suroviny",
+     "tech.tools": "Nástroje",
+     "tech.tools.desc": "Odemyká nástrojárnu (prkna → nástroje).",
+diff --git a/data/lang/de.json b/data/lang/de.json
+index 4af6689..edbf15a 100644
+--- a/data/lang/de.json
++++ b/data/lang/de.json
+@@ -296,12 +296,16 @@
+     "building.pollutesArea": "Verpestet die Umgebung",
+     "building.pollutionPenalty": "Verseuchter Boden: Ertrag {0}",
+     "building.quarry": "Steinbruch",
++    "building.radar_station": "Radarstation",
++    "building.radar_station.desc": "Tastet den Horizont weit jenseits der Ballons ab. Braucht Strom und Werkzeug.",
+     "building.research_lab": "Forschungsinstitut",
+     "building.roadConnected": "Ans Straßennetz angeschlossen",
+     "building.roadMissing": "Kein Straßenanschluss — läuft mit {0} %. Sobald nebenan etwas gebaut wird, entsteht die Straße von selbst.",
+     "building.robotics_lab": "Roboterlabor",
+     "building.sawmill": "Sägewerk",
+     "building.school": "Schule",
++    "building.scout_balloon": "Aufklärungsballon",
++    "building.scout_balloon.desc": "Steigt über das Land und lichtet nach und nach den Nebel. Mehr Ballons sehen weiter.",
+     "building.shrine": "Schrein",
+     "building.silicon_mine": "Siliziummine",
+     "building.smeltery": "Schmelzhütte",
+@@ -1107,8 +1111,12 @@
+     "status.roadErase": "Ziehen, um Straßen abzureißen.",
+     "tech.academies": "Akademien",
+     "tech.academies.desc": "Wissenschaft-Produktion +25 %.",
++    "tech.aeronautics": "Luftfahrt",
++    "tech.aeronautics.desc": "Was aufsteigt, sieht weiter als jeder zu Fuß. Schaltet den Aufklärungsballon frei.",
+     "tech.alloys": "Legierungen",
+     "tech.alloys.desc": "Schaltet die Bronzeschmiede frei (Bronze + Bretter → Werkzeug).",
++    "tech.apprenticeships": "Lehrjahre",
++    "tech.apprenticeships.desc": "Eine kleine Verbesserung, die sich summiert.",
+     "tech.aqueducts": "Aquädukte",
+     "tech.aqueducts.desc": "Bevölkerungswachstum +30 %.",
+     "tech.arcology_design": "Arkologie-Entwurf",
+@@ -1138,6 +1146,12 @@
+     "tech.canResearch": "▸ Bereit zur Forschung",
+     "tech.cartography": "Kartografie",
+     "tech.cartography.desc": "Offline-Fortschritt +25 %.",
++    "tech.cellars": "Keller",
++    "tech.cellars.desc": "Eine kleine Verbesserung, die sich summiert.",
++    "tech.charcoal_pits": "Kohlenmeiler",
++    "tech.charcoal_pits.desc": "Eine kleine Verbesserung, die sich summiert.",
++    "tech.chisels": "Meißel",
++    "tech.chisels.desc": "Eine kleine Verbesserung, die sich summiert.",
+     "tech.city_blocks": "Häuserblöcke",
+     "tech.city_blocks.desc": "Verschmilz vier Häuser oder Katen zu einem größeren Gebäude.",
+     "tech.city_planning_office": "Stadtplanungsamt",
+@@ -1160,8 +1174,12 @@
+     "tech.crop_rotation.desc": "Bevölkerungswachstum +20 %.",
+     "tech.crop_rotation_beans": "Hülsenfrüchte im Wechsel",
+     "tech.crop_rotation_beans.desc": "Nahrung-Produktion +8 %.",
++    "tech.crop_terraces": "Terrassenfelder",
++    "tech.crop_terraces.desc": "Eine kleine Verbesserung, die sich summiert.",
+     "tech.crucible_steel": "Tiegelstahl",
+     "tech.crucible_steel.desc": "Stahl-Produktion +12 %.",
++    "tech.crucibles": "Schmelztiegel",
++    "tech.crucibles.desc": "Eine kleine Verbesserung, die sich summiert.",
+     "tech.deep_mining": "Tiefbau",
+     "tech.deep_mining.desc": "Handernte +40 %.",
+     "tech.earthmoving": "Erdbau",
+@@ -1174,6 +1192,8 @@
+     "tech.environmental_engineering.desc": "Schaltet Luftfilter und Kläranlage frei.",
+     "tech.festival_calendar": "Festkalender",
+     "tech.festival_calendar.desc": "Feste 20 % stärker.",
++    "tech.festival_lanterns": "Festlaternen",
++    "tech.festival_lanterns.desc": "Eine kleine Verbesserung, die sich summiert.",
+     "tech.file_and_rasp": "Feile und Raspel",
+     "tech.file_and_rasp.desc": "Werkzeug-Produktion +8 %.",
+     "tech.forest_roads": "Waldwege",
+@@ -1182,6 +1202,8 @@
+     "tech.fusion.desc": "Schaltet Fusionskraftwerk und Nanoschmiede frei — das Zeitalter der Zukunft.",
+     "tech.genomics": "Genomik",
+     "tech.genomics.desc": "Bevölkerungswachstum +80 %.",
++    "tech.grain_drying": "Getreidetrocknung",
++    "tech.grain_drying.desc": "Eine kleine Verbesserung, die sich summiert.",
+     "tech.granary": "Kornspeicher",
+     "tech.granary.desc": "Lagerkapazität +25 %.",
+     "tech.graphHelp": "Ziehen oder WASD zum Bewegen · Rad zum Zoomen · über einen Stern fahren · zum Forschen klicken",
+@@ -1205,6 +1227,8 @@
+     "tech.land_reclamation.desc": "Schaltet die Bodensanierung frei — vergifteter Boden lässt sich zurückholen.",
+     "tech.lecture_halls": "Hörsäle",
+     "tech.lecture_halls.desc": "Wissenschaft-Produktion +20 %.",
++    "tech.ledgers": "Kontobücher",
++    "tech.ledgers.desc": "Eine kleine Verbesserung, die sich summiert.",
+     "tech.lifts": "Aufzüge",
+     "tech.lifts.desc": "Gebäude beherbergen 15 % mehr Menschen.",
+     "tech.load_manifests": "Frachtbriefe",
+@@ -1214,8 +1238,12 @@
+     "tech.logistics_ai.desc": "Lagerkapazität +100 %.",
+     "tech.longevity": "Langlebigkeit",
+     "tech.longevity.desc": "Bevölkerungswachstum +150 %.",
++    "tech.lookout_posts": "Aussichtsposten",
++    "tech.lookout_posts.desc": "Eine kleine Verbesserung, die sich summiert.",
+     "tech.lucky_strike": "Glückstreffer",
+     "tech.lucky_strike.desc": "Volltrefferchance +3 %.",
++    "tech.market_scales": "Marktwaagen",
++    "tech.market_scales.desc": "Eine kleine Verbesserung, die sich summiert.",
+     "tech.masonry": "Steinmetzkunst",
+     "tech.masonry.desc": "Wohnraum der Gebäude +20 %.",
+     "tech.matter_synthesis": "Materiesynthese",
+@@ -1233,6 +1261,8 @@
+     "tech.needs": "Erfordert: {0}",
+     "tech.networks": "Netzwerke",
+     "tech.networks.desc": "Offline-Fortschritt +75 %.",
++    "tech.night_shifts": "Nachtschichten",
++    "tech.night_shifts.desc": "Eine kleine Verbesserung, die sich summiert.",
+     "tech.orbital_survey": "Orbitalvermessung",
+     "tech.orbital_survey.desc": "Offline-Fortschritt +150 %.",
+     "tech.ore_sorting": "Erzsortierung",
+@@ -1257,6 +1287,8 @@
+     "tech.quarry_ramps.desc": "Stein-Produktion +9 %.",
+     "tech.quenching": "Härten",
+     "tech.quenching.desc": "Werkzeug-Produktion +10 %.",
++    "tech.radar": "Radar",
++    "tech.radar.desc": "Der Horizont lässt sich auch ohne Augen absuchen. Schaltet die Radarstation frei.",
+     "tech.rail_freight": "Güterbahn",
+     "tech.rail_freight.desc": "Lagerkapazität +60 %.",
+     "tech.research": "Erforschen",
+@@ -1265,6 +1297,8 @@
+     "tech.rituals.desc": "Schaltet den Schrein frei — das erste Gebäude, das Glauben trägt.",
+     "tech.robotics": "Robotik",
+     "tech.robotics.desc": "Schaltet das Roboterlabor frei (Rechner + Nanomaterial → Roboter).",
++    "tech.rope_making": "Seilerei",
++    "tech.rope_making.desc": "Eine kleine Verbesserung, die sich summiert.",
+     "tech.sacred_architecture": "Sakralarchitektur",
+     "tech.sacred_architecture.desc": "Eine Kathedrale: Generationen von Arbeit, von überall zu sehen.",
+     "tech.sanitation": "Hygiene",
+@@ -1277,6 +1311,8 @@
+     "tech.scriptoria.desc": "Eine große Bibliothek. Wissen, das ein ordentliches Dach verdient.",
+     "tech.seasoned_timber": "Abgelagertes Holz",
+     "tech.seasoned_timber.desc": "Brettern-Produktion +8 %.",
++    "tech.seed_selection": "Saatgutauswahl",
++    "tech.seed_selection.desc": "Eine kleine Verbesserung, die sich summiert.",
+     "tech.selective_breeding": "Zuchtwahl",
+     "tech.selective_breeding.desc": "Nahrung-Produktion +12 %.",
+     "tech.self_assembly": "Selbstmontage",
+@@ -1291,8 +1327,14 @@
+     "tech.steam_power.desc": "Schaltet das Stahlwerk frei (Eisen + Kohle → Stahl) — der Aufstieg der Industrie.",
+     "tech.steel_frames": "Stahlskelettbau",
+     "tech.steel_frames.desc": "Wohnraum der Gebäude +50 %.",
++    "tech.stone_sledges": "Steinschlitten",
++    "tech.stone_sledges.desc": "Eine kleine Verbesserung, die sich summiert.",
++    "tech.street_wells": "Straßenbrunnen",
++    "tech.street_wells.desc": "Eine kleine Verbesserung, die sich summiert.",
+     "tech.sturdy_handles": "Feste Stiele",
+     "tech.sturdy_handles.desc": "Holz-Produktion +5 %.",
++    "tech.surveying": "Landvermessung",
++    "tech.surveying.desc": "Eine kleine Verbesserung, die sich summiert.",
+     "tech.telegraph": "Telegraf",
+     "tech.telegraph.desc": "Offline-Fortschritt +40 %.",
+     "tech.tenement_codes": "Bauordnung",
+@@ -1301,6 +1343,8 @@
+     "tech.terraforming.desc": "Schaltet das Umformen des Landes frei — Bewässerung, Trockenlegung und Aufforstung.",
+     "tech.theology": "Theologie",
+     "tech.theology.desc": "Schaltet das Kloster frei — Glaube und Wissen unter einem Dach.",
++    "tech.tiled_roofs": "Ziegeldächer",
++    "tech.tiled_roofs.desc": "Eine kleine Verbesserung, die sich summiert.",
+     "tech.tooExpensive": "▸ Noch nicht genug Rohstoffe",
+     "tech.tools": "Werkzeug",
+     "tech.tools.desc": "Schaltet den Werkzeugmacher frei (Bretter → Werkzeug).",
+diff --git a/data/lang/en.json b/data/lang/en.json
+index ed41fd0..f5f151d 100644
+--- a/data/lang/en.json
++++ b/data/lang/en.json
+@@ -296,12 +296,16 @@
+     "building.pollutesArea": "Fouls the surrounding area",
+     "building.pollutionPenalty": "Polluted ground: output {0}",
+     "building.quarry": "Quarry",
++    "building.radar_station": "Radar Station",
++    "building.radar_station.desc": "Sweeps the horizon far beyond balloon range. Draws power and tools.",
+     "building.research_lab": "Research Institute",
+     "building.roadConnected": "Connected to the road network",
+     "building.roadMissing": "No road connection — running at {0}%. A road appears on its own once another building goes up nearby.",
+     "building.robotics_lab": "Robotics Lab",
+     "building.sawmill": "Sawmill",
+     "building.school": "School",
++    "building.scout_balloon": "Scout Balloon",
++    "building.scout_balloon.desc": "Rises above the land and slowly lifts the fog around it. More balloons see further.",
+     "building.shrine": "Shrine",
+     "building.silicon_mine": "Silicon Mine",
+     "building.smeltery": "Smeltery",
+@@ -1107,8 +1111,12 @@
+     "status.roadErase": "Drag to tear up roads.",
+     "tech.academies": "Academies",
+     "tech.academies.desc": "Science production up 25 %.",
++    "tech.aeronautics": "Aeronautics",
++    "tech.aeronautics.desc": "What rises sees further than anyone on foot. Unlocks the scout balloon.",
+     "tech.alloys": "Alloys",
+     "tech.alloys.desc": "Unlocks the bronze smith (bronze + planks → tools).",
++    "tech.apprenticeships": "Apprenticeships",
++    "tech.apprenticeships.desc": "A small improvement, but it adds up.",
+     "tech.aqueducts": "Aqueducts",
+     "tech.aqueducts.desc": "Population growth +30%.",
+     "tech.arcology_design": "Arcology Design",
+@@ -1138,6 +1146,12 @@
+     "tech.canResearch": "▸ Ready to research",
+     "tech.cartography": "Cartography",
+     "tech.cartography.desc": "Offline progress +25%.",
++    "tech.cellars": "Cellars",
++    "tech.cellars.desc": "A small improvement, but it adds up.",
++    "tech.charcoal_pits": "Charcoal Pits",
++    "tech.charcoal_pits.desc": "A small improvement, but it adds up.",
++    "tech.chisels": "Chisels",
++    "tech.chisels.desc": "A small improvement, but it adds up.",
+     "tech.city_blocks": "City Blocks",
+     "tech.city_blocks.desc": "Merge four houses or cottages into one larger building.",
+     "tech.city_planning_office": "City Planning Office",
+@@ -1160,8 +1174,12 @@
+     "tech.crop_rotation.desc": "Population growth +20%.",
+     "tech.crop_rotation_beans": "Beans in Rotation",
+     "tech.crop_rotation_beans.desc": "Food production up 8 %.",
++    "tech.crop_terraces": "Crop Terraces",
++    "tech.crop_terraces.desc": "A small improvement, but it adds up.",
+     "tech.crucible_steel": "Crucible Steel",
+     "tech.crucible_steel.desc": "Steel production up 12 %.",
++    "tech.crucibles": "Crucibles",
++    "tech.crucibles.desc": "A small improvement, but it adds up.",
+     "tech.deep_mining": "Deep Mining",
+     "tech.deep_mining.desc": "Hand harvest +40%.",
+     "tech.earthmoving": "Earthmoving",
+@@ -1174,6 +1192,8 @@
+     "tech.environmental_engineering.desc": "Unlocks the air scrubber and the water treatment plant.",
+     "tech.festival_calendar": "Festival Calendar",
+     "tech.festival_calendar.desc": "Festivals 20 % stronger.",
++    "tech.festival_lanterns": "Festival Lanterns",
++    "tech.festival_lanterns.desc": "A small improvement, but it adds up.",
+     "tech.file_and_rasp": "File and Rasp",
+     "tech.file_and_rasp.desc": "Tools production up 8 %.",
+     "tech.forest_roads": "Forest Roads",
+@@ -1182,6 +1202,8 @@
+     "tech.fusion.desc": "Unlocks the fusion plant and nano forge — the age of the future.",
+     "tech.genomics": "Genomics",
+     "tech.genomics.desc": "Population growth +80%.",
++    "tech.grain_drying": "Grain Drying",
++    "tech.grain_drying.desc": "A small improvement, but it adds up.",
+     "tech.granary": "Granary",
+     "tech.granary.desc": "Storage capacity +25%.",
+     "tech.graphHelp": "Drag or WASD to pan · wheel to zoom · hover a star · click to research",
+@@ -1205,6 +1227,8 @@
+     "tech.land_reclamation.desc": "Unlocks soil remediation — poisoned ground can be brought back.",
+     "tech.lecture_halls": "Lecture Halls",
+     "tech.lecture_halls.desc": "Science production up 20 %.",
++    "tech.ledgers": "Ledgers",
++    "tech.ledgers.desc": "A small improvement, but it adds up.",
+     "tech.lifts": "Lifts",
+     "tech.lifts.desc": "Buildings house 15 % more people.",
+     "tech.load_manifests": "Load Manifests",
+@@ -1214,8 +1238,12 @@
+     "tech.logistics_ai.desc": "Storage capacity +100%.",
+     "tech.longevity": "Longevity",
+     "tech.longevity.desc": "Population growth +150%.",
++    "tech.lookout_posts": "Lookout Posts",
++    "tech.lookout_posts.desc": "A small improvement, but it adds up.",
+     "tech.lucky_strike": "Lucky Strike",
+     "tech.lucky_strike.desc": "Critical harvest chance up 3 %.",
++    "tech.market_scales": "Market Scales",
++    "tech.market_scales.desc": "A small improvement, but it adds up.",
+     "tech.masonry": "Masonry",
+     "tech.masonry.desc": "Building housing +20%.",
+     "tech.matter_synthesis": "Matter Synthesis",
+@@ -1233,6 +1261,8 @@
+     "tech.needs": "Requires: {0}",
+     "tech.networks": "Networks",
+     "tech.networks.desc": "Offline progress +75%.",
++    "tech.night_shifts": "Night Shifts",
++    "tech.night_shifts.desc": "A small improvement, but it adds up.",
+     "tech.orbital_survey": "Orbital Survey",
+     "tech.orbital_survey.desc": "Offline progress +150%.",
+     "tech.ore_sorting": "Ore Sorting",
+@@ -1257,6 +1287,8 @@
+     "tech.quarry_ramps.desc": "Stone production up 9 %.",
+     "tech.quenching": "Quenching",
+     "tech.quenching.desc": "Tools production up 10 %.",
++    "tech.radar": "Radar",
++    "tech.radar.desc": "The horizon can be searched without eyes. Unlocks the radar station.",
+     "tech.rail_freight": "Rail Freight",
+     "tech.rail_freight.desc": "Storage capacity +60%.",
+     "tech.research": "Research",
+@@ -1265,6 +1297,8 @@
+     "tech.rituals.desc": "Unlocks the shrine — the first building that carries faith.",
+     "tech.robotics": "Robotics",
+     "tech.robotics.desc": "Unlocks the robotics lab (computers + nanomaterial → robots).",
++    "tech.rope_making": "Ropemaking",
++    "tech.rope_making.desc": "A small improvement, but it adds up.",
+     "tech.sacred_architecture": "Sacred Architecture",
+     "tech.sacred_architecture.desc": "A cathedral: generations of work, visible from everywhere.",
+     "tech.sanitation": "Sanitation",
+@@ -1277,6 +1311,8 @@
+     "tech.scriptoria.desc": "A grand library. Knowledge worth housing properly.",
+     "tech.seasoned_timber": "Seasoned Timber",
+     "tech.seasoned_timber.desc": "Planks production up 8 %.",
++    "tech.seed_selection": "Seed Selection",
++    "tech.seed_selection.desc": "A small improvement, but it adds up.",
+     "tech.selective_breeding": "Selective Breeding",
+     "tech.selective_breeding.desc": "Food production up 12 %.",
+     "tech.self_assembly": "Self-Assembly",
+@@ -1291,8 +1327,14 @@
+     "tech.steam_power.desc": "Unlocks the steel mill (iron + coal → steel) — the rise of industry.",
+     "tech.steel_frames": "Steel Frames",
+     "tech.steel_frames.desc": "Building housing +50%.",
++    "tech.stone_sledges": "Stone Sledges",
++    "tech.stone_sledges.desc": "A small improvement, but it adds up.",
++    "tech.street_wells": "Street Wells",
++    "tech.street_wells.desc": "A small improvement, but it adds up.",
+     "tech.sturdy_handles": "Sturdy Handles",
+     "tech.sturdy_handles.desc": "Wood production up 5 %.",
++    "tech.surveying": "Surveying",
++    "tech.surveying.desc": "A small improvement, but it adds up.",
+     "tech.telegraph": "Telegraph",
+     "tech.telegraph.desc": "Offline progress +40%.",
+     "tech.tenement_codes": "Tenement Codes",
+@@ -1301,6 +1343,8 @@
+     "tech.terraforming.desc": "Unlocks reshaping the land — irrigation, drainage and afforestation.",
+     "tech.theology": "Theology",
+     "tech.theology.desc": "Unlocks the monastery — faith and learning under one roof.",
++    "tech.tiled_roofs": "Tiled Roofs",
++    "tech.tiled_roofs.desc": "A small improvement, but it adds up.",
+     "tech.tooExpensive": "▸ Not enough resources yet",
+     "tech.tools": "Tools",
+     "tech.tools.desc": "Unlocks the toolmaker (planks → tools).",
+diff --git a/data/lang/es.json b/data/lang/es.json
+index 4cd7801..ea8a9ed 100644
+--- a/data/lang/es.json
++++ b/data/lang/es.json
+@@ -296,12 +296,16 @@
+     "building.pollutesArea": "Ensucia los alrededores",
+     "building.pollutionPenalty": "Suelo contaminado: producción {0}",
+     "building.quarry": "Cantera",
++    "building.radar_station": "Estación de radar",
++    "building.radar_station.desc": "Barre el horizonte mucho más allá de los globos. Consume energía y herramientas.",
+     "building.research_lab": "Instituto de investigación",
+     "building.roadConnected": "Conectado a la red de caminos",
+     "building.roadMissing": "Sin conexión por camino: funciona al {0} %. En cuanto se construya algo al lado, el camino aparece solo.",
+     "building.robotics_lab": "Laboratorio de robótica",
+     "building.sawmill": "Aserradero",
+     "building.school": "Escuela",
++    "building.scout_balloon": "Globo de reconocimiento",
++    "building.scout_balloon.desc": "Se eleva sobre el terreno y despeja la niebla poco a poco. Más globos ven más lejos.",
+     "building.shrine": "Santuario",
+     "building.silicon_mine": "Mina de silicio",
+     "building.smeltery": "Fundición",
+@@ -1107,8 +1111,12 @@
+     "status.roadErase": "Arrastra para levantar carreteras.",
+     "tech.academies": "Academias",
+     "tech.academies.desc": "Producción de ciencia +25 %.",
++    "tech.aeronautics": "Aeronáutica",
++    "tech.aeronautics.desc": "Lo que se eleva ve más lejos que nadie a pie. Desbloquea el globo de reconocimiento.",
+     "tech.alloys": "Aleaciones",
+     "tech.alloys.desc": "Desbloquea al broncista (bronce + tablones → herramientas).",
++    "tech.apprenticeships": "Aprendizaje",
++    "tech.apprenticeships.desc": "Una pequeña mejora, pero se acumula.",
+     "tech.aqueducts": "Acueductos",
+     "tech.aqueducts.desc": "Crecimiento de población +30 %.",
+     "tech.arcology_design": "Diseño de arcologías",
+@@ -1138,6 +1146,12 @@
+     "tech.canResearch": "▸ Listo para investigar",
+     "tech.cartography": "Cartografía",
+     "tech.cartography.desc": "Progreso sin conexión +25 %.",
++    "tech.cellars": "Bodegas",
++    "tech.cellars.desc": "Una pequeña mejora, pero se acumula.",
++    "tech.charcoal_pits": "Carboneras",
++    "tech.charcoal_pits.desc": "Una pequeña mejora, pero se acumula.",
++    "tech.chisels": "Cinceles",
++    "tech.chisels.desc": "Una pequeña mejora, pero se acumula.",
+     "tech.city_blocks": "Manzanas urbanas",
+     "tech.city_blocks.desc": "Fusiona cuatro casas o casitas en un edificio mayor.",
+     "tech.city_planning_office": "Oficina de urbanismo",
+@@ -1160,8 +1174,12 @@
+     "tech.crop_rotation.desc": "Crecimiento de población +20 %.",
+     "tech.crop_rotation_beans": "Legumbres en rotación",
+     "tech.crop_rotation_beans.desc": "Producción de comida +8 %.",
++    "tech.crop_terraces": "Terrazas de cultivo",
++    "tech.crop_terraces.desc": "Una pequeña mejora, pero se acumula.",
+     "tech.crucible_steel": "Acero al crisol",
+     "tech.crucible_steel.desc": "Producción de acero +12 %.",
++    "tech.crucibles": "Crisoles",
++    "tech.crucibles.desc": "Una pequeña mejora, pero se acumula.",
+     "tech.deep_mining": "Minería profunda",
+     "tech.deep_mining.desc": "Recolección a mano +40 %.",
+     "tech.earthmoving": "Movimiento de tierras",
+@@ -1174,6 +1192,8 @@
+     "tech.environmental_engineering.desc": "Desbloquea el depurador de aire y la depuradora de agua.",
+     "tech.festival_calendar": "Calendario de fiestas",
+     "tech.festival_calendar.desc": "Fiestas un 20 % más potentes.",
++    "tech.festival_lanterns": "Farolillos de fiesta",
++    "tech.festival_lanterns.desc": "Una pequeña mejora, pero se acumula.",
+     "tech.file_and_rasp": "Lima y escofina",
+     "tech.file_and_rasp.desc": "Producción de herramientas +8 %.",
+     "tech.forest_roads": "Caminos forestales",
+@@ -1182,6 +1202,8 @@
+     "tech.fusion.desc": "Desbloquea la central de fusión y la nanoforja: la era del futuro.",
+     "tech.genomics": "Genómica",
+     "tech.genomics.desc": "Crecimiento de población +80 %.",
++    "tech.grain_drying": "Secado de grano",
++    "tech.grain_drying.desc": "Una pequeña mejora, pero se acumula.",
+     "tech.granary": "Granero",
+     "tech.granary.desc": "Capacidad de almacén +25 %.",
+     "tech.graphHelp": "Arrastra o usa WASD para moverte · rueda para el zoom · pasa sobre una estrella · haz clic para investigar",
+@@ -1205,6 +1227,8 @@
+     "tech.land_reclamation.desc": "Desbloquea la recuperación de suelos: la tierra envenenada se puede rescatar.",
+     "tech.lecture_halls": "Aulas magnas",
+     "tech.lecture_halls.desc": "Producción de ciencia +20 %.",
++    "tech.ledgers": "Libros de cuentas",
++    "tech.ledgers.desc": "Una pequeña mejora, pero se acumula.",
+     "tech.lifts": "Ascensores",
+     "tech.lifts.desc": "Los edificios alojan un 15 % más.",
+     "tech.load_manifests": "Manifiestos de carga",
+@@ -1214,8 +1238,12 @@
+     "tech.logistics_ai.desc": "Capacidad de almacén +100 %.",
+     "tech.longevity": "Longevidad",
+     "tech.longevity.desc": "Crecimiento de población +150 %.",
++    "tech.lookout_posts": "Puestos de vigía",
++    "tech.lookout_posts.desc": "Una pequeña mejora, pero se acumula.",
+     "tech.lucky_strike": "Golpe de suerte",
+     "tech.lucky_strike.desc": "Probabilidad de crítico +3 %.",
++    "tech.market_scales": "Balanzas de mercado",
++    "tech.market_scales.desc": "Una pequeña mejora, pero se acumula.",
+     "tech.masonry": "Cantería",
+     "tech.masonry.desc": "Vivienda de los edificios +20 %.",
+     "tech.matter_synthesis": "Síntesis de materia",
+@@ -1233,6 +1261,8 @@
+     "tech.needs": "Requiere: {0}",
+     "tech.networks": "Redes",
+     "tech.networks.desc": "Progreso sin conexión +75 %.",
++    "tech.night_shifts": "Turnos de noche",
++    "tech.night_shifts.desc": "Una pequeña mejora, pero se acumula.",
+     "tech.orbital_survey": "Prospección orbital",
+     "tech.orbital_survey.desc": "Progreso sin conexión +150 %.",
+     "tech.ore_sorting": "Cribado de mineral",
+@@ -1257,6 +1287,8 @@
+     "tech.quarry_ramps.desc": "Producción de piedra +9 %.",
+     "tech.quenching": "Temple",
+     "tech.quenching.desc": "Producción de herramientas +10 %.",
++    "tech.radar": "Radar",
++    "tech.radar.desc": "El horizonte se puede explorar sin ojos. Desbloquea la estación de radar.",
+     "tech.rail_freight": "Transporte ferroviario",
+     "tech.rail_freight.desc": "Capacidad de almacén +60 %.",
+     "tech.research": "Investigar",
+@@ -1265,6 +1297,8 @@
+     "tech.rituals.desc": "Desbloquea el santuario: el primer edificio que sostiene la fe.",
+     "tech.robotics": "Robótica",
+     "tech.robotics.desc": "Desbloquea el laboratorio de robótica (ordenadores + nanomaterial → robots).",
++    "tech.rope_making": "Cordelería",
++    "tech.rope_making.desc": "Una pequeña mejora, pero se acumula.",
+     "tech.sacred_architecture": "Arquitectura sacra",
+     "tech.sacred_architecture.desc": "Una catedral: generaciones de trabajo, visible desde todas partes.",
+     "tech.sanitation": "Saneamiento",
+@@ -1277,6 +1311,8 @@
+     "tech.scriptoria.desc": "Una gran biblioteca. Saber que merece un techo digno.",
+     "tech.seasoned_timber": "Madera curada",
+     "tech.seasoned_timber.desc": "Producción de tablones +8 %.",
++    "tech.seed_selection": "Selección de semillas",
++    "tech.seed_selection.desc": "Una pequeña mejora, pero se acumula.",
+     "tech.selective_breeding": "Cría selectiva",
+     "tech.selective_breeding.desc": "Producción de comida +12 %.",
+     "tech.self_assembly": "Autoensamblaje",
+@@ -1291,8 +1327,14 @@
+     "tech.steam_power.desc": "Desbloquea la acería (hierro + carbón → acero): el auge de la industria.",
+     "tech.steel_frames": "Estructuras de acero",
+     "tech.steel_frames.desc": "Vivienda de los edificios +50 %.",
++    "tech.stone_sledges": "Trineos de piedra",
++    "tech.stone_sledges.desc": "Una pequeña mejora, pero se acumula.",
++    "tech.street_wells": "Pozos callejeros",
++    "tech.street_wells.desc": "Una pequeña mejora, pero se acumula.",
+     "tech.sturdy_handles": "Mangos resistentes",
+     "tech.sturdy_handles.desc": "Producción de madera +5 %.",
++    "tech.surveying": "Topografía",
++    "tech.surveying.desc": "Una pequeña mejora, pero se acumula.",
+     "tech.telegraph": "Telégrafo",
+     "tech.telegraph.desc": "Progreso sin conexión +40 %.",
+     "tech.tenement_codes": "Ordenanzas de vivienda",
+@@ -1301,6 +1343,8 @@
+     "tech.terraforming.desc": "Desbloquea remodelar el terreno: riego, drenaje y reforestación.",
+     "tech.theology": "Teología",
+     "tech.theology.desc": "Desbloquea el monasterio: fe y saber bajo el mismo techo.",
++    "tech.tiled_roofs": "Tejados de teja",
++    "tech.tiled_roofs.desc": "Una pequeña mejora, pero se acumula.",
+     "tech.tooExpensive": "▸ Aún faltan recursos",
+     "tech.tools": "Herramientas",
+     "tech.tools.desc": "Desbloquea al herramentero (tablones → herramientas).",
+diff --git a/data/lang/pl.json b/data/lang/pl.json
+index 59a111c..db248e3 100644
+--- a/data/lang/pl.json
++++ b/data/lang/pl.json
+@@ -296,12 +296,16 @@
+     "building.pollutesArea": "Truje okolicę",
+     "building.pollutionPenalty": "Skażona ziemia: wynik {0}",
+     "building.quarry": "Kamieniołom",
++    "building.radar_station": "Stacja radarowa",
++    "building.radar_station.desc": "Przeszukuje horyzont daleko poza zasięg balonów. Pobiera prąd i narzędzia.",
+     "building.research_lab": "Instytut badawczy",
+     "building.roadConnected": "Podłączone do sieci dróg",
+     "building.roadMissing": "Brak połączenia drogą — działa na {0} %. Gdy obok stanie kolejny budynek, droga pojawi się sama.",
+     "building.robotics_lab": "Laboratorium robotyki",
+     "building.sawmill": "Tartak",
+     "building.school": "Szkoła",
++    "building.scout_balloon": "Balon zwiadowczy",
++    "building.scout_balloon.desc": "Wznosi się nad krajobraz i stopniowo rozwiewa mgłę. Więcej balonów widzi dalej.",
+     "building.shrine": "Kapliczka",
+     "building.silicon_mine": "Kopalnia krzemu",
+     "building.smeltery": "Huta",
+@@ -1107,8 +1111,12 @@
+     "status.roadErase": "Przeciągnij, aby zrywać drogi.",
+     "tech.academies": "Akademie",
+     "tech.academies.desc": "Produkcja nauki wyższa o 25 %.",
++    "tech.aeronautics": "Aeronautyka",
++    "tech.aeronautics.desc": "Co się wzniesie, widzi dalej niż ktokolwiek pieszo. Odblokowuje balon zwiadowczy.",
+     "tech.alloys": "Stopy",
+     "tech.alloys.desc": "Odblokowuje brązownika (brąz + deski → narzędzia).",
++    "tech.apprenticeships": "Terminowanie",
++    "tech.apprenticeships.desc": "Drobne ulepszenie, ale się sumuje.",
+     "tech.aqueducts": "Akwedukty",
+     "tech.aqueducts.desc": "Wzrost ludności +30%.",
+     "tech.arcology_design": "Projekt arkologii",
+@@ -1138,6 +1146,12 @@
+     "tech.canResearch": "▸ Gotowe do zbadania",
+     "tech.cartography": "Kartografia",
+     "tech.cartography.desc": "Postęp offline +25%.",
++    "tech.cellars": "Piwnice",
++    "tech.cellars.desc": "Drobne ulepszenie, ale się sumuje.",
++    "tech.charcoal_pits": "Mielerze",
++    "tech.charcoal_pits.desc": "Drobne ulepszenie, ale się sumuje.",
++    "tech.chisels": "Dłuta",
++    "tech.chisels.desc": "Drobne ulepszenie, ale się sumuje.",
+     "tech.city_blocks": "Bloki miejskie",
+     "tech.city_blocks.desc": "Scal cztery domy albo chałupy w jeden większy budynek.",
+     "tech.city_planning_office": "Biuro planowania miasta",
+@@ -1160,8 +1174,12 @@
+     "tech.crop_rotation.desc": "Wzrost ludności +20%.",
+     "tech.crop_rotation_beans": "Strączkowe w płodozmianie",
+     "tech.crop_rotation_beans.desc": "Produkcja jedzenia wyższa o 8 %.",
++    "tech.crop_terraces": "Tarasy uprawne",
++    "tech.crop_terraces.desc": "Drobne ulepszenie, ale się sumuje.",
+     "tech.crucible_steel": "Stal tyglowa",
+     "tech.crucible_steel.desc": "Produkcja stali wyższa o 12 %.",
++    "tech.crucibles": "Tygle",
++    "tech.crucibles.desc": "Drobne ulepszenie, ale się sumuje.",
+     "tech.deep_mining": "Głębokie górnictwo",
+     "tech.deep_mining.desc": "Zbiory ręczne +40%.",
+     "tech.earthmoving": "Roboty ziemne",
+@@ -1174,6 +1192,8 @@
+     "tech.environmental_engineering.desc": "Odblokowuje filtr powietrza i oczyszczalnię wody.",
+     "tech.festival_calendar": "Kalendarz świąt",
+     "tech.festival_calendar.desc": "Święta o 20 % mocniejsze.",
++    "tech.festival_lanterns": "Lampiony świąteczne",
++    "tech.festival_lanterns.desc": "Drobne ulepszenie, ale się sumuje.",
+     "tech.file_and_rasp": "Pilnik i tarnik",
+     "tech.file_and_rasp.desc": "Produkcja narzędzi wyższa o 8 %.",
+     "tech.forest_roads": "Drogi leśne",
+@@ -1182,6 +1202,8 @@
+     "tech.fusion.desc": "Odblokowuje elektrownię fuzyjną i nanokuźnię — epoka przyszłości.",
+     "tech.genomics": "Genomika",
+     "tech.genomics.desc": "Wzrost ludności +80%.",
++    "tech.grain_drying": "Suszenie zboża",
++    "tech.grain_drying.desc": "Drobne ulepszenie, ale się sumuje.",
+     "tech.granary": "Spichlerz",
+     "tech.granary.desc": "Pojemność magazynu +25%.",
+     "tech.graphHelp": "Przeciągaj albo WASD, żeby się przesuwać · kółko przybliża · najedź na gwiazdę · kliknij, by zbadać",
+@@ -1205,6 +1227,8 @@
+     "tech.land_reclamation.desc": "Odblokowuje rekultywację gleby — zatrutą ziemię da się odzyskać.",
+     "tech.lecture_halls": "Sale wykładowe",
+     "tech.lecture_halls.desc": "Produkcja nauki wyższa o 20 %.",
++    "tech.ledgers": "Księgi rachunkowe",
++    "tech.ledgers.desc": "Drobne ulepszenie, ale się sumuje.",
+     "tech.lifts": "Windy",
+     "tech.lifts.desc": "Budynki mieszczą o 15 % więcej ludzi.",
+     "tech.load_manifests": "Listy przewozowe",
+@@ -1214,8 +1238,12 @@
+     "tech.logistics_ai.desc": "Pojemność magazynu +100%.",
+     "tech.longevity": "Długowieczność",
+     "tech.longevity.desc": "Wzrost ludności +150%.",
++    "tech.lookout_posts": "Punkty obserwacyjne",
++    "tech.lookout_posts.desc": "Drobne ulepszenie, ale się sumuje.",
+     "tech.lucky_strike": "Szczęśliwy traf",
+     "tech.lucky_strike.desc": "Szansa na trafiony zbiór wyższa o 3 %.",
++    "tech.market_scales": "Wagi targowe",
++    "tech.market_scales.desc": "Drobne ulepszenie, ale się sumuje.",
+     "tech.masonry": "Kamieniarstwo",
+     "tech.masonry.desc": "Mieszkania w budynkach +20%.",
+     "tech.matter_synthesis": "Synteza materii",
+@@ -1233,6 +1261,8 @@
+     "tech.needs": "Wymaga: {0}",
+     "tech.networks": "Sieci",
+     "tech.networks.desc": "Postęp offline +75%.",
++    "tech.night_shifts": "Nocne zmiany",
++    "tech.night_shifts.desc": "Drobne ulepszenie, ale się sumuje.",
+     "tech.orbital_survey": "Zwiad orbitalny",
+     "tech.orbital_survey.desc": "Postęp offline +150%.",
+     "tech.ore_sorting": "Sortowanie rudy",
+@@ -1257,6 +1287,8 @@
+     "tech.quarry_ramps.desc": "Produkcja kamienia wyższa o 9 %.",
+     "tech.quenching": "Hartowanie",
+     "tech.quenching.desc": "Produkcja narzędzi wyższa o 10 %.",
++    "tech.radar": "Radar",
++    "tech.radar.desc": "Horyzont da się przeszukać i bez oczu. Odblokowuje stację radarową.",
+     "tech.rail_freight": "Kolej towarowa",
+     "tech.rail_freight.desc": "Pojemność magazynu +60%.",
+     "tech.research": "Zbadaj",
+@@ -1265,6 +1297,8 @@
+     "tech.rituals.desc": "Odblokowuje kapliczkę — pierwszy budynek niosący wiarę.",
+     "tech.robotics": "Robotyka",
+     "tech.robotics.desc": "Odblokowuje laboratorium robotyki (komputery + nanomateriał → roboty).",
++    "tech.rope_making": "Powroźnictwo",
++    "tech.rope_making.desc": "Drobne ulepszenie, ale się sumuje.",
+     "tech.sacred_architecture": "Architektura sakralna",
+     "tech.sacred_architecture.desc": "Katedra: praca pokoleń, widoczna zewsząd.",
+     "tech.sanitation": "Kanalizacja",
+@@ -1277,6 +1311,8 @@
+     "tech.scriptoria.desc": "Wielka biblioteka. Wiedza warta porządnego dachu.",
+     "tech.seasoned_timber": "Sezonowane drewno",
+     "tech.seasoned_timber.desc": "Produkcja desek wyższa o 8 %.",
++    "tech.seed_selection": "Selekcja nasion",
++    "tech.seed_selection.desc": "Drobne ulepszenie, ale się sumuje.",
+     "tech.selective_breeding": "Hodowla selekcyjna",
+     "tech.selective_breeding.desc": "Produkcja jedzenia wyższa o 12 %.",
+     "tech.self_assembly": "Samoorganizacja",
+@@ -1291,8 +1327,14 @@
+     "tech.steam_power.desc": "Odblokowuje stalownię (żelazo + węgiel → stal) — narodziny przemysłu.",
+     "tech.steel_frames": "Konstrukcje stalowe",
+     "tech.steel_frames.desc": "Mieszkania w budynkach +50%.",
++    "tech.stone_sledges": "Sanie kamieniarskie",
++    "tech.stone_sledges.desc": "Drobne ulepszenie, ale się sumuje.",
++    "tech.street_wells": "Studnie uliczne",
++    "tech.street_wells.desc": "Drobne ulepszenie, ale się sumuje.",
+     "tech.sturdy_handles": "Mocne toporzyska",
+     "tech.sturdy_handles.desc": "Produkcja drewna wyższa o 5 %.",
++    "tech.surveying": "Geodezja",
++    "tech.surveying.desc": "Drobne ulepszenie, ale się sumuje.",
+     "tech.telegraph": "Telegraf",
+     "tech.telegraph.desc": "Postęp offline +40%.",
+     "tech.tenement_codes": "Przepisy budowlane",
+@@ -1301,6 +1343,8 @@
+     "tech.terraforming.desc": "Odblokowuje przekształcanie terenu — nawadnianie, osuszanie i zalesianie.",
+     "tech.theology": "Teologia",
+     "tech.theology.desc": "Odblokowuje klasztor — wiara i wiedza pod jednym dachem.",
++    "tech.tiled_roofs": "Dachy dachówkowe",
++    "tech.tiled_roofs.desc": "Drobne ulepszenie, ale się sumuje.",
+     "tech.tooExpensive": "▸ Jeszcze za mało surowców",
+     "tech.tools": "Narzędzia",
+     "tech.tools.desc": "Odblokowuje wytwórnię narzędzi (deski → narzędzia).",
+diff --git a/data/tech.json b/data/tech.json
+index 872091b..b4c4b64 100644
+--- a/data/tech.json
++++ b/data/tech.json
+@@ -26,6 +26,30 @@
+         "fishery"
+       ]
+     },
++    {
++      "id": "market_scales",
++      "cost": {
++        "science": 20,
++        "wood": 10
++      },
++      "prerequisites": [
++        "trade"
++      ],
++      "effect": "production_mult",
++      "magnitude": 0.04
++    },
++    {
++      "id": "ledgers",
++      "cost": {
++        "science": 20,
++        "wood": 10
++      },
++      "prerequisites": [
++        "trade"
++      ],
++      "effect": "storage_mult",
++      "magnitude": 0.06
++    },
+     {
+       "id": "tools",
+       "cost": {
+@@ -63,6 +87,19 @@
+       "effect": "growth_mult",
+       "magnitude": 0.2
+     },
++    {
++      "id": "crop_terraces",
++      "cost": {
++        "science": 45,
++        "food": 15
++      },
++      "prerequisites": [
++        "crop_rotation"
++      ],
++      "effect": "production_mult",
++      "magnitude": 0.06,
++      "targetResource": "food"
++    },
+     {
+       "id": "joinery",
+       "cost": {
+@@ -74,6 +111,19 @@
+       "effect": "production_mult",
+       "magnitude": 0.15
+     },
++    {
++      "id": "rope_making",
++      "cost": {
++        "science": 20,
++        "planks": 10
++      },
++      "prerequisites": [
++        "joinery"
++      ],
++      "effect": "production_mult",
++      "magnitude": 0.05,
++      "targetResource": "planks"
++    },
+     {
+       "id": "silviculture",
+       "cost": {
+@@ -88,6 +138,19 @@
+         "tree_nursery"
+       ]
+     },
++    {
++      "id": "seed_selection",
++      "cost": {
++        "science": 45,
++        "planks": 15
++      },
++      "prerequisites": [
++        "silviculture"
++      ],
++      "effect": "production_mult",
++      "magnitude": 0.06,
++      "targetResource": "wood"
++    },
+     {
+       "id": "granary",
+       "cost": {
+@@ -100,6 +163,18 @@
+       "effect": "storage_mult",
+       "magnitude": 0.25
+     },
++    {
++      "id": "grain_drying",
++      "cost": {
++        "science": 20,
++        "planks": 10
++      },
++      "prerequisites": [
++        "granary"
++      ],
++      "effect": "storage_mult",
++      "magnitude": 0.08
++    },
+     {
+       "id": "cartography",
+       "cost": {
+@@ -112,6 +187,44 @@
+       "effect": "offline_mult",
+       "magnitude": 0.25
+     },
++    {
++      "id": "surveying",
++      "cost": {
++        "science": 120,
++        "planks": 40
++      },
++      "prerequisites": [
++        "cartography"
++      ],
++      "effect": "discovery_luck",
++      "magnitude": 0.05
++    },
++    {
++      "id": "aeronautics",
++      "cost": {
++        "planks": 80,
++        "tools": 20,
++        "science": 120
++      },
++      "prerequisites": [
++        "cartography"
++      ],
++      "unlocks": [
++        "scout_balloon"
++      ]
++    },
++    {
++      "id": "lookout_posts",
++      "cost": {
++        "science": 120,
++        "planks": 40
++      },
++      "prerequisites": [
++        "aeronautics"
++      ],
++      "effect": "discovery_luck",
++      "magnitude": 0.06
++    },
+     {
+       "id": "masonry",
+       "cost": {
+@@ -124,6 +237,19 @@
+       "effect": "housing_mult",
+       "magnitude": 0.2
+     },
++    {
++      "id": "stone_sledges",
++      "cost": {
++        "science": 20,
++        "stone": 10
++      },
++      "prerequisites": [
++        "masonry"
++      ],
++      "effect": "production_mult",
++      "magnitude": 0.06,
++      "targetResource": "stone"
++    },
+     {
+       "id": "bronze_working",
+       "cost": {
+@@ -152,6 +278,19 @@
+         "bronze_smith"
+       ]
+     },
++    {
++      "id": "crucibles",
++      "cost": {
++        "science": 95,
++        "stone": 31
++      },
++      "prerequisites": [
++        "alloys"
++      ],
++      "effect": "production_mult",
++      "magnitude": 0.07,
++      "targetResource": "bronze"
++    },
+     {
+       "id": "bellows",
+       "cost": {
+@@ -164,6 +303,19 @@
+       "effect": "production_mult",
+       "magnitude": 0.2
+     },
++    {
++      "id": "charcoal_pits",
++      "cost": {
++        "science": 70,
++        "tools": 23
++      },
++      "prerequisites": [
++        "bellows"
++      ],
++      "effect": "production_mult",
++      "magnitude": 0.06,
++      "targetResource": "coal"
++    },
+     {
+       "id": "aqueducts",
+       "cost": {
+@@ -176,6 +328,18 @@
+       "effect": "growth_mult",
+       "magnitude": 0.3
+     },
++    {
++      "id": "street_wells",
++      "cost": {
++        "science": 95,
++        "stone": 31
++      },
++      "prerequisites": [
++        "aqueducts"
++      ],
++      "effect": "growth_mult",
++      "magnitude": 0.06
++    },
+     {
+       "id": "warehousing",
+       "cost": {
+@@ -188,6 +352,18 @@
+       "effect": "storage_mult",
+       "magnitude": 0.4
+     },
++    {
++      "id": "cellars",
++      "cost": {
++        "science": 95,
++        "planks": 31
++      },
++      "prerequisites": [
++        "warehousing"
++      ],
++      "effect": "storage_mult",
++      "magnitude": 0.1
++    },
+     {
+       "id": "iron_working",
+       "cost": {
+@@ -217,6 +393,19 @@
+         "iron_forge"
+       ]
+     },
++    {
++      "id": "chisels",
++      "cost": {
++        "science": 70,
++        "planks": 23
++      },
++      "prerequisites": [
++        "toolsmithing"
++      ],
++      "effect": "production_mult",
++      "magnitude": 0.07,
++      "targetResource": "tools"
++    },
+     {
+       "id": "deep_mining",
+       "cost": {
+@@ -241,6 +430,42 @@
+       "effect": "production_mult",
+       "magnitude": 0.25
+     },
++    {
++      "id": "festival_lanterns",
++      "cost": {
++        "science": 45,
++        "food": 15
++      },
++      "prerequisites": [
++        "guilds"
++      ],
++      "effect": "festival_power",
++      "magnitude": 0.1
++    },
++    {
++      "id": "apprenticeships",
++      "cost": {
++        "science": 45,
++        "food": 15
++      },
++      "prerequisites": [
++        "guilds"
++      ],
++      "effect": "research_discount",
++      "magnitude": 0.05
++    },
++    {
++      "id": "night_shifts",
++      "cost": {
++        "science": 45,
++        "food": 15
++      },
++      "prerequisites": [
++        "guilds"
++      ],
++      "effect": "production_mult",
++      "magnitude": 0.04
++    },
+     {
+       "id": "municipal_administration",
+       "cost": {
+@@ -276,6 +501,18 @@
+       "effect": "housing_mult",
+       "magnitude": 0.3
+     },
++    {
++      "id": "tiled_roofs",
++      "cost": {
++        "science": 95,
++        "stone": 31
++      },
++      "prerequisites": [
++        "brickwork"
++      ],
++      "effect": "housing_mult",
++      "magnitude": 0.07
++    },
+     {
+       "id": "steam_power",
+       "cost": {
+@@ -438,6 +675,20 @@
+         "hydroponics"
+       ]
+     },
++    {
++      "id": "radar",
++      "cost": {
++        "steel": 80,
++        "electronics": 30,
++        "science": 700
++      },
++      "prerequisites": [
++        "electronics"
++      ],
++      "unlocks": [
++        "radar_station"
++      ]
++    },
+     {
+       "id": "computing",
+       "cost": {
+diff --git a/src/CivDle.Core/Content/BuildingDef.cs b/src/CivDle.Core/Content/BuildingDef.cs
+index 19bc57c..58edfeb 100644
+--- a/src/CivDle.Core/Content/BuildingDef.cs
++++ b/src/CivDle.Core/Content/BuildingDef.cs
+@@ -172,7 +172,8 @@ public sealed record BuildingDef(
+     int MinSettlementRank = -1,
+     BuildingMilestones? MilestonesOrNull = null,
+     BuildingSpectacle? SpectacleOrNull = null,
+-    int ReforestRadius = 0)
++    int ReforestRadius = 0,
++    int ScoutRadius = 0)
+ {
+     /// <summary>
+     /// Podívaná, kterou budova pravidelně předvádí; <c>null</c> = jen stojí.
+@@ -229,6 +230,15 @@ public sealed record BuildingDef(
+     /// </summary>
+     public bool Reforests => ReforestRadius > 0;
+ 
++    /// <summary>
++    /// Odhaluje budova sama mlhu kolem sebe? (Pátrací balon, radar.)
++    ///
++    /// <para>Objevování bylo do téhle chvíle jen chůze: hráč musel všude dojít
++    /// rukou. Dohled je druhá cesta — postavíš a svět se otevře sám. Efekt se
++    /// <b>sčítá</b>: víc stanic vidí dál, protože každá odhaluje ze svého místa.</para>
++    /// </summary>
++    public bool Scouts => ScoutRadius > 0;
++
+     /// <summary>
+     /// Jak dlouho se budova staví (v ticích). 0 = stojí hned, jako všechno ostatní.
+     ///
+diff --git a/src/CivDle.Core/Content/ContentLoader.cs b/src/CivDle.Core/Content/ContentLoader.cs
+index f0db3d1..1b8ec76 100644
+--- a/src/CivDle.Core/Content/ContentLoader.cs
++++ b/src/CivDle.Core/Content/ContentLoader.cs
+@@ -1823,14 +1823,17 @@ public sealed class ContentLoader
+ 
+         var pollution = ParseBuildingPollution(path, id, dto.Pollution);
+ 
+-        // Údržba musí mít protihodnotu. Legitimní jsou dvě: budova obsluhuje lidi
+-        // (serviceValue), nebo čistí okolí — čističku taky nemá smysl stavět a pak
+-        // na ni zapomenout. Údržba bez obojího je jen daň za nic.
++        // Údržba musí mít protihodnotu, jinak je to jen daň za nic. Legitimní
++        // důvody: budova obsluhuje lidi (serviceValue), čistí okolí (čističku taky
++        // nemá smysl postavit a zapomenout na ni), nebo hlídá obzor — pátrací
++        // stanice nic nevyrábí a přesto se vyplatí ji držet v provozu.
+         var upkeep = ParseResourceAmounts(path, id, "upkeep", dto.Upkeep, resources);
+-        if (upkeep.Count > 0 && dto.ServiceValue <= 0 && pollution?.IsCleaner != true)
++        if (upkeep.Count > 0 && dto.ServiceValue <= 0 && pollution?.IsCleaner != true
++            && dto.ScoutRadius <= 0)
+         {
+             throw new ContentLoadException(path,
+-                $"Budova '{id}' má 'upkeep', ale nulový 'serviceValue' a nic nečistí — platila by se údržba za nic.");
++                $"Budova '{id}' má 'upkeep', ale nulový 'serviceValue', nic nečistí a nic nehlídá — "
++                + "platila by se údržba za nic.");
+         }
+ 
+         // Sloučení bloku 2×2: cíl se řeší přes ID → index stejně jako vylepšení.
+@@ -1869,6 +1872,14 @@ public sealed class ContentLoader
+                 $"Budova '{id}' má 'terrainHarvestRadius', ale nic nevyrábí — nemá co z krajiny brát.");
+         }
+ 
++        // Dohled: příliš velký okruh by jednou budovou odhalil půl světa a mlha
++        // by přestala být důvod někam jít.
++        if (dto.ScoutRadius is < 0 or > 120)
++        {
++            throw new ContentLoadException(path,
++                $"Budova '{id}': 'scoutRadius' musí být 0–120, je {dto.ScoutRadius}.");
++        }
++
+         // Reforestace: příliš velký okruh by z jedné školky udělal nekonečný les
+         // a těžba by přestala mít cenu.
+         if (dto.ReforestRadius is < 0 or > 24)
+@@ -1893,7 +1904,8 @@ public sealed class ContentLoader
+             dto.TerrainHarvestRadius, pollution, ParseMinSettlementRank(path, id, dto.MinSettlementRank, ranks),
+             ParseMilestones(path, id, dto.Milestones),
+             ParseSpectacle(path, id, dto.Spectacle),
+-            dto.ReforestRadius);
++            dto.ReforestRadius,
++            dto.ScoutRadius);
+     }
+ 
+     /// <summary>
+diff --git a/src/CivDle.Core/Content/Dto/ContentFileDtos.cs b/src/CivDle.Core/Content/Dto/ContentFileDtos.cs
+index 16f0f15..bbff585 100644
+--- a/src/CivDle.Core/Content/Dto/ContentFileDtos.cs
++++ b/src/CivDle.Core/Content/Dto/ContentFileDtos.cs
+@@ -62,7 +62,8 @@ public sealed record BuildingDto(
+     string? MinSettlementRank,
+     BuildingMilestonesDto? Milestones,
+     BuildingSpectacleDto? Spectacle,
+-    int ReforestRadius);
++    int ReforestRadius,
++    int ScoutRadius);
+ 
+ /// <summary>Podívaná megastruktury tak, jak leží v JSON.</summary>
+ public sealed record BuildingSpectacleDto(string? Effect, double IntervalSeconds);
+diff --git a/src/CivDle.Core/Sim/Simulation.cs b/src/CivDle.Core/Sim/Simulation.cs
+index 01b1624..63a6ca1 100644
+--- a/src/CivDle.Core/Sim/Simulation.cs
++++ b/src/CivDle.Core/Sim/Simulation.cs
+@@ -848,6 +848,41 @@ public sealed class Simulation
+         return true;
+     }
+ 
++    /// <summary>Jak často se rozhlížejí pátrací stanice (tiky). Pomalý systém.</summary>
++    private const int ScoutIntervalTicks = 50;
++
++    /// <summary>
++    /// Pátrací stanice (balony, radary) odhalují mlhu kolem sebe.
++    ///
++    /// <para>Odhaluje se <b>po kruzích ven</b>, ne celý okruh naráz: radar
++    /// s dosahem 60 dlaždic by jedním voláním prošel přes deset tisíc dlaždic.
++    /// Takhle se svět otevírá postupně, což navíc vypadá jako pátrání a ne jako
++    /// mávnutí proutkem.</para>
++    /// </summary>
++    private void TickScouting()
++    {
++        if (TickCount % ScoutIntervalTicks != 0)
++        {
++            return;
++        }
++
++        int step = (int)(TickCount / ScoutIntervalTicks);
++        for (int i = 0; i < _buildingCount; i++)
++        {
++            ref readonly var building = ref _buildings[i];
++            var def = _content.Buildings[building.DefIndex];
++            if (!def.Scouts || !building.IsComplete)
++            {
++                continue;
++            }
++
++            // Prstenec roste s časem a po dosažení dosahu se vrátí na začátek —
++            // stanice tak drží okolí odhalené i po Vzestupu, kdy se mlha vrací.
++            int reach = FogRevealRadius + step % Math.Max(1, def.ScoutRadius);
++            Fog.Reveal(building.X, building.Y, Math.Min(def.ScoutRadius, reach));
++        }
++    }
++
+     /// <summary>
+     /// Vrátí vytěženou krajinu v okolí naráz. Rychlá (a nejistá) obdoba lesní
+     /// školky — modlitba za rychlý růst.
+@@ -2378,6 +2413,7 @@ public sealed class Simulation
+         _colonySystem.Tick(this); // guvernér: expanze do nových kolonií
+         _settlementSystem.Tick(this);
+         _reforestSystem.Tick(this);
++        TickScouting();
+         _districtSystem.Tick(this);
+         _milestoneBonuses.Tick(this);
+         _historySystem.Tick(this);
+diff --git a/src/CivDle/Rendering/BuildingRenderer.cs b/src/CivDle/Rendering/BuildingRenderer.cs
+index d29b4e2..ff90c0f 100644
+--- a/src/CivDle/Rendering/BuildingRenderer.cs
++++ b/src/CivDle/Rendering/BuildingRenderer.cs
+@@ -27,6 +27,12 @@ public sealed class BuildingRenderer
+         _sprites = sprites;
+     }
+ 
++    /// <summary>Posun animací (létající balon). Jediný stav rendereru.</summary>
++    private float _time;
++
++    /// <summary>Posune animace budov (houpající se balon nad kotvištěm).</summary>
++    public void Update(float dt) => _time += dt;
++
+     /// <summary>Vykreslí všechny viditelné budovy.</summary>
+     public void Draw(SpriteBatch spriteBatch, Camera2D camera, Simulation simulation)
+     {
+@@ -99,6 +105,20 @@ public sealed class BuildingRenderer
+                 DrawProsperityDetail(spriteBatch, i, prosperity, x, y, width, height);
+             }
+ 
++            // Balon nad kotvištěm opravdu létá: houpe se a stoupá. Statická
++            // ikona balonu je jen obrázek balonu — tenhle pohyb je celý důvod,
++            // proč si hráč všimne, že ta budova něco dělá.
++            if (def.Scouts && def.FootprintWidth == 1)
++            {
++                float bob = MathF.Sin(_time * 1.3f + building.X * 0.7f + building.Y * 0.4f);
++                var balloon = new Rectangle(x + width / 2 - 5, y - 14 + (int)(bob * 4f), 10, 12);
++                spriteBatch.Draw(_pixel, new Rectangle(x + width / 2, y - 2 + (int)(bob * 4f), 1, 12),
++                    new Color(180, 170, 150)); // lano
++                spriteBatch.Draw(_pixel, balloon, new Color(200, 106, 106));
++                spriteBatch.Draw(_pixel, new Rectangle(balloon.X + 2, balloon.Y + 2, 6, 5),
++                    new Color(224, 140, 132));
++            }
++
+             // Stojící budova má být VIDĚT — a hlavně má být poznat PROČ. Jeden
+             // červený roh pro všechno znamenal, že hráč viděl „něco je špatně"
+             // a musel hádat; barva teď důvod rozliší a bublina ho pojmenuje.
+diff --git a/src/CivDle/Rendering/Sprites/SpriteLibrary.cs b/src/CivDle/Rendering/Sprites/SpriteLibrary.cs
+index 662f3cf..9ce2f43 100644
+--- a/src/CivDle/Rendering/Sprites/SpriteLibrary.cs
++++ b/src/CivDle/Rendering/Sprites/SpriteLibrary.cs
+@@ -64,6 +64,8 @@ public sealed class SpriteLibrary : IDisposable
+         Add(device, "building.lumber_camp", SpriteSize, LumberCamp);
+         Add(device, "building.lumberyard", SpriteSize, LumberCamp);
+         Add(device, "building.tree_nursery", SpriteSize, TreeNursery);
++        Add(device, "building.scout_balloon", SpriteSize, ScoutBalloon);
++        Add(device, "building.radar_station", SpriteSize, RadarStation);
+         Add(device, "building.sawmill", SpriteSize, Sawmill);
+         Add(device, "building.quarry", SpriteSize, Quarry);
+         Add(device, "building.mine", SpriteSize, Mine);
+@@ -621,6 +623,26 @@ public sealed class SpriteLibrary : IDisposable
+         c.FillRect(18, 30, 12, 1, new Color(70, 96, 58));
+     }
+ 
++    /// <summary>Pátrací balon: kotviště a nad ním balon na laně.</summary>
++    private static void ScoutBalloon(PixelCanvas c)
++    {
++        c.FillRect(10, 26, 12, 5, new Color(110, 92, 64));       // kotviště
++        c.FillRect(15, 14, 1, 12, new Color(180, 170, 150));     // lano
++        c.FillCircle(16f, 10f, 7.5f, new Color(200, 106, 106));  // obal
++        c.FillCircle(16f, 10f, 4.5f, new Color(224, 140, 132));
++        c.FillRect(14, 17, 5, 3, new Color(120, 96, 62));        // koš
++    }
++
++    /// <summary>Radar: budova s otočnou parabolou.</summary>
++    private static void RadarStation(PixelCanvas c)
++    {
++        c.FillRect(6, 20, 20, 11, new Color(96, 108, 118));
++        c.FillRect(8, 22, 16, 3, new Color(70, 82, 92));
++        c.FillRect(15, 12, 2, 9, new Color(150, 160, 170));      // stožár
++        c.FillTriangle(9f, 6f, 23f, 12f, 16f, 14f, new Color(190, 205, 215)); // parabola
++        c.FillCircle(16f, 11f, 1.6f, new Color(120, 200, 210));
++    }
++
+     private static void Sawmill(PixelCanvas c)
+     {
+         c.FillRect(5, 16, 22, 14, new Color(140, 110, 70));
+diff --git a/src/CivDle/Screens/GameplayScreen.cs b/src/CivDle/Screens/GameplayScreen.cs
+index a686c0c..6c5a8b8 100644
+--- a/src/CivDle/Screens/GameplayScreen.cs
++++ b/src/CivDle/Screens/GameplayScreen.cs
+@@ -93,6 +93,46 @@ public sealed class GameplayScreen : IScreen
+     private readonly Dictionary<int, string> _popupTextCache = new();
+ 
+     private Desktop _desktop = null!;
++    /// <summary>Řádky, do kterých se skládají známé suroviny.</summary>
++    private VerticalStackPanel _resourceRows = null!;
++
++    /// <summary>Odhad šířky jedné položky suroviny (ikona + zásoba + přírůstek).</summary>
++    private const int ChipWidth = 200;
++
++    /// <summary>
++    /// Přeskládá známé suroviny do řádků podle šířky okna.
++    ///
++    /// <para>Volá se jen při objevení nové suroviny (pár × za hru), ne každý
++    /// snímek — přestavět pár widgetů je levné, dělat to nepřetržitě ne.</para>
++    /// </summary>
++    private void RepackResourceChips()
++    {
++        _resourceRows.Widgets.Clear();
++
++        int perRow = Math.Max(4, (_screens.GraphicsDevice.Viewport.Width - 80) / ChipWidth);
++        HorizontalStackPanel? row = null;
++        int inRow = 0;
++
++        for (int i = 0; i < _resourceChips.Length; i++)
++        {
++            if (!_simulation.IsResourceKnown(i))
++            {
++                continue; // neznámá surovina se v pruhu vůbec neukáže
++            }
++
++            if (row is null || inRow == perRow)
++            {
++                row = new HorizontalStackPanel { Spacing = 14 };
++                _resourceRows.Widgets.Add(row);
++                inRow = 0;
++            }
++
++            _resourceChips[i].Visible = true;
++            row.Widgets.Add(_resourceChips[i]);
++            inRow++;
++        }
++    }
++
+     /// <summary>Rezervovaná šířka pro „zásoba/kapacita" — drží horní lištu v klidu.</summary>
+     private const int AmountLabelWidth = 96;
+ 
+@@ -404,6 +444,7 @@ public sealed class GameplayScreen : IScreen
+         }
+ 
+         _npcCityRenderer.Update(dt); // karavany mezi cizími městy jezdí i z dálky
++        _buildingRenderer.Update(dt); // balony nad kotvišti se houpou
+         _weatherRenderer.Update(dt, _simulation, _screens.GraphicsDevice.Viewport);
+         _minimap.Update(dt, _camera, _simulation);
+         DrainNotifications();
+@@ -1604,7 +1645,12 @@ public sealed class GameplayScreen : IScreen
+         var content = _screens.Content;
+ 
+         // Horní pruh: suroviny (ikony) + zásoba/kapacita + přírůstek za sekundu.
+-        var resourceBar = new HorizontalStackPanel { Spacing = 14 };
++        //
++        // Zabalený do řádků, ne jeden dlouhý pruh: surovin je devatenáct a v jedné
++        // řadě by při plné hře přetekly z obrazovky ven. Do řádků se skládají jen
++        // ty ZNÁMÉ, takže se v pruhu nedělají díry po neobjevených.
++        _resourceRows = new VerticalStackPanel { Spacing = 4 };
++        var resourceBar = new VerticalStackPanel { Spacing = 4 };
+         _resourceLabels = new Label[content.Resources.Count];
+         _resourceRateLabels = new Label[content.Resources.Count];
+         _resourceChips = new Widget[content.Resources.Count];
+@@ -1649,16 +1695,22 @@ public sealed class GameplayScreen : IScreen
+             // obsah, ke kterému se hráč ještě nedostal (odhalí se získáním).
+             chip.Visible = _simulation.IsResourceKnown(i);
+             _resourceChips[i] = chip;
+-            resourceBar.Widgets.Add(chip);
+         }
+ 
++        resourceBar.Widgets.Add(_resourceRows);
++        RepackResourceChips();
++
+         _populationLabel = new Label
+         {
+             VerticalAlignment = VerticalAlignment.Center,
+             TextColor = UiFactory.Accent,
+             MinWidth = AmountLabelWidth, // ať rostoucí počet obyvatel netlačí hlášku vedle sebe
+         };
+-        resourceBar.Widgets.Add(_populationLabel);
++
++        // Lidé a nečinné budovy na vlastním řádku pod surovinami — jsou to jiná
++        // čísla než sklad a v zabaleném pruhu by jinak plavaly kdekoli.
++        var summaryRow = new HorizontalStackPanel { Spacing = 14 };
++        summaryRow.Widgets.Add(_populationLabel);
+ 
+         // Nevyužité budovy se musí ohlásit: bez dělníků nevyrábějí a hráč by jinak
+         // jen viděl, že mu stavění přestalo něco přinášet, aniž by věděl proč.
+@@ -1668,7 +1720,8 @@ public sealed class GameplayScreen : IScreen
+             TextColor = new Color(240, 180, 90),
+             Tooltip = _screens.Loc["tip.idleBuildings"],
+         };
+-        resourceBar.Widgets.Add(_idleLabel);
++        summaryRow.Widgets.Add(_idleLabel);
++        resourceBar.Widgets.Add(summaryRow);
+ 
+         var topLeft = UiFactory.DarkPanel(resourceBar);
+         topLeft.HorizontalAlignment = HorizontalAlignment.Left;
+@@ -2511,10 +2564,7 @@ public sealed class GameplayScreen : IScreen
+         if (known != _knownResourceCount)
+         {
+             _knownResourceCount = known;
+-            for (int i = 0; i < _resourceChips.Length; i++)
+-            {
+-                _resourceChips[i].Visible = _simulation.IsResourceKnown(i);
+-            }
++            RepackResourceChips();
+         }
+ 
+         for (int i = 0; i < _resourceLabels.Length; i++)
+diff --git a/src/CivDle/Screens/TechGraphLayout.cs b/src/CivDle/Screens/TechGraphLayout.cs
+index 087cc91..d523278 100644
+--- a/src/CivDle/Screens/TechGraphLayout.cs
++++ b/src/CivDle/Screens/TechGraphLayout.cs
+@@ -38,11 +38,21 @@ public sealed class TechGraphLayout
+     /// <summary>Klikací (a hover) čtverec kolem hvězdy.</summary>
+     public const int HitSize = 52;
+ 
+-    /// <summary>Rozestup prstenců. Vnitřní jsou hustší, vnější potřebují víc místa.</summary>
+-    private const int RingSpacing = 190;
++    /// <summary>
++    /// Nejmenší rozestup prstenců. Skutečný se dopočítá z počtu listů — viz
++    /// <see cref="SpacingFor"/>. Kdyby byl pevný, každé přidání pár technologií
++    /// by hvězdy na okraji naskládalo na sebe.
++    /// </summary>
++    private const int MinRingSpacing = 190;
++
++    /// <summary>Rozestup prstenců téhle hvězdice (spočítaný v konstruktoru).</summary>
++    private readonly int _ringSpacing;
+ 
+-    /// <summary>Poloměr prvního prstence — kolem kořene musí zbýt místo na popisek.</summary>
+-    private const int InnerRadius = 150;
++    /// <summary>Nejmenší poloměr prvního prstence — kolem kořene musí zbýt místo na popisek.</summary>
++    private const int MinInnerRadius = 150;
++
++    /// <summary>Poloměr prvního prstence téhle hvězdice (spočítaný v konstruktoru).</summary>
++    private readonly int _innerRadius;
+ 
+     private const int Margin = 170;
+ 
+@@ -81,7 +91,18 @@ public sealed class TechGraphLayout
+             maxDepth = Math.Max(maxDepth, depth[i]);
+         }
+ 
+-        int radius = InnerRadius + maxDepth * RingSpacing;
++        int totalLeavesForSpacing = 0;
++        for (int i = 0; i < count; i++)
++        {
++            if (_parent[i] < 0)
++            {
++                totalLeavesForSpacing += leaves[i];
++            }
++        }
++
++        _innerRadius = InnerRadiusFor(totalLeavesForSpacing);
++        _ringSpacing = MinRingSpacing;
++        int radius = _innerRadius + maxDepth * _ringSpacing;
+         Width = Height = 2 * (radius + Margin);
+         var origin = new Vector2(Width / 2f, Height / 2f);
+         _origin = origin;
+@@ -179,7 +200,26 @@ public sealed class TechGraphLayout
+         (float)(Math.Cos(angle) * radius),
+         (float)(Math.Sin(angle) * radius));
+ 
+-    private static float RadiusAt(int depth) => depth == 0 ? 0f : InnerRadius + (depth - 1) * RingSpacing;
++    private float RadiusAt(int depth) => depth == 0 ? 0f : _innerRadius + (depth - 1) * _ringSpacing;
++
++    /// <summary>
++    /// Jak velký musí být PRVNÍ prstenec, aby se žádné dvě hvězdy nedotýkaly.
++    ///
++    /// <para>Úhlová šířka uzlu je úměrná jeho listům, takže na jeden list připadá
++    /// oblouk <c>2πR / listy</c>. Nejtěsněji je proto tam, kde list sedí
++    /// <b>nejblíž středu</b> — ne na nejzazším prstenci, jak by se čekalo.
++    /// (Tuhle úvahu jsem měl napoprvé obráceně a rozestup prstenců problém
++    /// neřešil: sourozenci <c>ledgers</c> a <c>market_scales</c> na druhém
++    /// prstenci zůstali 33 px od sebe.)</para>
++    ///
++    /// <para>Když tedy vyjde první prstenec dost velký, jsou v pořádku i všechny
++    /// další — a strom snese libovolný počet technologií, aniž by se okraj slil.</para>
++    /// </summary>
++    private static int InnerRadiusFor(int totalLeaves)
++    {
++        const float perLeaf = StarSize * 2.6f; // hvězda a k tomu dýchací prostor
++        return Math.Max(MinInnerRadius, (int)MathF.Ceiling(totalLeaves * perLeaf / MathF.Tau));
++    }
+ 
+     /// <summary>Klikací čtverec kolem hvězdy (hit test i culling).</summary>
+     public Rectangle Bounds(int techIndex)
+diff --git a/tests/CivDle.Core.Tests/Sim/ReforestTests.cs b/tests/CivDle.Core.Tests/Sim/ReforestTests.cs
+index 5e0b94d..d64fabf 100644
+--- a/tests/CivDle.Core.Tests/Sim/ReforestTests.cs
++++ b/tests/CivDle.Core.Tests/Sim/ReforestTests.cs
+@@ -100,6 +100,16 @@ public class ReforestTests
+         Assert.Equal(0, sim.NodeChargesLeft(60, 60));
+     }
+ 
++    [Fact]
++    public void RealContent_HasAWayToSeeFurtherWithoutWalking()
++    {
++        // Objevování bylo jen chůze. Dohled je druhá cesta — a musí stát
++        // v datech, jinak by ji hráč nikde nenašel.
++        var content = TestData.LoadRealContent();
++
++        Assert.Contains(content.Buildings.All, b => b.Scouts);
++    }
++
+     [Fact]
+     public void RealContent_HasAWayToRegrowTheForest()
+     {
+-- 
+2.43.0
+
