@@ -101,6 +101,16 @@ public class ReforestTests
     }
 
     [Fact]
+    public void RealContent_HasAWayToSeeFurtherWithoutWalking()
+    {
+        // Objevování bylo jen chůze. Dohled je druhá cesta — a musí stát
+        // v datech, jinak by ji hráč nikde nenašel.
+        var content = TestData.LoadRealContent();
+
+        Assert.Contains(content.Buildings.All, b => b.Scouts);
+    }
+
+    [Fact]
     public void RealContent_HasAWayToRegrowTheForest()
     {
         // Bez tohohle by zbytek testů hlídal mechaniku, kterou hra nenabízí.

@@ -848,6 +848,41 @@ public sealed class Simulation
         return true;
     }
 
+    /// <summary>Jak často se rozhlížejí pátrací stanice (tiky). Pomalý systém.</summary>
+    private const int ScoutIntervalTicks = 50;
+
+    /// <summary>
+    /// Pátrací stanice (balony, radary) odhalují mlhu kolem sebe.
+    ///
+    /// <para>Odhaluje se <b>po kruzích ven</b>, ne celý okruh naráz: radar
+    /// s dosahem 60 dlaždic by jedním voláním prošel přes deset tisíc dlaždic.
+    /// Takhle se svět otevírá postupně, což navíc vypadá jako pátrání a ne jako
+    /// mávnutí proutkem.</para>
+    /// </summary>
+    private void TickScouting()
+    {
+        if (TickCount % ScoutIntervalTicks != 0)
+        {
+            return;
+        }
+
+        int step = (int)(TickCount / ScoutIntervalTicks);
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            ref readonly var building = ref _buildings[i];
+            var def = _content.Buildings[building.DefIndex];
+            if (!def.Scouts || !building.IsComplete)
+            {
+                continue;
+            }
+
+            // Prstenec roste s časem a po dosažení dosahu se vrátí na začátek —
+            // stanice tak drží okolí odhalené i po Vzestupu, kdy se mlha vrací.
+            int reach = FogRevealRadius + step % Math.Max(1, def.ScoutRadius);
+            Fog.Reveal(building.X, building.Y, Math.Min(def.ScoutRadius, reach));
+        }
+    }
+
     /// <summary>
     /// Vrátí vytěženou krajinu v okolí naráz. Rychlá (a nejistá) obdoba lesní
     /// školky — modlitba za rychlý růst.
@@ -2378,6 +2413,7 @@ public sealed class Simulation
         _colonySystem.Tick(this); // guvernér: expanze do nových kolonií
         _settlementSystem.Tick(this);
         _reforestSystem.Tick(this);
+        TickScouting();
         _districtSystem.Tick(this);
         _milestoneBonuses.Tick(this);
         _historySystem.Tick(this);

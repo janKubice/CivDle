@@ -93,6 +93,46 @@ public sealed class GameplayScreen : IScreen
     private readonly Dictionary<int, string> _popupTextCache = new();
 
     private Desktop _desktop = null!;
+    /// <summary>Řádky, do kterých se skládají známé suroviny.</summary>
+    private VerticalStackPanel _resourceRows = null!;
+
+    /// <summary>Odhad šířky jedné položky suroviny (ikona + zásoba + přírůstek).</summary>
+    private const int ChipWidth = 200;
+
+    /// <summary>
+    /// Přeskládá známé suroviny do řádků podle šířky okna.
+    ///
+    /// <para>Volá se jen při objevení nové suroviny (pár × za hru), ne každý
+    /// snímek — přestavět pár widgetů je levné, dělat to nepřetržitě ne.</para>
+    /// </summary>
+    private void RepackResourceChips()
+    {
+        _resourceRows.Widgets.Clear();
+
+        int perRow = Math.Max(4, (_screens.GraphicsDevice.Viewport.Width - 80) / ChipWidth);
+        HorizontalStackPanel? row = null;
+        int inRow = 0;
+
+        for (int i = 0; i < _resourceChips.Length; i++)
+        {
+            if (!_simulation.IsResourceKnown(i))
+            {
+                continue; // neznámá surovina se v pruhu vůbec neukáže
+            }
+
+            if (row is null || inRow == perRow)
+            {
+                row = new HorizontalStackPanel { Spacing = 14 };
+                _resourceRows.Widgets.Add(row);
+                inRow = 0;
+            }
+
+            _resourceChips[i].Visible = true;
+            row.Widgets.Add(_resourceChips[i]);
+            inRow++;
+        }
+    }
+
     /// <summary>Rezervovaná šířka pro „zásoba/kapacita" — drží horní lištu v klidu.</summary>
     private const int AmountLabelWidth = 96;
 
@@ -404,6 +444,7 @@ public sealed class GameplayScreen : IScreen
         }
 
         _npcCityRenderer.Update(dt); // karavany mezi cizími městy jezdí i z dálky
+        _buildingRenderer.Update(dt); // balony nad kotvišti se houpou
         _weatherRenderer.Update(dt, _simulation, _screens.GraphicsDevice.Viewport);
         _minimap.Update(dt, _camera, _simulation);
         DrainNotifications();
@@ -1604,7 +1645,12 @@ public sealed class GameplayScreen : IScreen
         var content = _screens.Content;
 
         // Horní pruh: suroviny (ikony) + zásoba/kapacita + přírůstek za sekundu.
-        var resourceBar = new HorizontalStackPanel { Spacing = 14 };
+        //
+        // Zabalený do řádků, ne jeden dlouhý pruh: surovin je devatenáct a v jedné
+        // řadě by při plné hře přetekly z obrazovky ven. Do řádků se skládají jen
+        // ty ZNÁMÉ, takže se v pruhu nedělají díry po neobjevených.
+        _resourceRows = new VerticalStackPanel { Spacing = 4 };
+        var resourceBar = new VerticalStackPanel { Spacing = 4 };
         _resourceLabels = new Label[content.Resources.Count];
         _resourceRateLabels = new Label[content.Resources.Count];
         _resourceChips = new Widget[content.Resources.Count];
@@ -1649,8 +1695,10 @@ public sealed class GameplayScreen : IScreen
             // obsah, ke kterému se hráč ještě nedostal (odhalí se získáním).
             chip.Visible = _simulation.IsResourceKnown(i);
             _resourceChips[i] = chip;
-            resourceBar.Widgets.Add(chip);
         }
+
+        resourceBar.Widgets.Add(_resourceRows);
+        RepackResourceChips();
 
         _populationLabel = new Label
         {
@@ -1658,7 +1706,11 @@ public sealed class GameplayScreen : IScreen
             TextColor = UiFactory.Accent,
             MinWidth = AmountLabelWidth, // ať rostoucí počet obyvatel netlačí hlášku vedle sebe
         };
-        resourceBar.Widgets.Add(_populationLabel);
+
+        // Lidé a nečinné budovy na vlastním řádku pod surovinami — jsou to jiná
+        // čísla než sklad a v zabaleném pruhu by jinak plavaly kdekoli.
+        var summaryRow = new HorizontalStackPanel { Spacing = 14 };
+        summaryRow.Widgets.Add(_populationLabel);
 
         // Nevyužité budovy se musí ohlásit: bez dělníků nevyrábějí a hráč by jinak
         // jen viděl, že mu stavění přestalo něco přinášet, aniž by věděl proč.
@@ -1668,7 +1720,8 @@ public sealed class GameplayScreen : IScreen
             TextColor = new Color(240, 180, 90),
             Tooltip = _screens.Loc["tip.idleBuildings"],
         };
-        resourceBar.Widgets.Add(_idleLabel);
+        summaryRow.Widgets.Add(_idleLabel);
+        resourceBar.Widgets.Add(summaryRow);
 
         var topLeft = UiFactory.DarkPanel(resourceBar);
         topLeft.HorizontalAlignment = HorizontalAlignment.Left;
@@ -2511,10 +2564,7 @@ public sealed class GameplayScreen : IScreen
         if (known != _knownResourceCount)
         {
             _knownResourceCount = known;
-            for (int i = 0; i < _resourceChips.Length; i++)
-            {
-                _resourceChips[i].Visible = _simulation.IsResourceKnown(i);
-            }
+            RepackResourceChips();
         }
 
         for (int i = 0; i < _resourceLabels.Length; i++)

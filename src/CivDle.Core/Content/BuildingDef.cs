@@ -172,7 +172,8 @@ public sealed record BuildingDef(
     int MinSettlementRank = -1,
     BuildingMilestones? MilestonesOrNull = null,
     BuildingSpectacle? SpectacleOrNull = null,
-    int ReforestRadius = 0)
+    int ReforestRadius = 0,
+    int ScoutRadius = 0)
 {
     /// <summary>
     /// Podívaná, kterou budova pravidelně předvádí; <c>null</c> = jen stojí.
@@ -228,6 +229,15 @@ public sealed record BuildingDef(
     /// je odpověď — stojí místo i dělníky, ale les vrací.</para>
     /// </summary>
     public bool Reforests => ReforestRadius > 0;
+
+    /// <summary>
+    /// Odhaluje budova sama mlhu kolem sebe? (Pátrací balon, radar.)
+    ///
+    /// <para>Objevování bylo do téhle chvíle jen chůze: hráč musel všude dojít
+    /// rukou. Dohled je druhá cesta — postavíš a svět se otevře sám. Efekt se
+    /// <b>sčítá</b>: víc stanic vidí dál, protože každá odhaluje ze svého místa.</para>
+    /// </summary>
+    public bool Scouts => ScoutRadius > 0;
 
     /// <summary>
     /// Jak dlouho se budova staví (v ticích). 0 = stojí hned, jako všechno ostatní.

@@ -27,6 +27,30 @@
       ]
     },
     {
+      "id": "market_scales",
+      "cost": {
+        "science": 20,
+        "wood": 10
+      },
+      "prerequisites": [
+        "trade"
+      ],
+      "effect": "production_mult",
+      "magnitude": 0.04
+    },
+    {
+      "id": "ledgers",
+      "cost": {
+        "science": 20,
+        "wood": 10
+      },
+      "prerequisites": [
+        "trade"
+      ],
+      "effect": "storage_mult",
+      "magnitude": 0.06
+    },
+    {
       "id": "tools",
       "cost": {
         "planks": 30,
@@ -64,6 +88,19 @@
       "magnitude": 0.2
     },
     {
+      "id": "crop_terraces",
+      "cost": {
+        "science": 45,
+        "food": 15
+      },
+      "prerequisites": [
+        "crop_rotation"
+      ],
+      "effect": "production_mult",
+      "magnitude": 0.06,
+      "targetResource": "food"
+    },
+    {
       "id": "joinery",
       "cost": {
         "planks": 60
@@ -73,6 +110,19 @@
       ],
       "effect": "production_mult",
       "magnitude": 0.15
+    },
+    {
+      "id": "rope_making",
+      "cost": {
+        "science": 20,
+        "planks": 10
+      },
+      "prerequisites": [
+        "joinery"
+      ],
+      "effect": "production_mult",
+      "magnitude": 0.05,
+      "targetResource": "planks"
     },
     {
       "id": "silviculture",
@@ -89,6 +139,19 @@
       ]
     },
     {
+      "id": "seed_selection",
+      "cost": {
+        "science": 45,
+        "planks": 15
+      },
+      "prerequisites": [
+        "silviculture"
+      ],
+      "effect": "production_mult",
+      "magnitude": 0.06,
+      "targetResource": "wood"
+    },
+    {
       "id": "granary",
       "cost": {
         "planks": 40,
@@ -99,6 +162,18 @@
       ],
       "effect": "storage_mult",
       "magnitude": 0.25
+    },
+    {
+      "id": "grain_drying",
+      "cost": {
+        "science": 20,
+        "planks": 10
+      },
+      "prerequisites": [
+        "granary"
+      ],
+      "effect": "storage_mult",
+      "magnitude": 0.08
     },
     {
       "id": "cartography",
@@ -113,6 +188,44 @@
       "magnitude": 0.25
     },
     {
+      "id": "surveying",
+      "cost": {
+        "science": 120,
+        "planks": 40
+      },
+      "prerequisites": [
+        "cartography"
+      ],
+      "effect": "discovery_luck",
+      "magnitude": 0.05
+    },
+    {
+      "id": "aeronautics",
+      "cost": {
+        "planks": 80,
+        "tools": 20,
+        "science": 120
+      },
+      "prerequisites": [
+        "cartography"
+      ],
+      "unlocks": [
+        "scout_balloon"
+      ]
+    },
+    {
+      "id": "lookout_posts",
+      "cost": {
+        "science": 120,
+        "planks": 40
+      },
+      "prerequisites": [
+        "aeronautics"
+      ],
+      "effect": "discovery_luck",
+      "magnitude": 0.06
+    },
+    {
       "id": "masonry",
       "cost": {
         "stone": 80,
@@ -123,6 +236,19 @@
       ],
       "effect": "housing_mult",
       "magnitude": 0.2
+    },
+    {
+      "id": "stone_sledges",
+      "cost": {
+        "science": 20,
+        "stone": 10
+      },
+      "prerequisites": [
+        "masonry"
+      ],
+      "effect": "production_mult",
+      "magnitude": 0.06,
+      "targetResource": "stone"
     },
     {
       "id": "bronze_working",
@@ -153,6 +279,19 @@
       ]
     },
     {
+      "id": "crucibles",
+      "cost": {
+        "science": 95,
+        "stone": 31
+      },
+      "prerequisites": [
+        "alloys"
+      ],
+      "effect": "production_mult",
+      "magnitude": 0.07,
+      "targetResource": "bronze"
+    },
+    {
       "id": "bellows",
       "cost": {
         "tools": 10,
@@ -163,6 +302,19 @@
       ],
       "effect": "production_mult",
       "magnitude": 0.2
+    },
+    {
+      "id": "charcoal_pits",
+      "cost": {
+        "science": 70,
+        "tools": 23
+      },
+      "prerequisites": [
+        "bellows"
+      ],
+      "effect": "production_mult",
+      "magnitude": 0.06,
+      "targetResource": "coal"
     },
     {
       "id": "aqueducts",
@@ -177,6 +329,18 @@
       "magnitude": 0.3
     },
     {
+      "id": "street_wells",
+      "cost": {
+        "science": 95,
+        "stone": 31
+      },
+      "prerequisites": [
+        "aqueducts"
+      ],
+      "effect": "growth_mult",
+      "magnitude": 0.06
+    },
+    {
       "id": "warehousing",
       "cost": {
         "planks": 80,
@@ -187,6 +351,18 @@
       ],
       "effect": "storage_mult",
       "magnitude": 0.4
+    },
+    {
+      "id": "cellars",
+      "cost": {
+        "science": 95,
+        "planks": 31
+      },
+      "prerequisites": [
+        "warehousing"
+      ],
+      "effect": "storage_mult",
+      "magnitude": 0.1
     },
     {
       "id": "iron_working",
@@ -218,6 +394,19 @@
       ]
     },
     {
+      "id": "chisels",
+      "cost": {
+        "science": 70,
+        "planks": 23
+      },
+      "prerequisites": [
+        "toolsmithing"
+      ],
+      "effect": "production_mult",
+      "magnitude": 0.07,
+      "targetResource": "tools"
+    },
+    {
       "id": "deep_mining",
       "cost": {
         "iron": 30,
@@ -240,6 +429,42 @@
       ],
       "effect": "production_mult",
       "magnitude": 0.25
+    },
+    {
+      "id": "festival_lanterns",
+      "cost": {
+        "science": 45,
+        "food": 15
+      },
+      "prerequisites": [
+        "guilds"
+      ],
+      "effect": "festival_power",
+      "magnitude": 0.1
+    },
+    {
+      "id": "apprenticeships",
+      "cost": {
+        "science": 45,
+        "food": 15
+      },
+      "prerequisites": [
+        "guilds"
+      ],
+      "effect": "research_discount",
+      "magnitude": 0.05
+    },
+    {
+      "id": "night_shifts",
+      "cost": {
+        "science": 45,
+        "food": 15
+      },
+      "prerequisites": [
+        "guilds"
+      ],
+      "effect": "production_mult",
+      "magnitude": 0.04
     },
     {
       "id": "municipal_administration",
@@ -275,6 +500,18 @@
       ],
       "effect": "housing_mult",
       "magnitude": 0.3
+    },
+    {
+      "id": "tiled_roofs",
+      "cost": {
+        "science": 95,
+        "stone": 31
+      },
+      "prerequisites": [
+        "brickwork"
+      ],
+      "effect": "housing_mult",
+      "magnitude": 0.07
     },
     {
       "id": "steam_power",
@@ -436,6 +673,20 @@
         "electronics_fab",
         "solar_array",
         "hydroponics"
+      ]
+    },
+    {
+      "id": "radar",
+      "cost": {
+        "steel": 80,
+        "electronics": 30,
+        "science": 700
+      },
+      "prerequisites": [
+        "electronics"
+      ],
+      "unlocks": [
+        "radar_station"
       ]
     },
     {

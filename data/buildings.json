@@ -2419,6 +2419,65 @@
       "autoBuild": true
     },
     {
+      "id": "scout_balloon",
+      "category": "civic",
+      "mapColor": "#C86A6A",
+      "footprint": [
+        1,
+        1
+      ],
+      "workerSlots": 1,
+      "buildCost": {
+        "planks": 35,
+        "tools": 8
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "tundra",
+        "desert",
+        "highlands",
+        "forest",
+        "taiga",
+        "beach"
+      ],
+      "scoutRadius": 26,
+      "upkeep": {
+        "food": 1
+      }
+    },
+    {
+      "id": "radar_station",
+      "category": "civic",
+      "mapColor": "#6AC8C8",
+      "footprint": [
+        2,
+        2
+      ],
+      "workerSlots": 3,
+      "buildCost": {
+        "steel": 60,
+        "electronics": 20
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "tundra",
+        "desert",
+        "highlands",
+        "forest",
+        "taiga",
+        "beach"
+      ],
+      "scoutRadius": 70,
+      "powerDemand": 4,
+      "upkeep": {
+        "tools": 1
+      }
+    },
+    {
       "id": "fountain_square",
       "category": "civic",
       "mapColor": "#7FA9C4",
