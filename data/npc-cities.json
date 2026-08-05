@@ -27,7 +27,15 @@
       "population": 60,
       "trade": {
         "food": 45
-      }
+      },
+      "buildings": [
+        "house",
+        "house",
+        "house",
+        "farm",
+        "granary",
+        "windmill"
+      ]
     },
     {
       "id": "mining_camp",
@@ -36,7 +44,15 @@
       "trade": {
         "stone": 35,
         "iron_ore": 12
-      }
+      },
+      "buildings": [
+        "house",
+        "house",
+        "quarry",
+        "iron_mine",
+        "coal_mine",
+        "depot"
+      ]
     },
     {
       "id": "port",
@@ -45,7 +61,15 @@
       "trade": {
         "planks": 30,
         "tools": 10
-      }
+      },
+      "buildings": [
+        "house",
+        "house",
+        "fishing_hut",
+        "harbor",
+        "warehouse",
+        "market"
+      ]
     },
     {
       "id": "free_city",
@@ -54,7 +78,15 @@
       "trade": {
         "bronze": 20,
         "science": 15
-      }
+      },
+      "buildings": [
+        "house",
+        "house",
+        "house",
+        "market",
+        "library",
+        "park"
+      ]
     },
     {
       "id": "holy_city",
@@ -62,29 +94,16 @@
       "population": 110,
       "trade": {
         "faith": 25
-      }
+      },
+      "buildings": [
+        "house",
+        "house",
+        "shrine",
+        "temple",
+        "monastery",
+        "fountain_square"
+      ]
     }
   ],
-  "names": [
-    "Kamenný Brod",
-    "Vlčí Důl",
-    "Trnová",
-    "Solný Přístav",
-    "Zlatá Lhota",
-    "Bílé Skály",
-    "Rákosí",
-    "Mlžná Zátoka",
-    "Havraní Vrch",
-    "Tichá Ves",
-    "Železný Kout",
-    "Jantarov",
-    "Dubová Stráž",
-    "Vysoký Mlýn",
-    "Slaná Kosa",
-    "Ohnivá Rokle",
-    "Modřín",
-    "Lipová Brána",
-    "Rybí Zátoka",
-    "Popelavý Hřbet"
-  ]
+  "_comment_names": "Jmena cizich mest se berou ze settlement-names.json, tedy ze STEJNE mnoziny jako hracova sidla."
 }
