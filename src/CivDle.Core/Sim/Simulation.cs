@@ -4748,6 +4748,27 @@ public sealed class Simulation
     public bool IsTechKnown(int techIndex) =>
         _techResearched[techIndex] || CanResearch(techIndex) != PlacementResult.NotUnlocked;
 
+    /// <summary>
+    /// Skutečná cena výzkumu — se škálováním podle počtu hotových technologií
+    /// i se slevou z Vzestupu.
+    ///
+    /// <para>UI <b>musí</b> ukazovat tohle číslo. Dokud vypisovalo základ z dat,
+    /// hráč viděl „40 vědy", měl 50, klikl a nestalo se nic: skutečná cena byla
+    /// dávno jinde. Přesně to hlásil jako „často mi něco nejde vyzkoumat, i když
+    /// mám suroviny".</para>
+    /// </summary>
+    public IReadOnlyList<ResourceAmount> ScaledResearchCost(int techIndex)
+    {
+        var cost = _content.Techs[techIndex].Cost;
+        var scaled = new ResourceAmount[cost.Count];
+        for (int i = 0; i < cost.Count; i++)
+        {
+            scaled[i] = new ResourceAmount(cost[i].ResourceIndex, ResearchCost(cost[i].Amount));
+        }
+
+        return scaled;
+    }
+
     /// <summary>Lze technologii vyzkoumat (prerekvizity splněny, dost surovin, není hotová)?</summary>
     public PlacementResult CanResearch(int techIndex)
     {

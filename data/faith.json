@@ -36,7 +36,8 @@
       "baseChance": 0.7,
       "chanceFalloff": 0.15,
       "magnitude": 1.0,
-      "radius": 10
+      "radius": 10,
+      "radiusTiles": 8
     },
     {
       "id": "meteor",
@@ -45,7 +46,8 @@
       "baseChance": 0.45,
       "chanceFalloff": 0.22,
       "magnitude": 1.0,
-      "radius": 5
+      "radius": 5,
+      "radiusTiles": 6
     },
     {
       "id": "deluge",
@@ -54,7 +56,8 @@
       "baseChance": 0.5,
       "chanceFalloff": 0.2,
       "magnitude": 1.0,
-      "radius": 7
+      "radius": 7,
+      "radiusTiles": 7
     },
     {
       "id": "quickening",
@@ -63,7 +66,8 @@
       "baseChance": 0.7,
       "chanceFalloff": 0.16,
       "magnitude": 1.0,
-      "radius": 9
+      "radius": 9,
+      "radiusTiles": 10
     },
     {
       "id": "revelation",
@@ -72,7 +76,8 @@
       "baseChance": 0.9,
       "chanceFalloff": 0.1,
       "magnitude": 1.0,
-      "radius": 26
+      "radius": 26,
+      "radiusTiles": 22
     },
     {
       "id": "windfall",
@@ -99,7 +104,8 @@
       "baseChance": 0.55,
       "chanceFalloff": 0.2,
       "magnitude": 1.0,
-      "radius": 8
+      "radius": 8,
+      "radiusTiles": 6
     }
   ]
 }

@@ -13,7 +13,17 @@ namespace CivDle.Rendering;
 /// </summary>
 public sealed class MinimapRenderer : IDisposable
 {
-    private const int SizePixels = 168;
+    /// <summary>
+    /// Hrana minimapy v pixelech. Bývala 168 a byla malá na to, aby se z ní dalo
+    /// číst rozložení města — na obrazovce je místa dost.
+    /// </summary>
+    private const int SizePixels = 232;
+
+    /// <summary>
+    /// Kolik místa dole vpravo si minimapa bere. HUD si podle toho posadí sloupec
+    /// tlačítek nad ni, místo aby jí ležel přes roh.
+    /// </summary>
+    public const int ReservedHeight = SizePixels + 24;
     private const int TilesPerPixel = 5;
     private const float RefreshSeconds = 0.4f;
 

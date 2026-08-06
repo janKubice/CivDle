@@ -184,6 +184,59 @@ public sealed class AgentSystem
     }
 
     /// <summary>
+    /// Vypustí loďku od budovy, která pracuje na vodě.
+    ///
+    /// <para>Hledá se cíleně mezi budovami u vody — těch je pár, kdežto domů
+    /// stovky, takže rovnoměrné losování na ně prakticky nedosáhlo. Prochází se
+    /// jen viditelné budovy, takže to nic nestojí ani u velkého města.</para>
+    /// </summary>
+    private bool TrySpawnBoat(Simulation simulation, Vector2 min, Vector2 max)
+    {
+        const int tileSize = TerrainRenderer.TileSize;
+
+        for (int pass = 0; pass < 2; pass++)
+        {
+            var buildings = pass == 0 ? simulation.Buildings : simulation.NpcBuildings;
+            if (buildings.Length == 0)
+            {
+                continue;
+            }
+
+            // Od náhodného místa dokola, ať se nevybírá pořád tatáž chatrč.
+            int start = Random.Shared.Next(buildings.Length);
+            for (int step = 0; step < buildings.Length; step++)
+            {
+                ref readonly var building = ref buildings[(start + step) % buildings.Length];
+                float x = (building.X + 0.5f) * tileSize;
+                float y = (building.Y + 0.5f) * tileSize;
+                if (x < min.X || x > max.X || y < min.Y || y > max.Y)
+                {
+                    continue;
+                }
+
+                if (!WorksOnWater(_content, _content.Buildings[building.DefIndex])
+                    || !TryFindWaterNear(simulation, building, out var launch))
+                {
+                    continue;
+                }
+
+                _agents[_count++] = new Agent
+                {
+                    Position = launch,
+                    Target = PickWaterTarget(simulation, launch, Vector2.Zero),
+                    Kind = Kind.Boat,
+                    FollowsRoads = false,
+                    Speed = BoatSpeed,
+                    Phase = Random.Shared.NextSingle() * 10f,
+                };
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Vybere dům, u kterého se někdo objeví. Střídá hráčovy budovy a domy
     /// objevených cizích měst — obojí je zástavba, ve které se má chodit.
     /// </summary>
@@ -225,10 +278,21 @@ public sealed class AgentSystem
 
         _spawnTimer = SpawnCooldownSeconds;
 
+        // Loďky se řeší ZVLÁŠŤ a jako první. Dřív se čekalo, až náhodný los
+        // trefí zrovna rybářskou chatrč mezi stovkami budov — a i pak se spawn
+        // stihl utnout dřív, protože se testovala průchodnost SOUŠE u budovy,
+        // která stojí na pláži obklopené vodou. Výsledek: hráč lodě nikdy
+        // neviděl, ačkoli byly celou dobu naprogramované.
+        if (Random.Shared.NextSingle() < BoatChance
+            && TrySpawnBoat(simulation, min, max))
+        {
+            return;
+        }
+
         // Spawn poblíž náhodné budovy ve výřezu — vlastní i cizí. Objevené cizí
         // město bez lidí vypadá jako vyhořelé; když už z něj stojí domy, mají
         // v nich někoho mít.
-        if (!TryPickAnchor(simulation, out var center, out var anchor))
+        if (!TryPickAnchor(simulation, out var center, out _))
         {
             return;
         }
@@ -243,24 +307,6 @@ public sealed class AgentSystem
             (Random.Shared.NextSingle() - 0.5f) * 6f * TerrainRenderer.TileSize);
         if (!IsPassable(simulation, pos))
         {
-            return;
-        }
-
-        // Přístavní budova = šance na loďku. Vyplouvá z vody vedle budovy, takže
-        // je hned vidět, odkud jede — právě ten detail dělá pobřeží živým.
-        if (WorksOnWater(_content, _content.Buildings[anchor.DefIndex])
-            && Random.Shared.NextSingle() < BoatChance
-            && TryFindWaterNear(simulation, anchor, out var launch))
-        {
-            _agents[_count++] = new Agent
-            {
-                Position = launch,
-                Target = PickWaterTarget(simulation, launch, Vector2.Zero),
-                Kind = Kind.Boat,
-                FollowsRoads = false,
-                Speed = BoatSpeed,
-                Phase = Random.Shared.NextSingle() * 10f,
-            };
             return;
         }
 

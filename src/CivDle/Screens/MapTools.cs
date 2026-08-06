@@ -154,6 +154,19 @@ public sealed class MapTools
     public int RoadGhostY { get; private set; }
     public bool RoadGhostErasing { get; private set; }
     public PlacementResult RoadGhostResult { get; private set; }
+
+    /// <summary>
+    /// Trasa, kterou hráč zrovna táhne (v dlaždicích). Prázdná, když netáhne.
+    ///
+    /// <para>Render si ji jen přečte a nakreslí — díky tomu je vidět <b>celá</b>
+    /// budoucí ulice ještě před puštěním tlačítka.</para>
+    /// </summary>
+    public IReadOnlyList<(int X, int Y)> RoadGhostPath => _roadPath;
+
+    private readonly List<(int X, int Y)> _roadPath = new();
+    private bool _roadDragging;
+    private int _roadAnchorX;
+    private int _roadAnchorY;
     public Rectangle ZonePreview { get; private set; }
 
     public bool TerraformGhostActive { get; private set; }
@@ -257,6 +270,8 @@ public sealed class MapTools
         MergeMode = false;
         RoadMode = false;
         RoadEraseMode = false;
+        _roadDragging = false;
+        _roadPath.Clear();
         MergeGhostActive = false;
         RoadGhostActive = false;
         _zoneDragging = false;
@@ -493,6 +508,8 @@ public sealed class MapTools
         {
             RoadMode = false;
             RoadEraseMode = false;
+            _roadDragging = false;
+            _roadPath.Clear();
             return;
         }
 
@@ -510,18 +527,68 @@ public sealed class MapTools
             : _simulation.CanBuildRoad(x, y);
         RoadGhostActive = true;
 
-        if (!_input.IsLeftDown)
+        // Stisk určí začátek úseku, puštění konec. Dokud hráč drží, je vidět celá
+        // budoucí ulice — dřív se pokládalo po jedné dlaždici pod kurzorem, takže
+        // rychlý tah nechal v cestě díry a rovnou ulici nešlo trefit vůbec.
+        if (_input.WasLeftPressed)
         {
+            _roadDragging = true;
+            _roadAnchorX = x;
+            _roadAnchorY = y;
+        }
+
+        if (!_roadDragging)
+        {
+            _roadPath.Clear();
             return;
         }
 
-        if (RoadEraseMode)
+        TracePath(_roadAnchorX, _roadAnchorY, x, y);
+
+        if (_input.IsLeftDown)
         {
-            _simulation.TryRemoveRoad(x, y);
+            return; // pořád táhne — jen náhled
+        }
+
+        foreach (var (tileX, tileY) in _roadPath)
+        {
+            if (RoadEraseMode)
+            {
+                _simulation.TryRemoveRoad(tileX, tileY);
+            }
+            else
+            {
+                _simulation.TryBuildRoad(tileX, tileY);
+            }
+        }
+
+        _roadDragging = false;
+        _roadPath.Clear();
+    }
+
+    /// <summary>
+    /// Trasa z bodu A do bodu B do „L": nejdřív po delší ose, pak po druhé.
+    /// Lomená cesta je to, co hráč od tažení čeká — úhlopříčka po dlaždicích
+    /// vypadá jako schody a v mřížkovém městě se nehodí.
+    /// </summary>
+    private void TracePath(int fromX, int fromY, int toX, int toY)
+    {
+        _roadPath.Clear();
+
+        bool horizontalFirst = Math.Abs(toX - fromX) >= Math.Abs(toY - fromY);
+        int x = fromX;
+        int y = fromY;
+        _roadPath.Add((x, y));
+
+        if (horizontalFirst)
+        {
+            while (x != toX) { x += Math.Sign(toX - x); _roadPath.Add((x, y)); }
+            while (y != toY) { y += Math.Sign(toY - y); _roadPath.Add((x, y)); }
         }
         else
         {
-            _simulation.TryBuildRoad(x, y);
+            while (y != toY) { y += Math.Sign(toY - y); _roadPath.Add((x, y)); }
+            while (x != toX) { x += Math.Sign(toX - x); _roadPath.Add((x, y)); }
         }
     }
 

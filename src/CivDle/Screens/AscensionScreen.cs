@@ -80,11 +80,28 @@ public sealed class AscensionScreen : IScreen
             HorizontalAlignment = HorizontalAlignment.Center,
             TextColor = new Color(180, 140, 230),
         });
+        // Nevyužité body svítí. Je to jediná věc, kterou má hráč po Vzestupu
+        // udělat, a v šedivém řádku mezi ostatními zanikala.
+        bool hasPoints = _simulation.PrestigePoints > 0;
         layout.Widgets.Add(new Label
         {
             Text = loc.Format("prestige.points", _simulation.PrestigePoints),
             HorizontalAlignment = HorizontalAlignment.Center,
+            TextColor = hasPoints ? new Color(255, 215, 120) : Color.LightGray,
         });
+
+        if (hasPoints)
+        {
+            layout.Widgets.Add(new Label
+            {
+                Text = loc["prestige.spendNow"],
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextColor = new Color(150, 220, 150),
+                Wrap = true,
+                Width = 460,
+            });
+        }
+
         layout.Widgets.Add(AscendAction());
 
         // Upgrady (strom) ve scrollu.
@@ -162,6 +179,11 @@ public sealed class AscensionScreen : IScreen
                 SaveTimelapse();
                 if (_simulation.TryAscend() == PlacementResult.Ok)
                 {
+                    // Panel se přestaví HNED: hráč po Vzestupu právě dostal body
+                    // a chce je utratit. Dřív pod bilancí zůstala stará obrazovka
+                    // s nulou a vypadalo to, že se nic nepřipsalo.
+                    BuildUi();
+
                     // Bilance běhu jako tečka za kapitolou — bez ní je Vzestup
                     // jen tlačítko „smazat město".
                     _screens.Push(new RunSummaryScreen(_screens, _simulation.LastRun));

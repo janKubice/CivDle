@@ -164,6 +164,8 @@ public sealed class TechScreen : IScreen
         var techs = _screens.Content.Techs;
         var loc = _screens.Loc;
 
+        _labelBoxes.Clear(); // rozvržení jmen platí vždy jen pro tenhle snímek
+
         spriteBatch.Begin();
         spriteBatch.Draw(pixel, new Rectangle(0, 0, viewport.Width, viewport.Height), new Color(6, 8, 16) * 0.92f);
         DrawStarfield(spriteBatch, pixel, viewport);
@@ -266,8 +268,17 @@ public sealed class TechScreen : IScreen
             var labelColor = researched ? new Color(170, 225, 190)
                 : status == PlacementResult.NotUnlocked ? new Color(120, 128, 145)
                 : Color.White;
-            spriteBatch.DrawString(_font, name,
-                new Vector2(center.X - size.X / 2f, center.Y + star * 1.1f),
+
+            // Jména sousedních hvězd se přes sebe pokládala a nešlo přečíst ani
+            // jedno. Když se popisek nevejde, zkusí se o řádek níž — a když ani
+            // tam, vynechá se. Radši méně jmen než slepenec, ze kterého nejde
+            // vyčíst nic. Uzel pod kurzorem má přednost vždycky.
+            if (!TryPlaceLabel(center, size, star, hovered, out var at))
+            {
+                continue;
+            }
+
+            spriteBatch.DrawString(_font, name, at,
                 hovered ? Color.White : labelColor,
                 0f, Vector2.Zero, new Vector2(_zoom, _zoom));
         }
@@ -304,7 +315,10 @@ public sealed class TechScreen : IScreen
             string body = verdict + '\n' + loc[tech.DescriptionKey];
             if (!researched)
             {
-                body += '\n' + loc.Format("panel.cost", CostFormat.Line(_screens.Content, loc, tech.Cost));
+                // Skutečná cena, ne základ z dat: ta se škáluje počtem hotových
+                // výzkumů, takže se dřív ukazovalo číslo, které už neplatilo.
+                body += '\n' + loc.Format("panel.cost",
+                    CostFormat.Line(_screens.Content, loc, _simulation.ScaledResearchCost(_hovered)));
             }
 
             HoverTooltip.Draw(spriteBatch, pixel, _font, viewport, _input.MousePosition,
@@ -314,6 +328,47 @@ public sealed class TechScreen : IScreen
                     : status == PlacementResult.NotEnoughResources ? new Color(235, 170, 110)
                     : new Color(160, 168, 184));
         }
+    }
+
+    /// <summary>Obdélníky už vysázených jmen — jen pro tenhle snímek.</summary>
+    private readonly List<Rectangle> _labelBoxes = new();
+
+    /// <summary>Kolik řádků pod hvězdou se zkusí, než se jméno vzdá.</summary>
+    private const int LabelRows = 3;
+
+    /// <summary>
+    /// Najde místo pro jméno uzlu tak, aby nepřekrylo jméno, které už na
+    /// obrazovce je. Vrací <c>false</c>, když se nevešlo nikam.
+    /// </summary>
+    private bool TryPlaceLabel(Vector2 center, Vector2 size, float star, bool hovered, out Vector2 at)
+    {
+        for (int row = 0; row < LabelRows; row++)
+        {
+            at = new Vector2(center.X - size.X / 2f, center.Y + star * 1.1f + row * size.Y * 1.15f);
+            var box = new Rectangle((int)at.X, (int)at.Y, (int)size.X, (int)size.Y);
+
+            if (hovered || !Collides(box))
+            {
+                _labelBoxes.Add(box);
+                return true;
+            }
+        }
+
+        at = Vector2.Zero;
+        return false;
+    }
+
+    private bool Collides(Rectangle box)
+    {
+        for (int i = 0; i < _labelBoxes.Count; i++)
+        {
+            if (_labelBoxes[i].Intersects(box))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Jména chybějících prerekvizit — u zamčeného uzlu je to jediná užitečná informace.</summary>

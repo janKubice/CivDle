@@ -57,6 +57,12 @@ public sealed class GameplayScreen : IScreen
     private readonly AgentSystem _agents;
     private readonly InputManager _input = new();
     private readonly FixedStepLoop _simLoop = new(Simulation.TicksPerSecond);
+
+    /// <summary>Pauza / 1× / 2× / 4×. Ovládání času, ne vlastnost simulace.</summary>
+    private readonly GameSpeed _speed = new();
+
+    /// <summary>Tlačítko rychlosti — popisek se přepisuje podle stavu.</summary>
+    private Button? _speedButton;
     private readonly ParticleSystem _particles = new();
     private readonly FloatingTextRenderer _floatingText = new();
     private CityPulseRenderer _cityPulse = null!;
@@ -376,6 +382,17 @@ public sealed class GameplayScreen : IScreen
             SaveShareCard();
         }
 
+        // Ctrl+Shift+D: ladicí menu. Schválně zkratka bez tlačítka kdekoli
+        // v nabídce — je to nástroj na testování pozdní hry, ne herní obsah,
+        // a hráč, který ho nehledá, na něj nemá narazit.
+        if (_input.WasPressed(Keys.D)
+            && (_input.IsDown(Keys.LeftControl) || _input.IsDown(Keys.RightControl))
+            && (_input.IsDown(Keys.LeftShift) || _input.IsDown(Keys.RightShift)))
+        {
+            _screens.Push(new DebugScreen(_screens, _simulation, _camera));
+            return;
+        }
+
         // Start otevře pauzu, Y stavební menu — bez nich by ovladač uměl jen
         // chodit po mapě.
         if (_input.WasPadPressed(GamePadMap.Pause))
@@ -411,7 +428,7 @@ public sealed class GameplayScreen : IScreen
             UpdateHarvest(dt, mouseOverUi);
         }
 
-        int ticks = _simLoop.Advance(gameTime.ElapsedGameTime.TotalSeconds);
+        int ticks = _simLoop.Advance(_speed.Scale(gameTime.ElapsedGameTime.TotalSeconds));
         for (int i = 0; i < ticks; i++)
         {
             _simulation.Tick();
@@ -590,6 +607,14 @@ public sealed class GameplayScreen : IScreen
 
         if (_tools.RoadGhostActive)
         {
+            // Celá tažená trasa, ne jen dlaždice pod kurzorem — hráč vidí ulici,
+            // kterou postaví, ještě než pustí tlačítko.
+            foreach (var (pathX, pathY) in _tools.RoadGhostPath)
+            {
+                DrawTileOverlay(spriteBatch, _screens.WhitePixel, pathX, pathY, 1,
+                    (_tools.RoadGhostErasing ? new Color(240, 190, 90) : new Color(150, 230, 160)) * 0.45f);
+            }
+
             DrawTileOverlay(spriteBatch, _screens.WhitePixel, _tools.RoadGhostX, _tools.RoadGhostY, 1,
                 (_tools.RoadGhostResult != PlacementResult.Ok
                     ? new Color(235, 120, 110)
@@ -1808,6 +1833,7 @@ public sealed class GameplayScreen : IScreen
         root.Widgets.Add(topRight);
         root.Widgets.Add(_objectives.Root);
         root.Widgets.Add(bottomBar);
+        root.Widgets.Add(BuildScreenButtons());
 
         _desktop = _screens.NewDesktop(root);
         ApplyMotionSettings();
@@ -1938,6 +1964,95 @@ public sealed class GameplayScreen : IScreen
         }
     }
 
+    /// <summary>
+    /// Sloupec vpravo nad minimapou: obrazovky, do kterých se odbíhá (sídla,
+    /// úkoly, výzkum, statistiky), a ovládání času.
+    ///
+    /// <para>Dřív byly všechny natlačené v jediné spodní liště vedle nástrojů.
+    /// Bylo jich přes deset, lišta se roztáhla přes celou šířku a nebylo v ní
+    /// poznat, co mění mapu a co jen otevírá okno. Rozdělení je podle toho:
+    /// <b>dole nástroje</b> (stavět, silnice, zóny, sázet), <b>vpravo odbočky</b>.
+    /// Sedí u minimapy, protože obojí je „kam se podívat", ne „co udělat".</para>
+    /// </summary>
+    private Widget BuildScreenButtons()
+    {
+        var loc = _screens.Loc;
+        var stack = new VerticalStackPanel
+        {
+            Spacing = 6,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(0, 0, 12, MinimapRenderer.ReservedHeight),
+        };
+
+        // Rychlost času úplně nahoře: je to jediné tlačítko, které mění, jak hra
+        // běží, a hráč po něm sahá nejčastěji.
+        _speedButton = UiFactory.SmallButton(_speed.Label, () =>
+        {
+            _speed.Next();
+            RefreshHudTexts();
+        }, loc["tip.speed"]);
+        stack.Widgets.Add(_speedButton);
+
+        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.backToCity"], RecenterOnCity, loc["tip.backToCity"]));
+
+        if (_simulation.IsFeatureUnlocked("settlements"))
+        {
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.settlements"],
+                () => _screens.Push(new SettlementsScreen(_screens, _simulation, _camera)), loc["tip.settlements"]));
+        }
+
+        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.quests"],
+            () => _screens.Push(new QuestsScreen(_screens, _simulation)), loc["tip.quests"]));
+
+        // Zakázky mají vlastní tlačítko, i když bydlí na obrazovce úkolů: je to
+        // nejkratší smyčka ve hře a schovaná o dvě kliknutí by prostě zanikla.
+        if (_simulation.ContractsEnabled)
+        {
+            _contractsButton = UiFactory.SmallButton(loc["hud.contracts"],
+                () => _screens.Push(new QuestsScreen(_screens, _simulation)), loc["tip.contracts"]);
+            stack.Widgets.Add(_contractsButton);
+        }
+
+        if (_screens.Content.Techs.Count > 0 && _simulation.IsFeatureUnlocked("research"))
+        {
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.tech"],
+                () => _screens.Push(new TechScreen(_screens, _simulation)), loc["tip.tech"]));
+        }
+
+        if (_screens.Content.Policies.Count > 0 && _simulation.IsFeatureUnlocked("governor"))
+        {
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.governor"],
+                () => _screens.Push(new PoliciesScreen(_screens, _simulation)), loc["tip.governor"]));
+        }
+
+        if (_simulation.IsFeatureUnlocked("ascend"))
+        {
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.ascend"],
+                () => _screens.Push(new AscensionScreen(_screens, _simulation, _info)), loc["tip.ascend"]));
+        }
+
+        if (_simulation.HistoryEnabled)
+        {
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.stats"],
+                () => _screens.Push(new StatsScreen(_screens, _simulation.History)), loc["tip.stats"]));
+        }
+
+        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.achievements"],
+            () => _screens.Push(new AchievementsScreen(_screens, _simulation)), loc["tip.achievements"]));
+
+        if (_simulation.IsFeatureUnlocked("elections") && _screens.Content.Elections.IsEnabled)
+        {
+            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.election"],
+                () => _screens.Push(new ElectionScreen(_screens, _simulation)), loc["tip.election"]));
+        }
+
+        stack.Widgets.Add(UiFactory.SmallButton(loc["menu.chronicle"],
+            () => _screens.Push(new ChronicleScreen(_screens)), loc["tip.chronicle"]));
+
+        return stack;
+    }
+
     private Widget BuildToolButtons()
     {
         var loc = _screens.Loc;
@@ -1948,28 +2063,6 @@ public sealed class GameplayScreen : IScreen
         _buildMenuButton = UiFactory.SmallButton(loc["hud.build"], ToggleBuildMenu,
             loc["tip.build"] + "\n" + loc["tip.bulkBuild"]);
         stack.Widgets.Add(_buildMenuButton);
-
-        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.quests"],
-            () => _screens.Push(new QuestsScreen(_screens, _simulation)), loc["tip.quests"]));
-
-        // Zakázky mají vlastní tlačítko, i když bydlí na obrazovce úkolů: je to
-        // nejkratší smyčka ve hře a schovaná o dvě kliknutí by prostě zanikla.
-        // Popisek se rozsvítí, jakmile je co odevzdat — to je to „pojď se
-        // podívat", kvůli kterému se hráč vrátí.
-        if (_simulation.ContractsEnabled)
-        {
-            _contractsButton = UiFactory.SmallButton(loc["hud.contracts"],
-                () => _screens.Push(new QuestsScreen(_screens, _simulation)), loc["tip.contracts"]);
-            stack.Widgets.Add(_contractsButton);
-        }
-
-        // Grafy růstu („Moje čísla") přímo z lišty — dřív bydlely jen v pauze
-        // a hráč je tam nehledal. Statistika je odměna, ne systémové nastavení.
-        if (_simulation.HistoryEnabled)
-        {
-            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.stats"],
-                () => _screens.Push(new StatsScreen(_screens, _simulation.History)), loc["tip.stats"]));
-        }
 
         // Každá funkce se objeví, teprve až si ji hráč odemkne (data/features.json).
         if (_simulation.IsFeatureUnlocked("plant"))
@@ -2033,43 +2126,6 @@ public sealed class GameplayScreen : IScreen
                 loc[action.DescriptionKey] + '\n' + loc.Format("panel.cost",
                     CostFormat.Line(_screens.Content, loc, action.Cost))));
         }
-
-        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.backToCity"], RecenterOnCity, loc["tip.backToCity"]));
-
-        if (_simulation.IsFeatureUnlocked("settlements"))
-        {
-            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.settlements"],
-                () => _screens.Push(new SettlementsScreen(_screens, _simulation, _camera)), loc["tip.settlements"]));
-        }
-
-        if (_screens.Content.Techs.Count > 0 && _simulation.IsFeatureUnlocked("research"))
-        {
-            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.tech"],
-                () => _screens.Push(new TechScreen(_screens, _simulation)), loc["tip.tech"]));
-        }
-
-        if (_screens.Content.Policies.Count > 0 && _simulation.IsFeatureUnlocked("governor"))
-        {
-            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.governor"],
-                () => _screens.Push(new PoliciesScreen(_screens, _simulation)), loc["tip.governor"]));
-        }
-
-        if (_simulation.IsFeatureUnlocked("ascend"))
-        {
-            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.ascend"],
-                () => _screens.Push(new AscensionScreen(_screens, _simulation, _info)), loc["tip.ascend"]));
-        }
-
-        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.achievements"],
-            () => _screens.Push(new AchievementsScreen(_screens, _simulation)), loc["tip.achievements"]));
-        if (_simulation.IsFeatureUnlocked("elections") && _screens.Content.Elections.IsEnabled)
-        {
-            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.election"],
-                () => _screens.Push(new ElectionScreen(_screens, _simulation)), loc["tip.election"]));
-        }
-
-        stack.Widgets.Add(UiFactory.SmallButton(loc["menu.chronicle"],
-            () => _screens.Push(new ChronicleScreen(_screens)), loc["tip.chronicle"]));
 
         // Slavnost: aktivní boost na kliknutí (stav se přepisuje v RefreshHudTexts).
         _festivalLabel = new Label
@@ -2268,7 +2324,10 @@ public sealed class GameplayScreen : IScreen
             bool affordable = _simulation.CanAfford(defIndex);
             string price = CostFormat.Line(content, loc, content.Buildings[defIndex].BuildCost);
             priceLabel.Text = cues ? loc[affordable ? "cue.yes" : "cue.no"] + ' ' + price : price;
-            priceLabel.TextColor = affordable ? new Color(150, 220, 150) : new Color(232, 120, 110);
+            // Cena je bílá, dokud na ni hráč má, a červená, když ne. Zelená je
+            // vyhrazená VÝROBĚ — dokud byla cena taky zelená, splývalo v dlaždici
+            // „co to stojí" s „co to dělá".
+            priceLabel.TextColor = affordable ? new Color(225, 228, 235) : new Color(232, 120, 110);
             button.Background = new SolidBrush(affordable ? new Color(38, 48, 64, 235) : new Color(30, 34, 42, 170));
         }
     }
@@ -2454,8 +2513,8 @@ public sealed class GameplayScreen : IScreen
         });
         var priceLabel = new Label
         {
-            Text = CostFormat.Line(content, loc, def.BuildCost),
-            TextColor = Color.Gray,
+            Text = loc.Format("hud.build.cost", CostFormat.Line(content, loc, def.BuildCost)),
+            TextColor = new Color(225, 228, 235),
             HorizontalAlignment = HorizontalAlignment.Center,
         };
         caption.Widgets.Add(priceLabel);
@@ -2507,6 +2566,20 @@ public sealed class GameplayScreen : IScreen
         _buildMenuButton.Background = new SolidBrush(_buildMenuOpen
             ? new Color(60, 110, 130, 235)
             : new Color(38, 48, 64, 235));
+
+        // Rychlost času: popisek i barva. Pauza svítí, ať je jasné, že hra stojí
+        // a nečeká se marně na to, až něco doroste.
+        if (_speedButton is not null)
+        {
+            if (_speedButton.Content is Label speedLabel)
+            {
+                speedLabel.Text = _speed.Label;
+            }
+
+            _speedButton.Background = new SolidBrush(_speed.IsPaused
+                ? new Color(150, 90, 60, 235)
+                : new Color(38, 48, 64, 235));
+        }
 
         // Odemčená funkce musí být vidět hned, ne až po restartu. Přestavba je drahá,
         // ale nastane jen ve chvíli odemčení (pár × za hru), ne každý snímek.

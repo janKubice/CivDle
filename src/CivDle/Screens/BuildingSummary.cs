@@ -58,7 +58,7 @@ internal static class BuildingSummary
 
         if (def.StorageBonus.Count > 0)
         {
-            text.Append('\n').Append(loc.Format("tip.build.storage", CostFormat.Line(content, loc, def.StorageBonus)));
+            text.Append('\n').Append(loc.Format("tip.build.storage", StorageLine(content, loc, def)));
         }
 
         if (def.PowerSupply > 0)
@@ -175,7 +175,7 @@ internal static class BuildingSummary
 
         if (def.StorageBonus.Count > 0)
         {
-            return loc.Format("tip.build.storage", CostFormat.Line(content, loc, def.StorageBonus));
+            return loc.Format("tip.build.storage", StorageLine(content, loc, def));
         }
 
         if (def.PowerSupply > 0)
@@ -190,6 +190,29 @@ internal static class BuildingSummary
     /// Co budova potřebuje, aby vyráběla — vstupy receptu jako <c>2 dřevo</c>.
     /// Prázdný řetězec = bere si z krajiny nebo nepotřebuje nic.
     /// </summary>
+    /// <summary>
+    /// Kolik místa budova přidá — a hlavně <b>krátce</b>.
+    ///
+    /// <para>Sklad zvedá kapacitu skoro každé suroviny ve hře, takže vypsaný
+    /// seznam měl devatenáct položek a rozhodil celé stavební menu. Když se
+    /// bonus týká víc než hrstky surovin, shrne se do jedné věty; u sýpky nebo
+    /// skladiště na dřevo se pořád vypíšou konkrétní čísla, protože tam je to
+    /// ta podstatná informace.</para>
+    /// </summary>
+    private static string StorageLine(GameContent content, Localization loc, BuildingDef def)
+    {
+        const int MaxListed = 3;
+        var bonus = def.StorageBonus;
+        if (bonus.Count <= MaxListed)
+        {
+            return CostFormat.Line(content, loc, bonus);
+        }
+
+        // Nejčastější hodnota je ta, kterou hráč pozná jako „tolik ke všemu".
+        double typical = bonus.Select(b => b.Amount).OrderBy(a => a).ElementAt(bonus.Count / 2);
+        return loc.Format("tip.build.storageAll", typical.ToString("0"), bonus.Count);
+    }
+
     public static string Needs(GameContent content, Localization loc, BuildingDef def) =>
         def.Recipe is { Inputs.Count: > 0 } recipe
             ? CostFormat.Line(content, loc, recipe.Inputs)
