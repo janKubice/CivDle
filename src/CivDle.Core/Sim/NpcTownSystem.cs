@@ -55,6 +55,16 @@ public sealed class NpcTownSystem
     private readonly HashSet<long> _built = new();  // města, která už stojí
     private readonly HashSet<long> _linked = new(); // cesty, které už vedou
 
+    /// <summary>
+    /// Obdélník, který zástavba města opravdu zabírá. Počítá se jednou při
+    /// stavbě — kreslit hranici z pevného poloměru znamenalo, že u malého města
+    /// visela v poli a u velkého vedla jeho středem.
+    /// </summary>
+    private readonly Dictionary<long, TownBounds> _bounds = new();
+
+    /// <summary>Rozsah zástavby jednoho města v dlaždicích (včetně krajních).</summary>
+    public readonly record struct TownBounds(int MinX, int MinY, int MaxX, int MaxY);
+
     public NpcTownSystem(GameContent content) => _content = content;
 
     /// <summary>Budovy všech postavených cizích měst. Render je kreslí stejně jako hráčovy.</summary>
@@ -133,7 +143,46 @@ public sealed class NpcTownSystem
             AddBuilding(planned.DefIndex, planned.X, planned.Y, city.Key);
         }
 
+        RememberBounds(city.Key, plan);
         return plan.Buildings.Count;
+    }
+
+    /// <summary>Rozsah zástavby města; <c>false</c> = nic tam nestojí.</summary>
+    public bool TryBounds(long key, out TownBounds bounds) => _bounds.TryGetValue(key, out bounds);
+
+    /// <summary>
+    /// Zapamatuje si, kam až město sahá. Bere ulice i domy — hranice města vede
+    /// po okraji zástavby, ne po okraji domů uvnitř ulic.
+    /// </summary>
+    private void RememberBounds(long key, in NpcTownPlan plan)
+    {
+        if (plan.Buildings.Count == 0 && plan.Roads.Count == 0)
+        {
+            return;
+        }
+
+        int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
+
+        for (int i = 0; i < plan.Roads.Count; i++)
+        {
+            var road = plan.Roads[i];
+            minX = Math.Min(minX, road.X);
+            minY = Math.Min(minY, road.Y);
+            maxX = Math.Max(maxX, road.X);
+            maxY = Math.Max(maxY, road.Y);
+        }
+
+        for (int i = 0; i < plan.Buildings.Count; i++)
+        {
+            var b = plan.Buildings[i];
+            var def = _content.Buildings[b.DefIndex];
+            minX = Math.Min(minX, b.X);
+            minY = Math.Min(minY, b.Y);
+            maxX = Math.Max(maxX, b.X + def.FootprintWidth - 1);
+            maxY = Math.Max(maxY, b.Y + def.FootprintHeight - 1);
+        }
+
+        _bounds[key] = new TownBounds(minX, minY, maxX, maxY);
     }
 
     /// <summary>
@@ -142,8 +191,11 @@ public sealed class NpcTownSystem
     /// rozkolísáním z klíčů měst: rovná linka přes sto dlaždic vypadá jako
     /// kreslený vektor, ne jako cesta, kterou někdo prošlapal.
     /// </summary>
+    /// <param name="from">Skutečný začátek (střed zástavby, ne bod z mřížky).</param>
+    /// <param name="to">Skutečný konec.</param>
     /// <param name="canPave">Smí na dlaždici ležet silnice? (Voda, hráčova zástavba.)</param>
-    public void Link(in NpcCityLink link, Func<int, int, bool> canPave)
+    public void Link(
+        in NpcCityLink link, (int X, int Y) from, (int X, int Y) to, Func<int, int, bool> canPave)
     {
         long pair = LinkKey(link.From.Key, link.To.Key);
         if (!_linked.Add(pair))
@@ -151,22 +203,22 @@ public sealed class NpcTownSystem
             return;
         }
 
-        int x = link.From.X;
-        int y = link.From.Y;
+        int x = from.X;
+        int y = from.Y;
         ulong wobble = (ulong)pair;
 
         // Strop kroků: nekonečná mapa a slepá ulička u vody by jinak znamenaly
         // nekonečnou smyčku. Rozestup měst je 96 dlaždic, takže tohle je rezerva.
         int steps = 0;
-        int limit = (Math.Abs(link.To.X - x) + Math.Abs(link.To.Y - y)) * 3 + 16;
+        int limit = (Math.Abs(to.X - x) + Math.Abs(to.Y - y)) * 3 + 16;
 
-        while ((x != link.To.X || y != link.To.Y) && steps++ < limit)
+        while ((x != to.X || y != to.Y) && steps++ < limit)
         {
-            int dx = Math.Sign(link.To.X - x);
-            int dy = Math.Sign(link.To.Y - y);
+            int dx = Math.Sign(to.X - x);
+            int dy = Math.Sign(to.Y - y);
 
             // Osa s větším zbytkem vede; občas se prohodí, aby cesta klikatila.
-            bool alongX = Math.Abs(link.To.X - x) > Math.Abs(link.To.Y - y);
+            bool alongX = Math.Abs(to.X - x) > Math.Abs(to.Y - y);
             wobble = Mix(wobble);
             if ((wobble & 7) == 0 && dx != 0 && dy != 0)
             {
@@ -207,6 +259,7 @@ public sealed class NpcTownSystem
         var roads = new List<RoadTile>();
         RemoveOwner(key, buildings, roads);
         _built.Remove(key);
+        _bounds.Remove(key); // od téhle chvíle to není cizí město, ale hráčova čtvrť
         return new NpcTownHandover(buildings, roads);
     }
 
@@ -219,6 +272,7 @@ public sealed class NpcTownSystem
     {
         RemoveOwner(key, null, null);
         _built.Remove(key);
+        _bounds.Remove(key);
     }
 
     /// <summary>Nový svět (Vzestup): cizí města začínají znovu neobjevená.</summary>
@@ -231,6 +285,7 @@ public sealed class NpcTownSystem
         _roads.Clear();
         _built.Clear();
         _linked.Clear();
+        _bounds.Clear();
     }
 
     /// <summary>

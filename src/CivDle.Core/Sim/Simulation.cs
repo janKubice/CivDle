@@ -276,6 +276,14 @@ public sealed class Simulation
     /// <summary>Ulice cizích měst a cesty mezi nimi — skutečné silniční dlaždice.</summary>
     public IReadOnlyList<RoadTile> NpcRoadTiles => _npcTowns.RoadTiles;
 
+    /// <summary>
+    /// Obdélník, který zástavba cizího města opravdu zabírá (v dlaždicích).
+    /// Render z toho kreslí hranici — pevný poloměr u malého města visel v poli
+    /// a u velkého vedl jeho středem.
+    /// </summary>
+    public bool TryNpcTownBounds(long key, out NpcTownSystem.TownBounds bounds) =>
+        _npcTowns.TryBounds(key, out bounds);
+
     /// <summary>Je na dlaždici cizí silnice? (Hráčova síť to není — obchod se z ní neodvozuje.)</summary>
     public bool IsNpcRoad(int x, int y) => _npcTowns.IsRoad(x, y);
 
@@ -328,17 +336,64 @@ public sealed class Simulation
 
         foreach (var link in NpcCities.LinksNear(CityCenterX, CityCenterY, NpcScanRadius))
         {
-            // Cesta se objeví, teprve až hráč zná oba konce — jinak by z mlhy
-            // trčela silnice odnikud nikam a prozradila by, kde město stojí.
+            // Stačí, aby hráč znal JEDEN konec. Dřív se chtěly oba a hráč tak
+            // cestu mezi městy prakticky nikdy neviděl — města jsou 96 dlaždic
+            // od sebe a objevit dvě sousední najednou se skoro nestane. Vzdálený
+            // konec stejně schová mlha, takže z města vede silnice do neznáma —
+            // a to je pozvánka, ať se hráč vydá po ní.
             if (_npcTowns.IsLinked(link.From.Key, link.To.Key)
-                || !IsCityDiscovered(link.From) || !IsCityDiscovered(link.To))
+                || (!IsCityDiscovered(link.From) && !IsCityDiscovered(link.To)))
             {
                 continue;
             }
 
-            _npcTowns.Link(link, NpcCanPave);
+            _npcTowns.Link(link, TownCenter(link.From), TownCenter(link.To), NpcCanPave);
         }
     }
+
+    /// <summary>
+    /// Odkud cesta k městu vede. Postavené město zná svůj skutečný střed (při
+    /// stavbě se posouvá na suchou zem), takže cesta začíná v něm, ne v bodě
+    /// z mřížky — jinak by prvních pár dlaždic končilo v moři.
+    /// </summary>
+    private (int X, int Y) TownCenter(in NpcCity city) =>
+        _npcTowns.TryBounds(city.Key, out var b)
+            ? ((b.MinX + b.MaxX) / 2, (b.MinY + b.MaxY) / 2)
+            : (city.X, city.Y);
+
+    /// <summary>
+    /// Dosáhla hráčova silniční síť na cizí město? Pak se spojení naváže samo
+    /// a zdarma.
+    ///
+    /// <para>Tohle hráči chybělo: postavil silnici až k městu a <b>nestalo se
+    /// nic</b>, protože spojení šlo koupit jedině tlačítkem v menu. Cesta, která
+    /// tam fyzicky vede, je ale ten nejpřirozenější způsob, jak spojení navázat —
+    /// tlačítko zůstává jako zkratka pro toho, kdo stavět nechce.</para>
+    /// </summary>
+    private bool PlayerRoadReaches(long key)
+    {
+        if (!_npcTowns.TryBounds(key, out var b))
+        {
+            return false;
+        }
+
+        // Prohledá se pás kolem zástavby: až sem musí hráč silnici dotáhnout.
+        for (int y = b.MinY - RoadReachSlack; y <= b.MaxY + RoadReachSlack; y++)
+        {
+            for (int x = b.MinX - RoadReachSlack; x <= b.MaxX + RoadReachSlack; x++)
+            {
+                if (_roads.Contains(TileKey.Pack(x, y)))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>O kolik dlaždic smí hráčova silnice minout okraj města a pořád platit.</summary>
+    private const int RoadReachSlack = 2;
 
     /// <summary>
     /// Smí cizí město postavit tuhle budovu na tomhle místě? Ptá se jen na terén
@@ -636,7 +691,22 @@ public sealed class Simulation
                 continue;
             }
 
-            if (!IsCityDiscovered(city) || !HasTradeLink(city, state))
+            if (!IsCityDiscovered(city))
+            {
+                continue;
+            }
+
+            // Silnice, kterou hráč opravdu postavil, spojení naváže sama.
+            if (!state.RoadLinked && PlayerRoadReaches(city.Key))
+            {
+                state.RoadLinked = true;
+                _npcStates[city.Key] = state;
+                EnqueueNotification(new GameNotification(
+                    NotificationKind.CityLinked, "toast.cityLinked",
+                    _content.NpcCities.Archetypes[city.ArchetypeIndex].NameKey));
+            }
+
+            if (!HasTradeLink(city, state))
             {
                 continue;
             }
@@ -2000,6 +2070,13 @@ public sealed class Simulation
     /// Má hráč dost surovin na stavbu (bez ohledu na místo/biom)? Pro HUD — barevné
     /// zvýraznění tlačítek, ať je na první pohled jasné, co si můžu dovolit.
     /// </summary>
+    /// <summary>
+    /// Má hráč na tuhle cenu? Pro akce, jejichž cena nepatří budově (dary,
+    /// spojení, odkup města) — UI z toho barví tlačítka, aby se nemuselo klikat
+    /// naslepo.
+    /// </summary>
+    public bool CanAfford(IReadOnlyList<ResourceAmount> cost) => CanPay(cost);
+
     public bool CanAfford(int defIndex)
     {
         var cost = _content.Buildings[defIndex].BuildCost;

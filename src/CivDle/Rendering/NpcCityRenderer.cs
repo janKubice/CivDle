@@ -27,8 +27,14 @@ public sealed class NpcCityRenderer
     /// <summary>Pod tímhle přiblížením se města kreslí jen jako značka bez domků.</summary>
     private const float DetailZoom = 0.7f;
 
-    /// <summary>Pod tímhle přiblížením se jméno města nevypisuje — stejně by bylo nečitelné.</summary>
-    private const float LabelZoom = 0.55f;
+    /// <summary>
+    /// Pod tímhle přiblížením se jméno města nevypisuje.
+    ///
+    /// <para>Bývalo to 0,55 a byla to chyba: při oddálení, kdy je jméno
+    /// <b>nejužitečnější</b> (hledáš, kam jít), zmizelo. Teď mizí až úplně
+    /// vzadu, kde by se popisky slily do řádku.</para>
+    /// </summary>
+    private const float LabelZoom = 0.12f;
 
     /// <summary>Jak daleko od kamery se ještě hledají města (v dlaždicích).</summary>
     private const int ScanRadiusTiles = NpcCityMap.CellTiles * 2;
@@ -90,6 +96,13 @@ public sealed class NpcCityRenderer
             int cx = city.X * tileSize + tileSize / 2;
             int cy = city.Y * tileSize + tileSize / 2;
 
+            // Pohlcené město hranici nedostane: je to hráčova čtvrť jako každá
+            // jiná a rámeček kolem vlastní zástavby nedává smysl.
+            if (simulation.NpcStateOf(city.Key).Absorbed)
+            {
+                continue;
+            }
+
             if (!detailed || !simulation.IsCityDiscovered(city))
             {
                 // Z výšky (nebo za mlhou) stačí kostka v barvě druhu — z domků by
@@ -98,13 +111,33 @@ public sealed class NpcCityRenderer
                 continue;
             }
 
-            // Vlastní města dostanou zlatý prstenec, cizí prstenec v barvě druhu:
-            // domy vypadají stejně jako hráčovy (a mají), takže bez tohohle by
-            // nebylo poznat, kde končí říše a začíná soused.
-            DrawRing(
-                spriteBatch, cx, cy, 3 * tileSize,
-                simulation.NpcStateOf(city.Key).Absorbed ? new Color(240, 205, 110) : color * 0.8f);
+            // Hranice po skutečném okraji zástavby. Pevný poloměr znamenal, že
+            // u malého města visela v poli a u velkého vedla jeho středem —
+            // a protože se střed města posouvá na suchou zem, byla i mimo.
+            if (simulation.TryNpcTownBounds(city.Key, out var bounds))
+            {
+                DrawBorder(spriteBatch, bounds, color * 0.8f);
+            }
         }
+    }
+
+    /// <summary>Rámeček kolem zástavby města, s dlaždicí vůle na každé straně.</summary>
+    private void DrawBorder(SpriteBatch spriteBatch, NpcTownSystem.TownBounds bounds, Color color)
+    {
+        const int tileSize = TerrainRenderer.TileSize;
+        const int width = 3;
+
+        int left = (bounds.MinX - 1) * tileSize;
+        int top = (bounds.MinY - 1) * tileSize;
+        int right = (bounds.MaxX + 2) * tileSize;
+        int bottom = (bounds.MaxY + 2) * tileSize;
+        int w = right - left;
+        int h = bottom - top;
+
+        spriteBatch.Draw(_pixel, new Rectangle(left, top, w, width), color);
+        spriteBatch.Draw(_pixel, new Rectangle(left, bottom - width, w, width), color);
+        spriteBatch.Draw(_pixel, new Rectangle(left, top, width, h), color);
+        spriteBatch.Draw(_pixel, new Rectangle(right - width, top, width, h), color);
     }
 
     /// <summary>Jména objevených měst. Neobjevené zůstávají bezejmenné — jinak by mlha nic neskrývala.</summary>
@@ -122,8 +155,16 @@ public sealed class NpcCityRenderer
                 continue;
             }
 
+            // Popisek patří nad zástavbu, ne nad bod z mřížky — město se při
+            // stavbě posouvá na suchou zem, takže jeho střed jinde být může.
             float wx = city.X * tileSize;
             float wy = city.Y * tileSize;
+            if (simulation.TryNpcTownBounds(city.Key, out var bounds))
+            {
+                wx = (bounds.MinX + bounds.MaxX + 1) * 0.5f * tileSize;
+                wy = (bounds.MinY - 1) * tileSize;
+            }
+
             if (wx < min.X || wx > max.X || wy < min.Y || wy > max.Y)
             {
                 continue;
@@ -133,7 +174,7 @@ public sealed class NpcCityRenderer
             string name = _content.SettlementNames[city.NameIndex % _content.SettlementNames.Count];
             string text = state.Absorbed ? _loc.Format("npc.mineLabel", name) : name;
 
-            var screen = camera.WorldToScreen(new Vector2(wx, wy - 3f * tileSize));
+            var screen = camera.WorldToScreen(new Vector2(wx, wy - 1.5f * tileSize));
             var size = _font.MeasureString(text);
             var at = new Vector2(screen.X - size.X * 0.5f, screen.Y - size.Y);
             spriteBatch.DrawString(_font, text, at + new Vector2(1f, 1f), Color.Black * 0.65f);

@@ -194,39 +194,50 @@ public sealed class CityScreen : IScreen
         var stack = new VerticalStackPanel { Spacing = 8, Width = PanelWidth - 40 };
 
         stack.Widgets.Add(Action(
-            loc["npc.gift"], CostFormat.Line(content, loc, catalog.GiftCost),
+            loc["npc.gift"], catalog.GiftCost,
             () => _simulation.TryGiftCity(_city.Key)));
 
         if (!state.RoadLinked)
         {
             stack.Widgets.Add(Action(
-                loc["npc.connect"], CostFormat.Line(content, loc, catalog.RoadCost),
+                loc["npc.connect"], catalog.RoadCost,
                 () => _simulation.TryConnectCity(_city.Key)));
         }
 
         if (state.Relation >= catalog.BuyRelation)
         {
             stack.Widgets.Add(Action(
-                loc["npc.buy"], CostFormat.Line(content, loc, catalog.BuyCost),
+                loc["npc.buy"], catalog.BuyCost,
                 () => _simulation.TryBuyCity(_city.Key)));
         }
 
         return Framed(stack);
     }
 
-    /// <summary>Řádek akce: tlačítko vlevo, cena vedle. Po kliknutí se panel překreslí.</summary>
-    private Widget Action(string label, string cost, Action perform)
+    /// <summary>
+    /// Řádek akce: tlačítko vlevo, cena vedle. Po kliknutí se panel překreslí.
+    ///
+    /// <para>Cena i tlačítko <b>mění barvu podle toho, jestli na ni hráč má</b>.
+    /// Dřív byla cena vždycky šedá a jediný způsob, jak zjistit, že dar nejde,
+    /// bylo kliknout a sledovat, že se nic nestalo.</para>
+    /// </summary>
+    private Widget Action(string label, IReadOnlyList<ResourceAmount> cost, Action perform)
     {
+        bool affordable = _simulation.CanAfford(cost);
+
         var row = new HorizontalStackPanel { Spacing = 10 };
-        row.Widgets.Add(UiFactory.SmallButton(label, () =>
+        var button = UiFactory.SmallButton(label, () =>
         {
             perform();
             BuildUi();
-        }));
+        });
+        button.Enabled = affordable;
+        row.Widgets.Add(button);
+
         row.Widgets.Add(new Label
         {
-            Text = cost,
-            TextColor = Color.Gray,
+            Text = CostFormat.Line(_screens.Content, _screens.Loc, cost),
+            TextColor = affordable ? new Color(150, 220, 150) : new Color(230, 120, 110),
             VerticalAlignment = VerticalAlignment.Center,
         });
         return row;

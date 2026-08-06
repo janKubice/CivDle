@@ -390,7 +390,6 @@ public class NpcCityTests
         Tick(sim, 20);
 
         var stood = sim.NpcBuildings.ToArray();
-        var streets = sim.NpcRoadTiles.ToList();
         Assert.NotEmpty(stood);
 
         int buildingsBefore = sim.Buildings.Length;
@@ -400,14 +399,17 @@ public class NpcCityTests
         sim.TryGiftCity(city.Key);
         Assert.Equal(DiplomacyResult.Ok, sim.TryBuyCity(city.Key));
 
+        // Budov přesně tolik, kolik jich stálo — ani jedna se cestou neztratila.
         Assert.Equal(buildingsBefore + stood.Length, sim.Buildings.Length);
-        Assert.Equal(roadsBefore + streets.Count, sim.RoadTiles.Count);
         Assert.Empty(sim.NpcBuildings.ToArray()); // přestaly být cizí, ne zmizely
 
         // A stojí tam, kde stály — nepřestavěly se vedle.
         var owned = sim.Buildings.ToArray();
         Assert.All(stood, b => Assert.Contains(owned, o => o.X == b.X && o.Y == b.Y && o.DefIndex == b.DefIndex));
-        Assert.All(streets, r => Assert.True(sim.IsRoad(r.X, r.Y)));
+
+        // Ulice města taky přešly. Cesty MEZI městy ne — ty nepatří ani jednomu
+        // z nich a zůstávají v krajině, i když se město přidá k říši.
+        Assert.True(sim.RoadTiles.Count > roadsBefore, "ulice připojeného města patří taky hráči");
     }
 
     [Fact]
@@ -429,6 +431,50 @@ public class NpcCityTests
 
         Assert.Equal(city.NameIndex, sim.InheritedNameAt(city.X, city.Y));
         Assert.Equal(-1, sim.InheritedNameAt(city.X + 200, city.Y)); // na druhém konci mapy ne
+    }
+
+    [Fact]
+    public void ARoadBuiltUpToTheCityLinksItByItself()
+    {
+        // Hráč postavil silnici až k městu a nestalo se nic — spojení šlo získat
+        // jedině tlačítkem v menu. Cesta, která tam fyzicky vede, ho teď naváže
+        // sama; tlačítko zůstává jako zkratka pro toho, kdo stavět nechce.
+        var sim = NewSim();
+        var city = FirstCity(sim);
+        sim.Fog.Reveal(city.X, city.Y, 20);
+        Tick(sim, 20);
+
+        Assert.False(sim.NpcStateOf(city.Key).RoadLinked);
+        Assert.True(sim.TryNpcTownBounds(city.Key, out var bounds));
+
+        // Silnice končící těsně u okraje zástavby.
+        for (int y = bounds.MinY; y <= bounds.MaxY; y++)
+        {
+            sim.TryBuildRoad(bounds.MinX - 2, y);
+        }
+
+        Tick(sim, 20);
+
+        Assert.True(sim.NpcStateOf(city.Key).RoadLinked);
+    }
+
+    [Fact]
+    public void ARoadRunsToTheNeighbourEvenWhenItIsStillInTheFog()
+    {
+        // Cesty mezi městy se dřív stavěly, jen když hráč znal OBA konce — a to
+        // se skoro nestalo, takže je nikdy neviděl. Stačí jeden konec; zbytek
+        // schová mlha a z města vede silnice do neznáma.
+        var sim = NewSim();
+        var city = FirstCity(sim);
+        sim.Fog.Reveal(city.X, city.Y, 20);
+        Tick(sim, 20);
+
+        Assert.True(sim.TryNpcTownBounds(city.Key, out var bounds));
+
+        // Aspoň jedna cizí silnice musí ležet mimo zástavbu toho města — to je
+        // cesta k sousedovi, ne jeho vlastní ulice.
+        Assert.Contains(sim.NpcRoadTiles, r =>
+            r.X < bounds.MinX - 2 || r.X > bounds.MaxX + 2 || r.Y < bounds.MinY - 2 || r.Y > bounds.MaxY + 2);
     }
 
     [Fact]

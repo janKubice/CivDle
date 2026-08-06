@@ -1467,6 +1467,7 @@
     "toast.citizenHelped": "A new trade opened",
     "toast.citizenLeft": "The citizen gave up",
     "toast.cityJoined": "A city joined you",
+    "toast.cityLinked": "Your road reached a foreign city",
     "toast.cityLevel": "Ties with a foreign city grew stronger",
     "toast.cityStruck": "A foreign city was struck from the sky",
     "toast.contractDone": "Contract delivered",

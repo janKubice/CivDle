@@ -30,6 +30,9 @@ public enum NotificationKind
     /// <summary>Hráč zakázku odevzdal a dostal zaplaceno.</summary>
     ContractFulfilled,
 
+    /// <summary>Hráčova silnice dosáhla na cizí město a spojila ho s říší.</summary>
+    CityLinked,
+
     /// <summary>Ozval se obyvatel s prosbou.</summary>
     CitizenAsks,
 
