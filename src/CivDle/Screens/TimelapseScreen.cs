@@ -67,6 +67,7 @@ public sealed class TimelapseScreen : IScreen
         _terrain = terrain;
         _saveToCollection = saveToCollection;
         _terrainRenderer = new TerrainRenderer(screens.GraphicsDevice, screens.Content.Biomes, seed);
+        _roadColor = screens.Content.Gameplay.Roads.MapColor.ToXna();
 
         FrameCity();
         BuildUi();
@@ -164,6 +165,9 @@ public sealed class TimelapseScreen : IScreen
         UpdateCaption();
     }
 
+    /// <summary>Barva silnic z herních dat — podle ní se v kronice pozná cesta od domu.</summary>
+    private readonly Color _roadColor;
+
     public void Draw(GameTime gameTime)
     {
         var viewport = _screens.GraphicsDevice.Viewport;
@@ -201,6 +205,10 @@ public sealed class TimelapseScreen : IScreen
         int previous = Math.Max(0, index - 1);
         const int cellWorld = CityHistory.TilesPerCell * TerrainRenderer.TileSize;
 
+        // Silnice se od zástavby pozná podle barvy z palety — kronika si víc
+        // než jeden bajt na buňku dovolit nemůže.
+        var roadColor = _roadColor;
+
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.Transform);
         for (int cy = 0; cy < CityHistory.GridSize; cy++)
         {
@@ -215,15 +223,20 @@ public sealed class TimelapseScreen : IScreen
                 int worldY = (cy - CityHistory.GridSize / 2) * cellWorld;
                 var tint = color.ToXna();
 
-                // Buňky se kreslí NA DORAZ, bez mezer: na jemné mřížce tvoří
-                // sousední buňky jednu budovu nebo souvislou silnici. Mezery
-                // (které dávaly smysl u hrubých čtverců) by z města udělaly
-                // mozaiku dlaždic.
-                spriteBatch.Draw(pixel, new Rectangle(worldX, worldY, cellWorld, cellWorld), tint * 0.95f);
-
-                // Obrys jen tam, kde zástavba končí — tím se tvar odlepí od
-                // terénu, aniž by se rozpadl na jednotlivé buňky.
-                DrawEdges(spriteBatch, pixel, index, cx, cy, worldX, worldY, cellWorld);
+                // Silnice zůstává plochá — je to povrch, ne stavba.
+                if (tint == roadColor)
+                {
+                    spriteBatch.Draw(pixel, new Rectangle(worldX, worldY, cellWorld, cellWorld), tint * 0.95f);
+                    DrawEdges(spriteBatch, pixel, index, cx, cy, worldX, worldY, cellWorld);
+                }
+                else
+                {
+                    // Zástavba jako DOMEK, ne kostička: podezdívka, tělo, střecha
+                    // a stín. Hráč si přehrávku pouští, aby viděl růst svého
+                    // města — a čtverečky vypadaly jako tabulka, ne jako město.
+                    DrawHouse(spriteBatch, pixel, worldX, worldY, cellWorld, tint);
+                    DrawEdges(spriteBatch, pixel, index, cx, cy, worldX, worldY, cellWorld);
+                }
 
                 if (!_history.IsOccupied(previous, cx, cy))
                 {
@@ -235,6 +248,30 @@ public sealed class TimelapseScreen : IScreen
         }
 
         spriteBatch.End();
+    }
+
+    /// <summary>
+    /// Jedna buňka zástavby nakreslená jako domek: stín u paty, tělo ve své
+    /// barvě, tmavší střecha nahoře a světlý hřeben. Pár obdélníků navíc, ale
+    /// právě ony dělají rozdíl mezi „mapa obsazených polí" a „město".
+    /// </summary>
+    private static void DrawHouse(SpriteBatch spriteBatch, Texture2D pixel, int x, int y, int size, Color tint)
+    {
+        int inset = Math.Max(1, size / 8);
+        int roof = Math.Max(1, size / 3);
+
+        // Stín pod stavbou — bez něj domky splývají s terénem.
+        spriteBatch.Draw(pixel, new Rectangle(x + inset, y + size - inset, size - inset, inset), Color.Black * 0.3f);
+
+        // Tělo.
+        spriteBatch.Draw(pixel, new Rectangle(x, y + roof, size, size - roof), tint);
+
+        // Střecha: tmavší odstín téže barvy, ať je poznat, čí ten dům je.
+        spriteBatch.Draw(pixel, new Rectangle(x, y, size, roof), Color.Lerp(tint, Color.Black, 0.35f));
+
+        // Hřeben — jedna světlá linka, ze které vznikne dojem sklonu.
+        spriteBatch.Draw(pixel, new Rectangle(x, y, size, Math.Max(1, roof / 3)),
+            Color.Lerp(tint, Color.White, 0.25f));
     }
 
     /// <summary>Pruh postupu dole — hráč vidí, kde v příběhu je.</summary>

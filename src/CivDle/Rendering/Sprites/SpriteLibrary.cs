@@ -58,6 +58,18 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "node.stump", SpriteSize, Stump);
         Add(device, "node.rubble", SpriteSize, Rubble);
 
+        // Výrazná místa na mapě. Barevný čtvereček neřekl nic — vrak lodi má
+        // vypadat jako vrak lodi, ruiny jako ruiny. Data říkají, který sprite
+        // který landmark použije (viz landmarks.json).
+        Add(device, "landmark.shipwreck", SpriteSize, Shipwreck);
+        Add(device, "landmark.ruins", SpriteSize, Ruins);
+        Add(device, "landmark.stone_circle", SpriteSize, StoneCircle);
+        Add(device, "landmark.bones", SpriteSize, Bones);
+        Add(device, "landmark.crystal", SpriteSize, Crystal);
+        Add(device, "landmark.geyser", SpriteSize, Geyser);
+        Add(device, "landmark.cave", SpriteSize, Cave);
+        Add(device, "landmark.oasis", SpriteSize, Oasis);
+
         // Budovy.
         Add(device, "building.house", SpriteSize, canvas => House(canvas, new Color(196, 110, 66)));
         Add(device, "building.cottage", SpriteSize, canvas => House(canvas, new Color(176, 86, 74)));
@@ -330,6 +342,108 @@ public sealed class SpriteLibrary : IDisposable
         c.FillCircle(13f, 27f, 2.5f, new Color(120, 123, 130));
         c.FillCircle(18f, 26f, 3f, new Color(140, 143, 150));
         c.FillCircle(16f, 28f, 2f, new Color(110, 113, 120));
+    }
+
+    // ----- výrazná místa na mapě (32×32) -----
+
+    /// <summary>Vrak lodi: nakloněný trup, zlomený stěžeň, cáry plachty.</summary>
+    private static void Shipwreck(PixelCanvas c)
+    {
+        var hull = new Color(92, 66, 44);
+        var plank = new Color(118, 86, 58);
+
+        // Trup ležící na boku — proto lichoběžník, ne obdélník.
+        c.FillTriangle(4f, 24f, 27f, 20f, 26f, 28f, hull);
+        c.FillTriangle(4f, 24f, 26f, 28f, 8f, 29f, hull);
+        c.FillRect(9, 22, 14, 2, plank);   // paluba
+        c.FillRect(11, 25, 10, 1, plank);  // žebro
+
+        // Zlomený stěžeň a zbytek ráhna.
+        c.FillRect(17, 8, 2, 13, new Color(104, 76, 50));
+        c.FillRect(13, 12, 9, 1, new Color(104, 76, 50));
+        c.FillTriangle(19f, 9f, 25f, 15f, 19f, 15f, new Color(196, 190, 172)); // cár plachty
+    }
+
+    /// <summary>Ruiny: zbytky sloupů a padlý překlad.</summary>
+    private static void Ruins(PixelCanvas c)
+    {
+        var stone = new Color(178, 168, 146);
+        var shade = new Color(146, 136, 116);
+
+        c.FillRect(7, 12, 4, 17, stone);   // stojící sloup
+        c.FillRect(7, 10, 6, 2, shade);    // hlavice
+        c.FillRect(15, 17, 4, 12, stone);  // ulomený sloup
+        c.FillRect(23, 21, 4, 8, shade);   // pahýl
+        c.FillRect(6, 28, 22, 2, shade);   // základ
+        c.FillRect(19, 14, 9, 2, stone);   // padlý překlad
+    }
+
+    /// <summary>Kamenný kruh: menhiry v půlkruhu.</summary>
+    private static void StoneCircle(PixelCanvas c)
+    {
+        var stone = new Color(150, 148, 142);
+        var shade = new Color(120, 118, 112);
+        c.FillRect(5, 16, 4, 12, stone);
+        c.FillRect(12, 13, 4, 15, shade);
+        c.FillRect(19, 13, 4, 15, stone);
+        c.FillRect(26, 16, 4, 12, shade);
+        c.FillRect(4, 28, 26, 2, new Color(104, 102, 96));
+    }
+
+    /// <summary>Kosti: žebra a kel trčící ze země.</summary>
+    private static void Bones(PixelCanvas c)
+    {
+        var bone = new Color(226, 218, 196);
+        for (int i = 0; i < 4; i++)
+        {
+            c.FillRect(9 + i * 4, 18 + (i % 2), 2, 10, bone);
+        }
+
+        c.FillCircle(24f, 22f, 4f, bone);        // lebka
+        c.FillCircle(22f, 24f, 1.4f, new Color(120, 112, 96)); // očnice
+        c.FillTriangle(26f, 20f, 31f, 26f, 27f, 26f, new Color(238, 232, 214)); // kel
+    }
+
+    /// <summary>Krystalová žíla: hranaté štěpy, ne kuličky.</summary>
+    private static void Crystal(PixelCanvas c)
+    {
+        c.FillTriangle(16f, 5f, 21f, 20f, 11f, 20f, new Color(150, 210, 240));
+        c.FillTriangle(16f, 5f, 21f, 20f, 17f, 20f, new Color(190, 235, 255));
+        c.FillTriangle(9f, 13f, 13f, 26f, 5f, 26f, new Color(120, 180, 220));
+        c.FillTriangle(24f, 15f, 28f, 26f, 20f, 26f, new Color(134, 196, 232));
+        c.FillRect(6, 26, 21, 2, new Color(70, 96, 120));
+    }
+
+    /// <summary>Gejzír: kužel a sloup páry.</summary>
+    private static void Geyser(PixelCanvas c)
+    {
+        c.FillTriangle(16f, 18f, 27f, 30f, 5f, 30f, new Color(126, 116, 104)); // kužel
+        c.FillCircle(16f, 18f, 4f, new Color(96, 88, 80));                     // jícen
+        c.FillCircle(16f, 12f, 5f, new Color(226, 240, 246) * 0.85f);
+        c.FillCircle(16f, 6f, 4f, new Color(226, 240, 246) * 0.6f);
+        c.FillCircle(16f, 2f, 3f, new Color(226, 240, 246) * 0.35f);
+    }
+
+    /// <summary>Ústí jeskyně: tmavý oblouk ve skále.</summary>
+    private static void Cave(PixelCanvas c)
+    {
+        c.FillCircle(16f, 20f, 12f, new Color(122, 116, 108));
+        c.FillRect(4, 20, 24, 10, new Color(122, 116, 108));
+        c.FillCircle(16f, 22f, 7f, new Color(24, 22, 26));
+        c.FillRect(9, 22, 14, 8, new Color(24, 22, 26));
+        c.FillCircle(11f, 14f, 3f, new Color(148, 142, 134)); // odlesk na skále
+    }
+
+    /// <summary>Oáza: tůň a dvě palmy.</summary>
+    private static void Oasis(PixelCanvas c)
+    {
+        c.FillCircle(16f, 23f, 9f, new Color(58, 140, 170));
+        c.FillCircle(16f, 23f, 6f, new Color(84, 176, 200));
+
+        c.FillRect(8, 8, 2, 12, new Color(104, 76, 50));
+        c.FillCircle(9f, 8f, 4f, new Color(56, 128, 60));
+        c.FillRect(23, 10, 2, 10, new Color(104, 76, 50));
+        c.FillCircle(24f, 10f, 3.5f, new Color(46, 112, 52));
     }
 
     // ----- budovy (32×32) -----

@@ -1309,7 +1309,16 @@ public sealed class ContentLoader
                 yield = new ClickYield(resourceIndex, cy.Amount);
             }
 
-            result.Add(new LandmarkDef(id, mask, color, dto.Size, dto.Rarity, yield));
+            // Půdorys 0 v datech znamená „nezadáno" → jedna dlaždice. Větší
+            // landmark (vrak, ruiny) tak jde nafouknout bez zásahu do kódu.
+            int footprint = dto.Footprint <= 0 ? 1 : dto.Footprint;
+            if (footprint > 3)
+            {
+                throw new ContentLoadException(path, $"Landmark '{id}': 'footprint' smí být 1–3, je {footprint}.");
+            }
+
+            result.Add(new LandmarkDef(
+                id, mask, color, dto.Size, dto.Rarity, yield, dto.Sprite?.Trim(), footprint));
         }
 
         return new DefRegistry<LandmarkDef>(result, l => l.Id, "landmark", allowEmpty: true);

@@ -92,4 +92,33 @@ public class ContentRichnessTests
                 $"budova '{def.Id}' je zamčená, ale žádná technologie ani stupeň měřítka ji neodemyká");
         }
     }
+
+    [Fact]
+    public void RealContent_TheMostTellingLandmarksHaveSprites()
+    {
+        // „Proč shipwreck není prostě fakt lodička potopená?" — barevný čtvereček
+        // neřekne nic. Místa, která mají tvar (vrak, ruiny, kamenný kruh, kosti),
+        // musí mít sprite; ostatní si vystačí s barvou.
+        var landmarks = TestData.LoadRealContent().Landmarks;
+        string[] mustLook = ["shipwreck", "ancient_ruins", "stone_circle", "mammoth_bones"];
+
+        foreach (string id in mustLook)
+        {
+            Assert.True(landmarks.TryIndexOf(id, out int index), $"landmark '{id}' v datech chybí");
+            Assert.NotNull(landmarks[index].SpriteKey);
+        }
+    }
+
+    [Fact]
+    public void RealContent_BigLandmarksSpanMoreThanOneTile()
+    {
+        // Vrak ani ruiny se do jedné dlaždice nevejdou tak, aby to vypadalo.
+        var landmarks = TestData.LoadRealContent().Landmarks;
+
+        Assert.True(landmarks.TryIndexOf("shipwreck", out int wreck));
+        Assert.True(landmarks[wreck].Footprint >= 2);
+
+        Assert.True(landmarks.TryIndexOf("ancient_ruins", out int ruins));
+        Assert.True(landmarks[ruins].Footprint >= 2);
+    }
 }

@@ -16,7 +16,8 @@ public class LandmarkTests
     private static ITerrain Grass() => new UniformTerrain(1);
 
     private static LandmarkDef Def(string id, int rarity, ClickYield? yield) =>
-        new(id, new[] { true, true }, new RgbColor(200, 100, 50), Size: 8, Rarity: rarity, ClickYield: yield);
+        new(id, new[] { true, true }, new RgbColor(200, 100, 50), Size: 8, Rarity: rarity,
+            ClickYield: yield, SpriteId: null, Footprint: 1);
 
     [Fact]
     public void Landmarks_AppearButStayRare()

@@ -263,7 +263,7 @@ public sealed class GameplayScreen : IScreen
         _roadRenderer = new RoadRenderer(screens.WhitePixel, screens.Content);
         _zoneRenderer = new ZoneRenderer(screens.WhitePixel, screens.Content);
         _pollutionRenderer = new PollutionRenderer(screens.WhitePixel, screens.Content);
-        _landmarkRenderer = new LandmarkRenderer(screens.WhitePixel, screens.Content);
+        _landmarkRenderer = new LandmarkRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
         _ufoRenderer = new UfoRenderer(screens.WhitePixel);
         _sounds = screens.Sounds;
         _soundscape = new AmbientSoundscape(screens.Content);

@@ -1,5 +1,6 @@
 using CivDle.Core.Content;
 using CivDle.Core.Sim;
+using CivDle.Rendering.Sprites;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -21,11 +22,15 @@ public sealed class LandmarkRenderer
 
     private readonly Texture2D _pixel;
     private readonly GameContent _content;
+    private readonly SpriteLibrary _sprites;
+    private readonly Texture2D? _shadow;
 
-    public LandmarkRenderer(Texture2D whitePixel, GameContent content)
+    public LandmarkRenderer(Texture2D whitePixel, GameContent content, SpriteLibrary sprites)
     {
         _pixel = whitePixel;
         _content = content;
+        _sprites = sprites;
+        _shadow = sprites.Get("fx.shadow");
     }
 
     public void Draw(SpriteBatch spriteBatch, Camera2D camera, Simulation simulation)
@@ -54,6 +59,15 @@ public sealed class LandmarkRenderer
                 }
 
                 var def = _content.Landmarks[index];
+
+                // Sprite, když ho data mají. Vrak lodi jako hnědý čtvereček
+                // nevypadá jako vrak lodi — a přesně to hráč hlásil.
+                if (def.SpriteKey is { } key && _sprites.Get(key) is { } sprite)
+                {
+                    DrawSprite(spriteBatch, sprite, def, tileX, tileY);
+                    continue;
+                }
+
                 int size = Math.Min(def.Size, tileSize);
                 int offset = (tileSize - size) / 2;
                 int x = tileX * tileSize + offset;
@@ -70,5 +84,28 @@ public sealed class LandmarkRenderer
         }
 
         spriteBatch.End();
+    }
+
+    /// <summary>
+    /// Landmark spritem. Roste do svého půdorysu (ruiny a vrak jsou 2×2) a stojí
+    /// na stínu, aby na terénu seděl a nevznášel se.
+    /// </summary>
+    private void DrawSprite(SpriteBatch spriteBatch, Texture2D sprite, LandmarkDef def, int tileX, int tileY)
+    {
+        const int tileSize = TerrainRenderer.TileSize;
+        int span = def.Footprint * tileSize;
+        var bounds = new Rectangle(tileX * tileSize, tileY * tileSize, span, span);
+
+        if (_shadow is not null)
+        {
+            var scale = new Vector2(span * 0.7f / _shadow.Width, span * 0.24f / _shadow.Height);
+            spriteBatch.Draw(_shadow, new Vector2(bounds.X + span * 0.5f, bounds.Bottom - span * 0.12f),
+                null, Color.White * 0.6f, 0f,
+                new Vector2(_shadow.Width * 0.5f, _shadow.Height * 0.5f), scale, SpriteEffects.None, 0f);
+        }
+
+        // Sbíratelné místo dostane teplý nádech = „klikni na mě".
+        var tint = def.IsHarvestable ? new Color(255, 245, 210) : Color.White;
+        spriteBatch.Draw(sprite, bounds, tint);
     }
 }

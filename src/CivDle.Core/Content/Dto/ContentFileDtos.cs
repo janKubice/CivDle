@@ -477,7 +477,9 @@ public sealed record LandmarkDto(
     string? MapColor,
     int Size,
     int Rarity,
-    ClickYieldDto? ClickYield);
+    ClickYieldDto? ClickYield,
+    string? Sprite,
+    int Footprint);
 
 /// <summary>Obsah souboru <c>data/weather.json</c> (počasí vázané na biom).</summary>
 public sealed record WeatherFileDto(int SchemaVersion, List<WeatherDto>? Weather);

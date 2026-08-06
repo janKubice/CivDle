@@ -24,10 +24,20 @@ public sealed record LandmarkDef(
     RgbColor MapColor,
     int Size,
     int Rarity,
-    ClickYield? ClickYield)
+    ClickYield? ClickYield,
+    string? SpriteId,
+    int Footprint)
 {
     /// <summary>Lokalizační klíč jména landmarku.</summary>
     public string NameKey => $"landmark.{Id}";
+
+    /// <summary>
+    /// Klíč spritu, kterým se landmark kreslí; <c>null</c> = barevný obdélník.
+    ///
+    /// <para>Data říkají KTERÝ sprite, kód JAK se kreslí — stejně jako u budov.
+    /// Vrak lodi jako hnědý čtvereček prostě nevypadá jako vrak lodi.</para>
+    /// </summary>
+    public string? SpriteKey => SpriteId is null ? null : $"landmark.{SpriteId}";
 
     /// <summary>Dá se z landmarku něco sbírat (surovinový uzel), nebo je to jen ozdoba?</summary>
     public bool IsHarvestable => ClickYield is not null;

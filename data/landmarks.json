@@ -77,7 +77,8 @@
       ],
       "mapColor": "#DCEAF2",
       "size": 10,
-      "rarity": 1100
+      "rarity": 1100,
+      "sprite": "geyser"
     },
     {
       "id": "canyon",
@@ -96,7 +97,9 @@
       ],
       "mapColor": "#8E8E96",
       "size": 11,
-      "rarity": 1300
+      "rarity": 1300,
+      "sprite": "stone_circle",
+      "footprint": 2
     },
     {
       "id": "volcano",
@@ -131,7 +134,8 @@
       "clickYield": {
         "resource": "stone",
         "amount": 18
-      }
+      },
+      "sprite": "crystal"
     },
     {
       "id": "fumarole",
@@ -141,7 +145,8 @@
       ],
       "mapColor": "#C8B49A",
       "size": 8,
-      "rarity": 700
+      "rarity": 700,
+      "sprite": "geyser"
     },
     {
       "id": "oasis",
@@ -154,7 +159,9 @@
       "clickYield": {
         "resource": "food",
         "amount": 16
-      }
+      },
+      "sprite": "oasis",
+      "footprint": 2
     },
     {
       "id": "salt_flat",
@@ -179,7 +186,9 @@
       "clickYield": {
         "resource": "iron_ore",
         "amount": 20
-      }
+      },
+      "sprite": "cave",
+      "footprint": 2
     },
     {
       "id": "petrified_forest",
@@ -192,7 +201,9 @@
       "clickYield": {
         "resource": "stone",
         "amount": 16
-      }
+      },
+      "sprite": "bones",
+      "footprint": 2
     },
     {
       "id": "mesa",
@@ -230,7 +241,9 @@
       "clickYield": {
         "resource": "stone",
         "amount": 12
-      }
+      },
+      "sprite": "cave",
+      "footprint": 2
     },
     {
       "id": "hot_spring",
@@ -240,7 +253,8 @@
       ],
       "mapColor": "#B8DCE0",
       "size": 9,
-      "rarity": 800
+      "rarity": 800,
+      "sprite": "geyser"
     },
     {
       "id": "crystal_seam",
@@ -254,7 +268,8 @@
       "clickYield": {
         "resource": "silicon",
         "amount": 14
-      }
+      },
+      "sprite": "crystal"
     },
     {
       "id": "amber_seep",
@@ -268,7 +283,8 @@
       "clickYield": {
         "resource": "wood",
         "amount": 16
-      }
+      },
+      "sprite": "crystal"
     },
     {
       "id": "sinkhole",
@@ -277,7 +293,8 @@
       ],
       "mapColor": "#2F4A34",
       "size": 11,
-      "rarity": 1000
+      "rarity": 1000,
+      "sprite": "cave"
     },
     {
       "id": "canopy_giant",
@@ -305,7 +322,9 @@
       "clickYield": {
         "resource": "stone",
         "amount": 20
-      }
+      },
+      "sprite": "ruins",
+      "footprint": 2
     },
     {
       "id": "baobab",
@@ -380,7 +399,9 @@
       ],
       "mapColor": "#A8D8EE",
       "size": 12,
-      "rarity": 1200
+      "rarity": 1200,
+      "sprite": "cave",
+      "footprint": 2
     },
     {
       "id": "ice_arch",
@@ -446,7 +467,9 @@
       "clickYield": {
         "resource": "planks",
         "amount": 18
-      }
+      },
+      "sprite": "shipwreck",
+      "footprint": 2
     },
     {
       "id": "thermal_vent",
@@ -472,7 +495,9 @@
       "clickYield": {
         "resource": "stone",
         "amount": 16
-      }
+      },
+      "sprite": "bones",
+      "footprint": 2
     },
     {
       "id": "frozen_falls",
