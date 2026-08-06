@@ -142,7 +142,12 @@ public sealed class HarvestableRenderer
                     spriteKey = ResourceSprite(plantedResource); // zasazený háj se kreslí i těží jako přírodní
                 }
 
-                if (spriteKey is null || simulation.IsOccupied(x, y))
+                // Na zastavěné dlaždici nic neroste — ani na cizí, ani pod silnicí.
+                // Dřív se strom kreslil dál a dům pak stál „ve stromě"; hráč to
+                // hlásil jako první věc, která na cizích městech bije do očí.
+                if (spriteKey is null
+                    || simulation.IsOccupied(x, y) || simulation.IsNpcOccupied(x, y)
+                    || simulation.HasRoadAt(x, y))
                 {
                     continue;
                 }

@@ -478,6 +478,51 @@ public class NpcCityTests
     }
 
     [Fact]
+    public void ATownHasItsGrandBuildingsNearTheSquare()
+    {
+        // Město bez centra vypadá jako náhodně vysypaná hrst budov. Paleta je
+        // řazená od nejběžnějšího po nejzvláštnější, takže to výjimečné má stát
+        // spíš u náměstí než na kraji pole.
+        var archetypes = new[]
+        {
+            new NpcCityArchetype("farmtown", new RgbColor(1, 1, 1), Population: 150,
+                Trade: new[] { new ResourceAmount(0, 7) },
+                BuildingIndices: new[] { 0, 0, 1 }), // 0 = běžné, 1 = honosné
+        };
+        var catalog = new NpcCityCatalog(
+            giftCost: new[] { new ResourceAmount(0, 5) }, giftRelation: 30,
+            roadCost: new[] { new ResourceAmount(0, 10) }, tradeIntervalTicks: 5,
+            buyRelation: 60, buyCost: new[] { new ResourceAmount(0, 50) },
+            surroundRadius: 6, surroundBuildings: 99, tradeRelation: 2,
+            caravanBonusAtFullRelation: 1.0,
+            archetypes: new DefRegistry<NpcCityArchetype>(archetypes, a => a.Id, "cizí město"),
+            names: new[] { "Testov" });
+
+        var content = TestContent.Build(
+            new[] { TestContent.WaterBiome(), TestContent.LandBiome("grass") }, 1,
+            new[] { new Resource("wood", new RgbColor(1, 1, 1), StartAmount: 1000, BaseStorage: 100_000) },
+            buildings: new[] { TestContent.SimpleBuilding("hut", 2), TestContent.SimpleBuilding("temple", 2) },
+            npcCities: catalog);
+
+        var sim = new Simulation(content, new UniformTerrain(1));
+        var city = FirstCity(sim);
+        sim.Fog.Reveal(city.X, city.Y, 25);
+        Tick(sim, 20);
+
+        var grand = sim.NpcBuildings.ToArray().Where(b => b.DefIndex == 1).ToList();
+        Assert.NotEmpty(grand);
+
+        // Průměrná vzdálenost honosných budov od středu musí být menší než
+        // u těch běžných — jinak paleta na poloze nezáleží.
+        var plain = sim.NpcBuildings.ToArray().Where(b => b.DefIndex == 0).ToList();
+        Assert.NotEmpty(plain);
+
+        double Distance(BuildingInstance b) => Math.Abs(b.X - city.X) + Math.Abs(b.Y - city.Y);
+        Assert.True(grand.Average(Distance) < plain.Average(Distance),
+            "honosné budovy mají stát blíž náměstí než domky");
+    }
+
+    [Fact]
     public void ARazedCityLeavesNoHousesStanding()
     {
         // Zničené město nesmí dál stát — jinak by po meteoritu zbyla nedotčená

@@ -66,6 +66,9 @@ public static class NpcTownPlanner
     /// <summary>Jak daleko se hledá suchá zem, když střed z mřížky padne do vody.</summary>
     private const int OriginSearch = 10;
 
+    /// <summary>Kolik procent hustoty přední řady si nechá ta zadní.</summary>
+    private const int SecondRowShare = 55;
+
     /// <summary>
     /// Rozvrhne město.
     /// </summary>
@@ -251,6 +254,10 @@ public static class NpcTownPlanner
     /// <summary>
     /// Obestaví ulice domy. Prochází se dlaždice <b>vedle silnic</b>: dům u cesty
     /// je to, co odlišuje město od náhodných staveb v poli.
+    ///
+    /// <para>Dvě řady: první přímo u ulice, druhá za ní. S jedinou řadou byly
+    /// bloky duté a město vypadalo jako plot kolem prázdných dvorů — druhá řada
+    /// z něj udělá zástavbu. Ta zadní je řidší, takže se nezvrhne v beton.</para>
     /// </summary>
     private static void FillPlots(
         GameContent content, int originX, int originY, ulong hash, int reach,
@@ -265,51 +272,73 @@ public static class NpcTownPlanner
         // Kopie: seznam silnic se během osazování nemění, ale procházíme ho
         // podle indexu a plán musí být nezávislý na tom, kolik domů už stojí.
         int roadCount = roads.Count;
-        for (int i = 0; i < roadCount; i++)
+
+        for (int row = 0; row < 2; row++)
         {
-            var road = roads[i];
-            for (int side = 0; side < 4; side++)
+            for (int i = 0; i < roadCount; i++)
             {
-                ulong roll = Mix(hash + (ulong)(i * 4 + side + 1) * 0xBF58476D1CE4E5B9UL);
-
-                // Hustota klesá od středu: jádro je sevřené, okraj se rozpadá do
-                // samot. Bez toho má město ostrou hranu jako vystřižený papír.
-                int distance = Math.Abs(road.X - originX) + Math.Abs(road.Y - originY);
-                int keepChance = Math.Max(20, 92 - distance * 80 / Math.Max(1, reach * 2));
-                if ((int)(roll % 100) >= keepChance)
+                var road = roads[i];
+                for (int side = 0; side < 4; side++)
                 {
-                    continue;
-                }
+                    ulong roll = Mix(hash + (ulong)((i * 4 + side + 1) * (row + 1)) * 0xBF58476D1CE4E5B9UL);
 
-                if (TryPlaceBeside(
-                        content, palette, canBuild, taken,
-                        road.X, road.Y, sideX[side], sideY[side], roll, out var placed))
-                {
-                    buildings.Add(placed);
+                    // Hustota klesá od středu: jádro je sevřené, okraj se rozpadá
+                    // do samot. Bez toho má město ostrou hranu jako vystřižený papír.
+                    int distance = Math.Abs(road.X - originX) + Math.Abs(road.Y - originY);
+                    int keepChance = Math.Max(20, 92 - distance * 80 / Math.Max(1, reach * 2));
+                    if (row == 1)
+                    {
+                        keepChance = keepChance * SecondRowShare / 100; // zadní řada je řidší
+                    }
+
+                    if ((int)(roll % 100) >= keepChance)
+                    {
+                        continue;
+                    }
+
+                    // Jak blízko středu ta parcela je (0 = kraj, 100 = náměstí).
+                    int centrality = Math.Max(0, 100 - distance * 100 / Math.Max(1, reach * 2));
+
+                    if (TryPlaceBeside(
+                            content, palette, canBuild, taken, road.X, road.Y,
+                            sideX[side], sideY[side], row, centrality, roll, out var placed))
+                    {
+                        buildings.Add(placed);
+                    }
                 }
             }
         }
     }
 
     /// <summary>
-    /// Zkusí na sousední parcelu posadit dům z palety. Prochází paletu od
-    /// losovaného místa dokola, takže když se první přání na daný terén nehodí,
-    /// zkusí se další — a městečko u vody vypadá jinak než v horách.
+    /// Zkusí na parcelu u ulice posadit dům z palety.
+    ///
+    /// <para>Paleta druhu města je řazená od nejběžnějšího po nejzvláštnější
+    /// (dům, dům, dům, statek, sýpka, mlýn). Losování se proto <b>posouvá podle
+    /// vzdálenosti od středu</b>: na náměstí padne spíš tržnice nebo chrám, na
+    /// kraji domky. Bez toho stál mlýn stejně často na návsi jako v poli a město
+    /// nemělo centrum — vypadalo jako náhodně vysypaná hrst budov.</para>
+    ///
+    /// <para>Když se vylosovaný typ na daný terén nehodí, projde se paleta dokola
+    /// — městečko u vody tak vypadá jinak než v horách.</para>
     /// </summary>
     private static bool TryPlaceBeside(
         GameContent content, IReadOnlyList<int> palette, Func<int, int, int, bool> canBuild,
-        HashSet<long> taken, int roadX, int roadY, int dx, int dy, ulong roll,
-        out NpcTownBuilding placed)
+        HashSet<long> taken, int roadX, int roadY, int dx, int dy, int row, int centrality,
+        ulong roll, out NpcTownBuilding placed)
     {
-        int start = (int)(roll % (ulong)palette.Count);
+        int start = PickFromPalette(palette.Count, centrality, roll);
+
         for (int step = 0; step < palette.Count; step++)
         {
             int defIndex = palette[(start + step) % palette.Count];
             var def = content.Buildings[defIndex];
 
             // Kotva tak, aby se dům dotýkal ulice tou stranou, u které stojí.
-            int x = dx < 0 ? roadX - def.FootprintWidth : roadX + dx;
-            int y = dy < 0 ? roadY - def.FootprintHeight : roadY + dy;
+            // Zadní řada stojí o svůj půdorys dál — hned za předním domem.
+            int depth = row == 0 ? 0 : 1;
+            int x = dx < 0 ? roadX - def.FootprintWidth - depth : roadX + dx + dx * depth;
+            int y = dy < 0 ? roadY - def.FootprintHeight - depth : roadY + dy + dy * depth;
 
             if (IsFree(taken, x, y, def.FootprintWidth, def.FootprintHeight)
                 && canBuild(defIndex, x, y))
@@ -325,9 +354,24 @@ public static class NpcTownPlanner
     }
 
     /// <summary>
-    /// Položí dlaždici ulice, pokud tam ulice smí ležet. Zamítnutá dlaždice se
-    /// <b>neblokuje</b>: přes vodu ulice nevede, ale dům na břehu tam stát může.
+    /// Odkud v paletě začít vybírat. Čím blíž středu, tím spíš z její honosnější
+    /// druhé půlky.
     /// </summary>
+    private static int PickFromPalette(int count, int centrality, ulong roll)
+    {
+        if (count < 2)
+        {
+            return 0;
+        }
+
+        int half = count / 2;
+        bool grand = (int)((roll >> 20) % 100) < centrality;
+
+        return grand
+            ? half + (int)((roll >> 32) % (ulong)(count - half))
+            : (int)((roll >> 32) % (ulong)Math.Max(1, half));
+    }
+
     private static void AddRoad(
         List<RoadTile> roads, HashSet<long> taken, Func<int, int, bool> canPave, int x, int y)
     {

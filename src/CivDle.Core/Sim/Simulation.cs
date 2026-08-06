@@ -2507,7 +2507,33 @@ public sealed class Simulation
         {
             _roadTiles.Add(new RoadTile(x, y));
             _roadLinksDirty = true;
+            ClearGround(x, y, 1, 1); // co leželo v trase, tomu je konec
             ReportVisual(VisualEventKind.RoadBuilt, x, y);
+        }
+    }
+
+    /// <summary>
+    /// Srovná dlaždice pod stavbou: vytěží uzel (strom, balvan) a zruší
+    /// zasazený hájek.
+    ///
+    /// <para>Bez tohohle stál dům <b>ve stromě</b> a silnice vedla skrz balvan —
+    /// obojí se pořád kreslilo a pořád šlo těžit. Uzel se srovná běžnou cestou
+    /// (vytěžený), takže když se stavba zbourá, krajina se časem vrátí.</para>
+    /// </summary>
+    private void ClearGround(int x, int y, int width, int height)
+    {
+        for (int tileY = y; tileY < y + height; tileY++)
+        {
+            for (int tileX = x; tileX < x + width; tileX++)
+            {
+                _plantedNodes.Remove(TileKey.Pack(tileX, tileY));
+
+                var yield = _content.Biomes[Terrain.BiomeAt(tileX, tileY)].ClickYield;
+                if (yield is { IsExhaustible: true })
+                {
+                    _nodes.Deplete(tileX, tileY, TickCount);
+                }
+            }
         }
     }
 
@@ -4887,6 +4913,9 @@ public sealed class Simulation
         // výš: touhle cestou jde i obnova ze savu, takže i starý save (bez sekce
         // mlhy) dostane odhalené aspoň okolí svých budov.
         Fog.Reveal(x, y, FogRevealRadius);
+
+        // Staveniště se srovná: strom, balvan ani hájek pod domem nezůstanou.
+        ClearGround(x, y, def.FootprintWidth, def.FootprintHeight);
 
         // Cache napojení na silnice mluví o polích, která se právě mění — zneplatni
         // ji TADY, ne až po zavolání RoadBuilderu. Dřív to bylo až na konci

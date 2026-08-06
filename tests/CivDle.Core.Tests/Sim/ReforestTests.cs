@@ -118,4 +118,30 @@ public class ReforestTests
 
         Assert.Contains(content.Buildings.All, b => b.Reforests);
     }
+
+    [Fact]
+    public void BuildingOnATreeClearsIt()
+    {
+        // Dům stál „ve stromě": strom se pod ním pořád kreslil i pořád těžil.
+        // Staveniště se má srovnat.
+        var sim = NewSim(radius: 0);
+        sim.AddResource(Wood, 500);
+
+        Assert.True(sim.NodeChargesLeft(3, 3) > 0);
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(0, 3, 3));
+
+        Assert.Equal(0, sim.NodeChargesLeft(3, 3));
+    }
+
+    [Fact]
+    public void ARoadClearsWhatLiesInItsWay()
+    {
+        // „Když někde postavím cestu, mělo by se zničit, co je pod ní."
+        var sim = NewSim(radius: 0);
+
+        Assert.True(sim.NodeChargesLeft(6, 6) > 0);
+        Assert.Equal(PlacementResult.Ok, sim.TryBuildRoad(6, 6));
+
+        Assert.Equal(0, sim.NodeChargesLeft(6, 6));
+    }
 }
