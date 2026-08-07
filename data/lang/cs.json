@@ -1438,6 +1438,7 @@
     "tip.happiness": "Jak se ve městě žije. Zvedají ji služby (trh, sýpka, dílna), sráží přelidnění. Nízká spokojenost brzdí růst — nikdy ale nikoho nepřipraví o život.",
     "tip.idleBuildings": "Tyhle budovy nemá kdo obsadit, takže nevyrábějí. Dělníci jdou nejdřív do nejstarších budov — nech vyrůst populaci, nebo zbourej, co nepotřebuješ. Barevný roh na budově řekne, co jí schází.",
     "tip.landmark": "Zvláštní místo na mapě. Klikni a sklidí se líp než okolí.",
+    "tip.landmark.yield": "Dá se sebrat: {0} {1}",
     "tip.merge": "Čtyři stejné budovy ve čtverci 2×2 se spojí v jednu větší. Chce to správný výzkum.",
     "tip.milestones": "Čím víc budov jednoho typu postavíš, tím líp vyrábějí všechny. Každá {0}. je další stupeň — vyplatí se stavět tentýž typ dokola.",
     "tip.objective": "Jeden krok po druhém. Splň ho a objeví se další.",
@@ -1530,6 +1531,24 @@
     "worldsize.small": "Malý",
     "zone.farmland": "Zemědělská",
     "zone.industry": "Průmyslová",
-    "zone.residential": "Obytná"
+    "zone.residential": "Obytná",
+    "loading.newWorld": "Tvořím svět",
+    "loading.savedGame": "Načítám hru",
+    "achievement.scout": "Zvěd",
+    "achievement.scout.desc": "Odhal 800 dlaždic mapy.",
+    "achievement.surveyor": "Zeměměřič",
+    "achievement.surveyor.desc": "Odhal 5 000 dlaždic mapy.",
+    "achievement.horizon_chaser": "Za obzorem",
+    "achievement.horizon_chaser.desc": "Odhal 15 000 dlaždic mapy.",
+    "achievement.atlas_maker": "Tvůrce atlasu",
+    "achievement.atlas_maker.desc": "Odhal 40 000 dlaždic mapy.",
+    "achievement.good_neighbour": "Dobrý soused",
+    "achievement.good_neighbour.desc": "Přiber ke své říši druhé cizí město.",
+    "achievement.federation": "Federace",
+    "achievement.federation.desc": "Přiber ke své říši 10 cizích měst.",
+    "achievement.confederacy": "Konfederace",
+    "achievement.confederacy.desc": "Přiber ke své říši 20 cizích měst.",
+    "achievement.all_roads": "Všechny cesty vedou k tobě",
+    "achievement.all_roads.desc": "Přiber ke své říši 35 cizích měst."
   }
 }

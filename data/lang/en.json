@@ -1438,6 +1438,7 @@
     "tip.happiness": "How good life in the city is. Services (market, granary, workshop) raise it, overcrowding lowers it. Low happiness slows growth — it never costs anyone their life.",
     "tip.idleBuildings": "These buildings have nobody to staff them, so they produce nothing. Workers go to the oldest buildings first — grow the population, or demolish what you do not need. The coloured corner on a building tells you what it is missing.",
     "tip.landmark": "A special spot on the map. Click it — it yields more than the ground around it.",
+    "tip.landmark.yield": "Can be gathered: {0} {1}",
     "tip.merge": "Four identical buildings in a 2x2 square become one larger building. Needs the right research.",
     "tip.milestones": "The more buildings of one type you have, the better they all produce. Every {0}th one is another tier — building the same type over and over pays off.",
     "tip.objective": "One step at a time. Finish it and the next one appears.",
@@ -1530,6 +1531,24 @@
     "worldsize.small": "Small",
     "zone.farmland": "Farmland",
     "zone.industry": "Industrial",
-    "zone.residential": "Residential"
+    "zone.residential": "Residential",
+    "loading.newWorld": "Creating the world",
+    "loading.savedGame": "Loading your game",
+    "achievement.scout": "Scout",
+    "achievement.scout.desc": "Reveal 800 map tiles.",
+    "achievement.surveyor": "Surveyor",
+    "achievement.surveyor.desc": "Reveal 5,000 map tiles.",
+    "achievement.horizon_chaser": "Horizon Chaser",
+    "achievement.horizon_chaser.desc": "Reveal 15,000 map tiles.",
+    "achievement.atlas_maker": "Atlas Maker",
+    "achievement.atlas_maker.desc": "Reveal 40,000 map tiles.",
+    "achievement.good_neighbour": "Good Neighbour",
+    "achievement.good_neighbour.desc": "Bring a second foreign city into your realm.",
+    "achievement.federation": "Federation",
+    "achievement.federation.desc": "Bring 10 foreign cities into your realm.",
+    "achievement.confederacy": "Confederacy",
+    "achievement.confederacy.desc": "Bring 20 foreign cities into your realm.",
+    "achievement.all_roads": "All Roads Lead Here",
+    "achievement.all_roads.desc": "Bring 35 foreign cities into your realm."
   }
 }

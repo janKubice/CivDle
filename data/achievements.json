@@ -668,6 +668,62 @@
         "resource": "faith",
         "target": 500
       }
+    },
+    {
+      "id": "scout",
+      "condition": {
+        "metric": "explored",
+        "target": 800
+      }
+    },
+    {
+      "id": "surveyor",
+      "condition": {
+        "metric": "explored",
+        "target": 5000
+      }
+    },
+    {
+      "id": "horizon_chaser",
+      "condition": {
+        "metric": "explored",
+        "target": 15000
+      }
+    },
+    {
+      "id": "atlas_maker",
+      "condition": {
+        "metric": "explored",
+        "target": 40000
+      }
+    },
+    {
+      "id": "good_neighbour",
+      "condition": {
+        "metric": "cities",
+        "target": 2
+      }
+    },
+    {
+      "id": "federation",
+      "condition": {
+        "metric": "cities",
+        "target": 10
+      }
+    },
+    {
+      "id": "confederacy",
+      "condition": {
+        "metric": "cities",
+        "target": 20
+      }
+    },
+    {
+      "id": "all_roads",
+      "condition": {
+        "metric": "cities",
+        "target": 35
+      }
     }
   ]
 }

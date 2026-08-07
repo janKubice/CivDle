@@ -185,7 +185,6 @@ public sealed class GameplayScreen : IScreen
     /// začal reagovat na to, co se ve městě zrovna děje.
     /// </summary>
     private ContentDirector _director = null!;
-    private Label _festivalLabel = null!;
     private Button _festivalButton = null!;
     private Button _buildMenuButton = null!;
 
@@ -437,31 +436,40 @@ public sealed class GameplayScreen : IScreen
         UpdateDirector(dt);
         SampleRates(dt);
 
+        // Svět běží rychlostí, kterou hráč zvolil — a při pauze STOJÍ. Chodci,
+        // auta a dým jsou součástí toho světa, ne ozdoba nad ním: když se
+        // zastaví simulace a lidé si chodí dál, pauza nevypadá jako pauza.
+        float worldDt = dt * (float)_speed.Multiplier;
+
         EmitNewBuildingJuice();
-        _harvestables.Update(dt);
-        _particles.Update(dt);
-        _floatingText.Update(dt);
+        _harvestables.Update(worldDt);
+        _particles.Update(worldDt);
+        _floatingText.Update(worldDt);
         LaunchFireworksForMilestones();
-        _cityPulse.Update(dt, _simulation);
-        _fireworks.Update(dt);
-        _laser.Update(dt);
+        _cityPulse.Update(worldDt, _simulation);
+        _fireworks.Update(worldDt);
+        _laser.Update(worldDt);
+        _celebration.Update(worldDt);
+
+        // Rolující čísla v liště jdou naopak reálným časem: dojíždějí k hodnotě,
+        // která už platí, a při pauze by zamrzla na půl cesty.
         _rolling.Update(dt, _simulation.GetResource);
-        _celebration.Update(dt);
+
         // Při velkém oddálení chodce/faunu neaktualizuj — nespawnovali by se přes
         // obří viditelnou plochu (a stejně se nekreslí; z výšky vidíš hustotu).
         if (_camera.Zoom >= CityScaleRenderer.ThresholdZoom)
         {
-            _fauna.Update(dt, _camera, _simulation);
-            _traffic.Update(dt, _camera, _simulation);
-            _agents.Update(dt, _camera, _simulation);
-            _bubbles.Update(dt, _simulation);
-            UpdateCaravan(dt);
-            _golden.Update(dt, _camera, _simulation);
-            _discoveries.Update(dt);
+            _fauna.Update(worldDt, _camera, _simulation);
+            _traffic.Update(worldDt, _camera, _simulation);
+            _agents.Update(worldDt, _camera, _simulation);
+            _bubbles.Update(worldDt, _simulation);
+            UpdateCaravan(worldDt);
+            _golden.Update(worldDt, _camera, _simulation);
+            _discoveries.Update(worldDt);
         }
 
-        _buildingRenderer.Update(dt); // balony nad kotvišti se houpou
-        _weatherRenderer.Update(dt, _simulation, _screens.GraphicsDevice.Viewport);
+        _buildingRenderer.Update(worldDt); // balony nad kotvišti se houpou
+        _weatherRenderer.Update(worldDt, _simulation, _screens.GraphicsDevice.Viewport);
         _minimap.Update(dt, _camera, _simulation);
         DrainNotifications();
         _toasts.Update(dt);
@@ -740,11 +748,17 @@ public sealed class GameplayScreen : IScreen
             return;
         }
 
-        int landmark = _simulation.LandmarkAt(tileX, tileY);
-        if (landmark >= 0)
+        if (TryLandmarkUnder(tileX, tileY, out int landmark))
         {
-            title = loc[content.Landmarks[landmark].NameKey];
-            body = loc["tip.landmark"];
+            var def = content.Landmarks[landmark];
+            title = loc[def.NameKey];
+
+            // Co z něj je, když je z čeho — u sbíratelného místa je to ta
+            // informace, kvůli které na něj hráč najel.
+            body = def.ClickYield is { } yield
+                ? loc.Format("tip.landmark.yield",
+                    yield.Amount, loc[content.Resources[yield.ResourceIndex].NameKey])
+                : loc["tip.landmark"];
             accent = new Color(255, 215, 120);
         }
         else if (_simulation.IsDiscoveryTile(tileX, tileY) && !_simulation.IsDiscoveryClaimed(tileX, tileY))
@@ -762,6 +776,40 @@ public sealed class GameplayScreen : IScreen
 
         HoverTooltip.Draw(spriteBatch, _screens.WhitePixel, _popupFont,
             _screens.GraphicsDevice.Viewport, _input.MousePosition, title, body, accent);
+    }
+
+    /// <summary>
+    /// Landmark pod kurzorem — i když hráč míří vedle jeho kotevní dlaždice.
+    ///
+    /// <para>Velké landmarky (vrak, ruiny) se kreslí přes 2×2, ale v simulaci
+    /// sedí na jedné dlaždici. Bez tohohle šlo popisek vyvolat jen z té jedné
+    /// a hráč měl dojem, že na ně najet nejde.</para>
+    /// </summary>
+    private bool TryLandmarkUnder(int tileX, int tileY, out int landmark)
+    {
+        landmark = _simulation.LandmarkAt(tileX, tileY);
+        if (landmark >= 0)
+        {
+            return true;
+        }
+
+        for (int dy = -1; dy <= 1; dy++)
+        {
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                int index = _simulation.LandmarkAt(tileX + dx, tileY + dy);
+
+                // Sousední landmark se počítá, jen když sem svým půdorysem
+                // opravdu dosáhne — jinak by popisek vyskakoval i vedle malých.
+                if (index >= 0 && _screens.Content.Landmarks[index].Footprint > 1)
+                {
+                    landmark = index;
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -1964,110 +2012,159 @@ public sealed class GameplayScreen : IScreen
         }
     }
 
+    /// <summary>Ikona z knihovny; <c>null</c>, když ji knihovna nezná.</summary>
+    private Texture2D? Ico(string key) => _screens.Sprites.Get(key);
+
     /// <summary>
-    /// Sloupec vpravo nad minimapou: obrazovky, do kterých se odbíhá (sídla,
-    /// úkoly, výzkum, statistiky), a ovládání času.
+    /// Panel s ikonami v mřížce o pevné šířce.
     ///
-    /// <para>Dřív byly všechny natlačené v jediné spodní liště vedle nástrojů.
-    /// Bylo jich přes deset, lišta se roztáhla přes celou šířku a nebylo v ní
-    /// poznat, co mění mapu a co jen otevírá okno. Rozdělení je podle toho:
-    /// <b>dole nástroje</b> (stavět, silnice, zóny, sázet), <b>vpravo odbočky</b>.
-    /// Sedí u minimapy, protože obojí je „kam se podívat", ne „co udělat".</para>
+    /// <para>Pevná šířka je tu podstatná, ne kosmetická: roztažitelný panel si
+    /// v Myře ukousl víc plochy, než na kolik bylo vidět, a hit-test pak bral
+    /// kliknutí mapě pod sebou — hráč nemohl postavit silnici a nevěděl proč.</para>
+    /// </summary>
+    private static Grid IconGrid(int columns)
+    {
+        var grid = new Grid
+        {
+            ColumnSpacing = 6,
+            RowSpacing = 6,
+            Width = columns * (UiFactory.IconButtonSize + 6),
+        };
+
+        for (int i = 0; i < columns; i++)
+        {
+            grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
+        }
+
+        return grid;
+    }
+
+    /// <summary>Posadí tlačítko do mřížky na dané pořadí (řádky se dopočítají).</summary>
+    private static void Place(Grid grid, Widget widget, int index, int columns)
+    {
+        Grid.SetColumn(widget, index % columns);
+        Grid.SetRow(widget, index / columns);
+        grid.Widgets.Add(widget);
+    }
+
+    /// <summary>
+    /// Pravý dolní blok: ovládání času a odbočky do obrazovek, v mřížce ikon
+    /// nad minimapou.
+    ///
+    /// <para>Rozdělení HUD je podle toho, co tlačítko dělá: <b>dole nástroje</b>
+    /// (mění mapu), <b>vpravo odbočky</b> (otevírají okno). Předchozí pokus byl
+    /// jeden dlouhý sloupec textových tlačítek — bylo jich dvanáct pod sebou,
+    /// zabíral půl obrazovky a nešlo v něm nic najít.</para>
     /// </summary>
     private Widget BuildScreenButtons()
     {
         var loc = _screens.Loc;
-        var stack = new VerticalStackPanel
-        {
-            Spacing = 6,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Bottom,
-            Margin = new Thickness(0, 0, 12, MinimapRenderer.ReservedHeight),
-        };
+        const int columns = 4;
+        var grid = IconGrid(columns);
+        int slot = 0;
 
-        // Rychlost času úplně nahoře: je to jediné tlačítko, které mění, jak hra
-        // běží, a hráč po něm sahá nejčastěji.
-        _speedButton = UiFactory.SmallButton(_speed.Label, () =>
+        _speedButton = UiFactory.ToolButton(Ico("ui.play"), loc["tip.speed"], () =>
         {
             _speed.Next();
             RefreshHudTexts();
-        }, loc["tip.speed"]);
-        stack.Widgets.Add(_speedButton);
+        }, "1x");
+        Place(grid, _speedButton, slot++, columns);
 
-        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.backToCity"], RecenterOnCity, loc["tip.backToCity"]));
+        Place(grid, UiFactory.ToolButton(
+            Ico("ui.home"), loc["hud.backToCity"] + '\n' + loc["tip.backToCity"], RecenterOnCity), slot++, columns);
 
         if (_simulation.IsFeatureUnlocked("settlements"))
         {
-            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.settlements"],
-                () => _screens.Push(new SettlementsScreen(_screens, _simulation, _camera)), loc["tip.settlements"]));
+            Place(grid, UiFactory.ToolButton(
+                Ico("ui.settlements"), loc["hud.settlements"] + '\n' + loc["tip.settlements"],
+                () => _screens.Push(new SettlementsScreen(_screens, _simulation, _camera))), slot++, columns);
         }
 
-        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.quests"],
-            () => _screens.Push(new QuestsScreen(_screens, _simulation)), loc["tip.quests"]));
+        Place(grid, UiFactory.ToolButton(
+            Ico("ui.quests"), loc["hud.quests"] + '\n' + loc["tip.quests"],
+            () => _screens.Push(new QuestsScreen(_screens, _simulation))), slot++, columns);
 
         // Zakázky mají vlastní tlačítko, i když bydlí na obrazovce úkolů: je to
-        // nejkratší smyčka ve hře a schovaná o dvě kliknutí by prostě zanikla.
+        // nejkratší smyčka ve hře a schovaná o dvě kliknutí by zanikla.
         if (_simulation.ContractsEnabled)
         {
-            _contractsButton = UiFactory.SmallButton(loc["hud.contracts"],
-                () => _screens.Push(new QuestsScreen(_screens, _simulation)), loc["tip.contracts"]);
-            stack.Widgets.Add(_contractsButton);
+            _contractsButton = UiFactory.ToolButton(
+                Ico("ui.contracts"), loc["hud.contracts"] + '\n' + loc["tip.contracts"],
+                () => _screens.Push(new QuestsScreen(_screens, _simulation)));
+            Place(grid, _contractsButton, slot++, columns);
         }
 
         if (_screens.Content.Techs.Count > 0 && _simulation.IsFeatureUnlocked("research"))
         {
-            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.tech"],
-                () => _screens.Push(new TechScreen(_screens, _simulation)), loc["tip.tech"]));
+            Place(grid, UiFactory.ToolButton(
+                Ico("ui.tech"), loc["hud.tech"] + '\n' + loc["tip.tech"],
+                () => _screens.Push(new TechScreen(_screens, _simulation))), slot++, columns);
         }
 
         if (_screens.Content.Policies.Count > 0 && _simulation.IsFeatureUnlocked("governor"))
         {
-            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.governor"],
-                () => _screens.Push(new PoliciesScreen(_screens, _simulation)), loc["tip.governor"]));
+            Place(grid, UiFactory.ToolButton(
+                Ico("ui.governor"), loc["hud.governor"] + '\n' + loc["tip.governor"],
+                () => _screens.Push(new PoliciesScreen(_screens, _simulation))), slot++, columns);
         }
 
         if (_simulation.IsFeatureUnlocked("ascend"))
         {
-            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.ascend"],
-                () => _screens.Push(new AscensionScreen(_screens, _simulation, _info)), loc["tip.ascend"]));
+            Place(grid, UiFactory.ToolButton(
+                Ico("ui.ascend"), loc["hud.ascend"] + '\n' + loc["tip.ascend"],
+                () => _screens.Push(new AscensionScreen(_screens, _simulation, _info))), slot++, columns);
         }
 
         if (_simulation.HistoryEnabled)
         {
-            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.stats"],
-                () => _screens.Push(new StatsScreen(_screens, _simulation.History)), loc["tip.stats"]));
+            Place(grid, UiFactory.ToolButton(
+                Ico("ui.stats"), loc["hud.stats"] + '\n' + loc["tip.stats"],
+                () => _screens.Push(new StatsScreen(_screens, _simulation.History))), slot++, columns);
         }
 
-        stack.Widgets.Add(UiFactory.SmallButton(loc["hud.achievements"],
-            () => _screens.Push(new AchievementsScreen(_screens, _simulation)), loc["tip.achievements"]));
+        Place(grid, UiFactory.ToolButton(
+            Ico("ui.trophy"), loc["hud.achievements"] + '\n' + loc["tip.achievements"],
+            () => _screens.Push(new AchievementsScreen(_screens, _simulation))), slot++, columns);
 
         if (_simulation.IsFeatureUnlocked("elections") && _screens.Content.Elections.IsEnabled)
         {
-            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.election"],
-                () => _screens.Push(new ElectionScreen(_screens, _simulation)), loc["tip.election"]));
+            Place(grid, UiFactory.ToolButton(
+                Ico("ui.vote"), loc["hud.election"] + '\n' + loc["tip.election"],
+                () => _screens.Push(new ElectionScreen(_screens, _simulation))), slot++, columns);
         }
 
-        stack.Widgets.Add(UiFactory.SmallButton(loc["menu.chronicle"],
-            () => _screens.Push(new ChronicleScreen(_screens)), loc["tip.chronicle"]));
+        Place(grid, UiFactory.ToolButton(
+            Ico("ui.chronicle"), loc["menu.chronicle"] + '\n' + loc["tip.chronicle"],
+            () => _screens.Push(new ChronicleScreen(_screens))), slot, columns);
 
-        return stack;
+        var panel = UiFactory.DarkPanel(grid);
+        panel.HorizontalAlignment = HorizontalAlignment.Right;
+        panel.VerticalAlignment = VerticalAlignment.Bottom;
+        panel.Margin = new Thickness(0, 0, 12, MinimapRenderer.ReservedHeight);
+        return panel;
     }
 
+    /// <summary>
+    /// Dolní lišta: nástroje, které mění mapu. Jedna řada ikon, ne řádek slov —
+    /// z názvů „Silnice / Sloučit / Rezidenční / Zavlažit" byla přes půl
+    /// obrazovky dlouhá věta, ve které se nedalo nic najít.
+    /// </summary>
     private Widget BuildToolButtons()
     {
         var loc = _screens.Loc;
-        var stack = new HorizontalStackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
+        var row = new HorizontalStackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
 
         // „Stavět" vytáhne katalog budov NAD lištu — spodek obrazovky tak zůstává
         // úzký proužek, ne trvale rozložené menu přes půl mapy.
-        _buildMenuButton = UiFactory.SmallButton(loc["hud.build"], ToggleBuildMenu,
-            loc["tip.build"] + "\n" + loc["tip.bulkBuild"]);
-        stack.Widgets.Add(_buildMenuButton);
+        _buildMenuButton = UiFactory.ToolButton(Ico("ui.build"),
+            loc["hud.build"] + '\n' + loc["tip.build"] + '\n' + loc["tip.bulkBuild"], ToggleBuildMenu);
+        row.Widgets.Add(_buildMenuButton);
 
         // Každá funkce se objeví, teprve až si ji hráč odemkne (data/features.json).
         if (_simulation.IsFeatureUnlocked("plant"))
         {
-            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.plant"], _tools.TogglePlant, loc["tip.plant"]));
+            row.Widgets.Add(UiFactory.ToolButton(
+                Ico("ui.plant"), loc["hud.plant"] + '\n' + loc["tip.plant"], _tools.TogglePlant));
 
             // Druhý knoflík vedle: čím se sází. Přepínat druh schovaným klikem do
             // téhož tlačítka by znamenalo, že hráč nemá jak zjistit, že jich je víc.
@@ -2075,39 +2172,42 @@ public sealed class GameplayScreen : IScreen
             {
                 _plantSpeciesButton = UiFactory.SmallButton(
                     PlantSpeciesLabel(), CyclePlantSpecies, loc["tip.plantSpecies"]);
-                stack.Widgets.Add(_plantSpeciesButton);
+                row.Widgets.Add(_plantSpeciesButton);
             }
         }
 
         // Silnice: tvar sítě má být na hráči — auto-silnice řeší jen nutné napojení.
         if (_simulation.IsFeatureUnlocked("roads"))
         {
-            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.road"], _tools.ToggleRoad, loc["tip.road"]));
+            row.Widgets.Add(UiFactory.ToolButton(
+                Ico("ui.road"), loc["hud.road"] + '\n' + loc["tip.road"], _tools.ToggleRoad));
         }
 
         // Slučování bloků 2×2 v jednu velkou budovu.
         if (_simulation.IsFeatureUnlocked("merge"))
         {
-            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.merge"], _tools.ToggleMerge, loc["tip.merge"]));
+            row.Widgets.Add(UiFactory.ToolButton(
+                Ico("ui.demolish"), loc["hud.merge"] + '\n' + loc["tip.merge"], _tools.ToggleMerge));
         }
 
-        // Zóny (automatizace): jedno tlačítko na typ; klik = malovat, další klik na stejný = ven.
-        var zoneTypes = _simulation.IsFeatureUnlocked("zones")
-            ? _screens.Content.ZoneTypes
-            : null;
+        // Zóny (automatizace): jedno tlačítko na typ; klik = malovat, další klik
+        // na stejný = ven. Ikona je jedna, barvu nese bublina s názvem zóny.
+        var zoneTypes = _simulation.IsFeatureUnlocked("zones") ? _screens.Content.ZoneTypes : null;
         for (int z = 0; zoneTypes is not null && z < zoneTypes.Count; z++)
         {
             int typeIndex = z;
-            stack.Widgets.Add(UiFactory.SmallButton(loc[zoneTypes[z].NameKey],
-                () => _tools.ToggleZone(typeIndex), ZoneTooltip(zoneTypes[z])));
+            row.Widgets.Add(UiFactory.ToolButton(
+                Ico("ui.zone"), loc[zoneTypes[z].NameKey] + '\n' + ZoneTooltip(zoneTypes[z]),
+                () => _tools.ToggleZone(typeIndex)));
         }
+
         // Víra: modlitby jsou vlastní obrazovka, protože nesou volbu síly
         // a čísla (cena vs. šance), která se do lišty nevejdou.
         if (_simulation.FaithEnabled)
         {
-            stack.Widgets.Add(UiFactory.SmallButton(loc["hud.faith"],
-                () => _screens.Push(new PrayerScreen(_screens, _simulation, StartPrayerTargeting)),
-                loc["tip.faith"]));
+            row.Widgets.Add(UiFactory.ToolButton(
+                Ico("ui.faith"), loc["hud.faith"] + '\n' + loc["tip.faith"],
+                () => _screens.Push(new PrayerScreen(_screens, _simulation, StartPrayerTargeting))));
         }
 
         // Přetváření krajiny: jedno tlačítko na zásah, odemyká se výzkumem.
@@ -2121,38 +2221,28 @@ public sealed class GameplayScreen : IScreen
                 continue; // technologie ještě není — nástroj se vůbec neukáže
             }
 
-            stack.Widgets.Add(UiFactory.SmallButton(loc[action.NameKey],
-                () => _tools.ToggleTerraform(actionIndex),
-                loc[action.DescriptionKey] + '\n' + loc.Format("panel.cost",
-                    CostFormat.Line(_screens.Content, loc, action.Cost))));
+            row.Widgets.Add(UiFactory.ToolButton(
+                Ico("ui.terraform"),
+                loc[action.NameKey] + '\n' + loc[action.DescriptionKey] + '\n'
+                    + loc.Format("panel.cost", CostFormat.Line(_screens.Content, loc, action.Cost)),
+                () => _tools.ToggleTerraform(actionIndex)));
         }
 
         // Slavnost: aktivní boost na kliknutí (stav se přepisuje v RefreshHudTexts).
-        _festivalLabel = new Label
-        {
-            Text = loc["hud.festival"],
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        _festivalButton = new Button
-        {
-            Content = _festivalLabel,
-            Height = 36,
-            Padding = new Thickness(12, 0),
-            Background = new SolidBrush(new Color(150, 90, 60, 235)),
-            // Slavnost bez vysvětlení byla záhada — tooltip říká násobič i délku z dat.
-            Tooltip = loc.Format("tip.festival",
+        _festivalButton = UiFactory.ToolButton(
+            Ico("ui.festival"),
+            loc["hud.festival"] + '\n' + loc.Format("tip.festival",
                 _screens.Content.Gameplay.Boost.Multiplier.ToString("0.#"),
                 _screens.Content.Gameplay.Boost.DurationSeconds,
                 _screens.Content.Gameplay.Boost.CooldownSeconds),
-        };
-        _festivalButton.Click += (_, _) => _simulation.TryStartBoost();
+            () => _simulation.TryStartBoost());
+        _festivalButton.Background = new SolidBrush(new Color(150, 90, 60, 235));
         if (_simulation.IsFeatureUnlocked("festival"))
         {
-            stack.Widgets.Add(_festivalButton);
+            row.Widgets.Add(_festivalButton);
         }
 
-        var panel = UiFactory.DarkPanel(stack);
+        var panel = UiFactory.DarkPanel(row);
         panel.HorizontalAlignment = HorizontalAlignment.Center;
         return panel;
     }
@@ -2567,15 +2657,19 @@ public sealed class GameplayScreen : IScreen
             ? new Color(60, 110, 130, 235)
             : new Color(38, 48, 64, 235));
 
-        // Rychlost času: popisek i barva. Pauza svítí, ať je jasné, že hra stojí
-        // a nečeká se marně na to, až něco doroste.
+        // Rychlost času: ikona i barva. Pauza svítí, ať je na první pohled jasné,
+        // že hra stojí a nečeká se marně na to, až něco doroste.
         if (_speedButton is not null)
         {
-            if (_speedButton.Content is Label speedLabel)
+            var icon = Ico(_speed.IsPaused ? "ui.pause" : _speed.Multiplier > 1.0 ? "ui.fast" : "ui.play");
+            if (icon is not null)
             {
-                speedLabel.Text = _speed.Label;
+                _speedButton.Content = UiFactory.Icon(icon, UiFactory.IconButtonSize - 14);
+                _speedButton.Content.HorizontalAlignment = HorizontalAlignment.Center;
+                _speedButton.Content.VerticalAlignment = VerticalAlignment.Center;
             }
 
+            _speedButton.Tooltip = _screens.Loc["tip.speed"] + '\n' + _speed.Label;
             _speedButton.Background = new SolidBrush(_speed.IsPaused
                 ? new Color(150, 90, 60, 235)
                 : new Color(38, 48, 64, 235));
@@ -2723,23 +2817,31 @@ public sealed class GameplayScreen : IScreen
         UpdateFestivalButton();
     }
 
-    /// <summary>Přepíše popisek a dostupnost tlačítka Slavnost podle stavu boostu.</summary>
+    /// <summary>
+    /// Přepíše bublinu a dostupnost tlačítka Slavnost podle stavu boostu.
+    ///
+    /// <para>Odpočet je teď v bublině, ne v popisku: tlačítko nese ikonu a číslo
+    /// by se do něj nevešlo. Zhasnuté tlačítko říká „teď ne" i beze slov, na
+    /// „za jak dlouho" stačí najet.</para>
+    /// </summary>
     private void UpdateFestivalButton()
     {
         var loc = _screens.Loc;
         if (_simulation.IsBoostActive)
         {
-            _festivalLabel.Text = loc.Format("hud.festivalActive", (int)MathF.Ceiling((float)_simulation.BoostSecondsRemaining));
+            _festivalButton.Tooltip = loc.Format("hud.festivalActive",
+                (int)MathF.Ceiling((float)_simulation.BoostSecondsRemaining));
             _festivalButton.Enabled = false;
         }
         else if (!_simulation.CanStartBoost)
         {
-            _festivalLabel.Text = loc.Format("hud.festivalCooldown", (int)MathF.Ceiling((float)_simulation.BoostCooldownSecondsRemaining));
+            _festivalButton.Tooltip = loc.Format("hud.festivalCooldown",
+                (int)MathF.Ceiling((float)_simulation.BoostCooldownSecondsRemaining));
             _festivalButton.Enabled = false;
         }
         else
         {
-            _festivalLabel.Text = loc["hud.festival"];
+            _festivalButton.Tooltip = loc["hud.festival"];
             _festivalButton.Enabled = true;
         }
     }

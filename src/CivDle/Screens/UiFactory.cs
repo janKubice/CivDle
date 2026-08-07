@@ -131,6 +131,49 @@ internal static class UiFactory
         VerticalAlignment = VerticalAlignment.Center,
     };
 
+    /// <summary>Hrana čtvercového tlačítka s ikonou. Pohodlné na myš i na dotyk.</summary>
+    public const int IconButtonSize = 46;
+
+    /// <summary>
+    /// Čtvercové tlačítko s ikonou a bublinou místo popisku.
+    ///
+    /// <para>Lišta plná slov byla v akční hře nečitelná a roztahovala se přes
+    /// celou šířku obrazovky. Ikona se pozná tvarem rychleji než text a zabere
+    /// zlomek místa; co dělá, řekne bublina, jakmile se na ní kurzor zastaví.</para>
+    ///
+    /// <para>Rozměr je <b>pevný</b>, a to schválně: roztažitelné tlačítko si
+    /// v panelu ukouslo víc plochy, než na kolik je vidět, a bralo pak kliknutí
+    /// mapě pod sebou.</para>
+    /// </summary>
+    public static Button ToolButton(Texture2D? icon, string tooltip, Action onClick, string? fallbackText = null)
+    {
+        var button = new Button
+        {
+            Width = IconButtonSize,
+            Height = IconButtonSize,
+            Padding = new Thickness(0),
+            Background = new SolidBrush(ButtonFill),
+            Tooltip = tooltip,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
+        };
+
+        // Bez spritu (chybějící ikona v knihovně) se ukáže zkratka textem —
+        // tlačítko nikdy nesmí být prázdný čtvereček.
+        button.Content = icon is not null
+            ? Icon(icon, IconButtonSize - 14)
+            : CenteredLabel(fallbackText ?? "?");
+
+        if (button.Content is Widget content)
+        {
+            content.HorizontalAlignment = HorizontalAlignment.Center;
+            content.VerticalAlignment = VerticalAlignment.Center;
+        }
+
+        button.Click += (_, _) => onClick();
+        return button;
+    }
+
     /// <summary>Řádek formuláře: popisek s pevnou šířkou + widgety (selector, textbox…).</summary>
     public static HorizontalStackPanel Row(string labelText, params Widget[] widgets)
     {
