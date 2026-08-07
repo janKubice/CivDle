@@ -41,6 +41,7 @@ public sealed class Simulation
     private readonly NpcTownSystem _npcTowns; // postavená cizí města (skutečné budovy a silnice)
     private readonly GrandWorkSystem _grandWork; // bezedný odběr přebytků
     private readonly List<GrandWorkStage> _grandWorkDone = new(); // dokončené stupně (drží bonusy)
+    private readonly LegacySystem _legacy; // druhá prestižní vrstva (Odkaz)
     private readonly ConstructionSystem _constructionSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
@@ -160,6 +161,7 @@ public sealed class Simulation
         _reforestSystem = new ReforestSystem(content);
         _npcTowns = new NpcTownSystem(content);
         _grandWork = new GrandWorkSystem(content.GrandWork, content.Resources.Count);
+        _legacy = new LegacySystem(content.Legacy, content.LegacyUpgrades.All);
         History = new CityHistory(content.Gameplay.History.MaxFrames);
         _constructionSystem = new ConstructionSystem(content);
         ResetContractBoard();
@@ -5090,7 +5092,11 @@ public sealed class Simulation
     {
         var requirement = _content.Prestige.Requirement;
         double scaled = requirement.Target * Math.Pow(_content.Prestige.RequirementGrowth, AscensionLevel);
-        return (long)Math.Min(scaled, long.MaxValue / 2);
+
+        // Sleva z Odkazu. Je omezená zdola (viz LegacySystem), takže i po hodně
+        // úrovních zůstane Vzestup krok, ne formalita.
+        scaled *= _legacy.AscensionRequirementShare();
+        return (long)Math.Max(1, Math.Min(scaled, long.MaxValue / 2));
     }
 
     /// <summary>Metrika, kterou práh Vzestupu měří (UI ukazuje pokrok).</summary>
@@ -5114,7 +5120,7 @@ public sealed class Simulation
         // vyplatilo hrát dál a rozhodnutí „resetnout teď, nebo ještě vydržet?"
         // vůbec nevzniklo — přitom právě to je celý smysl prestiže.
         double ratio = metric / (double)prestige.PointsDivisor;
-        double points = Math.Pow(ratio, prestige.PointsExponent);
+        double points = Math.Pow(ratio, prestige.PointsExponent) * _legacy.AscensionPointsMult();
         return (long)Math.Min(points, long.MaxValue / 2);
     }
 
@@ -5200,15 +5206,23 @@ public sealed class Simulation
     /// </summary>
     public IReadOnlyList<PowerSource> PowerBreakdown()
     {
-        var sources = new List<PowerSource>
+        double prestige = PrestigeProductionMult();
+        double grandWork = GrandWorkProductionMult();
+        double legacy = LegacyProductionMult();
+
+        // Výzkum se dopočítá zbytkem. Trvalé vrstvy se počítají přímo, protože
+        // každá je vlastní kategorie a hráč chce vidět, která z nich táhne.
+        double permanent = prestige * grandWork * legacy;
+
+        return new List<PowerSource>
         {
-            new("power.prestige", PrestigeProductionMult()),
-            new("power.research", _bonuses.ProductionMult / Math.Max(1e-9, PrestigeProductionMult())),
+            new("power.prestige", prestige),
+            new("power.legacy", legacy),
+            new("power.grandWork", grandWork),
+            new("power.research", _bonuses.ProductionMult / Math.Max(1e-9, permanent)),
             new("power.milestones", _milestoneBonuses.AverageMultiplier(this)),
             new("power.festival", BoostMultiplier),
         };
-
-        return sources;
     }
 
     /// <summary>Celkový násobič výroby — součin všech zdrojů z rozpisu.</summary>
@@ -5233,6 +5247,37 @@ public sealed class Simulation
             if (_upgradeLevels[i] > 0 && _content.PrestigeUpgrades[i].Effect == "production_mult")
             {
                 mult *= _content.PrestigeUpgrades[i].MultiplierAtLevel(_upgradeLevels[i]);
+            }
+        }
+
+        return mult;
+    }
+
+    /// <summary>Kolik z násobiče výroby pochází z upgradů Odkazu.</summary>
+    private double LegacyProductionMult()
+    {
+        double mult = 1.0;
+        var upgrades = _content.LegacyUpgrades.All;
+        for (int i = 0; i < upgrades.Count; i++)
+        {
+            if (upgrades[i].Effect == "production_mult" && _legacy.Level(i) > 0)
+            {
+                mult *= upgrades[i].MultiplierAtLevel(_legacy.Level(i));
+            }
+        }
+
+        return mult;
+    }
+
+    /// <summary>Kolik z násobiče výroby pochází z dokončených stupňů Velkého díla.</summary>
+    private double GrandWorkProductionMult()
+    {
+        double mult = 1.0;
+        for (int i = 0; i < _grandWorkDone.Count; i++)
+        {
+            if (_grandWorkDone[i].Effect == "production_mult")
+            {
+                mult *= 1.0 + _grandWorkDone[i].Magnitude;
             }
         }
 
@@ -5344,6 +5389,106 @@ public sealed class Simulation
         RecomputeBonuses();
         RecomputeDerivedState();
     }
+
+    // ----- Odkaz: druhá prestižní vrstva -----
+
+    /// <summary>
+    /// Je Odkaz v datech zapnutý? Nabídka se ukazuje, až když má smysl —
+    /// hráč před prvním Vzestupem netuší, co Vzestup je, natož vrstva nad ním.
+    /// </summary>
+    public bool LegacyAvailable => _content.Legacy.IsEnabled && AscensionLevel > 0;
+
+    /// <summary>Kolikrát už hráč Odkaz zanechal.</summary>
+    public int LegacyDepth => _legacy.Depth;
+
+    /// <summary>Nevyužité body Odkazu.</summary>
+    public long LegacyPoints => _legacy.Points;
+
+    /// <summary>Práh dalšího Odkazu (roste s hloubkou).</summary>
+    public long LegacyRequirement() => _legacy.Requirement();
+
+    /// <summary>Metrika, kterou práh Odkazu měří.</summary>
+    public long LegacyProgress() =>
+        EvaluateMetric(_content.Legacy.Requirement.Kind, _content.Legacy.Requirement.Param);
+
+    /// <summary>Je splněná podmínka pro zanechání Odkazu?</summary>
+    public bool CanLeaveLegacy() => LegacyAvailable && LegacyProgress() >= LegacyRequirement();
+
+    /// <summary>Kolik bodů Odkazu by teď jeho zanechání udělilo.</summary>
+    public long PendingLegacyPoints() =>
+        _legacy.PendingPoints(EvaluateMetric(_content.Legacy.PointsMetric, _content.Legacy.PointsParam));
+
+    /// <summary>Kolikátou úroveň upgradu Odkazu hráč koupil.</summary>
+    public int LegacyLevel(int upgradeIndex) => _legacy.Level(upgradeIndex);
+
+    /// <summary>Cena další úrovně upgradu Odkazu.</summary>
+    public long LegacyCost(int upgradeIndex) => _legacy.Cost(upgradeIndex);
+
+    /// <summary>Je upgrade Odkazu vykoupený na doraz?</summary>
+    public bool IsLegacyUpgradeMaxed(int upgradeIndex) => _legacy.IsMaxed(upgradeIndex);
+
+    /// <summary>Lze upgrade Odkazu koupit?</summary>
+    public PlacementResult CanBuyLegacyUpgrade(int upgradeIndex) => _legacy.CanBuy(upgradeIndex);
+
+    /// <summary>Koupí úroveň upgradu Odkazu a přepočítá bonusy.</summary>
+    public PlacementResult TryBuyLegacyUpgrade(int upgradeIndex)
+    {
+        var result = _legacy.CanBuy(upgradeIndex);
+        if (result != PlacementResult.Ok || !_legacy.TryBuy(upgradeIndex))
+        {
+            return result == PlacementResult.Ok ? PlacementResult.NotEnoughResources : result;
+        }
+
+        RecomputeBonuses();
+        RecomputeDerivedState();
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>
+    /// Zanechá Odkaz: udělí body Odkazu a smaže <b>i Vzestupy</b> — jejich
+    /// úroveň, body i všechny koupené upgrady. Zůstává jen Velké dílo (stavba
+    /// napříč věky) a to, co si hráč koupí za body Odkazu.
+    ///
+    /// <para>Je to hlubší řez než Vzestup a schválně: kdyby si hráč nechal
+    /// upgrady Vzestupu, byl by Odkaz jen bonus zdarma a rozhodnutí „udělat ho
+    /// teď, nebo ještě ne" by nevzniklo.</para>
+    /// </summary>
+    public PlacementResult TryLeaveLegacy()
+    {
+        if (!CanLeaveLegacy())
+        {
+            return PlacementResult.NotEnoughResources;
+        }
+
+        _historySystem.Capture(this);
+
+        long points = PendingLegacyPoints();
+        _legacy.Leave(points);
+
+        // Vzestup jde k zemi celý: úroveň, body i strom upgradů.
+        AscensionLevel = 0;
+        PrestigePoints = 0;
+        Array.Clear(_upgradeLevels);
+
+        PeakPopulation = 0;
+        ResetEra();
+        RecomputeBonuses();
+        RecomputeDerivedState();
+
+        EnqueueNotification(new GameNotification(
+            NotificationKind.Ascended, "toast.legacyLeft", "legacy.leftSubject"));
+        ReportVisual(VisualEventKind.MilestoneReached, CityCenterX, CityCenterY);
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>Úrovně upgradů Odkazu pro sav — jednou za každou koupenou úroveň.</summary>
+    internal IEnumerable<int> LegacyPurchasedLevels() => _legacy.PurchasedLevels();
+
+    /// <summary>Obnova Odkazu ze savu: hloubka a body (úrovně přijdou zvlášť).</summary>
+    internal void RestoreLegacy(int depth, long points) => _legacy.Restore(depth, points);
+
+    /// <summary>Obnova jedné úrovně upgradu Odkazu ze savu.</summary>
+    internal void RestoreLegacyLevel(int upgradeIndex) => _legacy.RestoreLevel(upgradeIndex);
 
     /// <summary>Kolikátou úroveň upgradu už hráč koupil (0 = žádnou).</summary>
     public int UpgradeLevel(int upgradeIndex) => _upgradeLevels[upgradeIndex];
@@ -5482,6 +5627,19 @@ public sealed class Simulation
         for (int i = 0; i < _grandWorkDone.Count; i++)
         {
             Scale(_grandWorkDone[i].Effect, 1.0 + _grandWorkDone[i].Magnitude, _grandWorkDone[i].Magnitude);
+        }
+
+        // Čtvrtá kategorie: Odkaz. Jeho dva vlastní efekty (body Vzestupu, sleva
+        // na práh) se sem záměrně nepromítají — nepatří do násobiče výroby a
+        // sahá si na ně přímo AscensionRequirement / PendingAscensionPoints.
+        var legacyUpgrades = _content.LegacyUpgrades.All;
+        for (int i = 0; i < legacyUpgrades.Count; i++)
+        {
+            int level = _legacy.Level(i);
+            if (level > 0)
+            {
+                Scale(legacyUpgrades[i].Effect, legacyUpgrades[i].MultiplierAtLevel(level), legacyUpgrades[i].Magnitude * level);
+            }
         }
 
         // Kategorie 2: výzkum. Platí jen v rámci běhu (Vzestup ho resetuje),

@@ -52,6 +52,9 @@ public sealed class SaveGameSerializer
 
     /// <summary>Velké dílo. Vlastní sekce: starý sav ji nemá a dílo prostě začne od nuly.</summary>
     private const string SectionGrandWork = "grandwork";
+
+    /// <summary>Odkaz (druhá prestižní vrstva). Vlastní sekce ze stejného důvodu.</summary>
+    private const string SectionLegacy = "legacy";
     private const string SectionDiscoveries = "discoveries";
     private const string SectionPlanted = "planted";
     private const string SectionZones = "zones";
@@ -103,6 +106,7 @@ public sealed class SaveGameSerializer
         WriteSection(writer, SectionTech, w => WriteTech(w, simulation));
         WriteSection(writer, SectionPrestige, w => WritePrestige(w, simulation));
         WriteSection(writer, SectionGrandWork, w => WriteGrandWork(w, simulation));
+        WriteSection(writer, SectionLegacy, w => WriteLegacy(w, simulation));
         WriteSection(writer, SectionQuests, w => WriteQuests(w, simulation));
         WriteSection(writer, SectionDiscoveries, w => WriteDiscoveries(w, simulation));
         WriteSection(writer, SectionPlanted, w => WritePlanted(w, simulation));
@@ -449,6 +453,7 @@ public sealed class SaveGameSerializer
             case SectionTech: ReadTech(section, content, simulation); break;
             case SectionPrestige: ReadPrestige(section, content, simulation); break;
             case SectionGrandWork: ReadGrandWork(section, content, simulation); break;
+            case SectionLegacy: ReadLegacy(section, content, simulation); break;
             case SectionQuests: ReadQuests(section, content, simulation); break;
             case SectionDiscoveries: ReadDiscoveries(section, simulation); break;
             case SectionPlanted: ReadPlanted(section, content, simulation); break;
@@ -885,6 +890,48 @@ public sealed class SaveGameSerializer
 
         _ = content;
         simulation.RestoreGrandWork(stage, invested);
+    }
+
+    /// <summary>
+    /// Odkaz: hloubka, body a koupené úrovně. ID se zapisuje <b>jednou za každou
+    /// úroveň</b> — stejně jako u Vzestupu, takže čtení je prostý součet.
+    /// </summary>
+    private static void WriteLegacy(BinaryWriter writer, Simulation simulation)
+    {
+        writer.Write(simulation.LegacyDepth);
+        writer.Write(simulation.LegacyPoints);
+
+        var upgradeDefs = SimContent(simulation).LegacyUpgrades;
+        var purchased = simulation.LegacyPurchasedLevels().ToList();
+        writer.Write(purchased.Count);
+        foreach (int index in purchased)
+        {
+            writer.Write(upgradeDefs[index].Id);
+        }
+    }
+
+    private static void ReadLegacy(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        int depth = reader.ReadInt32();
+        long points = reader.ReadInt64();
+        if (depth < 0 || points < 0)
+        {
+            throw new SaveLoadException($"Save má nesmyslný stav Odkazu (hloubka {depth}, body {points}).");
+        }
+
+        simulation.RestoreLegacy(depth, points);
+
+        int count = ReadCount(reader, max: 100_000, what: "upgradů Odkazu");
+        for (int i = 0; i < count; i++)
+        {
+            string id = reader.ReadString();
+            if (content.LegacyUpgrades.TryIndexOf(id, out int index))
+            {
+                simulation.RestoreLegacyLevel(index);
+            }
+
+            // Smazaný upgrade v datech se ze savu tiše přeskočí.
+        }
     }
 
     private static void WritePrestige(BinaryWriter writer, Simulation simulation)

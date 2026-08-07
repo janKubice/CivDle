@@ -48,7 +48,9 @@ public sealed class GameContent
         NpcCityCatalog? npcCities,
         IReadOnlyList<VehicleDef>? vehicles = null,
         IReadOnlyList<Mods.ModPackage>? mods = null,
-        GrandWorkConfig? grandWork = null)
+        GrandWorkConfig? grandWork = null,
+        LegacyConfig? legacy = null,
+        DefRegistry<PrestigeUpgradeDef>? legacyUpgrades = null)
     {
         Vehicles = vehicles ?? Array.Empty<VehicleDef>();
         Mods = mods ?? Array.Empty<Mods.ModPackage>();
@@ -90,6 +92,9 @@ public sealed class GameContent
         Seasons = seasons;
         Faith = faith ?? FaithCatalog.Empty;
         GrandWork = grandWork ?? new GrandWorkConfig(Array.Empty<GrandWorkStage>(), 1.0, 0);
+        Legacy = legacy ?? LegacyConfig.Disabled;
+        LegacyUpgrades = legacyUpgrades ?? new DefRegistry<PrestigeUpgradeDef>(
+            Array.Empty<PrestigeUpgradeDef>(), u => u.Id, "upgrade Odkazu", allowEmpty: true);
         NpcCities = npcCities ?? NpcCityCatalog.Empty;
     }
 
@@ -115,6 +120,12 @@ public sealed class GameContent
 
     /// <summary>Velké dílo — bezedný odběr přebytků. Prázdné = mechanika vypnutá.</summary>
     public GrandWorkConfig GrandWork { get; }
+
+    /// <summary>Odkaz — druhá prestižní vrstva z <c>data/legacy.json</c> (smí být vypnutá).</summary>
+    public LegacyConfig Legacy { get; }
+
+    /// <summary>Trvalé upgrady Odkazu z <c>data/legacy.json</c> (smí být prázdné).</summary>
+    public DefRegistry<PrestigeUpgradeDef> LegacyUpgrades { get; }
 
     /// <summary>Cizí města z <c>data/npc-cities.json</c> (smí být vypnutá).</summary>
     public NpcCityCatalog NpcCities { get; }
@@ -179,7 +190,7 @@ public sealed class GameContent
         Biomes, Resources, Buildings, Techs, Prestige, PrestigeUpgrades, Quests, QuestsDynamic,
         Achievements, Events, Eras, WorldGen, gameplay, Languages, SettlementNames, Decorations,
         Fauna, Devlog, ZoneTypes, Policies, AscensionTiers, Weather, Landmarks, Features, Ufo,
-        Ambience, Terraform, Tutorial, Challenges, Contracts, Districts, SettlementRanks, Citizens, Elections, Milestones, Seasons, Faith, NpcCities, Vehicles, Mods, GrandWork);
+        Ambience, Terraform, Tutorial, Challenges, Contracts, Districts, SettlementRanks, Citizens, Elections, Milestones, Seasons, Faith, NpcCities, Vehicles, Mods, GrandWork, Legacy, LegacyUpgrades);
 
     /// <summary>Milníky postupu z <c>data/milestones.json</c> (smí být prázdné).</summary>
     public IReadOnlyList<MilestoneDef> Milestones { get; }

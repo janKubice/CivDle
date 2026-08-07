@@ -51,6 +51,12 @@ public sealed record PrestigeConfig(
 /// co kupovat.</para>
 /// </param>
 /// <param name="CostGrowth">Kolikrát je každá další úroveň dražší (1,15 = +15 %).</param>
+/// <param name="KeyPrefix">
+/// Jmenný prostor lokalizačních klíčů. Prestižních vrstev je víc (Vzestup,
+/// Odkaz) a chovají se úplně stejně — liší se jen měnou, za kterou se kupují,
+/// a texty. Vlastní kopie téhle definice pro každou vrstvu by byla duplicita
+/// bez užitku, proto se liší jen prefixem.
+/// </param>
 public sealed record PrestigeUpgradeDef(
     string Id,
     string Effect,
@@ -58,7 +64,8 @@ public sealed record PrestigeUpgradeDef(
     int Cost,
     IReadOnlyList<int> PrerequisiteIndices,
     int MaxLevel = 1,
-    double CostGrowth = 1.0)
+    double CostGrowth = 1.0,
+    string KeyPrefix = "prestige")
 {
     /// <summary>Dá se kupovat opakovaně?</summary>
     public bool IsRepeatable => MaxLevel > 1;
@@ -78,8 +85,8 @@ public sealed record PrestigeUpgradeDef(
     public double MultiplierAtLevel(int level) => Math.Pow(1.0 + Magnitude, level);
 
     /// <summary>Lokalizační klíč jména upgradu.</summary>
-    public string NameKey => $"prestige.{Id}";
+    public string NameKey => $"{KeyPrefix}.{Id}";
 
     /// <summary>Lokalizační klíč popisu upgradu.</summary>
-    public string DescriptionKey => $"prestige.{Id}.desc";
+    public string DescriptionKey => $"{KeyPrefix}.{Id}.desc";
 }

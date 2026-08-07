@@ -402,6 +402,15 @@ public sealed record PrestigeUpgradeDto(
     int MaxLevel,
     double CostGrowth);
 
+/// <summary>Obsah souboru <c>data/legacy.json</c> (Odkaz — druhá prestižní vrstva).</summary>
+public sealed record LegacyFileDto(
+    int SchemaVersion,
+    LegacyLeaveDto? Leave,
+    List<PrestigeUpgradeDto>? Upgrades);
+
+/// <summary>Podmínka a odměna zanechání Odkazu tak, jak leží v JSON.</summary>
+public sealed record LegacyLeaveDto(GoalConditionDto? Requirement, PrestigePointsDto? Points, double RequirementGrowth);
+
 /// <summary>Obsah souboru <c>data/grandwork.json</c> (bezedný odběr přebytků).</summary>
 public sealed record GrandWorkFileDto(
     int SchemaVersion,

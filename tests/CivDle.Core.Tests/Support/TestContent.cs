@@ -58,7 +58,9 @@ internal static class TestContent
         DistrictCatalog? districts = null,
         SettlementRankLadder? settlementRanks = null,
         CitizenCatalog? citizens = null,
-        GrandWorkConfig? grandWork = null)
+        GrandWorkConfig? grandWork = null,
+        LegacyConfig? legacy = null,
+        IReadOnlyList<PrestigeUpgradeDef>? legacyUpgrades = null)
     {
         biomes ??= new[] { WaterBiome(), LandBiome("grass") };
         resources ??= new[] { new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 10, BaseStorage: 1000) };
@@ -125,7 +127,10 @@ internal static class TestContent
             npcCities, // null = cizí města v testech vypnutá
             vehicles: null,
             mods: null,
-            grandWork: grandWork); // null = Velké dílo v testech vypnuté
+            grandWork: grandWork, // null = Velké dílo v testech vypnuté
+            legacy: legacy, // null = Odkaz v testech vypnutý
+            legacyUpgrades: new DefRegistry<PrestigeUpgradeDef>(
+                legacyUpgrades ?? Array.Empty<PrestigeUpgradeDef>(), u => u.Id, "upgrade Odkazu", allowEmpty: true));
     }
 
     /// <summary>Výchozí prestige config testů (Vzestup od 50 obyvatel, body = populace ÷ 15).</summary>

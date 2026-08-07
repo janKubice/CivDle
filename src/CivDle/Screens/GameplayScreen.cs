@@ -2132,6 +2132,15 @@ public sealed class GameplayScreen : IScreen
                 () => _screens.Push(new GrandWorkScreen(_screens, _simulation))), slot++, columns);
         }
 
+        // Odkaz se ukáže až po prvním Vzestupu — vrstva nad mechanikou, kterou
+        // hráč ještě nezná, by byla jen matoucí tlačítko navíc.
+        if (_simulation.LegacyAvailable)
+        {
+            Place(grid, UiFactory.ToolButton(
+                Ico("ui.ascend"), loc["hud.legacy"] + '\n' + loc["legacy.desc"],
+                () => _screens.Push(new LegacyScreen(_screens, _simulation))), slot++, columns);
+        }
+
         if (_simulation.HistoryEnabled)
         {
             Place(grid, UiFactory.ToolButton(
