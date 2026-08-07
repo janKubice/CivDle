@@ -159,4 +159,28 @@ internal sealed class BuildingMilestoneSystem
     /// <summary>Násobič výroby, který typ zrovna má.</summary>
     public double MultiplierOf(int defIndex) =>
         defIndex >= 0 && defIndex < _multipliers.Length ? _multipliers[defIndex] : 1.0;
+
+    /// <summary>
+    /// Průměrný milníkový násobič přes typy, které hráč opravdu staví.
+    ///
+    /// <para>Do rozpisu síly se nedá dát „násobič milníků" jako jedno číslo —
+    /// každý typ budovy má vlastní. Průměr přes postavené typy je nejpoctivější
+    /// shrnutí: říká, o kolik milníky zvedly výrobu města jako celku.</para>
+    /// </summary>
+    public double AverageMultiplier(Simulation sim)
+    {
+        double sum = 0;
+        int counted = 0;
+        for (int i = 0; i < _multipliers.Length; i++)
+        {
+            if (_counts[i] > 0)
+            {
+                sum += _multipliers[i];
+                counted++;
+            }
+        }
+
+        _ = sim;
+        return counted == 0 ? 1.0 : sum / counted;
+    }
 }

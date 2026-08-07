@@ -390,7 +390,7 @@ public sealed record PrestigeFileDto(
 public sealed record PrestigeAscensionDto(GoalConditionDto? Requirement, PrestigePointsDto? Points, double RequirementGrowth);
 
 /// <summary>Jak se z metriky počítají body Vzestupu.</summary>
-public sealed record PrestigePointsDto(string? Metric, string? Resource, long Divisor);
+public sealed record PrestigePointsDto(string? Metric, string? Resource, long Divisor, double Exponent);
 
 /// <summary>Jeden trvalý upgrade Vzestupu tak, jak leží v JSON.</summary>
 public sealed record PrestigeUpgradeDto(
@@ -398,7 +398,31 @@ public sealed record PrestigeUpgradeDto(
     string? Effect,
     double Magnitude,
     int Cost,
-    string[]? Prerequisites);
+    string[]? Prerequisites,
+    int MaxLevel,
+    double CostGrowth);
+
+/// <summary>Obsah souboru <c>data/legacy.json</c> (Odkaz — druhá prestižní vrstva).</summary>
+public sealed record LegacyFileDto(
+    int SchemaVersion,
+    LegacyLeaveDto? Leave,
+    List<PrestigeUpgradeDto>? Upgrades);
+
+/// <summary>Podmínka a odměna zanechání Odkazu tak, jak leží v JSON.</summary>
+public sealed record LegacyLeaveDto(GoalConditionDto? Requirement, PrestigePointsDto? Points, double RequirementGrowth);
+
+/// <summary>Obsah souboru <c>data/grandwork.json</c> (bezedný odběr přebytků).</summary>
+public sealed record GrandWorkFileDto(
+    int SchemaVersion,
+    int UnlockAscensionLevel,
+    double CostGrowth,
+    List<GrandWorkStageDto>? Stages);
+
+/// <summary>Jeden stupeň Velkého díla tak, jak leží v JSON.</summary>
+public sealed record GrandWorkStageDto(
+    Dictionary<string, int>? Cost,
+    string? Effect,
+    double Magnitude);
 
 /// <summary>Obsah souboru <c>data/quests.json</c> (pevné úkoly + dynamické).</summary>
 public sealed record QuestFileDto(

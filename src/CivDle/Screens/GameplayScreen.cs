@@ -3,6 +3,7 @@ using CivDle.Audio;
 using CivDle.Core.Config;
 using CivDle.Core.Content;
 using CivDle.Core.Save;
+using CivDle.Core.Platform;
 using CivDle.Core.Sim;
 using CivDle.Input;
 using CivDle.Rendering;
@@ -60,6 +61,9 @@ public sealed class GameplayScreen : IScreen
 
     /// <summary>Pauza / 1× / 2× / 4×. Ovládání času, ne vlastnost simulace.</summary>
     private readonly GameSpeed _speed = new();
+
+    /// <summary>Velké „×N" nahoře — kolikrát je civilizace silnější než na startu.</summary>
+    private MightBanner _might = null!;
 
     /// <summary>Tlačítko rychlosti — popisek se přepisuje podle stavu.</summary>
     private Button? _speedButton;
@@ -284,7 +288,10 @@ public sealed class GameplayScreen : IScreen
         _caravans = new CaravanSystem(screens.Sprites, screens.Content);
         _golden = new GoldenSpawnSystem(screens.Sprites, screens.Content);
         _discoveries = new DiscoveryRenderer(screens.Sprites);
+        // Pozor na pořadí: všechno pod tímhle řádkem si font drží, takže se to
+        // nesmí vytvářet dřív, než je načtený (jinak null uvnitř rendereru).
         _popupFont = Stylesheet.Current.LabelStyle.Font;
+        _might = new MightBanner(screens.WhitePixel, _popupFont, screens.Loc);
         _toasts = new ToastRenderer(screens.WhitePixel, _popupFont);
         _cityScale = new CityScaleRenderer(screens.WhitePixel, _popupFont);
         _districtRenderer = new DistrictRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont);
@@ -471,6 +478,7 @@ public sealed class GameplayScreen : IScreen
         _buildingRenderer.Update(worldDt); // balony nad kotvišti se houpou
         _weatherRenderer.Update(worldDt, _simulation, _screens.GraphicsDevice.Viewport);
         _minimap.Update(dt, _camera, _simulation);
+        _might.Update(dt, _simulation);
         DrainNotifications();
         _toasts.Update(dt);
         RefreshHudTexts();
@@ -668,6 +676,7 @@ public sealed class GameplayScreen : IScreen
 
         // Minimapa, popupy a toasty až nad UI — hráč je nesmí přehlédnout.
         _minimap.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, _camera, _simulation);
+        _might.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, _simulation);
         _floatingText.Draw(spriteBatch, _camera, _popupFont);
         DrawSettlementLabels(spriteBatch);
         DrawTileTooltip(spriteBatch);
@@ -704,6 +713,15 @@ public sealed class GameplayScreen : IScreen
     /// </summary>
     private void DrawTileTooltip(SpriteBatch spriteBatch)
     {
+        // Bublina u kurzoru je ve snímku pro obchod nežádoucí ze dvou důvodů:
+        // ukazuje kurzor, který na statickém obrázku nikdo nedrží, a často nese
+        // hlášku o problému („nemá tu kdo pracovat") — tedy přesně to, co na
+        // reklamní obrázek nepatří.
+        if (_captureMode)
+        {
+            return;
+        }
+
         if (_desktop.IsMouseOverGUI || _camera.Zoom < LandmarkRenderer.MinZoom)
         {
             return;
@@ -1584,6 +1602,11 @@ public sealed class GameplayScreen : IScreen
             if (_simulation.IsAchievementUnlocked(i) && !profile.UnlockedAchievements.Contains(id))
             {
                 profile.UnlockedAchievements.Add(id);
+
+                // Tentýž okamžik ohlas i platformě. Steam si drží vlastní stav,
+                // takže bez tohohle by se achievement odemkl ve hře, ale ve
+                // Steamu ne — a hráč by ho tam marně hledal.
+                _screens.Platform.UnlockAchievement(PlatformCatalog.AchievementApiName(id));
                 changed = true;
             }
         }
@@ -1591,6 +1614,12 @@ public sealed class GameplayScreen : IScreen
         if (changed)
         {
             _screens.SaveProfile();
+
+            // Statistiky se posílají spolu s achievementy: obojí se mění zřídka
+            // a Steam stejně ukládá dávkově, takže je to jeden zápis navíc.
+            PlatformCatalog.PushStats(_screens.Platform, _simulation);
+            PlatformCatalog.PushScores(_screens.Platform, _simulation);
+            _screens.Platform.Flush();
         }
     }
 
@@ -1879,7 +1908,15 @@ public sealed class GameplayScreen : IScreen
         var root = new Panel();
         root.Widgets.Add(topLeft);
         root.Widgets.Add(topRight);
-        root.Widgets.Add(_objectives.Root);
+
+        // Sledovač úkolů do snímku pro obchod nepatří: „Zasaď svůj první strom"
+        // udělá ze zralého města tutoriál. Ve hře je naopak to nejdůležitější,
+        // takže se vynechává jen při focení.
+        if (!_captureMode)
+        {
+            root.Widgets.Add(_objectives.Root);
+        }
+
         root.Widgets.Add(bottomBar);
         root.Widgets.Add(BuildScreenButtons());
 

@@ -115,4 +115,132 @@ public class PrestigeTests
         Assert.True(loaded.IsUpgradePurchased(0));
         Assert.Equal(1.30, loaded.Bonuses.ProductionMult, 3);
     }
+
+    [Fact]
+    public void RepeatableUpgrade_CompoundsAndGetsPricier()
+    {
+        // Jednorázové upgrady daly stromu pevný strop a po pár Vzestupech
+        // nebylo co kupovat. Opakovatelný uzel je nekonečná osa — a skládá se
+        // MOCNINOU, takže tři úrovně po +50 % jsou ×3,375, ne ×2,5.
+        var content = TestContent.Build(
+            prestige: EarlyAscension,
+            prestigeUpgrades: new[]
+            {
+                new PrestigeUpgradeDef(
+                    "industrious", "production_mult", 0.5, Cost: 1,
+                    PrerequisiteIndices: Array.Empty<int>(), MaxLevel: 3, CostGrowth: 2.0),
+            });
+
+        var sim = NewSim(content);
+        for (int i = 0; i < 7; i++)
+        {
+            sim.TryAscend(); // sedm Vzestupů = sedm bodů (populace 5 ÷ 5)
+        }
+
+        Assert.Equal(1, sim.UpgradeCost(0));
+        Assert.Equal(PlacementResult.Ok, sim.TryBuyUpgrade(0));
+        Assert.Equal(1.5, sim.Bonuses.ProductionMult, 3);
+
+        Assert.Equal(2, sim.UpgradeCost(0)); // každá další dvojnásobně dražší
+        Assert.Equal(PlacementResult.Ok, sim.TryBuyUpgrade(0));
+        Assert.Equal(2.25, sim.Bonuses.ProductionMult, 3);
+
+        Assert.Equal(4, sim.UpgradeCost(0));
+        Assert.Equal(PlacementResult.Ok, sim.TryBuyUpgrade(0));
+        Assert.Equal(3.375, sim.Bonuses.ProductionMult, 3);
+
+        // Na maximu už nejde koupit další.
+        Assert.True(sim.IsUpgradeMaxed(0));
+        Assert.Equal(PlacementResult.Occupied, sim.TryBuyUpgrade(0));
+    }
+
+    [Fact]
+    public void UpgradeLevelsSurviveASave()
+    {
+        // Sav zapisuje ID jednou za každou úroveň, takže formát zůstal stejný
+        // a starý sav se načte jako úroveň 1.
+        var content = TestContent.Build(
+            prestige: EarlyAscension,
+            prestigeUpgrades: new[]
+            {
+                new PrestigeUpgradeDef(
+                    "industrious", "production_mult", 0.5, Cost: 1,
+                    PrerequisiteIndices: Array.Empty<int>(), MaxLevel: 5, CostGrowth: 1.0),
+            });
+
+        var sim = NewSim(content);
+        for (int i = 0; i < 3; i++)
+        {
+            sim.TryAscend();
+        }
+
+        sim.TryBuyUpgrade(0);
+        sim.TryBuyUpgrade(0);
+        sim.TryBuyUpgrade(0);
+        Assert.Equal(3, sim.UpgradeLevel(0));
+
+        var metadata = new SaveMetadata(7, "s", "test", DateTime.UtcNow);
+        var stream = new MemoryStream();
+        new SaveGameSerializer().Write(stream, sim, metadata);
+        stream.Position = 0;
+        var (loaded, _) = new SaveGameSerializer().Read(stream, content);
+
+        Assert.Equal(3, loaded.UpgradeLevel(0));
+        Assert.Equal(sim.Bonuses.ProductionMult, loaded.Bonuses.ProductionMult, 3);
+    }
+
+    [Fact]
+    public void PrestigePointsHaveDiminishingReturns()
+    {
+        // Při lineárním výnosu se vždycky vyplatilo hrát dál a rozhodnutí
+        // „resetnout teď?" vůbec nevzniklo. S odmocninou dvojnásobná populace
+        // nedá dvojnásobek bodů.
+        // Body ze zásoby suroviny — ta se dá z testu nastavit přesně, na rozdíl
+        // od populace, která roste vlastním tempem.
+        var sqrt = new PrestigeConfig(
+            new GoalCondition(MetricKind.Population, -1, 5),
+            MetricKind.ResourceStock, 0, PointsDivisor: 1,
+            RequirementGrowth: 1.0, PointsExponent: 0.5);
+
+        var content = TestContent.Build(prestige: sqrt);
+        var sim = NewSim(content);
+
+        sim.AddResource(0, 100 - sim.GetResource(0));
+        long atHundred = sim.PendingAscensionPoints();
+
+        sim.AddResource(0, 300);
+        long atFourHundred = sim.PendingAscensionPoints();
+
+        Assert.Equal(10, atHundred);       // sqrt(100)
+        Assert.Equal(20, atFourHundred);   // čtyřnásobná zásoba = jen dvojnásobek bodů
+    }
+
+    [Fact]
+    public void ResearchAndPrestigeMultiplyEachOther()
+    {
+        // Pravidlo skládání: uvnitř kategorie součet, mezi kategoriemi součin.
+        // Dřív padalo všechno do jednoho součtu a strop celého stromu byl ×4.
+        var content = TestContent.Build(
+            prestige: EarlyAscension,
+            prestigeUpgrades: new[]
+            {
+                new PrestigeUpgradeDef(
+                    "industrious", "production_mult", 1.0, Cost: 1,
+                    PrerequisiteIndices: Array.Empty<int>()),
+            },
+            techs: new[]
+            {
+                new TechDef("mechanics", new[] { new ResourceAmount(0, 1) }, Array.Empty<int>(),
+                    Array.Empty<int>(), "production_mult", 1.0),
+            });
+
+        var sim = NewSim(content);
+        sim.TryAscend();           // 1 bod
+        sim.TryBuyUpgrade(0);      // ×2 z prestiže
+        sim.AddResource(0, 1000);
+        sim.TryResearch(0);        // ×2 z výzkumu
+
+        // Součin, ne součet: ×4, ne ×3.
+        Assert.Equal(4.0, sim.Bonuses.ProductionMult, 3);
+    }
 }

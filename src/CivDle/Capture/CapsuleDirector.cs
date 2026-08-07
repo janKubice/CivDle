@@ -75,9 +75,17 @@ public sealed class CapsuleDirector
         var camera = new Camera2D();
         camera.SetViewport(spec.Width, spec.Height);
 
-        // Zoom podle kratší strany: na úzké ikoně chceme pár budov zblízka,
-        // na širokém banneru celé město.
-        float zoom = Math.Min(spec.Width, spec.Height) < 250 ? 5.0f : 3.0f;
+        // Zoom má dvě mantinely a mezi nimi je úzko:
+        //   * moc blízko (bylo tu 3,0) → na kapsli je vidět třináct dlaždic
+        //     a hlavní obrázek hry vypadá jako opakující se textura;
+        //   * moc daleko → renderer přepne na LOD a budovy se kreslí jako
+        //     čtverečky, takže z města zbydou barevné skvrny.
+        // Proto pevný zoom nad prahem detailu (DetailLevel.Decorations = 1,25)
+        // a víc města se ukáže samo tím, že je kapsle větší.
+        // Rozhoduje ŠÍŘKA, ne kratší strana: header capsule je 460×215, takže
+        // podle kratší strany spadla mezi ikony a dostala těsný zoom — a to je
+        // druhý nejdůležitější obrázek na Steamu.
+        float zoom = spec.Width < 250 ? 2.0f : 1.5f;
         camera.CenterOn(
             new Vector2(
                 (simulation.CityCenterX + 0.5f) * TerrainRenderer.TileSize,
@@ -117,7 +125,9 @@ public sealed class CapsuleDirector
 
             int bandHeight = (int)(size.Y * (spec.ShowTagline ? 2.6f : 1.7f));
             int bandTop = (int)(y - size.Y * 0.4f);
-            spriteBatch.Draw(pixel, new Rectangle(0, bandTop, spec.Width, bandHeight), new Color(8, 12, 16) * 0.62f);
+            // Pruh pod názvem musí být dost tmavý, aby text držel i nad světlou
+            // krajinou — na kapsli se nedá spoléhat na to, co je pod ním.
+            spriteBatch.Draw(pixel, new Rectangle(0, bandTop, spec.Width, bandHeight), new Color(8, 12, 16) * 0.82f);
 
             spriteBatch.DrawString(font, Title, new Vector2(x + 2, y + 2), new Color(0, 0, 0, 160), scale: new Vector2(scale));
             spriteBatch.DrawString(font, Title, new Vector2(x, y), new Color(240, 226, 190), scale: new Vector2(scale));

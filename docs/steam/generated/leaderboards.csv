@@ -1,0 +1,10 @@
+api_name,sort,display,desc_cs,desc_en
+LB_PEAK_POPULATION,Descending,Numeric,Nejlidnatější město,Peak population
+LB_TOTAL_POWER,Descending,Numeric,Nejvyšší ×N,Highest might
+LB_ASCENSIONS,Descending,Numeric,Nejvíc Vzestupů,Most ascensions
+LB_LEGACIES,Descending,Numeric,Nejvíc Odkazů,Most legacies
+LB_GRAND_WORK,Descending,Numeric,Nejdál ve Velkém díle,Furthest Grand Work
+LB_BUILDINGS,Descending,Numeric,Nejvíc budov,Most buildings
+LB_CITIES_ABSORBED,Descending,Numeric,Nejvíc pohlcených měst,Most cities absorbed
+LB_FASTEST_ASCENSION,Ascending,Milliseconds,Nejrychlejší první Vzestup,Fastest first ascension
+LB_TILES_EXPLORED,Descending,Numeric,Nejvíc prozkoumané mapy,Most map explored

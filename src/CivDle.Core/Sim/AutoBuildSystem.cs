@@ -53,8 +53,9 @@ internal sealed class AutoBuildSystem
 
     public void Tick(Simulation sim)
     {
-        var config = _content.Gameplay.AutoBuild;
-        if (sim.TickCount % config.IntervalTicks != 0)
+        // Interval čte ze simulace, ne z dat: bonus autobuild_speed ho zkracuje,
+        // takže po Vzestupu je zrychlení růstu vidět přímo na mapě.
+        if (sim.TickCount % sim.AutoBuildInterval != 0)
         {
             return;
         }
@@ -82,8 +83,9 @@ internal sealed class AutoBuildSystem
             }
         }
 
-        // Politika „build_pace" zvyšuje počet akcí za interval (jinak 1 — pozvolný růst).
-        int budget = sim.BuildsPerInterval;
+        // Politika „build_pace" i bonus autobuild_speed zvyšují počet akcí za
+        // interval (jinak 1 — pozvolný růst).
+        int budget = sim.AutoBuildBudget;
 
         // Mimo cyklus: stackalloc uvnitř by při vyšším rozpočtu staveb narůstal
         // po každé otáčce (CA2014).
@@ -433,6 +435,13 @@ internal sealed class AutoBuildSystem
         return false;
     }
 
+    /// <summary>
+    /// Kolik volných míst se ohodnotí, než se z nich vybere to nejhezčí.
+    /// Ofsety jsou seřazené od nejbližších, takže tahle hrstka pokryje okolí
+    /// kotvy; procházet celý kruh by jen stálo čas na horších místech.
+    /// </summary>
+    private const int PlacementCandidates = 20;
+
     private bool TryBuildNear(Simulation sim, int defIndex, int anchorX, int anchorY)
     {
         // Rezerva guvernéra: co si hráč schoval, automatika neutratí. Kontrola je
@@ -442,21 +451,41 @@ internal sealed class AutoBuildSystem
             return false;
         }
 
+        int bestX = 0, bestY = 0, bestScore = int.MinValue;
+        int seen = 0;
+
         foreach (var (offsetX, offsetY) in _searchOffsets)
         {
-            var result = sim.CanPlace(defIndex, anchorX + offsetX, anchorY + offsetY);
-            if (result == PlacementResult.Ok)
-            {
-                return sim.TryPlaceBuilding(defIndex, anchorX + offsetX, anchorY + offsetY) == PlacementResult.Ok;
-            }
-
+            int x = anchorX + offsetX;
+            int y = anchorY + offsetY;
+            var result = sim.CanPlace(defIndex, x, y);
             if (result == PlacementResult.NotEnoughResources)
             {
                 // Cena nezávisí na místě — další hledání nemá smysl.
                 return false;
             }
+
+            if (result != PlacementResult.Ok)
+            {
+                continue;
+            }
+
+            int score = CityLayout.Score(sim, x, y) - (offsetX * offsetX + offsetY * offsetY);
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestX = x;
+                bestY = y;
+            }
+
+            if (++seen >= PlacementCandidates)
+            {
+                break;
+            }
         }
 
-        return false;
+        return bestScore != int.MinValue
+            && sim.TryPlaceBuilding(defIndex, bestX, bestY) == PlacementResult.Ok;
     }
+
 }

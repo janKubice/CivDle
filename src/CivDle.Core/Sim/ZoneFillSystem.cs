@@ -27,8 +27,9 @@ internal sealed class ZoneFillSystem
 
     public void Tick(Simulation sim)
     {
-        var config = _content.Gameplay.AutoBuild;
-        if (sim.TickCount % config.IntervalTicks != 0)
+        // Stejné tempo jako u auto-stavby — zóny jsou její řízená varianta,
+        // takže se musí zrychlovat spolu s ní.
+        if (sim.TickCount % sim.AutoBuildInterval != 0)
         {
             return;
         }
@@ -43,9 +44,9 @@ internal sealed class ZoneFillSystem
         var rng = new SplitMix64(unchecked((ulong)_seed ^ ((ulong)sim.TickCount * 0x2545F4914F6CDD1DUL)));
         int start = (int)(rng.Next() % (ulong)zones.Count);
 
-        // Politika „build_pace" zvedá počet staveb za interval; rozkládá se po zónách
-        // (jedna na zónu a průchod), ať se plní rovnoměrně, ne jedna zóna napřed.
-        int budget = sim.BuildsPerInterval;
+        // Tempo se rozkládá po zónách (jedna na zónu a průchod), ať se plní
+        // rovnoměrně, ne jedna zóna napřed.
+        int budget = sim.AutoBuildBudget;
         while (budget > 0)
         {
             bool placedAny = false;
@@ -69,28 +70,70 @@ internal sealed class ZoneFillSystem
     private bool TryFillOne(Simulation sim, Zone zone)
     {
         var buildings = _content.ZoneTypes[zone.TypeIndex].BuildingIndices;
-        for (int b = 0; b < buildings.Count; b++)
+
+        // Odzadu: v datech je typ zóny seřazený od nejskromnější budovy po
+        // nejlepší, takže poslední dostupná je ta nejlepší, na kterou město má.
+        // Dřív se bralo první v pořadí, takže obytná čtvrť plná paneláků
+        // v datech dál stavěla chalupy — pokrok se do zón nikdy nepromítl.
+        for (int b = buildings.Count - 1; b >= 0; b--)
         {
             int defIndex = buildings[b];
 
-            // Cena nezávisí na místě — nedostupnou budovu přeskoč hned, ať nescanujeme zbytečně.
-            if (!sim.CanAfford(defIndex))
+            // Rezerva guvernéra platí i pro zóny. Dřív se tu ptalo jen na
+            // „mám na to", takže si automatika sáhla i na to, co si hráč
+            // schoval — a přepínač v panelu guvernéra byl poloviční slib.
+            if (!sim.IsBuildingUnlocked(defIndex)
+                || !sim.AutomationCanSpend(_content.Buildings[defIndex].BuildCost))
             {
                 continue;
             }
 
-            for (int ty = zone.Y; ty < zone.Y + zone.Height; ty++)
+            if (TryPlaceBest(sim, zone, defIndex))
             {
-                for (int tx = zone.X; tx < zone.X + zone.Width; tx++)
-                {
-                    if (sim.CanPlace(defIndex, tx, ty) == PlacementResult.Ok)
-                    {
-                        return sim.TryPlaceBuilding(defIndex, tx, ty) == PlacementResult.Ok;
-                    }
-                }
+                return true;
             }
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Najde v zóně nejhezčí volné místo pro danou budovu a postaví tam.
+    ///
+    /// <para>Dřív se bralo první volné políčko od levého horního rohu, takže se
+    /// zóna vylila jako slitek od kraje. Se skórováním vzniká zástavba podél
+    /// cest a kolem už postaveného — čtvrť místo bloku.</para>
+    /// </summary>
+    private static bool TryPlaceBest(Simulation sim, Zone zone, int defIndex)
+    {
+        int bestX = 0, bestY = 0, bestScore = int.MinValue;
+
+        for (int ty = zone.Y; ty < zone.Y + zone.Height; ty++)
+        {
+            for (int tx = zone.X; tx < zone.X + zone.Width; tx++)
+            {
+                var result = sim.CanPlace(defIndex, tx, ty);
+                if (result == PlacementResult.NotEnoughResources)
+                {
+                    return false; // cena nezávisí na místě
+                }
+
+                if (result != PlacementResult.Ok)
+                {
+                    continue;
+                }
+
+                int score = CityLayout.Score(sim, tx, ty);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestX = tx;
+                    bestY = ty;
+                }
+            }
+        }
+
+        return bestScore != int.MinValue
+            && sim.TryPlaceBuilding(defIndex, bestX, bestY) == PlacementResult.Ok;
     }
 }

@@ -39,6 +39,9 @@ public sealed class Simulation
     private readonly HistorySystem _historySystem;
     private readonly ReforestSystem _reforestSystem;
     private readonly NpcTownSystem _npcTowns; // postavená cizí města (skutečné budovy a silnice)
+    private readonly GrandWorkSystem _grandWork; // bezedný odběr přebytků
+    private readonly List<GrandWorkStage> _grandWorkDone = new(); // dokončené stupně (drží bonusy)
+    private readonly LegacySystem _legacy; // druhá prestižní vrstva (Odkaz)
     private readonly ConstructionSystem _constructionSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
@@ -69,7 +72,7 @@ public sealed class Simulation
 
     private readonly bool[] _buildingUnlocked;
     private readonly bool[] _techResearched;
-    private readonly bool[] _upgradesPurchased; // koupené trvalé upgrady Vzestupu
+    private readonly int[] _upgradeLevels;      // koupené úrovně trvalých upgradů Vzestupu
     private readonly bool[] _policiesActive;    // zapnuté politiky růstu (automatizace, stupeň 4)
     private readonly long[] _harvestedTotals; // kumulativní sběr surovin klikáním (metriky cílů)
     private readonly bool[] _resourceKnown;   // surovina, kterou hráč už někdy získal (UI ji do té doby neukazuje)
@@ -117,7 +120,7 @@ public sealed class Simulation
         }
 
         _techResearched = new bool[content.Techs.Count];
-        _upgradesPurchased = new bool[content.PrestigeUpgrades.Count];
+        _upgradeLevels = new int[content.PrestigeUpgrades.Count];
         _policiesActive = new bool[content.Policies.Count];
         _harvestedTotals = new long[content.Resources.Count];
 
@@ -157,6 +160,8 @@ public sealed class Simulation
         _historySystem = new HistorySystem(content);
         _reforestSystem = new ReforestSystem(content);
         _npcTowns = new NpcTownSystem(content);
+        _grandWork = new GrandWorkSystem(content.GrandWork, content.Resources.Count);
+        _legacy = new LegacySystem(content.Legacy, content.LegacyUpgrades.All);
         History = new CityHistory(content.Gameplay.History.MaxFrames);
         _constructionSystem = new ConstructionSystem(content);
         ResetContractBoard();
@@ -3765,6 +3770,55 @@ public sealed class Simulation
     /// <summary>Kolik budov smí auto-stavba i plnění zón položit za interval (výchozí 1; politika „build_pace" zvedá).</summary>
     public int BuildsPerInterval { get; private set; } = 1;
 
+    /// <summary>
+    /// Nejkratší možný interval auto-stavby. Pod tímhle už by se stavělo skoro
+    /// každý tik a město by před očima „vybuchlo" místo aby rostlo — a hráč by
+    /// z toho neměl radost, protože by neviděl, co se děje.
+    /// </summary>
+    private const int MinAutoBuildInterval = 6;
+
+    /// <summary>
+    /// Jak často se auto-stavba pokusí stavět, po započtení bonusu
+    /// <c>autobuild_speed</c>.
+    ///
+    /// <para>Tenhle bonus byl doteď mrtvý: počítal se do <see cref="Bonuses"/>,
+    /// ale nikdo ho nečetl. Přitom je to jeden z mála trvalých bonusů, který je
+    /// opravdu <b>vidět na mapě</b> — po Vzestupu se město rozrůstá znatelně
+    /// rychleji, což je přesně ta odměna, kvůli které se resetuje.</para>
+    /// </summary>
+    public int AutoBuildInterval
+    {
+        get
+        {
+            int baseInterval = _content.Gameplay.AutoBuild.IntervalTicks;
+
+            // Dno smí bonus jen zastavit, ne PŘEBÍT data: když si obsah řekne
+            // o rychlejší tempo, než je dno, platí obsah. Jinak by dno tiše
+            // zpomalilo hru proti tomu, co je v datech napsané.
+            int floor = Math.Min(baseInterval, MinAutoBuildInterval);
+            return Math.Max(floor, (int)Math.Round(baseInterval / AutoBuildSpeed()));
+        }
+    }
+
+    /// <summary>
+    /// Kolik staveb se za interval zkusí. Když už interval narazil na dno,
+    /// přeteče zbytek zrychlení sem — jinak by se bonus nad určitou úroveň
+    /// přestal projevovat a další upgrady by byly k ničemu.
+    /// </summary>
+    public int AutoBuildBudget
+    {
+        get
+        {
+            int baseInterval = _content.Gameplay.AutoBuild.IntervalTicks;
+            double achieved = baseInterval / (double)AutoBuildInterval; // kolikrát častěji se opravdu staví
+            double leftover = AutoBuildSpeed() / Math.Max(1.0, achieved);
+            return Math.Max(1, BuildsPerInterval * (int)Math.Round(leftover));
+        }
+    }
+
+    /// <summary>Násobič tempa auto-stavby (nikdy pod 1 — zpomalovat ho nic neumí).</summary>
+    private double AutoBuildSpeed() => Math.Max(1.0, _bonuses.AutoBuildSpeed);
+
     /// <summary>Preferovat hustotu: auto-stavba nejdřív povýší existující bydlení, než postaví nové (politika „housing_density").</summary>
     public bool PreferHousingDensity { get; private set; }
 
@@ -5087,7 +5141,11 @@ public sealed class Simulation
     {
         var requirement = _content.Prestige.Requirement;
         double scaled = requirement.Target * Math.Pow(_content.Prestige.RequirementGrowth, AscensionLevel);
-        return (long)Math.Min(scaled, long.MaxValue / 2);
+
+        // Sleva z Odkazu. Je omezená zdola (viz LegacySystem), takže i po hodně
+        // úrovních zůstane Vzestup krok, ne formalita.
+        scaled *= _legacy.AscensionRequirementShare();
+        return (long)Math.Max(1, Math.Min(scaled, long.MaxValue / 2));
     }
 
     /// <summary>Metrika, kterou práh Vzestupu měří (UI ukazuje pokrok).</summary>
@@ -5102,7 +5160,17 @@ public sealed class Simulation
     {
         var prestige = _content.Prestige;
         long metric = EvaluateMetric(prestige.PointsMetric, prestige.PointsParam);
-        return metric / prestige.PointsDivisor;
+        if (metric <= 0 || prestige.PointsDivisor <= 0)
+        {
+            return 0;
+        }
+
+        // Klesající výnos (odmocnina) místo lineárního. Při lineárním se vždycky
+        // vyplatilo hrát dál a rozhodnutí „resetnout teď, nebo ještě vydržet?"
+        // vůbec nevzniklo — přitom právě to je celý smysl prestiže.
+        double ratio = metric / (double)prestige.PointsDivisor;
+        double points = Math.Pow(ratio, prestige.PointsExponent) * _legacy.AscensionPointsMult();
+        return (long)Math.Min(points, long.MaxValue / 2);
     }
 
     /// <summary>
@@ -5126,13 +5194,12 @@ public sealed class Simulation
             }
         }
 
+        // Do bilance se počítají ÚROVNĚ, ne uzly: u opakovatelného upgradu je
+        // desátá úroveň stejný kus postupu jako desátý různý upgrade.
         int upgrades = 0;
-        for (int i = 0; i < _upgradesPurchased.Length; i++)
+        for (int i = 0; i < _upgradeLevels.Length; i++)
         {
-            if (_upgradesPurchased[i])
-            {
-                upgrades++;
-            }
+            upgrades += _upgradeLevels[i];
         }
 
         return new AscensionPreview(
@@ -5167,26 +5234,363 @@ public sealed class Simulation
     public RunSummary LastRun { get; private set; } = RunSummary.None;
 
     /// <summary>Je trvalý upgrade Vzestupu koupený?</summary>
-    public bool IsUpgradePurchased(int upgradeIndex) => _upgradesPurchased[upgradeIndex];
+    public bool IsUpgradePurchased(int upgradeIndex) => _upgradeLevels[upgradeIndex] > 0;
+
+    /// <summary>
+    /// Jeden zdroj síly do rozpisu: odkud násobič je a kolik dělá.
+    /// </summary>
+    /// <param name="LabelKey">Lokalizační klíč popisku.</param>
+    /// <param name="Multiplier">Násobič z tohohle zdroje (1,0 = nic).</param>
+    public readonly record struct PowerSource(string LabelKey, double Multiplier);
+
+    /// <summary>
+    /// Celková síla výroby a odkud je.
+    ///
+    /// <para>Tohle je číslo, kvůli kterému se žánr hraje: <b>jedno velké ×N</b>,
+    /// na které se hráč dívá a sleduje, jak roste. Doteď nikde nebylo — hráč
+    /// kupoval upgrady a musel věřit, že to k něčemu je.</para>
+    ///
+    /// <para>Rozpis je odvozený stav, počítá se na požádání z UI (ne v tiku),
+    /// takže alokace seznamu nevadí.</para>
+    /// </summary>
+    public IReadOnlyList<PowerSource> PowerBreakdown()
+    {
+        double prestige = PrestigeProductionMult();
+        double grandWork = GrandWorkProductionMult();
+        double legacy = LegacyProductionMult();
+
+        // Výzkum se dopočítá zbytkem. Trvalé vrstvy se počítají přímo, protože
+        // každá je vlastní kategorie a hráč chce vidět, která z nich táhne.
+        double permanent = prestige * grandWork * legacy;
+
+        return new List<PowerSource>
+        {
+            new("power.prestige", prestige),
+            new("power.legacy", legacy),
+            new("power.grandWork", grandWork),
+            new("power.research", _bonuses.ProductionMult / Math.Max(1e-9, permanent)),
+            new("power.milestones", _milestoneBonuses.AverageMultiplier(this)),
+            new("power.festival", BoostMultiplier),
+        };
+    }
+
+    /// <summary>Celkový násobič výroby — součin všech zdrojů z rozpisu.</summary>
+    public double TotalPower()
+    {
+        double total = 1.0;
+        var sources = PowerBreakdown();
+        for (int i = 0; i < sources.Count; i++)
+        {
+            total *= sources[i].Multiplier;
+        }
+
+        return total;
+    }
+
+    /// <summary>Kolik z násobiče výroby pochází z trvalých upgradů Vzestupu.</summary>
+    private double PrestigeProductionMult()
+    {
+        double mult = 1.0;
+        for (int i = 0; i < _upgradeLevels.Length; i++)
+        {
+            if (_upgradeLevels[i] > 0 && _content.PrestigeUpgrades[i].Effect == "production_mult")
+            {
+                mult *= _content.PrestigeUpgrades[i].MultiplierAtLevel(_upgradeLevels[i]);
+            }
+        }
+
+        return mult;
+    }
+
+    /// <summary>Kolik z násobiče výroby pochází z upgradů Odkazu.</summary>
+    private double LegacyProductionMult()
+    {
+        double mult = 1.0;
+        var upgrades = _content.LegacyUpgrades.All;
+        for (int i = 0; i < upgrades.Count; i++)
+        {
+            if (upgrades[i].Effect == "production_mult" && _legacy.Level(i) > 0)
+            {
+                mult *= upgrades[i].MultiplierAtLevel(_legacy.Level(i));
+            }
+        }
+
+        return mult;
+    }
+
+    /// <summary>Kolik z násobiče výroby pochází z dokončených stupňů Velkého díla.</summary>
+    private double GrandWorkProductionMult()
+    {
+        double mult = 1.0;
+        for (int i = 0; i < _grandWorkDone.Count; i++)
+        {
+            if (_grandWorkDone[i].Effect == "production_mult")
+            {
+                mult *= 1.0 + _grandWorkDone[i].Magnitude;
+            }
+        }
+
+        return mult;
+    }
+
+    // ----- Velké dílo: kam jdou přebytky -----
+
+    /// <summary>
+    /// Je Velké dílo k dispozici? Odemyká se Vzestupem — dřív hráč nemá co
+    /// přebývat a nabídka „sypej sem" by byla jen matoucí.
+    /// </summary>
+    public bool GrandWorkAvailable =>
+        _content.GrandWork.IsEnabled && AscensionLevel >= _content.GrandWork.UnlockAscensionLevel;
+
+    /// <summary>Kolikátý stupeň Velkého díla se právě staví.</summary>
+    public int GrandWorkStage => _grandWork.Stage;
+
+    /// <summary>Postup rozestavěného stupně 0–1.</summary>
+    public double GrandWorkProgress01() => _grandWork.Progress01();
+
+    /// <summary>Kolik dané suroviny stupni ještě chybí.</summary>
+    public double GrandWorkRemaining(int resourceIndex) => _grandWork.Remaining(resourceIndex);
+
+    /// <summary>
+    /// Kolik čeho stupeň Velkého díla spotřebuje.
+    ///
+    /// <para>Vlastní typ s <c>double</c>, ne <see cref="ResourceAmount"/>:
+    /// ceny rostou geometricky a po pár desítkách stupňů by se do <c>int</c>
+    /// prostě nevešly.</para>
+    /// </summary>
+    public readonly record struct GrandWorkNeed(int ResourceIndex, double Amount);
+
+    /// <summary>Suroviny, které rozestavěný stupeň spotřebuje.</summary>
+    public IReadOnlyList<GrandWorkNeed> GrandWorkCost()
+    {
+        var pattern = _content.GrandWork.StageAt(_grandWork.Stage);
+        var cost = new GrandWorkNeed[pattern.Cost.Count];
+        for (int i = 0; i < pattern.Cost.Count; i++)
+        {
+            int resource = pattern.Cost[i].ResourceIndex;
+            cost[i] = new GrandWorkNeed(resource, _content.GrandWork.CostOf(_grandWork.Stage, resource));
+        }
+
+        return cost;
+    }
+
+    /// <summary>
+    /// Příkaz hráče: vloží do díla, co má po ruce (nejvýš tolik, kolik stupni
+    /// chybí). Vrací množství, které se opravdu vložilo.
+    ///
+    /// <para>Vkládá se ručně a jen do plné výše potřeby: automatický odběr by
+    /// z díla udělal neviditelnou daň z produkce, a přesypat víc, než stupeň
+    /// spotřebuje, by suroviny jen spálilo.</para>
+    /// </summary>
+    public double InvestInGrandWork(int resourceIndex)
+    {
+        if (!GrandWorkAvailable)
+        {
+            return 0;
+        }
+
+        double amount = Math.Min(_resources[resourceIndex], _grandWork.Remaining(resourceIndex));
+        if (amount <= 0)
+        {
+            return 0;
+        }
+
+        _resources[resourceIndex] -= amount;
+        if (_grandWork.Invest(resourceIndex, amount))
+        {
+            CompleteGrandWorkStage();
+        }
+
+        return amount;
+    }
+
+    /// <summary>Dokončený stupeň přidá trvalý bonus a dílo se pustí do dalšího.</summary>
+    private void CompleteGrandWorkStage()
+    {
+        _grandWorkDone.Add(_grandWork.AdvanceStage());
+        RecomputeBonuses();
+        RecomputeDerivedState();
+
+        EnqueueNotification(new GameNotification(
+            NotificationKind.Milestone, "toast.grandWork", string.Empty));
+        ReportVisual(VisualEventKind.MilestoneReached, CityCenterX, CityCenterY);
+    }
+
+    /// <summary>Dokončené stupně (pro sav).</summary>
+    internal int GrandWorkCompletedCount => _grandWorkDone.Count;
+
+    /// <summary>Vklady do rozestavěného stupně (pro sav).</summary>
+    internal IReadOnlyList<double> GrandWorkInvested() => _grandWork.InvestedAll();
+
+    /// <summary>Obnova Velkého díla ze savu.</summary>
+    internal void RestoreGrandWork(int stage, IReadOnlyList<double> invested)
+    {
+        _grandWork.Restore(stage, invested);
+
+        // Bonusy dokončených stupňů se dopočítají z jejich počtu — vzor stupňů
+        // se cyklí, takže stačí vědět kolik jich je.
+        _grandWorkDone.Clear();
+        for (int i = 0; i < stage; i++)
+        {
+            _grandWorkDone.Add(_content.GrandWork.StageAt(i));
+        }
+
+        RecomputeBonuses();
+        RecomputeDerivedState();
+    }
+
+    // ----- Odkaz: druhá prestižní vrstva -----
+
+    /// <summary>
+    /// Je Odkaz v datech zapnutý? Nabídka se ukazuje, až když má smysl —
+    /// hráč před prvním Vzestupem netuší, co Vzestup je, natož vrstva nad ním.
+    /// </summary>
+    public bool LegacyAvailable => _content.Legacy.IsEnabled && AscensionLevel > 0;
+
+    /// <summary>Kolikrát už hráč Odkaz zanechal.</summary>
+    public int LegacyDepth => _legacy.Depth;
+
+    /// <summary>Nevyužité body Odkazu.</summary>
+    public long LegacyPoints => _legacy.Points;
+
+    /// <summary>Práh dalšího Odkazu (roste s hloubkou).</summary>
+    public long LegacyRequirement() => _legacy.Requirement();
+
+    /// <summary>Metrika, kterou práh Odkazu měří.</summary>
+    public long LegacyProgress() =>
+        EvaluateMetric(_content.Legacy.Requirement.Kind, _content.Legacy.Requirement.Param);
+
+    /// <summary>Je splněná podmínka pro zanechání Odkazu?</summary>
+    public bool CanLeaveLegacy() => LegacyAvailable && LegacyProgress() >= LegacyRequirement();
+
+    /// <summary>Kolik bodů Odkazu by teď jeho zanechání udělilo.</summary>
+    public long PendingLegacyPoints() =>
+        _legacy.PendingPoints(EvaluateMetric(_content.Legacy.PointsMetric, _content.Legacy.PointsParam));
+
+    /// <summary>Kolikátou úroveň upgradu Odkazu hráč koupil.</summary>
+    public int LegacyLevel(int upgradeIndex) => _legacy.Level(upgradeIndex);
+
+    /// <summary>Cena další úrovně upgradu Odkazu.</summary>
+    public long LegacyCost(int upgradeIndex) => _legacy.Cost(upgradeIndex);
+
+    /// <summary>Je upgrade Odkazu vykoupený na doraz?</summary>
+    public bool IsLegacyUpgradeMaxed(int upgradeIndex) => _legacy.IsMaxed(upgradeIndex);
+
+    /// <summary>Lze upgrade Odkazu koupit?</summary>
+    public PlacementResult CanBuyLegacyUpgrade(int upgradeIndex) => _legacy.CanBuy(upgradeIndex);
+
+    /// <summary>Koupí úroveň upgradu Odkazu a přepočítá bonusy.</summary>
+    public PlacementResult TryBuyLegacyUpgrade(int upgradeIndex)
+    {
+        var result = _legacy.CanBuy(upgradeIndex);
+        if (result != PlacementResult.Ok || !_legacy.TryBuy(upgradeIndex))
+        {
+            return result == PlacementResult.Ok ? PlacementResult.NotEnoughResources : result;
+        }
+
+        RecomputeBonuses();
+        RecomputeDerivedState();
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>
+    /// Zanechá Odkaz: udělí body Odkazu a smaže <b>i Vzestupy</b> — jejich
+    /// úroveň, body i všechny koupené upgrady. Zůstává jen Velké dílo (stavba
+    /// napříč věky) a to, co si hráč koupí za body Odkazu.
+    ///
+    /// <para>Je to hlubší řez než Vzestup a schválně: kdyby si hráč nechal
+    /// upgrady Vzestupu, byl by Odkaz jen bonus zdarma a rozhodnutí „udělat ho
+    /// teď, nebo ještě ne" by nevzniklo.</para>
+    /// </summary>
+    public PlacementResult TryLeaveLegacy()
+    {
+        if (!CanLeaveLegacy())
+        {
+            return PlacementResult.NotEnoughResources;
+        }
+
+        _historySystem.Capture(this);
+
+        long points = PendingLegacyPoints();
+        _legacy.Leave(points);
+
+        // Vzestup jde k zemi celý: úroveň, body i strom upgradů.
+        AscensionLevel = 0;
+        PrestigePoints = 0;
+        Array.Clear(_upgradeLevels);
+
+        PeakPopulation = 0;
+        ResetEra();
+        RecomputeBonuses();
+        RecomputeDerivedState();
+
+        EnqueueNotification(new GameNotification(
+            NotificationKind.Ascended, "toast.legacyLeft", "legacy.leftSubject"));
+        ReportVisual(VisualEventKind.MilestoneReached, CityCenterX, CityCenterY);
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>Úrovně upgradů Odkazu pro sav — jednou za každou koupenou úroveň.</summary>
+    internal IEnumerable<int> LegacyPurchasedLevels() => _legacy.PurchasedLevels();
+
+    /// <summary>Obnova Odkazu ze savu: hloubka a body (úrovně přijdou zvlášť).</summary>
+    internal void RestoreLegacy(int depth, long points) => _legacy.Restore(depth, points);
+
+    /// <summary>Obnova jedné úrovně upgradu Odkazu ze savu.</summary>
+    internal void RestoreLegacyLevel(int upgradeIndex) => _legacy.RestoreLevel(upgradeIndex);
+
+    /// <summary>
+    /// Kolik technologií je vyzkoumaných. Počítá se na požádání (statistiky a
+    /// bilance běhu), ne v tiku — pole je krátké a cache by se musela hlídat.
+    /// </summary>
+    public int ResearchedTechCount
+    {
+        get
+        {
+            int count = 0;
+            for (int i = 0; i < _techResearched.Length; i++)
+            {
+                if (_techResearched[i])
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
+    /// <summary>Kolikátou úroveň upgradu už hráč koupil (0 = žádnou).</summary>
+    public int UpgradeLevel(int upgradeIndex) => _upgradeLevels[upgradeIndex];
+
+    /// <summary>Cena další úrovně upgradu — roste s každou koupenou.</summary>
+    public long UpgradeCost(int upgradeIndex) =>
+        _content.PrestigeUpgrades[upgradeIndex].CostAtLevel(_upgradeLevels[upgradeIndex]);
+
+    /// <summary>Je upgrade na maximu?</summary>
+    public bool IsUpgradeMaxed(int upgradeIndex) =>
+        _upgradeLevels[upgradeIndex] >= _content.PrestigeUpgrades[upgradeIndex].MaxLevel;
 
     /// <summary>Lze upgrade koupit (splněné prereky, dost bodů, ještě nekoupený)?</summary>
     public PlacementResult CanBuyUpgrade(int upgradeIndex)
     {
-        if (_upgradesPurchased[upgradeIndex])
+        if (IsUpgradeMaxed(upgradeIndex))
         {
-            return PlacementResult.Occupied; // už koupený
+            return PlacementResult.Occupied; // vykoupený až na doraz
         }
 
         var upgrade = _content.PrestigeUpgrades[upgradeIndex];
         foreach (int prereq in upgrade.PrerequisiteIndices)
         {
-            if (!_upgradesPurchased[prereq])
+            if (_upgradeLevels[prereq] <= 0)
             {
                 return PlacementResult.NotUnlocked;
             }
         }
 
-        return PrestigePoints < upgrade.Cost ? PlacementResult.NotEnoughResources : PlacementResult.Ok;
+        return PrestigePoints < UpgradeCost(upgradeIndex)
+            ? PlacementResult.NotEnoughResources
+            : PlacementResult.Ok;
     }
 
     /// <summary>Koupí trvalý upgrade Vzestupu — odečte body a přepočítá bonusy i odvozený stav.</summary>
@@ -5198,8 +5602,8 @@ public sealed class Simulation
             return result;
         }
 
-        PrestigePoints -= _content.PrestigeUpgrades[upgradeIndex].Cost;
-        _upgradesPurchased[upgradeIndex] = true;
+        PrestigePoints -= UpgradeCost(upgradeIndex);
+        _upgradeLevels[upgradeIndex]++;
         RecomputeBonuses();
         RecomputeDerivedState();
         return PlacementResult.Ok;
@@ -5258,25 +5662,63 @@ public sealed class Simulation
         return PlacementResult.Ok;
     }
 
+    /// <summary>
+    /// Přepočítá trvalé násobiče.
+    ///
+    /// <para>Pravidlo skládání: <b>uvnitř kategorie se sčítá, mezi kategoriemi
+    /// násobí</b>. Upgrady Vzestupu jsou jedna kategorie, výzkum druhá — a jejich
+    /// výsledky se pronásobí. Dřív padalo všechno do jednoho součtu, takže dvacet
+    /// upgradů po +30 % dohromady dalo ×7 a strop celého stromu byl někde kolem
+    /// ×4. Tohle je ta věc, kvůli které v žánru čísla vůbec rostou.</para>
+    ///
+    /// <para>Jednotlivý upgrade navíc skládá <b>mocninou podle úrovně</b>: deset
+    /// úrovní po +30 % je ×13,8, ne ×4.</para>
+    /// </summary>
     private void RecomputeBonuses()
     {
-        double production = 1.0, harvest = 1.0, growth = 1.0, housing = 1.0, storage = 1.0, start = 1.0, offline = 1.0;
-        double critChance = 0.0, jackpot = 0.0, discovery = 1.0, festival = 1.0, research = 0.0;
-        for (int i = 0; i < _upgradesPurchased.Length; i++)
+        // Kategorie 1: trvalé upgrady Vzestupu (násobí se mezi sebou).
+        double production = 1.0, harvest = 1.0, growth = 1.0, housing = 1.0, storage = 1.0;
+        double start = 1.0, offline = 1.0, discovery = 1.0, festival = 1.0, autoBuild = 1.0;
+        double critChance = 0.0, jackpot = 0.0, research = 0.0;
+
+        for (int i = 0; i < _upgradeLevels.Length; i++)
         {
-            if (!_upgradesPurchased[i])
+            if (_upgradeLevels[i] <= 0)
             {
                 continue;
             }
 
             var upgrade = _content.PrestigeUpgrades[i];
-            Apply(upgrade.Effect, upgrade.Magnitude);
+            Scale(upgrade.Effect, upgrade.MultiplierAtLevel(_upgradeLevels[i]), upgrade.Magnitude * _upgradeLevels[i]);
         }
 
-        // Vyzkoumané technologie dávají trvalé pasivní bonusy stejnými behavior-ID
-        // jako upgrady Vzestupu — jen platí v rámci běhu (Vzestup výzkum resetuje).
-        // Cílené efekty jdou do vlastního pole; globální zůstávají v Apply.
-        // Bez toho by „+5 % dřeva" zvedlo i výrobu oceli.
+        // Velké dílo je třetí kategorie — a schválně: jeho stupně přežívají
+        // Vzestup, takže je to jediná osa, která roste napříč všemi běhy.
+        for (int i = 0; i < _grandWorkDone.Count; i++)
+        {
+            Scale(_grandWorkDone[i].Effect, 1.0 + _grandWorkDone[i].Magnitude, _grandWorkDone[i].Magnitude);
+        }
+
+        // Čtvrtá kategorie: Odkaz. Jeho dva vlastní efekty (body Vzestupu, sleva
+        // na práh) se sem záměrně nepromítají — nepatří do násobiče výroby a
+        // sahá si na ně přímo AscensionRequirement / PendingAscensionPoints.
+        var legacyUpgrades = _content.LegacyUpgrades.All;
+        for (int i = 0; i < legacyUpgrades.Count; i++)
+        {
+            int level = _legacy.Level(i);
+            if (level > 0)
+            {
+                Scale(legacyUpgrades[i].Effect, legacyUpgrades[i].MultiplierAtLevel(level), legacyUpgrades[i].Magnitude * level);
+            }
+        }
+
+        // Kategorie 2: výzkum. Platí jen v rámci běhu (Vzestup ho resetuje),
+        // proto se sčítá zvlášť a teprve výsledek se do násobičů promítne.
+        double techProduction = 1.0, techHarvest = 1.0, techGrowth = 1.0, techHousing = 1.0;
+        double techStorage = 1.0, techOffline = 1.0, techDiscovery = 1.0, techFestival = 1.0, techAutoBuild = 1.0;
+
+        // Cílené efekty jdou do vlastního pole; bez toho by „+5 % dřeva"
+        // zvedlo i výrobu oceli.
         Array.Fill(_resourceProductionMult, 1.0);
         for (int i = 0; i < _techResearched.Length; i++)
         {
@@ -5296,28 +5738,57 @@ public sealed class Simulation
                 continue;
             }
 
-            Apply(tech.Effect, tech.Magnitude);
+            switch (tech.Effect)
+            {
+                case "production_mult": techProduction += tech.Magnitude; break;
+                case "harvest_mult": techHarvest += tech.Magnitude; break;
+                case "growth_mult": techGrowth += tech.Magnitude; break;
+                case "housing_mult": techHousing += tech.Magnitude; break;
+                case "storage_mult": techStorage += tech.Magnitude; break;
+                case "offline_mult": techOffline += tech.Magnitude; break;
+                case "discovery_luck": techDiscovery += tech.Magnitude; break;
+                case "festival_power": techFestival += tech.Magnitude; break;
+                case "autobuild_speed": techAutoBuild += tech.Magnitude; break;
+                case "crit_chance": critChance += tech.Magnitude; break;
+                case "jackpot_chance": jackpot += tech.Magnitude; break;
+                case "research_discount": research += tech.Magnitude; break;
+            }
         }
 
-        _bonuses = new PrestigeBonuses(production, harvest, growth, housing, storage, start, offline,
-            critChance, jackpot, discovery, festival, Math.Min(research, 0.9));
+        _bonuses = new PrestigeBonuses(
+            production * techProduction,
+            harvest * techHarvest,
+            growth * techGrowth,
+            housing * techHousing,
+            storage * techStorage,
+            start,
+            offline * techOffline,
+            critChance,
+            jackpot,
+            discovery * techDiscovery,
+            festival * techFestival,
+            Math.Min(research, 0.9),
+            autoBuild * techAutoBuild);
 
-        void Apply(string effect, double magnitude)
+        // Násobičové efekty se skládají mocninou; ty, které se sčítají do
+        // pravděpodobnosti (kritický sběr) nebo do slevy, přirozeně součtem.
+        void Scale(string effect, double multiplier, double sum)
         {
             switch (effect)
             {
-                case "production_mult": production += magnitude; break;
-                case "harvest_mult": harvest += magnitude; break;
-                case "growth_mult": growth += magnitude; break;
-                case "housing_mult": housing += magnitude; break;
-                case "storage_mult": storage += magnitude; break;
-                case "start_resources": start += magnitude; break;
-                case "offline_mult": offline += magnitude; break;
-                case "crit_chance": critChance += magnitude; break;
-                case "jackpot_chance": jackpot += magnitude; break;
-                case "discovery_luck": discovery += magnitude; break;
-                case "festival_power": festival += magnitude; break;
-                case "research_discount": research += magnitude; break;
+                case "production_mult": production *= multiplier; break;
+                case "harvest_mult": harvest *= multiplier; break;
+                case "growth_mult": growth *= multiplier; break;
+                case "housing_mult": housing *= multiplier; break;
+                case "storage_mult": storage *= multiplier; break;
+                case "start_resources": start *= multiplier; break;
+                case "offline_mult": offline *= multiplier; break;
+                case "discovery_luck": discovery *= multiplier; break;
+                case "festival_power": festival *= multiplier; break;
+                case "autobuild_speed": autoBuild *= multiplier; break;
+                case "crit_chance": critChance += sum; break;
+                case "jackpot_chance": jackpot += sum; break;
+                case "research_discount": research += sum; break;
             }
         }
     }
@@ -5421,14 +5892,27 @@ public sealed class Simulation
     }
 
     /// <summary>Označí koupený upgrade Vzestupu při načtení savu (bonusy dopočítá <see cref="FinalizeLoad"/>).</summary>
-    internal void RestoreUpgrade(int upgradeIndex) => _upgradesPurchased[upgradeIndex] = true;
+    /// <summary>
+    /// Obnoví jednu úroveň upgradu ze savu. Sav zapisuje ID <b>jednou za každou
+    /// úroveň</b>, takže starý sav (bez úrovní) se načte jako úroveň 1 a formát
+    /// se nemusel měnit.
+    /// </summary>
+    internal void RestoreUpgrade(int upgradeIndex)
+    {
+        if (_upgradeLevels[upgradeIndex] < _content.PrestigeUpgrades[upgradeIndex].MaxLevel)
+        {
+            _upgradeLevels[upgradeIndex]++;
+        }
+    }
 
     /// <summary>Indexy koupených upgradů Vzestupu (pro serializaci savu).</summary>
     internal IEnumerable<int> PurchasedUpgradeIndices()
     {
-        for (int i = 0; i < _upgradesPurchased.Length; i++)
+        for (int i = 0; i < _upgradeLevels.Length; i++)
         {
-            if (_upgradesPurchased[i])
+            // Jednou za každou koupenou úroveň — čtení je pak prostý součet
+            // a starý formát savu zůstal beze změny.
+            for (int level = 0; level < _upgradeLevels[i]; level++)
             {
                 yield return i;
             }

@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Odkaz: druhá prestižní vrstva. Smaže Vzestupy i jejich upgrady, výměnou dá měnu, která zrychluje samotné vzestupování.",
+  "leave": {
+    "requirement": {
+      "metric": "ascension",
+      "target": 5
+    },
+    "requirementGrowth": 1.6,
+    "points": {
+      "metric": "ascension",
+      "divisor": 1,
+      "exponent": 1.5
+    }
+  },
+  "upgrades": [
+    {
+      "id": "ancestral_memory",
+      "effect": "ascension_points_mult",
+      "magnitude": 0.25,
+      "cost": 2,
+      "maxLevel": 50,
+      "costGrowth": 1.25
+    },
+    {
+      "id": "worn_paths",
+      "effect": "ascension_discount",
+      "magnitude": 0.15,
+      "cost": 3,
+      "maxLevel": 40,
+      "costGrowth": 1.3
+    },
+    {
+      "id": "eternal_forge",
+      "effect": "production_mult",
+      "magnitude": 1.0,
+      "cost": 3,
+      "maxLevel": 40,
+      "costGrowth": 1.25
+    },
+    {
+      "id": "deep_roots",
+      "effect": "growth_mult",
+      "magnitude": 0.8,
+      "cost": 3,
+      "maxLevel": 40,
+      "costGrowth": 1.25
+    },
+    {
+      "id": "titans_hands",
+      "effect": "harvest_mult",
+      "magnitude": 2.0,
+      "cost": 4,
+      "maxLevel": 30,
+      "costGrowth": 1.28
+    },
+    {
+      "id": "ancient_vaults",
+      "effect": "storage_mult",
+      "magnitude": 1.5,
+      "cost": 4,
+      "maxLevel": 30,
+      "costGrowth": 1.25
+    },
+    {
+      "id": "inherited_wealth",
+      "effect": "start_resources",
+      "magnitude": 3.0,
+      "cost": 4,
+      "prerequisites": [
+        "ancestral_memory"
+      ],
+      "maxLevel": 20,
+      "costGrowth": 1.3
+    },
+    {
+      "id": "builders_guild",
+      "effect": "autobuild_speed",
+      "magnitude": 0.5,
+      "cost": 5,
+      "maxLevel": 25,
+      "costGrowth": 1.3
+    },
+    {
+      "id": "unbroken_line",
+      "effect": "ascension_points_mult",
+      "magnitude": 0.6,
+      "cost": 8,
+      "prerequisites": [
+        "ancestral_memory"
+      ],
+      "maxLevel": 30,
+      "costGrowth": 1.35
+    },
+    {
+      "id": "shortcut_through_ages",
+      "effect": "ascension_discount",
+      "magnitude": 0.35,
+      "cost": 12,
+      "prerequisites": [
+        "worn_paths"
+      ],
+      "maxLevel": 25,
+      "costGrowth": 1.4
+    }
+  ]
+}

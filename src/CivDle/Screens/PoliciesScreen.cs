@@ -114,6 +114,18 @@ public sealed class PoliciesScreen : IScreen
         }
 
         box.Widgets.Add(new Label { Text = loc["governor.desc"], TextColor = Color.LightGray, Wrap = true });
+
+        // Tempo výstavby černé na bílém: zrychlení z upgradů je jinak vidět jen
+        // „nějak rychleji" a hráč nepozná, jestli se koupený bonus vůbec projevil.
+        box.Widgets.Add(new Label
+        {
+            Text = loc.Format(
+                "governor.pace",
+                (_simulation.AutoBuildInterval / (double)Simulation.TicksPerSecond).ToString("0.#"),
+                _simulation.AutoBuildBudget),
+            TextColor = new Color(150, 200, 235),
+        });
+
         box.Widgets.Add(new Label
         {
             Text = loc.Format("governor.level", loc[$"governor.level{_simulation.AutoUpgradeLevel}"]),

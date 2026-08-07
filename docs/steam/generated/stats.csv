@@ -1,0 +1,11 @@
+api_name,type,default,desc_cs,desc_en
+STAT_PEAK_POPULATION,INT,0,Nejlidnatější město,Peak population
+STAT_TOTAL_BUILDINGS,INT,0,Postavených budov celkem,Buildings built
+STAT_ASCENSIONS,INT,0,Počet Vzestupů,Ascensions
+STAT_LEGACIES,INT,0,Počet zanechaných Odkazů,Legacies left
+STAT_GRAND_WORK_STAGE,INT,0,Stupeň Velkého díla,Grand Work stage
+STAT_TOTAL_POWER,FLOAT,1,Celkový násobič síly,Total might multiplier
+STAT_TECHS_RESEARCHED,INT,0,Vyzkoumaných technologií,Technologies researched
+STAT_CITIES_ABSORBED,INT,0,Pohlcených cizích měst,Cities absorbed
+STAT_TILES_EXPLORED,INT,0,Odkrytých dlaždic mapy,Map tiles explored
+STAT_PLAYTIME_SECONDS,INT,0,Odehraný čas v sekundách,Playtime in seconds

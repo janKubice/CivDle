@@ -56,6 +56,7 @@ public sealed class ContentLoader
         var buildings = LoadBuildings(Path.Combine(dataDirectory, "buildings.json"), biomes, resources, settlementRanks);
         var techs = LoadTech(Path.Combine(dataDirectory, "tech.json"), buildings, resources);
         var (prestige, prestigeUpgrades) = LoadPrestige(Path.Combine(dataDirectory, "prestige.json"), resources, buildings, techs);
+        var (legacy, legacyUpgrades) = LoadLegacy(Path.Combine(dataDirectory, "legacy.json"), resources, buildings, techs);
         var (quests, questsDynamic) = LoadQuests(Path.Combine(dataDirectory, "quests.json"), resources, buildings, techs);
         var achievements = LoadAchievements(Path.Combine(dataDirectory, "achievements.json"), resources, buildings, techs);
         var events = LoadEvents(Path.Combine(dataDirectory, "events.json"), resources, buildings, techs);
@@ -80,17 +81,19 @@ public sealed class ContentLoader
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources, buildings, techs);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
         var vehicles = LoadVehicles(Path.Combine(dataDirectory, "vehicles.json"));
         var faith = LoadFaith(Path.Combine(dataDirectory, "faith.json"), resources);
         var npcCities = LoadNpcCities(Path.Combine(dataDirectory, "npc-cities.json"), resources, buildings, settlementNames);
+        var grandWork = LoadGrandWork(Path.Combine(dataDirectory, "grandwork.json"), resources);
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
-            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, faith, npcCities, vehicles, mods);
+            worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, faith, npcCities, vehicles, mods,
+            grandWork, legacy, legacyUpgrades);
     }
 
     // ----- cizí města -----
@@ -171,6 +174,60 @@ public sealed class ContentLoader
     /// Načte modlitby. Chybějící soubor <b>není chyba</b> — víra je volitelná
     /// mechanika a hra bez ní musí naběhnout (a všechny starší mody taky).
     /// </summary>
+    /// <summary>
+    /// Načte Velké dílo. Chybějící soubor <b>není chyba</b> — je to volitelná
+    /// mechanika a hra bez ní běží dál (stejně jako víra).
+    /// </summary>
+    private GrandWorkConfig LoadGrandWork(string path, DefRegistry<Resource> resources)
+    {
+        if (!File.Exists(path))
+        {
+            return new GrandWorkConfig(Array.Empty<GrandWorkStage>(), 1.0, 0);
+        }
+
+        var file = ReadFile<GrandWorkFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        double growth = file.CostGrowth <= 0 ? 1.5 : file.CostGrowth;
+        if (growth is < 1.0 or > 10.0)
+        {
+            throw new ContentLoadException(path, $"'costGrowth' musí být 1–10, je {growth}.");
+        }
+
+        var stages = new List<GrandWorkStage>();
+        foreach (var dto in file.Stages ?? new List<GrandWorkStageDto>())
+        {
+            string effect = dto.Effect?.Trim() ?? string.Empty;
+            if (effect.Length == 0)
+            {
+                throw new ContentLoadException(path, "Stupeň Velkého díla bez 'effect'.");
+            }
+
+            // Stupně sahají na tytéž násobiče jako Vzestup, takže i slovník je
+            // společný — jinak by překlep v efektu tiše nedělal nic.
+            if (!KnownPrestigeEffects.Contains(effect))
+            {
+                throw new ContentLoadException(
+                    path, $"Stupeň Velkého díla: neznámý efekt '{effect}' (známé: {string.Join(", ", KnownPrestigeEffects)}).");
+            }
+
+            if (dto.Magnitude <= 0)
+            {
+                throw new ContentLoadException(path, $"Stupeň s efektem '{effect}': 'magnitude' musí být kladná.");
+            }
+
+            var cost = ParseResourceAmounts(path, effect, "cost", dto.Cost, resources);
+            if (cost.Count == 0)
+            {
+                throw new ContentLoadException(path, $"Stupeň s efektem '{effect}' nic nestojí — sink bez ceny nic neodebere.");
+            }
+
+            stages.Add(new GrandWorkStage(cost, effect, dto.Magnitude));
+        }
+
+        return new GrandWorkConfig(stages, growth, Math.Max(0, file.UnlockAscensionLevel));
+    }
+
     private FaithCatalog LoadFaith(string path, DefRegistry<Resource> resources)
     {
         if (!File.Exists(path))
@@ -2172,8 +2229,17 @@ public sealed class ContentLoader
     private static readonly HashSet<string> KnownPrestigeEffects = new(StringComparer.Ordinal)
     {
         "production_mult", "harvest_mult", "growth_mult", "housing_mult", "storage_mult", "start_resources", "offline_mult",
-        "crit_chance", "jackpot_chance", "discovery_luck", "festival_power", "research_discount",
+        "crit_chance", "jackpot_chance", "discovery_luck", "festival_power", "research_discount", "autobuild_speed",
     };
+
+    /// <summary>
+    /// Efekty Odkazu: všechno co Vzestup, plus dva navíc, které míří na
+    /// <b>samotné vzestupování</b>. Ty dva jsou důvod, proč druhá vrstva vůbec
+    /// existuje — kdyby uměla jen „ještě víc výroby", byl by Odkaz jen dražší
+    /// Vzestup a hráč by neměl důvod ho udělat.
+    /// </summary>
+    private static readonly HashSet<string> KnownLegacyEffects =
+        new(KnownPrestigeEffects, StringComparer.Ordinal) { "ascension_points_mult", "ascension_discount" };
 
     private (PrestigeConfig Config, DefRegistry<PrestigeUpgradeDef> Upgrades) LoadPrestige(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
@@ -2196,14 +2262,49 @@ public sealed class ContentLoader
         var (pointsMetric, pointsParam) = ParseMetric(
             path, "ascension.points", points.Metric, points.Resource, building: null, tech: null, resources, buildings, techs);
 
-        var dtos = file.Upgrades ?? new List<PrestigeUpgradeDto>();
+        var upgrades = ParsePermanentUpgrades(
+            path, file.Upgrades, KnownPrestigeEffects, keyPrefix: "prestige", what: "Upgrade Vzestupu");
+
+        // Bez zadaného růstu se práh nemění (zpětně kompatibilní starší data).
+        double requirementGrowth = file.Ascension.RequirementGrowth <= 0 ? 1.0 : file.Ascension.RequirementGrowth;
+        if (requirementGrowth is < 1.0 or > 100.0)
+        {
+            throw new ContentLoadException(path, $"'ascension.requirementGrowth' musí být 1–100, je {requirementGrowth}.");
+        }
+
+        // Nezadaná mocnina = lineárně (stará data).
+        double pointsExponent = points.Exponent <= 0 ? 1.0 : points.Exponent;
+        if (pointsExponent is < 0.1 or > 2.0)
+        {
+            throw new ContentLoadException(path, $"'ascension.points.exponent' musí být 0,1–2, je {pointsExponent}.");
+        }
+
+        var config = new PrestigeConfig(
+            requirement, pointsMetric, pointsParam, points.Divisor, requirementGrowth, pointsExponent);
+        return (config, new DefRegistry<PrestigeUpgradeDef>(upgrades, u => u.Id, "upgrade Vzestupu", allowEmpty: true));
+    }
+
+    /// <summary>
+    /// Načte trvalé upgrady jedné prestižní vrstvy. Vzestup i Odkaz mají přesně
+    /// stejný tvar dat (efekt, síla, cena, prereky, opakovatelnost) a liší se jen
+    /// slovníkem povolených efektů a jmenným prostorem textů — proto jedna metoda
+    /// a ne dvě skoro stejné kopie.
+    /// </summary>
+    private List<PrestigeUpgradeDef> ParsePermanentUpgrades(
+        string path,
+        List<PrestigeUpgradeDto>? dtoList,
+        HashSet<string> knownEffects,
+        string keyPrefix,
+        string what)
+    {
+        var dtos = dtoList ?? new List<PrestigeUpgradeDto>();
         var idToIndex = new Dictionary<string, int>(StringComparer.Ordinal);
         for (int i = 0; i < dtos.Count; i++)
         {
-            string id = RequireId(path, dtos[i].Id, $"Upgrade Vzestupu na pozici {i}");
+            string id = RequireId(path, dtos[i].Id, $"{what} na pozici {i}");
             if (!idToIndex.TryAdd(id, i))
             {
-                throw new ContentLoadException(path, $"Duplicitní ID upgradu Vzestupu '{id}'.");
+                throw new ContentLoadException(path, $"Duplicitní ID: '{id}'.");
             }
         }
 
@@ -2213,9 +2314,9 @@ public sealed class ContentLoader
             var dto = dtos[i];
             string id = dto.Id!.Trim();
             string effect = (dto.Effect ?? string.Empty).Trim();
-            if (!KnownPrestigeEffects.Contains(effect))
+            if (!knownEffects.Contains(effect))
             {
-                throw new ContentLoadException(path, $"Upgrade '{id}': neznámý efekt '{dto.Effect}' (známé: {string.Join(", ", KnownPrestigeEffects)}).");
+                throw new ContentLoadException(path, $"Upgrade '{id}': neznámý efekt '{dto.Effect}' (známé: {string.Join(", ", knownEffects)}).");
             }
 
             if (dto.Magnitude is <= 0 or > 100)
@@ -2244,18 +2345,78 @@ public sealed class ContentLoader
                 prereqs.Add(prereqIndex);
             }
 
-            upgrades.Add(new PrestigeUpgradeDef(id, effect, dto.Magnitude, dto.Cost, prereqs));
+            // Nezadané maximum = jednorázový upgrade (zpětná kompatibilita se
+            // staršími daty, kde opakování neexistovalo).
+            int maxLevel = dto.MaxLevel <= 0 ? 1 : dto.MaxLevel;
+            if (maxLevel > 1000)
+            {
+                throw new ContentLoadException(path, $"Upgrade '{id}': 'maxLevel' smí být nejvýš 1000, je {maxLevel}.");
+            }
+
+            double costGrowth = dto.CostGrowth <= 0 ? 1.0 : dto.CostGrowth;
+            if (costGrowth is < 1.0 or > 10.0)
+            {
+                throw new ContentLoadException(path, $"Upgrade '{id}': 'costGrowth' musí být 1–10, je {costGrowth}.");
+            }
+
+            upgrades.Add(new PrestigeUpgradeDef(id, effect, dto.Magnitude, dto.Cost, prereqs, maxLevel, costGrowth, keyPrefix));
         }
 
-        // Bez zadaného růstu se práh nemění (zpětně kompatibilní starší data).
-        double requirementGrowth = file.Ascension.RequirementGrowth <= 0 ? 1.0 : file.Ascension.RequirementGrowth;
+        return upgrades;
+    }
+
+    /// <summary>
+    /// Načte Odkaz. Chybějící soubor <b>není chyba</b> — je to volitelná vrstva
+    /// a hra bez ní běží dál (stejně jako Velké dílo nebo víra).
+    /// </summary>
+    private (LegacyConfig Config, DefRegistry<PrestigeUpgradeDef> Upgrades) LoadLegacy(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        var empty = new DefRegistry<PrestigeUpgradeDef>(
+            Array.Empty<PrestigeUpgradeDef>(), u => u.Id, "upgrade Odkazu", allowEmpty: true);
+        if (!File.Exists(path))
+        {
+            return (LegacyConfig.Disabled, empty);
+        }
+
+        var file = ReadFile<LegacyFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        if (file.Leave?.Requirement is null || file.Leave.Points is null)
+        {
+            throw new ContentLoadException(path, "Chybí blok 'leave' s 'requirement' a 'points'.");
+        }
+
+        var requirement = ParseCondition(path, "leave.requirement", file.Leave.Requirement, resources, buildings, techs);
+        var points = file.Leave.Points;
+        if (points.Divisor < 1)
+        {
+            throw new ContentLoadException(path, $"'leave.points.divisor' musí být ≥ 1, je {points.Divisor}.");
+        }
+
+        var (pointsMetric, pointsParam) = ParseMetric(
+            path, "leave.points", points.Metric, points.Resource, building: null, tech: null, resources, buildings, techs);
+
+        double requirementGrowth = file.Leave.RequirementGrowth <= 0 ? 1.0 : file.Leave.RequirementGrowth;
         if (requirementGrowth is < 1.0 or > 100.0)
         {
-            throw new ContentLoadException(path, $"'ascension.requirementGrowth' musí být 1–100, je {requirementGrowth}.");
+            throw new ContentLoadException(path, $"'leave.requirementGrowth' musí být 1–100, je {requirementGrowth}.");
         }
 
-        var config = new PrestigeConfig(requirement, pointsMetric, pointsParam, points.Divisor, requirementGrowth);
-        return (config, new DefRegistry<PrestigeUpgradeDef>(upgrades, u => u.Id, "upgrade Vzestupu", allowEmpty: true));
+        // Na rozdíl od Vzestupu se tu povoluje mocnina > 1: metrika (počet
+        // Vzestupů) roste s časem mnohem pomaleji než populace.
+        double pointsExponent = points.Exponent <= 0 ? 1.0 : points.Exponent;
+        if (pointsExponent is < 0.1 or > 4.0)
+        {
+            throw new ContentLoadException(path, $"'leave.points.exponent' musí být 0,1–4, je {pointsExponent}.");
+        }
+
+        var upgrades = ParsePermanentUpgrades(
+            path, file.Upgrades, KnownLegacyEffects, keyPrefix: "legacy", what: "Upgrade Odkazu");
+
+        var config = new LegacyConfig(
+            requirement, requirementGrowth, pointsMetric, pointsParam, points.Divisor, pointsExponent);
+        return (config, new DefRegistry<PrestigeUpgradeDef>(upgrades, u => u.Id, "upgrade Odkazu", allowEmpty: true));
     }
 
     // ----- úkoly (quests) -----
@@ -3326,6 +3487,7 @@ public sealed class ContentLoader
         WorldGenCatalog worldGen,
         DefRegistry<TechDef> techs,
         DefRegistry<PrestigeUpgradeDef> prestigeUpgrades,
+        DefRegistry<PrestigeUpgradeDef> legacyUpgrades,
         DefRegistry<QuestDef> quests,
         DefRegistry<AchievementDef> achievements,
         DefRegistry<EventDef> events,
@@ -3380,7 +3542,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons);
         FillGapsFromBaseLanguage(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -3395,6 +3557,7 @@ public sealed class ContentLoader
         WorldGenCatalog worldGen,
         DefRegistry<TechDef> techs,
         DefRegistry<PrestigeUpgradeDef> prestigeUpgrades,
+        DefRegistry<PrestigeUpgradeDef> legacyUpgrades,
         DefRegistry<QuestDef> quests,
         DefRegistry<AchievementDef> achievements,
         DefRegistry<EventDef> events,
@@ -3427,6 +3590,8 @@ public sealed class ContentLoader
         required.AddRange(techs.All.Select(t => t.DescriptionKey));
         required.AddRange(prestigeUpgrades.All.Select(u => u.NameKey));
         required.AddRange(prestigeUpgrades.All.Select(u => u.DescriptionKey));
+        required.AddRange(legacyUpgrades.All.Select(u => u.NameKey));
+        required.AddRange(legacyUpgrades.All.Select(u => u.DescriptionKey));
         required.AddRange(quests.All.Select(q => q.NameKey));
         required.AddRange(quests.All.Select(q => q.DescriptionKey));
         required.AddRange(achievements.All.Select(a => a.NameKey));

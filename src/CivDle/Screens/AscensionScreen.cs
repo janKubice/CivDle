@@ -1,3 +1,4 @@
+using CivDle.Core;
 using CivDle.Core.Sim;
 using CivDle.Input;
 using Microsoft.Xna.Framework;
@@ -291,6 +292,18 @@ public sealed class AscensionScreen : IScreen
         };
         row.Widgets.Add(new Label { Text = loc[upgrade.NameKey], TextColor = new Color(190, 160, 235) });
         row.Widgets.Add(new Label { Text = loc[upgrade.DescriptionKey], TextColor = Color.LightGray, Wrap = true });
+
+        // U opakovatelných upgradů je úroveň to hlavní číslo — bez něj hráč
+        // nevidí, kolikrát už koupil ani kolikrát ještě může.
+        if (upgrade.IsRepeatable)
+        {
+            row.Widgets.Add(new Label
+            {
+                Text = loc.Format("prestige.level", _simulation.UpgradeLevel(upgradeIndex), upgrade.MaxLevel),
+                TextColor = new Color(150, 160, 175),
+            });
+        }
+
         row.Widgets.Add(UpgradeAction(upgradeIndex));
         return row;
     }
@@ -298,9 +311,18 @@ public sealed class AscensionScreen : IScreen
     private Widget UpgradeAction(int upgradeIndex)
     {
         var loc = _screens.Loc;
-        if (_simulation.IsUpgradePurchased(upgradeIndex))
+        var upgrade = _screens.Content.PrestigeUpgrades[upgradeIndex];
+
+        // Pozor: „vlastněno" smí platit jen pro jednorázové uzly. Opakovatelný
+        // upgrade se po první koupi musí dát koupit dál — jinak je z celé
+        // opakovatelnosti mrtvá mechanika, kterou UI nepustí ke slovu.
+        if (_simulation.IsUpgradeMaxed(upgradeIndex))
         {
-            return new Label { Text = loc["prestige.owned"], TextColor = Color.LightGreen };
+            return new Label
+            {
+                Text = loc[upgrade.IsRepeatable ? "prestige.maxed" : "prestige.owned"],
+                TextColor = Color.LightGreen,
+            };
         }
 
         var status = _simulation.CanBuyUpgrade(upgradeIndex);
@@ -309,12 +331,12 @@ public sealed class AscensionScreen : IScreen
             return new Label { Text = loc["prestige.locked"], TextColor = new Color(150, 150, 160) };
         }
 
-        int cost = _screens.Content.PrestigeUpgrades[upgradeIndex].Cost;
+        // Cena další úrovně, ne základní z dat — u opakovatelných roste.
         var button = new Button
         {
             Content = new Label
             {
-                Text = loc.Format("prestige.buy", cost),
+                Text = loc.Format("prestige.buy", Numbers.Format(_simulation.UpgradeCost(upgradeIndex))),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
             },
