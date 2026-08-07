@@ -1438,6 +1438,7 @@
     "tip.happiness": "Jak dobrze żyje się w mieście. Usługi (targ, spichlerz, warsztat) je podnoszą, ciasnota obniża. Niskie zadowolenie spowalnia wzrost — nigdy nikogo nie kosztuje życia.",
     "tip.idleBuildings": "Te budynki nie mają obsady, więc nic nie produkują. Pracownicy idą najpierw do najstarszych budynków — zwiększ ludność albo rozbierz to, czego nie potrzebujesz. Kolorowy róg na budynku pokazuje, czego mu brakuje.",
     "tip.landmark": "Wyjątkowe miejsce na mapie. Kliknij je — daje więcej niż ziemia dookoła.",
+    "tip.landmark.yield": "Można zebrać: {0} {1}",
     "tip.merge": "Cztery takie same budynki w kwadracie 2x2 stają się jednym większym. Wymaga odpowiedniego badania.",
     "tip.milestones": "Im więcej budynków jednego typu, tym lepiej wszystkie produkują. Co {0}. to kolejny stopień — stawianie wciąż tego samego typu się opłaca.",
     "tip.objective": "Krok po kroku. Skończysz jeden, pojawi się następny.",
@@ -1530,6 +1531,24 @@
     "worldsize.small": "Mały",
     "zone.farmland": "Pola",
     "zone.industry": "Przemysł",
-    "zone.residential": "Mieszkalna"
+    "zone.residential": "Mieszkalna",
+    "loading.newWorld": "Tworzę świat",
+    "loading.savedGame": "Wczytuję grę",
+    "achievement.scout": "Zwiadowca",
+    "achievement.scout.desc": "Odkryj 800 pól mapy.",
+    "achievement.surveyor": "Geodeta",
+    "achievement.surveyor.desc": "Odkryj 5000 pól mapy.",
+    "achievement.horizon_chaser": "Łowca horyzontu",
+    "achievement.horizon_chaser.desc": "Odkryj 15 000 pól mapy.",
+    "achievement.atlas_maker": "Twórca atlasu",
+    "achievement.atlas_maker.desc": "Odkryj 40 000 pól mapy.",
+    "achievement.good_neighbour": "Dobry sąsiad",
+    "achievement.good_neighbour.desc": "Przyłącz drugie obce miasto.",
+    "achievement.federation": "Federacja",
+    "achievement.federation.desc": "Przyłącz 10 obcych miast.",
+    "achievement.confederacy": "Konfederacja",
+    "achievement.confederacy.desc": "Przyłącz 20 obcych miast.",
+    "achievement.all_roads": "Wszystkie drogi prowadzą tu",
+    "achievement.all_roads.desc": "Przyłącz 35 obcych miast."
   }
 }

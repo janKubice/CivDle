@@ -2554,14 +2554,51 @@ public sealed class Simulation
             return PlacementResult.Occupied;
         }
 
-        // Voda jen tam, kde je most únosně dlouhý, se řeší u auto-silnic; ruční
-        // most nechceme přes oceán, takže vodní dlaždice hráč nedláždí.
-        if (_content.Biomes[Terrain.BiomeAt(x, y)].IsWater)
+        // Přes vodu se smí, ale jen jako MOST — tedy když je úsek dost krátký
+        // na to, aby ho most překlenul. Dřív hráč vodní dlaždici nedláždil vůbec
+        // a most se dal získat jen náhodou přes auto-silnice; přitom přemostit
+        // říčku tažením je ta nejpřirozenější věc, kterou od nástroje čeká.
+        if (_content.Biomes[Terrain.BiomeAt(x, y)].IsWater && !CanBridge(x, y))
         {
             return PlacementResult.WrongBiome;
         }
 
         return PlacementResult.Ok;
+    }
+
+    /// <summary>
+    /// Dá se přes tuhle vodní dlaždici postavit most? Změří souvislou vodu na
+    /// obě strany v obou osách a porovná s <c>roads.maxBridgeSpan</c>: přes
+    /// říčku nebo úžinu ano, přes oceán ne.
+    /// </summary>
+    private bool CanBridge(int x, int y)
+    {
+        int limit = _content.Gameplay.Roads.MaxBridgeSpan;
+        return limit > 0 && (WaterRun(x, y, 1, 0) <= limit || WaterRun(x, y, 0, 1) <= limit);
+    }
+
+    /// <summary>Délka souvislé vody přes dlaždici v daném směru (včetně jí samé).</summary>
+    private int WaterRun(int x, int y, int stepX, int stepY)
+    {
+        int limit = _content.Gameplay.Roads.MaxBridgeSpan;
+        int run = 1;
+
+        for (int sign = -1; sign <= 1; sign += 2)
+        {
+            for (int i = 1; i <= limit + 1; i++)
+            {
+                int tileX = x + stepX * i * sign;
+                int tileY = y + stepY * i * sign;
+                if (!_content.Biomes[Terrain.BiomeAt(tileX, tileY)].IsWater)
+                {
+                    break;
+                }
+
+                run++;
+            }
+        }
+
+        return run;
     }
 
     /// <summary>

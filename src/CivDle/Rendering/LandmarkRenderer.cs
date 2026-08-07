@@ -94,7 +94,14 @@ public sealed class LandmarkRenderer
     {
         const int tileSize = TerrainRenderer.TileSize;
         int span = def.Footprint * tileSize;
-        var bounds = new Rectangle(tileX * tileSize, tileY * tileSize, span, span);
+
+        // Vycentrováno NA dlaždici, ne od jejího rohu doprava dolů. Landmark je
+        // v simulaci na jedné dlaždici; když se dvoupolní sprite kreslil od
+        // rohu, seděl vedle místa, na které se dá kliknout — a přesně to hráč
+        // hlásil jako „jsou posunuté".
+        int offset = (span - tileSize) / 2;
+        var bounds = new Rectangle(
+            tileX * tileSize - offset, tileY * tileSize - offset, span, span);
 
         if (_shadow is not null)
         {

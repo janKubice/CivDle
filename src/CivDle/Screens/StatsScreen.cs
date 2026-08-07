@@ -126,10 +126,45 @@ public sealed class StatsScreen : IScreen
             var (_, max) = LineChart.RangeOf(values);
             spriteBatch.DrawString(
                 _font, Format(titleKey, max), new Vector2(bounds.Left + 4, bounds.Top + 2), new Color(118, 128, 144));
+
+            // Trend: kam to jde od poloviny záznamu. Samotné poslední číslo
+            // neřekne, jestli město roste, nebo se propadá — a přesně to hráč
+            // ve statistikách hledá.
+            DrawTrend(spriteBatch, values, card);
         }
 
         spriteBatch.End();
         _screens.RenderDesktop(this, _desktop);
+    }
+
+    /// <summary>
+    /// Šipka a procento změny od poloviny sledovaného období. Zelená nahoru,
+    /// červená dolů, šedá „beze změny".
+    /// </summary>
+    private void DrawTrend(SpriteBatch spriteBatch, List<double> values, Rectangle card)
+    {
+        if (values.Count < 4)
+        {
+            return; // z pár bodů se trend číst nedá
+        }
+
+        double past = values[values.Count / 2];
+        double now = values[^1];
+        if (past <= 0)
+        {
+            return;
+        }
+
+        double change = (now - past) / past * 100.0;
+        var color = change > 1 ? new Color(140, 225, 150)
+            : change < -1 ? new Color(230, 130, 120)
+            : new Color(150, 158, 172);
+        string arrow = change > 1 ? "^" : change < -1 ? "v" : "-";
+        string text = $"{arrow} {Math.Abs(change):0}%";
+
+        float width = _font.MeasureString(text).X;
+        spriteBatch.DrawString(
+            _font, text, new Vector2(card.Right - CardPadX - width, card.Bottom - 22), color);
     }
 
     /// <summary>Jednopixelový rámeček — Myra tu není, karty se kreslí přímo.</summary>

@@ -15,6 +15,9 @@ namespace CivDle.Screens;
 /// </summary>
 public sealed class LineChart
 {
+    /// <summary>Na kolik pruhů se rozloží gradient pod křivkou.</summary>
+    private const int FillBands = 8;
+
     private readonly Texture2D _pixel;
 
     public LineChart(Texture2D whitePixel)
@@ -61,10 +64,14 @@ public sealed class LineChart
         spriteBatch.Draw(_pixel, new Rectangle(bounds.Left, bounds.Bottom - 1, bounds.Width, 1), new Color(70, 78, 88));
 
         // Vodicí linky po čtvrtinách — bez nich se z křivky nedá odhadnout výška.
+        // Přerušované, ať konkurují křivce míň než plná linka.
         for (int i = 1; i < 4; i++)
         {
             int y = bounds.Bottom - bounds.Height * i / 4;
-            spriteBatch.Draw(_pixel, new Rectangle(bounds.Left, y, bounds.Width, 1), new Color(38, 44, 52));
+            for (int x = bounds.Left; x < bounds.Right; x += 6)
+            {
+                spriteBatch.Draw(_pixel, new Rectangle(x, y, 3, 1), new Color(44, 52, 62));
+            }
         }
 
         if (values.Count == 0)
@@ -87,19 +94,23 @@ public sealed class LineChart
         {
             var point = PointAt(values, i, bounds, min, max);
 
-            // Výplň pod čarou: svislý sloupek k základně, u čáry sytější pruh —
-            // laciný „gradient", který křivku opticky ukotví k základně.
+            // Výplň pod čarou jako opravdový gradient: pár vodorovných pruhů,
+            // které od čáry dolů slábnou. Dva ploché obdélníky předtím vytvářely
+            // viditelnou hranu a plocha pod křivkou vypadala jako slepenec.
             int columnLeft = (int)previous.X;
             int columnWidth = Math.Max(1, (int)point.X - columnLeft);
             int top = (int)Math.Min(previous.Y, point.Y);
-            spriteBatch.Draw(
-                _pixel,
-                new Rectangle(columnLeft, top, columnWidth, Math.Max(1, bounds.Bottom - top)),
-                color * 0.14f);
-            spriteBatch.Draw(
-                _pixel,
-                new Rectangle(columnLeft, top, columnWidth, Math.Min(10, Math.Max(1, bounds.Bottom - top))),
-                color * 0.10f);
+            int fillHeight = Math.Max(1, bounds.Bottom - top);
+
+            for (int band = 0; band < FillBands; band++)
+            {
+                int bandTop = top + fillHeight * band / FillBands;
+                int bandHeight = Math.Max(1, fillHeight * (band + 1) / FillBands - fillHeight * band / FillBands);
+
+                // Nahoře (u čáry) sytější, dole průhlednější.
+                float alpha = 0.26f * (1f - band / (float)FillBands);
+                spriteBatch.Draw(_pixel, new Rectangle(columnLeft, bandTop, columnWidth, bandHeight), color * alpha);
+            }
 
             // Měkká záře pod čarou + ostrá čára navrch — bez záře působila
             // 2px čára na tmavém podkladu lacině zubatě.
@@ -109,10 +120,18 @@ public sealed class LineChart
         }
 
         // Koncová tečka: „tady jsi teď". Poslední hodnota je ta, kterou hráč
-        // v grafu hledá nejdřív.
+        // v grafu hledá nejdřív — proto kolem ní ještě prstenec, aby ji oko
+        // našlo dřív než zbytek křivky.
         var last = PointAt(values, values.Count - 1, bounds, min, max);
+        spriteBatch.Draw(_pixel, new Rectangle((int)last.X - 5, (int)last.Y - 5, 10, 10), color * 0.35f);
         spriteBatch.Draw(_pixel, new Rectangle((int)last.X - 3, (int)last.Y - 3, 6, 6), Color.White * 0.9f);
         spriteBatch.Draw(_pixel, new Rectangle((int)last.X - 2, (int)last.Y - 2, 4, 4), color);
+
+        // Svislá stopka ke dnu: ukotví aktuální hodnotu k ose.
+        spriteBatch.Draw(
+            _pixel,
+            new Rectangle((int)last.X, (int)last.Y, 1, Math.Max(1, bounds.Bottom - (int)last.Y)),
+            color * 0.4f);
     }
 
     /// <summary>Úsečka po pixelech — na desítky bodů je to levnější než rotovaný sprite.</summary>

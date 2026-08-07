@@ -47,6 +47,31 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "icon.computer", IconSize, ComputerIcon);
         Add(device, "icon.robot", IconSize, RobotIcon);
 
+        // Ikony do HUD. Lišta plná slov je v akční hře nečitelná: hráč hledá
+        // tvar, ne text. Popis nese bublina, ikona nese poznání.
+        Add(device, "ui.build", IconSize, UiBuild);
+        Add(device, "ui.road", IconSize, UiRoad);
+        Add(device, "ui.demolish", IconSize, UiDemolish);
+        Add(device, "ui.zone", IconSize, UiZone);
+        Add(device, "ui.plant", IconSize, UiPlant);
+        Add(device, "ui.terraform", IconSize, UiTerraform);
+        Add(device, "ui.faith", IconSize, FaithIcon);
+        Add(device, "ui.festival", IconSize, UiFestival);
+        Add(device, "ui.home", IconSize, UiHome);
+        Add(device, "ui.settlements", IconSize, UiSettlements);
+        Add(device, "ui.quests", IconSize, UiQuests);
+        Add(device, "ui.contracts", IconSize, UiContracts);
+        Add(device, "ui.tech", IconSize, ScienceIcon);
+        Add(device, "ui.governor", IconSize, UiGovernor);
+        Add(device, "ui.ascend", IconSize, UiAscend);
+        Add(device, "ui.stats", IconSize, UiStats);
+        Add(device, "ui.trophy", IconSize, UiTrophy);
+        Add(device, "ui.chronicle", IconSize, UiChronicle);
+        Add(device, "ui.vote", IconSize, UiVote);
+        Add(device, "ui.play", IconSize, UiPlay);
+        Add(device, "ui.pause", IconSize, UiPause);
+        Add(device, "ui.fast", IconSize, UiFast);
+
         // Akce nad budovou. Ikonka nese význam rychleji než slovo — v panelu jsou
         // „šipka nahoru" a „čtyři čtverce v jeden" poznat na první pohled.
         Add(device, "icon.upgrade", IconSize, UpgradeIcon);
@@ -69,6 +94,23 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "landmark.geyser", SpriteSize, Geyser);
         Add(device, "landmark.cave", SpriteSize, Cave);
         Add(device, "landmark.oasis", SpriteSize, Oasis);
+        Add(device, "landmark.bigtree", SpriteSize, BigTree);
+        Add(device, "landmark.berries", SpriteSize, Berries);
+        Add(device, "landmark.herd", SpriteSize, Herd);
+        Add(device, "landmark.shoal", SpriteSize, Shoal);
+        Add(device, "landmark.vein", SpriteSize, OreVein);
+        Add(device, "landmark.cliff", SpriteSize, Cliff);
+        Add(device, "landmark.volcano", SpriteSize, Volcano);
+        Add(device, "landmark.lava", SpriteSize, Lava);
+        Add(device, "landmark.saltflat", SpriteSize, SaltFlat);
+        Add(device, "landmark.waterfall", SpriteSize, Waterfall);
+        Add(device, "landmark.reeds", SpriteSize, Reeds);
+        Add(device, "landmark.driftwood", SpriteSize, Driftwood);
+        Add(device, "landmark.tidepool", SpriteSize, TidePool);
+        Add(device, "landmark.icearch", SpriteSize, IceArch);
+        Add(device, "landmark.seal", SpriteSize, Seal);
+        Add(device, "landmark.kelp", SpriteSize, Kelp);
+        Add(device, "landmark.whale", SpriteSize, Whale);
 
         // Budovy.
         Add(device, "building.house", SpriteSize, canvas => House(canvas, new Color(196, 110, 66)));
@@ -344,6 +386,160 @@ public sealed class SpriteLibrary : IDisposable
         c.FillCircle(16f, 28f, 2f, new Color(110, 113, 120));
     }
 
+    // ----- ikony do HUD (24×24) -----
+
+    private static readonly Color UiInk = new(232, 236, 244);
+    private static readonly Color UiDim = new(170, 180, 196);
+
+    private static void UiBuild(PixelCanvas c)
+    {
+        c.FillTriangle(12f, 3f, 22f, 11f, 2f, 11f, new Color(212, 116, 96)); // střecha
+        c.FillRect(4, 11, 16, 10, UiInk);
+        c.FillRect(9, 15, 6, 6, new Color(90, 100, 118)); // dveře
+    }
+
+    private static void UiRoad(PixelCanvas c)
+    {
+        c.FillTriangle(7f, 2f, 17f, 2f, 21f, 22f, UiDim);
+        c.FillTriangle(7f, 2f, 21f, 22f, 3f, 22f, UiDim);
+        for (int i = 0; i < 3; i++)
+        {
+            c.FillRect(11 + i / 2, 4 + i * 7, 2, 4, new Color(250, 236, 170)); // středová čára
+        }
+    }
+
+    private static void UiDemolish(PixelCanvas c)
+    {
+        c.FillRect(4, 10, 16, 3, new Color(214, 96, 88));  // krumpáč
+        c.FillRect(11, 4, 3, 16, new Color(160, 120, 84));
+        c.FillCircle(6f, 18f, 3f, UiDim);
+        c.FillCircle(18f, 18f, 2.4f, UiDim);
+    }
+
+    private static void UiZone(PixelCanvas c)
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            c.FillRect(3 + (i % 2) * 10, 3 + (i / 2) * 10, 8, 8,
+                i % 3 == 0 ? new Color(120, 190, 230) : new Color(120, 190, 230) * 0.45f);
+        }
+    }
+
+    private static void UiPlant(PixelCanvas c)
+    {
+        c.FillRect(11, 10, 2, 12, new Color(110, 82, 50));
+        c.FillCircle(8f, 9f, 5f, new Color(72, 152, 70));
+        c.FillCircle(16f, 11f, 4.5f, new Color(56, 128, 60));
+        c.FillCircle(12f, 5f, 4f, new Color(88, 172, 78));
+    }
+
+    private static void UiTerraform(PixelCanvas c)
+    {
+        c.FillTriangle(12f, 4f, 22f, 16f, 2f, 16f, new Color(150, 140, 128)); // kopec
+        c.FillRect(2, 16, 20, 5, new Color(110, 150, 92));                    // pláň
+        c.FillRect(10, 2, 4, 6, new Color(250, 226, 150));                    // paprsek
+    }
+
+    private static void UiFestival(PixelCanvas c)
+    {
+        c.FillTriangle(12f, 20f, 5f, 6f, 19f, 6f, new Color(226, 136, 96)); // vlaječky
+        c.FillCircle(8f, 6f, 2.4f, new Color(250, 214, 120));
+        c.FillCircle(16f, 6f, 2.4f, new Color(160, 220, 240));
+        c.FillCircle(12f, 3f, 2.4f, new Color(220, 140, 200));
+    }
+
+    private static void UiHome(PixelCanvas c)
+    {
+        c.FillTriangle(12f, 3f, 22f, 12f, 2f, 12f, new Color(226, 176, 96));
+        c.FillRect(5, 12, 14, 9, UiInk);
+        c.FillRect(10, 15, 4, 6, new Color(90, 100, 118));
+    }
+
+    private static void UiSettlements(PixelCanvas c)
+    {
+        c.FillRect(3, 12, 6, 9, UiDim);
+        c.FillRect(10, 8, 6, 13, UiInk);
+        c.FillRect(17, 14, 5, 7, UiDim);
+        c.FillTriangle(13f, 3f, 17f, 8f, 9f, 8f, new Color(226, 176, 96));
+    }
+
+    private static void UiQuests(PixelCanvas c)
+    {
+        c.FillRect(4, 2, 16, 20, new Color(238, 232, 214)); // list
+        for (int i = 0; i < 3; i++)
+        {
+            c.FillRect(7, 6 + i * 5, 10, 2, UiDim);
+        }
+
+        c.FillTriangle(6f, 12f, 11f, 18f, 9f, 19f, new Color(88, 180, 96)); // fajfka
+    }
+
+    private static void UiContracts(PixelCanvas c)
+    {
+        c.FillRect(3, 6, 18, 13, new Color(196, 156, 96)); // bedna
+        c.FillRect(3, 11, 18, 3, new Color(150, 112, 66));
+        c.FillRect(10, 6, 4, 13, new Color(150, 112, 66));
+    }
+
+    private static void UiGovernor(PixelCanvas c)
+    {
+        c.FillCircle(12f, 8f, 4.5f, new Color(226, 196, 150)); // hlava
+        c.FillTriangle(12f, 12f, 21f, 22f, 3f, 22f, new Color(120, 150, 200)); // plášť
+        c.FillRect(9, 2, 6, 3, new Color(226, 176, 96)); // čelenka
+    }
+
+    private static void UiAscend(PixelCanvas c)
+    {
+        c.FillTriangle(12f, 2f, 20f, 12f, 4f, 12f, new Color(190, 160, 235));
+        c.FillRect(9, 12, 6, 10, new Color(150, 120, 205));
+        c.FillCircle(12f, 18f, 2f, new Color(240, 226, 255));
+    }
+
+    private static void UiStats(PixelCanvas c)
+    {
+        c.FillRect(3, 14, 4, 8, new Color(120, 190, 230));
+        c.FillRect(9, 9, 4, 13, new Color(150, 215, 160));
+        c.FillRect(15, 4, 4, 18, new Color(250, 214, 120));
+        c.FillRect(2, 21, 20, 2, UiDim);
+    }
+
+    private static void UiTrophy(PixelCanvas c)
+    {
+        c.FillCircle(12f, 8f, 6f, new Color(246, 206, 110));
+        c.FillRect(10, 13, 4, 5, new Color(200, 160, 80));
+        c.FillRect(6, 18, 12, 3, new Color(200, 160, 80));
+        c.FillCircle(12f, 7f, 2.4f, new Color(255, 236, 180));
+    }
+
+    private static void UiChronicle(PixelCanvas c)
+    {
+        c.FillRect(3, 4, 18, 16, new Color(140, 96, 70)); // desky
+        c.FillRect(5, 6, 14, 12, new Color(238, 232, 214));
+        c.FillRect(11, 4, 2, 16, new Color(110, 74, 54)); // hřbet
+    }
+
+    private static void UiVote(PixelCanvas c)
+    {
+        c.FillRect(3, 9, 18, 12, new Color(150, 160, 180)); // urna
+        c.FillRect(8, 3, 8, 7, new Color(238, 232, 214));   // lístek
+        c.FillRect(9, 8, 6, 2, new Color(90, 100, 118));    // štěrbina
+    }
+
+    private static void UiPlay(PixelCanvas c) =>
+        c.FillTriangle(6f, 3f, 20f, 12f, 6f, 21f, new Color(150, 220, 150));
+
+    private static void UiPause(PixelCanvas c)
+    {
+        c.FillRect(6, 4, 4, 16, new Color(250, 214, 120));
+        c.FillRect(14, 4, 4, 16, new Color(250, 214, 120));
+    }
+
+    private static void UiFast(PixelCanvas c)
+    {
+        c.FillTriangle(2f, 4f, 12f, 12f, 2f, 20f, new Color(150, 220, 190));
+        c.FillTriangle(11f, 4f, 21f, 12f, 11f, 20f, new Color(150, 220, 190));
+    }
+
     // ----- výrazná místa na mapě (32×32) -----
 
     /// <summary>Vrak lodi: nakloněný trup, zlomený stěžeň, cáry plachty.</summary>
@@ -444,6 +640,186 @@ public sealed class SpriteLibrary : IDisposable
         c.FillCircle(9f, 8f, 4f, new Color(56, 128, 60));
         c.FillRect(23, 10, 2, 10, new Color(104, 76, 50));
         c.FillCircle(24f, 10f, 3.5f, new Color(46, 112, 52));
+    }
+
+    /// <summary>Prastarý strom: mohutný kmen a široká koruna.</summary>
+    private static void BigTree(PixelCanvas c)
+    {
+        c.FillRect(13, 16, 6, 15, new Color(84, 56, 34));
+        c.FillTriangle(13f, 22f, 8f, 30f, 14f, 30f, new Color(84, 56, 34)); // kořen
+        c.FillTriangle(19f, 22f, 24f, 30f, 18f, 30f, new Color(84, 56, 34));
+        c.FillCircle(16f, 12f, 11f, new Color(38, 92, 42));
+        c.FillCircle(10f, 10f, 7f, new Color(48, 110, 48));
+        c.FillCircle(22f, 11f, 7f, new Color(32, 82, 38));
+        c.FillCircle(16f, 5f, 6f, new Color(56, 124, 54));
+    }
+
+    /// <summary>Keře s bobulemi.</summary>
+    private static void Berries(PixelCanvas c)
+    {
+        c.FillCircle(11f, 22f, 7f, new Color(46, 104, 50));
+        c.FillCircle(21f, 21f, 7f, new Color(38, 92, 44));
+        for (int i = 0; i < 6; i++)
+        {
+            c.FillCircle(8f + i * 3.4f, 19f + (i % 3) * 3f, 1.6f, new Color(206, 62, 78));
+        }
+    }
+
+    /// <summary>Stádo: tři siluety zvířat.</summary>
+    private static void Herd(PixelCanvas c)
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            int x = 4 + i * 9;
+            int y = 14 + (i % 2) * 6;
+            c.FillRect(x, y, 7, 4, new Color(140, 96, 60));   // tělo
+            c.FillRect(x + 5, y - 2, 3, 3, new Color(124, 84, 52)); // hlava
+            c.FillRect(x + 1, y + 4, 1, 3, new Color(96, 66, 42));  // nohy
+            c.FillRect(x + 5, y + 4, 1, 3, new Color(96, 66, 42));
+        }
+    }
+
+    /// <summary>Hejno ryb.</summary>
+    private static void Shoal(PixelCanvas c)
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            float x = 6f + (i % 3) * 9f;
+            float y = 10f + (i / 3) * 10f + (i % 2) * 4f;
+            c.FillCircle(x, y, 3f, new Color(120, 190, 210));
+            c.FillTriangle(x - 3f, y, x - 6f, y - 2.5f, x - 6f, y + 2.5f, new Color(96, 165, 190));
+        }
+    }
+
+    /// <summary>Rudná žíla: kámen s lesklými zrny.</summary>
+    private static void OreVein(PixelCanvas c)
+    {
+        c.FillCircle(16f, 21f, 11f, new Color(104, 100, 96));
+        c.FillCircle(12f, 18f, 6f, new Color(126, 122, 116));
+        c.FillCircle(12f, 19f, 2.2f, new Color(214, 158, 78));
+        c.FillCircle(20f, 22f, 2f, new Color(214, 158, 78));
+        c.FillCircle(17f, 15f, 1.6f, new Color(236, 190, 110));
+    }
+
+    /// <summary>Sráz / mesa: stupňovitá skála.</summary>
+    private static void Cliff(PixelCanvas c)
+    {
+        c.FillRect(4, 18, 24, 13, new Color(146, 106, 76));
+        c.FillRect(7, 12, 18, 6, new Color(168, 124, 88));
+        c.FillRect(11, 7, 10, 5, new Color(186, 140, 100));
+        c.FillRect(4, 18, 24, 2, new Color(120, 86, 62)); // vrstva
+        c.FillRect(7, 12, 18, 2, new Color(140, 102, 72));
+    }
+
+    /// <summary>Sopka: kužel, kráter a dým.</summary>
+    private static void Volcano(PixelCanvas c)
+    {
+        c.FillTriangle(16f, 6f, 30f, 30f, 2f, 30f, new Color(92, 78, 74));
+        c.FillTriangle(16f, 9f, 24f, 30f, 8f, 30f, new Color(112, 96, 90));
+        c.FillCircle(16f, 8f, 4f, new Color(214, 92, 48));  // kráter
+        c.FillCircle(16f, 4f, 3f, new Color(90, 84, 82) * 0.8f); // dým
+        c.FillTriangle(16f, 10f, 20f, 22f, 13f, 22f, new Color(226, 118, 56)); // láva
+    }
+
+    /// <summary>Lávové jezero.</summary>
+    private static void Lava(PixelCanvas c)
+    {
+        c.FillCircle(16f, 18f, 12f, new Color(72, 44, 40));
+        c.FillCircle(16f, 18f, 9f, new Color(198, 74, 36));
+        c.FillCircle(13f, 16f, 4f, new Color(240, 150, 60));
+        c.FillCircle(20f, 21f, 3f, new Color(250, 196, 90));
+    }
+
+    /// <summary>Solná pláň: bílé desky s prasklinami.</summary>
+    private static void SaltFlat(PixelCanvas c)
+    {
+        c.FillRect(3, 10, 26, 16, new Color(232, 230, 222));
+        c.FillRect(3, 17, 26, 1, new Color(196, 194, 186));
+        c.FillRect(11, 10, 1, 16, new Color(196, 194, 186));
+        c.FillRect(21, 10, 1, 16, new Color(196, 194, 186));
+    }
+
+    /// <summary>Vodopád: sráz a padající voda.</summary>
+    private static void Waterfall(PixelCanvas c)
+    {
+        c.FillRect(3, 6, 26, 22, new Color(118, 110, 100));
+        c.FillRect(11, 4, 10, 24, new Color(120, 186, 216));
+        c.FillRect(13, 4, 2, 24, new Color(186, 226, 240));
+        c.FillCircle(16f, 28f, 6f, new Color(150, 205, 226)); // tůň
+        c.FillCircle(16f, 28f, 3f, new Color(210, 238, 246));
+    }
+
+    /// <summary>Rákosí / rašeliniště.</summary>
+    private static void Reeds(PixelCanvas c)
+    {
+        c.FillCircle(16f, 25f, 10f, new Color(78, 82, 60));
+        for (int i = 0; i < 7; i++)
+        {
+            int x = 5 + i * 4;
+            c.FillRect(x, 10 + (i % 3) * 3, 1, 16, new Color(126, 138, 78));
+            c.FillCircle(x + 0.5f, 10f + (i % 3) * 3f, 1.4f, new Color(150, 116, 68));
+        }
+    }
+
+    /// <summary>Naplavené dřevo.</summary>
+    private static void Driftwood(PixelCanvas c)
+    {
+        c.FillRect(4, 20, 24, 4, new Color(158, 140, 116));
+        c.FillRect(9, 15, 16, 3, new Color(178, 160, 134));
+        c.FillTriangle(24f, 20f, 30f, 16f, 28f, 23f, new Color(148, 130, 108));
+    }
+
+    /// <summary>Přílivová tůň.</summary>
+    private static void TidePool(PixelCanvas c)
+    {
+        c.FillCircle(16f, 20f, 11f, new Color(126, 122, 114));
+        c.FillCircle(16f, 20f, 8f, new Color(84, 168, 186));
+        c.FillCircle(14f, 19f, 2f, new Color(210, 120, 130)); // sasanka
+        c.FillCircle(20f, 22f, 1.5f, new Color(240, 190, 110));
+    }
+
+    /// <summary>Ledový oblouk.</summary>
+    private static void IceArch(PixelCanvas c)
+    {
+        c.FillCircle(16f, 22f, 13f, new Color(196, 226, 240));
+        c.FillCircle(16f, 26f, 8f, new Color(70, 120, 160));
+        c.FillRect(8, 26, 16, 6, new Color(70, 120, 160));
+        c.FillCircle(11f, 13f, 3f, new Color(230, 245, 252));
+    }
+
+    /// <summary>Kolonie tuleňů.</summary>
+    private static void Seal(PixelCanvas c)
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            float x = 8f + i * 8f;
+            float y = 18f + (i % 2) * 6f;
+            c.FillCircle(x, y, 4f, new Color(96, 96, 104));
+            c.FillCircle(x + 3.5f, y - 2f, 2.2f, new Color(112, 112, 120));
+            c.FillTriangle(x - 4f, y, x - 8f, y - 2f, x - 8f, y + 2f, new Color(84, 84, 92));
+        }
+    }
+
+    /// <summary>Chaluhový les.</summary>
+    private static void Kelp(PixelCanvas c)
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            int x = 5 + i * 5;
+            c.FillRect(x, 6 + (i % 3) * 4, 2, 24, new Color(56, 104, 66));
+            c.FillCircle(x + 1f, 8f + (i % 3) * 4f, 2.4f, new Color(74, 130, 78));
+            c.FillCircle(x + 1f, 16f + (i % 2) * 4f, 2f, new Color(66, 118, 72));
+        }
+    }
+
+    /// <summary>Hejno velryb: hřbet a fontána.</summary>
+    private static void Whale(PixelCanvas c)
+    {
+        c.FillCircle(15f, 22f, 10f, new Color(64, 84, 110));
+        c.FillCircle(15f, 25f, 10f, new Color(74, 132, 168)); // ponořená část splývá s vodou
+        c.FillTriangle(26f, 20f, 31f, 15f, 30f, 23f, new Color(58, 76, 100)); // ocas
+        c.FillCircle(11f, 10f, 2.5f, new Color(220, 240, 248) * 0.9f); // fontána
+        c.FillCircle(11f, 6f, 2f, new Color(220, 240, 248) * 0.6f);
     }
 
     // ----- budovy (32×32) -----

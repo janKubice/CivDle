@@ -1438,6 +1438,7 @@
     "tip.happiness": "Lo bien que se vive en la ciudad. Los servicios (mercado, granero, taller) la suben; el hacinamiento la baja. Poca felicidad frena el crecimiento: nunca le cuesta la vida a nadie.",
     "tip.idleBuildings": "Estos edificios no tienen a nadie que los atienda, así que no producen nada. Los trabajadores van primero a los edificios más antiguos: haz crecer la población o derriba lo que no necesites. La esquina de color del edificio indica qué le falta.",
     "tip.landmark": "Un lugar especial del mapa. Haz clic: rinde más que el terreno de alrededor.",
+    "tip.landmark.yield": "Se puede recoger: {0} {1}",
     "tip.merge": "Cuatro edificios iguales en un cuadrado de 2x2 se convierten en uno mayor. Requiere la investigación adecuada.",
     "tip.milestones": "Cuantos más edificios de un tipo tengas, mejor producen todos. Cada {0}.º es un nivel más: repetir el mismo tipo compensa.",
     "tip.objective": "Un paso cada vez. Al terminarlo aparece el siguiente.",
@@ -1530,6 +1531,24 @@
     "worldsize.small": "Pequeño",
     "zone.farmland": "Cultivos",
     "zone.industry": "Industrial",
-    "zone.residential": "Residencial"
+    "zone.residential": "Residencial",
+    "loading.newWorld": "Creando el mundo",
+    "loading.savedGame": "Cargando la partida",
+    "achievement.scout": "Explorador",
+    "achievement.scout.desc": "Revela 800 casillas del mapa.",
+    "achievement.surveyor": "Agrimensor",
+    "achievement.surveyor.desc": "Revela 5000 casillas del mapa.",
+    "achievement.horizon_chaser": "Tras el horizonte",
+    "achievement.horizon_chaser.desc": "Revela 15 000 casillas del mapa.",
+    "achievement.atlas_maker": "Creador de atlas",
+    "achievement.atlas_maker.desc": "Revela 40 000 casillas del mapa.",
+    "achievement.good_neighbour": "Buen vecino",
+    "achievement.good_neighbour.desc": "Incorpora una segunda ciudad extranjera.",
+    "achievement.federation": "Federación",
+    "achievement.federation.desc": "Incorpora 10 ciudades extranjeras.",
+    "achievement.confederacy": "Confederación",
+    "achievement.confederacy.desc": "Incorpora 20 ciudades extranjeras.",
+    "achievement.all_roads": "Todos los caminos llevan aquí",
+    "achievement.all_roads.desc": "Incorpora 35 ciudades extranjeras."
   }
 }

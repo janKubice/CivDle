@@ -105,6 +105,9 @@ public sealed class NewGameScreen : IScreen
         string sizeId = content.WorldGen.Sizes[content.WorldGen.DefaultSizeIndex].Id;
         var info = new WorldInfo(seed, sizeId, preset.Id);
 
-        _screens.ReplaceAll(new GameplayScreen(_screens, simulation, info));
+        // Přes načítací obrazovku: skok z menu rovnou do rozehrané mapy působil
+        // jako záseknutí, hráč nestihl přepnout pozornost.
+        _screens.ReplaceAll(new LoadingScreen(
+            _screens, "loading.newWorld", () => new GameplayScreen(_screens, simulation, info)));
     }
 }

@@ -163,6 +163,8 @@ public sealed class MainMenuScreen : IScreen
         }
 
         var info = new WorldInfo(loaded.Metadata.Seed, loaded.Metadata.SizeId, loaded.Metadata.PresetId);
-        _screens.ReplaceAll(new GameplayScreen(_screens, loaded.Simulation, info, loaded.Metadata.SavedAtUtc));
+        _screens.ReplaceAll(new LoadingScreen(
+            _screens, "loading.savedGame",
+            () => new GameplayScreen(_screens, loaded.Simulation, info, loaded.Metadata.SavedAtUtc)));
     }
 }

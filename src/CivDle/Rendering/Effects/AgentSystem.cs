@@ -46,7 +46,17 @@ public sealed class AgentSystem
     private const float PedestrianRoadShare = 0.5f;
 
     /// <summary>Jak často se u přístavní budovy místo chodce objeví loďka.</summary>
-    private const float BoatChance = 0.55f;
+    /// <summary>
+    /// Jak často se místo chodce zkusí vypustit loďka.
+    ///
+    /// <para>Bývalo 0,55 — tedy víc než polovina všech spawnů. Když se lodě
+    /// začaly hledat cíleně (dřív se čekalo na náhodný los), znamenalo to moře
+    /// plné lodí. Loďka je koření, ne hlavní chod.</para>
+    /// </summary>
+    private const float BoatChance = 0.1f;
+
+    /// <summary>Kolik lodí smí být na hladině naráz.</summary>
+    private const int MaxBoats = 6;
 
     private struct Agent
     {
@@ -183,6 +193,21 @@ public sealed class AgentSystem
         }
     }
 
+    /// <summary>Kolik lodí je zrovna na vodě — nad strop se další nepouští.</summary>
+    private int CountBoats()
+    {
+        int boats = 0;
+        for (int i = 0; i < _count; i++)
+        {
+            if (_agents[i].Kind == Kind.Boat)
+            {
+                boats++;
+            }
+        }
+
+        return boats;
+    }
+
     /// <summary>
     /// Vypustí loďku od budovy, která pracuje na vodě.
     ///
@@ -284,6 +309,7 @@ public sealed class AgentSystem
         // která stojí na pláži obklopené vodou. Výsledek: hráč lodě nikdy
         // neviděl, ačkoli byly celou dobu naprogramované.
         if (Random.Shared.NextSingle() < BoatChance
+            && CountBoats() < MaxBoats
             && TrySpawnBoat(simulation, min, max))
         {
             return;

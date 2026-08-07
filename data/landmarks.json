@@ -12,7 +12,9 @@
       "clickYield": {
         "resource": "wood",
         "amount": 12
-      }
+      },
+      "sprite": "bigtree",
+      "footprint": 2
     },
     {
       "id": "berry_grove",
@@ -26,7 +28,8 @@
       "clickYield": {
         "resource": "food",
         "amount": 8
-      }
+      },
+      "sprite": "berries"
     },
     {
       "id": "deer_herd",
@@ -40,7 +43,9 @@
       "clickYield": {
         "resource": "food",
         "amount": 14
-      }
+      },
+      "sprite": "herd",
+      "footprint": 2
     },
     {
       "id": "fish_shoal",
@@ -53,7 +58,9 @@
       "clickYield": {
         "resource": "food",
         "amount": 10
-      }
+      },
+      "sprite": "shoal",
+      "footprint": 2
     },
     {
       "id": "ore_vein",
@@ -67,7 +74,8 @@
       "clickYield": {
         "resource": "stone",
         "amount": 14
-      }
+      },
+      "sprite": "vein"
     },
     {
       "id": "geyser",
@@ -87,7 +95,9 @@
       ],
       "mapColor": "#9C5A32",
       "size": 14,
-      "rarity": 800
+      "rarity": 800,
+      "sprite": "cliff",
+      "footprint": 2
     },
     {
       "id": "stone_circle",
@@ -112,7 +122,9 @@
       "clickYield": {
         "resource": "stone",
         "amount": 22
-      }
+      },
+      "sprite": "volcano",
+      "footprint": 2
     },
     {
       "id": "lava_lake",
@@ -121,7 +133,9 @@
       ],
       "mapColor": "#E0561F",
       "size": 13,
-      "rarity": 1400
+      "rarity": 1400,
+      "sprite": "lava",
+      "footprint": 2
     },
     {
       "id": "obsidian_flow",
@@ -171,7 +185,9 @@
       ],
       "mapColor": "#E8E4D8",
       "size": 14,
-      "rarity": 800
+      "rarity": 800,
+      "sprite": "saltflat",
+      "footprint": 2
     },
     {
       "id": "meteor_crater",
@@ -213,7 +229,9 @@
       ],
       "mapColor": "#A0603A",
       "size": 15,
-      "rarity": 900
+      "rarity": 900,
+      "sprite": "cliff",
+      "footprint": 2
     },
     {
       "id": "waterfall",
@@ -227,7 +245,9 @@
       "clickYield": {
         "resource": "food",
         "amount": 10
-      }
+      },
+      "sprite": "waterfall",
+      "footprint": 2
     },
     {
       "id": "cave_mouth",
@@ -307,7 +327,9 @@
       "clickYield": {
         "resource": "wood",
         "amount": 18
-      }
+      },
+      "sprite": "bigtree",
+      "footprint": 2
     },
     {
       "id": "ancient_ruins",
@@ -337,7 +359,9 @@
       "clickYield": {
         "resource": "food",
         "amount": 12
-      }
+      },
+      "sprite": "bigtree",
+      "footprint": 2
     },
     {
       "id": "peat_bog",
@@ -350,7 +374,9 @@
       "clickYield": {
         "resource": "coal",
         "amount": 12
-      }
+      },
+      "sprite": "reeds",
+      "footprint": 2
     },
     {
       "id": "mangrove_roots",
@@ -363,7 +389,9 @@
       "clickYield": {
         "resource": "wood",
         "amount": 12
-      }
+      },
+      "sprite": "reeds",
+      "footprint": 2
     },
     {
       "id": "driftwood",
@@ -376,7 +404,8 @@
       "clickYield": {
         "resource": "wood",
         "amount": 10
-      }
+      },
+      "sprite": "driftwood"
     },
     {
       "id": "tide_pool",
@@ -390,7 +419,8 @@
       "clickYield": {
         "resource": "food",
         "amount": 9
-      }
+      },
+      "sprite": "tidepool"
     },
     {
       "id": "glacier_cave",
@@ -411,7 +441,9 @@
       ],
       "mapColor": "#CDE8F6",
       "size": 13,
-      "rarity": 1100
+      "rarity": 1100,
+      "sprite": "icearch",
+      "footprint": 2
     },
     {
       "id": "seal_colony",
@@ -425,7 +457,9 @@
       "clickYield": {
         "resource": "food",
         "amount": 14
-      }
+      },
+      "sprite": "seal",
+      "footprint": 2
     },
     {
       "id": "kelp_forest",
@@ -439,7 +473,9 @@
       "clickYield": {
         "resource": "food",
         "amount": 12
-      }
+      },
+      "sprite": "kelp",
+      "footprint": 2
     },
     {
       "id": "whale_pod",
@@ -453,7 +489,9 @@
       "clickYield": {
         "resource": "food",
         "amount": 26
-      }
+      },
+      "sprite": "whale",
+      "footprint": 2
     },
     {
       "id": "shipwreck",
@@ -482,7 +520,8 @@
       "clickYield": {
         "resource": "copper_ore",
         "amount": 18
-      }
+      },
+      "sprite": "geyser"
     },
     {
       "id": "mammoth_bones",
@@ -508,7 +547,9 @@
       ],
       "mapColor": "#B8DCF0",
       "size": 11,
-      "rarity": 1000
+      "rarity": 1000,
+      "sprite": "waterfall",
+      "footprint": 2
     }
   ]
 }

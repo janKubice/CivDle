@@ -513,6 +513,15 @@ public sealed class MapTools
             return;
         }
 
+        // Puštění tlačítka se vyřídí VŽDYCKY, i když kurzor zrovna skončil nad
+        // panelem. Dřív se v takovém případě vyskočilo dřív a rozestavěný úsek
+        // se nepostavil — a hráč zůstal s pocitem, že nástroj nefunguje.
+        if (_roadDragging && _input.WasLeftReleased)
+        {
+            CommitRoadPath();
+            return;
+        }
+
         if (mouseOverUi)
         {
             return;
@@ -545,11 +554,15 @@ public sealed class MapTools
 
         TracePath(_roadAnchorX, _roadAnchorY, x, y);
 
-        if (_input.IsLeftDown)
+        if (!_input.IsLeftDown)
         {
-            return; // pořád táhne — jen náhled
+            CommitRoadPath();
         }
+    }
 
+    /// <summary>Postaví (nebo strhne) celou rozestavěnou trasu a tah ukončí.</summary>
+    private void CommitRoadPath()
+    {
         foreach (var (tileX, tileY) in _roadPath)
         {
             if (RoadEraseMode)
