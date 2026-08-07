@@ -1610,6 +1610,10 @@
     "worldsize.small": "Small",
     "zone.farmland": "Farmland",
     "zone.industry": "Industrial",
-    "zone.residential": "Residential"
+    "zone.power": "Power",
+    "zone.residential": "Residential",
+    "zone.science": "Science",
+    "zone.services": "Services",
+    "zone.storage": "Storage"
   }
 }

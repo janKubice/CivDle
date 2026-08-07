@@ -1610,6 +1610,10 @@
     "worldsize.small": "Mały",
     "zone.farmland": "Pola",
     "zone.industry": "Przemysł",
-    "zone.residential": "Mieszkalna"
+    "zone.power": "Energetyczna",
+    "zone.residential": "Mieszkalna",
+    "zone.science": "Naukowa",
+    "zone.services": "Usługowa",
+    "zone.storage": "Magazynowa"
   }
 }

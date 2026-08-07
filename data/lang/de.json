@@ -1610,6 +1610,10 @@
     "worldsize.small": "Klein",
     "zone.farmland": "Ackerland",
     "zone.industry": "Industrie",
-    "zone.residential": "Wohngebiet"
+    "zone.power": "Energie",
+    "zone.residential": "Wohngebiet",
+    "zone.science": "Wissenschaft",
+    "zone.services": "Dienstleistungen",
+    "zone.storage": "Lager"
   }
 }

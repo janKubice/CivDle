@@ -1,8 +1,41 @@
 {
   "schemaVersion": 1,
+  "_comment": "Zony (automatizace, stupen 3). Poradi budov v 'buildings' jde od nejskromnejsi po nejlepsi — plneni zony bere posledni, na kterou mesto uz ma. Diky tomu se namalovana ctvrt sama modernizuje s pokrokem, misto aby dal stavela chalupy.",
   "zones": [
-    { "id": "residential", "mapColor": "#4C7BD9", "buildings": ["house"] },
-    { "id": "farmland", "mapColor": "#7FB93E", "buildings": ["farm"] },
-    { "id": "industry", "mapColor": "#8A8A8A", "buildings": ["lumber_camp", "quarry"] }
+    {
+      "id": "residential",
+      "mapColor": "#4C7BD9",
+      "buildings": ["house", "cottage", "brick_house", "tenement", "apartment", "high_rise"]
+    },
+    {
+      "id": "farmland",
+      "mapColor": "#7FB93E",
+      "buildings": ["farm", "plantation", "hydroponics"]
+    },
+    {
+      "id": "industry",
+      "mapColor": "#8A8A8A",
+      "buildings": ["lumber_camp", "quarry", "workshop", "sawmill", "machine_shop", "factory"]
+    },
+    {
+      "id": "services",
+      "mapColor": "#D98C4C",
+      "buildings": ["market", "park", "fountain_square", "city_park"]
+    },
+    {
+      "id": "storage",
+      "mapColor": "#B0A070",
+      "buildings": ["granary", "warehouse", "depot"]
+    },
+    {
+      "id": "science",
+      "mapColor": "#5CC7D9",
+      "buildings": ["library", "school", "university", "research_lab"]
+    },
+    {
+      "id": "power",
+      "mapColor": "#D9C24C",
+      "buildings": ["coal_power_plant", "solar_array", "fusion_plant"]
+    }
   ]
 }

@@ -470,7 +470,7 @@ internal sealed class AutoBuildSystem
                 continue;
             }
 
-            int score = PlacementScore(sim, x, y) - (offsetX * offsetX + offsetY * offsetY);
+            int score = CityLayout.Score(sim, x, y) - (offsetX * offsetX + offsetY * offsetY);
             if (score > bestScore)
             {
                 bestScore = score;
@@ -488,48 +488,4 @@ internal sealed class AutoBuildSystem
             && sim.TryPlaceBuilding(defIndex, bestX, bestY) == PlacementResult.Ok;
     }
 
-    /// <summary>
-    /// Jak hezky místo zapadne do města.
-    ///
-    /// <para>Dřív se bralo první volné políčko od kotvy, takže město rostlo jako
-    /// beztvará skvrna — přesně ta „náhodná změť", kvůli které auto-stavba
-    /// vypadala jako chyba, ne jako civilizace. Tři pravidla stačí, aby z toho
-    /// bylo město: <b>stavět k cestám</b> (ulice vznikají samy), <b>lepit se
-    /// k sousedům</b> (zástavba je celistvá, ne roztroušená) a <b>nezazdít se</b>
-    /// (domek obklopený ze všech stran nemá kudy ven a vypadá to špatně).</para>
-    ///
-    /// <para>Běží jen na hrstce kandidátů jednou za interval, ne v tikové smyčce.</para>
-    /// </summary>
-    private static int PlacementScore(Simulation sim, int x, int y)
-    {
-        int roads = 0;
-        int neighbours = 0;
-
-        // Jen čtyři ortogonální sousedé: ulice a fronta domů se poznají podle
-        // stran, ne podle rohů.
-        if (sim.HasRoadAt(x - 1, y)) { roads++; } else if (sim.IsOccupied(x - 1, y)) { neighbours++; }
-        if (sim.HasRoadAt(x + 1, y)) { roads++; } else if (sim.IsOccupied(x + 1, y)) { neighbours++; }
-        if (sim.HasRoadAt(x, y - 1)) { roads++; } else if (sim.IsOccupied(x, y - 1)) { neighbours++; }
-        if (sim.HasRoadAt(x, y + 1)) { roads++; } else if (sim.IsOccupied(x, y + 1)) { neighbours++; }
-
-        int score = (roads * RoadWeight) + (neighbours * NeighbourWeight);
-
-        // Zazděné místo: ani jedna volná strana. Takový dům je slepý a shluk
-        // z nich vypadá jako slitek, ne jako čtvrť.
-        if (roads + neighbours == 4)
-        {
-            score -= EnclosedPenalty;
-        }
-
-        return score;
-    }
-
-    /// <summary>Cesta u domu váží nejvíc — kolem ní vznikají ulice.</summary>
-    private const int RoadWeight = 9;
-
-    /// <summary>Soused drží zástavbu pohromadě, ale slabšeji než cesta.</summary>
-    private const int NeighbourWeight = 3;
-
-    /// <summary>Sráží místo bez jediné volné strany.</summary>
-    private const int EnclosedPenalty = 14;
 }
