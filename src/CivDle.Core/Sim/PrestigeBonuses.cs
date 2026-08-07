@@ -17,6 +17,10 @@ namespace CivDle.Core.Sim;
 /// <param name="DiscoveryLuck">Násobič hustoty nálezů na mapě (1.0 = beze změny).</param>
 /// <param name="FestivalPower">Násobič síly slavnosti nad rámec základního boostu.</param>
 /// <param name="ResearchDiscount">Podíl, o který zlevní výzkum (0.25 = −25 %).</param>
+/// <param name="AutoBuildSpeed">
+/// Násobič tempa automatické výstavby. Je to jeden z mála bonusů, který hráč
+/// <b>vidí</b> na mapě: město se po Vzestupu rozrůstá viditelně rychleji.
+/// </param>
 public readonly record struct PrestigeBonuses(
     double ProductionMult,
     double HarvestMult,
@@ -29,7 +33,8 @@ public readonly record struct PrestigeBonuses(
     double JackpotChance = 0.0,
     double DiscoveryLuck = 1.0,
     double FestivalPower = 1.0,
-    double ResearchDiscount = 0.0)
+    double ResearchDiscount = 0.0,
+    double AutoBuildSpeed = 1.0)
 {
     /// <summary>Neutrální bonusy (vše 1.0 / 0) — žádné upgrady.</summary>
     public static PrestigeBonuses None { get; } = new(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0);

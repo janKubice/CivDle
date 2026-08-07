@@ -1549,6 +1549,11 @@
     "achievement.confederacy": "Konfederacja",
     "achievement.confederacy.desc": "Przyłącz 20 obcych miast.",
     "achievement.all_roads": "Wszystkie drogi prowadzą tu",
-    "achievement.all_roads.desc": "Przyłącz 35 obcych miast."
+    "achievement.all_roads.desc": "Przyłącz 35 obcych miast.",
+    "power.title": "potęga cywilizacji",
+    "power.prestige": "Wniebowstąpienie",
+    "power.research": "badania",
+    "power.milestones": "kamienie milowe",
+    "power.festival": "święto"
   }
 }

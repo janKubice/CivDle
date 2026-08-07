@@ -1,35 +1,225 @@
 {
   "schemaVersion": 1,
   "ascension": {
-    "requirement": { "metric": "population", "target": 250 },
+    "requirement": {
+      "metric": "population",
+      "target": 250
+    },
     "requirementGrowth": 3.0,
-    "points": { "metric": "population", "divisor": 60 }
+    "points": {
+      "metric": "population",
+      "divisor": 4,
+      "exponent": 0.5
+    }
   },
   "upgrades": [
-    { "id": "industrious",    "effect": "production_mult", "magnitude": 0.30, "cost": 1 },
-    { "id": "sharp_tools",    "effect": "harvest_mult",    "magnitude": 0.50, "cost": 1 },
-    { "id": "fertile",        "effect": "growth_mult",     "magnitude": 0.35, "cost": 1 },
-    { "id": "granaries",      "effect": "storage_mult",    "magnitude": 0.50, "cost": 2 },
-    { "id": "spacious",       "effect": "housing_mult",    "magnitude": 0.40, "cost": 2, "prerequisites": ["fertile"] },
-    { "id": "legacy",         "effect": "start_resources", "magnitude": 1.00, "cost": 2, "prerequisites": ["industrious"] },
-    { "id": "manufactories",  "effect": "production_mult", "magnitude": 0.60, "cost": 3, "prerequisites": ["industrious"] },
-    { "id": "population_boom", "effect": "growth_mult",    "magnitude": 0.75, "cost": 3, "prerequisites": ["fertile"] },
-    { "id": "great_depots",   "effect": "storage_mult",    "magnitude": 1.00, "cost": 4, "prerequisites": ["granaries"] },
-    { "id": "night_shift",    "effect": "offline_mult",    "magnitude": 0.50, "cost": 2, "prerequisites": ["industrious"] },
-
-    { "id": "lucky_hands",    "effect": "crit_chance",     "magnitude": 0.08, "cost": 2, "prerequisites": ["sharp_tools"] },
-    { "id": "masters_touch",  "effect": "crit_chance",     "magnitude": 0.12, "cost": 4, "prerequisites": ["lucky_hands"] },
-    { "id": "whale_song",     "effect": "jackpot_chance",  "magnitude": 0.01, "cost": 3, "prerequisites": ["lucky_hands"] },
-    { "id": "leviathan",      "effect": "jackpot_chance",  "magnitude": 0.03, "cost": 6, "prerequisites": ["whale_song"] },
-    { "id": "pathfinders",    "effect": "discovery_luck",  "magnitude": 0.60, "cost": 2, "prerequisites": ["sharp_tools"] },
-    { "id": "cartographers",  "effect": "discovery_luck",  "magnitude": 1.40, "cost": 5, "prerequisites": ["pathfinders"] },
-    { "id": "carnival",       "effect": "festival_power",  "magnitude": 0.35, "cost": 2 },
-    { "id": "grand_carnival", "effect": "festival_power",  "magnitude": 0.80, "cost": 5, "prerequisites": ["carnival"] },
-    { "id": "scholars",       "effect": "research_discount", "magnitude": 0.20, "cost": 3 },
-    { "id": "great_library",  "effect": "research_discount", "magnitude": 0.30, "cost": 6, "prerequisites": ["scholars"] },
-    { "id": "deep_veins",     "effect": "harvest_mult",    "magnitude": 1.20, "cost": 5, "prerequisites": ["sharp_tools"] },
-    { "id": "world_engine",   "effect": "production_mult", "magnitude": 1.50, "cost": 8, "prerequisites": ["manufactories"] },
-    { "id": "sleepless_city", "effect": "offline_mult",    "magnitude": 1.00, "cost": 5, "prerequisites": ["night_shift"] },
-    { "id": "arcologies",     "effect": "housing_mult",    "magnitude": 1.20, "cost": 6, "prerequisites": ["spacious"] }
+    {
+      "id": "industrious",
+      "effect": "production_mult",
+      "magnitude": 0.3,
+      "cost": 1,
+      "maxLevel": 100,
+      "costGrowth": 1.18
+    },
+    {
+      "id": "sharp_tools",
+      "effect": "harvest_mult",
+      "magnitude": 0.5,
+      "cost": 1,
+      "maxLevel": 100,
+      "costGrowth": 1.18
+    },
+    {
+      "id": "fertile",
+      "effect": "growth_mult",
+      "magnitude": 0.35,
+      "cost": 1,
+      "maxLevel": 100,
+      "costGrowth": 1.18
+    },
+    {
+      "id": "granaries",
+      "effect": "storage_mult",
+      "magnitude": 0.5,
+      "cost": 2,
+      "maxLevel": 80,
+      "costGrowth": 1.2
+    },
+    {
+      "id": "spacious",
+      "effect": "housing_mult",
+      "magnitude": 0.4,
+      "cost": 2,
+      "prerequisites": [
+        "fertile"
+      ],
+      "maxLevel": 80,
+      "costGrowth": 1.2
+    },
+    {
+      "id": "legacy",
+      "effect": "start_resources",
+      "magnitude": 1.0,
+      "cost": 2,
+      "prerequisites": [
+        "industrious"
+      ]
+    },
+    {
+      "id": "manufactories",
+      "effect": "production_mult",
+      "magnitude": 0.6,
+      "cost": 3,
+      "prerequisites": [
+        "industrious"
+      ]
+    },
+    {
+      "id": "population_boom",
+      "effect": "growth_mult",
+      "magnitude": 0.75,
+      "cost": 3,
+      "prerequisites": [
+        "fertile"
+      ]
+    },
+    {
+      "id": "great_depots",
+      "effect": "storage_mult",
+      "magnitude": 1.0,
+      "cost": 4,
+      "prerequisites": [
+        "granaries"
+      ]
+    },
+    {
+      "id": "night_shift",
+      "effect": "offline_mult",
+      "magnitude": 0.5,
+      "cost": 2,
+      "prerequisites": [
+        "industrious"
+      ]
+    },
+    {
+      "id": "lucky_hands",
+      "effect": "crit_chance",
+      "magnitude": 0.08,
+      "cost": 2,
+      "prerequisites": [
+        "sharp_tools"
+      ]
+    },
+    {
+      "id": "masters_touch",
+      "effect": "crit_chance",
+      "magnitude": 0.12,
+      "cost": 4,
+      "prerequisites": [
+        "lucky_hands"
+      ]
+    },
+    {
+      "id": "whale_song",
+      "effect": "jackpot_chance",
+      "magnitude": 0.01,
+      "cost": 3,
+      "prerequisites": [
+        "lucky_hands"
+      ]
+    },
+    {
+      "id": "leviathan",
+      "effect": "jackpot_chance",
+      "magnitude": 0.03,
+      "cost": 6,
+      "prerequisites": [
+        "whale_song"
+      ]
+    },
+    {
+      "id": "pathfinders",
+      "effect": "discovery_luck",
+      "magnitude": 0.6,
+      "cost": 2,
+      "prerequisites": [
+        "sharp_tools"
+      ]
+    },
+    {
+      "id": "cartographers",
+      "effect": "discovery_luck",
+      "magnitude": 1.4,
+      "cost": 5,
+      "prerequisites": [
+        "pathfinders"
+      ]
+    },
+    {
+      "id": "carnival",
+      "effect": "festival_power",
+      "magnitude": 0.35,
+      "cost": 2
+    },
+    {
+      "id": "grand_carnival",
+      "effect": "festival_power",
+      "magnitude": 0.8,
+      "cost": 5,
+      "prerequisites": [
+        "carnival"
+      ]
+    },
+    {
+      "id": "scholars",
+      "effect": "research_discount",
+      "magnitude": 0.2,
+      "cost": 3
+    },
+    {
+      "id": "great_library",
+      "effect": "research_discount",
+      "magnitude": 0.3,
+      "cost": 6,
+      "prerequisites": [
+        "scholars"
+      ]
+    },
+    {
+      "id": "deep_veins",
+      "effect": "harvest_mult",
+      "magnitude": 1.2,
+      "cost": 5,
+      "prerequisites": [
+        "sharp_tools"
+      ]
+    },
+    {
+      "id": "world_engine",
+      "effect": "production_mult",
+      "magnitude": 1.5,
+      "cost": 8,
+      "prerequisites": [
+        "manufactories"
+      ]
+    },
+    {
+      "id": "sleepless_city",
+      "effect": "offline_mult",
+      "magnitude": 1.0,
+      "cost": 5,
+      "prerequisites": [
+        "night_shift"
+      ]
+    },
+    {
+      "id": "arcologies",
+      "effect": "housing_mult",
+      "magnitude": 1.2,
+      "cost": 6,
+      "prerequisites": [
+        "spacious"
+      ]
+    }
   ]
 }

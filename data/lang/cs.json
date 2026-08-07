@@ -1549,6 +1549,11 @@
     "achievement.confederacy": "Konfederace",
     "achievement.confederacy.desc": "Přiber ke své říši 20 cizích měst.",
     "achievement.all_roads": "Všechny cesty vedou k tobě",
-    "achievement.all_roads.desc": "Přiber ke své říši 35 cizích měst."
+    "achievement.all_roads.desc": "Přiber ke své říši 35 cizích měst.",
+    "power.title": "síla civilizace",
+    "power.prestige": "Vzestup",
+    "power.research": "výzkum",
+    "power.milestones": "milníky",
+    "power.festival": "slavnost"
   }
 }

@@ -390,7 +390,7 @@ public sealed record PrestigeFileDto(
 public sealed record PrestigeAscensionDto(GoalConditionDto? Requirement, PrestigePointsDto? Points, double RequirementGrowth);
 
 /// <summary>Jak se z metriky počítají body Vzestupu.</summary>
-public sealed record PrestigePointsDto(string? Metric, string? Resource, long Divisor);
+public sealed record PrestigePointsDto(string? Metric, string? Resource, long Divisor, double Exponent);
 
 /// <summary>Jeden trvalý upgrade Vzestupu tak, jak leží v JSON.</summary>
 public sealed record PrestigeUpgradeDto(
@@ -398,7 +398,9 @@ public sealed record PrestigeUpgradeDto(
     string? Effect,
     double Magnitude,
     int Cost,
-    string[]? Prerequisites);
+    string[]? Prerequisites,
+    int MaxLevel,
+    double CostGrowth);
 
 /// <summary>Obsah souboru <c>data/quests.json</c> (pevné úkoly + dynamické).</summary>
 public sealed record QuestFileDto(

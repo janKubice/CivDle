@@ -69,7 +69,7 @@ public sealed class Simulation
 
     private readonly bool[] _buildingUnlocked;
     private readonly bool[] _techResearched;
-    private readonly bool[] _upgradesPurchased; // koupené trvalé upgrady Vzestupu
+    private readonly int[] _upgradeLevels;      // koupené úrovně trvalých upgradů Vzestupu
     private readonly bool[] _policiesActive;    // zapnuté politiky růstu (automatizace, stupeň 4)
     private readonly long[] _harvestedTotals; // kumulativní sběr surovin klikáním (metriky cílů)
     private readonly bool[] _resourceKnown;   // surovina, kterou hráč už někdy získal (UI ji do té doby neukazuje)
@@ -117,7 +117,7 @@ public sealed class Simulation
         }
 
         _techResearched = new bool[content.Techs.Count];
-        _upgradesPurchased = new bool[content.PrestigeUpgrades.Count];
+        _upgradeLevels = new int[content.PrestigeUpgrades.Count];
         _policiesActive = new bool[content.Policies.Count];
         _harvestedTotals = new long[content.Resources.Count];
 
@@ -5102,7 +5102,17 @@ public sealed class Simulation
     {
         var prestige = _content.Prestige;
         long metric = EvaluateMetric(prestige.PointsMetric, prestige.PointsParam);
-        return metric / prestige.PointsDivisor;
+        if (metric <= 0 || prestige.PointsDivisor <= 0)
+        {
+            return 0;
+        }
+
+        // Klesající výnos (odmocnina) místo lineárního. Při lineárním se vždycky
+        // vyplatilo hrát dál a rozhodnutí „resetnout teď, nebo ještě vydržet?"
+        // vůbec nevzniklo — přitom právě to je celý smysl prestiže.
+        double ratio = metric / (double)prestige.PointsDivisor;
+        double points = Math.Pow(ratio, prestige.PointsExponent);
+        return (long)Math.Min(points, long.MaxValue / 2);
     }
 
     /// <summary>
@@ -5126,13 +5136,12 @@ public sealed class Simulation
             }
         }
 
+        // Do bilance se počítají ÚROVNĚ, ne uzly: u opakovatelného upgradu je
+        // desátá úroveň stejný kus postupu jako desátý různý upgrade.
         int upgrades = 0;
-        for (int i = 0; i < _upgradesPurchased.Length; i++)
+        for (int i = 0; i < _upgradeLevels.Length; i++)
         {
-            if (_upgradesPurchased[i])
-            {
-                upgrades++;
-            }
+            upgrades += _upgradeLevels[i];
         }
 
         return new AscensionPreview(
@@ -5167,26 +5176,97 @@ public sealed class Simulation
     public RunSummary LastRun { get; private set; } = RunSummary.None;
 
     /// <summary>Je trvalý upgrade Vzestupu koupený?</summary>
-    public bool IsUpgradePurchased(int upgradeIndex) => _upgradesPurchased[upgradeIndex];
+    public bool IsUpgradePurchased(int upgradeIndex) => _upgradeLevels[upgradeIndex] > 0;
+
+    /// <summary>
+    /// Jeden zdroj síly do rozpisu: odkud násobič je a kolik dělá.
+    /// </summary>
+    /// <param name="LabelKey">Lokalizační klíč popisku.</param>
+    /// <param name="Multiplier">Násobič z tohohle zdroje (1,0 = nic).</param>
+    public readonly record struct PowerSource(string LabelKey, double Multiplier);
+
+    /// <summary>
+    /// Celková síla výroby a odkud je.
+    ///
+    /// <para>Tohle je číslo, kvůli kterému se žánr hraje: <b>jedno velké ×N</b>,
+    /// na které se hráč dívá a sleduje, jak roste. Doteď nikde nebylo — hráč
+    /// kupoval upgrady a musel věřit, že to k něčemu je.</para>
+    ///
+    /// <para>Rozpis je odvozený stav, počítá se na požádání z UI (ne v tiku),
+    /// takže alokace seznamu nevadí.</para>
+    /// </summary>
+    public IReadOnlyList<PowerSource> PowerBreakdown()
+    {
+        var sources = new List<PowerSource>
+        {
+            new("power.prestige", PrestigeProductionMult()),
+            new("power.research", _bonuses.ProductionMult / Math.Max(1e-9, PrestigeProductionMult())),
+            new("power.milestones", _milestoneBonuses.AverageMultiplier(this)),
+            new("power.festival", BoostMultiplier),
+        };
+
+        return sources;
+    }
+
+    /// <summary>Celkový násobič výroby — součin všech zdrojů z rozpisu.</summary>
+    public double TotalPower()
+    {
+        double total = 1.0;
+        var sources = PowerBreakdown();
+        for (int i = 0; i < sources.Count; i++)
+        {
+            total *= sources[i].Multiplier;
+        }
+
+        return total;
+    }
+
+    /// <summary>Kolik z násobiče výroby pochází z trvalých upgradů Vzestupu.</summary>
+    private double PrestigeProductionMult()
+    {
+        double mult = 1.0;
+        for (int i = 0; i < _upgradeLevels.Length; i++)
+        {
+            if (_upgradeLevels[i] > 0 && _content.PrestigeUpgrades[i].Effect == "production_mult")
+            {
+                mult *= _content.PrestigeUpgrades[i].MultiplierAtLevel(_upgradeLevels[i]);
+            }
+        }
+
+        return mult;
+    }
+
+    /// <summary>Kolikátou úroveň upgradu už hráč koupil (0 = žádnou).</summary>
+    public int UpgradeLevel(int upgradeIndex) => _upgradeLevels[upgradeIndex];
+
+    /// <summary>Cena další úrovně upgradu — roste s každou koupenou.</summary>
+    public long UpgradeCost(int upgradeIndex) =>
+        _content.PrestigeUpgrades[upgradeIndex].CostAtLevel(_upgradeLevels[upgradeIndex]);
+
+    /// <summary>Je upgrade na maximu?</summary>
+    public bool IsUpgradeMaxed(int upgradeIndex) =>
+        _upgradeLevels[upgradeIndex] >= _content.PrestigeUpgrades[upgradeIndex].MaxLevel;
 
     /// <summary>Lze upgrade koupit (splněné prereky, dost bodů, ještě nekoupený)?</summary>
     public PlacementResult CanBuyUpgrade(int upgradeIndex)
     {
-        if (_upgradesPurchased[upgradeIndex])
+        if (IsUpgradeMaxed(upgradeIndex))
         {
-            return PlacementResult.Occupied; // už koupený
+            return PlacementResult.Occupied; // vykoupený až na doraz
         }
 
         var upgrade = _content.PrestigeUpgrades[upgradeIndex];
         foreach (int prereq in upgrade.PrerequisiteIndices)
         {
-            if (!_upgradesPurchased[prereq])
+            if (_upgradeLevels[prereq] <= 0)
             {
                 return PlacementResult.NotUnlocked;
             }
         }
 
-        return PrestigePoints < upgrade.Cost ? PlacementResult.NotEnoughResources : PlacementResult.Ok;
+        return PrestigePoints < UpgradeCost(upgradeIndex)
+            ? PlacementResult.NotEnoughResources
+            : PlacementResult.Ok;
     }
 
     /// <summary>Koupí trvalý upgrade Vzestupu — odečte body a přepočítá bonusy i odvozený stav.</summary>
@@ -5198,8 +5278,8 @@ public sealed class Simulation
             return result;
         }
 
-        PrestigePoints -= _content.PrestigeUpgrades[upgradeIndex].Cost;
-        _upgradesPurchased[upgradeIndex] = true;
+        PrestigePoints -= UpgradeCost(upgradeIndex);
+        _upgradeLevels[upgradeIndex]++;
         RecomputeBonuses();
         RecomputeDerivedState();
         return PlacementResult.Ok;
@@ -5258,25 +5338,43 @@ public sealed class Simulation
         return PlacementResult.Ok;
     }
 
+    /// <summary>
+    /// Přepočítá trvalé násobiče.
+    ///
+    /// <para>Pravidlo skládání: <b>uvnitř kategorie se sčítá, mezi kategoriemi
+    /// násobí</b>. Upgrady Vzestupu jsou jedna kategorie, výzkum druhá — a jejich
+    /// výsledky se pronásobí. Dřív padalo všechno do jednoho součtu, takže dvacet
+    /// upgradů po +30 % dohromady dalo ×7 a strop celého stromu byl někde kolem
+    /// ×4. Tohle je ta věc, kvůli které v žánru čísla vůbec rostou.</para>
+    ///
+    /// <para>Jednotlivý upgrade navíc skládá <b>mocninou podle úrovně</b>: deset
+    /// úrovní po +30 % je ×13,8, ne ×4.</para>
+    /// </summary>
     private void RecomputeBonuses()
     {
-        double production = 1.0, harvest = 1.0, growth = 1.0, housing = 1.0, storage = 1.0, start = 1.0, offline = 1.0;
-        double critChance = 0.0, jackpot = 0.0, discovery = 1.0, festival = 1.0, research = 0.0;
-        for (int i = 0; i < _upgradesPurchased.Length; i++)
+        // Kategorie 1: trvalé upgrady Vzestupu (násobí se mezi sebou).
+        double production = 1.0, harvest = 1.0, growth = 1.0, housing = 1.0, storage = 1.0;
+        double start = 1.0, offline = 1.0, discovery = 1.0, festival = 1.0, autoBuild = 1.0;
+        double critChance = 0.0, jackpot = 0.0, research = 0.0;
+
+        for (int i = 0; i < _upgradeLevels.Length; i++)
         {
-            if (!_upgradesPurchased[i])
+            if (_upgradeLevels[i] <= 0)
             {
                 continue;
             }
 
             var upgrade = _content.PrestigeUpgrades[i];
-            Apply(upgrade.Effect, upgrade.Magnitude);
+            Scale(upgrade.Effect, upgrade.MultiplierAtLevel(_upgradeLevels[i]), upgrade.Magnitude * _upgradeLevels[i]);
         }
 
-        // Vyzkoumané technologie dávají trvalé pasivní bonusy stejnými behavior-ID
-        // jako upgrady Vzestupu — jen platí v rámci běhu (Vzestup výzkum resetuje).
-        // Cílené efekty jdou do vlastního pole; globální zůstávají v Apply.
-        // Bez toho by „+5 % dřeva" zvedlo i výrobu oceli.
+        // Kategorie 2: výzkum. Platí jen v rámci běhu (Vzestup ho resetuje),
+        // proto se sčítá zvlášť a teprve výsledek se do násobičů promítne.
+        double techProduction = 1.0, techHarvest = 1.0, techGrowth = 1.0, techHousing = 1.0;
+        double techStorage = 1.0, techOffline = 1.0, techDiscovery = 1.0, techFestival = 1.0, techAutoBuild = 1.0;
+
+        // Cílené efekty jdou do vlastního pole; bez toho by „+5 % dřeva"
+        // zvedlo i výrobu oceli.
         Array.Fill(_resourceProductionMult, 1.0);
         for (int i = 0; i < _techResearched.Length; i++)
         {
@@ -5296,28 +5394,57 @@ public sealed class Simulation
                 continue;
             }
 
-            Apply(tech.Effect, tech.Magnitude);
+            switch (tech.Effect)
+            {
+                case "production_mult": techProduction += tech.Magnitude; break;
+                case "harvest_mult": techHarvest += tech.Magnitude; break;
+                case "growth_mult": techGrowth += tech.Magnitude; break;
+                case "housing_mult": techHousing += tech.Magnitude; break;
+                case "storage_mult": techStorage += tech.Magnitude; break;
+                case "offline_mult": techOffline += tech.Magnitude; break;
+                case "discovery_luck": techDiscovery += tech.Magnitude; break;
+                case "festival_power": techFestival += tech.Magnitude; break;
+                case "autobuild_speed": techAutoBuild += tech.Magnitude; break;
+                case "crit_chance": critChance += tech.Magnitude; break;
+                case "jackpot_chance": jackpot += tech.Magnitude; break;
+                case "research_discount": research += tech.Magnitude; break;
+            }
         }
 
-        _bonuses = new PrestigeBonuses(production, harvest, growth, housing, storage, start, offline,
-            critChance, jackpot, discovery, festival, Math.Min(research, 0.9));
+        _bonuses = new PrestigeBonuses(
+            production * techProduction,
+            harvest * techHarvest,
+            growth * techGrowth,
+            housing * techHousing,
+            storage * techStorage,
+            start,
+            offline * techOffline,
+            critChance,
+            jackpot,
+            discovery * techDiscovery,
+            festival * techFestival,
+            Math.Min(research, 0.9),
+            autoBuild * techAutoBuild);
 
-        void Apply(string effect, double magnitude)
+        // Násobičové efekty se skládají mocninou; ty, které se sčítají do
+        // pravděpodobnosti (kritický sběr) nebo do slevy, přirozeně součtem.
+        void Scale(string effect, double multiplier, double sum)
         {
             switch (effect)
             {
-                case "production_mult": production += magnitude; break;
-                case "harvest_mult": harvest += magnitude; break;
-                case "growth_mult": growth += magnitude; break;
-                case "housing_mult": housing += magnitude; break;
-                case "storage_mult": storage += magnitude; break;
-                case "start_resources": start += magnitude; break;
-                case "offline_mult": offline += magnitude; break;
-                case "crit_chance": critChance += magnitude; break;
-                case "jackpot_chance": jackpot += magnitude; break;
-                case "discovery_luck": discovery += magnitude; break;
-                case "festival_power": festival += magnitude; break;
-                case "research_discount": research += magnitude; break;
+                case "production_mult": production *= multiplier; break;
+                case "harvest_mult": harvest *= multiplier; break;
+                case "growth_mult": growth *= multiplier; break;
+                case "housing_mult": housing *= multiplier; break;
+                case "storage_mult": storage *= multiplier; break;
+                case "start_resources": start *= multiplier; break;
+                case "offline_mult": offline *= multiplier; break;
+                case "discovery_luck": discovery *= multiplier; break;
+                case "festival_power": festival *= multiplier; break;
+                case "autobuild_speed": autoBuild *= multiplier; break;
+                case "crit_chance": critChance += sum; break;
+                case "jackpot_chance": jackpot += sum; break;
+                case "research_discount": research += sum; break;
             }
         }
     }
@@ -5421,14 +5548,27 @@ public sealed class Simulation
     }
 
     /// <summary>Označí koupený upgrade Vzestupu při načtení savu (bonusy dopočítá <see cref="FinalizeLoad"/>).</summary>
-    internal void RestoreUpgrade(int upgradeIndex) => _upgradesPurchased[upgradeIndex] = true;
+    /// <summary>
+    /// Obnoví jednu úroveň upgradu ze savu. Sav zapisuje ID <b>jednou za každou
+    /// úroveň</b>, takže starý sav (bez úrovní) se načte jako úroveň 1 a formát
+    /// se nemusel měnit.
+    /// </summary>
+    internal void RestoreUpgrade(int upgradeIndex)
+    {
+        if (_upgradeLevels[upgradeIndex] < _content.PrestigeUpgrades[upgradeIndex].MaxLevel)
+        {
+            _upgradeLevels[upgradeIndex]++;
+        }
+    }
 
     /// <summary>Indexy koupených upgradů Vzestupu (pro serializaci savu).</summary>
     internal IEnumerable<int> PurchasedUpgradeIndices()
     {
-        for (int i = 0; i < _upgradesPurchased.Length; i++)
+        for (int i = 0; i < _upgradeLevels.Length; i++)
         {
-            if (_upgradesPurchased[i])
+            // Jednou za každou koupenou úroveň — čtení je pak prostý součet
+            // a starý formát savu zůstal beze změny.
+            for (int level = 0; level < _upgradeLevels[i]; level++)
             {
                 yield return i;
             }

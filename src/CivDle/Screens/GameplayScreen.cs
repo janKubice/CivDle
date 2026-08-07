@@ -61,6 +61,9 @@ public sealed class GameplayScreen : IScreen
     /// <summary>Pauza / 1× / 2× / 4×. Ovládání času, ne vlastnost simulace.</summary>
     private readonly GameSpeed _speed = new();
 
+    /// <summary>Velké „×N" nahoře — kolikrát je civilizace silnější než na startu.</summary>
+    private MightBanner _might = null!;
+
     /// <summary>Tlačítko rychlosti — popisek se přepisuje podle stavu.</summary>
     private Button? _speedButton;
     private readonly ParticleSystem _particles = new();
@@ -278,6 +281,7 @@ public sealed class GameplayScreen : IScreen
         _spectacles = new SpectacleRenderer(screens.Content);
         _agents = new AgentSystem(screens.Content, screens.Sprites);
         _minimap = new MinimapRenderer(screens.GraphicsDevice, screens.Content.Biomes, screens.WhitePixel);
+        _might = new MightBanner(screens.WhitePixel, _popupFont, screens.Loc);
         _vignette = new VignetteRenderer(screens.GraphicsDevice);
         _fogRenderer = new FogRenderer(screens.WhitePixel);
         _bubbles = new BubbleSystem(screens.Sprites, screens.Content);
@@ -471,6 +475,7 @@ public sealed class GameplayScreen : IScreen
         _buildingRenderer.Update(worldDt); // balony nad kotvišti se houpou
         _weatherRenderer.Update(worldDt, _simulation, _screens.GraphicsDevice.Viewport);
         _minimap.Update(dt, _camera, _simulation);
+        _might.Update(dt, _simulation);
         DrainNotifications();
         _toasts.Update(dt);
         RefreshHudTexts();
@@ -668,6 +673,7 @@ public sealed class GameplayScreen : IScreen
 
         // Minimapa, popupy a toasty až nad UI — hráč je nesmí přehlédnout.
         _minimap.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, _camera, _simulation);
+        _might.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, _simulation);
         _floatingText.Draw(spriteBatch, _camera, _popupFont);
         DrawSettlementLabels(spriteBatch);
         DrawTileTooltip(spriteBatch);

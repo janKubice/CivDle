@@ -1549,6 +1549,11 @@
     "achievement.confederacy": "Konföderation",
     "achievement.confederacy.desc": "Nimm 20 fremde Städte auf.",
     "achievement.all_roads": "Alle Wege führen hierher",
-    "achievement.all_roads.desc": "Nimm 35 fremde Städte auf."
+    "achievement.all_roads.desc": "Nimm 35 fremde Städte auf.",
+    "power.title": "Macht der Zivilisation",
+    "power.prestige": "Aufstieg",
+    "power.research": "Forschung",
+    "power.milestones": "Meilensteine",
+    "power.festival": "Fest"
   }
 }

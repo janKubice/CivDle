@@ -1549,6 +1549,11 @@
     "achievement.confederacy": "Confederación",
     "achievement.confederacy.desc": "Incorpora 20 ciudades extranjeras.",
     "achievement.all_roads": "Todos los caminos llevan aquí",
-    "achievement.all_roads.desc": "Incorpora 35 ciudades extranjeras."
+    "achievement.all_roads.desc": "Incorpora 35 ciudades extranjeras.",
+    "power.title": "poder de la civilización",
+    "power.prestige": "Ascensión",
+    "power.research": "investigación",
+    "power.milestones": "hitos",
+    "power.festival": "festival"
   }
 }

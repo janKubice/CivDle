@@ -1549,6 +1549,11 @@
     "achievement.confederacy": "Confederacy",
     "achievement.confederacy.desc": "Bring 20 foreign cities into your realm.",
     "achievement.all_roads": "All Roads Lead Here",
-    "achievement.all_roads.desc": "Bring 35 foreign cities into your realm."
+    "achievement.all_roads.desc": "Bring 35 foreign cities into your realm.",
+    "power.title": "civilisation might",
+    "power.prestige": "Ascension",
+    "power.research": "research",
+    "power.milestones": "milestones",
+    "power.festival": "festival"
   }
 }

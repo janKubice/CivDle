@@ -2244,7 +2244,21 @@ public sealed class ContentLoader
                 prereqs.Add(prereqIndex);
             }
 
-            upgrades.Add(new PrestigeUpgradeDef(id, effect, dto.Magnitude, dto.Cost, prereqs));
+            // Nezadané maximum = jednorázový upgrade (zpětná kompatibilita se
+            // staršími daty, kde opakování neexistovalo).
+            int maxLevel = dto.MaxLevel <= 0 ? 1 : dto.MaxLevel;
+            if (maxLevel > 1000)
+            {
+                throw new ContentLoadException(path, $"Upgrade '{id}': 'maxLevel' smí být nejvýš 1000, je {maxLevel}.");
+            }
+
+            double costGrowth = dto.CostGrowth <= 0 ? 1.0 : dto.CostGrowth;
+            if (costGrowth is < 1.0 or > 10.0)
+            {
+                throw new ContentLoadException(path, $"Upgrade '{id}': 'costGrowth' musí být 1–10, je {costGrowth}.");
+            }
+
+            upgrades.Add(new PrestigeUpgradeDef(id, effect, dto.Magnitude, dto.Cost, prereqs, maxLevel, costGrowth));
         }
 
         // Bez zadaného růstu se práh nemění (zpětně kompatibilní starší data).
@@ -2254,7 +2268,15 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"'ascension.requirementGrowth' musí být 1–100, je {requirementGrowth}.");
         }
 
-        var config = new PrestigeConfig(requirement, pointsMetric, pointsParam, points.Divisor, requirementGrowth);
+        // Nezadaná mocnina = lineárně (stará data).
+        double pointsExponent = points.Exponent <= 0 ? 1.0 : points.Exponent;
+        if (pointsExponent is < 0.1 or > 2.0)
+        {
+            throw new ContentLoadException(path, $"'ascension.points.exponent' musí být 0,1–2, je {pointsExponent}.");
+        }
+
+        var config = new PrestigeConfig(
+            requirement, pointsMetric, pointsParam, points.Divisor, requirementGrowth, pointsExponent);
         return (config, new DefRegistry<PrestigeUpgradeDef>(upgrades, u => u.Id, "upgrade Vzestupu", allowEmpty: true));
     }
 
