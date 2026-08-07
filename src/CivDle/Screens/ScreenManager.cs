@@ -1,5 +1,6 @@
 using CivDle.Core.Config;
 using CivDle.Core.Content;
+using CivDle.Core.Platform;
 using CivDle.Core.Save;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -16,13 +17,27 @@ public sealed class ScreenManager
 {
     private readonly List<IScreen> _screens = new();
 
-    public ScreenManager(CivDleGame game, GameContent content, Localization localization, SaveStore saves)
+    public ScreenManager(
+        CivDleGame game,
+        GameContent content,
+        Localization localization,
+        SaveStore saves,
+        IPlatformServices platform)
     {
         Game = game;
         Content = content;
         Loc = localization;
         Saves = saves;
+        Platform = platform;
     }
+
+    /// <summary>
+    /// Herní platforma (achievementy, statistiky, žebříčky, mody).
+    ///
+    /// <para>Vždy je nějaká — bez Steamu je to lokální implementace, takže
+    /// obrazovky se nikdy nemusí ptát „mám platformu?".</para>
+    /// </summary>
+    public IPlatformServices Platform { get; }
 
     /// <summary>Úložiště uložené hry (jeden slot, MVP).</summary>
     public SaveStore Saves { get; }

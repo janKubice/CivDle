@@ -5539,6 +5539,27 @@ public sealed class Simulation
     /// <summary>Obnova jedné úrovně upgradu Odkazu ze savu.</summary>
     internal void RestoreLegacyLevel(int upgradeIndex) => _legacy.RestoreLevel(upgradeIndex);
 
+    /// <summary>
+    /// Kolik technologií je vyzkoumaných. Počítá se na požádání (statistiky a
+    /// bilance běhu), ne v tiku — pole je krátké a cache by se musela hlídat.
+    /// </summary>
+    public int ResearchedTechCount
+    {
+        get
+        {
+            int count = 0;
+            for (int i = 0; i < _techResearched.Length; i++)
+            {
+                if (_techResearched[i])
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
     /// <summary>Kolikátou úroveň upgradu už hráč koupil (0 = žádnou).</summary>
     public int UpgradeLevel(int upgradeIndex) => _upgradeLevels[upgradeIndex];
 

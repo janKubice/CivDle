@@ -3,6 +3,7 @@ using CivDle.Capture;
 using CivDle.Core.Config;
 using CivDle.Core.Content;
 using CivDle.Core.Content.Mods;
+using CivDle.Core.Platform;
 using CivDle.Core.Save;
 using CivDle.Core.Sim;
 using CivDle.Rendering.Sprites;
@@ -139,7 +140,16 @@ public sealed class CivDleGame : Game
         var localization = new Localization(content.Languages, storeMode ? "en" : Settings.Language);
         var saves = new SaveStore(Path.Combine(GetProfileDirectory(), "saves", "save.civdle"));
 
-        var screens = new ScreenManager(this, content, localization, saves);
+        // Platforma: bez Steamu lokální soubor vedle savu. Achievementy a
+        // rekordy tak fungují i mimo Steam — hráč o postup nepřijde jen proto,
+        // že hru spustil napřímo. Steam se přidá jako druhá implementace.
+        var platform = new LocalPlatformServices(
+            Path.Combine(GetProfileDirectory(), "saves", "platform.json"))
+        {
+            PlayerName = Environment.UserName,
+        };
+
+        var screens = new ScreenManager(this, content, localization, saves, platform);
         if (_capsuleDirectory is not null)
         {
             var scene = CityFixture.Grow(content, seed: 20260728, minutes: 14);

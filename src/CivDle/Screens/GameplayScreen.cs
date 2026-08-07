@@ -3,6 +3,7 @@ using CivDle.Audio;
 using CivDle.Core.Config;
 using CivDle.Core.Content;
 using CivDle.Core.Save;
+using CivDle.Core.Platform;
 using CivDle.Core.Sim;
 using CivDle.Input;
 using CivDle.Rendering;
@@ -1592,6 +1593,11 @@ public sealed class GameplayScreen : IScreen
             if (_simulation.IsAchievementUnlocked(i) && !profile.UnlockedAchievements.Contains(id))
             {
                 profile.UnlockedAchievements.Add(id);
+
+                // Tentýž okamžik ohlas i platformě. Steam si drží vlastní stav,
+                // takže bez tohohle by se achievement odemkl ve hře, ale ve
+                // Steamu ne — a hráč by ho tam marně hledal.
+                _screens.Platform.UnlockAchievement(PlatformCatalog.AchievementApiName(id));
                 changed = true;
             }
         }
@@ -1599,6 +1605,12 @@ public sealed class GameplayScreen : IScreen
         if (changed)
         {
             _screens.SaveProfile();
+
+            // Statistiky se posílají spolu s achievementy: obojí se mění zřídka
+            // a Steam stejně ukládá dávkově, takže je to jeden zápis navíc.
+            PlatformCatalog.PushStats(_screens.Platform, _simulation);
+            PlatformCatalog.PushScores(_screens.Platform, _simulation);
+            _screens.Platform.Flush();
         }
     }
 
@@ -2151,6 +2163,10 @@ public sealed class GameplayScreen : IScreen
         Place(grid, UiFactory.ToolButton(
             Ico("ui.trophy"), loc["hud.achievements"] + '\n' + loc["tip.achievements"],
             () => _screens.Push(new AchievementsScreen(_screens, _simulation))), slot++, columns);
+
+        Place(grid, UiFactory.ToolButton(
+            Ico("ui.stats"), loc["hud.leaderboards"] + '\n' + loc["board.title"],
+            () => _screens.Push(new LeaderboardScreen(_screens, _simulation))), slot++, columns);
 
         if (_simulation.IsFeatureUnlocked("elections") && _screens.Content.Elections.IsEnabled)
         {
