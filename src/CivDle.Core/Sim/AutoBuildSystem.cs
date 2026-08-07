@@ -53,8 +53,9 @@ internal sealed class AutoBuildSystem
 
     public void Tick(Simulation sim)
     {
-        var config = _content.Gameplay.AutoBuild;
-        if (sim.TickCount % config.IntervalTicks != 0)
+        // Interval čte ze simulace, ne z dat: bonus autobuild_speed ho zkracuje,
+        // takže po Vzestupu je zrychlení růstu vidět přímo na mapě.
+        if (sim.TickCount % sim.AutoBuildInterval != 0)
         {
             return;
         }
@@ -82,8 +83,9 @@ internal sealed class AutoBuildSystem
             }
         }
 
-        // Politika „build_pace" zvyšuje počet akcí za interval (jinak 1 — pozvolný růst).
-        int budget = sim.BuildsPerInterval;
+        // Politika „build_pace" i bonus autobuild_speed zvyšují počet akcí za
+        // interval (jinak 1 — pozvolný růst).
+        int budget = sim.AutoBuildBudget;
 
         // Mimo cyklus: stackalloc uvnitř by při vyšším rozpočtu staveb narůstal
         // po každé otáčce (CA2014).
@@ -433,6 +435,13 @@ internal sealed class AutoBuildSystem
         return false;
     }
 
+    /// <summary>
+    /// Kolik volných míst se ohodnotí, než se z nich vybere to nejhezčí.
+    /// Ofsety jsou seřazené od nejbližších, takže tahle hrstka pokryje okolí
+    /// kotvy; procházet celý kruh by jen stálo čas na horších místech.
+    /// </summary>
+    private const int PlacementCandidates = 20;
+
     private bool TryBuildNear(Simulation sim, int defIndex, int anchorX, int anchorY)
     {
         // Rezerva guvernéra: co si hráč schoval, automatika neutratí. Kontrola je
@@ -442,21 +451,85 @@ internal sealed class AutoBuildSystem
             return false;
         }
 
+        int bestX = 0, bestY = 0, bestScore = int.MinValue;
+        int seen = 0;
+
         foreach (var (offsetX, offsetY) in _searchOffsets)
         {
-            var result = sim.CanPlace(defIndex, anchorX + offsetX, anchorY + offsetY);
-            if (result == PlacementResult.Ok)
-            {
-                return sim.TryPlaceBuilding(defIndex, anchorX + offsetX, anchorY + offsetY) == PlacementResult.Ok;
-            }
-
+            int x = anchorX + offsetX;
+            int y = anchorY + offsetY;
+            var result = sim.CanPlace(defIndex, x, y);
             if (result == PlacementResult.NotEnoughResources)
             {
                 // Cena nezávisí na místě — další hledání nemá smysl.
                 return false;
             }
+
+            if (result != PlacementResult.Ok)
+            {
+                continue;
+            }
+
+            int score = PlacementScore(sim, x, y) - (offsetX * offsetX + offsetY * offsetY);
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestX = x;
+                bestY = y;
+            }
+
+            if (++seen >= PlacementCandidates)
+            {
+                break;
+            }
         }
 
-        return false;
+        return bestScore != int.MinValue
+            && sim.TryPlaceBuilding(defIndex, bestX, bestY) == PlacementResult.Ok;
     }
+
+    /// <summary>
+    /// Jak hezky místo zapadne do města.
+    ///
+    /// <para>Dřív se bralo první volné políčko od kotvy, takže město rostlo jako
+    /// beztvará skvrna — přesně ta „náhodná změť", kvůli které auto-stavba
+    /// vypadala jako chyba, ne jako civilizace. Tři pravidla stačí, aby z toho
+    /// bylo město: <b>stavět k cestám</b> (ulice vznikají samy), <b>lepit se
+    /// k sousedům</b> (zástavba je celistvá, ne roztroušená) a <b>nezazdít se</b>
+    /// (domek obklopený ze všech stran nemá kudy ven a vypadá to špatně).</para>
+    ///
+    /// <para>Běží jen na hrstce kandidátů jednou za interval, ne v tikové smyčce.</para>
+    /// </summary>
+    private static int PlacementScore(Simulation sim, int x, int y)
+    {
+        int roads = 0;
+        int neighbours = 0;
+
+        // Jen čtyři ortogonální sousedé: ulice a fronta domů se poznají podle
+        // stran, ne podle rohů.
+        if (sim.HasRoadAt(x - 1, y)) { roads++; } else if (sim.IsOccupied(x - 1, y)) { neighbours++; }
+        if (sim.HasRoadAt(x + 1, y)) { roads++; } else if (sim.IsOccupied(x + 1, y)) { neighbours++; }
+        if (sim.HasRoadAt(x, y - 1)) { roads++; } else if (sim.IsOccupied(x, y - 1)) { neighbours++; }
+        if (sim.HasRoadAt(x, y + 1)) { roads++; } else if (sim.IsOccupied(x, y + 1)) { neighbours++; }
+
+        int score = (roads * RoadWeight) + (neighbours * NeighbourWeight);
+
+        // Zazděné místo: ani jedna volná strana. Takový dům je slepý a shluk
+        // z nich vypadá jako slitek, ne jako čtvrť.
+        if (roads + neighbours == 4)
+        {
+            score -= EnclosedPenalty;
+        }
+
+        return score;
+    }
+
+    /// <summary>Cesta u domu váží nejvíc — kolem ní vznikají ulice.</summary>
+    private const int RoadWeight = 9;
+
+    /// <summary>Soused drží zástavbu pohromadě, ale slabšeji než cesta.</summary>
+    private const int NeighbourWeight = 3;
+
+    /// <summary>Sráží místo bez jediné volné strany.</summary>
+    private const int EnclosedPenalty = 14;
 }

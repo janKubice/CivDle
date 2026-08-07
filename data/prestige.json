@@ -220,6 +220,25 @@
       "prerequisites": [
         "spacious"
       ]
+    },
+    {
+      "id": "master_builders",
+      "effect": "autobuild_speed",
+      "magnitude": 0.25,
+      "cost": 2,
+      "maxLevel": 60,
+      "costGrowth": 1.22
+    },
+    {
+      "id": "scaffolding",
+      "effect": "autobuild_speed",
+      "magnitude": 0.7,
+      "cost": 6,
+      "prerequisites": [
+        "master_builders"
+      ],
+      "maxLevel": 30,
+      "costGrowth": 1.3
     }
   ]
 }

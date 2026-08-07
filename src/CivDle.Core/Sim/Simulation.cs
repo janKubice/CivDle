@@ -3770,6 +3770,55 @@ public sealed class Simulation
     /// <summary>Kolik budov smí auto-stavba i plnění zón položit za interval (výchozí 1; politika „build_pace" zvedá).</summary>
     public int BuildsPerInterval { get; private set; } = 1;
 
+    /// <summary>
+    /// Nejkratší možný interval auto-stavby. Pod tímhle už by se stavělo skoro
+    /// každý tik a město by před očima „vybuchlo" místo aby rostlo — a hráč by
+    /// z toho neměl radost, protože by neviděl, co se děje.
+    /// </summary>
+    private const int MinAutoBuildInterval = 6;
+
+    /// <summary>
+    /// Jak často se auto-stavba pokusí stavět, po započtení bonusu
+    /// <c>autobuild_speed</c>.
+    ///
+    /// <para>Tenhle bonus byl doteď mrtvý: počítal se do <see cref="Bonuses"/>,
+    /// ale nikdo ho nečetl. Přitom je to jeden z mála trvalých bonusů, který je
+    /// opravdu <b>vidět na mapě</b> — po Vzestupu se město rozrůstá znatelně
+    /// rychleji, což je přesně ta odměna, kvůli které se resetuje.</para>
+    /// </summary>
+    public int AutoBuildInterval
+    {
+        get
+        {
+            int baseInterval = _content.Gameplay.AutoBuild.IntervalTicks;
+
+            // Dno smí bonus jen zastavit, ne PŘEBÍT data: když si obsah řekne
+            // o rychlejší tempo, než je dno, platí obsah. Jinak by dno tiše
+            // zpomalilo hru proti tomu, co je v datech napsané.
+            int floor = Math.Min(baseInterval, MinAutoBuildInterval);
+            return Math.Max(floor, (int)Math.Round(baseInterval / AutoBuildSpeed()));
+        }
+    }
+
+    /// <summary>
+    /// Kolik staveb se za interval zkusí. Když už interval narazil na dno,
+    /// přeteče zbytek zrychlení sem — jinak by se bonus nad určitou úroveň
+    /// přestal projevovat a další upgrady by byly k ničemu.
+    /// </summary>
+    public int AutoBuildBudget
+    {
+        get
+        {
+            int baseInterval = _content.Gameplay.AutoBuild.IntervalTicks;
+            double achieved = baseInterval / (double)AutoBuildInterval; // kolikrát častěji se opravdu staví
+            double leftover = AutoBuildSpeed() / Math.Max(1.0, achieved);
+            return Math.Max(1, BuildsPerInterval * (int)Math.Round(leftover));
+        }
+    }
+
+    /// <summary>Násobič tempa auto-stavby (nikdy pod 1 — zpomalovat ho nic neumí).</summary>
+    private double AutoBuildSpeed() => Math.Max(1.0, _bonuses.AutoBuildSpeed);
+
     /// <summary>Preferovat hustotu: auto-stavba nejdřív povýší existující bydlení, než postaví nové (politika „housing_density").</summary>
     public bool PreferHousingDensity { get; private set; }
 

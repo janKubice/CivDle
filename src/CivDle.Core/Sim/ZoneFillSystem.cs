@@ -27,8 +27,9 @@ internal sealed class ZoneFillSystem
 
     public void Tick(Simulation sim)
     {
-        var config = _content.Gameplay.AutoBuild;
-        if (sim.TickCount % config.IntervalTicks != 0)
+        // Stejné tempo jako u auto-stavby — zóny jsou její řízená varianta,
+        // takže se musí zrychlovat spolu s ní.
+        if (sim.TickCount % sim.AutoBuildInterval != 0)
         {
             return;
         }
@@ -43,9 +44,9 @@ internal sealed class ZoneFillSystem
         var rng = new SplitMix64(unchecked((ulong)_seed ^ ((ulong)sim.TickCount * 0x2545F4914F6CDD1DUL)));
         int start = (int)(rng.Next() % (ulong)zones.Count);
 
-        // Politika „build_pace" zvedá počet staveb za interval; rozkládá se po zónách
-        // (jedna na zónu a průchod), ať se plní rovnoměrně, ne jedna zóna napřed.
-        int budget = sim.BuildsPerInterval;
+        // Tempo se rozkládá po zónách (jedna na zónu a průchod), ať se plní
+        // rovnoměrně, ne jedna zóna napřed.
+        int budget = sim.AutoBuildBudget;
         while (budget > 0)
         {
             bool placedAny = false;
