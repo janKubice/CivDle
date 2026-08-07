@@ -713,6 +713,15 @@ public sealed class GameplayScreen : IScreen
     /// </summary>
     private void DrawTileTooltip(SpriteBatch spriteBatch)
     {
+        // Bublina u kurzoru je ve snímku pro obchod nežádoucí ze dvou důvodů:
+        // ukazuje kurzor, který na statickém obrázku nikdo nedrží, a často nese
+        // hlášku o problému („nemá tu kdo pracovat") — tedy přesně to, co na
+        // reklamní obrázek nepatří.
+        if (_captureMode)
+        {
+            return;
+        }
+
         if (_desktop.IsMouseOverGUI || _camera.Zoom < LandmarkRenderer.MinZoom)
         {
             return;
@@ -1899,7 +1908,15 @@ public sealed class GameplayScreen : IScreen
         var root = new Panel();
         root.Widgets.Add(topLeft);
         root.Widgets.Add(topRight);
-        root.Widgets.Add(_objectives.Root);
+
+        // Sledovač úkolů do snímku pro obchod nepatří: „Zasaď svůj první strom"
+        // udělá ze zralého města tutoriál. Ve hře je naopak to nejdůležitější,
+        // takže se vynechává jen při focení.
+        if (!_captureMode)
+        {
+            root.Widgets.Add(_objectives.Root);
+        }
+
         root.Widgets.Add(bottomBar);
         root.Widgets.Add(BuildScreenButtons());
 
