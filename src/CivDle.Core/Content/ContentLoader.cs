@@ -87,6 +87,7 @@ public sealed class ContentLoader
         var vehicles = LoadVehicles(Path.Combine(dataDirectory, "vehicles.json"));
         var faith = LoadFaith(Path.Combine(dataDirectory, "faith.json"), resources);
         var npcCities = LoadNpcCities(Path.Combine(dataDirectory, "npc-cities.json"), resources, buildings, settlementNames);
+        var grandWork = LoadGrandWork(Path.Combine(dataDirectory, "grandwork.json"), resources);
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
@@ -171,6 +172,52 @@ public sealed class ContentLoader
     /// Načte modlitby. Chybějící soubor <b>není chyba</b> — víra je volitelná
     /// mechanika a hra bez ní musí naběhnout (a všechny starší mody taky).
     /// </summary>
+    /// <summary>
+    /// Načte Velké dílo. Chybějící soubor <b>není chyba</b> — je to volitelná
+    /// mechanika a hra bez ní běží dál (stejně jako víra).
+    /// </summary>
+    private GrandWorkConfig LoadGrandWork(string path, DefRegistry<Resource> resources)
+    {
+        if (!File.Exists(path))
+        {
+            return new GrandWorkConfig(Array.Empty<GrandWorkStage>(), 1.0, 0);
+        }
+
+        var file = ReadFile<GrandWorkFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        double growth = file.CostGrowth <= 0 ? 1.5 : file.CostGrowth;
+        if (growth is < 1.0 or > 10.0)
+        {
+            throw new ContentLoadException(path, $"'costGrowth' musí být 1–10, je {growth}.");
+        }
+
+        var stages = new List<GrandWorkStage>();
+        foreach (var dto in file.Stages ?? new List<GrandWorkStageDto>())
+        {
+            string effect = dto.Effect?.Trim() ?? string.Empty;
+            if (effect.Length == 0)
+            {
+                throw new ContentLoadException(path, "Stupeň Velkého díla bez 'effect'.");
+            }
+
+            if (dto.Magnitude <= 0)
+            {
+                throw new ContentLoadException(path, $"Stupeň s efektem '{effect}': 'magnitude' musí být kladná.");
+            }
+
+            var cost = ParseResourceAmounts(path, effect, "cost", dto.Cost, resources);
+            if (cost.Count == 0)
+            {
+                throw new ContentLoadException(path, $"Stupeň s efektem '{effect}' nic nestojí — sink bez ceny nic neodebere.");
+            }
+
+            stages.Add(new GrandWorkStage(cost, effect, dto.Magnitude));
+        }
+
+        return new GrandWorkConfig(stages, growth, Math.Max(0, file.UnlockAscensionLevel));
+    }
+
     private FaithCatalog LoadFaith(string path, DefRegistry<Resource> resources)
     {
         if (!File.Exists(path))

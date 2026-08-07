@@ -402,6 +402,19 @@ public sealed record PrestigeUpgradeDto(
     int MaxLevel,
     double CostGrowth);
 
+/// <summary>Obsah souboru <c>data/grandwork.json</c> (bezedný odběr přebytků).</summary>
+public sealed record GrandWorkFileDto(
+    int SchemaVersion,
+    int UnlockAscensionLevel,
+    double CostGrowth,
+    List<GrandWorkStageDto>? Stages);
+
+/// <summary>Jeden stupeň Velkého díla tak, jak leží v JSON.</summary>
+public sealed record GrandWorkStageDto(
+    Dictionary<string, int>? Cost,
+    string? Effect,
+    double Magnitude);
+
 /// <summary>Obsah souboru <c>data/quests.json</c> (pevné úkoly + dynamické).</summary>
 public sealed record QuestFileDto(
     int SchemaVersion,

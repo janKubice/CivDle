@@ -1554,6 +1554,13 @@
     "power.prestige": "Vzestup",
     "power.research": "výzkum",
     "power.milestones": "milníky",
-    "power.festival": "slavnost"
+    "power.festival": "slavnost",
+    "toast.grandWork": "Velké dílo povyrostlo",
+    "grandwork.title": "Velké dílo",
+    "grandwork.stage": "Stupeň {0}",
+    "grandwork.desc": "Bezedná stavba. Sype se do ní přebytek, který už není kam dát — každý dokončený stupeň dá trvalý bonus a přežije i Vzestup.",
+    "grandwork.invest": "Vsypat vše",
+    "grandwork.locked": "Odemkne se po prvním Vzestupu — dřív nemáš co přebývat.",
+    "hud.grandwork": "Velké dílo"
   }
 }

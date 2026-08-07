@@ -1554,6 +1554,13 @@
     "power.prestige": "Wniebowstąpienie",
     "power.research": "badania",
     "power.milestones": "kamienie milowe",
-    "power.festival": "święto"
+    "power.festival": "święto",
+    "toast.grandWork": "Wielkie Dzieło urosło",
+    "grandwork.title": "Wielkie Dzieło",
+    "grandwork.stage": "Etap {0}",
+    "grandwork.desc": "Budowa bez dna. Wsyp nadwyżkę — każdy ukończony etap daje trwały bonus, który przetrwa Wniebowstąpienie.",
+    "grandwork.invest": "Wsyp wszystko",
+    "grandwork.locked": "Odblokuje się po pierwszym Wniebowstąpieniu.",
+    "hud.grandwork": "Wielkie Dzieło"
   }
 }

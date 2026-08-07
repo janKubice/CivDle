@@ -1554,6 +1554,13 @@
     "power.prestige": "Ascensión",
     "power.research": "investigación",
     "power.milestones": "hitos",
-    "power.festival": "festival"
+    "power.festival": "festival",
+    "toast.grandWork": "La Gran Obra creció",
+    "grandwork.title": "Gran Obra",
+    "grandwork.stage": "Etapa {0}",
+    "grandwork.desc": "Una obra sin fondo. Vierte el excedente — cada etapa terminada da un bono permanente que sobrevive a la Ascensión.",
+    "grandwork.invest": "Verter todo",
+    "grandwork.locked": "Se desbloquea tras tu primera Ascensión.",
+    "hud.grandwork": "Gran Obra"
   }
 }

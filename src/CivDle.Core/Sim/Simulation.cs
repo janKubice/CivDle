@@ -39,6 +39,8 @@ public sealed class Simulation
     private readonly HistorySystem _historySystem;
     private readonly ReforestSystem _reforestSystem;
     private readonly NpcTownSystem _npcTowns; // postavená cizí města (skutečné budovy a silnice)
+    private readonly GrandWorkSystem _grandWork; // bezedný odběr přebytků
+    private readonly List<GrandWorkStage> _grandWorkDone = new(); // dokončené stupně (drží bonusy)
     private readonly ConstructionSystem _constructionSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
@@ -157,6 +159,7 @@ public sealed class Simulation
         _historySystem = new HistorySystem(content);
         _reforestSystem = new ReforestSystem(content);
         _npcTowns = new NpcTownSystem(content);
+        _grandWork = new GrandWorkSystem(content.GrandWork, content.Resources.Count);
         History = new CityHistory(content.Gameplay.History.MaxFrames);
         _constructionSystem = new ConstructionSystem(content);
         ResetContractBoard();
@@ -5236,6 +5239,112 @@ public sealed class Simulation
         return mult;
     }
 
+    // ----- Velké dílo: kam jdou přebytky -----
+
+    /// <summary>
+    /// Je Velké dílo k dispozici? Odemyká se Vzestupem — dřív hráč nemá co
+    /// přebývat a nabídka „sypej sem" by byla jen matoucí.
+    /// </summary>
+    public bool GrandWorkAvailable =>
+        _content.GrandWork.IsEnabled && AscensionLevel >= _content.GrandWork.UnlockAscensionLevel;
+
+    /// <summary>Kolikátý stupeň Velkého díla se právě staví.</summary>
+    public int GrandWorkStage => _grandWork.Stage;
+
+    /// <summary>Postup rozestavěného stupně 0–1.</summary>
+    public double GrandWorkProgress01() => _grandWork.Progress01();
+
+    /// <summary>Kolik dané suroviny stupni ještě chybí.</summary>
+    public double GrandWorkRemaining(int resourceIndex) => _grandWork.Remaining(resourceIndex);
+
+    /// <summary>
+    /// Kolik čeho stupeň Velkého díla spotřebuje.
+    ///
+    /// <para>Vlastní typ s <c>double</c>, ne <see cref="ResourceAmount"/>:
+    /// ceny rostou geometricky a po pár desítkách stupňů by se do <c>int</c>
+    /// prostě nevešly.</para>
+    /// </summary>
+    public readonly record struct GrandWorkNeed(int ResourceIndex, double Amount);
+
+    /// <summary>Suroviny, které rozestavěný stupeň spotřebuje.</summary>
+    public IReadOnlyList<GrandWorkNeed> GrandWorkCost()
+    {
+        var pattern = _content.GrandWork.StageAt(_grandWork.Stage);
+        var cost = new GrandWorkNeed[pattern.Cost.Count];
+        for (int i = 0; i < pattern.Cost.Count; i++)
+        {
+            int resource = pattern.Cost[i].ResourceIndex;
+            cost[i] = new GrandWorkNeed(resource, _content.GrandWork.CostOf(_grandWork.Stage, resource));
+        }
+
+        return cost;
+    }
+
+    /// <summary>
+    /// Příkaz hráče: vloží do díla, co má po ruce (nejvýš tolik, kolik stupni
+    /// chybí). Vrací množství, které se opravdu vložilo.
+    ///
+    /// <para>Vkládá se ručně a jen do plné výše potřeby: automatický odběr by
+    /// z díla udělal neviditelnou daň z produkce, a přesypat víc, než stupeň
+    /// spotřebuje, by suroviny jen spálilo.</para>
+    /// </summary>
+    public double InvestInGrandWork(int resourceIndex)
+    {
+        if (!GrandWorkAvailable)
+        {
+            return 0;
+        }
+
+        double amount = Math.Min(_resources[resourceIndex], _grandWork.Remaining(resourceIndex));
+        if (amount <= 0)
+        {
+            return 0;
+        }
+
+        _resources[resourceIndex] -= amount;
+        if (_grandWork.Invest(resourceIndex, amount))
+        {
+            CompleteGrandWorkStage();
+        }
+
+        return amount;
+    }
+
+    /// <summary>Dokončený stupeň přidá trvalý bonus a dílo se pustí do dalšího.</summary>
+    private void CompleteGrandWorkStage()
+    {
+        _grandWorkDone.Add(_grandWork.AdvanceStage());
+        RecomputeBonuses();
+        RecomputeDerivedState();
+
+        EnqueueNotification(new GameNotification(
+            NotificationKind.Milestone, "toast.grandWork", string.Empty));
+        ReportVisual(VisualEventKind.MilestoneReached, CityCenterX, CityCenterY);
+    }
+
+    /// <summary>Dokončené stupně (pro sav).</summary>
+    internal int GrandWorkCompletedCount => _grandWorkDone.Count;
+
+    /// <summary>Vklady do rozestavěného stupně (pro sav).</summary>
+    internal IReadOnlyList<double> GrandWorkInvested() => _grandWork.InvestedAll();
+
+    /// <summary>Obnova Velkého díla ze savu.</summary>
+    internal void RestoreGrandWork(int stage, IReadOnlyList<double> invested)
+    {
+        _grandWork.Restore(stage, invested);
+
+        // Bonusy dokončených stupňů se dopočítají z jejich počtu — vzor stupňů
+        // se cyklí, takže stačí vědět kolik jich je.
+        _grandWorkDone.Clear();
+        for (int i = 0; i < stage; i++)
+        {
+            _grandWorkDone.Add(_content.GrandWork.StageAt(i));
+        }
+
+        RecomputeBonuses();
+        RecomputeDerivedState();
+    }
+
     /// <summary>Kolikátou úroveň upgradu už hráč koupil (0 = žádnou).</summary>
     public int UpgradeLevel(int upgradeIndex) => _upgradeLevels[upgradeIndex];
 
@@ -5366,6 +5475,13 @@ public sealed class Simulation
 
             var upgrade = _content.PrestigeUpgrades[i];
             Scale(upgrade.Effect, upgrade.MultiplierAtLevel(_upgradeLevels[i]), upgrade.Magnitude * _upgradeLevels[i]);
+        }
+
+        // Velké dílo je třetí kategorie — a schválně: jeho stupně přežívají
+        // Vzestup, takže je to jediná osa, která roste napříč všemi běhy.
+        for (int i = 0; i < _grandWorkDone.Count; i++)
+        {
+            Scale(_grandWorkDone[i].Effect, 1.0 + _grandWorkDone[i].Magnitude, _grandWorkDone[i].Magnitude);
         }
 
         // Kategorie 2: výzkum. Platí jen v rámci běhu (Vzestup ho resetuje),

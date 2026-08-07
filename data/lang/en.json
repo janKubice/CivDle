@@ -1554,6 +1554,13 @@
     "power.prestige": "Ascension",
     "power.research": "research",
     "power.milestones": "milestones",
-    "power.festival": "festival"
+    "power.festival": "festival",
+    "toast.grandWork": "The Grand Work rose higher",
+    "grandwork.title": "Grand Work",
+    "grandwork.stage": "Stage {0}",
+    "grandwork.desc": "A bottomless build. Pour in the surplus you have nowhere else to put — each finished stage grants a permanent bonus that survives Ascension.",
+    "grandwork.invest": "Pour in all",
+    "grandwork.locked": "Unlocks after your first Ascension — before that there is no surplus.",
+    "hud.grandwork": "Grand Work"
   }
 }

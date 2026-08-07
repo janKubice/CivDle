@@ -1554,6 +1554,13 @@
     "power.prestige": "Aufstieg",
     "power.research": "Forschung",
     "power.milestones": "Meilensteine",
-    "power.festival": "Fest"
+    "power.festival": "Fest",
+    "toast.grandWork": "Das Große Werk wuchs",
+    "grandwork.title": "Großes Werk",
+    "grandwork.stage": "Stufe {0}",
+    "grandwork.desc": "Ein bodenloser Bau. Schütte den Überschuss hinein — jede fertige Stufe gibt einen dauerhaften Bonus, der den Aufstieg überdauert.",
+    "grandwork.invest": "Alles einbringen",
+    "grandwork.locked": "Wird nach dem ersten Aufstieg freigeschaltet.",
+    "hud.grandwork": "Großes Werk"
   }
 }

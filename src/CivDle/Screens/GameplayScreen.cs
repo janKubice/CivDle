@@ -281,14 +281,16 @@ public sealed class GameplayScreen : IScreen
         _spectacles = new SpectacleRenderer(screens.Content);
         _agents = new AgentSystem(screens.Content, screens.Sprites);
         _minimap = new MinimapRenderer(screens.GraphicsDevice, screens.Content.Biomes, screens.WhitePixel);
-        _might = new MightBanner(screens.WhitePixel, _popupFont, screens.Loc);
         _vignette = new VignetteRenderer(screens.GraphicsDevice);
         _fogRenderer = new FogRenderer(screens.WhitePixel);
         _bubbles = new BubbleSystem(screens.Sprites, screens.Content);
         _caravans = new CaravanSystem(screens.Sprites, screens.Content);
         _golden = new GoldenSpawnSystem(screens.Sprites, screens.Content);
         _discoveries = new DiscoveryRenderer(screens.Sprites);
+        // Pozor na pořadí: všechno pod tímhle řádkem si font drží, takže se to
+        // nesmí vytvářet dřív, než je načtený (jinak null uvnitř rendereru).
         _popupFont = Stylesheet.Current.LabelStyle.Font;
+        _might = new MightBanner(screens.WhitePixel, _popupFont, screens.Loc);
         _toasts = new ToastRenderer(screens.WhitePixel, _popupFont);
         _cityScale = new CityScaleRenderer(screens.WhitePixel, _popupFont);
         _districtRenderer = new DistrictRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont);
@@ -2119,6 +2121,15 @@ public sealed class GameplayScreen : IScreen
             Place(grid, UiFactory.ToolButton(
                 Ico("ui.ascend"), loc["hud.ascend"] + '\n' + loc["tip.ascend"],
                 () => _screens.Push(new AscensionScreen(_screens, _simulation, _info))), slot++, columns);
+        }
+
+        // Velké dílo se v liště objeví, teprve až je čím sypat — dřív by to byla
+        // nabídka na něco, co hráč nemá jak použít.
+        if (_simulation.GrandWorkAvailable)
+        {
+            Place(grid, UiFactory.ToolButton(
+                Ico("ui.ascend"), loc["hud.grandwork"] + '\n' + loc["grandwork.desc"],
+                () => _screens.Push(new GrandWorkScreen(_screens, _simulation))), slot++, columns);
         }
 
         if (_simulation.HistoryEnabled)
