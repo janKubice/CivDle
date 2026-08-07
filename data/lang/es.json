@@ -1661,5 +1661,24 @@
     "zone.science": "Ciencia",
     "zone.services": "Servicios",
     "zone.storage": "Almacenaje"
+    "zone.residential": "Residencial",
+    "loading.newWorld": "Creando el mundo",
+    "loading.savedGame": "Cargando la partida",
+    "achievement.scout": "Explorador",
+    "achievement.scout.desc": "Revela 800 casillas del mapa.",
+    "achievement.surveyor": "Agrimensor",
+    "achievement.surveyor.desc": "Revela 5000 casillas del mapa.",
+    "achievement.horizon_chaser": "Tras el horizonte",
+    "achievement.horizon_chaser.desc": "Revela 15 000 casillas del mapa.",
+    "achievement.atlas_maker": "Creador de atlas",
+    "achievement.atlas_maker.desc": "Revela 40 000 casillas del mapa.",
+    "achievement.good_neighbour": "Buen vecino",
+    "achievement.good_neighbour.desc": "Incorpora una segunda ciudad extranjera.",
+    "achievement.federation": "Federación",
+    "achievement.federation.desc": "Incorpora 10 ciudades extranjeras.",
+    "achievement.confederacy": "Confederación",
+    "achievement.confederacy.desc": "Incorpora 20 ciudades extranjeras.",
+    "achievement.all_roads": "Todos los caminos llevan aquí",
+    "achievement.all_roads.desc": "Incorpora 35 ciudades extranjeras."
   }
 }

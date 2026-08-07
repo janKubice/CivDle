@@ -2152,24 +2152,6 @@ public sealed class GameplayScreen : IScreen
                 () => _screens.Push(new AscensionScreen(_screens, _simulation, _info))), slot++, columns);
         }
 
-        // Velké dílo se v liště objeví, teprve až je čím sypat — dřív by to byla
-        // nabídka na něco, co hráč nemá jak použít.
-        if (_simulation.GrandWorkAvailable)
-        {
-            Place(grid, UiFactory.ToolButton(
-                Ico("ui.ascend"), loc["hud.grandwork"] + '\n' + loc["grandwork.desc"],
-                () => _screens.Push(new GrandWorkScreen(_screens, _simulation))), slot++, columns);
-        }
-
-        // Odkaz se ukáže až po prvním Vzestupu — vrstva nad mechanikou, kterou
-        // hráč ještě nezná, by byla jen matoucí tlačítko navíc.
-        if (_simulation.LegacyAvailable)
-        {
-            Place(grid, UiFactory.ToolButton(
-                Ico("ui.ascend"), loc["hud.legacy"] + '\n' + loc["legacy.desc"],
-                () => _screens.Push(new LegacyScreen(_screens, _simulation))), slot++, columns);
-        }
-
         if (_simulation.HistoryEnabled)
         {
             Place(grid, UiFactory.ToolButton(
@@ -2180,10 +2162,6 @@ public sealed class GameplayScreen : IScreen
         Place(grid, UiFactory.ToolButton(
             Ico("ui.trophy"), loc["hud.achievements"] + '\n' + loc["tip.achievements"],
             () => _screens.Push(new AchievementsScreen(_screens, _simulation))), slot++, columns);
-
-        Place(grid, UiFactory.ToolButton(
-            Ico("ui.stats"), loc["hud.leaderboards"] + '\n' + loc["board.title"],
-            () => _screens.Push(new LeaderboardScreen(_screens, _simulation))), slot++, columns);
 
         if (_simulation.IsFeatureUnlocked("elections") && _screens.Content.Elections.IsEnabled)
         {

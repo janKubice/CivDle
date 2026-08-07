@@ -1661,5 +1661,24 @@
     "zone.science": "Naukowa",
     "zone.services": "Usługowa",
     "zone.storage": "Magazynowa"
+    "zone.residential": "Mieszkalna",
+    "loading.newWorld": "Tworzę świat",
+    "loading.savedGame": "Wczytuję grę",
+    "achievement.scout": "Zwiadowca",
+    "achievement.scout.desc": "Odkryj 800 pól mapy.",
+    "achievement.surveyor": "Geodeta",
+    "achievement.surveyor.desc": "Odkryj 5000 pól mapy.",
+    "achievement.horizon_chaser": "Łowca horyzontu",
+    "achievement.horizon_chaser.desc": "Odkryj 15 000 pól mapy.",
+    "achievement.atlas_maker": "Twórca atlasu",
+    "achievement.atlas_maker.desc": "Odkryj 40 000 pól mapy.",
+    "achievement.good_neighbour": "Dobry sąsiad",
+    "achievement.good_neighbour.desc": "Przyłącz drugie obce miasto.",
+    "achievement.federation": "Federacja",
+    "achievement.federation.desc": "Przyłącz 10 obcych miast.",
+    "achievement.confederacy": "Konfederacja",
+    "achievement.confederacy.desc": "Przyłącz 20 obcych miast.",
+    "achievement.all_roads": "Wszystkie drogi prowadzą tu",
+    "achievement.all_roads.desc": "Przyłącz 35 obcych miast."
   }
 }

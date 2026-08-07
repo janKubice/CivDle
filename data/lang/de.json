@@ -1661,5 +1661,24 @@
     "zone.science": "Wissenschaft",
     "zone.services": "Dienstleistungen",
     "zone.storage": "Lager"
+    "zone.residential": "Wohngebiet",
+    "loading.newWorld": "Welt wird erschaffen",
+    "loading.savedGame": "Spiel wird geladen",
+    "achievement.scout": "Kundschafter",
+    "achievement.scout.desc": "Decke 800 Kartenfelder auf.",
+    "achievement.surveyor": "Landvermesser",
+    "achievement.surveyor.desc": "Decke 5.000 Kartenfelder auf.",
+    "achievement.horizon_chaser": "Horizontjäger",
+    "achievement.horizon_chaser.desc": "Decke 15.000 Kartenfelder auf.",
+    "achievement.atlas_maker": "Atlasmacher",
+    "achievement.atlas_maker.desc": "Decke 40.000 Kartenfelder auf.",
+    "achievement.good_neighbour": "Guter Nachbar",
+    "achievement.good_neighbour.desc": "Nimm eine zweite fremde Stadt auf.",
+    "achievement.federation": "Föderation",
+    "achievement.federation.desc": "Nimm 10 fremde Städte auf.",
+    "achievement.confederacy": "Konföderation",
+    "achievement.confederacy.desc": "Nimm 20 fremde Städte auf.",
+    "achievement.all_roads": "Alle Wege führen hierher",
+    "achievement.all_roads.desc": "Nimm 35 fremde Städte auf."
   }
 }
