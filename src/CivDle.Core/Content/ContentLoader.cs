@@ -1617,7 +1617,7 @@ public sealed class ContentLoader
         }
 
         return new Biome(id, color, (float)dto.ColorVariation, dto.IsWater,
-            depth, elevation, moisture, temperature, clickYield, productionMult);
+            depth, elevation, moisture, temperature, clickYield, productionMult, dto.Natural ?? true);
     }
 
     private static ValueRange ParseRange(string path, string biomeId, string field, double[]? values, bool required)

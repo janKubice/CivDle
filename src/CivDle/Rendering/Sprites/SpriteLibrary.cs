@@ -49,6 +49,7 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "icon.electronics", IconSize, ChipIcon);
         Add(device, "icon.computer", IconSize, ComputerIcon);
         Add(device, "icon.robot", IconSize, RobotIcon);
+        Add(device, "icon.uranium", IconSize, UraniumIcon);
 
         // Ikony do HUD. Lišta plná slov je v akční hře nečitelná: hráč hledá
         // tvar, ne text. Popis nese bublina, ikona nese poznání.
@@ -210,6 +211,11 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.air_scrubber", SpriteSize, AirScrubber);
         Add(device, "building.water_treatment", SpriteSize, WaterTreatment);
         Add(device, "building.soil_remediation", SpriteSize, SoilRemediation);
+        Add(device, "building.decontamination_yard", SpriteSize, DecontaminationYard);
+
+        // Po meteoritu: co se z kráteru dá vytěžit a co se z toho dá postavit.
+        Add(device, "building.uranium_mine", SpriteSize, UraniumMine);
+        Add(device, "building.nuclear_plant", SpriteSize, NuclearPlant);
 
         // Monumenty — každý má být poznat podle obrysu, ne podle barvy.
         Add(device, "building.standing_stones", SpriteSize, StandingStones);
@@ -1001,6 +1007,64 @@ public sealed class SpriteLibrary : IDisposable
     }
 
     /// <summary>Sanace půdy: rozorané pásy, které se pod fólií vracejí do zeleně.</summary>
+    /// <summary>Uran: ruda se zeleným svitem — na první pohled patrné, že to nesvítí normálně.</summary>
+    private static void UraniumIcon(PixelCanvas c)
+    {
+        c.FillCircle(11f, 13f, 7f, new Color(74, 82, 62));
+        c.FillCircle(11f, 13f, 4.5f, new Color(122, 156, 62));
+        c.FillCircle(9.5f, 11.5f, 2.2f, new Color(186, 232, 84));
+        c.FillCircle(14f, 16f, 1.4f, new Color(205, 245, 110));
+    }
+
+    /// <summary>Uranový důl: těžní věž nad zeleně svítící jámou.</summary>
+    private static void UraniumMine(PixelCanvas c)
+    {
+        c.FillRect(2, 20, 28, 10, new Color(86, 94, 58));      // spečená zem
+        c.FillCircle(16f, 25f, 7f, new Color(118, 150, 64));   // jáma
+        c.FillCircle(16f, 25f, 4f, new Color(168, 214, 78));   // svit z hloubky
+
+        c.FillRect(8, 6, 3, 16, new Color(120, 118, 112));     // nohy těžní věže
+        c.FillRect(21, 6, 3, 16, new Color(120, 118, 112));
+        c.FillRect(8, 6, 16, 3, new Color(146, 144, 136));     // rám
+        c.FillCircle(16f, 7.5f, 3f, new Color(96, 94, 90));    // kladka
+        c.FillRect(15, 9, 2, 12, new Color(88, 86, 82));       // lano do jámy
+    }
+
+    /// <summary>Jaderná elektrárna: chladicí věž s párou a reaktorová kopule.</summary>
+    private static void NuclearPlant(PixelCanvas c)
+    {
+        c.FillRect(2, 24, 28, 6, new Color(120, 124, 118));    // areál
+
+        // Chladicí věž — nezaměnitelný obrys, poznat i v oddálení.
+        c.FillTriangle(5f, 24f, 11f, 24f, 7f, 12f, new Color(198, 202, 200));
+        c.FillTriangle(11f, 24f, 15f, 12f, 7f, 12f, new Color(212, 216, 214));
+        c.FillRect(7, 10, 8, 3, new Color(182, 186, 184));
+        c.FillCircle(11f, 7f, 3.4f, new Color(226, 232, 230));  // pára
+        c.FillCircle(14f, 5f, 2.2f, new Color(238, 242, 240));
+
+        c.FillCircle(23f, 22f, 6f, new Color(150, 172, 168));   // kopule reaktoru
+        c.FillCircle(23f, 22f, 3f, new Color(120, 196, 178));
+        c.FillRect(17, 22, 12, 3, new Color(136, 150, 148));
+    }
+
+    /// <summary>Dekontaminační stanice: sprchová brána a nádrž na svlečenou hlínu.</summary>
+    private static void DecontaminationYard(PixelCanvas c)
+    {
+        c.FillRect(2, 20, 28, 10, new Color(104, 112, 96));    // zamořená plocha
+        c.FillRect(4, 24, 24, 2, new Color(158, 196, 130));    // vyčištěný pruh
+
+        c.FillRect(6, 8, 3, 14, new Color(196, 204, 208));     // sloupy brány
+        c.FillRect(20, 8, 3, 14, new Color(196, 204, 208));
+        c.FillRect(6, 6, 17, 3, new Color(220, 228, 232));     // příčník
+        for (int i = 0; i < 4; i++)
+        {
+            c.FillRect(9 + i * 3, 10, 1, 8, new Color(178, 220, 236)); // trysky
+        }
+
+        c.FillCircle(27f, 16f, 4f, new Color(150, 158, 150));  // nádrž na kal
+        c.FillCircle(27f, 15f, 2f, new Color(120, 150, 96));
+    }
+
     private static void SoilRemediation(PixelCanvas c)
     {
         c.FillRect(2, 12, 28, 18, new Color(120, 92, 62)); // otrávená zem

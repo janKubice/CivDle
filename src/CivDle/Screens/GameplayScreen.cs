@@ -418,6 +418,7 @@ public sealed class GameplayScreen : IScreen
 
         var viewport = _screens.GraphicsDevice.Viewport;
         _camera.SetViewport(viewport.Width, viewport.Height);
+        _camera.UpdateShake(dt);
 
         if (_input.WasPressed(Keys.Escape) && !_tools.CancelTopmost())
         {
@@ -1798,6 +1799,15 @@ public sealed class GameplayScreen : IScreen
         {
             _toasts.Add(loc["toast.prayerUnanswered"], new Color(150, 155, 170));
             _floatingText.Add(world, loc["toast.prayerUnanswered"], new Color(150, 155, 170));
+            return;
+        }
+
+        // Minutá rána není nic — je to rána jinde. Hráč to musí vědět dřív, než
+        // začne hledat, co se stalo s jeho čtvrtí.
+        if (outcome == PrayerOutcome.Strayed)
+        {
+            _toasts.Add(loc["toast.prayerStrayed"], new Color(235, 150, 110));
+            _floatingText.Add(world, loc["toast.prayerStrayed"], new Color(235, 150, 110));
         }
     }
 
@@ -2149,9 +2159,16 @@ public sealed class GameplayScreen : IScreen
         _pendingPrayer = -1;
 
         ShowPrayerOutcome(outcome, world);
-        if (outcome == PrayerOutcome.Answered)
+
+        // Podívaná patří TAM, KAM to spadlo — u minutí je to jiné místo, než kam
+        // hráč klikl. Kráter bez výbuchu na svém místě vypadá jako chyba hry.
+        if (outcome is PrayerOutcome.Answered or PrayerOutcome.Strayed)
         {
-            ShowStrikeImpact(effect, world);
+            var (hitX, hitY) = _simulation.LastStrikeTile;
+            var impact = new Vector2(
+                (hitX + 0.5f) * TerrainRenderer.TileSize,
+                (hitY + 0.5f) * TerrainRenderer.TileSize);
+            ShowStrikeImpact(effect, impact);
         }
 
         return true;
@@ -2166,15 +2183,23 @@ public sealed class GameplayScreen : IScreen
         switch (effect)
         {
             case "smite_meteor":
-                _particles.SpawnBurst(world, new Color(255, 150, 60), 60, 90f, 420f);
-                _particles.SpawnBurst(world, new Color(70, 60, 55), 40, 40f, 220f);
+                // Tři vrstvy: bílý záblesk, ohnivá koule, sloup hlíny a kouře.
+                // Jedna dávka jisker vypadala jako klepnutí do země, ne jako
+                // kámen z vesmíru.
+                _particles.SpawnBurst(world, Color.White, 40, 200f, 700f);
+                _particles.SpawnBurst(world, new Color(255, 210, 120), 80, 140f, 560f);
+                _particles.SpawnBurst(world, new Color(255, 120, 40), 90, 90f, 430f);
+                _particles.SpawnBurst(world, new Color(70, 60, 55), 70, 30f, 240f);
+                _particles.SpawnBurst(world, new Color(150, 190, 80), 30, 20f, 130f); // zelený spad
                 _fireworks.Burst(world, HashCode.Combine((int)world.X, (int)world.Y));
+                _camera.Shake(22f);
                 _sounds.PlayPlace();
                 break;
 
             case "smite_flood":
-                _particles.SpawnBurst(world, new Color(110, 180, 235), 60, 60f, 320f);
-                _particles.SpawnBurst(world, new Color(200, 230, 245), 30, 30f, 160f);
+                _particles.SpawnBurst(world, new Color(110, 180, 235), 90, 60f, 380f);
+                _particles.SpawnBurst(world, new Color(200, 230, 245), 50, 30f, 200f);
+                _camera.Shake(10f);
                 _sounds.PlayPlace();
                 break;
 

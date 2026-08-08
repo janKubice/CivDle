@@ -5,37 +5,86 @@
     {
       "id": "irrigate",
       "to": "grassland",
-      "from": ["desert", "steppe", "savanna", "tundra", "badlands"],
-      "cost": { "food": 25, "tools": 5 },
+      "from": [
+        "desert",
+        "steppe",
+        "savanna",
+        "tundra",
+        "badlands"
+      ],
+      "cost": {
+        "food": 25,
+        "tools": 5
+      },
       "unlockTech": "terraforming"
     },
     {
       "id": "drain",
       "to": "grassland",
-      "from": ["swamp", "mangrove"],
-      "cost": { "planks": 20, "tools": 5 },
+      "from": [
+        "swamp",
+        "mangrove"
+      ],
+      "cost": {
+        "planks": 20,
+        "tools": 5
+      },
       "unlockTech": "terraforming"
     },
     {
       "id": "level",
       "to": "grassland",
-      "from": ["mountains", "highlands", "snow_peaks", "volcanic", "glacier"],
-      "cost": { "tools": 20, "planks": 15 },
+      "from": [
+        "mountains",
+        "highlands",
+        "snow_peaks",
+        "volcanic",
+        "glacier"
+      ],
+      "cost": {
+        "tools": 20,
+        "planks": 15
+      },
       "unlockTech": "earthmoving"
     },
     {
       "id": "afforest",
       "to": "forest",
-      "from": ["grassland", "steppe", "savanna"],
-      "cost": { "food": 30, "planks": 10 },
+      "from": [
+        "grassland",
+        "steppe",
+        "savanna"
+      ],
+      "cost": {
+        "food": 30,
+        "planks": 10
+      },
       "unlockTech": "terraforming"
     },
     {
       "id": "thaw",
       "to": "tundra",
-      "from": ["glacier", "ice_shelf"],
-      "cost": { "tools": 25, "steel": 5 },
+      "from": [
+        "glacier",
+        "ice_shelf"
+      ],
+      "cost": {
+        "tools": 25,
+        "steel": 5
+      },
       "unlockTech": "earthmoving"
+    },
+    {
+      "id": "decontaminate",
+      "to": "grassland",
+      "from": [
+        "fallout"
+      ],
+      "cost": {
+        "tools": 40,
+        "electronics": 5
+      },
+      "unlockTech": "decontamination"
     }
   ]
 }

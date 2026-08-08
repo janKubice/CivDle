@@ -962,6 +962,18 @@ public sealed class Simulation
     public PrayerOutcome TryPray(int prayerIndex, int strength, int targetX, int targetY) =>
         _prayerSystem.Pray(this, prayerIndex, strength, targetX, targetY);
 
+    /// <summary>
+    /// Kam naposledy dopadla rána z modlitby (dlaždice).
+    ///
+    /// <para>Render podle toho umístí výbuch. Nestačí vzít místo, kam hráč klikl:
+    /// když rána mine, spadne jinam — a podívaná musí být tam, kde se to opravdu
+    /// stalo, jinak by hráč hledal kráter na špatném konci mapy.</para>
+    /// </summary>
+    public (int X, int Y) LastStrikeTile { get; private set; }
+
+    /// <summary>Zaznamená místo dopadu (volá <see cref="PrayerSystem"/> těsně před účinkem).</summary>
+    internal void ReportStrike(int x, int y) => LastStrikeTile = (x, y);
+
     /// <summary>Zapne dočasné požehnání (volá se z účinku modlitby).</summary>
     internal void StartBlessing(BlessingKind kind, double magnitude, int radiusTiles, int targetX, int targetY)
     {
@@ -1020,7 +1032,12 @@ public sealed class Simulation
         }
 
         hits += StrikeCities(centerX, centerY, radiusTiles, waterOnly: false);
-        ScorchGround(centerX, centerY, radiusTiles);
+
+        // Po kameni z vesmíru nezůstane obyčejné spáleniště, ale zamořená půda:
+        // nedá se na ní stavět (kromě uranového dolu) a dokud ji hráč
+        // nedekontaminuje, je z kráteru rána v mapě, ne kosmetika.
+        ScorchGround(centerX, centerY, radiusTiles,
+            FalloutBiomeIndex >= 0 ? FalloutBiomeIndex : ScorchedBiomeIndex);
 
         Fog.Reveal(centerX, centerY, radiusTiles + 4); // ránu je vidět zdaleka
         return hits;
@@ -1178,7 +1195,7 @@ public sealed class Simulation
     /// Spáleniště po dopadu: stromy a žíly shoří, hlína zčerná. Kráter je menší
     /// než dosah rány — jinak by z mapy zbyla po pár modlitbách poušť.
     /// </summary>
-    private void ScorchGround(int centerX, int centerY, int radiusTiles)
+    private void ScorchGround(int centerX, int centerY, int radiusTiles, int craterBiomeIndex)
     {
         int crater = Math.Max(1, radiusTiles / 2);
         for (int y = centerY - radiusTiles; y <= centerY + radiusTiles; y++)
@@ -1188,10 +1205,10 @@ public sealed class Simulation
                 _nodes.Deplete(x, y, TickCount); // les shoří, ale časem doroste
 
                 if (WithinRadius(x, y, centerX, centerY, crater)
-                    && ScorchedBiomeIndex >= 0
+                    && craterBiomeIndex >= 0
                     && !_content.Biomes[Terrain.BiomeAt(x, y)].IsWater)
                 {
-                    SetBiomeOverride(x, y, (byte)ScorchedBiomeIndex);
+                    SetBiomeOverride(x, y, (byte)craterBiomeIndex);
                 }
             }
         }
@@ -1220,6 +1237,10 @@ public sealed class Simulation
     /// <summary>Biom spáleniště; −1 = data ho nemají a kráter se nekreslí.</summary>
     private int ScorchedBiomeIndex =>
         _content.Biomes.TryIndexOf("badlands", out int index) ? index : -1;
+
+    /// <summary>Zamořená půda po dopadu; −1 = data ji nemají a zbude obyčejné spáleniště.</summary>
+    private int FalloutBiomeIndex =>
+        _content.Biomes.TryIndexOf("fallout", out int index) ? index : -1;
 
     /// <summary>Biom mělčiny, kterou po sobě nechá povodeň.</summary>
     private int FloodedBiomeIndex =>

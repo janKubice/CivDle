@@ -61,6 +61,10 @@ public sealed class ClimateTests
     /// Žádný biom nesmí být mrtvý obsah — když se definuje, musí na některém
     /// presetu opravdu vzniknout. Vzorek zabírá celý klimatický cyklus, jinak by
     /// polární biomy „chyběly" jen proto, že se na ně nedohlédlo.
+    ///
+    /// <para>Výjimka jsou biomy s <c>natural: false</c> — ty vznikají jen tam,
+    /// kam je něco přepíše (kráter po meteoritu, zaplavené pobřeží). Mrtvý obsah
+    /// to není, jen se na ně nedá narazit při generování.</para>
     /// </summary>
     [Fact]
     public void EveryBiome_ActuallyOccursSomewhere()
@@ -81,6 +85,11 @@ public sealed class ClimateTests
 
         for (byte i = 0; i < content.Biomes.Count; i++)
         {
+            if (!content.Biomes[i].IsNaturallyGenerated)
+            {
+                continue;
+            }
+
             Assert.True(seen.Contains(i),
                 $"Biom '{content.Biomes[i].Id}' nevznikne na žádném presetu — mrtvý obsah.");
         }

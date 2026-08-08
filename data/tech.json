@@ -1773,6 +1773,48 @@
       "effect": "combo_power",
       "magnitude": 0.8,
       "maxLevel": 4
+    },
+    {
+      "id": "radiochemistry",
+      "cost": {
+        "electronics": 25,
+        "steel": 60,
+        "science": 650
+      },
+      "prerequisites": [
+        "electronics"
+      ],
+      "unlocks": [
+        "uranium_mine"
+      ]
+    },
+    {
+      "id": "nuclear_fission",
+      "cost": {
+        "uranium": 20,
+        "machine_parts": 50,
+        "science": 1100
+      },
+      "prerequisites": [
+        "radiochemistry"
+      ],
+      "unlocks": [
+        "nuclear_plant"
+      ]
+    },
+    {
+      "id": "decontamination",
+      "cost": {
+        "uranium": 15,
+        "electronics": 40,
+        "science": 900
+      },
+      "prerequisites": [
+        "nuclear_fission"
+      ],
+      "unlocks": [
+        "decontamination_yard"
+      ]
     }
   ]
 }

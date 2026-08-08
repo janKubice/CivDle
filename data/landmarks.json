@@ -550,6 +550,20 @@
       "rarity": 1000,
       "sprite": "waterfall",
       "footprint": 2
+    },
+    {
+      "id": "meteor_shard",
+      "biomes": [
+        "fallout"
+      ],
+      "mapColor": "#9FD142",
+      "size": 9,
+      "rarity": 240,
+      "clickYield": {
+        "resource": "uranium",
+        "amount": 4
+      },
+      "sprite": "crystal"
     }
   ]
 }

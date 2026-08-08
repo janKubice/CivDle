@@ -11,6 +11,12 @@ public enum PrayerOutcome
     /// <summary>Nevyslyšeno: víra se utratila, nestalo se nic.</summary>
     Unanswered,
 
+    /// <summary>
+    /// Rána spadla, ale vedle. Platí jen pro <c>smite_*</c> modlitby: nebe se
+    /// nedá odvolat, jen minout.
+    /// </summary>
+    Strayed,
+
     /// <summary>Nedost víry.</summary>
     NotEnoughFaith,
 
@@ -80,11 +86,51 @@ internal sealed class PrayerSystem
         bool answered = Roll(sim, targetX, targetY) < prayer.ChanceAt(level);
         if (!answered)
         {
-            return PrayerOutcome.Unanswered;
+            // Žehnání se dá odepřít; rána ne. Když si hráč přivolá z nebe kámen
+            // a nebe ho nevyslyší, kámen stejně spadne — jen vedle. Bez toho
+            // byla drahá modlitba v půlce případů „utratil jsi víru a nestalo
+            // se vůbec nic", což je nejhorší možná zpětná vazba.
+            if (!IsSmite(prayer.Effect))
+            {
+                return PrayerOutcome.Unanswered;
+            }
+
+            var (strayX, strayY) = StrayTarget(sim, prayer, targetX, targetY);
+            sim.ReportStrike(strayX, strayY);
+            Apply(sim, prayer, level, strayX, strayY);
+            return PrayerOutcome.Strayed;
         }
 
+        sim.ReportStrike(targetX, targetY);
         Apply(sim, prayer, level, targetX, targetY);
         return PrayerOutcome.Answered;
+    }
+
+    /// <summary>Je to rána (ničí), nebo žehnání (pomáhá)?</summary>
+    private static bool IsSmite(string effect) => effect.StartsWith("smite_", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Kam rána dopadne, když mine. Odchylka je řádově dosah rány — dost na to,
+    /// aby zasáhla něco jiného, ne tak, aby zmizela za obzor.
+    /// </summary>
+    private static (int X, int Y) StrayTarget(Simulation sim, PrayerDef prayer, int targetX, int targetY)
+    {
+        int spread = Math.Max(2, prayer.RadiusTiles * 2);
+        unchecked
+        {
+            // Vlastní míchání, ať odchylka nekoreluje s losem o vyslyšení —
+            // jinak by minutí padalo pořád stejným směrem.
+            ulong h = (ulong)sim.TickCount * 0x9E3779B97F4A7C15UL;
+            h ^= (ulong)(uint)targetX * 0xC2B2AE3D27D4EB4FUL;
+            h ^= (ulong)(uint)targetY * 0x165667B19E3779F9UL;
+            h ^= h >> 29;
+            h *= 0xBF58476D1CE4E5B9UL;
+            h ^= h >> 32;
+
+            int dx = (int)(h % (ulong)(spread * 2 + 1)) - spread;
+            int dy = (int)((h >> 20) % (ulong)(spread * 2 + 1)) - spread;
+            return (targetX + dx, targetY + dy);
+        }
     }
 
     /// <summary>Nejvyšší síla modlitby, kterou lze zvolit.</summary>
