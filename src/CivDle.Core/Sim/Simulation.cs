@@ -3289,8 +3289,8 @@ public sealed class Simulation
             ? _comboStreak
             : 0;
 
-    /// <summary>Násobič výnosu ze série (1.0 bez série).</summary>
-    public double ComboMultiplier => _content.Gameplay.Combo.Multiplier(ComboStreak);
+    /// <summary>Násobič výnosu ze série (1.0 bez série), včetně bonusu <c>combo_power</c>.</summary>
+    public double ComboMultiplier => _content.Gameplay.Combo.Multiplier(ComboStreak, _bonuses.ComboPower);
 
     /// <summary>Kolik sekund série ještě vydrží, než zhasne (0 = neběží).</summary>
     public double ComboSecondsLeft
@@ -6065,6 +6065,7 @@ public sealed class Simulation
         // Kategorie 1: trvalé upgrady Vzestupu (násobí se mezi sebou).
         double production = 1.0, harvest = 1.0, growth = 1.0, housing = 1.0, storage = 1.0;
         double start = 1.0, offline = 1.0, discovery = 1.0, festival = 1.0, autoBuild = 1.0;
+        double combo = 1.0;
         double critChance = 0.0, jackpot = 0.0, research = 0.0;
 
         for (int i = 0; i < _upgradeLevels.Length; i++)
@@ -6102,6 +6103,7 @@ public sealed class Simulation
         // proto se sčítá zvlášť a teprve výsledek se do násobičů promítne.
         double techProduction = 1.0, techHarvest = 1.0, techGrowth = 1.0, techHousing = 1.0;
         double techStorage = 1.0, techOffline = 1.0, techDiscovery = 1.0, techFestival = 1.0, techAutoBuild = 1.0;
+        double techCombo = 1.0;
 
         // Cílené efekty jdou do vlastního pole; bez toho by „+5 % dřeva"
         // zvedlo i výrobu oceli.
@@ -6139,6 +6141,7 @@ public sealed class Simulation
                 case "discovery_luck": techDiscovery += magnitude; break;
                 case "festival_power": techFestival += magnitude; break;
                 case "autobuild_speed": techAutoBuild += magnitude; break;
+                case "combo_power": techCombo += magnitude; break;
                 case "crit_chance": critChance += magnitude; break;
                 case "jackpot_chance": jackpot += magnitude; break;
                 case "research_discount": research += magnitude; break;
@@ -6158,7 +6161,8 @@ public sealed class Simulation
             discovery * techDiscovery,
             festival * techFestival,
             Math.Min(research, 0.9),
-            autoBuild * techAutoBuild);
+            autoBuild * techAutoBuild,
+            combo * techCombo);
 
         // Násobičové efekty se skládají mocninou; ty, které se sčítají do
         // pravděpodobnosti (kritický sběr) nebo do slevy, přirozeně součtem.
@@ -6176,6 +6180,7 @@ public sealed class Simulation
                 case "discovery_luck": discovery *= multiplier; break;
                 case "festival_power": festival *= multiplier; break;
                 case "autobuild_speed": autoBuild *= multiplier; break;
+                case "combo_power": combo *= multiplier; break;
                 case "crit_chance": critChance += sum; break;
                 case "jackpot_chance": jackpot += sum; break;
                 case "research_discount": research += sum; break;

@@ -2254,6 +2254,7 @@ public sealed class ContentLoader
     {
         "production_mult", "harvest_mult", "growth_mult", "housing_mult", "storage_mult", "start_resources", "offline_mult",
         "crit_chance", "jackpot_chance", "discovery_luck", "festival_power", "research_discount", "autobuild_speed",
+        "combo_power",
     };
 
     /// <summary>

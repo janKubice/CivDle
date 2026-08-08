@@ -1623,6 +1623,156 @@
       ],
       "effect": "autobuild_speed",
       "magnitude": 0.35
+    },
+    {
+      "id": "flint_picks",
+      "cost": {
+        "stone": 45,
+        "wood": 30
+      },
+      "prerequisites": [
+        "tools"
+      ],
+      "effect": "harvest_mult",
+      "magnitude": 0.12,
+      "maxLevel": 3
+    },
+    {
+      "id": "hafted_hammers",
+      "cost": {
+        "planks": 60,
+        "tools": 12
+      },
+      "prerequisites": [
+        "flint_picks"
+      ],
+      "effect": "harvest_mult",
+      "magnitude": 0.15,
+      "maxLevel": 3
+    },
+    {
+      "id": "fire_setting",
+      "cost": {
+        "stone": 90,
+        "coal": 20,
+        "science": 60
+      },
+      "prerequisites": [
+        "bronze_working"
+      ],
+      "effect": "harvest_mult",
+      "magnitude": 0.2,
+      "maxLevel": 3
+    },
+    {
+      "id": "shaft_sinking",
+      "cost": {
+        "planks": 110,
+        "bronze": 30,
+        "science": 90
+      },
+      "prerequisites": [
+        "fire_setting"
+      ],
+      "effect": "harvest_mult",
+      "magnitude": 0.22,
+      "maxLevel": 3
+    },
+    {
+      "id": "black_powder",
+      "cost": {
+        "coal": 60,
+        "iron": 25,
+        "science": 140
+      },
+      "prerequisites": [
+        "blasting_powder"
+      ],
+      "effect": "harvest_mult",
+      "magnitude": 0.3,
+      "maxLevel": 3
+    },
+    {
+      "id": "dynamite",
+      "cost": {
+        "coal": 120,
+        "steel": 40,
+        "science": 320
+      },
+      "prerequisites": [
+        "black_powder"
+      ],
+      "effect": "harvest_mult",
+      "magnitude": 0.45,
+      "maxLevel": 4
+    },
+    {
+      "id": "hydraulic_hammers",
+      "cost": {
+        "steel": 90,
+        "machine_parts": 40,
+        "science": 500
+      },
+      "prerequisites": [
+        "dynamite"
+      ],
+      "effect": "harvest_mult",
+      "magnitude": 0.6,
+      "maxLevel": 4
+    },
+    {
+      "id": "rhythm_of_the_pick",
+      "cost": {
+        "tools": 25,
+        "science": 40
+      },
+      "prerequisites": [
+        "flint_picks"
+      ],
+      "effect": "combo_power",
+      "magnitude": 0.25,
+      "maxLevel": 3
+    },
+    {
+      "id": "shift_songs",
+      "cost": {
+        "food": 120,
+        "science": 110
+      },
+      "prerequisites": [
+        "rhythm_of_the_pick"
+      ],
+      "effect": "combo_power",
+      "magnitude": 0.3,
+      "maxLevel": 3
+    },
+    {
+      "id": "pneumatic_drills",
+      "cost": {
+        "steel": 70,
+        "machine_parts": 30,
+        "science": 400
+      },
+      "prerequisites": [
+        "shift_songs"
+      ],
+      "effect": "combo_power",
+      "magnitude": 0.4,
+      "maxLevel": 4
+    },
+    {
+      "id": "exosuit_mining",
+      "cost": {
+        "robot": 20,
+        "nanomaterial": 30,
+        "science": 1800
+      },
+      "prerequisites": [
+        "pneumatic_drills"
+      ],
+      "effect": "combo_power",
+      "magnitude": 0.8,
+      "maxLevel": 4
     }
   ]
 }

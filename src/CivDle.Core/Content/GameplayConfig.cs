@@ -222,8 +222,26 @@ public sealed record ComboConfig(double WindowSeconds, double BonusPerStep, int 
     public int WindowTicks => (int)Math.Round(WindowSeconds * Sim.Simulation.TicksPerSecond);
 
     /// <summary>Násobič výnosu pro sérii dané délky (1 = první sběr, bez bonusu).</summary>
-    public double Multiplier(int streak) =>
-        IsEnabled ? 1.0 + Math.Clamp(streak - 1, 0, MaxSteps) * BonusPerStep : 1.0;
+    public double Multiplier(int streak) => Multiplier(streak, 1.0);
+
+    /// <summary>
+    /// Násobič výnosu pro sérii, zesílený bonusem <c>combo_power</c>.
+    ///
+    /// <para>Síla zvedá obojí — přírůstek za krok i strop série. Kdyby zvedala
+    /// jen přírůstek, série by pořád skončila na desátém kliknutí a rytmus
+    /// těžby by se nikdy nezměnil.</para>
+    /// </summary>
+    public double Multiplier(int streak, double power)
+    {
+        if (!IsEnabled)
+        {
+            return 1.0;
+        }
+
+        double scale = Math.Max(1.0, power);
+        int steps = (int)Math.Round(MaxSteps * scale);
+        return 1.0 + Math.Clamp(streak - 1, 0, steps) * BonusPerStep * scale;
+    }
 }
 
 /// <summary>
