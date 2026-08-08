@@ -53,6 +53,7 @@ public sealed class Simulation
     private long _lastUfoWindow = -1; // poslední okno, jehož zásah UFO už proběhl
     private readonly List<Zone> _zones = new(); // hráčem namalované zóny (automatizace, stupeň 3)
     private readonly RoadBuilder _roadBuilder;
+    private readonly CityRoadPlanner _cityRoadPlanner = new();
     private readonly SettlementSystem _settlementSystem;
     private readonly QuestSystem _questSystem;
     private readonly TutorialSystem _tutorialSystem;
@@ -514,16 +515,38 @@ public sealed class Simulation
     }
 
     /// <summary>
-    /// Postaví cestu k městu. Bez cesty se obchodovat nedá — a to je celý důvod,
-    /// proč silnice v téhle hře nejsou dekorace.
-    ///
-    /// <para>Cesta se nekreslí dlaždici po dlaždici: platí se jednou a spojení
-    /// vznikne. Trasovat stovky dlaždic přes půl mapy by byla práce navíc pro
-    /// hráče i pro procesor, a nic by to nepřineslo.</para>
+    /// Postaví cestu k městu z nejbližšího vlastního sídla.
+    /// Zkratka pro <see cref="TryConnectCity(long, int, int)"/>.
     /// </summary>
     public DiplomacyResult TryConnectCity(long key)
     {
-        if (!NpcCitiesEnabled || !NpcCities.TryCityByKey(key, out _))
+        if (!NpcCities.TryCityByKey(key, out var city))
+        {
+            return DiplomacyResult.Unavailable;
+        }
+
+        var (fromX, fromY) = NearestOwnOrigin(city.X, city.Y);
+        return TryConnectCity(key, fromX, fromY);
+    }
+
+    /// <summary>
+    /// Postaví cestu k městu z určeného místa. Bez cesty se obchodovat nedá —
+    /// a to je celý důvod, proč silnice v téhle hře nejsou dekorace.
+    ///
+    /// <para>Cesta se <b>opravdu položí</b>, dlaždici po dlaždici. Dřív se jen
+    /// zaplatilo a městu se nastavil příznak „spojeno": na mapě po tom nezbylo
+    /// nic a tlačítko vypadalo rozbitě. Trasu hledá
+    /// <see cref="CityRoadPlanner"/> — rovně, s objížďkami kolem překážek.</para>
+    ///
+    /// <para>Odkud se cesta vede, je parametr schválně: hráč s víc sídly si
+    /// vybírá sám. Silnice napříč celou říší z náhodného konce mapy je poslední
+    /// věc, kterou od tlačítka čeká.</para>
+    /// </summary>
+    /// <param name="fromX">Odkud cesta vychází (dlaždice vlastního sídla).</param>
+    /// <param name="fromY">Odkud cesta vychází (dlaždice vlastního sídla).</param>
+    public DiplomacyResult TryConnectCity(long key, int fromX, int fromY)
+    {
+        if (!NpcCitiesEnabled || !NpcCities.TryCityByKey(key, out var city))
         {
             return DiplomacyResult.Unavailable;
         }
@@ -549,10 +572,50 @@ public sealed class Simulation
             return DiplomacyResult.NotEnoughResources;
         }
 
+        // Trasa se hledá PŘED zaplacením: za cestu, která nevede (oceán mezi
+        // hráčem a městem), se platit nebude.
+        var route = new List<(int X, int Y)>();
+        if (!_cityRoadPlanner.TryTrace(this, fromX, fromY, city.X, city.Y, route))
+        {
+            return DiplomacyResult.NoRoute;
+        }
+
         Pay(_content.NpcCities.RoadCost);
+        foreach (var (tileX, tileY) in route)
+        {
+            AddRoadTile(tileX, tileY);
+        }
+
         state.RoadLinked = true;
         _npcStates[key] = state;
         return DiplomacyResult.Ok;
+    }
+
+    /// <summary>
+    /// Odkud vést cestu, když si hráč nevybral: z nejbližšího vlastního sídla,
+    /// jinak ze středu města. Vzdálenost se měří k cílovému městu, ne k hráči —
+    /// nejkratší cesta je i ta nejlevnější na pohled.
+    /// </summary>
+    public (int X, int Y) NearestOwnOrigin(int towardX, int towardY)
+    {
+        var best = (X: CityCenterX, Y: CityCenterY);
+        long bestDistance = long.MaxValue;
+
+        foreach (var settlement in Settlements)
+        {
+            int x = (int)settlement.CenterX;
+            int y = (int)settlement.CenterY;
+            long dx = x - towardX;
+            long dy = y - towardY;
+            long distance = (dx * dx) + (dy * dy);
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                best = (x, y);
+            }
+        }
+
+        return best;
     }
 
     /// <summary>

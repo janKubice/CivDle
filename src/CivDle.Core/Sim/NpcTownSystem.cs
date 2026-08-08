@@ -55,6 +55,9 @@ public sealed class NpcTownSystem
     private readonly HashSet<long> _built = new();  // města, která už stojí
     private readonly HashSet<long> _linked = new(); // cesty, které už vedou
 
+    /// <summary>Trasování cest mezi městy — týž plánovač jako u hráčových cest.</summary>
+    private readonly CityRoadPlanner _planner = new();
+
     /// <summary>
     /// Obdélník, který zástavba města opravdu zabírá. Počítá se jednou při
     /// stavbě — kreslit hranici z pevného poloměru znamenalo, že u malého města
@@ -203,44 +206,20 @@ public sealed class NpcTownSystem
             return;
         }
 
-        int x = from.X;
-        int y = from.Y;
-        ulong wobble = (ulong)pair;
-
-        // Strop kroků: nekonečná mapa a slepá ulička u vody by jinak znamenaly
-        // nekonečnou smyčku. Rozestup měst je 96 dlaždic, takže tohle je rezerva.
-        int steps = 0;
-        int limit = (Math.Abs(to.X - x) + Math.Abs(to.Y - y)) * 3 + 16;
-
-        while ((x != to.X || y != to.Y) && steps++ < limit)
+        // Trasu hledá stejný plánovač jako u hráčových cest k městům.
+        //
+        // Dřív se šlo naslepo k cíli a dlaždice, kam se dláždit nedalo, se prostě
+        // PŘESKOČILY — cesta pak měla díry přesně tam, kde překážela řeka nebo
+        // skála, a přes vodu z ní zbyla přerušovaná čára. Plánovač kolem překážky
+        // uhne, a když cesta nevede vůbec, nepoloží se nic: žádná cesta je
+        // uvěřitelnější než cesta do moře.
+        var route = new List<(int X, int Y)>();
+        bool passable(int x, int y) => canPave(x, y) || IsRoad(x, y);
+        if (_planner.TryTrace(passable, canPave, from.X, from.Y, to.X, to.Y, route))
         {
-            int dx = Math.Sign(to.X - x);
-            int dy = Math.Sign(to.Y - y);
-
-            // Osa s větším zbytkem vede; občas se prohodí, aby cesta klikatila.
-            bool alongX = Math.Abs(to.X - x) > Math.Abs(to.Y - y);
-            wobble = Mix(wobble);
-            if ((wobble & 7) == 0 && dx != 0 && dy != 0)
+            foreach (var (tileX, tileY) in route)
             {
-                alongX = !alongX;
-            }
-
-            if (alongX && dx != 0)
-            {
-                x += dx;
-            }
-            else if (dy != 0)
-            {
-                y += dy;
-            }
-            else
-            {
-                x += dx;
-            }
-
-            if (canPave(x, y))
-            {
-                AddRoad(x, y, LinkOwner);
+                AddRoad(tileX, tileY, LinkOwner);
             }
         }
     }
@@ -402,17 +381,4 @@ public sealed class NpcTownSystem
     /// <summary>Klíč dvojice měst nezávislý na pořadí — cesta je jen jedna.</summary>
     private static long LinkKey(long a, long b) =>
         unchecked(a < b ? a * 31 + b : b * 31 + a);
-
-    private static ulong Mix(ulong value)
-    {
-        unchecked
-        {
-            value ^= value >> 30;
-            value *= 0xBF58476D1CE4E5B9UL;
-            value ^= value >> 27;
-            value *= 0x94D049BB133111EBUL;
-            value ^= value >> 31;
-            return value;
-        }
-    }
 }

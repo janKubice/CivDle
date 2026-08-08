@@ -150,6 +150,41 @@ public class NpcCityTests
     }
 
     [Fact]
+    public void ConnectingACityActuallyLaysTheRoad()
+    {
+        // Dřív se za cestu zaplatilo a jen se nastavil příznak „spojeno" —
+        // na mapě po tom nezbylo nic a tlačítko vypadalo rozbitě.
+        var sim = NewSim();
+        var city = FirstCity(sim);
+        sim.Fog.Reveal(city.X, city.Y, 4);
+
+        Assert.Empty(sim.RoadTiles);
+        Assert.Equal(DiplomacyResult.Ok, sim.TryConnectCity(city.Key));
+
+        Assert.NotEmpty(sim.RoadTiles);
+        Assert.Contains(sim.RoadTiles, tile =>
+            Math.Max(Math.Abs(tile.X - city.X), Math.Abs(tile.Y - city.Y)) <= 12);
+    }
+
+    [Fact]
+    public void TheRoadStartsWhereTheCallerAsked()
+    {
+        // Hráč s víc sídly si vybírá, odkud cesta povede. Kdyby si zdroj určila
+        // simulace sama, vedla by silnice přes půl říše z náhodného konce mapy.
+        var sim = NewSim();
+        var city = FirstCity(sim);
+        sim.Fog.Reveal(city.X, city.Y, 4);
+
+        int fromX = city.X + 18;
+        int fromY = city.Y + 18;
+        Assert.Equal(DiplomacyResult.Ok, sim.TryConnectCity(city.Key, fromX, fromY));
+
+        // Trasa musí začínat u zadaného bodu, ne u středu mapy.
+        Assert.Contains(sim.RoadTiles, tile =>
+            Math.Max(Math.Abs(tile.X - fromX), Math.Abs(tile.Y - fromY)) <= 2);
+    }
+
+    [Fact]
     public void ARoadTurnsOnTheDeliveries()
     {
         var sim = NewSim();

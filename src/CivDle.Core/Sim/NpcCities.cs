@@ -238,4 +238,11 @@ public enum DiplomacyResult
 
     /// <summary>Mechanika je v datech vypnutá nebo město neexistuje.</summary>
     Unavailable,
+
+    /// <summary>
+    /// Cesta se nedá vést — mezi hráčem a městem je něco, co silnice nepřekoná
+    /// (oceán širší než most). Neplatí se za ni; slíbená a nepostavená cesta by
+    /// byla horší než odmítnutí.
+    /// </summary>
+    NoRoute,
 }
