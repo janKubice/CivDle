@@ -1,29 +1,29 @@
 using CivDle.Core.Sim;
 using CivDle.Rendering;
 using CivDle.Screens;
-using FontStashSharp;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Myra.Graphics2D.UI.Styles;
 
 namespace CivDle.Capture;
 
 /// <summary>
-/// Vyrobí kapsle do obchodu (header, library, ikonu…) ze <b>skutečné</b> herní
-/// scény: stejný terén, stejné sprity budov, stejné silnice, jen bez HUD.
+/// Vyrobí <b>podklady</b> pro kapsle do obchodu ze skutečné herní scény: stejný
+/// terén, stejné sprity budov, stejné silnice, jen bez HUD.
 ///
 /// <para>Proč takhle a ne kreslenou grafikou: kapsle je slib. Když na ní bude
 /// něco, co ve hře není, hráč to pozná na první screenshot — a naštve ho to
 /// právem. Takhle je na obálce doslova ta hra.</para>
 ///
-/// <para>Kreslí se do <see cref="RenderTarget2D"/> v přesném rozměru, který Steam
-/// vyžaduje, takže nic nezávisí na velikosti okna.</para>
+/// <para><b>Logo tady není.</b> Dřív se přes scénu kreslil tmavý pruh s názvem
+/// herním fontem — a vypadalo to jako screenshot s popiskem, ne jako obálka.
+/// Značku skládá až <c>tools/make_store_assets.py</c>, které umí gradient,
+/// obrys a emblém; tenhle kód dodává jen město pod ní.</para>
+///
+/// <para>Kreslí se do <see cref="RenderTarget2D"/> v přesném rozměru, takže nic
+/// nezávisí na velikosti okna.</para>
 /// </summary>
 public sealed class CapsuleDirector
 {
-    private const string Title = "CivDle";
-    private const string Tagline = "An idle city that grows while you rest";
-
     private readonly string _outputDirectory;
 
     public CapsuleDirector(string outputDirectory) => _outputDirectory = outputDirectory;
@@ -40,7 +40,6 @@ public sealed class CapsuleDirector
         var roads = new RoadRenderer(screens.WhitePixel, content);
         var buildings = new BuildingRenderer(screens.WhitePixel, content, screens.Sprites);
         var harvestables = new HarvestableRenderer(screens.Sprites, content);
-        var font = Stylesheet.Current.LabelStyle.Font;
 
         Directory.CreateDirectory(_outputDirectory);
         foreach (var spec in CapsuleSpec.All)
@@ -50,14 +49,14 @@ public sealed class CapsuleDirector
             device.Clear(new Color(18, 26, 30));
 
             DrawScene(screens, simulation, spec, terrainRenderer, decorations, roads, buildings, harvestables);
-            DrawBranding(screens, spec, font);
+            DrawEdgeShade(screens, spec);
 
             device.SetRenderTarget(null);
 
             string path = Path.Combine(_outputDirectory, spec.FileName + ".png");
             using var stream = File.Create(path);
             target.SaveAsPng(stream, spec.Width, spec.Height);
-            Console.WriteLine($"kapsle: {path} ({spec.Width}×{spec.Height})");
+            Console.WriteLine($"podklad: {path} ({spec.Width}×{spec.Height})");
         }
     }
 
@@ -101,47 +100,24 @@ public sealed class CapsuleDirector
     }
 
     /// <summary>
-    /// Ztmavení a název. Pruh pod textem je tam proto, aby byl název čitelný
-    /// nad jakoukoli scénou — kapsle se čte v seznamu na dvě vteřiny.
+    /// Jemné ztmavení nahoře a dole, ať scéna nekončí ostrým řezem a ať má
+    /// logo nad čím sedět. Víc podklad nedělá — zbytek je práce kompozitoru.
     /// </summary>
-    private static void DrawBranding(ScreenManager screens, CapsuleSpec spec, SpriteFontBase font)
+    private static void DrawEdgeShade(ScreenManager screens, CapsuleSpec spec)
     {
         var spriteBatch = screens.SpriteBatch;
         var pixel = screens.WhitePixel;
 
         spriteBatch.Begin();
 
-        // Jemná viněta po okrajích, ať scéna nekončí ostrým řezem.
-        int edge = Math.Max(2, Math.Min(spec.Width, spec.Height) / 12);
-        spriteBatch.Draw(pixel, new Rectangle(0, 0, spec.Width, edge), new Color(10, 14, 18) * 0.45f);
-        spriteBatch.Draw(pixel, new Rectangle(0, spec.Height - edge, spec.Width, edge), new Color(10, 14, 18) * 0.55f);
-
-        if (spec.TitleScale > 0)
+        // Po pruzích, ne jedním obdélníkem: ostrá hrana ztmavení je na kapsli
+        // vidět víc než samotné ztmavení.
+        int edge = Math.Max(4, Math.Min(spec.Width, spec.Height) / 6);
+        for (int i = 0; i < edge; i++)
         {
-            float scale = spec.TitleScale * Math.Min(spec.Width, spec.Height) / 215f;
-            var size = font.MeasureString(Title) * scale;
-            float x = (spec.Width - size.X) / 2f;
-            float y = spec.Height * 0.5f - size.Y / 2f;
-
-            int bandHeight = (int)(size.Y * (spec.ShowTagline ? 2.6f : 1.7f));
-            int bandTop = (int)(y - size.Y * 0.4f);
-            // Pruh pod názvem musí být dost tmavý, aby text držel i nad světlou
-            // krajinou — na kapsli se nedá spoléhat na to, co je pod ním.
-            spriteBatch.Draw(pixel, new Rectangle(0, bandTop, spec.Width, bandHeight), new Color(8, 12, 16) * 0.82f);
-
-            spriteBatch.DrawString(font, Title, new Vector2(x + 2, y + 2), new Color(0, 0, 0, 160), scale: new Vector2(scale));
-            spriteBatch.DrawString(font, Title, new Vector2(x, y), new Color(240, 226, 190), scale: new Vector2(scale));
-
-            if (spec.ShowTagline)
-            {
-                float taglineScale = scale * 0.34f;
-                var taglineSize = font.MeasureString(Tagline) * taglineScale;
-                spriteBatch.DrawString(
-                    font, Tagline,
-                    new Vector2((spec.Width - taglineSize.X) / 2f, y + size.Y * 1.05f),
-                    new Color(198, 206, 196),
-                    scale: new Vector2(taglineScale));
-            }
+            float t = 1f - (i / (float)edge);
+            spriteBatch.Draw(pixel, new Rectangle(0, i, spec.Width, 1), new Color(8, 12, 18) * (0.42f * t));
+            spriteBatch.Draw(pixel, new Rectangle(0, spec.Height - 1 - i, spec.Width, 1), new Color(8, 12, 18) * (0.55f * t));
         }
 
         spriteBatch.End();
