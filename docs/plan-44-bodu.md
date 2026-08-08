@@ -96,6 +96,17 @@ Rychlé a hodně viditelné. Skoro vše je UI, málo rizika.
       mého města ji vést
 - [x] **28.** Automatická cesta mezi městy musí najít hezkou validní trasu
 
+## Upřesnění z hraní (8. 8.)
+
+- **16** — „vylepšovat jako 1×1" znamená *stejné chování* jako u řetězce
+  vylepšení 1×1 domku. Půdorys zůstává 2×2; nemá se zmenšovat.
+- **Velké dílo (sink na přebytky)** — nemá to být položka v menu. Má za tím být
+  **výzkum** a pak **obří budova**: díra do země, která opravdu vypadá jako
+  bezedný sink. Řeší se v dávce 4 spolu s velkými půdorysy (body 15, 43), aby
+  se velké stavby dělaly jednou.
+- **×N a tažení** — mřížka ulic platí pro ×N (automat si vybírá místo), ne pro
+  tažení (obdélník kreslí hráč). Opraveno.
+
 ## Dávka 4 — budovy a progrese
 
 - [ ] **14.** V dalších érách jde rovnou stavět lepší domky, ne jen základní
