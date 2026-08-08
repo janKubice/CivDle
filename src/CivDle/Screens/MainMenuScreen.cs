@@ -16,9 +16,14 @@ public sealed class MainMenuScreen : IScreen
     private Desktop _desktop = null!;
     private string? _statusText;
 
-    public MainMenuScreen(ScreenManager screens)
+    /// <param name="statusText">
+    /// Hláška, se kterou se hráč do menu vrací (typicky „načtení selhalo").
+    /// Je to jediná cesta, jak mu říct, proč místo hry vidí zase menu.
+    /// </param>
+    public MainMenuScreen(ScreenManager screens, string statusText = "")
     {
         _screens = screens;
+        _statusText = statusText;
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
         _screens.UiSettingsChanged += BuildUi;

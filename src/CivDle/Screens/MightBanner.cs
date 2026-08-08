@@ -63,6 +63,36 @@ public sealed class MightBanner
         _shown += (total - _shown) * Math.Min(1.0, dt * 3.0);
     }
 
+    /// <summary>
+    /// Krátký zlatý záblesk u horního okraje, když síla vyskočí.
+    ///
+    /// <para>Velké ×N uprostřed obrazovky se neosvědčilo — sedělo přes mapu.
+    /// Číslo teď bydlí v panelu statů vpravo nahoře, kde ho hráč hledá; tady
+    /// zbyl jen ten okamžik, kdy se něco povedlo, a ten musí být vidět
+    /// i koutkem oka.</para>
+    /// </summary>
+    public void DrawPulse(SpriteBatch spriteBatch, Viewport viewport)
+    {
+        if (_pulse <= 0f)
+        {
+            return;
+        }
+
+        float glow = _pulse / PulseSeconds;
+        string headline = "×" + Numbers.Format(_shown);
+        var size = _font.MeasureString(headline) * HeadlineScale;
+
+        float x = viewport.Width * 0.5f - size.X * 0.5f;
+        float y = 96f;
+
+        spriteBatch.Begin();
+        spriteBatch.DrawString(
+            _font, headline, new Vector2(x, y),
+            new Color(255, 226, 150) * glow, 0f, Vector2.Zero,
+            new Vector2(HeadlineScale, HeadlineScale));
+        spriteBatch.End();
+    }
+
     public void Draw(SpriteBatch spriteBatch, Viewport viewport, Simulation simulation)
     {
         string headline = "×" + Numbers.Format(_shown);
