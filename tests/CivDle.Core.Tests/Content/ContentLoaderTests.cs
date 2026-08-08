@@ -101,6 +101,29 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadFrom_MalformedJson_ShowsTheOffendingLine()
+    {
+        // Hláška od .NET („Expected either ',', '}', or ']'") je pravdivá, ale
+        // v souboru o půldruhém tisíci řádcích je k ničemu. Hráč — i vývojář —
+        // potřebuje vidět ten řádek. A protože chybějící čárka se ohlásí až na
+        // NÁSLEDUJÍCÍM řádku, ukazují se oba.
+        WriteAllValid();
+        Write("biomes.json", string.Join('\n',
+            "{",
+            "  \"schemaVersion\": 1,",
+            "  \"chybiCarka\": 1",
+            "  \"biomes\": []",
+            "}"));
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("řádek 3", ex.Message);
+        Assert.Contains("chybiCarka", ex.Message);
+        Assert.Contains("řádek 4", ex.Message);
+        Assert.Contains("← tady", ex.Message);
+    }
+
+    [Fact]
     public void LoadFrom_WrongSchemaVersion_Throws()
     {
         WriteAllValid();

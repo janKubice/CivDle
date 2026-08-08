@@ -3910,16 +3910,54 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, "Soubor nenalezen.");
         }
 
+        string text = File.ReadAllText(path);
+        var overlays = OverlaysFor(path);
+
         try
         {
-            string json = JsonOverlay.Merge(File.ReadAllText(path), OverlaysFor(path));
+            string json = JsonOverlay.Merge(text, overlays);
             var parsed = JsonSerializer.Deserialize<T>(json, JsonOptions);
             return parsed ?? throw new ContentLoadException(path, "Soubor obsahuje jen 'null'.");
         }
         catch (JsonException ex)
         {
-            throw new ContentLoadException(path, $"Neplatný JSON: {ex.Message}");
+            // Výpis provinilého řádku je tu proto, že hlášku od .NET nikdo
+            // nepřečte jako návod. „Expected either ',', '}', or ']'" je pravda,
+            // ale co s tím, pozná až ten, kdo ten řádek vidí — a přes celý
+            // soubor o půldruhém tisíci řádcích ho hledá zbytečně dlouho.
+            //
+            // Čárka chybí na řádku PŘED tím, který parser ohlásí, takže se
+            // ukazují oba.
+            string excerpt = overlays.Count == 0 ? Excerpt(text, ex.LineNumber) : string.Empty;
+            throw new ContentLoadException(path, $"Neplatný JSON: {ex.Message}{excerpt}");
         }
+    }
+
+    /// <summary>
+    /// Provinilý řádek a ten před ním, očíslované od jedné (parser čísluje od nuly).
+    /// Prázdný řetězec, když se řádek určit nedá.
+    /// </summary>
+    private static string Excerpt(string text, long? zeroBasedLine)
+    {
+        if (zeroBasedLine is not { } line || line < 0)
+        {
+            return string.Empty;
+        }
+
+        var lines = text.Split('\n');
+        int index = (int)Math.Min(line, lines.Length - 1);
+        int from = Math.Max(0, index - 1);
+
+        var builder = new System.Text.StringBuilder();
+        for (int i = from; i <= index; i++)
+        {
+            builder.Append(Environment.NewLine)
+                .Append("  řádek ").Append(i + 1).Append(": ")
+                .Append(lines[i].TrimEnd('\r'))
+                .Append(i == index ? "   ← tady" : string.Empty);
+        }
+
+        return builder.ToString();
     }
 
     /// <summary>Obsah stejnojmenných souborů z modů, v pořadí uplatnění.</summary>
