@@ -4694,7 +4694,7 @@ public sealed class Simulation
         DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
         EnqueueNotification(new GameNotification(
-            NotificationKind.Milestone, "toast.merged", _content.Buildings[def.MergesToIndex].NameKey));
+            NotificationKind.BuildingMerged, "toast.merged", _content.Buildings[def.MergesToIndex].NameKey));
         return PlacementResult.Ok;
     }
 

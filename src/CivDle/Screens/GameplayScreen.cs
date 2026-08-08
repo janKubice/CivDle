@@ -90,6 +90,13 @@ public sealed class GameplayScreen : IScreen
     private readonly AmbientSoundscape _soundscape;
     private readonly MinimapRenderer _minimap;
     private readonly ToastRenderer _toasts;
+
+    /// <summary>
+    /// Pravý panel se stavem světa (éra, počasí, spokojenost…). Drží se kvůli
+    /// seznamu toastů, který se kreslí přesně pod ním — panel roste s tím, co má
+    /// hráč odemčené, takže pevné číslo by se dřív nebo později netrefilo.
+    /// </summary>
+    private Widget? _worldInfoPanel;
     private readonly CityScaleRenderer _cityScale;
     private readonly VignetteRenderer _vignette;
 
@@ -696,12 +703,26 @@ public sealed class GameplayScreen : IScreen
         _floatingText.Draw(spriteBatch, _camera, _popupFont);
         DrawSettlementLabels(spriteBatch);
         DrawTileTooltip(spriteBatch);
-        _toasts.Draw(spriteBatch, _screens.GraphicsDevice.Viewport);
+        _toasts.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, ToastListTop());
 
         // Oslava milníku úplně navrchu — je to ta nejdůležitější zpráva na obrazovce.
         spriteBatch.Begin();
         _celebration.Draw(spriteBatch, _screens.WhitePixel, _popupFont, _screens.GraphicsDevice.Viewport);
         spriteBatch.End();
+    }
+
+    /// <summary>
+    /// Kde začíná seznam toastů u pravého okraje: hned pod panelem se stavem
+    /// světa. Než se panel poprvé rozvrhne, má nulové rozměry — pak platí
+    /// záloha, aby první zpráva nezačínala u horní hrany obrazovky.
+    /// </summary>
+    private int ToastListTop()
+    {
+        const int fallbackTop = 240;
+        const int gap = 8;
+
+        int bottom = _worldInfoPanel?.Bounds.Bottom ?? 0;
+        return bottom > 0 ? bottom + gap : fallbackTop;
     }
 
     /// <summary>
@@ -1716,6 +1737,7 @@ public sealed class GameplayScreen : IScreen
         NotificationKind.AchievementUnlocked => new Color(230, 200, 110),
         NotificationKind.Ascended => new Color(180, 140, 230),
         NotificationKind.BuildingMilestone => new Color(255, 214, 120), // barva ohňostroje
+        NotificationKind.BuildingMerged => new Color(170, 190, 210), // provozní zpráva, ne svátek
         _ => new Color(96, 196, 220),
     };
 
@@ -1862,6 +1884,7 @@ public sealed class GameplayScreen : IScreen
         topRight.HorizontalAlignment = HorizontalAlignment.Right;
         topRight.VerticalAlignment = VerticalAlignment.Top;
         topRight.Margin = new Thickness(0, 10, 10, 0);
+        _worldInfoPanel = topRight;
 
         // Stavební menu je VYSKAKOVACÍ: spodek obrazovky má zůstat úzký proužek,
         // katalog budov vyjede nad ním až na kliknutí (a zase se zavře).

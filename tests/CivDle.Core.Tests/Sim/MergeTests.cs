@@ -218,4 +218,23 @@ public class MergeTests
 
         Assert.Equal(1, sim.EvaluateMetric(MetricKind.MergedBuildings, -1));
     }
+
+    [Fact]
+    public void Merge_IsNotAnnouncedAsAMilestone()
+    {
+        // Guvernér slučuje sám a pořád dokola. Jako milník to hráči po každém
+        // intervalu přehodilo přes obrazovku oslavný pruh — proto má sloučení
+        // vlastní druh, který se v UI ukáže jen jako řádek v seznamu.
+        var sim = WithBlock(MergeContent());
+        while (sim.TryDequeueNotification(out _))
+        {
+            // stavba bloku si taky něco vyrobila; zajímá nás až sloučení
+        }
+
+        Assert.Equal(PlacementResult.Ok, sim.TryMerge(4, 4));
+
+        Assert.True(sim.TryDequeueNotification(out var note));
+        Assert.Equal(NotificationKind.BuildingMerged, note.Kind);
+        Assert.Equal("toast.merged", note.TitleKey);
+    }
 }
