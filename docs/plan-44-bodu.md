@@ -107,6 +107,20 @@ Rychlé a hodně viditelné. Skoro vše je UI, málo rizika.
 - **×N a tažení** — mřížka ulic platí pro ×N (automat si vybírá místo), ne pro
   tažení (obdélník kreslí hráč). Opraveno.
 
+### Nález: startovní domek se nikdy nepostavil
+
+`gameplay.json` má `startingBuildings: ["cottage"]`, jenže `cottage` byl
+`buildable: false` — a `CanPlace` na to hlídá. Startovní domek proto **tiše
+nevznikl**; hra vždycky začínala na prázdné louce.
+
+Vyšlo to najevo u bodu 14: jakmile se vyšší stupně domů udělají stavitelné,
+startovní chalupa se začne stavět a 22 testů spadne na tom, že město má o jednu
+budovu víc, než čekaly.
+
+**Rozhodnutí k udělání:** má hra začínat s domkem (data říkají ano), nebo na
+prázdné louce (jak se hraje dnes)? Podle toho se buď opraví testy, nebo se
+`startingBuildings` vyprázdní. Bod 14 na tom visí — proto zatím není hotový.
+
 ## Dávka 4 — budovy a progrese
 
 - [ ] **14.** V dalších érách jde rovnou stavět lepší domky, ne jen základní

@@ -1753,15 +1753,23 @@ public sealed class ContentLoader
             buildings.Add(ValidateBuilding(path, file.Buildings[i], i, biomes, resources, idToIndex, ranks));
         }
 
-        // Vylepšení musí mít stejný půdorys (mění se na místě) — kontrola po sestavení.
+        // Vylepšení smí půdorys ZVĚTŠIT, ale nikdy zmenšit — kontrola po sestavení.
+        //
+        // Růst dává smysl: nejvyšší stupeň bydlení je arkologie 3×3 a bylo by
+        // divné, kdyby zabírala jednu dlaždici jako chalupa. Simulace před
+        // vylepšením ověří, že jsou nové dlaždice volné (viz HasRoomToGrow).
+        //
+        // Zmenšení naopak nedává smysl žádný a tiše by rozbilo mapu obsazenosti:
+        // dlaždice, které budova opustí, by v ní zůstaly zabrané navždy.
         foreach (var building in buildings)
         {
             if (building.HasUpgrade)
             {
                 var target = buildings[building.UpgradesToIndex];
-                if (target.FootprintWidth != building.FootprintWidth || target.FootprintHeight != building.FootprintHeight)
+                if (target.FootprintWidth < building.FootprintWidth
+                    || target.FootprintHeight < building.FootprintHeight)
                 {
-                    throw new ContentLoadException(path, $"Budova '{building.Id}': vylepšení '{target.Id}' má jiný půdorys (vylepšuje se na místě).");
+                    throw new ContentLoadException(path, $"Budova '{building.Id}': vylepšení '{target.Id}' má menší půdorys (vylepšením se budova nesmí zmenšit).");
                 }
             }
 
