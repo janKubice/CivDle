@@ -963,7 +963,7 @@
     "npc.relation": "Vztah {0} / 100",
     "npc.sea": "Spojeno po moři — stačí přístav.",
     "npc.showMe": "Ukázat na mapě",
-    "npc.surround": "Obestav ho vlastní zástavbou a sroste s tvým městem sám.",
+    "npc.surround": "Obestav ho {0} vlastními budovami a sroste s tvým městem sám.",
     "npc.title": "Objevená města",
     "npc.trades": "Dodávek: {0}",
     "offline.away": "Byl jsi pryč {0}.",

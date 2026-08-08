@@ -171,7 +171,9 @@ public sealed class CityScreen : IScreen
 
         // Obestavění je tichá cesta, o které se hráč jinak nedozví — patří sem,
         // ne do nápovědy někde stranou.
-        layout.Widgets.Add(Note(loc["npc.surround"], new Color(150, 158, 175)));
+        layout.Widgets.Add(Note(
+            loc.Format("npc.surround", _simulation.SurroundBuildingsFor(_city.Key)),
+            new Color(150, 158, 175)));
         Finish(layout);
     }
 
@@ -251,8 +253,10 @@ public sealed class CityScreen : IScreen
         var content = _screens.Content;
         var stack = new VerticalStackPanel { Spacing = 8, Width = PanelWidth - 40 };
 
+        // Ceny čtou ze simulace, ne z katalogu: u většího města jsou vyšší
+        // a hráč musí vidět tu skutečnou, ne základní z dat.
         stack.Widgets.Add(Action(
-            loc["npc.gift"], catalog.GiftCost,
+            loc["npc.gift"], _simulation.GiftCostFor(_city.Key),
             () => _simulation.TryGiftCity(_city.Key)));
 
         if (!state.RoadLinked)
@@ -310,7 +314,7 @@ public sealed class CityScreen : IScreen
         if (state.Relation >= catalog.BuyRelation)
         {
             stack.Widgets.Add(Action(
-                loc["npc.buy"], catalog.BuyCost,
+                loc["npc.buy"], _simulation.BuyCostFor(_city.Key),
                 () => _simulation.TryBuyCity(_city.Key)));
         }
 

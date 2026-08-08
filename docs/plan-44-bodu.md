@@ -13,12 +13,12 @@ Značky: `[ ]` čeká · `[~]` rozděláno · `[x]` hotovo
 | 1 — pády | 7, 6, 19, 40, 9, 32, 13 | **hotovo** |
 | 2 — HUD | 3, 4, 5, 10, 11, 12, 25, 29, 30, 31, 33, 34, 35 | **hotovo** |
 | 3 — nástroje | 24, 20, 23, 22, 26, 17, 27, 28 | **hotovo** |
-| 3 — nástroje | 18 | čeká na rozhodnutí (A/B/C níže) |
-| 4 — budovy | 14, 15, 16, 41, 43 | čeká |
+| 3 — nástroje | 18 | **hotovo** (varianta C: smíšené zóny v datech, vlastní zóna v dávce 6) |
+| 4 — budovy | 14, 15, 16, 41, 43 | **hotovo** |
 | 5 — obsah | 8, 37, 36, 21, 38, 39, 42 | čeká |
 | 6 — velké funkce | 44, 2 | čeká |
 
-**Zbývá 15 bodů z 44.**
+**Zbývá 9 bodů z 44** (dávka 5 a 6).
 
 ---
 
@@ -117,19 +117,21 @@ Vyšlo to najevo u bodu 14: jakmile se vyšší stupně domů udělají stavitel
 startovní chalupa se začne stavět a 22 testů spadne na tom, že město má o jednu
 budovu víc, než čekaly.
 
-**Rozhodnutí k udělání:** má hra začínat s domkem (data říkají ano), nebo na
-prázdné louce (jak se hraje dnes)? Podle toho se buď opraví testy, nebo se
-`startingBuildings` vyprázdní. Bod 14 na tom visí — proto zatím není hotový.
+**Rozhodnuto (B):** hra začíná na prázdné louce, `startingBuildings` je prázdné.
+Vyšší stupně domů jsou teď stavitelné, ale zamčené výzkumem podle éry
+(masonry → chalupa, iron_working → cihlový dům, steam_power → činžák,
+electrification → byty, robotics → mrakodrap, fusion → arkologie) — takže
+„rovnou" neznamená „hned".
 
 ## Dávka 4 — budovy a progrese
 
-- [ ] **14.** V dalších érách jde rovnou stavět lepší domky, ne jen základní
+- [x] **14.** V dalších érách jde rovnou stavět lepší domky, ne jen základní
       a vylepšovat
-- [ ] **15.** Větší budovy aspoň 2×2, nejvyšší tier domku klidně 3×3
-- [ ] **16.** Sloučený dům musí jít vylepšovat na další tiery jako 1×1
-- [ ] **41.** Čím větší NPC město, tím dražší dary a odkoupení (a víc budov
+- [x] **15.** Větší budovy aspoň 2×2, nejvyšší tier domku klidně 3×3
+- [x] **16.** Sloučený dům musí jít vylepšovat na další tiery jako 1×1
+- [x] **41.** Čím větší NPC město, tím dražší dary a odkoupení (a víc budov
       na převzetí)
-- [ ] **43.** Velký přístav pro zámořské lodě
+- [x] **43.** Velký přístav pro zámořské lodě
 
 ## Dávka 5 — obsah a mechaniky
 

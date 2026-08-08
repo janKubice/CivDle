@@ -963,7 +963,7 @@
     "npc.relation": "Ansehen {0} / 100",
     "npc.sea": "Über das Meer verbunden — ein Hafen genügt.",
     "npc.showMe": "Auf der Karte zeigen",
-    "npc.surround": "Bau ringsherum und es wächst von selbst mit deiner Stadt zusammen.",
+    "npc.surround": "Umbaue es mit {0} eigenen Gebäuden und es wächst von selbst mit deiner Stadt zusammen.",
     "npc.title": "Entdeckte Städte",
     "npc.trades": "Lieferungen: {0}",
     "offline.away": "Du warst {0} weg.",

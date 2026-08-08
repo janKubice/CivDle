@@ -963,7 +963,7 @@
     "npc.relation": "Relación {0} / 100",
     "npc.sea": "Unida por mar: basta con un puerto.",
     "npc.showMe": "Mostrar en el mapa",
-    "npc.surround": "Constrúyele alrededor y se fundirá con tu ciudad por sí sola.",
+    "npc.surround": "Rodéala con {0} edificios propios y se unirá a tu ciudad por sí sola.",
     "npc.title": "Ciudades encontradas",
     "npc.trades": "Entregas: {0}",
     "offline.away": "Estuviste fuera {0}.",

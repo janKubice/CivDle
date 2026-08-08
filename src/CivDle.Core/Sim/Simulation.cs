@@ -503,12 +503,13 @@ public sealed class Simulation
         }
 
         var catalog = _content.NpcCities;
-        if (!CanPay(catalog.GiftCost))
+        var gift = ScaledCost(catalog.GiftCost, CityScale(key));
+        if (!CanPay(gift))
         {
             return DiplomacyResult.NotEnoughResources;
         }
 
-        Pay(catalog.GiftCost);
+        Pay(gift);
         state.Relation = Math.Min(MaxRelation, state.Relation + catalog.GiftRelation);
         _npcStates[key] = state;
         return DiplomacyResult.Ok;
@@ -592,6 +593,61 @@ public sealed class Simulation
     }
 
     /// <summary>
+    /// Jak velké je cizí město v porovnání s tím nejmenším. 1,0 = nejmenší
+    /// archetyp, výš roste s počtem obyvatel.
+    ///
+    /// <para>Dřív stálo všechno stejně: dar metropoli o sto padesáti lidech vyšel
+    /// na tolik co dar vesnici o čtyřiceti, a obestavět šlo obojí dvanácti domy.
+    /// Diplomacie tím ztratila rozhodování — nebyl důvod začínat u malých.</para>
+    ///
+    /// <para>Škáluje se podle <b>populace archetypu</b>, ne podle postavených
+    /// budov: plán města je čistá funkce seedu, takže je cena stabilní a hráč se
+    /// na ni může připravit.</para>
+    /// </summary>
+    public double CityScale(long key)
+    {
+        if (!NpcCities.TryCityByKey(key, out var city))
+        {
+            return 1.0;
+        }
+
+        var archetypes = _content.NpcCities.Archetypes;
+        double smallest = double.MaxValue;
+        for (int i = 0; i < archetypes.Count; i++)
+        {
+            smallest = Math.Min(smallest, Math.Max(1, archetypes[i].Population));
+        }
+
+        double population = Math.Max(1, archetypes[city.ArchetypeIndex].Population);
+        return population / smallest;
+    }
+
+    /// <summary>Kolik stojí dar tomuhle městu. UI musí ukazovat tuhle cenu, ne tu z dat.</summary>
+    public IReadOnlyList<ResourceAmount> GiftCostFor(long key) =>
+        ScaledCost(_content.NpcCities.GiftCost, CityScale(key));
+
+    /// <summary>Kolik stojí odkoupit tohle město.</summary>
+    public IReadOnlyList<ResourceAmount> BuyCostFor(long key) =>
+        ScaledCost(_content.NpcCities.BuyCost, Math.Pow(CityScale(key), 1.6));
+
+    /// <summary>Kolik vlastních budov kolem města je potřeba, aby srostlo s říší.</summary>
+    public int SurroundBuildingsFor(long key) =>
+        (int)Math.Ceiling(_content.NpcCities.SurroundBuildings * CityScale(key));
+
+    /// <summary>Cena vynásobená a zaokrouhlená nahoru — z ceny nesmí vyjít nula.</summary>
+    private static ResourceAmount[] ScaledCost(IReadOnlyList<ResourceAmount> cost, double scale)
+    {
+        var scaled = new ResourceAmount[cost.Count];
+        for (int i = 0; i < cost.Count; i++)
+        {
+            scaled[i] = new ResourceAmount(
+                cost[i].ResourceIndex, (int)Math.Ceiling(cost[i].Amount * scale));
+        }
+
+        return scaled;
+    }
+
+    /// <summary>
     /// Odkud vést cestu, když si hráč nevybral: z nejbližšího vlastního sídla,
     /// jinak ze středu města. Vzdálenost se měří k cílovému městu, ne k hráči —
     /// nejkratší cesta je i ta nejlevnější na pohled.
@@ -645,12 +701,15 @@ public sealed class Simulation
             return DiplomacyResult.RelationTooLow;
         }
 
-        if (!CanPay(_content.NpcCities.BuyCost))
+        // Odkup roste s velikostí města strměji než dar: metropoli si nemá jít
+        // koupit za tolik co vesnici jen proto, že hráč nasyslil.
+        var price = ScaledCost(_content.NpcCities.BuyCost, Math.Pow(CityScale(key), 1.6));
+        if (!CanPay(price))
         {
             return DiplomacyResult.NotEnoughResources;
         }
 
-        Pay(_content.NpcCities.BuyCost);
+        Pay(price);
         AbsorbCity(key, city);
         return DiplomacyResult.Ok;
     }
@@ -753,7 +812,8 @@ public sealed class Simulation
 
             // Obestavěné město sroste s hráčovým samo — nikdo ho nedobývá,
             // jen se kolem něj rozrostlo město a hranice přestala dávat smysl.
-            if (CountOwnBuildingsAround(city.X, city.Y, catalog.SurroundRadius) >= catalog.SurroundBuildings)
+            int needed = (int)Math.Ceiling(catalog.SurroundBuildings * CityScale(city.Key));
+            if (CountOwnBuildingsAround(city.X, city.Y, catalog.SurroundRadius) >= needed)
             {
                 AbsorbCity(city.Key, city);
                 continue;

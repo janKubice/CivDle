@@ -235,7 +235,10 @@
         "trade"
       ],
       "effect": "housing_mult",
-      "magnitude": 0.2
+      "magnitude": 0.2,
+      "unlocks": [
+        "cottage"
+      ]
     },
     {
       "id": "stone_sledges",
@@ -378,7 +381,8 @@
         "iron_mine",
         "coal_mine",
         "blast_furnace",
-        "charcoal_kiln"
+        "charcoal_kiln",
+        "brick_house"
       ]
     },
     {
@@ -525,7 +529,8 @@
       ],
       "unlocks": [
         "steel_mill",
-        "machine_shop"
+        "machine_shop",
+        "tenement"
       ]
     },
     {
@@ -539,7 +544,8 @@
       ],
       "unlocks": [
         "coal_power_plant",
-        "factory"
+        "factory",
+        "apartment"
       ]
     },
     {
@@ -763,7 +769,8 @@
       ],
       "unlocks": [
         "fusion_plant",
-        "nano_forge"
+        "nano_forge",
+        "arcology"
       ]
     },
     {
@@ -776,7 +783,8 @@
         "computing"
       ],
       "unlocks": [
-        "robotics_lab"
+        "robotics_lab",
+        "high_rise"
       ]
     },
     {
