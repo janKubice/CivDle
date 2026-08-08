@@ -56,12 +56,19 @@ internal static class StartupDiagnosis
             "  • Pozor: Smart App Control jde vypnout jen jednou — zpátky se bez reinstalace Windows nezapne."),
 
         // Data-driven obsah je fail-fast; tady chybu nejspíš způsobil mod nebo
-        // ruční úprava JSONu, takže má smysl poslat hráče do dat, ne do kódu.
-        ContentLoadException => string.Join(
+        // rozbitá kopie dat, takže má smysl poslat hráče do dat, ne do kódu.
+        //
+        // Plná cesta je v radě schválně: hláška samotná nese jen jméno souboru
+        // a bez cesty se nepozná, jestli je rozbitá kopie u hry, nebo v modu —
+        // což je přesně rozdíl mezi „smaž a publikuj znovu" a „vypni mod".
+        ContentLoadException content => string.Join(
             Environment.NewLine,
-            "Herní data se nepovedlo načíst.",
+            $"Herní data se nepovedlo načíst: {content.File}",
             "  • Když máš mody, zkus je dočasně odebrat ze složky mods/.",
-            "  • Jinak dej data/ do původního stavu (git checkout data)."),
+            "  • Ve Steamu: Vlastnosti hry → Instalované soubory → Ověřit integritu.",
+            "  • U vlastního buildu smaž celou složku s publishem a publikuj znovu —",
+            "    starý soubor v ní může přežít, i když je ve zdrojích v pořádku.",
+            "  • Ve zdrojích: dej data/ do původního stavu (git checkout data)."),
 
         _ => null,
     };

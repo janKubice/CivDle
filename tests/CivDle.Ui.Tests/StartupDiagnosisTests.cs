@@ -61,6 +61,19 @@ public sealed class StartupDiagnosisTests
     }
 
     [Fact]
+    public void BrokenDataNamesTheWholePathNotJustTheFileName()
+    {
+        // Rozbitá kopie v publish složce vypadá ve zdrojích v pořádku. Bez cesty
+        // hráč (i vývojář) hledá chybu tam, kde není.
+        string path = Path.Combine("C:", "hry", "CivDle", "data", "lang", "cs.json");
+
+        string? hint = StartupDiagnosis.HintFor(new ContentLoadException(path, "neplatný JSON"));
+
+        Assert.NotNull(hint);
+        Assert.Contains(path, hint, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AnUnknownFailureGetsNoInventedAdvice()
     {
         // Špatná rada je horší než žádná: pošle hráče přenastavovat věci,

@@ -53,6 +53,16 @@ public enum NotificationKind
 
     /// <summary>Cizí město srovnala se zemí modlitba hráče.</summary>
     CityStruck,
+
+    /// <summary>
+    /// Blok 2×2 se přestavěl v jednu větší budovu.
+    ///
+    /// <para>Vlastní druh, ne <see cref="Milestone"/>: guvernér slučuje sám a
+    /// pořád dokola, takže jako milník to hráči po každém intervalu přehodilo
+    /// přes obrazovku oslavný pruh. Sloučení je běžný provoz — patří do
+    /// seznamu, ne na celou obrazovku.</para>
+    /// </summary>
+    BuildingMerged,
 }
 
 /// <summary>

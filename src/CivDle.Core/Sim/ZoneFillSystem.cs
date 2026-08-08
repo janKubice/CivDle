@@ -118,7 +118,7 @@ internal sealed class ZoneFillSystem
                     return false; // cena nezávisí na místě
                 }
 
-                if (result != PlacementResult.Ok)
+                if (result != PlacementResult.Ok || CityLayout.IsReservedForStreet(tx, ty))
                 {
                     continue;
                 }

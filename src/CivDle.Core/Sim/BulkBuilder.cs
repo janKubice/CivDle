@@ -194,21 +194,34 @@ public sealed class BulkBuilder
     /// </summary>
     public int Build(int defIndex, IReadOnlyList<BulkSlot> plan)
     {
-        int placed = 0;
-        for (int i = 0; i < plan.Count; i++)
+        // Napřed celá čtvrť, teprve pak ulice: kdyby se dláždilo po každém domě,
+        // sebrala by první ulice dlaždici, na které měl podle plánu stát další —
+        // a z „postav 25" jich vyšlo 23.
+        _simulation.BeginBatchPlacement();
+        try
         {
-            if (!plan[i].WillBuild)
+            int placed = 0;
+            for (int i = 0; i < plan.Count; i++)
             {
-                continue;
+                if (!plan[i].WillBuild)
+                {
+                    continue;
+                }
+
+                if (_simulation.TryPlaceBuilding(defIndex, plan[i].X, plan[i].Y) == PlacementResult.Ok)
+                {
+                    placed++;
+                }
             }
 
-            if (_simulation.TryPlaceBuilding(defIndex, plan[i].X, plan[i].Y) == PlacementResult.Ok)
-            {
-                placed++;
-            }
+            return placed;
         }
-
-        return placed;
+        finally
+        {
+            // I kdyby stavba spadla, dávka musí skončit — jinak by simulace
+            // zůstala v režimu, ve kterém se nedláždí vůbec.
+            _simulation.EndBatchPlacement();
+        }
     }
 
     /// <summary>

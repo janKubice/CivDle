@@ -2,7 +2,6 @@ using CivDle.Audio;
 using CivDle.Capture;
 using CivDle.Core.Config;
 using CivDle.Core.Content;
-using CivDle.Core.Content.Mods;
 using CivDle.Core.Platform;
 using CivDle.Core.Save;
 using CivDle.Core.Sim;
@@ -34,6 +33,7 @@ public sealed class CivDleGame : Game
     private readonly ProfileStore _profileStore;
     private readonly CaptureDirector? _capture;
     private readonly string? _capsuleDirectory;
+    private readonly GameContent _content;
     private readonly bool _smoke;
     private readonly bool _perf;
     private PerfRun? _perfRun;
@@ -55,12 +55,23 @@ public sealed class CivDleGame : Game
     /// projeví až po kliknutí na nástroj — testy simulace na ně nedosáhnou.
     /// </param>
     /// <param name="perf">Změřit dobu vykreslení snímku při různém přiblížení a skončit.</param>
+    /// <param name="content">
+    /// Předem načtený herní obsah.
+    ///
+    /// <para>Načítá se <b>před</b> vytvořením okna schválně. Když se dělalo až
+    /// v <c>LoadContent</c>, chyba v datech vybuchla ve chvíli, kdy už okno
+    /// existovalo — chybové okno mu vzalo fokus a MonoGame spadl podruhé
+    /// v <c>OnDeactivate</c>. Hráč pak místo srozumitelné hlášky dostal
+    /// ještě ošklivější .NET dialog.</para>
+    /// </param>
     public CivDleGame(
+        GameContent content,
         string? captureDirectory = null,
         string? capsuleDirectory = null,
         bool smoke = false,
         bool perf = false)
     {
+        _content = content;
         _smoke = smoke;
         _perf = perf;
         _capture = captureDirectory is null ? null : new CaptureDirector(captureDirectory);
@@ -125,15 +136,10 @@ public sealed class CivDleGame : Game
         MyraEnvironment.TooltipDelayInMs = 260;
         MyraEnvironment.TooltipOffset = new Point(16, 18);
 
-        // Data leží vedle binárky — funguje pro `dotnet run` i pro publish jedním exe.
-        // Mody bydlí ve vlastní složce vedle nich: kdyby přepisovaly data/, každá
-        // aktualizace hry by je smazala a dva mody by se nedaly použít naráz.
-        var mods = ModCatalog.Discover(Path.Combine(AppContext.BaseDirectory, "mods"));
-        var content = new ContentLoader().LoadFrom(Path.Combine(AppContext.BaseDirectory, "data"), mods);
-        foreach (var mod in mods)
-        {
-            Console.WriteLine($"mod: {mod.Name} {mod.Version} ({mod.Id})");
-        }
+        // Obsah je načtený už z Program.cs, ještě před vznikem okna — viz
+        // dokumentace konstruktoru.
+        var content = _content;
+
         // Obchod je anglicky: snímky do Steamu musí být v jazyce, kterému rozumí
         // každý, kdo si stránku otevře — ne v tom, který má vývojář nastavený.
         bool storeMode = _capture is not null || _capsuleDirectory is not null || _smoke || _perf;

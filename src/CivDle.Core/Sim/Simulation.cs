@@ -53,6 +53,7 @@ public sealed class Simulation
     private long _lastUfoWindow = -1; // poslední okno, jehož zásah UFO už proběhl
     private readonly List<Zone> _zones = new(); // hráčem namalované zóny (automatizace, stupeň 3)
     private readonly RoadBuilder _roadBuilder;
+    private readonly CityRoadPlanner _cityRoadPlanner = new();
     private readonly SettlementSystem _settlementSystem;
     private readonly QuestSystem _questSystem;
     private readonly TutorialSystem _tutorialSystem;
@@ -514,16 +515,38 @@ public sealed class Simulation
     }
 
     /// <summary>
-    /// Postaví cestu k městu. Bez cesty se obchodovat nedá — a to je celý důvod,
-    /// proč silnice v téhle hře nejsou dekorace.
-    ///
-    /// <para>Cesta se nekreslí dlaždici po dlaždici: platí se jednou a spojení
-    /// vznikne. Trasovat stovky dlaždic přes půl mapy by byla práce navíc pro
-    /// hráče i pro procesor, a nic by to nepřineslo.</para>
+    /// Postaví cestu k městu z nejbližšího vlastního sídla.
+    /// Zkratka pro <see cref="TryConnectCity(long, int, int)"/>.
     /// </summary>
     public DiplomacyResult TryConnectCity(long key)
     {
-        if (!NpcCitiesEnabled || !NpcCities.TryCityByKey(key, out _))
+        if (!NpcCities.TryCityByKey(key, out var city))
+        {
+            return DiplomacyResult.Unavailable;
+        }
+
+        var (fromX, fromY) = NearestOwnOrigin(city.X, city.Y);
+        return TryConnectCity(key, fromX, fromY);
+    }
+
+    /// <summary>
+    /// Postaví cestu k městu z určeného místa. Bez cesty se obchodovat nedá —
+    /// a to je celý důvod, proč silnice v téhle hře nejsou dekorace.
+    ///
+    /// <para>Cesta se <b>opravdu položí</b>, dlaždici po dlaždici. Dřív se jen
+    /// zaplatilo a městu se nastavil příznak „spojeno": na mapě po tom nezbylo
+    /// nic a tlačítko vypadalo rozbitě. Trasu hledá
+    /// <see cref="CityRoadPlanner"/> — rovně, s objížďkami kolem překážek.</para>
+    ///
+    /// <para>Odkud se cesta vede, je parametr schválně: hráč s víc sídly si
+    /// vybírá sám. Silnice napříč celou říší z náhodného konce mapy je poslední
+    /// věc, kterou od tlačítka čeká.</para>
+    /// </summary>
+    /// <param name="fromX">Odkud cesta vychází (dlaždice vlastního sídla).</param>
+    /// <param name="fromY">Odkud cesta vychází (dlaždice vlastního sídla).</param>
+    public DiplomacyResult TryConnectCity(long key, int fromX, int fromY)
+    {
+        if (!NpcCitiesEnabled || !NpcCities.TryCityByKey(key, out var city))
         {
             return DiplomacyResult.Unavailable;
         }
@@ -549,10 +572,50 @@ public sealed class Simulation
             return DiplomacyResult.NotEnoughResources;
         }
 
+        // Trasa se hledá PŘED zaplacením: za cestu, která nevede (oceán mezi
+        // hráčem a městem), se platit nebude.
+        var route = new List<(int X, int Y)>();
+        if (!_cityRoadPlanner.TryTrace(this, fromX, fromY, city.X, city.Y, route))
+        {
+            return DiplomacyResult.NoRoute;
+        }
+
         Pay(_content.NpcCities.RoadCost);
+        foreach (var (tileX, tileY) in route)
+        {
+            AddRoadTile(tileX, tileY);
+        }
+
         state.RoadLinked = true;
         _npcStates[key] = state;
         return DiplomacyResult.Ok;
+    }
+
+    /// <summary>
+    /// Odkud vést cestu, když si hráč nevybral: z nejbližšího vlastního sídla,
+    /// jinak ze středu města. Vzdálenost se měří k cílovému městu, ne k hráči —
+    /// nejkratší cesta je i ta nejlevnější na pohled.
+    /// </summary>
+    public (int X, int Y) NearestOwnOrigin(int towardX, int towardY)
+    {
+        var best = (X: CityCenterX, Y: CityCenterY);
+        long bestDistance = long.MaxValue;
+
+        foreach (var settlement in Settlements)
+        {
+            int x = (int)settlement.CenterX;
+            int y = (int)settlement.CenterY;
+            long dx = x - towardX;
+            long dy = y - towardY;
+            long distance = (dx * dx) + (dy * dy);
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                best = (x, y);
+            }
+        }
+
+        return best;
     }
 
     /// <summary>
@@ -2087,6 +2150,7 @@ public sealed class Simulation
 
         SetBiomeOverride(x, y, (byte)action.TargetBiomeIndex);
         TerraformedTiles++;
+        ReportVisual(VisualEventKind.Terraformed, x, y);
         return PlacementResult.Ok;
     }
 
@@ -2963,6 +3027,40 @@ public sealed class Simulation
         return count;
     }
 
+    /// <summary>Běží hromadná stavba, u které se dláždí až na konci?</summary>
+    private bool _batchPlacement;
+
+    /// <summary>Indexy budov postavených uvnitř dávky — na konci se napojí.</summary>
+    private readonly List<int> _batchPlaced = new();
+
+    /// <summary>
+    /// Začne dávku staveb, uvnitř které se auto-silnice odloží.
+    ///
+    /// <para>Bez odkladu si první ulice ukousla dlaždici, na které měl podle
+    /// plánu stát další dům — a z „postav 25" jich vyšlo 23. Uvnitř dávky se
+    /// tedy jen staví; ulice se dotáhnou, až je čtvrť celá.</para>
+    ///
+    /// <para>Volá se v páru s <see cref="EndBatchPlacement"/>; vnořovat se nedá
+    /// a nepotřebuje to nikdo — dávku spouští jen hromadná stavba.</para>
+    /// </summary>
+    internal void BeginBatchPlacement()
+    {
+        _batchPlacement = true;
+        _batchPlaced.Clear();
+    }
+
+    /// <summary>Ukončí dávku a napojí všechno, co v ní vzniklo.</summary>
+    internal void EndBatchPlacement()
+    {
+        _batchPlacement = false;
+        foreach (int index in _batchPlaced)
+        {
+            _roadBuilder.ConnectBuilding(this, index);
+        }
+
+        _batchPlaced.Clear();
+    }
+
     /// <summary>Příkaz hráče: postavit budovu. Odečte cenu a obsadí dlaždice.</summary>
     public PlacementResult TryPlaceBuilding(int defIndex, int x, int y)
     {
@@ -2986,7 +3084,16 @@ public sealed class Simulation
         }
 
         ReportVisual(VisualEventKind.BuildingPlaced, x, y);
-        _roadBuilder.ConnectLastBuilding(this);
+        if (_batchPlacement)
+        {
+            // Hromadná stavba dláždí až po sobě — viz BeginBatchPlacement.
+            _batchPlaced.Add(_buildingCount - 1);
+        }
+        else
+        {
+            _roadBuilder.ConnectLastBuilding(this);
+        }
+
         SettlementsDirty = true;
         DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
@@ -3212,7 +3319,23 @@ public sealed class Simulation
         return tech < 0 || _techResearched[tech];
     }
 
-    /// <summary>Přepne na další odemčený druh (tlačítko sázení v liště).</summary>
+    /// <summary>
+    /// Vybere druh přímo. Zamčený druh se ignoruje — nabídka ho neukazuje, ale
+    /// simulace se na UI nespoléhá.
+    /// </summary>
+    /// <returns>Přijala se volba?</returns>
+    public bool SelectPlantSpecies(int speciesIndex)
+    {
+        if (!IsPlantSpeciesUnlocked(speciesIndex))
+        {
+            return false;
+        }
+
+        PlantSpeciesIndex = speciesIndex;
+        return true;
+    }
+
+    /// <summary>Přepne na další odemčený druh (klávesová zkratka a gamepad).</summary>
     public void CyclePlantSpecies()
     {
         var all = _content.Gameplay.Planting.Species;
@@ -4694,7 +4817,7 @@ public sealed class Simulation
         DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
         EnqueueNotification(new GameNotification(
-            NotificationKind.Milestone, "toast.merged", _content.Buildings[def.MergesToIndex].NameKey));
+            NotificationKind.BuildingMerged, "toast.merged", _content.Buildings[def.MergesToIndex].NameKey));
         return PlacementResult.Ok;
     }
 

@@ -53,19 +53,19 @@ Nejvyšší priorita: hráč přijde o partii nebo mechanika tiše nedělá nic.
 
 Rychlé a hodně viditelné. Skoro vše je UI, málo rizika.
 
-- [ ] **3.** Chybí ikonka aplikace v hlavním panelu Windows
-- [ ] **4.** Do menu logo CivDle místo malého nápisu + podtitulu
-- [ ] **5.** „Novinky" zvětšit
-- [ ] **10.** „Civilisation might" pryč z prostředka obrazovky → do panelu statů
-- [ ] **11.** Panel surovin zasahuje do pravého okna se staty
-- [ ] **12.** Ikona rychlosti je stejná pro 2× i 3×
-- [ ] **29.** Dvě tlačítka pro sázení
-- [ ] **25.** Build menu se nevejde, když je odemčeno hodně budov
-- [ ] **30.** Ikona úkolů ukazuje, kolik je dostupných a kolik ke splnění
-- [ ] **31.** Ikona výzkumu ukazuje, kolik jde teď vyzkoumat
-- [ ] **33.** Tlačítko voleb indikuje, že volby běží
-- [ ] **34.** U koupeného města dvojitý nápis (žlutý „(tvoje)" i bílý)
-- [ ] **35.** Hlášky guvernéra přes celou obrazovku → malý seznam vpravo
+- [x] **3.** Chybí ikonka aplikace v hlavním panelu Windows
+- [x] **4.** Do menu logo CivDle místo malého nápisu + podtitulu
+- [x] **5.** „Novinky" zvětšit
+- [x] **10.** „Civilisation might" pryč z prostředka obrazovky → do panelu statů
+- [x] **11.** Panel surovin zasahuje do pravého okna se staty
+- [x] **12.** Ikona rychlosti je stejná pro 2× i 3×
+- [x] **29.** Dvě tlačítka pro sázení
+- [x] **25.** Build menu se nevejde, když je odemčeno hodně budov
+- [x] **30.** Ikona úkolů ukazuje, kolik je dostupných a kolik ke splnění
+- [x] **31.** Ikona výzkumu ukazuje, kolik jde teď vyzkoumat
+- [x] **33.** Tlačítko voleb indikuje, že volby běží
+- [x] **34.** U koupeného města dvojitý nápis (žlutý „(tvoje)" i bílý)
+- [x] **35.** Hlášky guvernéra přes celou obrazovku → malý seznam vpravo
 
 ## Dávka 3 — nástroje a stavění
 

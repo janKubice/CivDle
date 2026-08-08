@@ -291,6 +291,39 @@ public class BulkBuilderTests
     }
 
     [Fact]
+    public void BulkBuiltClusterGetsARoad()
+    {
+        // Hromadná stavba klade domy natěsno. Auto-silnice dřív u každého z nich
+        // usoudila „dotýká se souseda, takže se k cestě dostane přes blok" — jenže
+        // ten blok k žádné cestě nevedl a ×25 postavilo město bez jediné ulice.
+        var (sim, bulk) = NewGame(startWood: 100_000);
+        sim.AddRoadTileForTest(30, 40); // síť existuje, ale nedotýká se nové čtvrti
+
+        var plan = new List<BulkSlot>();
+        bulk.PlanNear(Hut, 40, 40, 25, plan);
+        Assert.Equal(25, bulk.Build(Hut, plan));
+
+        for (int i = 0; i < sim.Buildings.Length; i++)
+        {
+            Assert.True(sim.IsBuildingConnected(i), $"budova {i} zůstala bez napojení");
+        }
+    }
+
+    [Fact]
+    public void TouchingHousesDoNotGetPavedBetweenThemBeforeAnyRoadExists()
+    {
+        // Opačná past: na úplném začátku hry, kdy město ještě žádnou cestu nemá,
+        // se mezi dva sousední domy dláždit nesmí — z toho vznikala šachovnice
+        // a blok 2×2 nešlo vůbec postavit.
+        var (sim, _) = NewGame();
+
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(Hut, 5, 5));
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(Hut, 6, 5));
+
+        Assert.Empty(sim.RoadTiles);
+    }
+
+    [Fact]
     public void BuildCannotSneakPastTheRules()
     {
         // Plán je jen návrh. Kdyby hromadná cesta obešla TryPlaceBuilding, dala

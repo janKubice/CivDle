@@ -1,4 +1,6 @@
 using CivDle;
+using CivDle.Core.Content;
+using CivDle.Core.Content.Mods;
 
 // Vstupní bod hry. Když start selže, musí se to hráč dozvědět — viz katalog
 // příčin v StartupDiagnosis a tři cesty ven: okno (Steam), konzole (terminál)
@@ -33,7 +35,23 @@ try
     bool smoke = args.Contains("--smoke");
     bool perf = args.Contains("--perf");
 
-    using var game = new CivDleGame(captureDirectory, capsuleDirectory, smoke, perf);
+    // Obsah se načítá TADY, ne až v LoadContent hry. Rozdíl je vidět jen když
+    // jsou data rozbitá: dřív se chyba objevila ve chvíli, kdy okno už
+    // existovalo, chybový dialog mu vzal fokus a MonoGame spadl podruhé
+    // v OnDeactivate — hráč pak místo české hlášky viděl NullReferenceException.
+    // Bez okna se má co vypsat a nemá co spadnout.
+    //
+    // Data leží vedle binárky — funguje pro `dotnet run` i pro publish jedním exe.
+    // Mody bydlí ve vlastní složce vedle nich: kdyby přepisovaly data/, každá
+    // aktualizace hry by je smazala a dva mody by se nedaly použít naráz.
+    var mods = ModCatalog.Discover(Path.Combine(AppContext.BaseDirectory, "mods"));
+    var content = new ContentLoader().LoadFrom(Path.Combine(AppContext.BaseDirectory, "data"), mods);
+    foreach (var mod in mods)
+    {
+        Console.WriteLine($"mod: {mod.Name} {mod.Version} ({mod.Id})");
+    }
+
+    using var game = new CivDleGame(content, captureDirectory, capsuleDirectory, smoke, perf);
     game.Run();
     return 0;
 }

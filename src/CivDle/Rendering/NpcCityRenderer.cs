@@ -171,6 +171,20 @@ public sealed class NpcCityRenderer
             }
 
             var state = simulation.NpcStateOf(city.Key);
+
+            // Pohlcené město už je hráčovo sídlo a jmenovku mu kreslí
+            // DrawSettlementLabels — se stejným jménem (dědí ho) a navíc se
+            // stupněm. Kdyby se kreslila i tahle, byly by nad městem dva nápisy
+            // přes sebe: žlutý „Zkouškovice (tvé)" a bílý „Zkouškovice · Městečko".
+            //
+            // Malá pohlcená osada ale na sídlo nemusí stačit (MinBuildings), a
+            // úplně bez jména by po dobytí zmizela z mapy — proto se ustupuje
+            // jen tam, kde jmenovka sídla opravdu je.
+            if (state.Absorbed && HasSettlementLabel(simulation, city.Key))
+            {
+                continue;
+            }
+
             string name = _content.SettlementNames[city.NameIndex % _content.SettlementNames.Count];
             string text = state.Absorbed ? _loc.Format("npc.mineLabel", name) : name;
 
@@ -183,6 +197,31 @@ public sealed class NpcCityRenderer
         }
 
         spriteBatch.End();
+    }
+
+    /// <summary>
+    /// Stojí uvnitř hranic města hráčovo sídlo? Pak si jmenovku bere ono.
+    ///
+    /// <para>Sídel jsou jednotky, takže lineární hledání je levnější než cokoliv
+    /// s indexem — a běží jen u pohlcených měst, kterých je ještě míň.</para>
+    /// </summary>
+    private static bool HasSettlementLabel(Simulation simulation, long cityKey)
+    {
+        if (!simulation.TryNpcTownBounds(cityKey, out var bounds))
+        {
+            return false;
+        }
+
+        foreach (var settlement in simulation.Settlements)
+        {
+            if (settlement.CenterX >= bounds.MinX && settlement.CenterX <= bounds.MaxX + 1
+                && settlement.CenterY >= bounds.MinY && settlement.CenterY <= bounds.MaxY + 1)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void DrawRing(SpriteBatch spriteBatch, int cx, int cy, int radius, Color color)

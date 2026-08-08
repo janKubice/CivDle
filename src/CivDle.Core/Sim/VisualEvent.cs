@@ -19,6 +19,15 @@ public enum VisualEventKind
     RoadBuilt,
 
     /// <summary>
+    /// Dlaždice se přetvořila (zavlažení, srovnání terénu…).
+    ///
+    /// <para>Bez téhle události byl zásah do krajiny nejtišší akce ve hře:
+    /// barva dlaždice se změnila a nic víc — hráč po kliknutí nevěděl, jestli
+    /// se stalo, co chtěl, nebo jestli nástroj mlčky odmítl.</para>
+    /// </summary>
+    Terraformed,
+
+    /// <summary>
     /// Civilizace překročila milník, který stojí za oslavu (další stupeň za počet
     /// budov, Vzestup, dostavěný div). Souřadnice míří na těžiště města — je to
     /// událost celé civilizace, ne jedné dlaždice.

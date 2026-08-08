@@ -33,12 +33,20 @@ public sealed class CityScreen : IScreen
     private readonly InputManager _input = new();
     private Desktop _desktop = null!;
 
+    /// <summary>Odkud může cesta vyjít: hráčova sídla, seřazená od nejbližšího k městu.</summary>
+    private readonly List<(string Name, int X, int Y)> _origins = new();
+    private int _originIndex;
+
+    /// <summary>Poslední pokus o cestu selhal (mezi sídlem a městem není kudy).</summary>
+    private bool _connectFailed;
+
     public CityScreen(ScreenManager screens, Simulation simulation, Camera2D camera, NpcCity city)
     {
         _screens = screens;
         _simulation = simulation;
         _camera = camera;
         _city = city;
+        CollectOrigins();
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
         _screens.UiSettingsChanged += BuildUi;
@@ -77,6 +85,56 @@ public sealed class CityScreen : IScreen
     /// <summary>Jméno města ze společné množiny jmen sídel.</summary>
     public static string NameOf(GameContent content, in NpcCity city) =>
         content.SettlementNames[city.NameIndex % content.SettlementNames.Count];
+
+    /// <summary>
+    /// Sesbírá, odkud může cesta vyjít.
+    ///
+    /// <para>Dřív cesta k městu vůbec nevznikla — zaplatilo se a jen se nastavil
+    /// příznak. Teď se opravdu staví, a tím pádem záleží, odkud: silnice přes
+    /// půl říše z náhodného konce mapy není to, co hráč chtěl. Nejbližší sídlo
+    /// je předvolba, protože je to skoro vždycky ta správná odpověď.</para>
+    /// </summary>
+    private void CollectOrigins()
+    {
+        var content = _screens.Content;
+        var names = content.SettlementNames;
+        var ranks = content.SettlementRanks;
+        var loc = _screens.Loc;
+
+        foreach (var settlement in _simulation.Settlements)
+        {
+            string name = names[settlement.NameIndex % names.Count];
+            if (ranks.At(settlement.RankIndex) is { } rank)
+            {
+                name = $"{name} · {loc[rank.NameKey]}";
+            }
+
+            _origins.Add((name, (int)settlement.CenterX, (int)settlement.CenterY));
+        }
+
+        // Bez rozpoznaného sídla (úplný začátek) zůstává jediná volba: střed
+        // města. Prázdná nabídka by tlačítko zbytečně zamkla.
+        if (_origins.Count == 0)
+        {
+            _origins.Add((loc["npc.connectFromCentre"], _simulation.CityCenterX, _simulation.CityCenterY));
+        }
+
+        _origins.Sort((a, b) => Distance(a).CompareTo(Distance(b)));
+
+        long Distance((string Name, int X, int Y) origin)
+        {
+            long dx = origin.X - _city.X;
+            long dy = origin.Y - _city.Y;
+            return (dx * dx) + (dy * dy);
+        }
+    }
+
+    /// <summary>Postaví cestu z vybraného sídla a zapamatuje si, jestli to vyšlo.</summary>
+    private void StartConnect()
+    {
+        var origin = _origins[Math.Clamp(_originIndex, 0, _origins.Count - 1)];
+        _connectFailed = _simulation.TryConnectCity(_city.Key, origin.X, origin.Y) == DiplomacyResult.NoRoute;
+    }
 
     private void BuildUi()
     {
@@ -200,8 +258,53 @@ public sealed class CityScreen : IScreen
         if (!state.RoadLinked)
         {
             stack.Widgets.Add(Action(
-                loc["npc.connect"], catalog.RoadCost,
-                () => _simulation.TryConnectCity(_city.Key)));
+                loc["npc.connect"], catalog.RoadCost, StartConnect));
+
+            // Odkud cesta povede. Nabídne se, teprve když je z čeho vybírat —
+            // s jediným sídlem je otázka zbytečná.
+            if (_origins.Count > 1)
+            {
+                stack.Widgets.Add(new Label
+                {
+                    Text = loc["npc.connectFrom"],
+                    TextColor = new Color(170, 178, 195),
+                    Wrap = true,
+                    Width = PanelWidth - 40,
+                });
+
+                var row = new HorizontalStackPanel { Spacing = 6 };
+                for (int i = 0; i < _origins.Count; i++)
+                {
+                    int index = i;
+                    var button = UiFactory.SmallButton(_origins[i].Name, () =>
+                    {
+                        _originIndex = index;
+                        BuildUi();
+                    });
+
+                    // Zvolený zdroj se zvýrazní — bez toho hráč neví, co je
+                    // vlastně nastavené, dokud cestu nepostaví.
+                    if (index == _originIndex)
+                    {
+                        button.Background = new SolidBrush(new Color(70, 110, 160, 245));
+                    }
+
+                    row.Widgets.Add(button);
+                }
+
+                stack.Widgets.Add(row);
+            }
+
+            if (_connectFailed)
+            {
+                stack.Widgets.Add(new Label
+                {
+                    Text = loc["npc.noRoute"],
+                    TextColor = new Color(235, 120, 110),
+                    Wrap = true,
+                    Width = PanelWidth - 40,
+                });
+            }
         }
 
         if (state.Relation >= catalog.BuyRelation)
