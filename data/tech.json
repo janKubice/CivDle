@@ -1829,6 +1829,16 @@
       "unlocks": [
         "great_pit"
       ]
+    },
+    {
+      "id": "standard_plans",
+      "cost": {
+        "planks": 90,
+        "science": 180
+      },
+      "prerequisites": [
+        "city_blocks"
+      ]
     }
   ]
 }

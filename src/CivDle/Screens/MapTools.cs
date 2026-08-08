@@ -76,10 +76,20 @@ public sealed class MapTools
     /// <summary>Bourání silnic.</summary>
     public bool RoadEraseMode { get; private set; }
 
+    /// <summary>
+    /// Snímání šablony: hráč táhne obdélník přes hotovou zástavbu (bod 44).
+    /// Výsledek si vyzvedne herní obrazovka přes <see cref="TryTakeCapturedArea"/>
+    /// — nástroj sám neví, kam se šablony ukládají, a vědět nemá.
+    /// </summary>
+    public bool TemplateCaptureMode { get; private set; }
+
+    /// <summary>Šablona, kterou hráč zrovna pokládá; <c>null</c> = žádná.</summary>
+    public BuildTemplate? ActiveTemplate { get; private set; }
+
     /// <summary>Je aktivní jakýkoli nástroj? (Jinak klik na mapu znamená těžbu.)</summary>
     public bool AnyActive =>
         SelectedBuilding >= 0 || PlantMode || ZoneMode || MovingBuildingIndex >= 0 || TerraformIndex >= 0
-        || MergeMode || RoadMode || RoadEraseMode;
+        || MergeMode || RoadMode || RoadEraseMode || TemplateCaptureMode || ActiveTemplate is not null;
 
     // ----- duch pod kurzorem (čte render) -----
 
@@ -186,6 +196,33 @@ public sealed class MapTools
     /// <summary>Táhne se zrovna obdélník sázení/terraformace?</summary>
     public bool AreaPreviewActive { get; private set; }
 
+    /// <summary>Levý horní roh, kam by se šablona položila (platí, když <see cref="ActiveTemplate"/> není null).</summary>
+    public int TemplateGhostX { get; private set; }
+
+    /// <summary>Horní okraj náhledu šablony.</summary>
+    public int TemplateGhostY { get; private set; }
+
+    /// <summary>Kolik kusů ze šablony by na tomhle místě opravdu vzniklo.</summary>
+    public int TemplatePlaceable { get; private set; }
+
+    /// <summary>Je náhled šablony vidět?</summary>
+    public bool TemplateGhostActive { get; private set; }
+
+    private Rectangle _capturedArea;
+    private bool _hasCapturedArea;
+
+    /// <summary>
+    /// Vyzvedne dokončený výběr pro šablonu (a zapomene ho). Herní obrazovka ho
+    /// pak převede na šablonu a uloží do profilu.
+    /// </summary>
+    public bool TryTakeCapturedArea(out Rectangle area)
+    {
+        area = _capturedArea;
+        bool had = _hasCapturedArea;
+        _hasCapturedArea = false;
+        return had;
+    }
+
     /// <summary>
     /// Nejvíc dlaždic, které jeden tah zpracuje.
     ///
@@ -210,6 +247,22 @@ public sealed class MapTools
         bool same = SelectedBuilding == defIndex;
         Clear();
         SelectedBuilding = same ? -1 : defIndex;
+    }
+
+    /// <summary>Zapne/vypne snímání šablony.</summary>
+    public void ToggleTemplateCapture()
+    {
+        bool was = TemplateCaptureMode;
+        Clear();
+        TemplateCaptureMode = !was;
+    }
+
+    /// <summary>Vezme šablonu do ruky; stejná volba podruhé ji zase pustí.</summary>
+    public void ToggleTemplate(BuildTemplate template)
+    {
+        bool same = ActiveTemplate is not null && ActiveTemplate.Name == template.Name;
+        Clear();
+        ActiveTemplate = same ? null : template;
     }
 
     /// <summary>Zapne/vypne sázení.</summary>
@@ -295,6 +348,9 @@ public sealed class MapTools
         MergeMode = false;
         RoadMode = false;
         RoadEraseMode = false;
+        TemplateCaptureMode = false;
+        ActiveTemplate = null;
+        TemplateGhostActive = false;
         _roadDragging = false;
         _roadPath.Clear();
         MergeGhostActive = false;
@@ -318,6 +374,8 @@ public sealed class MapTools
     /// </summary>
     public bool CancelTopmost()
     {
+        if (ActiveTemplate is not null) { ActiveTemplate = null; TemplateGhostActive = false; return true; }
+        if (TemplateCaptureMode) { TemplateCaptureMode = false; EndAreaDrag(); return true; }
         if (RoadEraseMode) { RoadEraseMode = false; RoadGhostActive = false; return true; }
         if (RoadMode) { RoadMode = false; RoadGhostActive = false; return true; }
         if (MergeMode) { MergeMode = false; MergeGhostActive = false; return true; }
@@ -337,6 +395,18 @@ public sealed class MapTools
     /// </summary>
     public bool Update(bool mouseOverUi)
     {
+        if (TemplateCaptureMode)
+        {
+            UpdateTemplateCapture(mouseOverUi);
+            return true;
+        }
+
+        if (ActiveTemplate is not null)
+        {
+            UpdateTemplatePlacement(mouseOverUi);
+            return true;
+        }
+
         if (MergeMode)
         {
             UpdateMerge(mouseOverUi);
@@ -729,6 +799,89 @@ public sealed class MapTools
         AreaPreview = ClampedArea(tileX, tileY);
         AreaPreviewActive = true;
         return false;
+    }
+
+    /// <summary>
+    /// Snímání šablony: tažením se vybere obdélník, po puštění se předá dál.
+    /// Nic se přitom nemění — je to čtení mapy, ne zásah do ní.
+    /// </summary>
+    private void UpdateTemplateCapture(bool mouseOverUi)
+    {
+        var (tileX, tileY) = TileUnderCursor();
+        if (_input.WasRightPressed)
+        {
+            TemplateCaptureMode = false;
+            EndAreaDrag();
+            return;
+        }
+
+        if (_areaDragging && _input.WasLeftReleased)
+        {
+            _capturedArea = ClampedArea(tileX, tileY);
+            _hasCapturedArea = true;
+            TemplateCaptureMode = false;
+            EndAreaDrag();
+            return;
+        }
+
+        if (mouseOverUi)
+        {
+            return;
+        }
+
+        if (_input.WasLeftPressed)
+        {
+            _areaDragging = true;
+            _areaStartX = tileX;
+            _areaStartY = tileY;
+        }
+
+        if (_areaDragging)
+        {
+            AreaPreview = ClampedArea(tileX, tileY);
+            AreaPreviewActive = true;
+        }
+    }
+
+    /// <summary>
+    /// Pokládání šablony: duch sleduje kurzor a rovnou počítá, kolik kusů by
+    /// vzniklo. Levý klik staví, pravý šablonu pustí z ruky.
+    /// </summary>
+    private void UpdateTemplatePlacement(bool mouseOverUi)
+    {
+        var template = ActiveTemplate;
+        if (template is null)
+        {
+            return;
+        }
+
+        if (_input.WasRightPressed)
+        {
+            ActiveTemplate = null;
+            TemplateGhostActive = false;
+            return;
+        }
+
+        TemplateGhostActive = false;
+        if (mouseOverUi)
+        {
+            return;
+        }
+
+        var (tileX, tileY) = TileUnderCursor();
+
+        // Kurzor míří na střed šablony — velký blok se tak pokládá stejně
+        // přirozeně jako velká budova.
+        TemplateGhostX = tileX - (template.Width - 1) / 2;
+        TemplateGhostY = tileY - (template.Height - 1) / 2;
+        TemplatePlaceable = TemplateTool.CountPlaceable(
+            _simulation, _content, template, TemplateGhostX, TemplateGhostY);
+        TemplateGhostActive = true;
+
+        if (_input.WasLeftPressed)
+        {
+            TemplateTool.Place(_simulation, _content, template, TemplateGhostX, TemplateGhostY);
+        }
     }
 
     /// <summary>Obdélník od začátku tahu ke kurzoru, oříznutý na <see cref="MaxAreaTiles"/>.</summary>

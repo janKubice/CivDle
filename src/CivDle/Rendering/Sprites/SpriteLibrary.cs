@@ -64,6 +64,7 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "ui.zone", IconSize, UiZone);
         Add(device, "ui.plant", IconSize, UiPlant);
         Add(device, "ui.terraform", IconSize, UiTerraform);
+        Add(device, "ui.template", IconSize, UiTemplate);
         Add(device, "ui.faith", IconSize, FaithIcon);
         Add(device, "ui.festival", IconSize, UiFestival);
         Add(device, "ui.home", IconSize, UiHome);
@@ -491,6 +492,26 @@ public sealed class SpriteLibrary : IDisposable
         c.FillCircle(8f, 9f, 5f, new Color(72, 152, 70));
         c.FillCircle(16f, 11f, 4.5f, new Color(56, 128, 60));
         c.FillCircle(12f, 5f, 4f, new Color(88, 172, 78));
+    }
+
+    /// <summary>Šablony: plánek s rastrem a rohovou značkou výběru.</summary>
+    private static void UiTemplate(PixelCanvas c)
+    {
+        c.FillRect(3, 3, 16, 16, new Color(226, 232, 238));   // list plánu
+        c.FillRect(3, 3, 16, 2, new Color(150, 172, 196));    // hlavička
+
+        // Rastr — z něj je poznat, že to je plán, ne obyčejný papír.
+        for (int i = 0; i < 3; i++)
+        {
+            c.FillRect(5, 7 + i * 4, 12, 1, new Color(150, 166, 184));
+            c.FillRect(5 + i * 4, 7, 1, 10, new Color(150, 166, 184));
+        }
+
+        // Značka výběru v rohu: gesto, kterým šablona vzniká.
+        c.FillRect(12, 12, 8, 1, new Color(240, 200, 90));
+        c.FillRect(12, 12, 1, 8, new Color(240, 200, 90));
+        c.FillRect(19, 12, 1, 8, new Color(240, 200, 90));
+        c.FillRect(12, 19, 8, 1, new Color(240, 200, 90));
     }
 
     private static void UiTerraform(PixelCanvas c)

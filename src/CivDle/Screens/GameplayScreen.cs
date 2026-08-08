@@ -538,6 +538,7 @@ public sealed class GameplayScreen : IScreen
             _discoveries.Update(worldDt);
         }
 
+        CollectCapturedTemplate();
         _buildingRenderer.Update(worldDt); // balony nad kotvišti se houpou
         _weatherRenderer.Update(worldDt, _simulation, _screens.GraphicsDevice.Viewport);
         _minimap.Update(dt, _camera, _simulation);
@@ -711,12 +712,37 @@ public sealed class GameplayScreen : IScreen
                 preview.X, preview.Y, preview.Width, preview.Height);
         }
 
+        // Duch šablony: každý kus zvlášť, zeleně to, co se opravdu postaví,
+        // červeně to, co překáží. Bez toho by hráč pokládal blok naslepo.
+        if (_tools.TemplateGhostActive && _tools.ActiveTemplate is { } template)
+        {
+            foreach (var part in template.Buildings)
+            {
+                int x = _tools.TemplateGhostX + part.Dx;
+                int y = _tools.TemplateGhostY + part.Dy;
+                bool fits = _screens.Content.Buildings.TryIndexOf(part.BuildingId, out int defIndex)
+                    && _simulation.CanPlace(defIndex, x, y) == PlacementResult.Ok;
+                int size = fits ? _screens.Content.Buildings[defIndex].FootprintWidth : 1;
+                DrawTileOverlay(spriteBatch, _screens.WhitePixel, x, y, size,
+                    (fits ? new Color(130, 235, 150) : new Color(235, 120, 110)) * 0.55f);
+            }
+
+            foreach (var (dx, dy) in template.Roads)
+            {
+                DrawTileOverlay(spriteBatch, _screens.WhitePixel,
+                    _tools.TemplateGhostX + dx, _tools.TemplateGhostY + dy, 1,
+                    new Color(200, 200, 190) * 0.45f);
+            }
+        }
+
         // Tažená plocha sázení / terraformace. Kreslí se dlaždice po dlaždici
         // v barvě nástroje, ať je vidět přesně to, co tah zabere.
         if (_tools.AreaPreviewActive)
         {
             var area = _tools.AreaPreview;
-            var tint = (_tools.PlantMode ? new Color(120, 240, 140) : new Color(140, 230, 200)) * 0.4f;
+            var tint = (_tools.TemplateCaptureMode ? new Color(240, 210, 120)
+                : _tools.PlantMode ? new Color(120, 240, 140)
+                : new Color(140, 230, 200)) * 0.4f;
             for (int y = area.Y; y < area.Y + area.Height; y++)
             {
                 for (int x = area.X; x < area.X + area.Width; x++)
@@ -2425,6 +2451,15 @@ public sealed class GameplayScreen : IScreen
                 Ico("ui.road"), loc["hud.road"] + '\n' + loc["tip.road"], _tools.ToggleRoad));
         }
 
+        // Šablony: uložený kus zástavby, který jde postavit znovu. Odemyká se
+        // stejně jako ostatní nástroje — datovým příznakem, ne natvrdo.
+        if (_simulation.IsFeatureUnlocked("templates"))
+        {
+            row.Widgets.Add(UiFactory.ToolButton(
+                Ico("ui.template"), loc["hud.templates"] + '\n' + loc["tip.templates"],
+                OpenTemplates));
+        }
+
         // Slučování bloků 2×2 v jednu velkou budovu.
         if (_simulation.IsFeatureUnlocked("merge"))
         {
@@ -2477,6 +2512,50 @@ public sealed class GameplayScreen : IScreen
         var panel = UiFactory.DarkPanel(row);
         panel.HorizontalAlignment = HorizontalAlignment.Center;
         return panel;
+    }
+
+    /// <summary>
+    /// Otevře správu šablon (bod 44). Nástroj na mapě zapíná až ona — přes
+    /// zpětná volání, takže obrazovka se šablonami nemusí znát herní obrazovku.
+    /// </summary>
+    private void OpenTemplates()
+    {
+        _tools.Clear();
+        _screens.Push(new TemplatesScreen(
+            _screens,
+            () => _tools.ToggleTemplateCapture(),
+            template => _tools.ToggleTemplate(template)));
+    }
+
+    /// <summary>
+    /// Vyzvedne dokončený výběr a udělá z něj šablonu.
+    ///
+    /// <para>Volá se každý snímek: nástroj jen řekne „hráč dotáhl obdélník",
+    /// pojmenování a uložení do profilu patří sem, ne do nástroje.</para>
+    /// </summary>
+    private void CollectCapturedTemplate()
+    {
+        if (!_tools.TryTakeCapturedArea(out var area))
+        {
+            return;
+        }
+
+        var loc = _screens.Loc;
+        var template = TemplateTool.Capture(
+            _simulation, _screens.Content,
+            loc.Format("templates.defaultName", _screens.Profile.Templates.Count + 1),
+            area.X, area.Y, area.X + area.Width - 1, area.Y + area.Height - 1);
+
+        // Prázdný výběr se neukládá — seznam plný nul by byl jen nepořádek.
+        if (template.IsEmpty)
+        {
+            _toasts.Add(loc["toast.templateEmpty"], new Color(220, 170, 120));
+            return;
+        }
+
+        _screens.Profile.Templates.Add(template.ToSaved());
+        _screens.SaveProfile();
+        _toasts.Add(loc.Format("toast.templateSaved", template.Buildings.Count), new Color(150, 220, 150));
     }
 
     /// <summary>

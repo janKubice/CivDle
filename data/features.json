@@ -107,6 +107,13 @@
         "tech": "orbital_survey",
         "target": 1
       }
+    },
+    {
+      "id": "templates",
+      "unlock": {
+        "metric": "research",
+        "tech": "standard_plans"
+      }
     }
   ]
 }
