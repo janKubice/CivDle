@@ -15,10 +15,10 @@ Značky: `[ ]` čeká · `[~]` rozděláno · `[x]` hotovo
 | 3 — nástroje | 24, 20, 23, 22, 26, 17, 27, 28 | **hotovo** |
 | 3 — nástroje | 18 | **hotovo** (varianta C: smíšené zóny v datech, vlastní zóna v dávce 6) |
 | 4 — budovy | 14, 15, 16, 41, 43 | **hotovo** |
-| 5 — obsah | 8, 37, 36, 21, 38, 39, 42 | čeká |
+| 5 — obsah | 8, 37, 36, 21, 38, 39, 42 | **hotovo** |
 | 6 — velké funkce | 44, 2 | čeká |
 
-**Zbývá 9 bodů z 44** (dávka 5 a 6).
+**Zbývají 2 body z 44** (dávka 6).
 
 ---
 
@@ -135,17 +135,23 @@ electrification → byty, robotics → mrakodrap, fusion → arkologie) — tak�
 
 ## Dávka 5 — obsah a mechaniky
 
-- [ ] **8.** Debug menu: přidávání bodů Vzestupu
-- [ ] **37.** Guvernér je pomalý → výzkumy a vylepšení na jeho rychlost
-- [ ] **36.** Výzkumy s obecným popiskem („trochu něco zvětší") → konkrétní
-      popis a víc úrovní
-- [ ] **21.** Těžební technologie i pro nižší éry (dynamit…) + komba, ať se
-      vyplatí občas těžit ručně i v pozdní hře
-- [ ] **38.** Meteor dramatičtější: výbuch, efekt, ničení budov i při špatném
-      kliknutí
-- [ ] **39.** Po meteoru zůstane radioaktivní půda → nová surovina, budovy
-      a výzkumy okolo
-- [ ] **42.** Letadla a balony létají po mapě (jako rybářské lodičky)
+- [x] **8.** Debug menu: přidávání bodů Vzestupu
+- [x] **37.** Guvernér je pomalý → výzkumy a vylepšení na jeho rychlost
+      *(Veřejné práce a Územní plán, +35 % každý)*
+- [x] **36.** Výzkumy s obecným popiskem („trochu něco zvětší") → konkrétní
+      popis a víc úrovní *(osmnáct uzlů je teď opakovatelných, `maxLevel` 5)*
+- [x] **21.** Těžební technologie i pro nižší éry (dynamit…) + komba, ať se
+      vyplatí občas těžit ručně i v pozdní hře *(7 těžebních + 4 na sílu série)*
+- [x] **38.** Meteor dramatičtější: výbuch, efekt, ničení budov i při špatném
+      kliknutí *(nevyslyšená rána spadne VEDLE — výsledek `Strayed`)*
+- [x] **39.** Po meteoru zůstane radioaktivní půda → nová surovina, budovy
+      a výzkumy okolo *(biom `fallout`, uran, tři budovy, tři výzkumy)*
+- [x] **42.** Letadla a balony létají po mapě (jako rybářské lodičky)
+
+### Velké dílo (upřesnění z hraní)
+
+- [x] Sink není položka v menu: odemyká ho výzkum **Velký výkop** a stavba
+      **Velké dílo** — jáma 5×5 se stupňovitými etážemi a jeřáby.
 
 ## Dávka 6 — velké samostatné funkce
 
