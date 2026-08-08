@@ -405,7 +405,10 @@ public sealed record HistoryConfig(double IntervalSeconds, int MaxFrames)
 /// </summary>
 /// <param name="CostMultiplier">Čím se násobí základní cena z dat.</param>
 /// <param name="CostGrowthPerTech">O kolik zdraží každá už hotová technologie (0.05 = +5 %).</param>
-public sealed record ResearchConfig(double CostMultiplier, double CostGrowthPerTech)
+public sealed record ResearchConfig(
+    double CostMultiplier,
+    double CostGrowthPerTech,
+    double LevelCostMultiplier = 1.0)
 {
     /// <summary>Ceny přesně podle dat — výchozí stav pro obsah bez sekce.</summary>
     public static ResearchConfig Plain { get; } = new(1.0, 0.0);
@@ -413,6 +416,16 @@ public sealed record ResearchConfig(double CostMultiplier, double CostGrowthPerT
     /// <summary>Násobič ceny po <paramref name="researched"/> hotových technologiích.</summary>
     public double ScaleAfter(int researched) =>
         CostMultiplier * (1.0 + CostGrowthPerTech * Math.Max(0, researched));
+
+    /// <summary>
+    /// Násobič ceny další úrovně opakovatelné technologie.
+    ///
+    /// <para>Bez něj by druhá úroveň stála totéž co první a „víc úrovní" by bylo
+    /// jen víc klikání za stejné peníze. Roste mocninou, takže poslední úroveň
+    /// je opravdové rozhodnutí, ne formalita.</para>
+    /// </summary>
+    public double ScaleForLevel(int level) =>
+        Math.Pow(Math.Max(1.0, LevelCostMultiplier), Math.Max(0, level));
 }
 
 /// <param name="StartingBuildingIndices">

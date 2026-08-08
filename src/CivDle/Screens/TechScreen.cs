@@ -212,7 +212,9 @@ public sealed class TechScreen : IScreen
                 continue;
             }
 
-            bool researched = _simulation.IsTechResearched(i);
+            // „Hotová" u opakovatelné technologie znamená až STROP: dokud má
+            // další úroveň, musí v souhvězdí pořád svítit jako něco k vzetí.
+            bool researched = _simulation.IsTechMaxed(i);
             var status = _simulation.CanResearch(i);
             var color = researched ? ResearchedColor
                 : status == PlacementResult.Ok ? AvailableColor
@@ -264,6 +266,11 @@ public sealed class TechScreen : IScreen
             }
 
             string name = loc[techs[i].NameKey];
+            if (techs[i].IsRepeatable && _simulation.TechLevel(i) > 0)
+            {
+                name += $" {_simulation.TechLevel(i)}/{techs[i].MaxLevel}";
+            }
+
             var size = _font.MeasureString(name) * _zoom;
             var labelColor = researched ? new Color(170, 225, 190)
                 : status == PlacementResult.NotUnlocked ? new Color(120, 128, 145)
@@ -299,7 +306,7 @@ public sealed class TechScreen : IScreen
         else if (_hovered >= 0)
         {
             var tech = techs[_hovered];
-            bool researched = _simulation.IsTechResearched(_hovered);
+            bool researched = _simulation.IsTechMaxed(_hovered);
             var status = _simulation.CanResearch(_hovered);
             // Nejdřív VERDIKT („můžeš / nemáš na to / zamčené"), teprve pak popis.
             // Dřív musel hráč cenu porovnávat sám a nevěděl, na čem je.
@@ -313,6 +320,15 @@ public sealed class TechScreen : IScreen
                 };
 
             string body = verdict + '\n' + loc[tech.DescriptionKey];
+
+            // U opakovatelné technologie je úroveň to hlavní číslo: bez ní hráč
+            // nepozná, jestli má první ze čtyř, nebo poslední.
+            if (tech.IsRepeatable)
+            {
+                body += '\n' + loc.Format("tech.level",
+                    _simulation.TechLevel(_hovered), tech.MaxLevel);
+            }
+
             if (!researched)
             {
                 // Skutečná cena, ne základ z dat: ta se škáluje počtem hotových
@@ -476,7 +492,7 @@ public sealed class TechScreen : IScreen
         var viewport = _screens.GraphicsDevice.Viewport;
         for (int i = 0; i < techs.Count; i++)
         {
-            if (!_simulation.IsTechResearched(i) && _simulation.CanResearch(i) != PlacementResult.NotUnlocked)
+            if (!_simulation.IsTechMaxed(i) && _simulation.CanResearch(i) != PlacementResult.NotUnlocked)
             {
                 CenterOn(_layout.Center(i), viewport);
                 return;

@@ -72,7 +72,7 @@ public sealed class Simulation
     private readonly bool[] _achievementsUnlocked;
 
     private readonly bool[] _buildingUnlocked;
-    private readonly bool[] _techResearched;
+    private readonly int[] _techLevel;
     private readonly int[] _upgradeLevels;      // koupené úrovně trvalých upgradů Vzestupu
     private readonly bool[] _policiesActive;    // zapnuté politiky růstu (automatizace, stupeň 4)
     private readonly long[] _harvestedTotals; // kumulativní sběr surovin klikáním (metriky cílů)
@@ -120,7 +120,7 @@ public sealed class Simulation
             }
         }
 
-        _techResearched = new bool[content.Techs.Count];
+        _techLevel = new int[content.Techs.Count];
         _upgradeLevels = new int[content.PrestigeUpgrades.Count];
         _policiesActive = new bool[content.Policies.Count];
         _harvestedTotals = new long[content.Resources.Count];
@@ -2183,7 +2183,7 @@ public sealed class Simulation
     public PlacementResult CanTerraform(int actionIndex, int x, int y)
     {
         var action = _content.Terraform[actionIndex];
-        if (action.UnlockTechIndex >= 0 && !_techResearched[action.UnlockTechIndex])
+        if (action.UnlockTechIndex >= 0 && _techLevel[action.UnlockTechIndex] == 0)
         {
             return PlacementResult.NotUnlocked;
         }
@@ -2401,7 +2401,7 @@ public sealed class Simulation
     }
 
     /// <summary>Je technologie vyzkoumaná?</summary>
-    public bool IsTechResearched(int techIndex) => _techResearched[techIndex];
+    public bool IsTechResearched(int techIndex) => _techLevel[techIndex] > 0;
 
     /// <summary>
     /// Index aktuální éry (nejvyšší dosažené): éra je dosažená, když je vyzkoumaná
@@ -2417,7 +2417,7 @@ public sealed class Simulation
             {
                 var era = _content.Eras[i];
                 bool reached = string.IsNullOrEmpty(era.UnlockTechId)
-                    || (_content.Techs.TryIndexOf(era.UnlockTechId, out int techIndex) && _techResearched[techIndex]);
+                    || (_content.Techs.TryIndexOf(era.UnlockTechId, out int techIndex) && _techLevel[techIndex] > 0);
                 if (reached && era.Order > bestOrder)
                 {
                     bestOrder = era.Order;
@@ -3394,7 +3394,7 @@ public sealed class Simulation
         }
 
         int tech = all[speciesIndex].RequiredTechIndex;
-        return tech < 0 || _techResearched[tech];
+        return tech < 0 || _techLevel[tech] > 0;
     }
 
     /// <summary>
@@ -3923,7 +3923,7 @@ public sealed class Simulation
     /// výchozí (living-city.md §4 — jinak by hráč neměl co dělat).
     /// </summary>
     public bool IsGovernorUnlocked =>
-        _content.Techs.TryIndexOf(GovernorTechId, out int index) && _techResearched[index];
+        _content.Techs.TryIndexOf(GovernorTechId, out int index) && _techLevel[index] > 0;
 
     /// <summary>
     /// Jak moc si guvernér vylepšuje budovy sám: 0 = vůbec, 1 = jen bydlení,
@@ -3966,7 +3966,7 @@ public sealed class Simulation
 
     /// <summary>Je technologie daného ID vyzkoumaná? (Neznámé ID = ne.)</summary>
     private bool IsTechResearchedById(string techId) =>
-        _content.Techs.TryIndexOf(techId, out int index) && _techResearched[index];
+        _content.Techs.TryIndexOf(techId, out int index) && _techLevel[index] > 0;
 
     /// <summary>Příkaz hráče: nastaví míru automatického vylepšování (ořízne se do odemčeného rozsahu).</summary>
     public void SetAutoUpgradeLevel(int level) =>
@@ -4039,7 +4039,7 @@ public sealed class Simulation
     /// </summary>
     public bool IsAutoMergeUnlocked =>
         IsGovernorUnlocked
-        && _content.Techs.TryIndexOf(GovernorMergeTechId, out int index) && _techResearched[index];
+        && _content.Techs.TryIndexOf(GovernorMergeTechId, out int index) && _techLevel[index] > 0;
 
     /// <summary>Slučuje guvernér bloky sám? (Bez technologie vždy ne.)</summary>
     public bool AutoMerge => IsAutoMergeUnlocked && _autoMerge;
@@ -4376,7 +4376,7 @@ public sealed class Simulation
         MetricKind.ResourceStock => (long)_resources[param],
         MetricKind.TotalBuildings => _buildingCount,
         MetricKind.BuildingOfType => CountBuildingsOfType(param),
-        MetricKind.ResearchedTech => _techResearched[param] ? 1 : 0,
+        MetricKind.ResearchedTech => _techLevel[param] > 0 ? 1 : 0,
         MetricKind.AscensionLevel => AscensionLevel,
         MetricKind.DayNumber => DayNumber,
         MetricKind.PlantedNodes => _plantedNodes.Count,
@@ -5197,7 +5197,16 @@ public sealed class Simulation
     /// tím to nejlepší, co strom nabízí — zvědavost, co je za dalším uzlem.</para>
     /// </summary>
     public bool IsTechKnown(int techIndex) =>
-        _techResearched[techIndex] || CanResearch(techIndex) != PlacementResult.NotUnlocked;
+        _techLevel[techIndex] > 0 || CanResearch(techIndex) != PlacementResult.NotUnlocked;
+
+    /// <summary>
+    /// Kolikátou úroveň opakovatelné technologie hráč má (0 = nevyzkoumaná).
+    /// U jednorázových je to 0 nebo 1.
+    /// </summary>
+    public int TechLevel(int techIndex) => _techLevel[techIndex];
+
+    /// <summary>Je technologie na svém stropu (další úroveň už není)?</summary>
+    public bool IsTechMaxed(int techIndex) => _techLevel[techIndex] >= _content.Techs[techIndex].MaxLevel;
 
     /// <summary>
     /// Skutečná cena výzkumu — se škálováním podle počtu hotových technologií
@@ -5214,24 +5223,30 @@ public sealed class Simulation
         var scaled = new ResourceAmount[cost.Count];
         for (int i = 0; i < cost.Count; i++)
         {
-            scaled[i] = new ResourceAmount(cost[i].ResourceIndex, ResearchCost(cost[i].Amount));
+            scaled[i] = new ResourceAmount(cost[i].ResourceIndex, ResearchCost(cost[i].Amount, _techLevel[techIndex]));
         }
 
         return scaled;
     }
 
-    /// <summary>Lze technologii vyzkoumat (prerekvizity splněny, dost surovin, není hotová)?</summary>
+    /// <summary>
+    /// Lze technologii vyzkoumat (prerekvizity splněny, dost surovin, není na stropu)?
+    ///
+    /// <para>U opakovatelných technologií se ptáme na <b>další úroveň</b>: hotová je
+    /// teprve ta, která došla na <see cref="TechDef.MaxLevel"/>.</para>
+    /// </summary>
     public PlacementResult CanResearch(int techIndex)
     {
-        if (_techResearched[techIndex])
+        var tech = _content.Techs[techIndex];
+        int level = _techLevel[techIndex];
+        if (level >= tech.MaxLevel)
         {
             return PlacementResult.Occupied; // už hotová
         }
 
-        var tech = _content.Techs[techIndex];
         foreach (int prereq in tech.PrerequisiteIndices)
         {
-            if (!_techResearched[prereq])
+            if (_techLevel[prereq] == 0)
             {
                 return PlacementResult.NotUnlocked;
             }
@@ -5240,7 +5255,7 @@ public sealed class Simulation
         var cost = tech.Cost;
         for (int i = 0; i < cost.Count; i++)
         {
-            if (_resources[cost[i].ResourceIndex] < ResearchCost(cost[i].Amount))
+            if (_resources[cost[i].ResourceIndex] < ResearchCost(cost[i].Amount, level))
             {
                 return PlacementResult.NotEnoughResources;
             }
@@ -5259,9 +5274,10 @@ public sealed class Simulation
         }
 
         var tech = _content.Techs[techIndex];
+        int level = _techLevel[techIndex];
         for (int i = 0; i < tech.Cost.Count; i++)
         {
-            _resources[tech.Cost[i].ResourceIndex] -= ResearchCost(tech.Cost[i].Amount);
+            _resources[tech.Cost[i].ResourceIndex] -= ResearchCost(tech.Cost[i].Amount, level);
         }
 
         UnlockTech(techIndex);
@@ -5277,9 +5293,17 @@ public sealed class Simulation
     ///
     /// <para>Nikdy neklesne pod 1 — technologie zadarmo by rozbila progresi.</para>
     /// </summary>
-    public int ResearchCost(int baseAmount)
+    public int ResearchCost(int baseAmount) => ResearchCost(baseAmount, 0);
+
+    /// <summary>
+    /// Cena <paramref name="level"/>-té další úrovně opakovatelné technologie
+    /// (0 = první výzkum). Nad rámec obecného škálování se přidává mocnina
+    /// z <see cref="ResearchConfig.ScaleForLevel"/>.
+    /// </summary>
+    public int ResearchCost(int baseAmount, int level)
     {
-        double scaled = baseAmount * _content.Gameplay.Research.ScaleAfter(TechsResearched);
+        var research = _content.Gameplay.Research;
+        double scaled = baseAmount * research.ScaleAfter(TechsResearched) * research.ScaleForLevel(level);
         double discount = Math.Min(0.9, _bonuses.ResearchDiscount + ElectionResearchDiscount);
         return Math.Max(1, (int)Math.Round(scaled * (1.0 - discount)));
     }
@@ -5295,12 +5319,14 @@ public sealed class Simulation
 
     private void UnlockTech(int techIndex)
     {
-        if (!_techResearched[techIndex])
+        if (_techLevel[techIndex] == 0)
         {
-            TechsResearched++;
+            TechsResearched++; // počítají se uzly, ne úrovně — jinak by statistika lhala
         }
 
-        _techResearched[techIndex] = true;
+        // Strop hlídá i obnova ze savu: kdyby v datech ubyla úroveň, načtená hra
+        // se přiškrtí na to, co data dovolují, místo aby dál dávala bonus navíc.
+        _techLevel[techIndex] = Math.Min(_techLevel[techIndex] + 1, _content.Techs[techIndex].MaxLevel);
         foreach (int buildingIndex in _content.Techs[techIndex].UnlockedBuildingIndices)
         {
             _buildingUnlocked[buildingIndex] = true;
@@ -5546,9 +5572,9 @@ public sealed class Simulation
             * Math.Pow(_content.Prestige.RequirementGrowth, levelAfter);
 
         int techs = 0;
-        for (int i = 0; i < _techResearched.Length; i++)
+        for (int i = 0; i < _techLevel.Length; i++)
         {
-            if (_techResearched[i])
+            if (_techLevel[i] > 0)
             {
                 techs++;
             }
@@ -5908,9 +5934,9 @@ public sealed class Simulation
         get
         {
             int count = 0;
-            for (int i = 0; i < _techResearched.Length; i++)
+            for (int i = 0; i < _techLevel.Length; i++)
             {
-                if (_techResearched[i])
+                if (_techLevel[i] > 0)
                 {
                     count++;
                 }
@@ -5988,9 +6014,9 @@ public sealed class Simulation
 
         // Bilance se sbírá TEĎ, ještě před resetem — po něm už není z čeho.
         int techs = 0;
-        for (int i = 0; i < _techResearched.Length; i++)
+        for (int i = 0; i < _techLevel.Length; i++)
         {
-            if (_techResearched[i])
+            if (_techLevel[i] > 0)
             {
                 techs++;
             }
@@ -6080,19 +6106,23 @@ public sealed class Simulation
         // Cílené efekty jdou do vlastního pole; bez toho by „+5 % dřeva"
         // zvedlo i výrobu oceli.
         Array.Fill(_resourceProductionMult, 1.0);
-        for (int i = 0; i < _techResearched.Length; i++)
+        for (int i = 0; i < _techLevel.Length; i++)
         {
-            if (!_techResearched[i])
+            if (_techLevel[i] == 0)
             {
                 continue;
             }
 
             var tech = _content.Techs[i];
+
+            // Opakovatelná technologie dává svůj bonus za KAŽDOU úroveň. Jednorázová
+            // má úroveň 1, takže se pro ni nic nemění.
+            double magnitude = tech.Magnitude * _techLevel[i];
             if (tech.TargetResourceIndex >= 0)
             {
                 if (tech.Effect == "production_mult")
                 {
-                    _resourceProductionMult[tech.TargetResourceIndex] += tech.Magnitude;
+                    _resourceProductionMult[tech.TargetResourceIndex] += magnitude;
                 }
 
                 continue;
@@ -6100,18 +6130,18 @@ public sealed class Simulation
 
             switch (tech.Effect)
             {
-                case "production_mult": techProduction += tech.Magnitude; break;
-                case "harvest_mult": techHarvest += tech.Magnitude; break;
-                case "growth_mult": techGrowth += tech.Magnitude; break;
-                case "housing_mult": techHousing += tech.Magnitude; break;
-                case "storage_mult": techStorage += tech.Magnitude; break;
-                case "offline_mult": techOffline += tech.Magnitude; break;
-                case "discovery_luck": techDiscovery += tech.Magnitude; break;
-                case "festival_power": techFestival += tech.Magnitude; break;
-                case "autobuild_speed": techAutoBuild += tech.Magnitude; break;
-                case "crit_chance": critChance += tech.Magnitude; break;
-                case "jackpot_chance": jackpot += tech.Magnitude; break;
-                case "research_discount": research += tech.Magnitude; break;
+                case "production_mult": techProduction += magnitude; break;
+                case "harvest_mult": techHarvest += magnitude; break;
+                case "growth_mult": techGrowth += magnitude; break;
+                case "housing_mult": techHousing += magnitude; break;
+                case "storage_mult": techStorage += magnitude; break;
+                case "offline_mult": techOffline += magnitude; break;
+                case "discovery_luck": techDiscovery += magnitude; break;
+                case "festival_power": techFestival += magnitude; break;
+                case "autobuild_speed": techAutoBuild += magnitude; break;
+                case "crit_chance": critChance += magnitude; break;
+                case "jackpot_chance": jackpot += magnitude; break;
+                case "research_discount": research += magnitude; break;
             }
         }
 
@@ -6206,7 +6236,7 @@ public sealed class Simulation
         ContractsCompleted = 0; // a v novém měřítku začínají objednávky zas malé
         _buildingCount = 0;
 
-        Array.Clear(_techResearched);
+        Array.Clear(_techLevel);
         TechsResearched = 0; // nové měřítko se zkoumá od nuly, i cenami
         Array.Fill(_buildingUnlocked, true);
         foreach (var tech in _content.Techs.All)
@@ -6235,9 +6265,9 @@ public sealed class Simulation
     /// <summary>Indexy vyzkoumaných technologií (pro serializaci savu).</summary>
     internal IEnumerable<int> ResearchedTechIndices()
     {
-        for (int i = 0; i < _techResearched.Length; i++)
+        for (int i = 0; i < _techLevel.Length; i++)
         {
-            if (_techResearched[i])
+            if (_techLevel[i] > 0)
             {
                 yield return i;
             }

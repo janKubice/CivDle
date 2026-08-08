@@ -2217,10 +2217,26 @@ public sealed class ContentLoader
                     path, $"Technologie '{id}' míří na neexistující surovinu '{dto.TargetResource}'.");
             }
 
+            string effect = dto.Effect?.Trim() ?? string.Empty;
+            int maxLevel = dto.MaxLevel <= 0 ? 1 : dto.MaxLevel;
+            if (maxLevel > 20)
+            {
+                throw new ContentLoadException(path,
+                    $"Technologie '{id}': 'maxLevel' je {maxLevel} — přes dvacet úrovní je jen klikání navíc.");
+            }
+
+            // Opakovat se dá jen bonus. Kdyby šlo opakovat odemčení budovy, druhá
+            // úroveň by nedělala vůbec nic a hráč by za ni zaplatil.
+            if (maxLevel > 1 && effect.Length == 0)
+            {
+                throw new ContentLoadException(path,
+                    $"Technologie '{id}' má 'maxLevel' {maxLevel}, ale žádný 'effect' — další úrovně by nic nedělaly.");
+            }
+
             // Efekt se NEvaliduje proti seznamu — neznámý se za běhu tiše ignoruje
             // (behavior-ID hook, data smí předběhnout kód).
             techs.Add(new TechDef(
-                id, cost, prereqs, unlocks, dto.Effect?.Trim() ?? string.Empty, dto.Magnitude, targetResource));
+                id, cost, prereqs, unlocks, effect, dto.Magnitude, targetResource, maxLevel));
         }
 
         return new DefRegistry<TechDef>(techs, t => t.Id, "technologie", allowEmpty: true);
@@ -2877,7 +2893,15 @@ public sealed class ContentLoader
                 $"'research.costGrowthPerTech' musí být 0–1, je {dto.CostGrowthPerTech}.");
         }
 
-        return new ResearchConfig(dto.CostMultiplier, dto.CostGrowthPerTech);
+        // Pod 1 by další úroveň byla levnější než ta předchozí; nad 10 by druhá
+        // úroveň stála desetinásobek a nikdo by ji nikdy nekoupil.
+        if (dto.LevelCostMultiplier is < 1 or > 10)
+        {
+            throw new ContentLoadException(path,
+                $"'research.levelCostMultiplier' musí být 1–10, je {dto.LevelCostMultiplier}.");
+        }
+
+        return new ResearchConfig(dto.CostMultiplier, dto.CostGrowthPerTech, dto.LevelCostMultiplier);
     }
 
     /// <summary>

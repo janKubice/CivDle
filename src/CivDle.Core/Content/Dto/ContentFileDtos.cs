@@ -207,7 +207,10 @@ public sealed record GameplayFileDto(
     ResearchDto? Research);
 
 /// <summary>Škálování cen výzkumu tak, jak leží v JSON.</summary>
-public sealed record ResearchDto(double CostMultiplier, double CostGrowthPerTech);
+public sealed record ResearchDto(
+    double CostMultiplier,
+    double CostGrowthPerTech,
+    double LevelCostMultiplier = 1.0);
 
 /// <summary>Časosběr tak, jak leží v JSON.</summary>
 public sealed record HistoryDto(double IntervalSeconds, int MaxFrames);
@@ -367,7 +370,8 @@ public sealed record TechDto(
     string[]? Unlocks,
     string? Effect,
     double Magnitude,
-    string? TargetResource);
+    string? TargetResource,
+    int MaxLevel = 1);
 
 /// <summary>
 /// Podmínka cíle/achievementu/Vzestupu tak, jak leží v JSON: metrika + práh + volitelný

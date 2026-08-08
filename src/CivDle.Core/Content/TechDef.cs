@@ -24,6 +24,14 @@ namespace CivDle.Core.Content;
 /// vedle globálních skoků. Bez cíle by každé druhé vylepšení muselo být
 /// celoplošné, a strom by byl jen dlouhý seznam téhož.</para>
 /// </param>
+/// <param name="MaxLevel">
+/// Kolikrát jde technologii vyzkoumat (1 = jednorázová).
+///
+/// <para>Drobná vylepšení („+6 % výroby") jsou jako jednorázový uzel k ničemu:
+/// hráč je odklikne, nic nepozná a v popisu stojí „drobné vylepšení, ale sčítá
+/// se" — jenže sčítat se nemělo co. Opakovatelná úroveň z toho dělá rozhodnutí:
+/// bonus se násobí úrovní, cena roste mocninou.</para>
+/// </param>
 public sealed record TechDef(
     string Id,
     IReadOnlyList<ResourceAmount> Cost,
@@ -31,10 +39,14 @@ public sealed record TechDef(
     IReadOnlyList<int> UnlockedBuildingIndices,
     string Effect = "",
     double Magnitude = 0.0,
-    int TargetResourceIndex = -1)
+    int TargetResourceIndex = -1,
+    int MaxLevel = 1)
 {
     /// <summary>Dává technologie trvalý pasivní bonus (ne jen odemčení budov)?</summary>
     public bool HasPassiveEffect => !string.IsNullOrEmpty(Effect);
+
+    /// <summary>Jde vyzkoumat víc než jednou?</summary>
+    public bool IsRepeatable => MaxLevel > 1;
 
     /// <summary>Lokalizační klíč jména technologie.</summary>
     public string NameKey => $"tech.{Id}";
