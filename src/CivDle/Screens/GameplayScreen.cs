@@ -66,6 +66,7 @@ public sealed class GameplayScreen : IScreen
     private MightBanner _might = null!;
 
     /// <summary>Tlačítko rychlosti — popisek se přepisuje podle stavu.</summary>
+    private UiFactory.BadgedButton? _speedBadge;
     private Button? _speedButton;
     private readonly ParticleSystem _particles = new();
     private readonly FloatingTextRenderer _floatingText = new();
@@ -201,6 +202,15 @@ public sealed class GameplayScreen : IScreen
     /// odtikala simulace.
     /// </summary>
     private double _unsavedPlaySeconds;
+    /// <summary>Kolik místa vpravo nahoře patří panelu se stavem světa.</summary>
+    private const int RightPanelReserve = 420;
+
+    /// <summary>Pod tuhle šířku se lišta surovin nesmí smrsknout ani na úzkém okně.</summary>
+    private const int MinResourceBarWidth = 420;
+
+    /// <summary>Nejširší, jak smí být vyskakovací katalog budov.</summary>
+    private const int BuildMenuMaxWidth = 1180;
+
     private Widget _buildMenuPanel = null!;
     private Widget _statusPanel = null!;
     private HorizontalStackPanel _roadModePanel = null!;
@@ -678,7 +688,11 @@ public sealed class GameplayScreen : IScreen
 
         // Minimapa, popupy a toasty až nad UI — hráč je nesmí přehlédnout.
         _minimap.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, _camera, _simulation);
-        _might.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, _simulation);
+        // Velké ×N uprostřed obrazovky pryč: sedělo přes mapu a překáželo.
+        // Číslo zůstává jako stat v pravém panelu, kde ho hráč hledá spolu
+        // s érou a měřítkem. Banner se dál používá jen na krátký záblesk,
+        // když síla vyskočí — proto se pořád aktualizuje.
+        _might.DrawPulse(spriteBatch, _screens.GraphicsDevice.Viewport);
         _floatingText.Draw(spriteBatch, _camera, _popupFont);
         DrawSettlementLabels(spriteBatch);
         DrawTileTooltip(spriteBatch);
@@ -1790,7 +1804,18 @@ public sealed class GameplayScreen : IScreen
         summaryRow.Widgets.Add(_idleLabel);
         resourceBar.Widgets.Add(summaryRow);
 
-        var topLeft = UiFactory.DarkPanel(resourceBar);
+        // Lišta surovin roste doprava s každou odemčenou surovinou a v pozdní
+        // hře dolezla pod pravý panel se stavem světa. Dostane proto strop
+        // šířky a uvnitř posuvník — radši se v ní posouvat než mít dva panely
+        // přes sebe.
+        var resourceScroll = new ScrollViewer
+        {
+            Content = resourceBar,
+            Width = Math.Max(MinResourceBarWidth, _screens.GraphicsDevice.Viewport.Width - RightPanelReserve),
+            ShowVerticalScrollBar = false,
+        };
+
+        var topLeft = UiFactory.DarkPanel(resourceScroll);
         topLeft.HorizontalAlignment = HorizontalAlignment.Left;
         topLeft.VerticalAlignment = VerticalAlignment.Top;
         topLeft.Margin = new Thickness(10, 10, 0, 0);
@@ -1845,7 +1870,15 @@ public sealed class GameplayScreen : IScreen
 
         var buildStack = new VerticalStackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
         buildStack.Widgets.Add(_buildCategoryPanel);
-        buildStack.Widgets.Add(_buildItemsPanel);
+
+        // S hodně odemčenými budovami se řada nevešla na obrazovku a ty za
+        // okrajem se nedaly ani vybrat. Posuvník je nechá dostupné.
+        buildStack.Widgets.Add(new ScrollViewer
+        {
+            Content = _buildItemsPanel,
+            Width = Math.Min(BuildMenuMaxWidth, _screens.GraphicsDevice.Viewport.Width - 60),
+            ShowVerticalScrollBar = false,
+        });
         _buildMenuPanel = UiFactory.DarkPanel(buildStack);
         _buildMenuPanel.HorizontalAlignment = HorizontalAlignment.Center;
         _buildMenuPanel.Visible = _buildMenuOpen;
@@ -1935,6 +1968,12 @@ public sealed class GameplayScreen : IScreen
     /// </summary>
     /// <summary>Tlačítko s vybraným druhem k zasazení; null = druhy nejsou.</summary>
     private Widget? _plantSpeciesButton;
+
+    /// <summary>Ikony, které nesou počet — obnovují se v <see cref="RefreshHudTexts"/>.</summary>
+    private UiFactory.BadgedButton? _questsBadge;
+    private UiFactory.BadgedButton? _contractsBadge;
+    private UiFactory.BadgedButton? _techBadge;
+    private UiFactory.BadgedButton? _electionBadge;
 
     /// <summary>Popisek „Sázet: Háj" — jméno druhu přichází z dat, ne z kódu.</summary>
     private string PlantSpeciesLabel()
@@ -2102,12 +2141,13 @@ public sealed class GameplayScreen : IScreen
         var grid = IconGrid(columns);
         int slot = 0;
 
-        _speedButton = UiFactory.ToolButton(Ico("ui.play"), loc["tip.speed"], () =>
+        _speedBadge = UiFactory.ToolButtonWithBadge(Ico("ui.play"), loc["tip.speed"], () =>
         {
             _speed.Next();
             RefreshHudTexts();
         }, "1x");
-        Place(grid, _speedButton, slot++, columns);
+        _speedButton = _speedBadge.Button;
+        Place(grid, _speedBadge.Root, slot++, columns);
 
         Place(grid, UiFactory.ToolButton(
             Ico("ui.home"), loc["hud.backToCity"] + '\n' + loc["tip.backToCity"], RecenterOnCity), slot++, columns);
@@ -2119,25 +2159,28 @@ public sealed class GameplayScreen : IScreen
                 () => _screens.Push(new SettlementsScreen(_screens, _simulation, _camera))), slot++, columns);
         }
 
-        Place(grid, UiFactory.ToolButton(
+        _questsBadge = UiFactory.ToolButtonWithBadge(
             Ico("ui.quests"), loc["hud.quests"] + '\n' + loc["tip.quests"],
-            () => _screens.Push(new QuestsScreen(_screens, _simulation))), slot++, columns);
+            () => _screens.Push(new QuestsScreen(_screens, _simulation)));
+        Place(grid, _questsBadge.Root, slot++, columns);
 
         // Zakázky mají vlastní tlačítko, i když bydlí na obrazovce úkolů: je to
         // nejkratší smyčka ve hře a schovaná o dvě kliknutí by zanikla.
         if (_simulation.ContractsEnabled)
         {
-            _contractsButton = UiFactory.ToolButton(
+            _contractsBadge = UiFactory.ToolButtonWithBadge(
                 Ico("ui.contracts"), loc["hud.contracts"] + '\n' + loc["tip.contracts"],
                 () => _screens.Push(new QuestsScreen(_screens, _simulation)));
-            Place(grid, _contractsButton, slot++, columns);
+            _contractsButton = _contractsBadge.Button;
+            Place(grid, _contractsBadge.Root, slot++, columns);
         }
 
         if (_screens.Content.Techs.Count > 0 && _simulation.IsFeatureUnlocked("research"))
         {
-            Place(grid, UiFactory.ToolButton(
+            _techBadge = UiFactory.ToolButtonWithBadge(
                 Ico("ui.tech"), loc["hud.tech"] + '\n' + loc["tip.tech"],
-                () => _screens.Push(new TechScreen(_screens, _simulation))), slot++, columns);
+                () => _screens.Push(new TechScreen(_screens, _simulation)));
+            Place(grid, _techBadge.Root, slot++, columns);
         }
 
         if (_screens.Content.Policies.Count > 0 && _simulation.IsFeatureUnlocked("governor"))
@@ -2167,9 +2210,10 @@ public sealed class GameplayScreen : IScreen
 
         if (_simulation.IsFeatureUnlocked("elections") && _screens.Content.Elections.IsEnabled)
         {
-            Place(grid, UiFactory.ToolButton(
+            _electionBadge = UiFactory.ToolButtonWithBadge(
                 Ico("ui.vote"), loc["hud.election"] + '\n' + loc["tip.election"],
-                () => _screens.Push(new ElectionScreen(_screens, _simulation))), slot++, columns);
+                () => _screens.Push(new ElectionScreen(_screens, _simulation)));
+            Place(grid, _electionBadge.Root, slot++, columns);
         }
 
         Place(grid, UiFactory.ToolButton(
@@ -2205,12 +2249,14 @@ public sealed class GameplayScreen : IScreen
             row.Widgets.Add(UiFactory.ToolButton(
                 Ico("ui.plant"), loc["hud.plant"] + '\n' + loc["tip.plant"], _tools.TogglePlant));
 
-            // Druhý knoflík vedle: čím se sází. Přepínat druh schovaným klikem do
-            // téhož tlačítka by znamenalo, že hráč nemá jak zjistit, že jich je víc.
+            // Výběr druhu se ukáže, TEPRVE až sázení běží. Dvě tlačítka pro
+            // sázení vedle sebe napořád vypadala jako chyba — a když hráč
+            // nesází, není co přepínat.
             if (_screens.Content.Gameplay.Planting.Species.Count > 1)
             {
                 _plantSpeciesButton = UiFactory.SmallButton(
                     PlantSpeciesLabel(), CyclePlantSpecies, loc["tip.plantSpecies"]);
+                _plantSpeciesButton.Visible = _tools.PlantMode;
                 row.Widgets.Add(_plantSpeciesButton);
             }
         }
@@ -2687,9 +2733,104 @@ public sealed class GameplayScreen : IScreen
         return button;
     }
 
+    /// <summary>
+    /// Čísla na ikonách: kolik věcí čeká.
+    ///
+    /// <para>Bez nich musel hráč otevřít každé menu, aby zjistil, jestli v něm
+    /// něco je. Ukazuje se to, co jde <b>udělat teď</b> — ne kolik toho ve hře
+    /// existuje; počet, se kterým nejde nic dělat, je jen šum.</para>
+    /// </summary>
+    private void RefreshBadges()
+    {
+        if (_plantSpeciesButton is not null)
+        {
+            _plantSpeciesButton.Visible = _tools.PlantMode;
+        }
+
+        if (_questsBadge is { } quests)
+        {
+            UiFactory.SetBadge(quests, RemainingQuestCount(), new Color(70, 110, 160, 245));
+        }
+
+        if (_contractsBadge is { } contracts)
+        {
+            UiFactory.SetBadge(contracts, ReadyContractCount(), new Color(90, 160, 90, 245));
+        }
+
+        if (_techBadge is { } tech)
+        {
+            UiFactory.SetBadge(tech, AffordableTechCount(), new Color(70, 130, 180, 245));
+        }
+
+        if (_electionBadge is { } election)
+        {
+            // U voleb nejde o počet, ale o „teď se dá volit" — jedna tečka stačí.
+            UiFactory.SetBadge(election, _simulation.ElectionTerm >= 0 ? 0 : 1, new Color(200, 160, 60, 245));
+        }
+    }
+
+    /// <summary>Kolik zakázek jde právě teď odevzdat.</summary>
+    private int ReadyContractCount()
+    {
+        if (!_simulation.ContractsEnabled)
+        {
+            return 0;
+        }
+
+        int ready = 0;
+        for (int slot = 0; slot < _simulation.ContractSlots.Length; slot++)
+        {
+            if (_simulation.CanFulfilContract(slot))
+            {
+                ready++;
+            }
+        }
+
+        return ready;
+    }
+
+    /// <summary>
+    /// Kolik úkolů ještě zbývá.
+    ///
+    /// <para>Úkoly se dokončují samy, jakmile je splníš — nemají co „vyzvednout",
+    /// takže odznak „čeká na tebe" by tu byl vždycky nula. Užitečné číslo je
+    /// proto „kolik toho je ještě před tebou", a je proto modrý (informace),
+    /// ne zelený (udělej to teď).</para>
+    /// </summary>
+    private int RemainingQuestCount()
+    {
+        int remaining = 0;
+        var quests = _screens.Content.Quests;
+        for (int i = 0; i < quests.Count; i++)
+        {
+            if (!_simulation.IsQuestCompleted(i))
+            {
+                remaining++;
+            }
+        }
+
+        return remaining;
+    }
+
+    /// <summary>Kolik technologií si hráč může koupit hned teď.</summary>
+    private int AffordableTechCount()
+    {
+        int available = 0;
+        for (int i = 0; i < _screens.Content.Techs.Count; i++)
+        {
+            if (_simulation.CanResearch(i) == PlacementResult.Ok)
+            {
+                available++;
+            }
+        }
+
+        return available;
+    }
+
     private void RefreshHudTexts()
     {
         var loc = _screens.Loc;
+        RefreshBadges();
 
         // Tlačítko „Stavět" drží stav otevřeného menu, ať je vidět, co je zapnuté.
         _buildMenuButton.Background = new SolidBrush(_buildMenuOpen
@@ -2706,6 +2847,16 @@ public sealed class GameplayScreen : IScreen
                 _speedButton.Content = UiFactory.Icon(icon, UiFactory.IconButtonSize - 14);
                 _speedButton.Content.HorizontalAlignment = HorizontalAlignment.Center;
                 _speedButton.Content.VerticalAlignment = VerticalAlignment.Center;
+            }
+
+            // Násobič jako číslo v rohu: pro 2× i 3× je totiž tatáž ikona
+            // „rychle" a bez čísla se nedaly rozeznat.
+            if (_speedBadge is { } speed)
+            {
+                UiFactory.SetBadge(
+                    speed,
+                    _speed.IsPaused || _speed.Multiplier <= 1.0 ? 0 : (int)Math.Round(_speed.Multiplier),
+                    new Color(70, 110, 160, 245));
             }
 
             _speedButton.Tooltip = _screens.Loc["tip.speed"] + '\n' + _speed.Label;

@@ -28,7 +28,7 @@ public sealed class LoadingScreen : IScreen
     private readonly ScreenManager _screens;
     private readonly Func<IScreen> _next;
     private readonly Desktop _desktop;
-    private readonly Label _dots;
+    private readonly ProgressBar _bar;
 
     private double _elapsed;
     private bool _handedOver;
@@ -57,13 +57,10 @@ public sealed class LoadingScreen : IScreen
             HorizontalAlignment = HorizontalAlignment.Center,
         });
 
-        _dots = new Label
-        {
-            Text = string.Empty,
-            TextColor = Color.LightGray,
-            HorizontalAlignment = HorizontalAlignment.Center,
-        };
-        layout.Widgets.Add(_dots);
+        // Ukazatel postupu, ne tři tečky. Tečky se od zamrznutí nedají
+        // rozeznat — hráč u nich neví, jestli se něco děje, nebo hra chcípla.
+        _bar = new ProgressBar(320, height: 10);
+        layout.Widgets.Add(_bar.Root);
 
         var root = new Panel();
         root.Widgets.Add(layout);
@@ -76,9 +73,7 @@ public sealed class LoadingScreen : IScreen
     {
         _elapsed += gameTime.ElapsedGameTime.TotalSeconds;
 
-        // Tři tečky dokola: jediný pohyb na obrazovce, ze kterého je poznat,
-        // že hra běží a nezasekla se.
-        _dots.Text = new string('.', 1 + (int)(_elapsed * 3) % 3);
+        _bar.SetProgress(_elapsed / MinimumSeconds);
 
         if (_handedOver || _elapsed < MinimumSeconds)
         {
@@ -86,7 +81,24 @@ public sealed class LoadingScreen : IScreen
         }
 
         _handedOver = true;
-        _screens.ReplaceAll(_next());
+
+        // Stavba další obrazovky je jediné místo, kde tahle třída volá cizí kód
+        // — a to je přesně místo, kde se dřív hra rozsypala. Když se svět nebo
+        // rozehraná hra postavit nedá, hráč se má vrátit do menu s hláškou,
+        // ne přijít o celý proces.
+        IScreen next;
+        try
+        {
+            next = _next();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Načtení selhalo: {ex}");
+            _screens.ReplaceAll(new MainMenuScreen(_screens, _screens.Loc["menu.loadFailed"]));
+            return;
+        }
+
+        _screens.ReplaceAll(next);
     }
 
     public void Draw(GameTime gameTime)

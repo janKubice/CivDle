@@ -22,6 +22,9 @@ public sealed class SpriteLibrary : IDisposable
     /// <summary>Rozlišení ikon surovin.</summary>
     public const int IconSize = 24;
 
+    /// <summary>Velikost znaku hry v hlavním menu.</summary>
+    public const int LogoSize = 96;
+
     private readonly Dictionary<string, Texture2D> _sprites = new(StringComparer.Ordinal);
 
     public SpriteLibrary(GraphicsDevice device)
@@ -49,6 +52,11 @@ public sealed class SpriteLibrary : IDisposable
 
         // Ikony do HUD. Lišta plná slov je v akční hře nečitelná: hráč hledá
         // tvar, ne text. Popis nese bublina, ikona nese poznání.
+        // Znak hry do hlavního menu. Kreslí se stejně jako ostatní ikony —
+        // procedurálně, ne ze souboru — jen ve větším rozlišení, protože
+        // v menu sedí přes sto pixelů.
+        Add(device, "ui.logo", LogoSize, Logo);
+
         Add(device, "ui.build", IconSize, UiBuild);
         Add(device, "ui.road", IconSize, UiRoad);
         Add(device, "ui.demolish", IconSize, UiDemolish);
@@ -390,6 +398,43 @@ public sealed class SpriteLibrary : IDisposable
 
     private static readonly Color UiInk = new(232, 236, 244);
     private static readonly Color UiDim = new(170, 180, 196);
+
+    /// <summary>
+    /// Znak hry: slunce nad panoramatem rostoucího města.
+    ///
+    /// <para>Je to celý obsah hry v jednom obrázku — město, které roste samo,
+    /// zatímco slunce jde nahoru. Kreslí se v odstínech, které používá i HUD,
+    /// aby menu a hra vypadaly jako jedna věc.</para>
+    /// </summary>
+    private static void Logo(PixelCanvas c)
+    {
+        float w = c.Width;
+        float h = c.Height;
+
+        // Slunce nad obzorem.
+        c.FillCircle(w * 0.5f, h * 0.34f, w * 0.20f, new Color(240, 205, 110));
+
+        // Panorama: pět domů rostoucích zleva doprava — čte se to jako postup.
+        var wall = new Color(58, 74, 96);
+        var roof = new Color(212, 116, 96);
+        float baseY = h * 0.82f;
+        float[] heights = { 0.16f, 0.26f, 0.40f, 0.30f, 0.20f };
+        float slot = w * 0.17f;
+        for (int i = 0; i < heights.Length; i++)
+        {
+            float x = w * 0.09f + i * slot;
+            float top = baseY - h * heights[i];
+            c.FillRect((int)x, (int)top, (int)(slot * 0.78f), (int)(baseY - top), wall);
+            c.FillTriangle(
+                x - slot * 0.08f, top,
+                x + slot * 0.39f, top - h * 0.07f,
+                x + slot * 0.86f, top,
+                roof);
+        }
+
+        // Zem pod městem.
+        c.FillRect(0, (int)baseY, c.Width, (int)(h - baseY), new Color(74, 96, 66));
+    }
 
     private static void UiBuild(PixelCanvas c)
     {

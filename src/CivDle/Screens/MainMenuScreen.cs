@@ -16,9 +16,14 @@ public sealed class MainMenuScreen : IScreen
     private Desktop _desktop = null!;
     private string? _statusText;
 
-    public MainMenuScreen(ScreenManager screens)
+    /// <param name="statusText">
+    /// Hláška, se kterou se hráč do menu vrací (typicky „načtení selhalo").
+    /// Je to jediná cesta, jak mu říct, proč místo hry vidí zase menu.
+    /// </param>
+    public MainMenuScreen(ScreenManager screens, string statusText = "")
     {
         _screens = screens;
+        _statusText = statusText;
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
         _screens.UiSettingsChanged += BuildUi;
@@ -47,18 +52,24 @@ public sealed class MainMenuScreen : IScreen
 
         // Levý sloupec: titul + tlačítka v panelu.
         var buttons = new VerticalStackPanel { Spacing = 10 };
-        buttons.Widgets.Add(new Label
+        // Znak místo drobného nápisu a podtitulu. Text velikosti tlačítek
+        // nedělal z menu titulní obrazovku — vypadal jako další položka.
+        if (_screens.Sprites.Get("ui.logo") is { } logo)
         {
-            Text = "C I V D L E",
-            HorizontalAlignment = HorizontalAlignment.Center,
-            TextColor = UiFactory.Accent,
-        });
-        buttons.Widgets.Add(new Label
+            var emblem = UiFactory.Icon(logo, 112);
+            emblem.HorizontalAlignment = HorizontalAlignment.Center;
+            buttons.Widgets.Add(emblem);
+        }
+        else
         {
-            Text = loc["menu.subtitle"],
-            HorizontalAlignment = HorizontalAlignment.Center,
-            TextColor = Color.LightGray,
-        });
+            buttons.Widgets.Add(new Label
+            {
+                Text = "C I V D L E",
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextColor = UiFactory.Accent,
+            });
+        }
+
         buttons.Widgets.Add(new Label { Text = " " });
         if (_screens.Saves.HasSave)
         {
@@ -110,7 +121,7 @@ public sealed class MainMenuScreen : IScreen
 
     private Panel BuildDevlog(Localization loc)
     {
-        var list = new VerticalStackPanel { Spacing = 8, Width = 300 };
+        var list = new VerticalStackPanel { Spacing = 8, Width = 380 };
         list.Widgets.Add(new Label { Text = loc["menu.devlog"], TextColor = UiFactory.Accent });
 
         foreach (var entry in _screens.Content.Devlog)
@@ -131,7 +142,7 @@ public sealed class MainMenuScreen : IScreen
                     Text = $"• {loc[entry.LineKey(i)]}",
                     TextColor = Color.LightGray,
                     Wrap = true,
-                    Width = 280,
+                    Width = 356,
                 });
             }
 
@@ -141,8 +152,8 @@ public sealed class MainMenuScreen : IScreen
         var scroll = new ScrollViewer
         {
             Content = list,
-            Height = 220,
-            Width = 300,
+            Height = 330,
+            Width = 380,
         };
 
         return UiFactory.DarkPanel(scroll);

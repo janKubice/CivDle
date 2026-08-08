@@ -174,6 +174,63 @@ internal static class UiFactory
         return button;
     }
 
+    /// <summary>
+    /// Ikonové tlačítko s odznakem počtu v rohu.
+    /// </summary>
+    /// <param name="Root">Co se vkládá do rozvržení (tlačítko i odznak).</param>
+    /// <param name="Button">Samotné tlačítko.</param>
+    /// <param name="Badge">Popisek odznaku — volající mu mění text přes <see cref="SetBadge"/>.</param>
+    public sealed record BadgedButton(Widget Root, Button Button, Label Badge);
+
+    /// <summary>
+    /// Ikonové tlačítko, které umí ukázat počet.
+    ///
+    /// <para>Bez čísla na ikoně musí hráč otevřít každé menu, aby zjistil, jestli
+    /// v něm něco čeká — u úkolů, zakázek a výzkumu to znamená obcházet HUD
+    /// dokola. Odznak to řekne rovnou.</para>
+    /// </summary>
+    public static BadgedButton ToolButtonWithBadge(
+        Texture2D? icon, string tooltip, Action onClick, string? fallbackText = null)
+    {
+        var button = ToolButton(icon, tooltip, onClick, fallbackText);
+
+        var badge = new Label
+        {
+            Text = string.Empty,
+            TextColor = Color.White,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Top,
+            Background = new SolidBrush(new Color(196, 72, 72, 245)),
+            Padding = new Thickness(4, 1),
+            Visible = false,
+        };
+
+        var root = new Panel
+        {
+            Width = IconButtonSize,
+            Height = IconButtonSize,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
+        };
+        root.Widgets.Add(button);
+        root.Widgets.Add(badge);
+        return new BadgedButton(root, button, badge);
+    }
+
+    /// <summary>
+    /// Nastaví odznak. Nula ho schová — prázdné kolečko na každé ikoně je šum,
+    /// ne informace.
+    /// </summary>
+    public static void SetBadge(BadgedButton target, int count, Color? color = null)
+    {
+        target.Badge.Visible = count > 0;
+        target.Badge.Text = count > 99 ? "99+" : count.ToString();
+        if (color is { } fill)
+        {
+            target.Badge.Background = new SolidBrush(fill);
+        }
+    }
+
     /// <summary>Řádek formuláře: popisek s pevnou šířkou + widgety (selector, textbox…).</summary>
     public static HorizontalStackPanel Row(string labelText, params Widget[] widgets)
     {
