@@ -335,7 +335,7 @@ public sealed record FaunaDto(
     bool Glow);
 
 /// <summary>Obsah souboru <c>data/vehicles.json</c>.</summary>
-public sealed record VehiclesFileDto(int SchemaVersion, List<VehicleDto>? Vehicles);
+public sealed record VehiclesFileDto(int SchemaVersion, List<VehicleDto>? Vehicles, List<AircraftDto>? Aircraft);
 
 /// <summary>Jedno vozidlo tak, jak leží v JSON.</summary>
 public sealed record VehicleDto(
@@ -347,6 +347,16 @@ public sealed record VehicleDto(
     int MinEra,
     int? MaxEra,
     bool Glow);
+
+/// <summary>Jeden létající stroj tak, jak leží v JSON.</summary>
+public sealed record AircraftDto(
+    string? Id,
+    string? Color,
+    double Speed,
+    double Altitude,
+    int MinEra,
+    int? MaxEra,
+    string? Home);
 
 /// <summary>Nastavení auto-stavby tak, jak leží v JSON.</summary>
 public sealed record AutoBuildDto(int IntervalTicks, int SearchRadius, int PopulationHeadroom);

@@ -192,6 +192,14 @@ public sealed class SpriteLibrary : IDisposable
         // Sloučené bloky (2×2 z bloku čtyř stejných budov) — vyšší a širší silueta,
         // aby se na mapě daly rozeznat od jednotlivých domů na první pohled.
         Add(device, "agent.boat", SpriteSize, Boat);
+
+        // Letouny (bod 42). ID musí sedět s 'aircraft' v data/vehicles.json —
+        // AirTrafficSystem si sprite hledá pod "agent.<id>".
+        Add(device, "agent.balloon", SpriteSize, Balloon);
+        Add(device, "agent.airship", SpriteSize, Airship);
+        Add(device, "agent.biplane", SpriteSize, Biplane);
+        Add(device, "agent.airliner", SpriteSize, Airliner);
+        Add(device, "agent.shuttle", SpriteSize, Shuttle);
         Add(device, "agent.caravan", SpriteSize, Caravan);
         Add(device, "building.manor", SpriteSize, canvas => BigHouse(canvas, new Color(199, 122, 68), 2));
         Add(device, "building.townhouses", SpriteSize, canvas => BigHouse(canvas, new Color(212, 137, 74), 3));
@@ -905,6 +913,66 @@ public sealed class SpriteLibrary : IDisposable
     }
 
     /// <summary>Rybářská loďka: trup, plachta, drobná postava. Kreslí se malá — je to detail, ne budova.</summary>
+    /// <summary>Horkovzdušný balon: pruhovaná kopule a košík pod ní.</summary>
+    private static void Balloon(PixelCanvas c)
+    {
+        c.FillCircle(16f, 13f, 8f, new Color(216, 101, 79));
+        c.FillRect(12, 6, 3, 14, new Color(240, 232, 214)); // světlý pruh
+        c.FillRect(18, 6, 3, 14, new Color(240, 232, 214));
+        c.FillTriangle(10f, 18f, 22f, 18f, 16f, 24f, new Color(190, 84, 66)); // hrdlo
+        c.FillRect(14, 24, 5, 4, new Color(126, 92, 56));  // koš
+        c.FillRect(13, 22, 1, 3, new Color(96, 82, 70));   // lana
+        c.FillRect(19, 22, 1, 3, new Color(96, 82, 70));
+    }
+
+    /// <summary>Vzducholoď: doutník s ocasními plochami a gondolou.</summary>
+    private static void Airship(PixelCanvas c)
+    {
+        c.FillCircle(15f, 14f, 7f, new Color(201, 207, 214));
+        c.FillRect(8, 10, 16, 9, new Color(214, 220, 226));
+        c.FillCircle(8f, 14.5f, 4.5f, new Color(201, 207, 214));
+        c.FillTriangle(24f, 10f, 30f, 8f, 24f, 15f, new Color(176, 184, 192)); // kormidlo
+        c.FillTriangle(24f, 18f, 30f, 20f, 24f, 14f, new Color(176, 184, 192));
+        c.FillRect(13, 19, 7, 3, new Color(120, 116, 110)); // gondola
+    }
+
+    /// <summary>Dvouplošník: dvě křídla nad sebou a vrtule vepředu.</summary>
+    private static void Biplane(PixelCanvas c)
+    {
+        c.FillRect(6, 15, 20, 4, new Color(224, 192, 96));   // trup
+        c.FillTriangle(26f, 15f, 26f, 19f, 31f, 17f, new Color(200, 168, 80));
+        c.FillRect(9, 10, 14, 2, new Color(238, 210, 120));  // horní křídlo
+        c.FillRect(9, 20, 14, 2, new Color(238, 210, 120));  // dolní křídlo
+        c.FillRect(15, 12, 2, 8, new Color(180, 150, 70));   // vzpěra
+        c.FillRect(4, 12, 2, 10, new Color(150, 152, 156));  // vrtule
+        c.FillRect(5, 8, 4, 3, new Color(200, 168, 80));     // směrovka
+    }
+
+    /// <summary>Dopravní letadlo: šípová křídla a řada okének.</summary>
+    private static void Airliner(PixelCanvas c)
+    {
+        c.FillRect(3, 14, 26, 5, new Color(234, 239, 244)); // trup
+        c.FillCircle(29f, 16.5f, 2.5f, new Color(234, 239, 244));
+        c.FillTriangle(10f, 16f, 22f, 16f, 14f, 27f, new Color(210, 218, 226)); // křídlo dolů
+        c.FillTriangle(10f, 16f, 22f, 16f, 14f, 5f, new Color(220, 228, 236));  // křídlo nahoru
+        c.FillTriangle(3f, 16f, 9f, 16f, 4f, 8f, new Color(96, 140, 200));      // ocas
+        for (int i = 0; i < 6; i++)
+        {
+            c.FillRect(9 + i * 3, 16, 1, 1, new Color(120, 160, 210)); // okénka
+        }
+    }
+
+    /// <summary>Raketoplán: delta křídlo a plamen z motorů.</summary>
+    private static void Shuttle(PixelCanvas c)
+    {
+        c.FillTriangle(4f, 12f, 4f, 21f, 28f, 16.5f, new Color(226, 236, 246)); // trup
+        c.FillTriangle(6f, 16f, 18f, 16f, 8f, 28f, new Color(184, 216, 240));   // delta dolů
+        c.FillTriangle(6f, 17f, 18f, 17f, 8f, 5f, new Color(198, 226, 246));    // delta nahoru
+        c.FillRect(3, 13, 2, 7, new Color(120, 130, 140));                      // motory
+        c.FillCircle(1.5f, 16.5f, 2.4f, new Color(255, 190, 90));               // plamen
+        c.FillCircle(0.5f, 16.5f, 1.4f, new Color(255, 240, 190));
+    }
+
     private static void Boat(PixelCanvas c)
     {
         c.FillTriangle(8f, 22f, 24f, 22f, 21f, 27f, new Color(122, 88, 56)); // trup

@@ -56,6 +56,9 @@ public sealed class GameplayScreen : IScreen
     private readonly FaunaSystem _fauna;
     private readonly TrafficSystem _traffic;
     private readonly AgentSystem _agents;
+
+    /// <summary>Balony a letadla nad mapou — kulisa nad zástavbou (bod 42).</summary>
+    private readonly AirTrafficSystem _airTraffic;
     private readonly InputManager _input = new();
     private readonly FixedStepLoop _simLoop = new(Simulation.TicksPerSecond);
 
@@ -338,6 +341,7 @@ public sealed class GameplayScreen : IScreen
         _traffic = new TrafficSystem(screens.Content);
         _spectacles = new SpectacleRenderer(screens.Content);
         _agents = new AgentSystem(screens.Content, screens.Sprites);
+        _airTraffic = new AirTrafficSystem(screens.Content, screens.Sprites);
         _minimap = new MinimapRenderer(screens.GraphicsDevice, screens.Content.Biomes, screens.WhitePixel);
         _vignette = new VignetteRenderer(screens.GraphicsDevice);
         _fogRenderer = new FogRenderer(screens.WhitePixel);
@@ -527,6 +531,7 @@ public sealed class GameplayScreen : IScreen
             _fauna.Update(worldDt, _camera, _simulation);
             _traffic.Update(worldDt, _camera, _simulation);
             _agents.Update(worldDt, _camera, _simulation);
+            _airTraffic.Update(worldDt, _camera, _simulation);
             _bubbles.Update(worldDt, _simulation);
             UpdateCaravan(worldDt);
             _golden.Update(worldDt, _camera, _simulation);
@@ -575,6 +580,8 @@ public sealed class GameplayScreen : IScreen
             _buildingRenderer.Draw(spriteBatch, _camera, _simulation);
             _agents.Draw(spriteBatch, _camera);
             _fauna.Draw(spriteBatch, _screens.WhitePixel, _camera);
+            // Letouny až za pozemní kulisou — mají letět NAD vším, co stojí na zemi.
+            _airTraffic.Draw(spriteBatch, _camera);
             _bubbles.Draw(spriteBatch, _camera);
             _caravans.Draw(spriteBatch, _camera);
             _golden.Draw(spriteBatch, _camera);

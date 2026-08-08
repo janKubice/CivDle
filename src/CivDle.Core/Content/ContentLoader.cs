@@ -86,6 +86,7 @@ public sealed class ContentLoader
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
         var vehicles = LoadVehicles(Path.Combine(dataDirectory, "vehicles.json"));
+        var aircraft = LoadAircraft(Path.Combine(dataDirectory, "vehicles.json"), buildings);
         var faith = LoadFaith(Path.Combine(dataDirectory, "faith.json"), resources);
         var npcCities = LoadNpcCities(Path.Combine(dataDirectory, "npc-cities.json"), resources, buildings, settlementNames);
         var grandWork = LoadGrandWork(Path.Combine(dataDirectory, "grandwork.json"), resources);
@@ -93,7 +94,7 @@ public sealed class ContentLoader
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
             worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, faith, npcCities, vehicles, mods,
-            grandWork, legacy, legacyUpgrades);
+            grandWork, legacy, legacyUpgrades, aircraft);
     }
 
     // ----- cizí města -----
@@ -3402,6 +3403,68 @@ public sealed class ContentLoader
     /// Vozidla pro dopravu po silnicích. Soubor je volitelný — bez něj se prostě
     /// nic nehýbe a hra běží jako dřív (kulisa nesmí být podmínkou spuštění).
     /// </summary>
+    /// <summary>
+    /// Létající kulisa ze stejného souboru jako vozidla — je to táž vrstva
+    /// obsahu („čím se ve světě hýbe"), jen jiné prostředí.
+    /// </summary>
+    private IReadOnlyList<AircraftDef> LoadAircraft(string path, DefRegistry<BuildingDef> buildings)
+    {
+        if (!File.Exists(path))
+        {
+            return Array.Empty<AircraftDef>();
+        }
+
+        var file = ReadFile<VehiclesFileDto>(path);
+        var result = new List<AircraftDef>();
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var dto in file.Aircraft ?? new List<AircraftDto>())
+        {
+            string id = RequireId(path, dto.Id, "Letoun");
+            if (!seenIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID letounu '{id}'.");
+            }
+
+            var color = ParseColor(path, dto.Color, $"Letoun '{id}'");
+            if (dto.Speed is <= 0 or > 800)
+            {
+                throw new ContentLoadException(path, $"Letoun '{id}': 'speed' musí být v (0, 800], je {dto.Speed}.");
+            }
+
+            // Výška je čistě optická (odsazení od stínu). Nula by znamenala, že
+            // letoun leze po zemi; přes sto pixelů by mu utekl stín z obrazovky.
+            if (dto.Altitude is < 4 or > 120)
+            {
+                throw new ContentLoadException(path, $"Letoun '{id}': 'altitude' musí být 4–120, je {dto.Altitude}.");
+            }
+
+            if (dto.MinEra < 0)
+            {
+                throw new ContentLoadException(path, $"Letoun '{id}': 'minEra' nesmí být záporná, je {dto.MinEra}.");
+            }
+
+            int maxEra = dto.MaxEra ?? -1;
+            if (maxEra >= 0 && maxEra < dto.MinEra)
+            {
+                throw new ContentLoadException(path,
+                    $"Letoun '{id}': 'maxEra' ({maxEra}) je menší než 'minEra' ({dto.MinEra}) — nikdy by nelétal.");
+            }
+
+            // Domovská budova je ODKAZ: překlep by znamenal letoun, který nikdy
+            // nevzlétne, a nikdo by nepoznal proč (CLAUDE.md: fail-fast).
+            int home = -1;
+            if (!string.IsNullOrWhiteSpace(dto.Home) && !buildings.TryIndexOf(dto.Home.Trim(), out home))
+            {
+                throw new ContentLoadException(path,
+                    $"Letoun '{id}' vzlétá od neexistující budovy '{dto.Home}'.");
+            }
+
+            result.Add(new AircraftDef(id, color, (float)dto.Speed, (float)dto.Altitude, dto.MinEra, maxEra, home));
+        }
+
+        return result;
+    }
+
     private IReadOnlyList<VehicleDef> LoadVehicles(string path)
     {
         if (!File.Exists(path))
