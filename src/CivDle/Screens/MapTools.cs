@@ -174,6 +174,31 @@ public sealed class MapTools
     public int TerraformGhostY { get; private set; }
     public PlacementResult TerraformGhostResult { get; private set; }
 
+    /// <summary>
+    /// Obdélník, který hráč zrovna táhne sázením nebo terraformací.
+    ///
+    /// <para>Sázet a zavlažovat po jedné dlaždici je při velikosti pozdějšího
+    /// města nepoužitelné — les nebo pole se dělá tahem, ne stovkou kliknutí.
+    /// Klik zůstává jednou dlaždicí, protože tažení začíná až na obdélníku 1×1.</para>
+    /// </summary>
+    public Rectangle AreaPreview { get; private set; }
+
+    /// <summary>Táhne se zrovna obdélník sázení/terraformace?</summary>
+    public bool AreaPreviewActive { get; private set; }
+
+    /// <summary>
+    /// Nejvíc dlaždic, které jeden tah zpracuje.
+    ///
+    /// <para>Strop je tu kvůli oddálené kameře: tah přes celou obrazovku by
+    /// jinak zadal desetitisíce zásahů naráz a hra by se na vteřiny zastavila.
+    /// Přebytek se ořízne od začátku tahu, takže se pořád stane to, co je vidět
+    /// v náhledu.</para>
+    /// </summary>
+    private const int MaxAreaTiles = 48;
+
+    private bool _areaDragging;
+    private int _areaStartX, _areaStartY;
+
     private bool _zoneDragging;
     private int _zoneStartX, _zoneStartY;
 
@@ -275,6 +300,8 @@ public sealed class MapTools
         MergeGhostActive = false;
         RoadGhostActive = false;
         _zoneDragging = false;
+        _areaDragging = false;
+        AreaPreviewActive = false;
         _dragging = false;
         _plan.Clear();
         BulkBuildable = 0;
@@ -294,9 +321,9 @@ public sealed class MapTools
         if (RoadEraseMode) { RoadEraseMode = false; RoadGhostActive = false; return true; }
         if (RoadMode) { RoadMode = false; RoadGhostActive = false; return true; }
         if (MergeMode) { MergeMode = false; MergeGhostActive = false; return true; }
-        if (TerraformIndex >= 0) { TerraformIndex = -1; TerraformGhostActive = false; return true; }
+        if (TerraformIndex >= 0) { TerraformIndex = -1; TerraformGhostActive = false; EndAreaDrag(); return true; }
         if (ZoneMode) { ZoneMode = false; _zoneDragging = false; return true; }
-        if (PlantMode) { PlantMode = false; return true; }
+        if (PlantMode) { PlantMode = false; PlantGhostActive = false; EndAreaDrag(); return true; }
         if (MovingBuildingIndex >= 0) { MovingBuildingIndex = -1; return true; }
         if (SelectedBuilding >= 0) { SelectedBuilding = -1; return true; }
         return false;
@@ -457,11 +484,6 @@ public sealed class MapTools
         Math.Abs(GhostX - _dragStartX) >= DragThresholdTiles || Math.Abs(GhostY - _dragStartY) >= DragThresholdTiles;
 
     /// <summary>
-    /// Přetváření krajiny: náhled sleduje kurzor a barva říká, jestli zásah projde.
-    /// Levý klik přetvoří dlaždici (za cenu), pravý režim opustí. V režimu se
-    /// zůstává — hráč obvykle upravuje víc dlaždic za sebou.
-    /// </summary>
-    /// <summary>
     /// Slučování: pod kurzorem se ukáže obrys bloku 2×2, který by se sloučil.
     /// Ghost je celý blok, ne jedna dlaždice — hráč tak vidí, co přesně zmizí.
     /// </summary>
@@ -605,16 +627,23 @@ public sealed class MapTools
         }
     }
 
+    /// <summary>
+    /// Přetváření krajiny: náhled sleduje kurzor, levým tažením se zabere celý
+    /// obdélník. Pravý klik režim opustí; v režimu se jinak zůstává, protože
+    /// hráč obvykle upravuje víc míst za sebou.
+    /// </summary>
     private void UpdateTerraform(bool mouseOverUi)
     {
         TerraformGhostActive = false;
         if (_input.WasRightPressed)
         {
             TerraformIndex = -1;
+            EndAreaDrag();
             return;
         }
 
-        if (mouseOverUi)
+        int action = TerraformIndex;
+        if (!UpdateAreaDrag(mouseOverUi, (x, y) => _simulation.TryTerraform(action, x, y)))
         {
             return;
         }
@@ -622,24 +651,23 @@ public sealed class MapTools
         (TerraformGhostX, TerraformGhostY) = TileUnderCursor();
         TerraformGhostResult = _simulation.CanTerraform(TerraformIndex, TerraformGhostX, TerraformGhostY);
         TerraformGhostActive = true;
-
-        if (_input.WasLeftPressed && TerraformGhostResult == PlacementResult.Ok)
-        {
-            _simulation.TryTerraform(TerraformIndex, TerraformGhostX, TerraformGhostY);
-        }
     }
 
-    /// <summary>Sázení: ghost háje sleduje kurzor, levý klik zasadí (za cenu), pravý ruší.</summary>
+    /// <summary>
+    /// Sázení: ghost háje sleduje kurzor, levým tažením se zasází celý obdélník
+    /// (za cenu za každou dlaždici), pravý ruší.
+    /// </summary>
     private void UpdatePlant(bool mouseOverUi)
     {
         PlantGhostActive = false;
         if (_input.WasRightPressed)
         {
             PlantMode = false;
+            EndAreaDrag();
             return;
         }
 
-        if (mouseOverUi)
+        if (!UpdateAreaDrag(mouseOverUi, (x, y) => _simulation.TryPlant(x, y)))
         {
             return;
         }
@@ -647,11 +675,78 @@ public sealed class MapTools
         (PlantGhostX, PlantGhostY) = TileUnderCursor();
         PlantGhostResult = _simulation.CanPlant(PlantGhostX, PlantGhostY);
         PlantGhostActive = true;
+    }
 
-        if (_input.WasLeftPressed && PlantGhostResult == PlacementResult.Ok)
+    /// <summary>
+    /// Společné tažení obdélníku pro sázení i terraformaci.
+    ///
+    /// <para>Vrací <c>false</c>, když volající nemá pokračovat kreslením ghostu —
+    /// buď je kurzor nad panelem, nebo se právě táhne obdélník a jednotlivá
+    /// dlaždice pod kurzorem už nic neznamená.</para>
+    ///
+    /// <para>Dlaždice, na které zásah nevyjde (drahé, špatný terén), se přeskočí.
+    /// Tah, který spadne na první nevhodné dlaždici, by hráče nutil trefovat se
+    /// přesně — a přesně to má tažení odstranit.</para>
+    /// </summary>
+    private bool UpdateAreaDrag(bool mouseOverUi, Func<int, int, PlacementResult> apply)
+    {
+        var (tileX, tileY) = TileUnderCursor();
+
+        // Puštění se vyřídí i nad panelem: kurzor může tah dokončit kdekoliv
+        // a rozdělaná plocha nesmí zmizet bez efektu.
+        if (_areaDragging && _input.WasLeftReleased)
         {
-            _simulation.TryPlant(PlantGhostX, PlantGhostY); // zůstáváme v režimu — sázej dál
+            var area = ClampedArea(tileX, tileY);
+            for (int y = area.Y; y < area.Y + area.Height; y++)
+            {
+                for (int x = area.X; x < area.X + area.Width; x++)
+                {
+                    apply(x, y);
+                }
+            }
+
+            EndAreaDrag();
+            return !mouseOverUi;
         }
+
+        if (mouseOverUi)
+        {
+            return false;
+        }
+
+        if (_input.WasLeftPressed)
+        {
+            _areaDragging = true;
+            _areaStartX = tileX;
+            _areaStartY = tileY;
+        }
+
+        if (!_areaDragging)
+        {
+            return true;
+        }
+
+        AreaPreview = ClampedArea(tileX, tileY);
+        AreaPreviewActive = true;
+        return false;
+    }
+
+    /// <summary>Obdélník od začátku tahu ke kurzoru, oříznutý na <see cref="MaxAreaTiles"/>.</summary>
+    private Rectangle ClampedArea(int tileX, int tileY)
+    {
+        int width = Math.Min(Math.Abs(tileX - _areaStartX) + 1, MaxAreaTiles);
+        int height = Math.Min(Math.Abs(tileY - _areaStartY) + 1, MaxAreaTiles);
+
+        // Ořezává se od začátku tahu, ne od kurzoru — kotva je to, co hráč trefil.
+        int x = tileX >= _areaStartX ? _areaStartX : _areaStartX - width + 1;
+        int y = tileY >= _areaStartY ? _areaStartY : _areaStartY - height + 1;
+        return new Rectangle(x, y, width, height);
+    }
+
+    private void EndAreaDrag()
+    {
+        _areaDragging = false;
+        AreaPreviewActive = false;
     }
 
     /// <summary>

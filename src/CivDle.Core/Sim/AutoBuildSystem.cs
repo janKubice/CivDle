@@ -465,7 +465,7 @@ internal sealed class AutoBuildSystem
                 return false;
             }
 
-            if (result != PlacementResult.Ok)
+            if (result != PlacementResult.Ok || CityLayout.IsReservedForStreet(x, y))
             {
                 continue;
             }

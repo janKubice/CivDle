@@ -2087,6 +2087,7 @@ public sealed class Simulation
 
         SetBiomeOverride(x, y, (byte)action.TargetBiomeIndex);
         TerraformedTiles++;
+        ReportVisual(VisualEventKind.Terraformed, x, y);
         return PlacementResult.Ok;
     }
 
@@ -2963,6 +2964,40 @@ public sealed class Simulation
         return count;
     }
 
+    /// <summary>Běží hromadná stavba, u které se dláždí až na konci?</summary>
+    private bool _batchPlacement;
+
+    /// <summary>Indexy budov postavených uvnitř dávky — na konci se napojí.</summary>
+    private readonly List<int> _batchPlaced = new();
+
+    /// <summary>
+    /// Začne dávku staveb, uvnitř které se auto-silnice odloží.
+    ///
+    /// <para>Bez odkladu si první ulice ukousla dlaždici, na které měl podle
+    /// plánu stát další dům — a z „postav 25" jich vyšlo 23. Uvnitř dávky se
+    /// tedy jen staví; ulice se dotáhnou, až je čtvrť celá.</para>
+    ///
+    /// <para>Volá se v páru s <see cref="EndBatchPlacement"/>; vnořovat se nedá
+    /// a nepotřebuje to nikdo — dávku spouští jen hromadná stavba.</para>
+    /// </summary>
+    internal void BeginBatchPlacement()
+    {
+        _batchPlacement = true;
+        _batchPlaced.Clear();
+    }
+
+    /// <summary>Ukončí dávku a napojí všechno, co v ní vzniklo.</summary>
+    internal void EndBatchPlacement()
+    {
+        _batchPlacement = false;
+        foreach (int index in _batchPlaced)
+        {
+            _roadBuilder.ConnectBuilding(this, index);
+        }
+
+        _batchPlaced.Clear();
+    }
+
     /// <summary>Příkaz hráče: postavit budovu. Odečte cenu a obsadí dlaždice.</summary>
     public PlacementResult TryPlaceBuilding(int defIndex, int x, int y)
     {
@@ -2986,7 +3021,16 @@ public sealed class Simulation
         }
 
         ReportVisual(VisualEventKind.BuildingPlaced, x, y);
-        _roadBuilder.ConnectLastBuilding(this);
+        if (_batchPlacement)
+        {
+            // Hromadná stavba dláždí až po sobě — viz BeginBatchPlacement.
+            _batchPlaced.Add(_buildingCount - 1);
+        }
+        else
+        {
+            _roadBuilder.ConnectLastBuilding(this);
+        }
+
         SettlementsDirty = true;
         DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
@@ -3212,7 +3256,23 @@ public sealed class Simulation
         return tech < 0 || _techResearched[tech];
     }
 
-    /// <summary>Přepne na další odemčený druh (tlačítko sázení v liště).</summary>
+    /// <summary>
+    /// Vybere druh přímo. Zamčený druh se ignoruje — nabídka ho neukazuje, ale
+    /// simulace se na UI nespoléhá.
+    /// </summary>
+    /// <returns>Přijala se volba?</returns>
+    public bool SelectPlantSpecies(int speciesIndex)
+    {
+        if (!IsPlantSpeciesUnlocked(speciesIndex))
+        {
+            return false;
+        }
+
+        PlantSpeciesIndex = speciesIndex;
+        return true;
+    }
+
+    /// <summary>Přepne na další odemčený druh (klávesová zkratka a gamepad).</summary>
     public void CyclePlantSpecies()
     {
         var all = _content.Gameplay.Planting.Species;

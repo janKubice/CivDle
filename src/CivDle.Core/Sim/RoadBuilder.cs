@@ -43,10 +43,20 @@ internal sealed class RoadBuilder
     }
 
     /// <summary>Napojí právě postavenou budovu (poslední v poli) na síť. První budova se nenapojuje.</summary>
-    public void ConnectLastBuilding(Simulation sim)
+    public void ConnectLastBuilding(Simulation sim) => ConnectBuilding(sim, sim.Buildings.Length - 1);
+
+    /// <summary>
+    /// Napojí konkrétní budovu na síť.
+    ///
+    /// <para>Index je parametr kvůli hromadné stavbě: ta položí celou čtvrť
+    /// najednou a teprve pak dláždí. Kdyby se dláždilo po každém domě, sebraly
+    /// by první ulice místo domům, které měly stát vedle nich — a z „postav 25"
+    /// by jich vyšlo 23.</para>
+    /// </summary>
+    public void ConnectBuilding(Simulation sim, int index)
     {
         var buildings = sim.Buildings;
-        if (buildings.Length <= 1)
+        if (buildings.Length <= 1 || index < 0 || index >= buildings.Length)
         {
             return;
         }
@@ -55,23 +65,30 @@ internal sealed class RoadBuilder
         // vyrostl kus cesty — město pak vypadalo jako šachovnice a nešlo postavit
         // ani blok 2×2 (dlaždice pro čtvrtý dům byla zabraná silnicí). Cesta se
         // proto staví jen tam, kde opravdu chybí:
-        int last = buildings.Length - 1;
+        int last = index;
 
-        // 1) Budova přiléhá k jiné → patří do stejného bloku a mezi domy v bloku
-        //    se nedláždí; k silnici se dostane přes svůj blok.
-        if (TouchesAnotherBuilding(sim, buildings[last], last))
-        {
-            return;
-        }
-
-        // 2) Blok už se silnice dotýká (podmínka roads.Count > 0 kvůli tomu, že
-        //    bez jediné silnice platí výjimka „všichni jsou napojení").
+        // 1) Blok, ke kterému budova patří, už se silnice dotýká → dovnitř bloku
+        //    se nedláždí. (Podmínka roads.Count > 0 kvůli tomu, že bez jediné
+        //    silnice platí výjimka „všichni jsou napojení".)
         if (sim.RoadTiles.Count > 0 && sim.IsBuildingConnected(last))
         {
             return;
         }
 
-        ResetSearch(sim, buildings);
+        // 2) Sousedství samo o sobě napojení NEZNAMENÁ. Dřív se tady končilo
+        //    u každé budovy, která se dotýkala jiné — a hromadná stavba (×25)
+        //    klade domy natěsno, takže se cesta nepostavila ani jednou a celý
+        //    blok zůstal odříznutý. Teď se ustupuje jen skutečnému napojení
+        //    z bodu 1; když blok k silnici nevede, cesta se hledá.
+        //
+        //    Výjimka platí jen dokud město žádnou silnici nemá: tam by se
+        //    dláždilo mezi prvními dvěma domy a vznikla by ta šachovnice.
+        if (sim.RoadTiles.Count == 0 && TouchesAnotherBuilding(sim, buildings[last], last))
+        {
+            return;
+        }
+
+        ResetSearch(sim, buildings, last);
 
         _avoidBlocks = true;
         long found = Search(sim);
@@ -79,7 +96,7 @@ internal sealed class RoadBuilder
         {
             // Druhý pokus bez estetického pravidla — nenapojená budova vyrábí
             // hůř, a to je horší než ošklivý kus dlažby.
-            ResetSearch(sim, buildings);
+            ResetSearch(sim, buildings, last);
             _avoidBlocks = false;
             found = Search(sim);
         }
@@ -95,8 +112,8 @@ internal sealed class RoadBuilder
         }
     }
 
-    /// <summary>Připraví hledání cesty: cíle (silnice a starší budovy) a starty (nová budova).</summary>
-    private void ResetSearch(Simulation sim, ReadOnlySpan<BuildingInstance> buildings)
+    /// <summary>Připraví hledání cesty: cíle (silnice a ostatní budovy) a starty (napojovaná budova).</summary>
+    private void ResetSearch(Simulation sim, ReadOnlySpan<BuildingInstance> buildings, int index)
     {
         _targets.Clear();
         _visited.Clear();
@@ -109,12 +126,22 @@ internal sealed class RoadBuilder
             _targets.Add(TileKey.Pack(road.X, road.Y));
         }
 
-        for (int i = 0; i < buildings.Length - 1; i++)
+        // Cílem je jen to, co k síti opravdu vede: samotné silnice a budovy, které
+        // už napojené jsou. Kdyby se mířilo i na nenapojené, cesta by skončila
+        // u souseda ze stejného bloku — vznikl by kus dlažby mezi dvěma domy,
+        // který nikam nevede, a přesně tak město vypadat nemá.
+        //
+        // Dokud město žádnou silnici nemá, hlásí simulace všechny za napojené,
+        // takže první ulice se pořád táhne mezi dvěma vzdálenými domy.
+        for (int i = 0; i < buildings.Length; i++)
         {
-            MarkPerimeter(sim, buildings[i], key => _targets.Add(key));
+            if (i != index && sim.IsBuildingConnected(i))
+            {
+                MarkPerimeter(sim, buildings[i], key => _targets.Add(key));
+            }
         }
 
-        MarkPerimeter(sim, buildings[^1], key =>
+        MarkPerimeter(sim, buildings[index], key =>
         {
             if (_visited.Add(key))
             {

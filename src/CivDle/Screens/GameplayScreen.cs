@@ -230,6 +230,35 @@ public sealed class GameplayScreen : IScreen
     private bool _buildMenuOpen;
     private int _unlockedFeatureCount = -1;
 
+    /// <summary>Podmenu nástrojů, které se otvírá nad lištou (jako katalog budov).</summary>
+    private enum ToolMenu
+    {
+        /// <summary>Nic není otevřené.</summary>
+        None,
+
+        /// <summary>Malování zón.</summary>
+        Zones,
+
+        /// <summary>Přetváření krajiny.</summary>
+        Terraform,
+
+        /// <summary>Výběr druhu k zasazení.</summary>
+        Plant,
+    }
+
+    /// <summary>
+    /// Zóny a terraformace bydlí ve vyskakovacím podmenu, ne každá vlastním
+    /// tlačítkem v liště.
+    ///
+    /// <para>Sedm zón a pět zásahů do krajiny znamenalo dvanáct skoro stejných
+    /// ikon vedle sebe — lišta z nich byla přes celou obrazovku a vybrat v ní
+    /// něco šlo jen po najetí na každou zvlášť. Takhle jsou v liště dvě ikony
+    /// a obsah se rozbalí až na kliknutí, přesně jako katalog budov.</para>
+    /// </summary>
+    private ToolMenu _openToolMenu = ToolMenu.None;
+    private Panel _toolMenuPanel = null!;
+    private HorizontalStackPanel _toolMenuRow = null!;
+
     /// <summary>Jak dlouho musí kurzor stát nad dlaždicí, než vyskočí bublina.</summary>
     private const float TileTooltipDelaySeconds = 0.45f;
     private int _hoverTileX = int.MinValue;
@@ -663,6 +692,21 @@ public sealed class GameplayScreen : IScreen
                 preview.X, preview.Y, preview.Width, preview.Height);
         }
 
+        // Tažená plocha sázení / terraformace. Kreslí se dlaždice po dlaždici
+        // v barvě nástroje, ať je vidět přesně to, co tah zabere.
+        if (_tools.AreaPreviewActive)
+        {
+            var area = _tools.AreaPreview;
+            var tint = (_tools.PlantMode ? new Color(120, 240, 140) : new Color(140, 230, 200)) * 0.4f;
+            for (int y = area.Y; y < area.Y + area.Height; y++)
+            {
+                for (int x = area.X; x < area.X + area.Width; x++)
+                {
+                    DrawTileOverlay(spriteBatch, _screens.WhitePixel, x, y, 1, tint);
+                }
+            }
+        }
+
         _weatherRenderer.Draw(spriteBatch, _screens.GraphicsDevice.Viewport); // závoj + srážky nad scénou
         // Mlha až nad mapou i zástavbou: schovat musí i to, co v neprozkoumaném
         // stojí. Ve fotorežimu se vypíná — na snímek do obchodu patří svět, ne tma.
@@ -993,20 +1037,36 @@ public sealed class GameplayScreen : IScreen
     private void LaunchFireworksForMilestones()
     {
         var queue = _simulation.VisualEvents;
+        bool terraformed = false;
         for (int i = 0; i < queue.Count; i++)
         {
-            if (queue[i].Kind != VisualEventKind.MilestoneReached)
-            {
-                continue;
-            }
-
             var center = new Vector2(
                 (queue[i].X + 0.5f) * TerrainRenderer.TileSize,
                 (queue[i].Y + 0.5f) * TerrainRenderer.TileSize);
 
-            // Seed z místa a času: dvě salvy po sobě vypadají jinak, ale tatáž
-            // salva se při přehrání chová stejně (žádné mihotání mezi snímky).
-            _fireworks.Burst(center, HashCode.Combine(queue[i].X, queue[i].Y, _simulation.TickCount));
+            switch (queue[i].Kind)
+            {
+                case VisualEventKind.MilestoneReached:
+                    // Seed z místa a času: dvě salvy po sobě vypadají jinak, ale tatáž
+                    // salva se při přehrání chová stejně (žádné mihotání mezi snímky).
+                    _fireworks.Burst(center, HashCode.Combine(queue[i].X, queue[i].Y, _simulation.TickCount));
+                    break;
+
+                case VisualEventKind.Terraformed:
+                    // Odlétnutá hlína a zákmit vody: zásah do krajiny mění jen
+                    // barvu dlaždice a bez efektu není poznat, že vůbec proběhl.
+                    _particles.SpawnBurst(center, new Color(150, 125, 95), 12, 40f, 150f);
+                    _particles.SpawnBurst(center, new Color(120, 200, 220), 6, 30f, 110f);
+                    terraformed = true;
+                    break;
+            }
+        }
+
+        // Zvuk jen jednou za snímek: tažením se přetvoří stovky dlaždic naráz
+        // a stovka žuchnutí přes sebe je rána, ne zpětná vazba.
+        if (terraformed)
+        {
+            _sounds.PlayChop();
         }
     }
 
@@ -1906,6 +1966,19 @@ public sealed class GameplayScreen : IScreen
         _buildMenuPanel.HorizontalAlignment = HorizontalAlignment.Center;
         _buildMenuPanel.Visible = _buildMenuOpen;
 
+        // Podmenu nástrojů (zóny, krajina) — stejné místo i chování jako katalog
+        // budov, aby se hráč neučil dvě různá vyskakovací menu.
+        _toolMenuRow = new HorizontalStackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
+        _toolMenuPanel = UiFactory.DarkPanel(new ScrollViewer
+        {
+            Content = _toolMenuRow,
+            Width = Math.Min(BuildMenuMaxWidth, _screens.GraphicsDevice.Viewport.Width - 60),
+            ShowVerticalScrollBar = false,
+        });
+        _toolMenuPanel.HorizontalAlignment = HorizontalAlignment.Center;
+        _toolMenuPanel.Visible = false;
+        _openToolMenu = ToolMenu.None; // přestavěné UI začíná se zavřeným podmenu
+
         // Stavový řádek zůstává vidět i se zavřeným menu — nese hlášky režimů
         // („sázíš", „sem to nejde") a bez nich by hráč tápal.
         _statusLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
@@ -1960,6 +2033,7 @@ public sealed class GameplayScreen : IScreen
             Margin = new Thickness(0, 0, 0, 12),
         };
         bottomBar.Widgets.Add(_buildMenuPanel);
+        bottomBar.Widgets.Add(_toolMenuPanel);
         bottomBar.Widgets.Add(_statusPanel);
         bottomBar.Widgets.Add(BuildToolButtons());
 
@@ -1989,9 +2063,6 @@ public sealed class GameplayScreen : IScreen
     /// Vodorovný pruh DOLE nad stavebním menu — spodek obrazovky patří akcím,
     /// horní okraj zůstává na suroviny a stav světa.
     /// </summary>
-    /// <summary>Tlačítko s vybraným druhem k zasazení; null = druhy nejsou.</summary>
-    private Widget? _plantSpeciesButton;
-
     /// <summary>Ikony, které nesou počet — obnovují se v <see cref="RefreshHudTexts"/>.</summary>
     private UiFactory.BadgedButton? _questsBadge;
     private UiFactory.BadgedButton? _contractsBadge;
@@ -2007,15 +2078,14 @@ public sealed class GameplayScreen : IScreen
             : _screens.Loc.Format("hud.plantSpecies", _screens.Loc[species.NameKey]);
     }
 
-    /// <summary>Přepne druh a rovnou zapne sázení — hráč chtěl sázet, ne listovat.</summary>
+    /// <summary>
+    /// Přepne druh o jeden dál a rovnou zapne sázení — hráč chtěl sázet, ne
+    /// listovat. Zůstává pro klávesovou zkratku a gamepad; myší se druh vybírá
+    /// v podmenu, kde je vidět jméno i cena.
+    /// </summary>
     private void CyclePlantSpecies()
     {
         _simulation.CyclePlantSpecies();
-        if (_plantSpeciesButton is Button button && button.Content is Label label)
-        {
-            label.Text = PlantSpeciesLabel();
-        }
-
         if (!_tools.PlantMode)
         {
             _tools.TogglePlant();
@@ -2291,19 +2361,15 @@ public sealed class GameplayScreen : IScreen
         // Každá funkce se objeví, teprve až si ji hráč odemkne (data/features.json).
         if (_simulation.IsFeatureUnlocked("plant"))
         {
+            // Jedna ikona i tehdy, když je druhů víc — druh se vybírá v podmenu,
+            // stejně jako zóna nebo zásah do krajiny. Dvě tlačítka pro sázení
+            // vedle sebe vypadala jako chyba.
+            bool manySpecies = UnlockedPlantSpecies().Count > 1;
             row.Widgets.Add(UiFactory.ToolButton(
-                Ico("ui.plant"), loc["hud.plant"] + '\n' + loc["tip.plant"], _tools.TogglePlant));
-
-            // Výběr druhu se ukáže, TEPRVE až sázení běží. Dvě tlačítka pro
-            // sázení vedle sebe napořád vypadala jako chyba — a když hráč
-            // nesází, není co přepínat.
-            if (_screens.Content.Gameplay.Planting.Species.Count > 1)
-            {
-                _plantSpeciesButton = UiFactory.SmallButton(
-                    PlantSpeciesLabel(), CyclePlantSpecies, loc["tip.plantSpecies"]);
-                _plantSpeciesButton.Visible = _tools.PlantMode;
-                row.Widgets.Add(_plantSpeciesButton);
-            }
+                Ico("ui.plant"),
+                loc["hud.plant"] + '\n' + loc["tip.plant"]
+                    + (manySpecies ? '\n' + loc["tip.plantSpecies"] : string.Empty),
+                manySpecies ? () => ToggleToolMenu(ToolMenu.Plant) : _tools.TogglePlant));
         }
 
         // Silnice: tvar sítě má být na hráči — auto-silnice řeší jen nutné napojení.
@@ -2320,15 +2386,14 @@ public sealed class GameplayScreen : IScreen
                 Ico("ui.demolish"), loc["hud.merge"] + '\n' + loc["tip.merge"], _tools.ToggleMerge));
         }
 
-        // Zóny (automatizace): jedno tlačítko na typ; klik = malovat, další klik
-        // na stejný = ven. Ikona je jedna, barvu nese bublina s názvem zóny.
-        var zoneTypes = _simulation.IsFeatureUnlocked("zones") ? _screens.Content.ZoneTypes : null;
-        for (int z = 0; zoneTypes is not null && z < zoneTypes.Count; z++)
+        // Zóny (automatizace): v liště JEDNA ikona, výběr typu až v podmenu.
+        // Sedm skoro stejných ikon vedle sebe byla jen dlouhá řada, ve které
+        // nešlo nic najít bez najetí myší na každou zvlášť.
+        if (_simulation.IsFeatureUnlocked("zones") && _screens.Content.ZoneTypes.Count > 0)
         {
-            int typeIndex = z;
             row.Widgets.Add(UiFactory.ToolButton(
-                Ico("ui.zone"), loc[zoneTypes[z].NameKey] + '\n' + ZoneTooltip(zoneTypes[z]),
-                () => _tools.ToggleZone(typeIndex)));
+                Ico("ui.zone"), loc["hud.zones"] + '\n' + loc["tip.zones"],
+                () => ToggleToolMenu(ToolMenu.Zones)));
         }
 
         // Víra: modlitby jsou vlastní obrazovka, protože nesou volbu síly
@@ -2340,22 +2405,13 @@ public sealed class GameplayScreen : IScreen
                 () => _screens.Push(new PrayerScreen(_screens, _simulation, StartPrayerTargeting))));
         }
 
-        // Přetváření krajiny: jedno tlačítko na zásah, odemyká se výzkumem.
-        var terraform = _simulation.IsFeatureUnlocked("terraform") ? _screens.Content.Terraform : null;
-        for (int a = 0; terraform is not null && a < terraform.Count; a++)
+        // Přetváření krajiny: taky jedna ikona a podmenu. Ikona se ukáže, teprve
+        // až je aspoň jeden zásah vyzkoumaný — prázdné menu je horší než žádné.
+        if (UnlockedTerraformActions().Count > 0)
         {
-            int actionIndex = a;
-            var action = terraform[a];
-            if (_simulation.CanTerraform(actionIndex, 0, 0) == PlacementResult.NotUnlocked)
-            {
-                continue; // technologie ještě není — nástroj se vůbec neukáže
-            }
-
             row.Widgets.Add(UiFactory.ToolButton(
-                Ico("ui.terraform"),
-                loc[action.NameKey] + '\n' + loc[action.DescriptionKey] + '\n'
-                    + loc.Format("panel.cost", CostFormat.Line(_screens.Content, loc, action.Cost)),
-                () => _tools.ToggleTerraform(actionIndex)));
+                Ico("ui.terraform"), loc["hud.terraform"] + '\n' + loc["tip.terraform"],
+                () => ToggleToolMenu(ToolMenu.Terraform)));
         }
 
         // Slavnost: aktivní boost na kliknutí (stav se přepisuje v RefreshHudTexts).
@@ -2391,7 +2447,150 @@ public sealed class GameplayScreen : IScreen
     {
         _buildMenuOpen = open;
         _buildMenuPanel.Visible = open;
+        if (open)
+        {
+            CloseToolMenu(); // dvě otevřená menu nad sebou = neprůhledný spodek obrazovky
+        }
+
         _tools.Clear(); // otevření i zavření menu vždy začíná s čistým stolem
+    }
+
+    /// <summary>
+    /// Otevře podmenu nástrojů, nebo ho zavře, když už je otevřené to samé.
+    /// Klik na ikonu je tak přepínač, ne jednosměrka.
+    /// </summary>
+    private void ToggleToolMenu(ToolMenu menu)
+    {
+        if (_openToolMenu == menu)
+        {
+            CloseToolMenu();
+            return;
+        }
+
+        SetBuildMenuOpen(false);
+        _openToolMenu = menu;
+        _toolMenuPanel.Visible = true;
+        FillToolMenu(menu);
+    }
+
+    private void CloseToolMenu()
+    {
+        _openToolMenu = ToolMenu.None;
+        _toolMenuPanel.Visible = false;
+        _toolMenuRow.Widgets.Clear();
+    }
+
+    /// <summary>
+    /// Naplní podmenu položkami. Jméno je vidět rovnou (ne až v bublině) —
+    /// „Obytná" a „Průmyslová" se od sebe podle ikony poznat nedají.
+    /// </summary>
+    private void FillToolMenu(ToolMenu menu)
+    {
+        var loc = _screens.Loc;
+        _toolMenuRow.Widgets.Clear();
+
+        if (menu == ToolMenu.Plant)
+        {
+            var species = _screens.Content.Gameplay.Planting.Species;
+            foreach (int index in UnlockedPlantSpecies())
+            {
+                int captured = index;
+                _toolMenuRow.Widgets.Add(UiFactory.IconButton(
+                    Ico("node.tree"), loc[species[index].NameKey],
+                    () => PickToolFromMenu(() => SelectPlantSpecies(captured)),
+                    loc.Format("panel.cost", CostFormat.Line(_screens.Content, loc, species[index].Cost))));
+            }
+
+            return;
+        }
+
+        if (menu == ToolMenu.Zones)
+        {
+            var zoneTypes = _screens.Content.ZoneTypes;
+            for (int z = 0; z < zoneTypes.Count; z++)
+            {
+                int typeIndex = z;
+                var zone = zoneTypes[z];
+                _toolMenuRow.Widgets.Add(UiFactory.IconButton(
+                    Ico("ui.zone"), loc[zone.NameKey],
+                    () => PickToolFromMenu(() => _tools.ToggleZone(typeIndex)),
+                    ZoneTooltip(zone)));
+            }
+
+            return;
+        }
+
+        foreach (int actionIndex in UnlockedTerraformActions())
+        {
+            var action = _screens.Content.Terraform[actionIndex];
+            int captured = actionIndex;
+            _toolMenuRow.Widgets.Add(UiFactory.IconButton(
+                Ico("ui.terraform"), loc[action.NameKey],
+                () => PickToolFromMenu(() => _tools.ToggleTerraform(captured)),
+                loc[action.DescriptionKey] + '\n'
+                    + loc.Format("panel.cost", CostFormat.Line(_screens.Content, loc, action.Cost))));
+        }
+    }
+
+    /// <summary>
+    /// Zapne nástroj a podmenu zavře. Otevřené menu přes spodek obrazovky by
+    /// hráči překáželo přesně v tom, co si právě vybral dělat.
+    /// </summary>
+    private void PickToolFromMenu(Action activate)
+    {
+        activate();
+        _openToolMenu = ToolMenu.None;
+        _toolMenuPanel.Visible = false;
+        _toolMenuRow.Widgets.Clear();
+    }
+
+    /// <summary>Druhy, které jde zasadit teď. Zamčené se v nabídce neukazují.</summary>
+    private List<int> UnlockedPlantSpecies()
+    {
+        var unlocked = new List<int>();
+        var species = _screens.Content.Gameplay.Planting.Species;
+        for (int i = 0; i < species.Count; i++)
+        {
+            if (_simulation.IsPlantSpeciesUnlocked(i))
+            {
+                unlocked.Add(i);
+            }
+        }
+
+        return unlocked;
+    }
+
+    /// <summary>Vybere druh a rovnou zapne sázení — hráč chtěl sázet, ne listovat.</summary>
+    private void SelectPlantSpecies(int speciesIndex)
+    {
+        _simulation.SelectPlantSpecies(speciesIndex);
+        if (!_tools.PlantMode)
+        {
+            _tools.TogglePlant();
+        }
+    }
+
+    /// <summary>
+    /// Zásahy do krajiny, které už hráč vyzkoumal. Nevyzkoumaný zásah se
+    /// v nabídce vůbec neukáže — nemá smysl nabízet tlačítko, které jen řekne ne.
+    /// </summary>
+    private List<int> UnlockedTerraformActions()
+    {
+        var unlocked = new List<int>();
+        if (!_simulation.IsFeatureUnlocked("terraform"))
+        {
+            return unlocked;
+        }
+
+        for (int a = 0; a < _screens.Content.Terraform.Count; a++)
+        {
+            if (_simulation.CanTerraform(a, 0, 0) != PlacementResult.NotUnlocked)
+            {
+                unlocked.Add(a);
+            }
+        }
+
+        return unlocked;
     }
 
     /// <summary>
@@ -2787,11 +2986,6 @@ public sealed class GameplayScreen : IScreen
     /// </summary>
     private void RefreshBadges()
     {
-        if (_plantSpeciesButton is not null)
-        {
-            _plantSpeciesButton.Visible = _tools.PlantMode;
-        }
-
         if (_questsBadge is { } quests)
         {
             UiFactory.SetBadge(quests, RemainingQuestCount(), new Color(70, 110, 160, 245));
