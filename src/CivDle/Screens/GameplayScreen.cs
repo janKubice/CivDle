@@ -202,6 +202,15 @@ public sealed class GameplayScreen : IScreen
     /// odtikala simulace.
     /// </summary>
     private double _unsavedPlaySeconds;
+    /// <summary>Kolik místa vpravo nahoře patří panelu se stavem světa.</summary>
+    private const int RightPanelReserve = 420;
+
+    /// <summary>Pod tuhle šířku se lišta surovin nesmí smrsknout ani na úzkém okně.</summary>
+    private const int MinResourceBarWidth = 420;
+
+    /// <summary>Nejširší, jak smí být vyskakovací katalog budov.</summary>
+    private const int BuildMenuMaxWidth = 1180;
+
     private Widget _buildMenuPanel = null!;
     private Widget _statusPanel = null!;
     private HorizontalStackPanel _roadModePanel = null!;
@@ -1795,7 +1804,18 @@ public sealed class GameplayScreen : IScreen
         summaryRow.Widgets.Add(_idleLabel);
         resourceBar.Widgets.Add(summaryRow);
 
-        var topLeft = UiFactory.DarkPanel(resourceBar);
+        // Lišta surovin roste doprava s každou odemčenou surovinou a v pozdní
+        // hře dolezla pod pravý panel se stavem světa. Dostane proto strop
+        // šířky a uvnitř posuvník — radši se v ní posouvat než mít dva panely
+        // přes sebe.
+        var resourceScroll = new ScrollViewer
+        {
+            Content = resourceBar,
+            Width = Math.Max(MinResourceBarWidth, _screens.GraphicsDevice.Viewport.Width - RightPanelReserve),
+            ShowVerticalScrollBar = false,
+        };
+
+        var topLeft = UiFactory.DarkPanel(resourceScroll);
         topLeft.HorizontalAlignment = HorizontalAlignment.Left;
         topLeft.VerticalAlignment = VerticalAlignment.Top;
         topLeft.Margin = new Thickness(10, 10, 0, 0);
@@ -1850,7 +1870,15 @@ public sealed class GameplayScreen : IScreen
 
         var buildStack = new VerticalStackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
         buildStack.Widgets.Add(_buildCategoryPanel);
-        buildStack.Widgets.Add(_buildItemsPanel);
+
+        // S hodně odemčenými budovami se řada nevešla na obrazovku a ty za
+        // okrajem se nedaly ani vybrat. Posuvník je nechá dostupné.
+        buildStack.Widgets.Add(new ScrollViewer
+        {
+            Content = _buildItemsPanel,
+            Width = Math.Min(BuildMenuMaxWidth, _screens.GraphicsDevice.Viewport.Width - 60),
+            ShowVerticalScrollBar = false,
+        });
         _buildMenuPanel = UiFactory.DarkPanel(buildStack);
         _buildMenuPanel.HorizontalAlignment = HorizontalAlignment.Center;
         _buildMenuPanel.Visible = _buildMenuOpen;
