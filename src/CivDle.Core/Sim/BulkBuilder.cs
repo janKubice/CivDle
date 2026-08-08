@@ -170,6 +170,17 @@ public sealed class BulkBuilder
                     examined++;
                     int x = anchorX + ox * stepX;
                     int y = anchorY + oy * stepY;
+
+                    // Uliční mřížka platí i pro hráčovo ×N. Místa si vybírá
+                    // automat, ne hráč — a bez toho z „postav 25" vyšel slitek
+                    // 5×5, ke kterému vedla jediná cesta zvenčí. (U tažení se
+                    // mřížka NEuplatňuje: tam obdélník nakreslil hráč a nikdo
+                    // mu do něj nemá dělat díry.)
+                    if (CityLayout.IsReservedForStreet(x, y))
+                    {
+                        continue;
+                    }
+
                     if (Evaluate(defIndex, def, x, y) == PlacementResult.Ok)
                     {
                         into.Add(new BulkSlot(x, y, PlacementResult.Ok));

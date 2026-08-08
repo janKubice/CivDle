@@ -118,6 +118,13 @@ public sealed class GameplayScreen : IScreen
     private const int ChipWidth = 200;
 
     /// <summary>
+    /// Šířka pruhu surovin. Jedno místo pro rozvržení i pro zalamování — když
+    /// se ta dvě čísla rozešla, řádek přetekl a vyskočil zbytečný posuvník.
+    /// </summary>
+    private int ResourceBarWidth() => Math.Max(
+        MinResourceBarWidth, _screens.GraphicsDevice.Viewport.Width - RightPanelReserve);
+
+    /// <summary>
     /// Přeskládá známé suroviny do řádků podle šířky okna.
     ///
     /// <para>Volá se jen při objevení nové suroviny (pár × za hru), ne každý
@@ -127,7 +134,11 @@ public sealed class GameplayScreen : IScreen
     {
         _resourceRows.Widgets.Clear();
 
-        int perRow = Math.Max(4, (_screens.GraphicsDevice.Viewport.Width - 80) / ChipWidth);
+        // Do řádku se vejde tolik, kolik unese ŠÍŘKA PRUHU — ne šířka okna.
+        // Dřív se počítalo z okna, jenže pruh je o pravý panel užší, takže
+        // řádek přetekl a vyskočil posuvník. Přitom stačilo zalomit dřív:
+        // druhý řádek je vždycky lepší než posouvání.
+        int perRow = Math.Max(3, ResourceBarWidth() / ChipWidth);
         HorizontalStackPanel? row = null;
         int inRow = 0;
 
@@ -1886,14 +1897,17 @@ public sealed class GameplayScreen : IScreen
         summaryRow.Widgets.Add(_idleLabel);
         resourceBar.Widgets.Add(summaryRow);
 
-        // Lišta surovin roste doprava s každou odemčenou surovinou a v pozdní
-        // hře dolezla pod pravý panel se stavem světa. Dostane proto strop
-        // šířky a uvnitř posuvník — radši se v ní posouvat než mít dva panely
-        // přes sebe.
+        // Lišta surovin roste s každou odemčenou surovinou a v pozdní hře
+        // dolezla pod pravý panel se stavem světa. Má proto strop šířky
+        // a suroviny se do něj zalamují po řádcích (viz RepackResourceChips).
+        //
+        // Posuvník zůstává jako pojistka pro opravdu úzké okno, kde se do
+        // řádku nevejdou ani tři suroviny. Při normální šířce se neobjeví —
+        // zalomení do dalšího řádku je vždycky lepší než posouvání.
         var resourceScroll = new ScrollViewer
         {
             Content = resourceBar,
-            Width = Math.Max(MinResourceBarWidth, _screens.GraphicsDevice.Viewport.Width - RightPanelReserve),
+            Width = ResourceBarWidth(),
             ShowVerticalScrollBar = false,
         };
 
