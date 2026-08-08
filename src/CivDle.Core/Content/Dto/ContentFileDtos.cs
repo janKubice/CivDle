@@ -431,7 +431,9 @@ public sealed record GrandWorkFileDto(
     int SchemaVersion,
     int UnlockAscensionLevel,
     double CostGrowth,
-    List<GrandWorkStageDto>? Stages);
+    List<GrandWorkStageDto>? Stages,
+    string? UnlockTech = null,
+    string? Building = null);
 
 /// <summary>Jeden stupeň Velkého díla tak, jak leží v JSON.</summary>
 public sealed record GrandWorkStageDto(

@@ -89,7 +89,7 @@ public sealed class ContentLoader
         var aircraft = LoadAircraft(Path.Combine(dataDirectory, "vehicles.json"), buildings);
         var faith = LoadFaith(Path.Combine(dataDirectory, "faith.json"), resources);
         var npcCities = LoadNpcCities(Path.Combine(dataDirectory, "npc-cities.json"), resources, buildings, settlementNames);
-        var grandWork = LoadGrandWork(Path.Combine(dataDirectory, "grandwork.json"), resources);
+        var grandWork = LoadGrandWork(Path.Combine(dataDirectory, "grandwork.json"), resources, buildings, techs);
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
@@ -179,7 +179,11 @@ public sealed class ContentLoader
     /// Načte Velké dílo. Chybějící soubor <b>není chyba</b> — je to volitelná
     /// mechanika a hra bez ní běží dál (stejně jako víra).
     /// </summary>
-    private GrandWorkConfig LoadGrandWork(string path, DefRegistry<Resource> resources)
+    private GrandWorkConfig LoadGrandWork(
+        string path,
+        DefRegistry<Resource> resources,
+        DefRegistry<BuildingDef> buildings,
+        DefRegistry<TechDef> techs)
     {
         if (!File.Exists(path))
         {
@@ -226,7 +230,22 @@ public sealed class ContentLoader
             stages.Add(new GrandWorkStage(cost, effect, dto.Magnitude));
         }
 
-        return new GrandWorkConfig(stages, growth, Math.Max(0, file.UnlockAscensionLevel));
+        // Odkazy na výzkum a stavbu jsou ODKAZY: překlep by znamenal dílo, které
+        // se nikdy neodemkne, a nikdo by nepoznal proč (CLAUDE.md: fail-fast).
+        int unlockTech = -1;
+        if (!string.IsNullOrWhiteSpace(file.UnlockTech) && !techs.TryIndexOf(file.UnlockTech.Trim(), out unlockTech))
+        {
+            throw new ContentLoadException(path, $"Velké dílo odemyká neexistující technologie '{file.UnlockTech}'.");
+        }
+
+        int building = -1;
+        if (!string.IsNullOrWhiteSpace(file.Building) && !buildings.TryIndexOf(file.Building.Trim(), out building))
+        {
+            throw new ContentLoadException(path, $"Velké dílo se staví v neexistující budově '{file.Building}'.");
+        }
+
+        return new GrandWorkConfig(
+            stages, growth, Math.Max(0, file.UnlockAscensionLevel), unlockTech, building);
     }
 
     private FaithCatalog LoadFaith(string path, DefRegistry<Resource> resources)

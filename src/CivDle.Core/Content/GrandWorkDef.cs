@@ -27,13 +27,33 @@ public sealed record GrandWorkStage(
 /// <param name="Stages">Vzor stupňů, který se dokola opakuje.</param>
 /// <param name="CostGrowth">Kolikrát je každý další stupeň dražší.</param>
 /// <param name="UnlockAscensionLevel">Od kolikátého Vzestupu je dílo k dispozici.</param>
+/// <param name="UnlockTechIndex">
+/// Technologie, která dílo odemyká; −1 = žádná.
+///
+/// <para>Bez ní byla položka v menu, která se prostě jednou objevila. Výzkum
+/// z ní dělá metu, ke které se hráč dopracuje.</para>
+/// </param>
+/// <param name="BuildingIndex">
+/// Stavba, ve které dílo vzniká; −1 = dílo je čistě v menu.
+///
+/// <para>Sink má být <b>vidět na mapě</b>: obří jáma, do které se sype celá
+/// ekonomika. Dokud ji hráč nepostaví, není kam sypat.</para>
+/// </param>
 public sealed record GrandWorkConfig(
     IReadOnlyList<GrandWorkStage> Stages,
     double CostGrowth,
-    int UnlockAscensionLevel)
+    int UnlockAscensionLevel,
+    int UnlockTechIndex = -1,
+    int BuildingIndex = -1)
 {
     /// <summary>Má hra Velké dílo vůbec zapnuté? (Prázdná data = ne.)</summary>
     public bool IsEnabled => Stages.Count > 0;
+
+    /// <summary>Je dílo vázané na výzkum?</summary>
+    public bool NeedsTech => UnlockTechIndex >= 0;
+
+    /// <summary>Je dílo vázané na postavenou stavbu?</summary>
+    public bool NeedsBuilding => BuildingIndex >= 0;
 
     /// <summary>Vzor pro daný stupeň (cyklí se dokola).</summary>
     public GrandWorkStage StageAt(int stage) => Stages[stage % Stages.Count];

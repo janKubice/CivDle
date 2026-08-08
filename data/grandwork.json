@@ -1,33 +1,50 @@
 {
   "schemaVersion": 1,
-  "_comment": "Velké dílo: bezedný odběr přebytků. Stupně se dokola opakují, cena roste geometricky.",
-  "unlockAscensionLevel": 1,
+  "_comment": "Velké dílo: bezedný odběr přebytků. Odemyká ho výzkum 'great_excavation' a postavená jáma 'great_pit'. Stupně se dokola opakují, cena roste geometricky.",
+  "unlockAscensionLevel": 0,
   "costGrowth": 1.9,
   "stages": [
     {
-      "cost": { "stone": 2000, "planks": 1500 },
+      "cost": {
+        "stone": 2000,
+        "planks": 1500
+      },
       "effect": "production_mult",
       "magnitude": 0.12
     },
     {
-      "cost": { "iron": 1200, "tools": 600 },
+      "cost": {
+        "iron": 1200,
+        "tools": 600
+      },
       "effect": "storage_mult",
       "magnitude": 0.2
     },
     {
-      "cost": { "steel": 900, "machine_parts": 400 },
+      "cost": {
+        "steel": 900,
+        "machine_parts": 400
+      },
       "effect": "harvest_mult",
       "magnitude": 0.18
     },
     {
-      "cost": { "science": 2500, "electronics": 500 },
+      "cost": {
+        "science": 2500,
+        "electronics": 500
+      },
       "effect": "autobuild_speed",
       "magnitude": 0.15
     },
     {
-      "cost": { "bronze": 3000, "food": 5000 },
+      "cost": {
+        "bronze": 3000,
+        "food": 5000
+      },
       "effect": "growth_mult",
       "magnitude": 0.15
     }
-  ]
+  ],
+  "unlockTech": "great_excavation",
+  "building": "great_pit"
 }

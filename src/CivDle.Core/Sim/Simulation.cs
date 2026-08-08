@@ -5746,8 +5746,27 @@ public sealed class Simulation
     /// Je Velké dílo k dispozici? Odemyká se Vzestupem — dřív hráč nemá co
     /// přebývat a nabídka „sypej sem" by byla jen matoucí.
     /// </summary>
-    public bool GrandWorkAvailable =>
-        _content.GrandWork.IsEnabled && AscensionLevel >= _content.GrandWork.UnlockAscensionLevel;
+    public bool GrandWorkAvailable
+    {
+        get
+        {
+            var config = _content.GrandWork;
+            if (!config.IsEnabled || AscensionLevel < config.UnlockAscensionLevel)
+            {
+                return false;
+            }
+
+            // Výzkum a stavba: dílo přestalo být položkou v menu, která se
+            // jednou objeví. Napřed se vyzkoumá, pak vykope — a teprve do
+            // vykopané jámy je kam sypat.
+            if (config.NeedsTech && _techLevel[config.UnlockTechIndex] == 0)
+            {
+                return false;
+            }
+
+            return !config.NeedsBuilding || CountBuildingsOfType(config.BuildingIndex) > 0;
+        }
+    }
 
     /// <summary>Kolikátý stupeň Velkého díla se právě staví.</summary>
     public int GrandWorkStage => _grandWork.Stage;

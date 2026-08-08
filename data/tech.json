@@ -1815,6 +1815,20 @@
       "unlocks": [
         "decontamination_yard"
       ]
+    },
+    {
+      "id": "great_excavation",
+      "cost": {
+        "steel": 300,
+        "machine_parts": 120,
+        "science": 1400
+      },
+      "prerequisites": [
+        "earthmoving"
+      ],
+      "unlocks": [
+        "great_pit"
+      ]
     }
   ]
 }

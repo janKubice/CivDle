@@ -3315,6 +3315,37 @@
         "soil": -2.5,
         "air": -0.5
       }
+    },
+    {
+      "id": "great_pit",
+      "category": "monument",
+      "mapColor": "#3B3128",
+      "footprint": [
+        5,
+        5
+      ],
+      "workerSlots": 40,
+      "buildCost": {
+        "steel": 400,
+        "machine_parts": 180,
+        "tools": 250
+      },
+      "buildTicks": 900,
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "desert",
+        "tundra",
+        "badlands",
+        "highlands",
+        "fallout"
+      ],
+      "pollution": {
+        "soil": 1.2,
+        "air": 0.8
+      },
+      "buildable": true
     }
   ]
 }

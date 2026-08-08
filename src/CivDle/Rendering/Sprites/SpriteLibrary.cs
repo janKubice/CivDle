@@ -231,6 +231,7 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.great_statue", SpriteSize, GreatStatue);
         Add(device, "building.triumphal_arch", SpriteSize, TriumphalArch);
         Add(device, "building.clock_tower", SpriteSize, ClockTower);
+        Add(device, "building.great_pit", SpriteSize, GreatPit);
         Add(device, "building.grand_library", SpriteSize, GrandLibrary);
         Add(device, "building.cathedral", SpriteSize, Cathedral);
         Add(device, "building.observatory", SpriteSize, Observatory);
@@ -1144,6 +1145,41 @@ public sealed class SpriteLibrary : IDisposable
         c.FillRect(2, 9, 28, 3, new Color(186, 206, 196)); // fólie nad plochou
         c.FillRect(5, 4, 3, 6, new Color(150, 158, 160));  // odsávací sloupek
         c.FillCircle(6.5f, 3f, 2.2f, new Color(196, 220, 210));
+    }
+
+    /// <summary>
+    /// Velké dílo: obří jáma se stupňovitými etážemi, jeřáby na okraji a
+    /// haldou vytěžené hlíny. Musí být poznat na první pohled, že to je díra
+    /// do země, ne další budova.
+    /// </summary>
+    private static void GreatPit(PixelCanvas c)
+    {
+        c.FillRect(0, 4, 32, 26, new Color(96, 84, 66));       // rozrytý okolní terén
+        c.FillCircle(16f, 18f, 15f, new Color(120, 102, 78));  // vnější val
+
+        // Etáže: každý prstenec tmavší — z toho je vidět hloubka.
+        c.FillCircle(16f, 18f, 13f, new Color(104, 88, 66));
+        c.FillCircle(16f, 18f, 10.5f, new Color(86, 72, 54));
+        c.FillCircle(16f, 18f, 8f, new Color(66, 55, 42));
+        c.FillCircle(16f, 18f, 5.5f, new Color(46, 38, 30));
+        c.FillCircle(16f, 18f, 3f, new Color(24, 20, 17));     // dno se ztrácí ve tmě
+
+        // Serpentina po stěně — po ní jezdí náklaďáky dolů.
+        c.FillRect(16, 6, 8, 1, new Color(140, 122, 96));
+        c.FillRect(21, 12, 6, 1, new Color(132, 114, 90));
+        c.FillRect(9, 22, 7, 1, new Color(124, 106, 84));
+
+        // Jeřáby na okraji: bez nich by to byl jen kráter, ne stavba.
+        c.FillRect(3, 3, 1, 12, new Color(200, 170, 60));
+        c.FillRect(3, 3, 8, 1, new Color(214, 184, 70));
+        c.FillRect(10, 4, 1, 4, new Color(160, 140, 60));
+
+        c.FillRect(28, 5, 1, 11, new Color(200, 170, 60));
+        c.FillRect(22, 5, 7, 1, new Color(214, 184, 70));
+        c.FillRect(22, 6, 1, 4, new Color(160, 140, 60));
+
+        // Halda vytěžené hlíny.
+        c.FillTriangle(24f, 30f, 32f, 30f, 28f, 24f, new Color(112, 96, 72));
     }
 
     private static void StandingStones(PixelCanvas c)
