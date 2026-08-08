@@ -9,45 +9,63 @@ using Myra.Graphics2D.UI;
 namespace CivDle.Screens;
 
 /// <summary>
-/// Editor modů: hráč si přímo ve hře složí vlastní surovinu a budovu, nechá si
-/// mod zkontrolovat a uloží ho do <c>mods/</c>.
+/// Tvůrce obsahu: hráč si přímo ve hře poskládá vlastní budovu, surovinu,
+/// událost, výzkum, faunu, úkol nebo jméno města, nakreslí k tomu obrázek,
+/// nechá si to zkontrolovat a uloží jako mod.
 ///
-/// <para>Klíčová je tady <b>kontrola</b>: tlačítko „Zkontrolovat" pustí mod
-/// skutečným <see cref="ModValidator"/>, tedy tímtéž loaderem, kterým se
-/// spouští hra. Autor tak vidí chybu ve chvíli, kdy ji udělal — ne až mu příště
-/// nenaběhne hra, kdy už mod nemá kde vypnout.</para>
+/// <para>Formulář je <b>obecný</b>: co se dá vyplnit, říká katalog typů
+/// z <c>data/mod-types.json</c>, ne tenhle soubor. Přidat další typ obsahu
+/// proto znamená přidat záznam do dat — ne psát novou obrazovku. Přesně proto
+/// tu dřív byly jen suroviny a budovy: každý další typ znamenal další ručně
+/// psaný formulář a u sedmi typů se to rozpadlo.</para>
 ///
-/// <para>Formulář je záměrně jen nad <see cref="ModDraft"/>: skládat JSON
-/// v obrazovce by znamenalo, že se to, co editor ukládá, nedá otestovat bez
-/// spuštění hry.</para>
+/// <para>Klíčová zůstává <b>kontrola</b>: tlačítko „Zkontrolovat" pustí mod
+/// skutečným <see cref="ModValidator"/>, tedy tímtéž loaderem, kterým se spouští
+/// hra. Autor vidí chybu ve chvíli, kdy ji udělal — ne až mu příště nenaběhne
+/// hra, kdy už mod nemá kde vypnout.</para>
 ///
-/// <para>Vrstva: UI. Model i zápis jsou v jádře.</para>
+/// <para>Vrstva: UI. Model, zápis i katalog jsou v jádře.</para>
 /// </summary>
 public sealed class ModEditorScreen : IScreen
 {
-    private const int PanelWidth = 780;
-    private const int FieldWidth = 200;
+    private const int PanelWidth = 860;
+    private const int FieldWidth = 260;
 
     private readonly ScreenManager _screens;
     private readonly InputManager _input = new();
+    private readonly ModDraft _draft;
+    private readonly ModTypeCatalog _catalog;
+
     private Desktop _desktop = null!;
 
-    private readonly ModDraft _draft = new("muj_mod", "Můj mod");
+    /// <summary>Typ, který hráč zrovna přidává (index do katalogu).</summary>
+    private int _typeIndex;
 
-    /// <summary>Poslední výsledek kontroly — prázdné, dokud hráč nezkontroluje.</summary>
+    /// <summary>Rozepsaný záznam — vzniká prázdný a přidá se tlačítkem.</summary>
+    private ModEntry _entry;
+
     private string _status = string.Empty;
     private bool _statusOk;
 
     public ModEditorScreen(ScreenManager screens)
     {
         _screens = screens;
+        _catalog = ModTypeCatalog.LoadFrom(Path.Combine(DataDirectory, "mod-types.json"));
+        _draft = new ModDraft("muj_mod", "Můj mod") { Types = _catalog };
+        _entry = new ModEntry(CurrentType?.Id ?? string.Empty);
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
     }
 
     public bool IsOverlay => true;
 
-    public void OnActivated() => _input.Resync();
+    public void OnActivated()
+    {
+        _input.Resync();
+
+        // Návrat z kreslítka: obrázek mohl vzniknout, takže se seznam překreslí.
+        BuildUi();
+    }
 
     public void Update(GameTime gameTime)
     {
@@ -75,6 +93,9 @@ public sealed class ModEditorScreen : IScreen
 
     private static string DataDirectory => Path.Combine(AppContext.BaseDirectory, "data");
 
+    private ModTypeDef? CurrentType =>
+        _catalog.Types.Count == 0 ? null : _catalog.Types[Math.Clamp(_typeIndex, 0, _catalog.Types.Count - 1)];
+
     private void BuildUi()
     {
         var loc = _screens.Loc;
@@ -95,10 +116,19 @@ public sealed class ModEditorScreen : IScreen
 
         var body = new VerticalStackPanel { Spacing = 10 };
         body.Widgets.Add(ModSection());
-        body.Widgets.Add(ResourceSection());
-        body.Widgets.Add(BuildingSection());
 
-        layout.Widgets.Add(new ScrollViewer { Content = body, Height = 400, Width = PanelWidth });
+        if (_catalog.IsEnabled)
+        {
+            body.Widgets.Add(TypePicker());
+            body.Widgets.Add(EntryForm());
+            body.Widgets.Add(ContentList());
+        }
+        else
+        {
+            body.Widgets.Add(Note(loc["modedit.noTypes"], new Color(235, 150, 130)));
+        }
+
+        layout.Widgets.Add(new ScrollViewer { Content = body, Height = 460, Width = PanelWidth });
 
         if (_status.Length > 0)
         {
@@ -132,89 +162,250 @@ public sealed class ModEditorScreen : IScreen
         return box;
     }
 
-    private Widget ResourceSection()
+    /// <summary>Volba typu obsahu — jedno tlačítko na typ, jak si hráč přál „naklikat".</summary>
+    private Widget TypePicker()
     {
         var loc = _screens.Loc;
-        var box = Section(loc.Format("modedit.resourceSection", _draft.Resources.Count));
-
-        foreach (var resource in _draft.Resources)
-        {
-            box.Widgets.Add(ListRow($"{resource.Name}  ({resource.Id})", () =>
-            {
-                _draft.Resources.Remove(resource);
-                BuildUi();
-            }));
-        }
-
-        string id = string.Empty;
-        string name = string.Empty;
+        var box = Section(loc["modedit.typeSection"]);
         var row = new HorizontalStackPanel { Spacing = 6 };
-        row.Widgets.Add(Box(loc["modedit.id"], v => id = Slug(v)));
-        row.Widgets.Add(Box(loc["modedit.name"], v => name = v));
-        row.Widgets.Add(UiFactory.SmallButton(loc["modedit.add"], () =>
+
+        for (int i = 0; i < _catalog.Types.Count; i++)
         {
-            if (id.Length == 0 || name.Length == 0)
+            var type = _catalog.Types[i];
+            int captured = i;
+            var button = UiFactory.SmallButton(loc[type.NameKey], () =>
             {
-                Fail(loc["modedit.needIdAndName"]);
-                return;
+                _typeIndex = captured;
+                _entry = new ModEntry(type.Id); // jiný typ = jiná pole, začíná se načisto
+                BuildUi();
+            });
+
+            if (i == _typeIndex)
+            {
+                button.Background = new SolidBrush(new Color(90, 110, 150, 240));
             }
 
-            _draft.Resources.Add(new ResourceDraft(id, name));
-            BuildUi();
-        }));
+            row.Widgets.Add(button);
+        }
+
         box.Widgets.Add(row);
         return box;
     }
 
-    private Widget BuildingSection()
+    /// <summary>Formulář vykreslený podle katalogu — jedno pole na řádek.</summary>
+    private Widget EntryForm()
     {
         var loc = _screens.Loc;
-        var box = Section(loc.Format("modedit.buildingSection", _draft.Buildings.Count));
+        var type = CurrentType!;
+        var box = Section(loc[type.NameKey]);
 
-        foreach (var building in _draft.Buildings)
+        foreach (var field in type.Fields)
         {
-            box.Widgets.Add(ListRow($"{building.Name}  ({building.Id})", () =>
-            {
-                _draft.Buildings.Remove(building);
-                BuildUi();
-            }));
+            box.Widgets.Add(FieldRow(type, field));
         }
 
-        string id = string.Empty;
-        string name = string.Empty;
-        string costResource = "wood";
-        int costAmount = 20;
-        int workers = 1;
-
-        var first = new HorizontalStackPanel { Spacing = 6 };
-        first.Widgets.Add(Box(loc["modedit.id"], v => id = Slug(v)));
-        first.Widgets.Add(Box(loc["modedit.name"], v => name = v));
-        box.Widgets.Add(first);
-
-        var second = new HorizontalStackPanel { Spacing = 6 };
-        second.Widgets.Add(Box(loc["modedit.costResource"], v => costResource = Slug(v), "wood"));
-        second.Widgets.Add(Box(loc["modedit.costAmount"], v => costAmount = ParseInt(v, 20), "20"));
-        second.Widgets.Add(Box(loc["modedit.workers"], v => workers = ParseInt(v, 1), "1"));
-        second.Widgets.Add(UiFactory.SmallButton(loc["modedit.add"], () =>
+        box.Widgets.Add(UiFactory.SmallButton(loc["modedit.add"], () =>
         {
-            if (id.Length == 0 || name.Length == 0)
+            if (!type.PlainList && _entry.IdOf(type).Length == 0)
             {
                 Fail(loc["modedit.needIdAndName"]);
                 return;
             }
 
-            _draft.Buildings.Add(new BuildingDraft(
-                id,
-                name,
-                Description: name,
-                WorkerSlots: workers,
-                BuildCost: new[] { new AmountDraft(costResource, costAmount) }));
+            _draft.Entries.Add(_entry);
+            _entry = new ModEntry(type.Id);
+            _status = string.Empty;
             BuildUi();
         }));
-        box.Widgets.Add(second);
 
-        box.Widgets.Add(Note(loc["modedit.buildingHint"], new Color(150, 160, 175)));
         return box;
+    }
+
+    /// <summary>Jeden řádek formuláře. Jak se vyplňuje, určuje druh pole z katalogu.</summary>
+    private Widget FieldRow(ModTypeDef type, ModFieldDef field)
+    {
+        var loc = _screens.Loc;
+        var row = new HorizontalStackPanel { Spacing = 8 };
+        row.Widgets.Add(new Label
+        {
+            Text = loc[field.LabelKey],
+            Width = 160,
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+
+        switch (field.Kind)
+        {
+            case ModFieldKind.Toggle:
+            {
+                bool on = _entry.Value(field).Equals("true", StringComparison.OrdinalIgnoreCase);
+                row.Widgets.Add(UiFactory.SmallButton(on ? loc["modedit.yes"] : loc["modedit.no"], () =>
+                {
+                    _entry.With(field.Key, on ? "false" : "true");
+                    BuildUi();
+                }));
+                break;
+            }
+
+            case ModFieldKind.Choice:
+            {
+                // Cyklující tlačítko místo rozbalovacího seznamu: nabídky jsou
+                // krátké a klikat se má dát bez míření do vyskakovacího okna.
+                string current = _entry.Value(field);
+                row.Widgets.Add(UiFactory.SmallButton(
+                    current.Length == 0 ? loc["modedit.none"] : current,
+                    () =>
+                    {
+                        var options = field.Options ?? Array.Empty<string>();
+                        int index = 0;
+                        for (int i = 0; i < options.Count; i++)
+                        {
+                            if (options[i] == current)
+                            {
+                                index = i;
+                                break;
+                            }
+                        }
+
+                        _entry.With(field.Key, options[(index + 1) % options.Count]);
+                        BuildUi();
+                    }));
+                break;
+            }
+
+            case ModFieldKind.Sprite:
+            {
+                row.Widgets.Add(UiFactory.SmallButton(loc["modedit.draw"], () =>
+                {
+                    string id = _entry.IdOf(type);
+                    if (id.Length == 0)
+                    {
+                        Fail(loc["modedit.needIdAndName"]);
+                        return;
+                    }
+
+                    // Kreslí se rovnou do složky modu pod ID budovy: hra pak
+                    // obrázek najde sama, bez dalšího políčka k vyplnění.
+                    _entry.With(field.Key, id);
+                    _screens.Push(new SpriteEditorScreen(
+                        _screens, Path.Combine(ModsDirectory, _draft.Id, "sprites", id + ".png")));
+                }));
+                break;
+            }
+
+            default:
+            {
+                var textBox = new TextBox { Text = _entry.Value(field), Width = FieldWidth };
+                textBox.TextChanged += (_, _) => _entry.With(
+                    field.Key,
+                    field.Kind == ModFieldKind.Id ? Slug(textBox.Text ?? string.Empty) : textBox.Text ?? string.Empty);
+                row.Widgets.Add(textBox);
+                break;
+            }
+        }
+
+        // Nápověda: u odkazů vypíše, z čeho se vybírá — hráč nemusí hádat ID.
+        string hint = Hint(field);
+        if (hint.Length > 0)
+        {
+            row.Widgets.Add(new Label
+            {
+                Text = hint,
+                TextColor = new Color(150, 160, 175),
+                Width = PanelWidth - 480,
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+        }
+
+        return row;
+    }
+
+    /// <summary>Nápověda k poli: u odkazů skutečná ID z obsahu, u čísel meze.</summary>
+    private string Hint(ModFieldDef field)
+    {
+        var loc = _screens.Loc;
+        if (field.Kind is ModFieldKind.Reference or ModFieldKind.References or ModFieldKind.Amounts)
+        {
+            var ids = ReferenceIds(field.Reference);
+            if (ids.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            string sample = string.Join(", ", ids.Take(6));
+            string prefix = field.Kind == ModFieldKind.Amounts ? loc["modedit.amountsHint"] : loc["modedit.refHint"];
+            return $"{prefix} {sample}{(ids.Count > 6 ? "…" : string.Empty)}";
+        }
+
+        if (field.Kind is ModFieldKind.Number or ModFieldKind.Decimal
+            && field.Min > double.MinValue && field.Max < double.MaxValue)
+        {
+            return $"{field.Min:0.##}–{field.Max:0.##}";
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>ID, ze kterých se u daného odkazu vybírá (skutečný obsah hry).</summary>
+    private IReadOnlyList<string> ReferenceIds(string reference)
+    {
+        var content = _screens.Content;
+        return reference switch
+        {
+            "resource" => content.Resources.All.Select(r => r.Id).ToList(),
+            "building" => content.Buildings.All.Select(b => b.Id).ToList(),
+            "biome" => content.Biomes.All.Select(b => b.Id).ToList(),
+            "tech" => content.Techs.All.Select(t => t.Id).ToList(),
+            _ => Array.Empty<string>(),
+        };
+    }
+
+    /// <summary>Co už mod obsahuje. Mazat jde po jednom — mod pack se skládá postupně.</summary>
+    private Widget ContentList()
+    {
+        var loc = _screens.Loc;
+        var box = Section(loc.Format("modedit.contentSection", _draft.Entries.Count));
+
+        if (_draft.Entries.Count == 0)
+        {
+            box.Widgets.Add(Note(loc["modedit.contentEmpty"], new Color(150, 160, 175)));
+            return box;
+        }
+
+        foreach (var entry in _draft.Entries.ToList())
+        {
+            var type = _catalog.Find(entry.TypeId);
+            string label = type is null
+                ? entry.TypeId
+                : $"{loc[type.NameKey]}: {Describe(entry, type)}";
+
+            box.Widgets.Add(ListRow(label, () =>
+            {
+                _draft.Entries.Remove(entry);
+                BuildUi();
+            }));
+        }
+
+        return box;
+    }
+
+    private static string Describe(ModEntry entry, ModTypeDef type)
+    {
+        if (type.PlainList)
+        {
+            return entry.Values.Values.FirstOrDefault() ?? string.Empty;
+        }
+
+        string id = entry.IdOf(type);
+        foreach (var field in type.Fields)
+        {
+            if (field.Kind == ModFieldKind.Lang)
+            {
+                string name = entry.Value(field);
+                return name.Length > 0 ? $"{name} ({id})" : id;
+            }
+        }
+
+        return id;
     }
 
     // ----- akce -----
@@ -330,7 +521,7 @@ public sealed class ModEditorScreen : IScreen
     private static Widget TextField(string label, string value, Action<string> onChange)
     {
         var row = new HorizontalStackPanel { Spacing = 8 };
-        row.Widgets.Add(new Label { Text = label, Width = 120, VerticalAlignment = VerticalAlignment.Center });
+        row.Widgets.Add(new Label { Text = label, Width = 160, VerticalAlignment = VerticalAlignment.Center });
 
         var box = new TextBox { Text = value, Width = FieldWidth };
         box.TextChanged += (_, _) => onChange(box.Text ?? string.Empty);
@@ -338,23 +529,12 @@ public sealed class ModEditorScreen : IScreen
         return row;
     }
 
-    private static Widget Box(string placeholder, Action<string> onChange, string initial = "")
-    {
-        var stack = new VerticalStackPanel { Spacing = 2 };
-        stack.Widgets.Add(new Label { Text = placeholder, TextColor = new Color(150, 160, 175) });
-
-        var box = new TextBox { Text = initial, Width = 130 };
-        box.TextChanged += (_, _) => onChange(box.Text ?? string.Empty);
-        stack.Widgets.Add(box);
-        return stack;
-    }
-
     private static Label Note(string text, Color color) => new()
     {
         Text = text,
         TextColor = color,
         Wrap = true,
-        Width = PanelWidth,
+        Width = PanelWidth - 24,
     };
 
     /// <summary>
@@ -378,7 +558,4 @@ public sealed class ModEditorScreen : IScreen
 
         return new string(chars.ToArray());
     }
-
-    private static int ParseInt(string text, int fallback) =>
-        int.TryParse(text, out int value) && value >= 0 ? value : fallback;
 }

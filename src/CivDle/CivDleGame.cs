@@ -127,6 +127,10 @@ public sealed class CivDleGame : Game
         WhitePixel = new Texture2D(GraphicsDevice, 1, 1);
         WhitePixel.SetData(new[] { Color.White });
         Sprites = new SpriteLibrary(GraphicsDevice);
+
+        // Obrázky z modů přebijí procedurální modely — bez toho by kreslítko
+        // v tvůrci obsahu vyrábělo soubory, které nikdo nikdy neuvidí.
+        Sprites.LoadModSprites(GraphicsDevice, Path.Combine(AppContext.BaseDirectory, "mods"));
         Sounds = new GameSounds();
         MyraEnvironment.Game = this;
 

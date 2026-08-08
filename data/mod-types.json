@@ -1,0 +1,428 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Katalog typů obsahu pro ingame tvůrce (bod 2). Popisuje, JAKÁ pole každý typ má a odkud se vybírají hodnoty — díky tomu je tvůrce jedna obrazovka nad daty, ne sedm ručně psaných formulářů. 'path' je cesta do výsledného JSON (tečka = vnořený objekt, [n] = prvek pole). 'lang' pole se nezapisují do obsahu, ale do jazykových souborů modu.",
+  "types": [
+    {
+      "id": "resource",
+      "file": "resources.json",
+      "arrayKey": "resources",
+      "langPrefix": "resource",
+      "fields": [
+        {
+          "key": "id",
+          "kind": "id",
+          "path": "id"
+        },
+        {
+          "key": "name",
+          "kind": "lang",
+          "path": ""
+        },
+        {
+          "key": "mapColor",
+          "kind": "color",
+          "path": "mapColor",
+          "default": "#B48C46"
+        },
+        {
+          "key": "startAmount",
+          "kind": "number",
+          "path": "startAmount",
+          "min": 0,
+          "max": 100000,
+          "default": 0
+        },
+        {
+          "key": "baseStorage",
+          "kind": "number",
+          "path": "baseStorage",
+          "min": 1,
+          "max": 1000000,
+          "default": 500
+        }
+      ]
+    },
+    {
+      "id": "building",
+      "file": "buildings.json",
+      "arrayKey": "buildings",
+      "langPrefix": "building",
+      "fields": [
+        {
+          "key": "id",
+          "kind": "id",
+          "path": "id"
+        },
+        {
+          "key": "name",
+          "kind": "lang",
+          "path": ""
+        },
+        {
+          "key": "description",
+          "kind": "langDesc",
+          "path": ""
+        },
+        {
+          "key": "category",
+          "kind": "choice",
+          "path": "category",
+          "default": "production",
+          "options": [
+            "housing",
+            "production",
+            "storage",
+            "civic",
+            "science",
+            "power",
+            "faith",
+            "monument"
+          ]
+        },
+        {
+          "key": "mapColor",
+          "kind": "color",
+          "path": "mapColor",
+          "default": "#C88C46"
+        },
+        {
+          "key": "footprintWidth",
+          "kind": "number",
+          "path": "footprint[0]",
+          "min": 1,
+          "max": 8,
+          "default": 1
+        },
+        {
+          "key": "footprintHeight",
+          "kind": "number",
+          "path": "footprint[1]",
+          "min": 1,
+          "max": 8,
+          "default": 1
+        },
+        {
+          "key": "workerSlots",
+          "kind": "number",
+          "path": "workerSlots",
+          "min": 0,
+          "max": 200,
+          "default": 1
+        },
+        {
+          "key": "housingCapacity",
+          "kind": "number",
+          "path": "housingCapacity",
+          "min": 0,
+          "max": 2000,
+          "default": 0
+        },
+        {
+          "key": "buildCost",
+          "kind": "amounts",
+          "path": "buildCost",
+          "reference": "resource"
+        },
+        {
+          "key": "recipeInput",
+          "kind": "amounts",
+          "path": "recipe.input",
+          "reference": "resource"
+        },
+        {
+          "key": "recipeOutput",
+          "kind": "amounts",
+          "path": "recipe.output",
+          "reference": "resource"
+        },
+        {
+          "key": "recipeTicks",
+          "kind": "number",
+          "path": "recipe.timeTicks",
+          "min": 1,
+          "max": 10000,
+          "default": 50,
+          "requires": "recipeOutput"
+        },
+        {
+          "key": "allowedBiomes",
+          "kind": "references",
+          "path": "allowedBiomes",
+          "reference": "biome"
+        },
+        {
+          "key": "buildable",
+          "kind": "toggle",
+          "path": "buildable",
+          "default": true
+        },
+        {
+          "key": "autoBuild",
+          "kind": "toggle",
+          "path": "autoBuild",
+          "default": false
+        },
+        {
+          "key": "sprite",
+          "kind": "sprite",
+          "path": "sprite"
+        }
+      ]
+    },
+    {
+      "id": "tech",
+      "file": "tech.json",
+      "arrayKey": "techs",
+      "langPrefix": "tech",
+      "fields": [
+        {
+          "key": "id",
+          "kind": "id",
+          "path": "id"
+        },
+        {
+          "key": "name",
+          "kind": "lang",
+          "path": ""
+        },
+        {
+          "key": "description",
+          "kind": "langDesc",
+          "path": ""
+        },
+        {
+          "key": "cost",
+          "kind": "amounts",
+          "path": "cost",
+          "reference": "resource"
+        },
+        {
+          "key": "prerequisites",
+          "kind": "references",
+          "path": "prerequisites",
+          "reference": "tech"
+        },
+        {
+          "key": "unlocks",
+          "kind": "references",
+          "path": "unlocks",
+          "reference": "building"
+        },
+        {
+          "key": "effect",
+          "kind": "choice",
+          "path": "effect",
+          "default": "",
+          "options": [
+            "",
+            "production_mult",
+            "harvest_mult",
+            "growth_mult",
+            "housing_mult",
+            "storage_mult",
+            "offline_mult",
+            "discovery_luck",
+            "festival_power",
+            "autobuild_speed",
+            "combo_power",
+            "crit_chance",
+            "jackpot_chance",
+            "research_discount"
+          ]
+        },
+        {
+          "key": "magnitude",
+          "kind": "decimal",
+          "path": "magnitude",
+          "min": 0,
+          "max": 100,
+          "default": 0
+        },
+        {
+          "key": "maxLevel",
+          "kind": "number",
+          "path": "maxLevel",
+          "min": 1,
+          "max": 20,
+          "default": 1
+        }
+      ]
+    },
+    {
+      "id": "fauna",
+      "file": "fauna.json",
+      "arrayKey": "fauna",
+      "langPrefix": "fauna",
+      "fields": [
+        {
+          "key": "id",
+          "kind": "id",
+          "path": "id"
+        },
+        {
+          "key": "name",
+          "kind": "lang",
+          "path": ""
+        },
+        {
+          "key": "biomes",
+          "kind": "references",
+          "path": "biomes",
+          "reference": "biome"
+        },
+        {
+          "key": "color",
+          "kind": "color",
+          "path": "color",
+          "default": "#8A5A33"
+        },
+        {
+          "key": "size",
+          "kind": "number",
+          "path": "size",
+          "min": 1,
+          "max": 12,
+          "default": 3
+        },
+        {
+          "key": "speed",
+          "kind": "number",
+          "path": "speed",
+          "min": 1,
+          "max": 200,
+          "default": 10
+        },
+        {
+          "key": "timeOfDay",
+          "kind": "choice",
+          "path": "timeOfDay",
+          "default": "day",
+          "options": [
+            "day",
+            "night",
+            "any"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "quest",
+      "file": "quests.json",
+      "arrayKey": "quests",
+      "langPrefix": "quest",
+      "fields": [
+        {
+          "key": "id",
+          "kind": "id",
+          "path": "id"
+        },
+        {
+          "key": "name",
+          "kind": "lang",
+          "path": ""
+        },
+        {
+          "key": "description",
+          "kind": "langDesc",
+          "path": ""
+        },
+        {
+          "key": "metric",
+          "kind": "choice",
+          "path": "condition.metric",
+          "default": "population",
+          "options": [
+            "population",
+            "buildings",
+            "harvested",
+            "produced",
+            "research",
+            "buildingOfType"
+          ]
+        },
+        {
+          "key": "resource",
+          "kind": "reference",
+          "path": "condition.resource",
+          "reference": "resource",
+          "requires": ""
+        },
+        {
+          "key": "target",
+          "kind": "number",
+          "path": "condition.target",
+          "min": 1,
+          "max": 1000000000,
+          "default": 10
+        },
+        {
+          "key": "reward",
+          "kind": "amounts",
+          "path": "reward",
+          "reference": "resource"
+        }
+      ]
+    },
+    {
+      "id": "event",
+      "file": "events.json",
+      "arrayKey": "events",
+      "langPrefix": "event",
+      "fields": [
+        {
+          "key": "id",
+          "kind": "id",
+          "path": "id"
+        },
+        {
+          "key": "name",
+          "kind": "lang",
+          "path": ""
+        },
+        {
+          "key": "description",
+          "kind": "langDesc",
+          "path": ""
+        },
+        {
+          "key": "acceptId",
+          "kind": "id",
+          "path": "choices[0].id",
+          "default": "accept"
+        },
+        {
+          "key": "acceptGain",
+          "kind": "amounts",
+          "path": "choices[0].gain",
+          "reference": "resource"
+        },
+        {
+          "key": "acceptCost",
+          "kind": "amounts",
+          "path": "choices[0].cost",
+          "reference": "resource"
+        },
+        {
+          "key": "declineId",
+          "kind": "id",
+          "path": "choices[1].id",
+          "default": "decline"
+        }
+      ]
+    },
+    {
+      "id": "settlementName",
+      "file": "settlement-names.json",
+      "arrayKey": "names",
+      "langPrefix": "",
+      "plainList": true,
+      "fields": [
+        {
+          "key": "value",
+          "kind": "text",
+          "path": ""
+        }
+      ]
+    }
+  ]
+}

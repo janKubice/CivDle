@@ -283,6 +283,59 @@ public sealed class SpriteLibrary : IDisposable
         _sprites[id] = canvas.ToTexture(device);
     }
 
+    /// <summary>
+    /// Načte sprity z modů: <c>mods/&lt;mod&gt;/sprites/&lt;id&gt;.png</c> se
+    /// zaregistruje jako <c>building.&lt;id&gt;</c> a přebije procedurální model.
+    ///
+    /// <para>Bez tohohle by tvůrce obsahu uměl budově nakreslit obrázek, který
+    /// se ve hře nikdy neukáže — a přesně to je ta nejhorší varianta: hráč
+    /// kreslí a nic se nestane.</para>
+    ///
+    /// <para>Vadný soubor se přeskočí. Mod je cizí obsah; pokažený obrázek
+    /// nesmí shodit start hry.</para>
+    /// </summary>
+    public void LoadModSprites(GraphicsDevice device, string modsDirectory)
+    {
+        if (!Directory.Exists(modsDirectory))
+        {
+            return;
+        }
+
+        foreach (string mod in Directory.GetDirectories(modsDirectory))
+        {
+            string spritesDirectory = Path.Combine(mod, "sprites");
+            if (!Directory.Exists(spritesDirectory))
+            {
+                continue;
+            }
+
+            foreach (string file in Directory.GetFiles(spritesDirectory, "*.png"))
+            {
+                try
+                {
+                    using var stream = File.OpenRead(file);
+                    var texture = Texture2D.FromStream(device, stream);
+                    string id = Path.GetFileNameWithoutExtension(file);
+                    if (_sprites.Remove(id, out var replacedPlain))
+                    {
+                        replacedPlain.Dispose();
+                    }
+
+                    if (_sprites.Remove($"building.{id}", out var replaced))
+                    {
+                        replaced.Dispose();
+                    }
+
+                    _sprites[$"building.{id}"] = texture;
+                }
+                catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException)
+                {
+                    // Pokažený obrázek v modu = budova se nakreslí čtverečkem.
+                }
+            }
+        }
+    }
+
     /// <summary>Sběrná bublina: světlý poloprůhledný puchýř s odleskem (nese ikonu suroviny).</summary>
     private static void Bubble(PixelCanvas canvas)
     {

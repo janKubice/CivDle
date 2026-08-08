@@ -86,6 +86,18 @@ public sealed class ModDraft
     public List<BuildingDraft> Buildings { get; } = new();
 
     /// <summary>
+    /// Obecné záznamy z ingame tvůrce (bod 2): cokoli, co popisuje
+    /// <see cref="ModTypeCatalog"/> — událost, výzkum, fauna, jméno města, úkol.
+    ///
+    /// <para>Typované seznamy výš zůstávají jako pohodlná cesta pro kód a testy;
+    /// zapisují se úplně stejným kódem, jen mají v C# jméno.</para>
+    /// </summary>
+    public List<ModEntry> Entries { get; } = new();
+
+    /// <summary>Katalog typů — bez něj se obecné záznamy nedají zapsat.</summary>
+    public ModTypeCatalog Types { get; set; } = ModTypeCatalog.Empty;
+
+    /// <summary>
     /// Zapíše mod do složky. Vrací cestu ke složce modu.
     ///
     /// <para>Zapisují se <b>jen soubory, které mod opravdu mění</b>. Prázdný
@@ -119,8 +131,81 @@ public sealed class ModDraft
             File.WriteAllText(Path.Combine(directory, "buildings.json"), BuildingsJson());
         }
 
+        WriteEntries(directory);
         WriteLanguageFiles(directory);
         return directory;
+    }
+
+    /// <summary>
+    /// Zapíše obecné záznamy: seskupí je podle typu a každý typ uloží do svého
+    /// souboru pod svůj klíč. Typ, který katalog nezná, se přeskočí — jinak by
+    /// starší mod shodil editor jen tím, že ho hráč otevře.
+    /// </summary>
+    private void WriteEntries(string directory)
+    {
+        foreach (var group in Entries.GroupBy(entry => entry.TypeId, StringComparer.Ordinal))
+        {
+            var type = Types.Find(group.Key);
+            if (type is null)
+            {
+                continue;
+            }
+
+            var array = new JsonArray();
+            foreach (var entry in group)
+            {
+                var node = ModEntryWriter.ToJson(entry, type);
+                if (node is not null)
+                {
+                    array.Add(node);
+                }
+            }
+
+            if (array.Count == 0)
+            {
+                continue;
+            }
+
+            var document = new JsonObject { ["schemaVersion"] = 1, [type.ArrayKey] = array };
+            File.WriteAllText(Path.Combine(directory, type.File), document.ToJsonString(Options));
+        }
+    }
+
+    /// <summary>Jazykové klíče obecných záznamů (jméno a popis).</summary>
+    private void AddEntryStrings(JsonObject strings)
+    {
+        foreach (var entry in Entries)
+        {
+            var type = Types.Find(entry.TypeId);
+            if (type is null || type.LangPrefix.Length == 0)
+            {
+                continue;
+            }
+
+            string id = entry.IdOf(type);
+            if (id.Length == 0)
+            {
+                continue;
+            }
+
+            foreach (var field in type.Fields)
+            {
+                string text = entry.Value(field);
+                if (text.Length == 0)
+                {
+                    continue;
+                }
+
+                if (field.Kind == ModFieldKind.Lang)
+                {
+                    strings[$"{type.LangPrefix}.{id}"] = text;
+                }
+                else if (field.Kind == ModFieldKind.LangDescription)
+                {
+                    strings[$"{type.LangPrefix}.{id}.desc"] = text;
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -133,7 +218,7 @@ public sealed class ModDraft
     /// </summary>
     private void WriteLanguageFiles(string directory)
     {
-        if (Resources.Count == 0 && Buildings.Count == 0)
+        if (Resources.Count == 0 && Buildings.Count == 0 && Entries.Count == 0)
         {
             return;
         }
@@ -152,6 +237,8 @@ public sealed class ModDraft
             strings[$"building.{building.Id}"] = building.Name;
             strings[$"building.{building.Id}.desc"] = building.Description;
         }
+
+        AddEntryStrings(strings);
 
         foreach (string language in KnownLanguages)
         {
