@@ -23,6 +23,13 @@
     <!-- PNG kopie pro okno na Linuxu/macOS: SDL bere ikonu za běhu, ne z exe. -->
     <None Update="Icon.png" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Icon.ico" CopyToOutputDirectory="PreserveNewest" />
+
+    <!--
+      Ikona okna (a tím i v hlavním panelu). MonoGame DesktopGL ji bere ze
+      souboru Icon.bmp vedle binárky — .ico zná jen Windows u samotného .exe,
+      takže bez tohohle mělo běžící okno prázdnou ikonu.
+    -->
+    <None Update="Icon.bmp" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!--

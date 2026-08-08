@@ -66,6 +66,7 @@ public sealed class GameplayScreen : IScreen
     private MightBanner _might = null!;
 
     /// <summary>Tlačítko rychlosti — popisek se přepisuje podle stavu.</summary>
+    private UiFactory.BadgedButton? _speedBadge;
     private Button? _speedButton;
     private readonly ParticleSystem _particles = new();
     private readonly FloatingTextRenderer _floatingText = new();
@@ -2112,12 +2113,13 @@ public sealed class GameplayScreen : IScreen
         var grid = IconGrid(columns);
         int slot = 0;
 
-        _speedButton = UiFactory.ToolButton(Ico("ui.play"), loc["tip.speed"], () =>
+        _speedBadge = UiFactory.ToolButtonWithBadge(Ico("ui.play"), loc["tip.speed"], () =>
         {
             _speed.Next();
             RefreshHudTexts();
         }, "1x");
-        Place(grid, _speedButton, slot++, columns);
+        _speedButton = _speedBadge.Button;
+        Place(grid, _speedBadge.Root, slot++, columns);
 
         Place(grid, UiFactory.ToolButton(
             Ico("ui.home"), loc["hud.backToCity"] + '\n' + loc["tip.backToCity"], RecenterOnCity), slot++, columns);
@@ -2839,6 +2841,16 @@ public sealed class GameplayScreen : IScreen
                 _speedButton.Content = UiFactory.Icon(icon, UiFactory.IconButtonSize - 14);
                 _speedButton.Content.HorizontalAlignment = HorizontalAlignment.Center;
                 _speedButton.Content.VerticalAlignment = VerticalAlignment.Center;
+            }
+
+            // Násobič jako číslo v rohu: pro 2× i 3× je totiž tatáž ikona
+            // „rychle" a bez čísla se nedaly rozeznat.
+            if (_speedBadge is { } speed)
+            {
+                UiFactory.SetBadge(
+                    speed,
+                    _speed.IsPaused || _speed.Multiplier <= 1.0 ? 0 : (int)Math.Round(_speed.Multiplier),
+                    new Color(70, 110, 160, 245));
             }
 
             _speedButton.Tooltip = _screens.Loc["tip.speed"] + '\n' + _speed.Label;
