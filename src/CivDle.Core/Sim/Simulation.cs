@@ -2052,6 +2052,24 @@ public sealed class Simulation
     /// <summary>Nasbírané body Vzestupu (trvalá měna na permanentní upgrady).</summary>
     public long PrestigePoints { get; internal set; }
 
+    /// <summary>
+    /// Přidá body Vzestupu — <b>jen pro ladicí menu</b>.
+    ///
+    /// <para>Ve hře body vznikají jedině Vzestupem. Tenhle vstup existuje proto,
+    /// že jinak se prestižní vrstva dá vyzkoušet jedině tak, že se hra odehraje
+    /// až k Vzestupu — u každé změny v nákupech vylepšení desítky minut.</para>
+    ///
+    /// <para>Je pojmenovaný tak, aby bylo z volání poznat, že to není herní
+    /// mechanika; záporné číslo se ignoruje, ať se tudy nedá stav rozbít.</para>
+    /// </summary>
+    public void DebugGrantPrestigePoints(long amount)
+    {
+        if (amount > 0)
+        {
+            PrestigePoints += amount;
+        }
+    }
+
     /// <summary>Aktuální trvalé násobiče z koupených upgradů Vzestupu (systémy je čtou).</summary>
     public PrestigeBonuses Bonuses => _bonuses;
 

@@ -1580,6 +1580,31 @@
       "unlocks": [
         "monastery"
       ]
+    },
+    {
+      "id": "public_works",
+      "cost": {
+        "planks": 120,
+        "stone": 90
+      },
+      "prerequisites": [
+        "masonry"
+      ],
+      "effect": "autobuild_speed",
+      "magnitude": 0.35
+    },
+    {
+      "id": "city_planning",
+      "cost": {
+        "planks": 260,
+        "stone": 200,
+        "bronze": 90
+      },
+      "prerequisites": [
+        "public_works"
+      ],
+      "effect": "autobuild_speed",
+      "magnitude": 0.35
     }
   ]
 }
