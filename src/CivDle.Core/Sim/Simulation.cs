@@ -911,17 +911,23 @@ public sealed class Simulation
     /// <returns>Kolik věcí voda vzala.</returns>
     internal int StrikeFlood(int centerX, int centerY, int radiusTiles)
     {
+        // Napřed se spočítá, KAM voda dosáhne, a teprve pak se boří. Dřív se
+        // ptalo u každé budovy „stojíš u vody?", takže povodeň vypadala jako
+        // rozbitá: mimo pobřeží nedělala doslova nic a hráč nevěděl proč.
+        var flooded = SpreadWater(centerX, centerY, radiusTiles);
+        if (flooded.Count == 0)
+        {
+            // Daleko od vody není co vylít. Řekni to — tichá modlitba, která
+            // spolkla víru a nic neudělala, je horší než odmítnutí.
+            EnqueueNotification(new GameNotification(
+                NotificationKind.WorldEvent, "toast.floodNoWater", string.Empty));
+            return 0;
+        }
+
         int hits = 0;
         for (int i = _buildingCount - 1; i >= 0; i--)
         {
-            if (!WithinRadius(_buildings[i].X, _buildings[i].Y, centerX, centerY, radiusTiles))
-            {
-                continue;
-            }
-
-            // Povodeň bere jen to, co stojí nízko u vody — jinak by byla jen
-            // druhým meteoritem s jiným jménem.
-            if (IsWaterNextTo(_buildings[i].X, _buildings[i].Y))
+            if (flooded.Contains(TileKey.Pack(_buildings[i].X, _buildings[i].Y)))
             {
                 TryDemolish(i);
                 hits++;
@@ -929,12 +935,81 @@ public sealed class Simulation
         }
 
         hits += StrikeCities(centerX, centerY, radiusTiles, waterOnly: true);
-        RaiseWater(centerX, centerY, radiusTiles);
+
+        foreach (long tile in flooded)
+        {
+            SetBiomeOverride(TileKey.X(tile), TileKey.Y(tile), (byte)FloodedBiomeIndex);
+        }
 
         CleanseArea(centerX, centerY, radiusTiles, 0.5); // voda po sobě aspoň uklidí
         Fog.Reveal(centerX, centerY, radiusTiles + 2);
         return hits;
     }
+
+    /// <summary>
+    /// Kam se voda rozlije: vlna od hladiny do vnitrozemí.
+    ///
+    /// <para>Je to průchod do šířky od vodních dlaždic uvnitř dosahu, ne test
+    /// „sousedí s vodou" u každé dlaždice zvlášť. Ten předchozí přístup uměl
+    /// zaplavit jedinou řadu u břehu, takže povodeň nebyla skoro vidět —
+    /// a ve vnitrozemí nedělala nic.</para>
+    ///
+    /// <para>Voda teče jen tam, kam by tekla: dosah do vnitrozemí je poloviční
+    /// oproti dosahu modlitby, aby z každé povodně nevzniklo jezero.</para>
+    /// </summary>
+    private HashSet<long> SpreadWater(int centerX, int centerY, int radiusTiles)
+    {
+        var flooded = new HashSet<long>();
+        if (FloodedBiomeIndex < 0)
+        {
+            return flooded;
+        }
+
+        var frontier = new Queue<(int X, int Y, int Depth)>();
+        var seen = new HashSet<long>();
+
+        // Startuje se od vody uvnitř dosahu.
+        for (int y = centerY - radiusTiles; y <= centerY + radiusTiles; y++)
+        {
+            for (int x = centerX - radiusTiles; x <= centerX + radiusTiles; x++)
+            {
+                if (WithinRadius(x, y, centerX, centerY, radiusTiles) && IsWaterAt(x, y))
+                {
+                    frontier.Enqueue((x, y, 0));
+                    seen.Add(TileKey.Pack(x, y));
+                }
+            }
+        }
+
+        int maxDepth = Math.Max(1, radiusTiles / 2);
+        while (frontier.Count > 0)
+        {
+            var (x, y, depth) = frontier.Dequeue();
+            if (depth >= maxDepth)
+            {
+                continue;
+            }
+
+            foreach (var (dx, dy) in Neighbours)
+            {
+                int nx = x + dx;
+                int ny = y + dy;
+                long key = TileKey.Pack(nx, ny);
+                if (!seen.Add(key) || !WithinRadius(nx, ny, centerX, centerY, radiusTiles) || IsWaterAt(nx, ny))
+                {
+                    continue;
+                }
+
+                flooded.Add(key);
+                frontier.Enqueue((nx, ny, depth + 1));
+            }
+        }
+
+        return flooded;
+    }
+
+    /// <summary>Čtyři ortogonální směry — voda neteče po úhlopříčce.</summary>
+    private static readonly (int X, int Y)[] Neighbours = { (1, 0), (-1, 0), (0, 1), (0, -1) };
 
     /// <summary>
     /// Srovná cizí města v dosahu rány. <paramref name="waterOnly"/> = vezme jen
@@ -1071,7 +1146,6 @@ public sealed class Simulation
             return;
         }
 
-        int step = (int)(TickCount / ScoutIntervalTicks);
         for (int i = 0; i < _buildingCount; i++)
         {
             ref readonly var building = ref _buildings[i];
@@ -1081,10 +1155,19 @@ public sealed class Simulation
                 continue;
             }
 
-            // Prstenec roste s časem a po dosažení dosahu se vrátí na začátek —
-            // stanice tak drží okolí odhalené i po Vzestupu, kdy se mlha vrací.
-            int reach = FogRevealRadius + step % Math.Max(1, def.ScoutRadius);
-            Fog.Reveal(building.X, building.Y, Math.Min(def.ScoutRadius, reach));
+            // Odhaluje se rovnou celý dosah, ne rostoucí prstenec.
+            //
+            // Prstenec tu byl a choval se špatně ze dvou důvodů: rostl podle
+            // GLOBÁLNÍHO tiku, takže stanice postavená pozdě začínala na
+            // náhodném poloměru, a po dosažení maxima se modulem vracel na
+            // začátek. Radar s dosahem 70 tak potřeboval přes pět minut, než
+            // ukázal, co měl ukázat hned — hráč to viděl jako „radar
+            // neodhaluje nebo jen strašně pomalu".
+            //
+            // Opakuje se každý interval schválně: po Vzestupu se mlha vrací
+            // a stanice musí své okolí odhalit znovu. Je to levné, mlha se
+            // vede po chuncích, ne po dlaždicích.
+            Fog.Reveal(building.X, building.Y, def.ScoutRadius);
         }
     }
 
@@ -1921,6 +2004,19 @@ public sealed class Simulation
     public IReadOnlyList<Settlement> Settlements => _settlements;
 
     /// <summary>Index biomu na dlaždici.</summary>
+    /// <summary>
+    /// Dlaždice, které simulace přepsala proti vygenerovanému terénu
+    /// (terraformace, kráter po meteoru, zaplavené pobřeží). Render je čte,
+    /// aby změnu bylo vidět — bez toho hráč terraformoval do prázdna.
+    /// </summary>
+    public IReadOnlyDictionary<long, byte> BiomeOverrideMap => _biomeOverrides;
+
+    /// <summary>
+    /// Roste s každou změnou terénu. Render podle něj pozná, že musí zahodit
+    /// upečené chunky; porovnávat celou mapu přepisů každý snímek by bylo drahé.
+    /// </summary>
+    public int TerrainRevision { get; private set; }
+
     public byte BiomeAt(int x, int y) =>
         _biomeOverrides.TryGetValue(TileKey.Pack(x, y), out byte overridden)
             ? overridden
@@ -1930,8 +2026,14 @@ public sealed class Simulation
     /// Přepíše biom jedné dlaždice (terraformace — zatím jen UFO). Ukládá se jen
     /// těch pár změněných dlaždic, zbytek nekonečné mapy zůstává čistou funkcí.
     /// </summary>
-    internal void SetBiomeOverride(int x, int y, byte biomeIndex) =>
+    internal void SetBiomeOverride(int x, int y, byte biomeIndex)
+    {
         _biomeOverrides[TileKey.Pack(x, y)] = biomeIndex;
+
+        // Bez zvýšení revize by render dál kreslil starý biom z upečeného
+        // chunku a terraformace by vypadala, že nic nedělá.
+        TerrainRevision++;
+    }
 
     /// <summary>
     /// Lze tímhle nástrojem přetvořit dlaždici? Kontroluje odemčení technologií,

@@ -97,6 +97,8 @@ public class PlatformCatalogTests
 
         public bool IsAvailable => true;
 
+        public bool HasOnlineLeaderboards => true;
+
         public string PlayerName => "test";
 
         public bool LeaderboardsAllowed => false;

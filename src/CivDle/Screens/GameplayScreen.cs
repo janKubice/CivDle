@@ -487,7 +487,9 @@ public sealed class GameplayScreen : IScreen
     public void Draw(GameTime gameTime)
     {
         var spriteBatch = _screens.SpriteBatch;
-        _terrainRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
+        _terrainRenderer.Draw(
+            spriteBatch, _camera, _simulation.Terrain,
+            _simulation.BiomeOverrideMap, _simulation.TerrainRevision);
         _decorationRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
         _zoneRenderer.Draw(spriteBatch, _camera, _simulation); // tint zón na zemi, pod budovami
         _districtRenderer.Draw(spriteBatch, _camera, _simulation); // tvář čtvrtí, taky na zemi

@@ -47,6 +47,9 @@ public sealed class LocalPlatformServices : IPlatformServices
     /// <summary>Lokální platforma je vždycky k dispozici — proto je výchozí.</summary>
     public bool IsAvailable => true;
 
+    /// <summary>Bez serveru není s kým se poměřovat — žebříčky jsou jen osobní.</summary>
+    public bool HasOnlineLeaderboards => false;
+
     public string PlayerName { get; set; } = "Hráč";
 
     /// <summary>

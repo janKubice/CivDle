@@ -156,8 +156,20 @@ public static class NpcTownPlanner
             }
         }
 
-        return bestLand > 0;
+        // Jedna suchá dlaždice nestačí. Dřív tu bylo `bestLand > 0`, takže
+        // město na cípu mysu nebo na ostrůvku prošlo — rozvržení se pak
+        // z devadesáti procent trefilo do vody a hráč našel značku města,
+        // pod kterou nestálo skoro nic. Radši žádné město než rozpadlé.
+        return bestLand >= MinimumLand;
     }
+
+    /// <summary>
+    /// Kolik zastavitelných dlaždic musí být kolem středu, aby tam vůbec
+    /// mělo smysl město plánovat. Zhruba polovina zkoumaného okolí — pod tím
+    /// se z města stane pár domků rozsypaných po pobřeží.
+    /// </summary>
+    private static readonly int MinimumLand =
+        ((OriginProbe * 2 + 1) * (OriginProbe * 2 + 1)) / 2;
 
     /// <summary>Kolik dlaždic v okolí kandidáta se dá zastavět.</summary>
     private static int CountLandAround(Func<int, int, bool> canPave, int x, int y)
