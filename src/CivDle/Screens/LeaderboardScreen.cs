@@ -95,7 +95,7 @@ public sealed class LeaderboardScreen : IScreen
         // se světem, nebo sám se sebou.
         layout.Widgets.Add(new Label
         {
-            Text = loc[_screens.Platform.IsAvailable && _screens.Platform.LeaderboardsAllowed
+            Text = loc[_screens.Platform.HasOnlineLeaderboards && _screens.Platform.LeaderboardsAllowed
                 ? "board.sourceOnline"
                 : "board.sourceLocal"],
             TextColor = new Color(160, 170, 186),

@@ -30,6 +30,17 @@ public sealed class TerrainRenderer : IDisposable
     private readonly List<long> _evictScratch = new();
     private int _frame;
 
+    /// <summary>
+    /// Verze přepisů terénu, se kterou jsou upečené chunky v cache.
+    ///
+    /// <para>Bez tohohle byla terraformace neviditelná: simulace dlaždici
+    /// změnila, ale chunk už byl upečený a nikdo ho neshodil — hráč tedy viděl
+    /// starý biom a mechanika vypadala jako rozbitá. Přepečení celé cache je
+    /// při změně terénu v pořádku: terraformace je akce hráče, ne něco, co se
+    /// děje každý snímek.</para>
+    /// </summary>
+    private int _bakedRevision = -1;
+
     private sealed record Chunk(Texture2D Texture)
     {
         public int LastFrame { get; set; }
@@ -42,8 +53,28 @@ public sealed class TerrainRenderer : IDisposable
         _seed = seed;
     }
 
-    public void Draw(SpriteBatch spriteBatch, Camera2D camera, ITerrain terrain)
+    /// <param name="overrides">
+    /// Dlaždice, které simulace přepsala (terraformace, kráter po meteoru,
+    /// zaplavené pobřeží). <c>null</c> = kreslí se holý terén, což je případ
+    /// menu a časosběru.
+    /// </param>
+    /// <param name="revision">
+    /// Číslo, které simulace zvýší při každé změně terénu. Když se liší od
+    /// upečené cache, chunky se zahodí a napečou znovu.
+    /// </param>
+    public void Draw(
+        SpriteBatch spriteBatch,
+        Camera2D camera,
+        ITerrain terrain,
+        IReadOnlyDictionary<long, byte>? overrides = null,
+        int revision = 0)
     {
+        if (revision != _bakedRevision)
+        {
+            InvalidateCache();
+            _bakedRevision = revision;
+        }
+
         _frame++;
         var (min, max) = camera.VisibleWorldBounds();
 
@@ -57,7 +88,7 @@ public sealed class TerrainRenderer : IDisposable
         {
             for (int cx = startChunkX; cx <= endChunkX; cx++)
             {
-                var chunk = GetChunk(terrain, cx, cy);
+                var chunk = GetChunk(terrain, overrides, cx, cy);
                 chunk.LastFrame = _frame;
                 spriteBatch.Draw(
                     chunk.Texture,
@@ -76,6 +107,17 @@ public sealed class TerrainRenderer : IDisposable
         EvictStaleChunks();
     }
 
+    /// <summary>Zahodí upečené chunky — po změně terénu se musí napéct znovu.</summary>
+    private void InvalidateCache()
+    {
+        foreach (var chunk in _cache.Values)
+        {
+            chunk.Texture.Dispose();
+        }
+
+        _cache.Clear();
+    }
+
     public void Dispose()
     {
         foreach (var chunk in _cache.Values)
@@ -86,7 +128,8 @@ public sealed class TerrainRenderer : IDisposable
         _cache.Clear();
     }
 
-    private Chunk GetChunk(ITerrain terrain, int chunkX, int chunkY)
+    private Chunk GetChunk(
+        ITerrain terrain, IReadOnlyDictionary<long, byte>? overrides, int chunkX, int chunkY)
     {
         long key = TileKey.Pack(chunkX, chunkY);
         if (_cache.TryGetValue(key, out var existing))
@@ -103,7 +146,16 @@ public sealed class TerrainRenderer : IDisposable
             {
                 int worldX = baseX + tx;
                 int worldY = baseY + ty;
-                var biome = _biomes[terrain.BiomeAt(worldX, worldY)];
+                // Přepis má přednost před vygenerovaným terénem — je to to,
+                // co hráč (nebo katastrofa) s dlaždicí opravdu udělal.
+                byte biomeIndex = terrain.BiomeAt(worldX, worldY);
+                if (overrides is not null
+                    && overrides.TryGetValue(TileKey.Pack(worldX, worldY), out byte overridden))
+                {
+                    biomeIndex = overridden;
+                }
+
+                var biome = _biomes[biomeIndex];
                 float brightness = 1f + (HashToUnit(worldX, worldY) * 2f - 1f) * biome.ColorVariation;
                 pixels[ty * ChunkTiles + tx] = new Color(
                     ClampByte(biome.MapColor.R * brightness),

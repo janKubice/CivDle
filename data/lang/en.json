@@ -1603,6 +1603,7 @@
     "toast.contractOffered": "New contract",
     "toast.contractReady": "Contract ready to deliver",
     "toast.election": "Election result",
+    "toast.floodNoWater": "Too far from water — the prayer had nothing to flood.",
     "toast.grandWork": "The Grand Work rose higher",
     "toast.legacyLeft": "Legacy left behind",
     "toast.merged": "Buildings merged",

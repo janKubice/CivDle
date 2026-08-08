@@ -45,6 +45,16 @@ public interface IPlatformServices
     /// <summary>Je platforma opravdu k dispozici? (Steam běží, hra je přes něj spuštěná.)</summary>
     bool IsAvailable { get; }
 
+    /// <summary>
+    /// Jsou žebříčky sdílené s ostatními hráči?
+    ///
+    /// <para>Odděleno od <see cref="IsAvailable"/> schválně: lokální platforma
+    /// je vždycky „k dispozici" (achievementy i rekordy fungují), ale sdílená
+    /// není. Bez tohohle rozlišení tvrdila obrazovka žebříčků „připojeno ke
+    /// Steamu" i tomu, kdo Steam vůbec nemá.</para>
+    /// </summary>
+    bool HasOnlineLeaderboards { get; }
+
     /// <summary>Jméno hráče pro žebříčky a sdílení.</summary>
     string PlayerName { get; }
 
