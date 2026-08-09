@@ -182,9 +182,16 @@ public sealed class GovernorNeeds
         return sim.HappinessParts.ServiceCoverage < ServiceCoverageFloor;
     }
 
-    /// <summary>Naráží populace na strop bydlení?</summary>
+    /// <summary>
+    /// Naráží populace na strop bydlení?
+    ///
+    /// <para>Na stropu MĚŘÍTKA ne: tam už další dům nikoho nepřivede a guvernér
+    /// by donekonečna stavěl prázdné čtvrti. Když je město na stropu, ať radši
+    /// řeší služby a výrobu — město se aspoň dál viditelně mění.</para>
+    /// </summary>
     public bool NeedsHousing(Simulation sim) =>
-        sim.Population >= sim.HousingCapacity - _content.Gameplay.AutoBuild.PopulationHeadroom;
+        !sim.IsAtScaleCap
+        && sim.Population >= sim.HousingCapacity - _content.Gameplay.AutoBuild.PopulationHeadroom;
 
     /// <summary>
     /// Surovina, která městu chybí na postavení dané budovy; −1 = má na všechno.

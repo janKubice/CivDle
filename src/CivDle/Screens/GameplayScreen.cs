@@ -3270,11 +3270,15 @@ public sealed class GameplayScreen : IScreen
         int tierIndex = _simulation.CurrentTierIndex;
         if (tierIndex >= 0)
         {
-            double cap = _simulation.PopulationCap;
-            // Jen jméno měřítka. Strop je vnitřní balanční číslo — hráči nic neříká,
-            // a když se blíží, pozná to tak, že populace přestane růst.
-            _tierLabel.Text = loc.Format("hud.tier", loc[tiers[tierIndex].NameKey]);
-            _tierLabel.TextColor = _simulation.Population >= cap - 0.5
+            // Dokud je kam růst, stačí jméno měřítka — strop je vnitřní balanční
+            // číslo. JAKMILE se ale zaklapne, musí být vidět: bez něj vypadá
+            // zastavený růst jako porouchaná hra, ne jako pobídka k Vzestupu.
+            string tierName = loc[tiers[tierIndex].NameKey];
+            bool capped = _simulation.IsAtScaleCap;
+            _tierLabel.Text = capped
+                ? loc.Format("hud.tierCapped", tierName, CivDle.Core.Numbers.Format(_simulation.PopulationCap))
+                : loc.Format("hud.tier", tierName);
+            _tierLabel.TextColor = capped
                 ? new Color(240, 200, 90)
                 : new Color(190, 160, 230);
         }

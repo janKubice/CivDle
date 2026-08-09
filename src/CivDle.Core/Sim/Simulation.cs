@@ -48,6 +48,7 @@ public sealed class Simulation
     private readonly HistorySystem _historySystem;
     private readonly ReforestSystem _reforestSystem;
     private readonly AutoTerraformSystem _autoTerraformSystem;
+    private readonly StreetGridPaver _streetPaver;
     private readonly NpcTownSystem _npcTowns; // postavená cizí města (skutečné budovy a silnice)
     private readonly GrandWorkSystem _grandWork; // bezedný odběr přebytků
     private readonly List<GrandWorkStage> _grandWorkDone = new(); // dokončené stupně (drží bonusy)
@@ -171,6 +172,7 @@ public sealed class Simulation
         _historySystem = new HistorySystem(content);
         _reforestSystem = new ReforestSystem(content);
         _autoTerraformSystem = new AutoTerraformSystem(content);
+        _streetPaver = new StreetGridPaver(content);
         _npcTowns = new NpcTownSystem(content);
         _grandWork = new GrandWorkSystem(content.GrandWork, content.Resources.Count);
         _legacy = new LegacySystem(content.Legacy, content.LegacyUpgrades.All);
@@ -2374,7 +2376,62 @@ public sealed class Simulation
         get
         {
             int tier = CurrentTierIndex;
-            return tier < 0 ? double.PositiveInfinity : _content.AscensionTiers[tier].PopulationCap;
+            if (tier < 0)
+            {
+                return double.PositiveInfinity;
+            }
+
+            // Každý další Vzestup NAD stupněm strop zvedne. Bez toho by se
+            // žebřík na posledním stupni zastavil napořád a i mezi stupni platil
+            // pořád tentýž strop — hráč s vymaxovanými bonusy do něj dojel za
+            // pár vteřin a hra pak jen mlčky stála.
+            //
+            // Kolikrát strop vyroste, si bere z DAT: je to poměr posledních dvou
+            // stupňů žebříku. Když si obsah řekne o skok stokrát, roste i dál
+            // stokrát — a nemůže se to s žebříkem rozejít.
+            int steps = AscensionLevel - _content.AscensionTiers[tier].Order;
+            double cap = _content.AscensionTiers[tier].PopulationCap;
+            return steps <= 0 ? cap : cap * Math.Pow(ScaleGrowthPerAscension, steps);
+        }
+    }
+
+    /// <summary>Naráží populace na strop měřítka? (UI to má říct nahlas, ne mlčet.)</summary>
+    public bool IsAtScaleCap => Population >= PopulationCap - 0.5;
+
+    /// <summary>
+    /// Bylo už dosažení stropu ohlášeno? Hlásí se jednou za éru — opakovaný
+    /// pruh přes obrazovku by z pobídky udělal otravu. Nuluje se Vzestupem,
+    /// protože ten strop zvedne a dojet k němu znovu je zase novinka.
+    /// </summary>
+    internal bool ScaleCapAnnounced { get; set; }
+
+    /// <summary>Řekne hráči, že město dorostlo na strop měřítka a co s tím.</summary>
+    internal void EnqueueScaleCapNotice()
+    {
+        int tier = CurrentTierIndex;
+        EnqueueNotification(new GameNotification(
+            NotificationKind.Milestone,
+            "toast.scaleCapped",
+            tier >= 0 ? _content.AscensionTiers[tier].NameKey : string.Empty));
+    }
+
+    /// <summary>
+    /// O kolik vyroste strop měřítka s každým Vzestupem nad rámec stupně —
+    /// poměr posledních dvou stupňů v datech. Míň než dva stupně = desetinásobek.
+    /// </summary>
+    private double ScaleGrowthPerAscension
+    {
+        get
+        {
+            var tiers = _content.AscensionTiers;
+            if (tiers.Count < 2)
+            {
+                return 10.0;
+            }
+
+            double last = tiers[tiers.Count - 1].PopulationCap;
+            double previous = tiers[tiers.Count - 2].PopulationCap;
+            return previous > 0 && last > previous ? last / previous : 10.0;
         }
     }
 
@@ -3267,12 +3324,34 @@ public sealed class Simulation
     internal void EndBatchPlacement()
     {
         _batchPlacement = false;
+
+        // Napřed ulice kolem všech dotčených bloků, teprve pak dopojování.
+        // V opačném pořadí by hledání cesty vedlo skrz místa, kudy za chvíli
+        // stejně povede ulice, a zbyly by po něm slepé útržky.
+        foreach (int index in _batchPlaced)
+        {
+            if (index < _buildingCount)
+            {
+                _streetPaver.PaveBlockAround(this, _buildings[index].X, _buildings[index].Y);
+            }
+        }
+
         foreach (int index in _batchPlaced)
         {
             _roadBuilder.ConnectBuilding(this, index);
         }
 
         _batchPlaced.Clear();
+    }
+
+    /// <summary>
+    /// Ulice kolem bloku a pak napojení na zbytek sítě. Samotný obvod bloku
+    /// z něj ještě nedělá součást města — k síti se musí dostat cesta.
+    /// </summary>
+    private void PaveAndConnect(int index, int x, int y)
+    {
+        _streetPaver.PaveBlockAround(this, x, y);
+        _roadBuilder.ConnectBuilding(this, index);
     }
 
     /// <summary>Příkaz hráče: postavit budovu. Odečte cenu a obsadí dlaždice.</summary>
@@ -3305,7 +3384,7 @@ public sealed class Simulation
         }
         else
         {
-            _roadBuilder.ConnectLastBuilding(this);
+            PaveAndConnect(_buildingCount - 1, x, y);
         }
 
         SettlementsDirty = true;
@@ -6096,6 +6175,7 @@ public sealed class Simulation
         // Vzestup jde k zemi celý: úroveň, body i strom upgradů.
         AscensionLevel = 0;
         PrestigePoints = 0;
+        ScaleCapAnnounced = false; // nový strop, nová novinka
         Array.Clear(_upgradeLevels);
 
         PeakPopulation = 0;
@@ -6280,6 +6360,7 @@ public sealed class Simulation
 
         PrestigePoints += points;
         AscensionLevel++;
+        ScaleCapAnnounced = false; // nový strop, nová novinka
         ResetEra(); // uvnitř i RefreshTierUnlocks — nové měřítko může odemknout megastruktury
         EnqueueNotification(new GameNotification(NotificationKind.Ascended, "toast.ascended", "prestige.ascendedSubject"));
 

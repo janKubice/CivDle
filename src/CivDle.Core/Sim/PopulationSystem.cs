@@ -47,6 +47,14 @@ internal sealed class PopulationSystem
                     * sim.SeasonGrowthMult * sim.BlessedGrowthMult);
         }
 
+        // Dorazit na strop měřítka je ZPRÁVA, ne ticho. Bez ní hráč vidí jen to,
+        // že se hra „zasekla" — přitom je to pobídka k dalšímu Vzestupu.
+        if (!sim.ScaleCapAnnounced && sim.PopulationCap < double.PositiveInfinity && sim.IsAtScaleCap)
+        {
+            sim.ScaleCapAnnounced = true;
+            sim.EnqueueScaleCapNotice();
+        }
+
         // Vrchol běhu se sleduje tady, kde populace jediné místo roste. Bilance
         // po Vzestupu se ptá „kam jsi to dotáhl", ne „kolik jich zbylo na konci".
         if (sim.Population > sim.PeakPopulation)
