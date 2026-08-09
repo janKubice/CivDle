@@ -1,7 +1,10 @@
 {
-  "schemaVersion": 1,
   "id": "cs",
   "nativeName": "Čeština",
+  "prestige.batch": "Kupovat naráz:",
+  "prestige.batchMax": "Max",
+  "prestige.buyMany": "Koupit ×{0} ({1})",
+  "schemaVersion": 1,
   "strings": {
     "achievement.all_roads": "Všechny cesty vedou k tobě",
     "achievement.all_roads.desc": "Přiber ke své říši 35 cizích měst.",

@@ -1,7 +1,10 @@
 {
-  "schemaVersion": 1,
   "id": "en",
   "nativeName": "English",
+  "prestige.batch": "Buy at once:",
+  "prestige.batchMax": "Max",
+  "prestige.buyMany": "Buy ×{0} ({1})",
+  "schemaVersion": 1,
   "strings": {
     "achievement.all_roads": "All Roads Lead Here",
     "achievement.all_roads.desc": "Bring 35 foreign cities into your realm.",

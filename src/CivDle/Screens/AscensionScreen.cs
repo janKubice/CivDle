@@ -25,6 +25,27 @@ public sealed class AscensionScreen : IScreen
     /// <summary>Čeká tlačítko Vzestupu na potvrzení? (Nevratný krok na dvě kliknutí.)</summary>
     private bool _confirming;
 
+    /// <summary>
+    /// Kam byl seznam odscrollovaný. Po koupi se obrazovka staví znovu a bez
+    /// tohohle skočila na začátek — hráč pak po každém nákupu hledal, kde byl.
+    /// </summary>
+    private Point _scroll;
+
+    /// <summary>Scroller seznamu; drží se kvůli obnovení pozice po přestavbě.</summary>
+    private ScrollViewer? _list;
+
+    /// <summary>Kolik úrovní se kupuje jedním kliknutím.</summary>
+    private int _batch = 1;
+
+    /// <summary>Nabídka násobičů nákupu. „Max" bere, na co body stačí.</summary>
+    private static readonly int[] Batches = { 1, 5, 25, int.MaxValue };
+
+    /// <summary>Šířka panelu. Vzestup je hlavní progrese hry, ne poznámka pod čarou.</summary>
+    private const int PanelWidth = 760;
+
+    /// <summary>Šířka řádku upgradu; scroller si nechá místo na posuvník.</summary>
+    private const int RowWidth = PanelWidth - 56;
+
     public AscensionScreen(ScreenManager screens, Simulation simulation, WorldInfo info)
     {
         _screens = screens;
@@ -69,6 +90,12 @@ public sealed class AscensionScreen : IScreen
     {
         var loc = _screens.Loc;
 
+        // Pozici si vezmi ze starého scrolleru dřív, než ho přestavíš.
+        if (_list is not null)
+        {
+            _scroll = _list.ScrollPosition;
+        }
+
         var layout = new VerticalStackPanel
         {
             Spacing = 10,
@@ -99,11 +126,13 @@ public sealed class AscensionScreen : IScreen
                 HorizontalAlignment = HorizontalAlignment.Center,
                 TextColor = new Color(150, 220, 150),
                 Wrap = true,
-                Width = 460,
+                Width = PanelWidth - 40,
             });
         }
 
         layout.Widgets.Add(AscendAction());
+
+        layout.Widgets.Add(BatchPicker());
 
         // Upgrady (strom) ve scrollu.
         var list = new VerticalStackPanel { Spacing = 8 };
@@ -113,7 +142,8 @@ public sealed class AscensionScreen : IScreen
             list.Widgets.Add(UpgradeRow(i));
         }
 
-        layout.Widgets.Add(new ScrollViewer { Content = list, Height = 300, Width = 460 });
+        _list = new ScrollViewer { Content = list, Height = 440, Width = PanelWidth - 20 };
+        layout.Widgets.Add(_list);
 
         layout.Widgets.Add(UiFactory.MenuButton(loc["panel.close"], _screens.Pop));
 
@@ -124,6 +154,50 @@ public sealed class AscensionScreen : IScreen
         var root = new Panel();
         root.Widgets.Add(panel);
         _desktop = _screens.NewDesktop(root);
+
+        // Vrátit scroll až nad hotovým rozvržením — dřív scroller ještě nezná
+        // svou výšku a pozici by uřízl na nulu.
+        if (_list is not null)
+        {
+            _list.ScrollPosition = _scroll;
+        }
+    }
+
+    /// <summary>
+    /// Přepínač „kolik úrovní naráz". Kupovat po jedné je u opakovatelných
+    /// upgradů, kde hráč utrácí stovky bodů, jen klikání.
+    /// </summary>
+    private Widget BatchPicker()
+    {
+        var loc = _screens.Loc;
+        var row = new HorizontalStackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
+        row.Widgets.Add(new Label
+        {
+            Text = loc["prestige.batch"],
+            TextColor = new Color(180, 185, 200),
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+
+        foreach (int size in Batches)
+        {
+            int captured = size;
+            var button = UiFactory.SmallButton(
+                size == int.MaxValue ? loc["prestige.batchMax"] : "×" + size,
+                () =>
+                {
+                    _batch = captured;
+                    BuildUi();
+                });
+
+            if (size == _batch)
+            {
+                button.Background = new SolidBrush(new Color(110, 86, 160, 240));
+            }
+
+            row.Widgets.Add(button);
+        }
+
+        return row;
     }
 
     private Widget AscendAction()
@@ -236,9 +310,11 @@ public sealed class AscensionScreen : IScreen
         var stack = new VerticalStackPanel
         {
             Spacing = 4,
-            Width = 436,
-            Padding = new Thickness(12, 8),
+            Width = RowWidth,
+            Padding = new Thickness(16, 12),
             Background = new SolidBrush(new Color(30, 26, 44, 235)),
+            Border = new SolidBrush(new Color(120, 96, 180, 160)),
+            BorderThickness = new Thickness(1),
         };
 
         stack.Widgets.Add(new Label
@@ -283,26 +359,55 @@ public sealed class AscensionScreen : IScreen
         var loc = _screens.Loc;
         var upgrade = _screens.Content.PrestigeUpgrades[upgradeIndex];
 
+        // Barva podkladu nese stav uzlu. Dřív vypadaly všechny řádky stejně a
+        // hráč musel číst tlačítko, aby poznal, co si vlastně může koupit.
+        bool maxed = _simulation.IsUpgradeMaxed(upgradeIndex);
+        var state = _simulation.CanBuyUpgrade(upgradeIndex);
+        var (fill, border) = maxed
+            ? (new Color(26, 40, 30, 235), new Color(90, 150, 110, 170))
+            : state switch
+            {
+                PlacementResult.Ok => (new Color(42, 34, 66, 240), new Color(170, 140, 235, 200)),
+                PlacementResult.NotUnlocked => (new Color(22, 20, 30, 220), new Color(70, 70, 84, 120)),
+                _ => (new Color(30, 26, 44, 235), new Color(90, 84, 120, 130)),
+            };
+
         var row = new VerticalStackPanel
         {
-            Spacing = 3,
-            Width = 436,
-            Padding = new Thickness(12, 8),
-            Background = new SolidBrush(new Color(30, 26, 44, 235)),
+            Spacing = 4,
+            Width = RowWidth,
+            Padding = new Thickness(16, 12),
+            Background = new SolidBrush(fill),
+            Border = new SolidBrush(border),
+            BorderThickness = new Thickness(1),
         };
-        row.Widgets.Add(new Label { Text = loc[upgrade.NameKey], TextColor = new Color(190, 160, 235) });
-        row.Widgets.Add(new Label { Text = loc[upgrade.DescriptionKey], TextColor = Color.LightGray, Wrap = true });
 
-        // U opakovatelných upgradů je úroveň to hlavní číslo — bez něj hráč
-        // nevidí, kolikrát už koupil ani kolikrát ještě může.
+        // Nadpis a úroveň na jednom řádku: jméno vlevo, stav vpravo. Svislý
+        // sloupec tří štítků dělal ze seznamu dlouhou šedou stěnu.
+        var header = new HorizontalStackPanel { Spacing = 10, Width = RowWidth - 34 };
+        header.Widgets.Add(new Label
+        {
+            Text = loc[upgrade.NameKey],
+            TextColor = maxed ? new Color(150, 220, 160) : new Color(205, 175, 245),
+        });
         if (upgrade.IsRepeatable)
         {
-            row.Widgets.Add(new Label
+            header.Widgets.Add(new Label
             {
                 Text = loc.Format("prestige.level", _simulation.UpgradeLevel(upgradeIndex), upgrade.MaxLevel),
-                TextColor = new Color(150, 160, 175),
+                TextColor = new Color(160, 170, 190),
+                HorizontalAlignment = HorizontalAlignment.Right,
             });
         }
+
+        row.Widgets.Add(header);
+        row.Widgets.Add(new Label
+        {
+            Text = loc[upgrade.DescriptionKey],
+            TextColor = state == PlacementResult.NotUnlocked ? new Color(140, 140, 152) : Color.LightGray,
+            Wrap = true,
+            Width = RowWidth - 34,
+        });
 
         row.Widgets.Add(UpgradeAction(upgradeIndex));
         return row;
@@ -331,12 +436,19 @@ public sealed class AscensionScreen : IScreen
             return new Label { Text = loc["prestige.locked"], TextColor = new Color(150, 150, 160) };
         }
 
-        // Cena další úrovně, ne základní z dat — u opakovatelných roste.
+        // Cena další úrovně, ne základní z dat — u opakovatelných roste. Při
+        // dávce ukaž, kolik úrovní na body opravdu vyjde, a jejich součet:
+        // „Koupit ×5" a pak koupit tři je horší než nic neslibovat.
+        int levels = _simulation.AffordableUpgradeLevels(upgradeIndex, _batch);
+        string label = levels > 1
+            ? loc.Format("prestige.buyMany", levels, Numbers.Format(_simulation.UpgradeBatchCost(upgradeIndex, levels)))
+            : loc.Format("prestige.buy", Numbers.Format(_simulation.UpgradeCost(upgradeIndex)));
+
         var button = new Button
         {
             Content = new Label
             {
-                Text = loc.Format("prestige.buy", Numbers.Format(_simulation.UpgradeCost(upgradeIndex))),
+                Text = label,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
             },
@@ -345,13 +457,45 @@ public sealed class AscensionScreen : IScreen
             Background = new SolidBrush(new Color(72, 56, 110, 235)),
             Enabled = status == PlacementResult.Ok,
         };
-        button.Click += (_, _) =>
-        {
-            if (_simulation.TryBuyUpgrade(upgradeIndex) == PlacementResult.Ok)
-            {
-                BuildUi();
-            }
-        };
+        button.Click += (_, _) => BuyBatch(upgradeIndex);
         return button;
+    }
+
+    /// <summary>
+    /// Koupí až <see cref="_batch"/> úrovní jedním kliknutím. Každá úroveň se
+    /// kupuje zvlášť a za svou (rostoucí) cenu — dávka šetří klikání, ne body.
+    /// </summary>
+    private void BuyBatch(int upgradeIndex)
+    {
+        int bought = 0;
+        while (bought < _batch && _simulation.TryBuyUpgrade(upgradeIndex) == PlacementResult.Ok)
+        {
+            bought++;
+        }
+
+        if (bought > 0)
+        {
+            BuildUi();
+        }
+    }
+
+    /// <summary>
+    /// Smoke test: projede všechny násobiče a za každý zkusí nakoupit.
+    ///
+    /// <para>Obrazovka se po každé koupi staví celá znovu (kvůli cenám a
+    /// obnovení scrollu) — a přesně přestavba je místo, kde UI padá. Ať se to
+    /// pozná tady, ne až hráči s plnou kapsou bodů.</para>
+    /// </summary>
+    internal void BuyEverythingForSmoke()
+    {
+        foreach (int size in Batches)
+        {
+            _batch = size;
+            BuildUi();
+            for (int i = 0; i < _screens.Content.PrestigeUpgrades.Count; i++)
+            {
+                BuyBatch(i);
+            }
+        }
     }
 }

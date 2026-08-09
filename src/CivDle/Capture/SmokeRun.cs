@@ -61,6 +61,9 @@ public sealed class SmokeRun
         Check("nástroje: vypnout", () => screen.ActivateToolForSmoke(SmokeTool.None));
         Frames(screen, time);
 
+        // Vzestup: nákup po dávkách staví obrazovku znovu po každé koupi.
+        Check("vzestup: nákup po dávkách", () => AscensionRound(screens, sim, time));
+
         // Continue: ulož → načti → postav obrazovku nad načtenou simulací.
         // Přesně tahle cesta hráči spadla, a testy simulace ji nechytí — kříží
         // save vrstvu s UI vrstvou.
@@ -91,13 +94,26 @@ public sealed class SmokeRun
         _passed.Add(what);
     }
 
-    private static void Frames(GameplayScreen screen, GameTime time)
+    private static void Frames(IScreen screen, GameTime time)
     {
         for (int i = 0; i < 3; i++)
         {
             screen.Update(time);
             screen.Draw(time);
         }
+    }
+
+    /// <summary>Otevře Vzestup s hromadou bodů a utratí je všemi násobiči.</summary>
+    private static void AscensionRound(ScreenManager screens, Simulation sim, GameTime time)
+    {
+        sim.DebugGrantPrestigePoints(100_000);
+        var ascension = new AscensionScreen(
+            screens, sim, new WorldInfo(sim.Seed, "medium", "continents"));
+        screens.Push(ascension);
+        Frames(ascension, time);
+        ascension.BuyEverythingForSmoke();
+        Frames(ascension, time);
+        screens.Pop();
     }
 
     private static void BuildRoadsAround(Simulation sim)

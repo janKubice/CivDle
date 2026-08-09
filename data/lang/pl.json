@@ -1,7 +1,10 @@
 {
-  "schemaVersion": 1,
   "id": "pl",
   "nativeName": "Polski",
+  "prestige.batch": "Kupuj naraz:",
+  "prestige.batchMax": "Maks.",
+  "prestige.buyMany": "Kup ×{0} ({1})",
+  "schemaVersion": 1,
   "strings": {
     "achievement.all_roads": "Wszystkie drogi prowadzą tu",
     "achievement.all_roads.desc": "Przyłącz 35 obcych miast.",

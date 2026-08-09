@@ -1,7 +1,10 @@
 {
-  "schemaVersion": 1,
   "id": "de",
   "nativeName": "Deutsch",
+  "prestige.batch": "Auf einmal kaufen:",
+  "prestige.batchMax": "Max",
+  "prestige.buyMany": "×{0} kaufen ({1})",
+  "schemaVersion": 1,
   "strings": {
     "achievement.all_roads": "Alle Wege führen hierher",
     "achievement.all_roads.desc": "Nimm 35 fremde Städte auf.",

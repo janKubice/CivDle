@@ -6097,6 +6097,53 @@ public sealed class Simulation
     }
 
     /// <summary>
+    /// Kolik úrovní upgradu si hráč koupí hned teď, nejvýš <paramref name="max"/>.
+    ///
+    /// <para>Pravidlo o rostoucí ceně patří sem, ne do UI. Obrazovka Vzestupu
+    /// z toho jen vypíše popisek tlačítka („Koupit ×5") — kdyby si ceny sčítala
+    /// sama, měla by hra dvě místa, kde se počítá totéž.</para>
+    /// </summary>
+    public int AffordableUpgradeLevels(int upgradeIndex, int max)
+    {
+        if (max <= 0 || CanBuyUpgrade(upgradeIndex) != PlacementResult.Ok)
+        {
+            return 0;
+        }
+
+        var upgrade = _content.PrestigeUpgrades[upgradeIndex];
+        int level = _upgradeLevels[upgradeIndex];
+        long budget = PrestigePoints;
+        int count = 0;
+        while (count < max && level + count < upgrade.MaxLevel)
+        {
+            long cost = upgrade.CostAtLevel(level + count);
+            if (cost > budget)
+            {
+                break;
+            }
+
+            budget -= cost;
+            count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>Kolik bodů stojí <paramref name="count"/> dalších úrovní dohromady.</summary>
+    public long UpgradeBatchCost(int upgradeIndex, int count)
+    {
+        var upgrade = _content.PrestigeUpgrades[upgradeIndex];
+        int level = _upgradeLevels[upgradeIndex];
+        long total = 0;
+        for (int i = 0; i < count && level + i < upgrade.MaxLevel; i++)
+        {
+            total += upgrade.CostAtLevel(level + i);
+        }
+
+        return total;
+    }
+
+    /// <summary>
     /// Vzestup: udělí body podle dosaženého pokroku, zvýší úroveň a začne novou éru
     /// (resetuje mapu) — trvalé upgrady a body zůstávají. Zdroj háčku dema.
     /// </summary>

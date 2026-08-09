@@ -1,7 +1,10 @@
 {
-  "schemaVersion": 1,
   "id": "es",
   "nativeName": "Español",
+  "prestige.batch": "Comprar a la vez:",
+  "prestige.batchMax": "Máx.",
+  "prestige.buyMany": "Comprar ×{0} ({1})",
+  "schemaVersion": 1,
   "strings": {
     "achievement.all_roads": "Todos los caminos llevan aquí",
     "achievement.all_roads.desc": "Incorpora 35 ciudades extranjeras.",
