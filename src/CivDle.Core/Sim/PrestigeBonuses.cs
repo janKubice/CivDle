@@ -21,6 +21,13 @@ namespace CivDle.Core.Sim;
 /// Násobič tempa automatické výstavby. Je to jeden z mála bonusů, který hráč
 /// <b>vidí</b> na mapě: město se po Vzestupu rozrůstá viditelně rychleji.
 /// </param>
+/// <param name="ComboPower">
+/// Násobič síly klikacího komba (přírůstek za krok i strop série).
+///
+/// <para>Bez něj ruční těžba v pozdní hře umřela: série dala nanejvýš ×1,8 z
+/// výnosu, který mezitím zastínila jedna továrna. S tímhle bonusem má smysl
+/// si občas kliknout i s městem o milionu lidí.</para>
+/// </param>
 public readonly record struct PrestigeBonuses(
     double ProductionMult,
     double HarvestMult,
@@ -34,7 +41,8 @@ public readonly record struct PrestigeBonuses(
     double DiscoveryLuck = 1.0,
     double FestivalPower = 1.0,
     double ResearchDiscount = 0.0,
-    double AutoBuildSpeed = 1.0)
+    double AutoBuildSpeed = 1.0,
+    double ComboPower = 1.0)
 {
     /// <summary>Neutrální bonusy (vše 1.0 / 0) — žádné upgrady.</summary>
     public static PrestigeBonuses None { get; } = new(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0);

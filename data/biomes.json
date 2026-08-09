@@ -414,6 +414,24 @@
         1.0
       ],
       "productionMult": 0.8
+    },
+    {
+      "id": "fallout",
+      "mapColor": "#7C8A3E",
+      "colorVariation": 0.06,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        1.0
+      ],
+      "natural": false,
+      "clickYield": {
+        "resource": "uranium",
+        "amount": 1,
+        "charges": 30,
+        "regrowSeconds": 0
+      },
+      "productionMult": 0.4
     }
   ]
 }

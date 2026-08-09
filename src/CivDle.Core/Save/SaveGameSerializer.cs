@@ -77,6 +77,13 @@ public sealed class SaveGameSerializer
     private const string SectionRuns = "runs";
     private const string SectionHistory = "history";
 
+    /// <summary>
+    /// Úrovně opakovatelných technologií. Vlastní sekce schválně: sekce „tech"
+    /// zůstává seznamem ID přesně jako dřív, takže starší sav se načte a všechny
+    /// jeho technologie prostě mají úroveň 1.
+    /// </summary>
+    private const string SectionTechLevels = "techlevels";
+
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
     {
@@ -176,6 +183,8 @@ public sealed class SaveGameSerializer
         // Časosběr: bez něj by po restartu zmizel celý příběh běhu. Tělo savu
         // je gzip, takže si podobné snímky poradí samy.
         WriteSection(writer, SectionHistory, w => WriteHistory(w, simulation));
+
+        WriteSection(writer, SectionTechLevels, w => WriteTechLevels(w, simulation));
     }
 
     /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
@@ -475,6 +484,7 @@ public sealed class SaveGameSerializer
             case SectionElection: simulation.RestoreElection(section.ReadInt64(), section.ReadInt32()); break;
             case SectionMilestones: ReadMilestones(section, content, simulation); break;
             case SectionHistory: ReadHistory(section, simulation); break;
+            case SectionTechLevels: ReadTechLevels(section, content, simulation); break;
             case SectionRuns:
                 simulation.PeakPopulation = section.ReadInt64();  // pořadí musí sedět se zápisem
                 simulation.BestRunPopulation = section.ReadInt64();
@@ -854,6 +864,54 @@ public sealed class SaveGameSerializer
 
             // Smazaná technologie v datech se ze savu tiše přeskočí (odemčení
             // budov by stejně chybělo — nedělá se z toho chyba).
+        }
+    }
+
+    /// <summary>
+    /// Doplňkové úrovně opakovatelných technologií — jen ty nad první, ostatní
+    /// už zapsala sekce „tech". Zapisuje se až za ní, aby při čtení bylo co
+    /// zvyšovat.
+    /// </summary>
+    private static void WriteTechLevels(BinaryWriter writer, Simulation simulation)
+    {
+        var techDefs = SimContent(simulation).Techs;
+        var extra = new List<(string Id, int Levels)>();
+        for (int i = 0; i < techDefs.Count; i++)
+        {
+            int level = simulation.TechLevel(i);
+            if (level > 1)
+            {
+                extra.Add((techDefs[i].Id, level - 1));
+            }
+        }
+
+        writer.Write(extra.Count);
+        foreach (var (id, levels) in extra)
+        {
+            writer.Write(id);
+            writer.Write(levels);
+        }
+    }
+
+    private static void ReadTechLevels(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        int count = ReadCount(reader, max: 100_000, what: "úrovní technologií");
+        for (int i = 0; i < count; i++)
+        {
+            string id = reader.ReadString();
+            int levels = reader.ReadInt32();
+            if (!content.Techs.TryIndexOf(id, out int index))
+            {
+                continue; // smazaná technologie — stejně jako v sekci „tech"
+            }
+
+            // Strop hlídá RestoreTech, ale počet průchodů si ohlídáme sami —
+            // poškozený sav nesmí roztočit smyčku na dvě miliardy kol.
+            int capped = Math.Clamp(levels, 0, content.Techs[index].MaxLevel);
+            for (int level = 0; level < capped; level++)
+            {
+                simulation.RestoreTech(index);
+            }
         }
     }
 

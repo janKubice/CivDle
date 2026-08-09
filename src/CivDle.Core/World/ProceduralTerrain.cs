@@ -63,6 +63,11 @@ public sealed class ProceduralTerrain : ITerrain
         var land = new List<int>();
         for (int i = 0; i < biomes.Count; i++)
         {
+            if (!biomes[i].IsNaturallyGenerated)
+            {
+                continue; // biom, který vzniká jen přepisem (kráter, zátopa)
+            }
+
             (biomes[i].IsWater ? water : land).Add(i);
         }
 

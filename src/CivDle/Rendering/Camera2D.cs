@@ -23,9 +23,48 @@ public sealed class Camera2D
 
     /// <summary>Transformace pro SpriteBatch (svět → obrazovka).</summary>
     public Matrix Transform =>
-        Matrix.CreateTranslation(-Position.X, -Position.Y, 0f)
+        Matrix.CreateTranslation(-Position.X - _shakeOffset.X, -Position.Y - _shakeOffset.Y, 0f)
         * Matrix.CreateScale(Zoom, Zoom, 1f)
         * Matrix.CreateTranslation(_viewportWidth * 0.5f, _viewportHeight * 0.5f, 0f);
+
+    // ----- otřes -----
+
+    /// <summary>Jak rychle otřes odezní (podíl za sekundu). Krátký úlek, ne houpačka.</summary>
+    private const float ShakeDecayPerSecond = 6f;
+
+    /// <summary>Nejsilnější povolený otřes ve world pixelech — nad tím už jde obraz nečitelně.</summary>
+    private const float MaxShake = 26f;
+
+    private readonly Random _shakeNoise = new(0x5EED);
+    private Vector2 _shakeOffset;
+    private float _shakeStrength;
+
+    /// <summary>
+    /// Zatřese pohledem. Používá se u ran, které mají být cítit — dopad
+    /// meteoritu bez otřesu vypadal jako ohňostroj, ne jako katastrofa.
+    /// </summary>
+    /// <param name="strength">Výchylka ve world pixelech.</param>
+    public void Shake(float strength) => _shakeStrength = Math.Clamp(
+        Math.Max(_shakeStrength, strength), 0f, MaxShake);
+
+    /// <summary>Posune otřes v čase; volá se každý snímek z herní obrazovky.</summary>
+    public void UpdateShake(float deltaSeconds)
+    {
+        if (_shakeStrength <= 0.01f)
+        {
+            _shakeStrength = 0f;
+            _shakeOffset = Vector2.Zero;
+            return;
+        }
+
+        // Otřes je čistě kosmetika renderu, takže nepotřebuje deterministický
+        // generátor jako simulace — stačí, aby se dvě sousední snímky lišily.
+        _shakeOffset = new Vector2(
+            (float)(_shakeNoise.NextDouble() * 2 - 1) * _shakeStrength,
+            (float)(_shakeNoise.NextDouble() * 2 - 1) * _shakeStrength);
+
+        _shakeStrength = Math.Max(0f, _shakeStrength - ShakeDecayPerSecond * _shakeStrength * deltaSeconds);
+    }
 
     /// <summary>
     /// Nastaví měřítko napřímo. Existuje kvůli offscreen kreslení (sdílitelná

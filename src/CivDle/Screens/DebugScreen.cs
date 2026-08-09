@@ -70,6 +70,8 @@ public sealed class DebugScreen : IScreen
         });
 
         layout.Widgets.Add(Row("+10k od každé suroviny", GrantResources));
+        layout.Widgets.Add(Row("+100 bodů Vzestupu", () => GrantAscensionPoints(100)));
+        layout.Widgets.Add(Row("+10 000 bodů Vzestupu", () => GrantAscensionPoints(10_000)));
         layout.Widgets.Add(Row("Vyzkoumat vše, na co dosáhnu", ResearchReachable));
         layout.Widgets.Add(Row("Odhalit mapu v okolí", RevealMap));
 
@@ -132,6 +134,19 @@ public sealed class DebugScreen : IScreen
         }
 
         Report($"vyzkoumáno {done} technologií");
+    }
+
+    /// <summary>
+    /// Přidá body Vzestupu.
+    ///
+    /// <para>Bez tohohle se prestižní vrstva testovala jedině tak, že se hra
+    /// odehrála až k Vzestupu — a to je u každé změny v nákupech vylepšení
+    /// desítky minut. Body jsou obyčejné číslo, takže je stačí přičíst.</para>
+    /// </summary>
+    private void GrantAscensionPoints(long amount)
+    {
+        _simulation.DebugGrantPrestigePoints(amount);
+        Report($"+{amount} bodů Vzestupu (celkem {_simulation.PrestigePoints})");
     }
 
     private void RevealMap()

@@ -359,6 +359,33 @@
       "density": 0.05,
       "minSize": 2,
       "maxSize": 4
+    },
+    {
+      "id": "fallout_slag",
+      "biomes": [
+        "fallout"
+      ],
+      "colors": [
+        "#5E6634",
+        "#3F4526",
+        "#8FA84A"
+      ],
+      "density": 0.28,
+      "minSize": 1,
+      "maxSize": 3
+    },
+    {
+      "id": "fallout_glow",
+      "biomes": [
+        "fallout"
+      ],
+      "colors": [
+        "#B7E24F",
+        "#D6F27A"
+      ],
+      "density": 0.05,
+      "minSize": 1,
+      "maxSize": 2
     }
   ]
 }

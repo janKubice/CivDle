@@ -18,7 +18,8 @@ public sealed record BiomeDto(
     double[]? MoistureRange,
     double[]? TemperatureRange,
     ClickYieldDto? ClickYield,
-    double ProductionMult);
+    double ProductionMult,
+    bool? Natural = null);
 
 /// <summary>Výnos ručního kliknutí na biom tak, jak leží v JSON.</summary>
 public sealed record ClickYieldDto(string? Resource, int Amount, int Charges, double RegrowSeconds);
@@ -207,7 +208,10 @@ public sealed record GameplayFileDto(
     ResearchDto? Research);
 
 /// <summary>Škálování cen výzkumu tak, jak leží v JSON.</summary>
-public sealed record ResearchDto(double CostMultiplier, double CostGrowthPerTech);
+public sealed record ResearchDto(
+    double CostMultiplier,
+    double CostGrowthPerTech,
+    double LevelCostMultiplier = 1.0);
 
 /// <summary>Časosběr tak, jak leží v JSON.</summary>
 public sealed record HistoryDto(double IntervalSeconds, int MaxFrames);
@@ -331,7 +335,7 @@ public sealed record FaunaDto(
     bool Glow);
 
 /// <summary>Obsah souboru <c>data/vehicles.json</c>.</summary>
-public sealed record VehiclesFileDto(int SchemaVersion, List<VehicleDto>? Vehicles);
+public sealed record VehiclesFileDto(int SchemaVersion, List<VehicleDto>? Vehicles, List<AircraftDto>? Aircraft);
 
 /// <summary>Jedno vozidlo tak, jak leží v JSON.</summary>
 public sealed record VehicleDto(
@@ -343,6 +347,16 @@ public sealed record VehicleDto(
     int MinEra,
     int? MaxEra,
     bool Glow);
+
+/// <summary>Jeden létající stroj tak, jak leží v JSON.</summary>
+public sealed record AircraftDto(
+    string? Id,
+    string? Color,
+    double Speed,
+    double Altitude,
+    int MinEra,
+    int? MaxEra,
+    string? Home);
 
 /// <summary>Nastavení auto-stavby tak, jak leží v JSON.</summary>
 public sealed record AutoBuildDto(int IntervalTicks, int SearchRadius, int PopulationHeadroom);
@@ -367,7 +381,8 @@ public sealed record TechDto(
     string[]? Unlocks,
     string? Effect,
     double Magnitude,
-    string? TargetResource);
+    string? TargetResource,
+    int MaxLevel = 1);
 
 /// <summary>
 /// Podmínka cíle/achievementu/Vzestupu tak, jak leží v JSON: metrika + práh + volitelný
@@ -416,7 +431,9 @@ public sealed record GrandWorkFileDto(
     int SchemaVersion,
     int UnlockAscensionLevel,
     double CostGrowth,
-    List<GrandWorkStageDto>? Stages);
+    List<GrandWorkStageDto>? Stages,
+    string? UnlockTech = null,
+    string? Building = null);
 
 /// <summary>Jeden stupeň Velkého díla tak, jak leží v JSON.</summary>
 public sealed record GrandWorkStageDto(

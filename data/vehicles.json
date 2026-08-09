@@ -67,5 +67,49 @@
       "minEra": 6,
       "glow": true
     }
+  ],
+  "aircraft": [
+    {
+      "id": "balloon",
+      "color": "#D8654F",
+      "speed": 16,
+      "altitude": 26,
+      "minEra": 3,
+      "home": "scout_balloon"
+    },
+    {
+      "id": "airship",
+      "color": "#C9CFD6",
+      "speed": 26,
+      "altitude": 40,
+      "minEra": 4,
+      "maxEra": 5,
+      "home": "airport"
+    },
+    {
+      "id": "biplane",
+      "color": "#E0C060",
+      "speed": 64,
+      "altitude": 34,
+      "minEra": 4,
+      "maxEra": 5,
+      "home": "airport"
+    },
+    {
+      "id": "airliner",
+      "color": "#EAEFF4",
+      "speed": 96,
+      "altitude": 52,
+      "minEra": 5,
+      "home": "airport"
+    },
+    {
+      "id": "shuttle",
+      "color": "#B8D8F0",
+      "speed": 130,
+      "altitude": 66,
+      "minEra": 6,
+      "home": "spaceport"
+    }
   ]
 }

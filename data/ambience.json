@@ -4,7 +4,10 @@
   "ambience": [
     {
       "id": "thunderstorm",
-      "weather": ["thunderstorm", "tornado"],
+      "weather": [
+        "thunderstorm",
+        "tornado"
+      ],
       "noiseLevel": 0.85,
       "toneHz": 55,
       "toneLevel": 0.25,
@@ -13,7 +16,10 @@
     },
     {
       "id": "blizzard",
-      "weather": ["blizzard", "sandstorm"],
+      "weather": [
+        "blizzard",
+        "sandstorm"
+      ],
       "noiseLevel": 0.75,
       "toneHz": 0,
       "toneLevel": 0,
@@ -22,7 +28,9 @@
     },
     {
       "id": "rain",
-      "weather": ["rain"],
+      "weather": [
+        "rain"
+      ],
       "noiseLevel": 0.6,
       "toneHz": 0,
       "toneLevel": 0,
@@ -31,7 +39,10 @@
     },
     {
       "id": "snowfall",
-      "weather": ["snowfall", "fog"],
+      "weather": [
+        "snowfall",
+        "fog"
+      ],
       "noiseLevel": 0.18,
       "toneHz": 98,
       "toneLevel": 0.14,
@@ -40,7 +51,14 @@
     },
     {
       "id": "surf",
-      "biomes": ["ocean", "deep_ocean", "shallow_water", "coral_reef", "beach", "pack_ice"],
+      "biomes": [
+        "ocean",
+        "deep_ocean",
+        "shallow_water",
+        "coral_reef",
+        "beach",
+        "pack_ice"
+      ],
       "noiseLevel": 0.45,
       "toneHz": 73.5,
       "toneLevel": 0.12,
@@ -49,7 +67,14 @@
     },
     {
       "id": "forest",
-      "biomes": ["forest", "taiga", "jungle", "mangrove", "highlands", "swamp"],
+      "biomes": [
+        "forest",
+        "taiga",
+        "jungle",
+        "mangrove",
+        "highlands",
+        "swamp"
+      ],
       "noiseLevel": 0.22,
       "toneHz": 110,
       "toneLevel": 0.2,
@@ -58,7 +83,11 @@
     },
     {
       "id": "plains",
-      "biomes": ["grassland", "steppe", "savanna"],
+      "biomes": [
+        "grassland",
+        "steppe",
+        "savanna"
+      ],
       "noiseLevel": 0.16,
       "toneHz": 146.5,
       "toneLevel": 0.18,
@@ -67,7 +96,10 @@
     },
     {
       "id": "desert",
-      "biomes": ["desert", "badlands"],
+      "biomes": [
+        "desert",
+        "badlands"
+      ],
       "noiseLevel": 0.3,
       "toneHz": 82.5,
       "toneLevel": 0.1,
@@ -76,12 +108,30 @@
     },
     {
       "id": "highlands_wind",
-      "biomes": ["mountains", "snow_peaks", "volcanic", "glacier", "ice_shelf", "tundra"],
+      "biomes": [
+        "mountains",
+        "snow_peaks",
+        "volcanic",
+        "glacier",
+        "ice_shelf",
+        "tundra"
+      ],
       "noiseLevel": 0.4,
       "toneHz": 65.5,
       "toneLevel": 0.16,
       "pulseHz": 0.25,
       "volume": 0.33
+    },
+    {
+      "id": "fallout",
+      "biomes": [
+        "fallout"
+      ],
+      "noiseLevel": 0.3,
+      "toneHz": 880,
+      "toneLevel": 0.1,
+      "pulseHz": 3.0,
+      "volume": 0.26
     }
   ]
 }

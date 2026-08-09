@@ -55,7 +55,7 @@
         "tundra",
         "desert"
       ],
-      "buildable": false,
+      "buildable": true,
       "upgradesTo": "brick_house",
       "upgradeCost": {
         "stone": 10,
@@ -484,7 +484,8 @@
         "nanomaterial": 40,
         "robot": 30,
         "science": 75,
-        "faith": 60
+        "faith": 60,
+        "uranium": 40
       }
     },
     {
@@ -620,7 +621,7 @@
         "tundra",
         "desert"
       ],
-      "buildable": false,
+      "buildable": true,
       "upgradesTo": "tenement",
       "upgradeCost": {
         "stone": 14,
@@ -653,7 +654,7 @@
         "tundra",
         "desert"
       ],
-      "buildable": false,
+      "buildable": true,
       "upgradesTo": "apartment",
       "upgradeCost": {
         "steel": 10,
@@ -1003,7 +1004,7 @@
         "tundra",
         "desert"
       ],
-      "buildable": false,
+      "buildable": true,
       "upgradesTo": "high_rise",
       "upgradeCost": {
         "steel": 16,
@@ -1150,7 +1151,7 @@
         "tundra",
         "desert"
       ],
-      "buildable": false,
+      "buildable": true,
       "upgradesTo": "arcology",
       "upgradeCost": {
         "nanomaterial": 10,
@@ -1309,7 +1310,7 @@
         "tundra",
         "desert"
       ],
-      "buildable": false,
+      "buildable": true,
       "minSettlementRank": "large_city"
     },
     {
@@ -1782,7 +1783,12 @@
         "tundra",
         "desert"
       ],
-      "buildable": false
+      "buildable": false,
+      "upgradesTo": "deep_sea_port",
+      "upgradeCost": {
+        "steel": 45,
+        "machine_parts": 20
+      }
     },
     {
       "id": "fishery",
@@ -1837,20 +1843,18 @@
         3,
         3
       ],
-      "workerSlots": 20,
-      "housingCapacity": 10,
+      "workerSlots": 12,
+      "housingCapacity": 6,
       "buildCost": {
         "steel": 60,
         "machine_parts": 25
       },
       "storage": {
-        "food": 2000,
-        "wood": 1500,
-        "planks": 1200,
-        "stone": 1200,
-        "iron": 800,
-        "steel": 800,
-        "coal": 800
+        "food": 1200,
+        "planks": 900,
+        "stone": 900,
+        "steel": 600,
+        "machine_parts": 400
       },
       "requiresAdjacentWater": true,
       "allowedBiomes": [
@@ -2040,7 +2044,8 @@
         "electronics": 2000,
         "computer": 1500,
         "science": 2500,
-        "faith": 2000
+        "faith": 2000,
+        "uranium": 40
       },
       "powerDemand": 40,
       "allowedBiomes": [
@@ -3211,6 +3216,136 @@
         "bonusPerStep": 0.15,
         "maxSteps": 8
       }
+    },
+    {
+      "id": "uranium_mine",
+      "category": "production",
+      "mapColor": "#9CCC3F",
+      "footprint": [
+        2,
+        2
+      ],
+      "workerSlots": 6,
+      "buildCost": {
+        "steel": 45,
+        "machine_parts": 15
+      },
+      "recipe": {
+        "output": {
+          "uranium": 1
+        },
+        "timeTicks": 90
+      },
+      "allowedBiomes": [
+        "fallout"
+      ],
+      "terrainHarvestRadius": 4,
+      "pollution": {
+        "soil": 0.5,
+        "air": 0.2
+      },
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.15,
+        "maxSteps": 6
+      }
+    },
+    {
+      "id": "nuclear_plant",
+      "category": "power",
+      "mapColor": "#5FB4A2",
+      "footprint": [
+        3,
+        3
+      ],
+      "workerSlots": 8,
+      "buildCost": {
+        "steel": 90,
+        "machine_parts": 40,
+        "electronics": 20
+      },
+      "recipe": {
+        "input": {
+          "uranium": 2
+        },
+        "output": {
+          "science": 4
+        },
+        "timeTicks": 120
+      },
+      "powerSupply": 260,
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert"
+      ],
+      "pollution": {
+        "water": 0.4
+      }
+    },
+    {
+      "id": "decontamination_yard",
+      "category": "civic",
+      "mapColor": "#B9E27C",
+      "footprint": [
+        2,
+        2
+      ],
+      "workerSlots": 4,
+      "buildCost": {
+        "steel": 50,
+        "electronics": 15
+      },
+      "upkeep": {
+        "food": 3
+      },
+      "buildable": true,
+      "allowedBiomes": [
+        "fallout",
+        "badlands",
+        "grassland",
+        "steppe",
+        "desert",
+        "tundra"
+      ],
+      "pollution": {
+        "soil": -2.5,
+        "air": -0.5
+      }
+    },
+    {
+      "id": "great_pit",
+      "category": "monument",
+      "mapColor": "#3B3128",
+      "footprint": [
+        5,
+        5
+      ],
+      "workerSlots": 40,
+      "buildCost": {
+        "steel": 400,
+        "machine_parts": 180,
+        "tools": 250
+      },
+      "buildTicks": 900,
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "desert",
+        "tundra",
+        "badlands",
+        "highlands",
+        "fallout"
+      ],
+      "pollution": {
+        "soil": 1.2,
+        "air": 0.8
+      },
+      "buildable": true
     }
   ]
 }

@@ -143,13 +143,12 @@
     "intervalSeconds": 20,
     "maxFrames": 240
   },
-  "startingBuildings": [
-    "cottage"
-  ],
+  "startingBuildings": [],
   "_comment_research": "Ceny v tech.json jsou zaklad. costMultiplier zdrazi cely strom jednim cislem; costGrowthPerTech pricita za kazdou hotovou technologii, takze prvni uzly jsou svizne a pozdejsi stoji za rozmyslenou. Rust je linearni schvalne - slozeny by posledni vetev udelal nedosazitelnou.",
   "research": {
     "costMultiplier": 2.2,
-    "costGrowthPerTech": 0.05
+    "costGrowthPerTech": 0.05,
+    "levelCostMultiplier": 1.9
   },
   "_comment_planting": "Co jde zasadit. Druhy se odemykaji vyzkumem (requiresTech), takze sazeni roste spolu s hrou misto jedne vecne moznosti. Prvni druh je zaroven to, co seje UFO."
 }

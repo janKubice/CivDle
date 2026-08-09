@@ -222,8 +222,26 @@ public sealed record ComboConfig(double WindowSeconds, double BonusPerStep, int 
     public int WindowTicks => (int)Math.Round(WindowSeconds * Sim.Simulation.TicksPerSecond);
 
     /// <summary>Násobič výnosu pro sérii dané délky (1 = první sběr, bez bonusu).</summary>
-    public double Multiplier(int streak) =>
-        IsEnabled ? 1.0 + Math.Clamp(streak - 1, 0, MaxSteps) * BonusPerStep : 1.0;
+    public double Multiplier(int streak) => Multiplier(streak, 1.0);
+
+    /// <summary>
+    /// Násobič výnosu pro sérii, zesílený bonusem <c>combo_power</c>.
+    ///
+    /// <para>Síla zvedá obojí — přírůstek za krok i strop série. Kdyby zvedala
+    /// jen přírůstek, série by pořád skončila na desátém kliknutí a rytmus
+    /// těžby by se nikdy nezměnil.</para>
+    /// </summary>
+    public double Multiplier(int streak, double power)
+    {
+        if (!IsEnabled)
+        {
+            return 1.0;
+        }
+
+        double scale = Math.Max(1.0, power);
+        int steps = (int)Math.Round(MaxSteps * scale);
+        return 1.0 + Math.Clamp(streak - 1, 0, steps) * BonusPerStep * scale;
+    }
 }
 
 /// <summary>
@@ -405,7 +423,10 @@ public sealed record HistoryConfig(double IntervalSeconds, int MaxFrames)
 /// </summary>
 /// <param name="CostMultiplier">Čím se násobí základní cena z dat.</param>
 /// <param name="CostGrowthPerTech">O kolik zdraží každá už hotová technologie (0.05 = +5 %).</param>
-public sealed record ResearchConfig(double CostMultiplier, double CostGrowthPerTech)
+public sealed record ResearchConfig(
+    double CostMultiplier,
+    double CostGrowthPerTech,
+    double LevelCostMultiplier = 1.0)
 {
     /// <summary>Ceny přesně podle dat — výchozí stav pro obsah bez sekce.</summary>
     public static ResearchConfig Plain { get; } = new(1.0, 0.0);
@@ -413,6 +434,16 @@ public sealed record ResearchConfig(double CostMultiplier, double CostGrowthPerT
     /// <summary>Násobič ceny po <paramref name="researched"/> hotových technologiích.</summary>
     public double ScaleAfter(int researched) =>
         CostMultiplier * (1.0 + CostGrowthPerTech * Math.Max(0, researched));
+
+    /// <summary>
+    /// Násobič ceny další úrovně opakovatelné technologie.
+    ///
+    /// <para>Bez něj by druhá úroveň stála totéž co první a „víc úrovní" by bylo
+    /// jen víc klikání za stejné peníze. Roste mocninou, takže poslední úroveň
+    /// je opravdové rozhodnutí, ne formalita.</para>
+    /// </summary>
+    public double ScaleForLevel(int level) =>
+        Math.Pow(Math.Max(1.0, LevelCostMultiplier), Math.Max(0, level));
 }
 
 /// <param name="StartingBuildingIndices">

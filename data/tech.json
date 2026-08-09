@@ -36,7 +36,8 @@
         "trade"
       ],
       "effect": "production_mult",
-      "magnitude": 0.04
+      "magnitude": 0.04,
+      "maxLevel": 5
     },
     {
       "id": "ledgers",
@@ -48,7 +49,8 @@
         "trade"
       ],
       "effect": "storage_mult",
-      "magnitude": 0.06
+      "magnitude": 0.06,
+      "maxLevel": 5
     },
     {
       "id": "tools",
@@ -98,7 +100,8 @@
       ],
       "effect": "production_mult",
       "magnitude": 0.06,
-      "targetResource": "food"
+      "targetResource": "food",
+      "maxLevel": 5
     },
     {
       "id": "joinery",
@@ -122,7 +125,8 @@
       ],
       "effect": "production_mult",
       "magnitude": 0.05,
-      "targetResource": "planks"
+      "targetResource": "planks",
+      "maxLevel": 5
     },
     {
       "id": "silviculture",
@@ -149,7 +153,8 @@
       ],
       "effect": "production_mult",
       "magnitude": 0.06,
-      "targetResource": "wood"
+      "targetResource": "wood",
+      "maxLevel": 5
     },
     {
       "id": "granary",
@@ -173,7 +178,8 @@
         "granary"
       ],
       "effect": "storage_mult",
-      "magnitude": 0.08
+      "magnitude": 0.08,
+      "maxLevel": 5
     },
     {
       "id": "cartography",
@@ -197,7 +203,8 @@
         "cartography"
       ],
       "effect": "discovery_luck",
-      "magnitude": 0.05
+      "magnitude": 0.05,
+      "maxLevel": 5
     },
     {
       "id": "aeronautics",
@@ -223,7 +230,8 @@
         "aeronautics"
       ],
       "effect": "discovery_luck",
-      "magnitude": 0.06
+      "magnitude": 0.06,
+      "maxLevel": 5
     },
     {
       "id": "masonry",
@@ -235,7 +243,10 @@
         "trade"
       ],
       "effect": "housing_mult",
-      "magnitude": 0.2
+      "magnitude": 0.2,
+      "unlocks": [
+        "cottage"
+      ]
     },
     {
       "id": "stone_sledges",
@@ -248,7 +259,8 @@
       ],
       "effect": "production_mult",
       "magnitude": 0.06,
-      "targetResource": "stone"
+      "targetResource": "stone",
+      "maxLevel": 5
     },
     {
       "id": "bronze_working",
@@ -289,7 +301,8 @@
       ],
       "effect": "production_mult",
       "magnitude": 0.07,
-      "targetResource": "bronze"
+      "targetResource": "bronze",
+      "maxLevel": 5
     },
     {
       "id": "bellows",
@@ -314,7 +327,8 @@
       ],
       "effect": "production_mult",
       "magnitude": 0.06,
-      "targetResource": "coal"
+      "targetResource": "coal",
+      "maxLevel": 5
     },
     {
       "id": "aqueducts",
@@ -338,7 +352,8 @@
         "aqueducts"
       ],
       "effect": "growth_mult",
-      "magnitude": 0.06
+      "magnitude": 0.06,
+      "maxLevel": 5
     },
     {
       "id": "warehousing",
@@ -362,7 +377,8 @@
         "warehousing"
       ],
       "effect": "storage_mult",
-      "magnitude": 0.1
+      "magnitude": 0.1,
+      "maxLevel": 5
     },
     {
       "id": "iron_working",
@@ -378,7 +394,8 @@
         "iron_mine",
         "coal_mine",
         "blast_furnace",
-        "charcoal_kiln"
+        "charcoal_kiln",
+        "brick_house"
       ]
     },
     {
@@ -404,7 +421,8 @@
       ],
       "effect": "production_mult",
       "magnitude": 0.07,
-      "targetResource": "tools"
+      "targetResource": "tools",
+      "maxLevel": 5
     },
     {
       "id": "deep_mining",
@@ -440,7 +458,8 @@
         "guilds"
       ],
       "effect": "festival_power",
-      "magnitude": 0.1
+      "magnitude": 0.1,
+      "maxLevel": 5
     },
     {
       "id": "apprenticeships",
@@ -452,7 +471,8 @@
         "guilds"
       ],
       "effect": "research_discount",
-      "magnitude": 0.05
+      "magnitude": 0.05,
+      "maxLevel": 5
     },
     {
       "id": "night_shifts",
@@ -464,7 +484,8 @@
         "guilds"
       ],
       "effect": "production_mult",
-      "magnitude": 0.04
+      "magnitude": 0.04,
+      "maxLevel": 5
     },
     {
       "id": "municipal_administration",
@@ -511,7 +532,8 @@
         "brickwork"
       ],
       "effect": "housing_mult",
-      "magnitude": 0.07
+      "magnitude": 0.07,
+      "maxLevel": 5
     },
     {
       "id": "steam_power",
@@ -525,7 +547,8 @@
       ],
       "unlocks": [
         "steel_mill",
-        "machine_shop"
+        "machine_shop",
+        "tenement"
       ]
     },
     {
@@ -539,7 +562,8 @@
       ],
       "unlocks": [
         "coal_power_plant",
-        "factory"
+        "factory",
+        "apartment"
       ]
     },
     {
@@ -763,7 +787,8 @@
       ],
       "unlocks": [
         "fusion_plant",
-        "nano_forge"
+        "nano_forge",
+        "arcology"
       ]
     },
     {
@@ -776,7 +801,8 @@
         "computing"
       ],
       "unlocks": [
-        "robotics_lab"
+        "robotics_lab",
+        "high_rise"
       ]
     },
     {
@@ -1571,6 +1597,247 @@
       ],
       "unlocks": [
         "monastery"
+      ]
+    },
+    {
+      "id": "public_works",
+      "cost": {
+        "planks": 120,
+        "stone": 90
+      },
+      "prerequisites": [
+        "masonry"
+      ],
+      "effect": "autobuild_speed",
+      "magnitude": 0.35
+    },
+    {
+      "id": "city_planning",
+      "cost": {
+        "planks": 260,
+        "stone": 200,
+        "bronze": 90
+      },
+      "prerequisites": [
+        "public_works"
+      ],
+      "effect": "autobuild_speed",
+      "magnitude": 0.35
+    },
+    {
+      "id": "flint_picks",
+      "cost": {
+        "stone": 45,
+        "wood": 30
+      },
+      "prerequisites": [
+        "tools"
+      ],
+      "effect": "harvest_mult",
+      "magnitude": 0.12,
+      "maxLevel": 3
+    },
+    {
+      "id": "hafted_hammers",
+      "cost": {
+        "planks": 60,
+        "tools": 12
+      },
+      "prerequisites": [
+        "flint_picks"
+      ],
+      "effect": "harvest_mult",
+      "magnitude": 0.15,
+      "maxLevel": 3
+    },
+    {
+      "id": "fire_setting",
+      "cost": {
+        "stone": 90,
+        "coal": 20,
+        "science": 60
+      },
+      "prerequisites": [
+        "bronze_working"
+      ],
+      "effect": "harvest_mult",
+      "magnitude": 0.2,
+      "maxLevel": 3
+    },
+    {
+      "id": "shaft_sinking",
+      "cost": {
+        "planks": 110,
+        "bronze": 30,
+        "science": 90
+      },
+      "prerequisites": [
+        "fire_setting"
+      ],
+      "effect": "harvest_mult",
+      "magnitude": 0.22,
+      "maxLevel": 3
+    },
+    {
+      "id": "black_powder",
+      "cost": {
+        "coal": 60,
+        "iron": 25,
+        "science": 140
+      },
+      "prerequisites": [
+        "blasting_powder"
+      ],
+      "effect": "harvest_mult",
+      "magnitude": 0.3,
+      "maxLevel": 3
+    },
+    {
+      "id": "dynamite",
+      "cost": {
+        "coal": 120,
+        "steel": 40,
+        "science": 320
+      },
+      "prerequisites": [
+        "black_powder"
+      ],
+      "effect": "harvest_mult",
+      "magnitude": 0.45,
+      "maxLevel": 4
+    },
+    {
+      "id": "hydraulic_hammers",
+      "cost": {
+        "steel": 90,
+        "machine_parts": 40,
+        "science": 500
+      },
+      "prerequisites": [
+        "dynamite"
+      ],
+      "effect": "harvest_mult",
+      "magnitude": 0.6,
+      "maxLevel": 4
+    },
+    {
+      "id": "rhythm_of_the_pick",
+      "cost": {
+        "tools": 25,
+        "science": 40
+      },
+      "prerequisites": [
+        "flint_picks"
+      ],
+      "effect": "combo_power",
+      "magnitude": 0.25,
+      "maxLevel": 3
+    },
+    {
+      "id": "shift_songs",
+      "cost": {
+        "food": 120,
+        "science": 110
+      },
+      "prerequisites": [
+        "rhythm_of_the_pick"
+      ],
+      "effect": "combo_power",
+      "magnitude": 0.3,
+      "maxLevel": 3
+    },
+    {
+      "id": "pneumatic_drills",
+      "cost": {
+        "steel": 70,
+        "machine_parts": 30,
+        "science": 400
+      },
+      "prerequisites": [
+        "shift_songs"
+      ],
+      "effect": "combo_power",
+      "magnitude": 0.4,
+      "maxLevel": 4
+    },
+    {
+      "id": "exosuit_mining",
+      "cost": {
+        "robot": 20,
+        "nanomaterial": 30,
+        "science": 1800
+      },
+      "prerequisites": [
+        "pneumatic_drills"
+      ],
+      "effect": "combo_power",
+      "magnitude": 0.8,
+      "maxLevel": 4
+    },
+    {
+      "id": "radiochemistry",
+      "cost": {
+        "electronics": 25,
+        "steel": 60,
+        "science": 650
+      },
+      "prerequisites": [
+        "electronics"
+      ],
+      "unlocks": [
+        "uranium_mine"
+      ]
+    },
+    {
+      "id": "nuclear_fission",
+      "cost": {
+        "uranium": 20,
+        "machine_parts": 50,
+        "science": 1100
+      },
+      "prerequisites": [
+        "radiochemistry"
+      ],
+      "unlocks": [
+        "nuclear_plant"
+      ]
+    },
+    {
+      "id": "decontamination",
+      "cost": {
+        "uranium": 15,
+        "electronics": 40,
+        "science": 900
+      },
+      "prerequisites": [
+        "nuclear_fission"
+      ],
+      "unlocks": [
+        "decontamination_yard"
+      ]
+    },
+    {
+      "id": "great_excavation",
+      "cost": {
+        "steel": 300,
+        "machine_parts": 120,
+        "science": 1400
+      },
+      "prerequisites": [
+        "earthmoving"
+      ],
+      "unlocks": [
+        "great_pit"
+      ]
+    },
+    {
+      "id": "standard_plans",
+      "cost": {
+        "planks": 90,
+        "science": 180
+      },
+      "prerequisites": [
+        "city_blocks"
       ]
     }
   ]

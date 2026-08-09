@@ -42,13 +42,28 @@ public class TechAndUpgradeTests
     }
 
     [Fact]
-    public void UpgradeTargets_AreNotDirectlyBuildable()
+    public void UpgradeTargets_AreBuildableOnceResearched()
     {
+        // Vyšší stupně bydlení jde stavět rovnou, ne jen vylepšovat. Ve třetí
+        // éře je stavět dům a hned ho vylepšovat na chalupu jen klikání navíc.
+        //
+        // „Rovnou" ale neznamená „hned": brání tomu výzkum, ne příznak
+        // buildable. Bez vyzkoumané technologie se chalupa pořád nepostaví.
+        var sim = Grass(out var content);
+        int cottage = content.Buildings.IndexOf("cottage");
+
+        Assert.False(sim.IsBuildingUnlocked(cottage), "chalupa má být na začátku zamčená výzkumem");
+        Assert.Equal(PlacementResult.NotUnlocked, sim.CanPlace(cottage, 0, 0));
+    }
+
+    [Fact]
+    public void MergedHouses_StayUpgradeOnly()
+    {
+        // Sloučené domy jsou naopak výsledek gesta, ne položka v katalogu:
+        // postavit blok 2×2 přímo by ze slučování udělalo zbytečnou mechaniku.
         var sim = Grass(out var content);
 
-        // Chalupa je jen cíl vylepšení domu, ne přímá stavba.
-        Assert.False(sim.IsBuildingBuildable(content.Buildings.IndexOf("cottage")));
-        Assert.Equal(PlacementResult.NotUnlocked, sim.CanPlace(content.Buildings.IndexOf("cottage"), 0, 0));
+        Assert.False(sim.IsBuildingBuildable(content.Buildings.IndexOf("manor")));
     }
 
     [Fact]

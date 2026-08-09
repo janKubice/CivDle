@@ -118,6 +118,51 @@ public sealed class PlayerProfile
         SettledBiomes.Add(biomeId);
         return true;
     }
+
+    /// <summary>
+    /// Uložené šablony zástavby (bod 44).
+    ///
+    /// <para>Patří do profilu, ne do savu: hráč si rozvržení vymyslí jednou
+    /// a chce ho mít i po Vzestupu a v další hře. Sav je per-běh, profil je
+    /// per-hráč — a šablona je zkušenost hráče, ne stav světa.</para>
+    /// </summary>
+    public List<SavedTemplate> Templates { get; set; } = new();
+}
+
+/// <summary>Šablona zástavby tak, jak leží v profilu (JSON).</summary>
+public sealed class SavedTemplate
+{
+    /// <summary>Jméno, které si hráč zvolil.</summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>Budovy v šabloně.</summary>
+    public List<SavedTemplatePart> Buildings { get; set; } = new();
+
+    /// <summary>Dlaždice silnic v šabloně.</summary>
+    public List<SavedTemplateTile> Roads { get; set; } = new();
+}
+
+/// <summary>Jedna budova šablony v profilu.</summary>
+public sealed class SavedTemplatePart
+{
+    /// <summary>Stabilní ID budovy.</summary>
+    public string Building { get; set; } = string.Empty;
+
+    /// <summary>Posun doprava od rohu šablony.</summary>
+    public int X { get; set; }
+
+    /// <summary>Posun dolů od rohu šablony.</summary>
+    public int Y { get; set; }
+}
+
+/// <summary>Jedna dlaždice silnice v profilu.</summary>
+public sealed class SavedTemplateTile
+{
+    /// <summary>Posun doprava od rohu šablony.</summary>
+    public int X { get; set; }
+
+    /// <summary>Posun dolů od rohu šablony.</summary>
+    public int Y { get; set; }
 }
 
 /// <summary>

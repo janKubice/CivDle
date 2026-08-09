@@ -54,8 +54,19 @@ public sealed record Biome(
     ValueRange MoistureRange,
     ValueRange TemperatureRange,
     ClickYield? ClickYield = null,
-    double ProductionMult = 1.0)
+    double ProductionMult = 1.0,
+    bool Natural = true)
 {
+    /// <summary>
+    /// Vzniká biom při generování světa?
+    ///
+    /// <para><c>false</c> = objeví se jen tam, kam ho něco přepíše (kráter po
+    /// meteoritu, zaplavené pobřeží). Bez tohohle příznaku by se takový biom
+    /// musel odstavit nesmyslným rozsahem výšek a stejně by hrozilo, že se
+    /// při jiném presetu někde vygeneruje.</para>
+    /// </summary>
+    public bool IsNaturallyGenerated => Natural;
+
     /// <summary>
     /// Násobič výroby budov stojících na tomhle biomu (living-map.md §5 — biomy
     /// nejsou jen jiná grafika, mají jinou ekonomiku). 1.0 = neutrální.

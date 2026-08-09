@@ -114,6 +114,12 @@
       "mapColor": "#4DB6AC",
       "startAmount": 0,
       "baseStorage": 30
+    },
+    {
+      "id": "uranium",
+      "mapColor": "#A5D63F",
+      "startAmount": 0,
+      "baseStorage": 60
     }
   ]
 }

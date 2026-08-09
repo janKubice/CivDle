@@ -238,6 +238,27 @@
       "size": 4,
       "speed": 12,
       "timeOfDay": "day"
+    },
+    {
+      "id": "glow_beetle",
+      "biomes": [
+        "fallout"
+      ],
+      "color": "#C6E85A",
+      "size": 2,
+      "speed": 12,
+      "timeOfDay": "night"
+    },
+    {
+      "id": "crow",
+      "biomes": [
+        "fallout",
+        "badlands"
+      ],
+      "color": "#2B2B33",
+      "size": 2,
+      "speed": 30,
+      "timeOfDay": "day"
     }
   ]
 }

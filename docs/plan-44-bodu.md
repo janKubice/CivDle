@@ -9,16 +9,16 @@ Značky: `[ ]` čeká · `[~]` rozděláno · `[x]` hotovo
 
 | Dávka | Body | Stav |
 |---|---|---|
-| 0 — odpovědi | 1 | odpovězeno (kód není potřeba; chybí `docs/steam/code-signing.md`) |
+| 0 — odpovědi | 1 | odpovězeno + `docs/steam/code-signing.md` |
 | 1 — pády | 7, 6, 19, 40, 9, 32, 13 | **hotovo** |
 | 2 — HUD | 3, 4, 5, 10, 11, 12, 25, 29, 30, 31, 33, 34, 35 | **hotovo** |
 | 3 — nástroje | 24, 20, 23, 22, 26, 17, 27, 28 | **hotovo** |
-| 3 — nástroje | 18 | čeká na rozhodnutí (A/B/C níže) |
-| 4 — budovy | 14, 15, 16, 41, 43 | čeká |
-| 5 — obsah | 8, 37, 36, 21, 38, 39, 42 | čeká |
-| 6 — velké funkce | 44, 2 | čeká |
+| 3 — nástroje | 18 | **hotovo** (varianta C: smíšené zóny v datech, vlastní zóna v dávce 6) |
+| 4 — budovy | 14, 15, 16, 41, 43 | **hotovo** |
+| 5 — obsah | 8, 37, 36, 21, 38, 39, 42 | **hotovo** |
+| 6 — velké funkce | 44, 2 | **hotovo** |
 
-**Zbývá 15 bodů z 44.**
+**Hotovo všech 44 bodů.**
 
 ---
 
@@ -45,7 +45,7 @@ Co s tím, seřazeno podle účinnosti:
 s tím, že první týdny budou hlášení. EV kup, pokud chceš klidné vydání.
 Podepisuje se `signtool.exe` na výsledné `.exe` **před** nahráním do depotu.
 
-Detaily a přesné příkazy: `docs/steam/code-signing.md` (bude doplněno v dávce 1).
+Detaily a přesné příkazy: `docs/steam/code-signing.md`.
 
 ---
 
@@ -117,39 +117,48 @@ Vyšlo to najevo u bodu 14: jakmile se vyšší stupně domů udělají stavitel
 startovní chalupa se začne stavět a 22 testů spadne na tom, že město má o jednu
 budovu víc, než čekaly.
 
-**Rozhodnutí k udělání:** má hra začínat s domkem (data říkají ano), nebo na
-prázdné louce (jak se hraje dnes)? Podle toho se buď opraví testy, nebo se
-`startingBuildings` vyprázdní. Bod 14 na tom visí — proto zatím není hotový.
+**Rozhodnuto (B):** hra začíná na prázdné louce, `startingBuildings` je prázdné.
+Vyšší stupně domů jsou teď stavitelné, ale zamčené výzkumem podle éry
+(masonry → chalupa, iron_working → cihlový dům, steam_power → činžák,
+electrification → byty, robotics → mrakodrap, fusion → arkologie) — takže
+„rovnou" neznamená „hned".
 
 ## Dávka 4 — budovy a progrese
 
-- [ ] **14.** V dalších érách jde rovnou stavět lepší domky, ne jen základní
+- [x] **14.** V dalších érách jde rovnou stavět lepší domky, ne jen základní
       a vylepšovat
-- [ ] **15.** Větší budovy aspoň 2×2, nejvyšší tier domku klidně 3×3
-- [ ] **16.** Sloučený dům musí jít vylepšovat na další tiery jako 1×1
-- [ ] **41.** Čím větší NPC město, tím dražší dary a odkoupení (a víc budov
+- [x] **15.** Větší budovy aspoň 2×2, nejvyšší tier domku klidně 3×3
+- [x] **16.** Sloučený dům musí jít vylepšovat na další tiery jako 1×1
+- [x] **41.** Čím větší NPC město, tím dražší dary a odkoupení (a víc budov
       na převzetí)
-- [ ] **43.** Velký přístav pro zámořské lodě
+- [x] **43.** Velký přístav pro zámořské lodě
 
 ## Dávka 5 — obsah a mechaniky
 
-- [ ] **8.** Debug menu: přidávání bodů Vzestupu
-- [ ] **37.** Guvernér je pomalý → výzkumy a vylepšení na jeho rychlost
-- [ ] **36.** Výzkumy s obecným popiskem („trochu něco zvětší") → konkrétní
-      popis a víc úrovní
-- [ ] **21.** Těžební technologie i pro nižší éry (dynamit…) + komba, ať se
-      vyplatí občas těžit ručně i v pozdní hře
-- [ ] **38.** Meteor dramatičtější: výbuch, efekt, ničení budov i při špatném
-      kliknutí
-- [ ] **39.** Po meteoru zůstane radioaktivní půda → nová surovina, budovy
-      a výzkumy okolo
-- [ ] **42.** Letadla a balony létají po mapě (jako rybářské lodičky)
+- [x] **8.** Debug menu: přidávání bodů Vzestupu
+- [x] **37.** Guvernér je pomalý → výzkumy a vylepšení na jeho rychlost
+      *(Veřejné práce a Územní plán, +35 % každý)*
+- [x] **36.** Výzkumy s obecným popiskem („trochu něco zvětší") → konkrétní
+      popis a víc úrovní *(osmnáct uzlů je teď opakovatelných, `maxLevel` 5)*
+- [x] **21.** Těžební technologie i pro nižší éry (dynamit…) + komba, ať se
+      vyplatí občas těžit ručně i v pozdní hře *(7 těžebních + 4 na sílu série)*
+- [x] **38.** Meteor dramatičtější: výbuch, efekt, ničení budov i při špatném
+      kliknutí *(nevyslyšená rána spadne VEDLE — výsledek `Strayed`)*
+- [x] **39.** Po meteoru zůstane radioaktivní půda → nová surovina, budovy
+      a výzkumy okolo *(biom `fallout`, uran, tři budovy, tři výzkumy)*
+- [x] **42.** Letadla a balony létají po mapě (jako rybářské lodičky)
+
+### Velké dílo (upřesnění z hraní)
+
+- [x] Sink není položka v menu: odemyká ho výzkum **Velký výkop** a stavba
+      **Velké dílo** — jáma 5×5 se stupňovitými etážemi a jeřáby.
 
 ## Dávka 6 — velké samostatné funkce
 
-- [ ] **44.** Šablony (templaty): hráč si uloží kus zástavby a staví ho znovu.
-      Výzkum, ikona v menu, ghost náhled, nastavení.
-- [ ] **2.** **Komplexní ingame content creator** — přepsat editor modů
+- [x] **44.** Šablony (templaty): hráč si uloží kus zástavby a staví ho znovu.
+      Výzkum (Typové plány), ikona v liště, ghost náhled, správa v nastavení.
+      Šablony bydlí v profilu hráče, takže přežijí Vzestup i novou hru.
+- [x] **2.** **Komplexní ingame content creator** — přepsán podle katalogu typů
 
 ### K bodu 2 podrobněji
 
@@ -184,8 +193,19 @@ každý další typ znamenal novou ručně psanou obrazovku, a u sedmi typů se 
 rozpadne. Odhad zůstává: **několik dní práce**, a je to největší jednotlivá
 položka z celého seznamu.
 
-Model (`ModDraft`, `ModValidator`) a testy z minula zůstávají — mění se UI
-a rozšiřuje se katalog typů.
+Model (`ModDraft`, `ModValidator`) a testy z minula zůstaly; přibyl
+`ModTypeCatalog` nad `data/mod-types.json`, obecný zápis (`ModEntryWriter`)
+a kreslítko spritů, které opravdu ovlivní, jak budova ve hře vypadá.
+
+**Hotovo takto:**
+
+1. Katalog typů v datech (`data/mod-types.json`) — sedm typů, každý se svými
+   poli, odkazy a cestou do výsledného JSON.
+2. Obecný formulář nad katalogem — jedna obrazovka, žádný typ v kódu.
+3. Kreslítko spritů 32×32 (paleta, kbelík, guma) → PNG do složky modu;
+   `SpriteLibrary.LoadModSprites` ho při startu použije místo modelu z kódu.
+4. Kontrola skutečným loaderem — uloží se jen mod, který se opravdu načte.
+5. Mod pack: víc typů obsahu v jednom modu, seznam a mazání po položkách.
 
 ---
 

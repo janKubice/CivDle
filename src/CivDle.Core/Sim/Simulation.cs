@@ -72,7 +72,7 @@ public sealed class Simulation
     private readonly bool[] _achievementsUnlocked;
 
     private readonly bool[] _buildingUnlocked;
-    private readonly bool[] _techResearched;
+    private readonly int[] _techLevel;
     private readonly int[] _upgradeLevels;      // koupené úrovně trvalých upgradů Vzestupu
     private readonly bool[] _policiesActive;    // zapnuté politiky růstu (automatizace, stupeň 4)
     private readonly long[] _harvestedTotals; // kumulativní sběr surovin klikáním (metriky cílů)
@@ -120,7 +120,7 @@ public sealed class Simulation
             }
         }
 
-        _techResearched = new bool[content.Techs.Count];
+        _techLevel = new int[content.Techs.Count];
         _upgradeLevels = new int[content.PrestigeUpgrades.Count];
         _policiesActive = new bool[content.Policies.Count];
         _harvestedTotals = new long[content.Resources.Count];
@@ -503,12 +503,13 @@ public sealed class Simulation
         }
 
         var catalog = _content.NpcCities;
-        if (!CanPay(catalog.GiftCost))
+        var gift = ScaledCost(catalog.GiftCost, CityScale(key));
+        if (!CanPay(gift))
         {
             return DiplomacyResult.NotEnoughResources;
         }
 
-        Pay(catalog.GiftCost);
+        Pay(gift);
         state.Relation = Math.Min(MaxRelation, state.Relation + catalog.GiftRelation);
         _npcStates[key] = state;
         return DiplomacyResult.Ok;
@@ -592,6 +593,61 @@ public sealed class Simulation
     }
 
     /// <summary>
+    /// Jak velké je cizí město v porovnání s tím nejmenším. 1,0 = nejmenší
+    /// archetyp, výš roste s počtem obyvatel.
+    ///
+    /// <para>Dřív stálo všechno stejně: dar metropoli o sto padesáti lidech vyšel
+    /// na tolik co dar vesnici o čtyřiceti, a obestavět šlo obojí dvanácti domy.
+    /// Diplomacie tím ztratila rozhodování — nebyl důvod začínat u malých.</para>
+    ///
+    /// <para>Škáluje se podle <b>populace archetypu</b>, ne podle postavených
+    /// budov: plán města je čistá funkce seedu, takže je cena stabilní a hráč se
+    /// na ni může připravit.</para>
+    /// </summary>
+    public double CityScale(long key)
+    {
+        if (!NpcCities.TryCityByKey(key, out var city))
+        {
+            return 1.0;
+        }
+
+        var archetypes = _content.NpcCities.Archetypes;
+        double smallest = double.MaxValue;
+        for (int i = 0; i < archetypes.Count; i++)
+        {
+            smallest = Math.Min(smallest, Math.Max(1, archetypes[i].Population));
+        }
+
+        double population = Math.Max(1, archetypes[city.ArchetypeIndex].Population);
+        return population / smallest;
+    }
+
+    /// <summary>Kolik stojí dar tomuhle městu. UI musí ukazovat tuhle cenu, ne tu z dat.</summary>
+    public IReadOnlyList<ResourceAmount> GiftCostFor(long key) =>
+        ScaledCost(_content.NpcCities.GiftCost, CityScale(key));
+
+    /// <summary>Kolik stojí odkoupit tohle město.</summary>
+    public IReadOnlyList<ResourceAmount> BuyCostFor(long key) =>
+        ScaledCost(_content.NpcCities.BuyCost, Math.Pow(CityScale(key), 1.6));
+
+    /// <summary>Kolik vlastních budov kolem města je potřeba, aby srostlo s říší.</summary>
+    public int SurroundBuildingsFor(long key) =>
+        (int)Math.Ceiling(_content.NpcCities.SurroundBuildings * CityScale(key));
+
+    /// <summary>Cena vynásobená a zaokrouhlená nahoru — z ceny nesmí vyjít nula.</summary>
+    private static ResourceAmount[] ScaledCost(IReadOnlyList<ResourceAmount> cost, double scale)
+    {
+        var scaled = new ResourceAmount[cost.Count];
+        for (int i = 0; i < cost.Count; i++)
+        {
+            scaled[i] = new ResourceAmount(
+                cost[i].ResourceIndex, (int)Math.Ceiling(cost[i].Amount * scale));
+        }
+
+        return scaled;
+    }
+
+    /// <summary>
     /// Odkud vést cestu, když si hráč nevybral: z nejbližšího vlastního sídla,
     /// jinak ze středu města. Vzdálenost se měří k cílovému městu, ne k hráči —
     /// nejkratší cesta je i ta nejlevnější na pohled.
@@ -645,12 +701,15 @@ public sealed class Simulation
             return DiplomacyResult.RelationTooLow;
         }
 
-        if (!CanPay(_content.NpcCities.BuyCost))
+        // Odkup roste s velikostí města strměji než dar: metropoli si nemá jít
+        // koupit za tolik co vesnici jen proto, že hráč nasyslil.
+        var price = ScaledCost(_content.NpcCities.BuyCost, Math.Pow(CityScale(key), 1.6));
+        if (!CanPay(price))
         {
             return DiplomacyResult.NotEnoughResources;
         }
 
-        Pay(_content.NpcCities.BuyCost);
+        Pay(price);
         AbsorbCity(key, city);
         return DiplomacyResult.Ok;
     }
@@ -753,7 +812,8 @@ public sealed class Simulation
 
             // Obestavěné město sroste s hráčovým samo — nikdo ho nedobývá,
             // jen se kolem něj rozrostlo město a hranice přestala dávat smysl.
-            if (CountOwnBuildingsAround(city.X, city.Y, catalog.SurroundRadius) >= catalog.SurroundBuildings)
+            int needed = (int)Math.Ceiling(catalog.SurroundBuildings * CityScale(city.Key));
+            if (CountOwnBuildingsAround(city.X, city.Y, catalog.SurroundRadius) >= needed)
             {
                 AbsorbCity(city.Key, city);
                 continue;
@@ -902,6 +962,18 @@ public sealed class Simulation
     public PrayerOutcome TryPray(int prayerIndex, int strength, int targetX, int targetY) =>
         _prayerSystem.Pray(this, prayerIndex, strength, targetX, targetY);
 
+    /// <summary>
+    /// Kam naposledy dopadla rána z modlitby (dlaždice).
+    ///
+    /// <para>Render podle toho umístí výbuch. Nestačí vzít místo, kam hráč klikl:
+    /// když rána mine, spadne jinam — a podívaná musí být tam, kde se to opravdu
+    /// stalo, jinak by hráč hledal kráter na špatném konci mapy.</para>
+    /// </summary>
+    public (int X, int Y) LastStrikeTile { get; private set; }
+
+    /// <summary>Zaznamená místo dopadu (volá <see cref="PrayerSystem"/> těsně před účinkem).</summary>
+    internal void ReportStrike(int x, int y) => LastStrikeTile = (x, y);
+
     /// <summary>Zapne dočasné požehnání (volá se z účinku modlitby).</summary>
     internal void StartBlessing(BlessingKind kind, double magnitude, int radiusTiles, int targetX, int targetY)
     {
@@ -960,7 +1032,12 @@ public sealed class Simulation
         }
 
         hits += StrikeCities(centerX, centerY, radiusTiles, waterOnly: false);
-        ScorchGround(centerX, centerY, radiusTiles);
+
+        // Po kameni z vesmíru nezůstane obyčejné spáleniště, ale zamořená půda:
+        // nedá se na ní stavět (kromě uranového dolu) a dokud ji hráč
+        // nedekontaminuje, je z kráteru rána v mapě, ne kosmetika.
+        ScorchGround(centerX, centerY, radiusTiles,
+            FalloutBiomeIndex >= 0 ? FalloutBiomeIndex : ScorchedBiomeIndex);
 
         Fog.Reveal(centerX, centerY, radiusTiles + 4); // ránu je vidět zdaleka
         return hits;
@@ -1118,7 +1195,7 @@ public sealed class Simulation
     /// Spáleniště po dopadu: stromy a žíly shoří, hlína zčerná. Kráter je menší
     /// než dosah rány — jinak by z mapy zbyla po pár modlitbách poušť.
     /// </summary>
-    private void ScorchGround(int centerX, int centerY, int radiusTiles)
+    private void ScorchGround(int centerX, int centerY, int radiusTiles, int craterBiomeIndex)
     {
         int crater = Math.Max(1, radiusTiles / 2);
         for (int y = centerY - radiusTiles; y <= centerY + radiusTiles; y++)
@@ -1128,10 +1205,10 @@ public sealed class Simulation
                 _nodes.Deplete(x, y, TickCount); // les shoří, ale časem doroste
 
                 if (WithinRadius(x, y, centerX, centerY, crater)
-                    && ScorchedBiomeIndex >= 0
+                    && craterBiomeIndex >= 0
                     && !_content.Biomes[Terrain.BiomeAt(x, y)].IsWater)
                 {
-                    SetBiomeOverride(x, y, (byte)ScorchedBiomeIndex);
+                    SetBiomeOverride(x, y, (byte)craterBiomeIndex);
                 }
             }
         }
@@ -1160,6 +1237,10 @@ public sealed class Simulation
     /// <summary>Biom spáleniště; −1 = data ho nemají a kráter se nekreslí.</summary>
     private int ScorchedBiomeIndex =>
         _content.Biomes.TryIndexOf("badlands", out int index) ? index : -1;
+
+    /// <summary>Zamořená půda po dopadu; −1 = data ji nemají a zbude obyčejné spáleniště.</summary>
+    private int FalloutBiomeIndex =>
+        _content.Biomes.TryIndexOf("fallout", out int index) ? index : -1;
 
     /// <summary>Biom mělčiny, kterou po sobě nechá povodeň.</summary>
     private int FloodedBiomeIndex =>
@@ -1992,6 +2073,24 @@ public sealed class Simulation
     /// <summary>Nasbírané body Vzestupu (trvalá měna na permanentní upgrady).</summary>
     public long PrestigePoints { get; internal set; }
 
+    /// <summary>
+    /// Přidá body Vzestupu — <b>jen pro ladicí menu</b>.
+    ///
+    /// <para>Ve hře body vznikají jedině Vzestupem. Tenhle vstup existuje proto,
+    /// že jinak se prestižní vrstva dá vyzkoušet jedině tak, že se hra odehraje
+    /// až k Vzestupu — u každé změny v nákupech vylepšení desítky minut.</para>
+    ///
+    /// <para>Je pojmenovaný tak, aby bylo z volání poznat, že to není herní
+    /// mechanika; záporné číslo se ignoruje, ať se tudy nedá stav rozbít.</para>
+    /// </summary>
+    public void DebugGrantPrestigePoints(long amount)
+    {
+        if (amount > 0)
+        {
+            PrestigePoints += amount;
+        }
+    }
+
     /// <summary>Aktuální trvalé násobiče z koupených upgradů Vzestupu (systémy je čtou).</summary>
     public PrestigeBonuses Bonuses => _bonuses;
 
@@ -2105,7 +2204,7 @@ public sealed class Simulation
     public PlacementResult CanTerraform(int actionIndex, int x, int y)
     {
         var action = _content.Terraform[actionIndex];
-        if (action.UnlockTechIndex >= 0 && !_techResearched[action.UnlockTechIndex])
+        if (action.UnlockTechIndex >= 0 && _techLevel[action.UnlockTechIndex] == 0)
         {
             return PlacementResult.NotUnlocked;
         }
@@ -2323,7 +2422,7 @@ public sealed class Simulation
     }
 
     /// <summary>Je technologie vyzkoumaná?</summary>
-    public bool IsTechResearched(int techIndex) => _techResearched[techIndex];
+    public bool IsTechResearched(int techIndex) => _techLevel[techIndex] > 0;
 
     /// <summary>
     /// Index aktuální éry (nejvyšší dosažené): éra je dosažená, když je vyzkoumaná
@@ -2339,7 +2438,7 @@ public sealed class Simulation
             {
                 var era = _content.Eras[i];
                 bool reached = string.IsNullOrEmpty(era.UnlockTechId)
-                    || (_content.Techs.TryIndexOf(era.UnlockTechId, out int techIndex) && _techResearched[techIndex]);
+                    || (_content.Techs.TryIndexOf(era.UnlockTechId, out int techIndex) && _techLevel[techIndex] > 0);
                 if (reached && era.Order > bestOrder)
                 {
                     bestOrder = era.Order;
@@ -3211,8 +3310,8 @@ public sealed class Simulation
             ? _comboStreak
             : 0;
 
-    /// <summary>Násobič výnosu ze série (1.0 bez série).</summary>
-    public double ComboMultiplier => _content.Gameplay.Combo.Multiplier(ComboStreak);
+    /// <summary>Násobič výnosu ze série (1.0 bez série), včetně bonusu <c>combo_power</c>.</summary>
+    public double ComboMultiplier => _content.Gameplay.Combo.Multiplier(ComboStreak, _bonuses.ComboPower);
 
     /// <summary>Kolik sekund série ještě vydrží, než zhasne (0 = neběží).</summary>
     public double ComboSecondsLeft
@@ -3316,7 +3415,7 @@ public sealed class Simulation
         }
 
         int tech = all[speciesIndex].RequiredTechIndex;
-        return tech < 0 || _techResearched[tech];
+        return tech < 0 || _techLevel[tech] > 0;
     }
 
     /// <summary>
@@ -3845,7 +3944,7 @@ public sealed class Simulation
     /// výchozí (living-city.md §4 — jinak by hráč neměl co dělat).
     /// </summary>
     public bool IsGovernorUnlocked =>
-        _content.Techs.TryIndexOf(GovernorTechId, out int index) && _techResearched[index];
+        _content.Techs.TryIndexOf(GovernorTechId, out int index) && _techLevel[index] > 0;
 
     /// <summary>
     /// Jak moc si guvernér vylepšuje budovy sám: 0 = vůbec, 1 = jen bydlení,
@@ -3888,7 +3987,7 @@ public sealed class Simulation
 
     /// <summary>Je technologie daného ID vyzkoumaná? (Neznámé ID = ne.)</summary>
     private bool IsTechResearchedById(string techId) =>
-        _content.Techs.TryIndexOf(techId, out int index) && _techResearched[index];
+        _content.Techs.TryIndexOf(techId, out int index) && _techLevel[index] > 0;
 
     /// <summary>Příkaz hráče: nastaví míru automatického vylepšování (ořízne se do odemčeného rozsahu).</summary>
     public void SetAutoUpgradeLevel(int level) =>
@@ -3961,7 +4060,7 @@ public sealed class Simulation
     /// </summary>
     public bool IsAutoMergeUnlocked =>
         IsGovernorUnlocked
-        && _content.Techs.TryIndexOf(GovernorMergeTechId, out int index) && _techResearched[index];
+        && _content.Techs.TryIndexOf(GovernorMergeTechId, out int index) && _techLevel[index] > 0;
 
     /// <summary>Slučuje guvernér bloky sám? (Bez technologie vždy ne.)</summary>
     public bool AutoMerge => IsAutoMergeUnlocked && _autoMerge;
@@ -4298,7 +4397,7 @@ public sealed class Simulation
         MetricKind.ResourceStock => (long)_resources[param],
         MetricKind.TotalBuildings => _buildingCount,
         MetricKind.BuildingOfType => CountBuildingsOfType(param),
-        MetricKind.ResearchedTech => _techResearched[param] ? 1 : 0,
+        MetricKind.ResearchedTech => _techLevel[param] > 0 ? 1 : 0,
         MetricKind.AscensionLevel => AscensionLevel,
         MetricKind.DayNumber => DayNumber,
         MetricKind.PlantedNodes => _plantedNodes.Count,
@@ -5119,7 +5218,16 @@ public sealed class Simulation
     /// tím to nejlepší, co strom nabízí — zvědavost, co je za dalším uzlem.</para>
     /// </summary>
     public bool IsTechKnown(int techIndex) =>
-        _techResearched[techIndex] || CanResearch(techIndex) != PlacementResult.NotUnlocked;
+        _techLevel[techIndex] > 0 || CanResearch(techIndex) != PlacementResult.NotUnlocked;
+
+    /// <summary>
+    /// Kolikátou úroveň opakovatelné technologie hráč má (0 = nevyzkoumaná).
+    /// U jednorázových je to 0 nebo 1.
+    /// </summary>
+    public int TechLevel(int techIndex) => _techLevel[techIndex];
+
+    /// <summary>Je technologie na svém stropu (další úroveň už není)?</summary>
+    public bool IsTechMaxed(int techIndex) => _techLevel[techIndex] >= _content.Techs[techIndex].MaxLevel;
 
     /// <summary>
     /// Skutečná cena výzkumu — se škálováním podle počtu hotových technologií
@@ -5136,24 +5244,30 @@ public sealed class Simulation
         var scaled = new ResourceAmount[cost.Count];
         for (int i = 0; i < cost.Count; i++)
         {
-            scaled[i] = new ResourceAmount(cost[i].ResourceIndex, ResearchCost(cost[i].Amount));
+            scaled[i] = new ResourceAmount(cost[i].ResourceIndex, ResearchCost(cost[i].Amount, _techLevel[techIndex]));
         }
 
         return scaled;
     }
 
-    /// <summary>Lze technologii vyzkoumat (prerekvizity splněny, dost surovin, není hotová)?</summary>
+    /// <summary>
+    /// Lze technologii vyzkoumat (prerekvizity splněny, dost surovin, není na stropu)?
+    ///
+    /// <para>U opakovatelných technologií se ptáme na <b>další úroveň</b>: hotová je
+    /// teprve ta, která došla na <see cref="TechDef.MaxLevel"/>.</para>
+    /// </summary>
     public PlacementResult CanResearch(int techIndex)
     {
-        if (_techResearched[techIndex])
+        var tech = _content.Techs[techIndex];
+        int level = _techLevel[techIndex];
+        if (level >= tech.MaxLevel)
         {
             return PlacementResult.Occupied; // už hotová
         }
 
-        var tech = _content.Techs[techIndex];
         foreach (int prereq in tech.PrerequisiteIndices)
         {
-            if (!_techResearched[prereq])
+            if (_techLevel[prereq] == 0)
             {
                 return PlacementResult.NotUnlocked;
             }
@@ -5162,7 +5276,7 @@ public sealed class Simulation
         var cost = tech.Cost;
         for (int i = 0; i < cost.Count; i++)
         {
-            if (_resources[cost[i].ResourceIndex] < ResearchCost(cost[i].Amount))
+            if (_resources[cost[i].ResourceIndex] < ResearchCost(cost[i].Amount, level))
             {
                 return PlacementResult.NotEnoughResources;
             }
@@ -5181,9 +5295,10 @@ public sealed class Simulation
         }
 
         var tech = _content.Techs[techIndex];
+        int level = _techLevel[techIndex];
         for (int i = 0; i < tech.Cost.Count; i++)
         {
-            _resources[tech.Cost[i].ResourceIndex] -= ResearchCost(tech.Cost[i].Amount);
+            _resources[tech.Cost[i].ResourceIndex] -= ResearchCost(tech.Cost[i].Amount, level);
         }
 
         UnlockTech(techIndex);
@@ -5199,9 +5314,17 @@ public sealed class Simulation
     ///
     /// <para>Nikdy neklesne pod 1 — technologie zadarmo by rozbila progresi.</para>
     /// </summary>
-    public int ResearchCost(int baseAmount)
+    public int ResearchCost(int baseAmount) => ResearchCost(baseAmount, 0);
+
+    /// <summary>
+    /// Cena <paramref name="level"/>-té další úrovně opakovatelné technologie
+    /// (0 = první výzkum). Nad rámec obecného škálování se přidává mocnina
+    /// z <see cref="ResearchConfig.ScaleForLevel"/>.
+    /// </summary>
+    public int ResearchCost(int baseAmount, int level)
     {
-        double scaled = baseAmount * _content.Gameplay.Research.ScaleAfter(TechsResearched);
+        var research = _content.Gameplay.Research;
+        double scaled = baseAmount * research.ScaleAfter(TechsResearched) * research.ScaleForLevel(level);
         double discount = Math.Min(0.9, _bonuses.ResearchDiscount + ElectionResearchDiscount);
         return Math.Max(1, (int)Math.Round(scaled * (1.0 - discount)));
     }
@@ -5217,12 +5340,14 @@ public sealed class Simulation
 
     private void UnlockTech(int techIndex)
     {
-        if (!_techResearched[techIndex])
+        if (_techLevel[techIndex] == 0)
         {
-            TechsResearched++;
+            TechsResearched++; // počítají se uzly, ne úrovně — jinak by statistika lhala
         }
 
-        _techResearched[techIndex] = true;
+        // Strop hlídá i obnova ze savu: kdyby v datech ubyla úroveň, načtená hra
+        // se přiškrtí na to, co data dovolují, místo aby dál dávala bonus navíc.
+        _techLevel[techIndex] = Math.Min(_techLevel[techIndex] + 1, _content.Techs[techIndex].MaxLevel);
         foreach (int buildingIndex in _content.Techs[techIndex].UnlockedBuildingIndices)
         {
             _buildingUnlocked[buildingIndex] = true;
@@ -5468,9 +5593,9 @@ public sealed class Simulation
             * Math.Pow(_content.Prestige.RequirementGrowth, levelAfter);
 
         int techs = 0;
-        for (int i = 0; i < _techResearched.Length; i++)
+        for (int i = 0; i < _techLevel.Length; i++)
         {
-            if (_techResearched[i])
+            if (_techLevel[i] > 0)
             {
                 techs++;
             }
@@ -5621,8 +5746,27 @@ public sealed class Simulation
     /// Je Velké dílo k dispozici? Odemyká se Vzestupem — dřív hráč nemá co
     /// přebývat a nabídka „sypej sem" by byla jen matoucí.
     /// </summary>
-    public bool GrandWorkAvailable =>
-        _content.GrandWork.IsEnabled && AscensionLevel >= _content.GrandWork.UnlockAscensionLevel;
+    public bool GrandWorkAvailable
+    {
+        get
+        {
+            var config = _content.GrandWork;
+            if (!config.IsEnabled || AscensionLevel < config.UnlockAscensionLevel)
+            {
+                return false;
+            }
+
+            // Výzkum a stavba: dílo přestalo být položkou v menu, která se
+            // jednou objeví. Napřed se vyzkoumá, pak vykope — a teprve do
+            // vykopané jámy je kam sypat.
+            if (config.NeedsTech && _techLevel[config.UnlockTechIndex] == 0)
+            {
+                return false;
+            }
+
+            return !config.NeedsBuilding || CountBuildingsOfType(config.BuildingIndex) > 0;
+        }
+    }
 
     /// <summary>Kolikátý stupeň Velkého díla se právě staví.</summary>
     public int GrandWorkStage => _grandWork.Stage;
@@ -5830,9 +5974,9 @@ public sealed class Simulation
         get
         {
             int count = 0;
-            for (int i = 0; i < _techResearched.Length; i++)
+            for (int i = 0; i < _techLevel.Length; i++)
             {
-                if (_techResearched[i])
+                if (_techLevel[i] > 0)
                 {
                     count++;
                 }
@@ -5910,9 +6054,9 @@ public sealed class Simulation
 
         // Bilance se sbírá TEĎ, ještě před resetem — po něm už není z čeho.
         int techs = 0;
-        for (int i = 0; i < _techResearched.Length; i++)
+        for (int i = 0; i < _techLevel.Length; i++)
         {
-            if (_techResearched[i])
+            if (_techLevel[i] > 0)
             {
                 techs++;
             }
@@ -5961,6 +6105,7 @@ public sealed class Simulation
         // Kategorie 1: trvalé upgrady Vzestupu (násobí se mezi sebou).
         double production = 1.0, harvest = 1.0, growth = 1.0, housing = 1.0, storage = 1.0;
         double start = 1.0, offline = 1.0, discovery = 1.0, festival = 1.0, autoBuild = 1.0;
+        double combo = 1.0;
         double critChance = 0.0, jackpot = 0.0, research = 0.0;
 
         for (int i = 0; i < _upgradeLevels.Length; i++)
@@ -5998,23 +6143,28 @@ public sealed class Simulation
         // proto se sčítá zvlášť a teprve výsledek se do násobičů promítne.
         double techProduction = 1.0, techHarvest = 1.0, techGrowth = 1.0, techHousing = 1.0;
         double techStorage = 1.0, techOffline = 1.0, techDiscovery = 1.0, techFestival = 1.0, techAutoBuild = 1.0;
+        double techCombo = 1.0;
 
         // Cílené efekty jdou do vlastního pole; bez toho by „+5 % dřeva"
         // zvedlo i výrobu oceli.
         Array.Fill(_resourceProductionMult, 1.0);
-        for (int i = 0; i < _techResearched.Length; i++)
+        for (int i = 0; i < _techLevel.Length; i++)
         {
-            if (!_techResearched[i])
+            if (_techLevel[i] == 0)
             {
                 continue;
             }
 
             var tech = _content.Techs[i];
+
+            // Opakovatelná technologie dává svůj bonus za KAŽDOU úroveň. Jednorázová
+            // má úroveň 1, takže se pro ni nic nemění.
+            double magnitude = tech.Magnitude * _techLevel[i];
             if (tech.TargetResourceIndex >= 0)
             {
                 if (tech.Effect == "production_mult")
                 {
-                    _resourceProductionMult[tech.TargetResourceIndex] += tech.Magnitude;
+                    _resourceProductionMult[tech.TargetResourceIndex] += magnitude;
                 }
 
                 continue;
@@ -6022,18 +6172,19 @@ public sealed class Simulation
 
             switch (tech.Effect)
             {
-                case "production_mult": techProduction += tech.Magnitude; break;
-                case "harvest_mult": techHarvest += tech.Magnitude; break;
-                case "growth_mult": techGrowth += tech.Magnitude; break;
-                case "housing_mult": techHousing += tech.Magnitude; break;
-                case "storage_mult": techStorage += tech.Magnitude; break;
-                case "offline_mult": techOffline += tech.Magnitude; break;
-                case "discovery_luck": techDiscovery += tech.Magnitude; break;
-                case "festival_power": techFestival += tech.Magnitude; break;
-                case "autobuild_speed": techAutoBuild += tech.Magnitude; break;
-                case "crit_chance": critChance += tech.Magnitude; break;
-                case "jackpot_chance": jackpot += tech.Magnitude; break;
-                case "research_discount": research += tech.Magnitude; break;
+                case "production_mult": techProduction += magnitude; break;
+                case "harvest_mult": techHarvest += magnitude; break;
+                case "growth_mult": techGrowth += magnitude; break;
+                case "housing_mult": techHousing += magnitude; break;
+                case "storage_mult": techStorage += magnitude; break;
+                case "offline_mult": techOffline += magnitude; break;
+                case "discovery_luck": techDiscovery += magnitude; break;
+                case "festival_power": techFestival += magnitude; break;
+                case "autobuild_speed": techAutoBuild += magnitude; break;
+                case "combo_power": techCombo += magnitude; break;
+                case "crit_chance": critChance += magnitude; break;
+                case "jackpot_chance": jackpot += magnitude; break;
+                case "research_discount": research += magnitude; break;
             }
         }
 
@@ -6050,7 +6201,8 @@ public sealed class Simulation
             discovery * techDiscovery,
             festival * techFestival,
             Math.Min(research, 0.9),
-            autoBuild * techAutoBuild);
+            autoBuild * techAutoBuild,
+            combo * techCombo);
 
         // Násobičové efekty se skládají mocninou; ty, které se sčítají do
         // pravděpodobnosti (kritický sběr) nebo do slevy, přirozeně součtem.
@@ -6068,6 +6220,7 @@ public sealed class Simulation
                 case "discovery_luck": discovery *= multiplier; break;
                 case "festival_power": festival *= multiplier; break;
                 case "autobuild_speed": autoBuild *= multiplier; break;
+                case "combo_power": combo *= multiplier; break;
                 case "crit_chance": critChance += sum; break;
                 case "jackpot_chance": jackpot += sum; break;
                 case "research_discount": research += sum; break;
@@ -6128,7 +6281,7 @@ public sealed class Simulation
         ContractsCompleted = 0; // a v novém měřítku začínají objednávky zas malé
         _buildingCount = 0;
 
-        Array.Clear(_techResearched);
+        Array.Clear(_techLevel);
         TechsResearched = 0; // nové měřítko se zkoumá od nuly, i cenami
         Array.Fill(_buildingUnlocked, true);
         foreach (var tech in _content.Techs.All)
@@ -6157,9 +6310,9 @@ public sealed class Simulation
     /// <summary>Indexy vyzkoumaných technologií (pro serializaci savu).</summary>
     internal IEnumerable<int> ResearchedTechIndices()
     {
-        for (int i = 0; i < _techResearched.Length; i++)
+        for (int i = 0; i < _techLevel.Length; i++)
         {
-            if (_techResearched[i])
+            if (_techLevel[i] > 0)
             {
                 yield return i;
             }
