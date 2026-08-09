@@ -76,6 +76,14 @@ internal static class BuildingSummary
             text.Append('\n').Append(loc["tip.build.needsWater"]);
         }
 
+        // Že budova mění krajinu sama, se z ceny ani receptu nepozná — a je to
+        // ten jediný důvod, proč ji hráč staví.
+        if (def.Terraforms)
+        {
+            text.Append('\n').Append(loc.Format("tip.build.terraforms",
+                loc[content.Terraform[def.TerraformActionIndex].NameKey], def.TerraformRadius));
+        }
+
         // Svoz se týká každé výrobny, takže se zmiňuje jen jednou obecně —
         // konkrétní číslo pro místo pod kurzorem ukazuje stavební režim.
         if (def.Recipe is not null && content.Gameplay.Haul.IsEnabled)

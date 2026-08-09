@@ -53,6 +53,13 @@ internal sealed class RoadBuilder
     /// by první ulice místo domům, které měly stát vedle nich — a z „postav 25"
     /// by jich vyšlo 23.</para>
     /// </summary>
+    /// <summary>
+    /// Do kolika budov se v osadě BEZ jediné silnice ještě nedláždí mezi
+    /// sousedy. Osm je zhruba blok: čtyři domy na sloučení se vejdou, ale
+    /// rozrůstající se čtvrť už si o ulici řekne.
+    /// </summary>
+    private const int FirstStreetThreshold = 8;
+
     public void ConnectBuilding(Simulation sim, int index)
     {
         var buildings = sim.Buildings;
@@ -75,15 +82,20 @@ internal sealed class RoadBuilder
             return;
         }
 
-        // 2) Sousedství samo o sobě napojení NEZNAMENÁ. Dřív se tady končilo
-        //    u každé budovy, která se dotýkala jiné — a hromadná stavba (×25)
-        //    klade domy natěsno, takže se cesta nepostavila ani jednou a celý
-        //    blok zůstal odříznutý. Teď se ustupuje jen skutečnému napojení
-        //    z bodu 1; když blok k silnici nevede, cesta se hledá.
+        // 2) Malá osada bez silnic: mezi sousedy se nedláždí. Blok 2×2 na
+        //    sloučení musí zůstat celistvý a dlažba mezi dvěma chalupami
+        //    vypadá jako omyl. Vzdálená budova cestu dostane i tak (nedotýká se).
         //
-        //    Výjimka platí jen dokud město žádnou silnici nemá: tam by se
-        //    dláždilo mezi prvními dvěma domy a vznikla by ta šachovnice.
-        if (sim.RoadTiles.Count == 0 && TouchesAnotherBuilding(sim, buildings[last], last))
+        //    Dřív tu stálo „RoadTiles.Count == 0 && dotýká se jiné budovy →
+        //    konec". To byl ZÁMEK SÁM NA SEBE: v souvislé zástavbě se od druhého
+        //    domu dotýká každý, takže se nikdy nepostavila první ulice, počet
+        //    silnic zůstal nula a podmínka platila napořád. Odtud „silnice se
+        //    vůbec nestaví" u hromadné stavby, tažení i guvernéra. Podmínka je
+        //    proto vázaná na VELIKOST osady, která roste, ne na počet silnic,
+        //    který se sám od sebe nezmění.
+        if (sim.RoadTiles.Count == 0
+            && buildings.Length <= FirstStreetThreshold
+            && TouchesAnotherBuilding(sim, buildings[last], last))
         {
             return;
         }
@@ -112,7 +124,7 @@ internal sealed class RoadBuilder
         }
     }
 
-    /// <summary>Připraví hledání cesty: cíle (silnice a ostatní budovy) a starty (napojovaná budova).</summary>
+    /// <summary>Připraví hledání cesty: cíle (silnice a napojené budovy) a starty (napojovaná budova).</summary>
     private void ResetSearch(Simulation sim, ReadOnlySpan<BuildingInstance> buildings, int index)
     {
         _targets.Clear();

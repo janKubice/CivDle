@@ -53,7 +53,14 @@ public sealed class ContentLoader
         // Žebříček sídel před budovami: budova může vyžadovat stupeň sídla,
         // takže loader musí znát ID stupňů dřív, než je začne překládat.
         var settlementRanks = LoadSettlementRanks(Path.Combine(dataDirectory, "settlement-ranks.json"));
-        var buildings = LoadBuildings(Path.Combine(dataDirectory, "buildings.json"), biomes, resources, settlementRanks);
+        // Teraformace se načítá až za technologiemi (odemyká se jimi), ale budovy
+        // na ni musí umět odkázat indexem. Soubor se proto přečte jednou dopředu
+        // a oběma stranám poslouží tentýž seznam — pořadí tak nemůže rozejít.
+        string terraformPath = Path.Combine(dataDirectory, "terraform.json");
+        var terraformFile = ReadTerraformFile(terraformPath);
+        var terraformIds = TerraformIds(terraformPath, terraformFile);
+        var buildings = LoadBuildings(
+            Path.Combine(dataDirectory, "buildings.json"), biomes, resources, settlementRanks, terraformIds);
         var techs = LoadTech(Path.Combine(dataDirectory, "tech.json"), buildings, resources);
         var (prestige, prestigeUpgrades) = LoadPrestige(Path.Combine(dataDirectory, "prestige.json"), resources, buildings, techs);
         var (legacy, legacyUpgrades) = LoadLegacy(Path.Combine(dataDirectory, "legacy.json"), resources, buildings, techs);
@@ -69,7 +76,7 @@ public sealed class ContentLoader
         var features = LoadFeatures(Path.Combine(dataDirectory, "features.json"), resources, buildings, techs);
         var ufo = LoadUfo(Path.Combine(dataDirectory, "ufo.json"));
         var ambience = LoadAmbience(Path.Combine(dataDirectory, "ambience.json"), biomes, weather);
-        var terraform = LoadTerraform(Path.Combine(dataDirectory, "terraform.json"), biomes, resources, techs);
+        var terraform = LoadTerraform(terraformPath, terraformFile, biomes, resources, techs);
         var milestones = LoadMilestones(Path.Combine(dataDirectory, "milestones.json"), resources, buildings, techs);
         var elections = LoadElections(Path.Combine(dataDirectory, "elections.json"));
         var challenges = LoadChallenges(Path.Combine(dataDirectory, "challenges.json"), resources, buildings, techs);
@@ -1122,16 +1129,37 @@ public sealed class ContentLoader
 
     // ----- přetváření krajiny -----
 
-    private DefRegistry<TerraformDef> LoadTerraform(
-        string path, BiomeRegistry biomes, DefRegistry<Resource> resources, DefRegistry<TechDef> techs)
+    /// <summary>
+    /// Přečte soubor teraformace, nebo vrátí <c>null</c>, když chybí — volitelný
+    /// obsah; bez něj se krajina prostě přetvářet nedá.
+    /// </summary>
+    private TerraformFileDto? ReadTerraformFile(string path) =>
+        File.Exists(path) ? ReadFile<TerraformFileDto>(path) : null;
+
+    /// <summary>
+    /// ID zásahů v pořadí, v jakém dostanou index. Budovy, které terén mění
+    /// samy, se na ně odkazují dřív, než se registr vůbec sestaví.
+    /// </summary>
+    private static IReadOnlyList<string> TerraformIds(string path, TerraformFileDto? file)
     {
-        // Volitelný obsah — bez souboru se krajina prostě přetvářet nedá.
-        if (!File.Exists(path))
+        var ids = new List<string>();
+        foreach (var (dto, i) in (file?.Terraform ?? new List<TerraformDto>()).Select((d, i) => (d, i)))
+        {
+            ids.Add(RequireId(path, dto.Id, $"Terraformace na pozici {i}"));
+        }
+
+        return ids;
+    }
+
+    private DefRegistry<TerraformDef> LoadTerraform(
+        string path, TerraformFileDto? file, BiomeRegistry biomes,
+        DefRegistry<Resource> resources, DefRegistry<TechDef> techs)
+    {
+        if (file is null)
         {
             return new DefRegistry<TerraformDef>(Array.Empty<TerraformDef>(), t => t.Id, "terraformace", allowEmpty: true);
         }
 
-        var file = ReadFile<TerraformFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
 
         var result = new List<TerraformDef>();
@@ -1143,11 +1171,10 @@ public sealed class ContentLoader
                 throw new ContentLoadException(path, $"Terraformace '{id}' odkazuje na neexistující biom '{dto.To}' v 'to'.");
             }
 
-            if (biomes[target].IsWater)
-            {
-                throw new ContentLoadException(path, $"Terraformace '{id}': cílem nesmí být vodní biom — utopila by město.");
-            }
-
+            // Cílem SMÍ být voda. Dřív to loader zakazoval („utopila by město"),
+            // jenže tím zakázal i tvorbu jezer, řek a moří — a hráč má mít nad
+            // světem plnou kontrolu. Město hlídá simulace: pod budovou ani
+            // cestou se nekope, takže se voda pustí jen na volnou dlaždici.
             var sources = new List<int>();
             foreach (string? from in dto.From ?? Array.Empty<string>())
             {
@@ -1746,7 +1773,8 @@ public sealed class ContentLoader
     // ----- budovy -----
 
     private DefRegistry<BuildingDef> LoadBuildings(
-        string path, BiomeRegistry biomes, DefRegistry<Resource> resources, SettlementRankLadder ranks)
+        string path, BiomeRegistry biomes, DefRegistry<Resource> resources, SettlementRankLadder ranks,
+        IReadOnlyList<string> terraformIds)
     {
         var file = ReadFile<BuildingsFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
@@ -1770,7 +1798,8 @@ public sealed class ContentLoader
         var buildings = new List<BuildingDef>(file.Buildings.Count);
         for (int i = 0; i < file.Buildings.Count; i++)
         {
-            buildings.Add(ValidateBuilding(path, file.Buildings[i], i, biomes, resources, idToIndex, ranks));
+            buildings.Add(ValidateBuilding(
+                path, file.Buildings[i], i, biomes, resources, idToIndex, ranks, terraformIds));
         }
 
         // Vylepšení smí půdorys ZVĚTŠIT, ale nikdy zmenšit — kontrola po sestavení.
@@ -1815,7 +1844,7 @@ public sealed class ContentLoader
 
     private static BuildingDef ValidateBuilding(
         string path, BuildingDto dto, int index, BiomeRegistry biomes, DefRegistry<Resource> resources,
-        Dictionary<string, int> idToIndex, SettlementRankLadder ranks)
+        Dictionary<string, int> idToIndex, SettlementRankLadder ranks, IReadOnlyList<string> terraformIds)
     {
         string id = RequireId(path, dto.Id, $"Budova na pozici {index}");
         var color = ParseColor(path, dto.MapColor, $"Budova '{id}'");
@@ -1989,6 +2018,8 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"Budova '{id}': 'buildTicks' musí být 0–1000000, je {dto.BuildTicks}.");
         }
 
+        int terraformAction = ParseTerraformAction(path, id, dto, terraformIds);
+
         return new BuildingDef(
             id, category, color, dto.Footprint[0], dto.Footprint[1],
             dto.WorkerSlots, dto.HousingCapacity, buildCost, recipe, mask,
@@ -1999,7 +2030,57 @@ public sealed class ContentLoader
             ParseMilestones(path, id, dto.Milestones),
             ParseSpectacle(path, id, dto.Spectacle),
             dto.ReforestRadius,
-            dto.ScoutRadius);
+            dto.ScoutRadius,
+            terraformAction,
+            dto.TerraformRadius);
+    }
+
+    /// <summary>
+    /// Zásah, který budova provádí sama. Chybí-li v datech, budova terén nemění.
+    ///
+    /// <para>Fail-fast na obě půlky: odkaz na neexistující zásah i „mám akci,
+    /// ale nulový dosah" znamenají budovu, která se tváří, že něco umí,
+    /// a nikdy nic neudělá.</para>
+    /// </summary>
+    private static int ParseTerraformAction(
+        string path, string id, BuildingDto dto, IReadOnlyList<string> terraformIds)
+    {
+        if (string.IsNullOrWhiteSpace(dto.TerraformAction))
+        {
+            if (dto.TerraformRadius > 0)
+            {
+                throw new ContentLoadException(path,
+                    $"Budova '{id}' má 'terraformRadius', ale žádnou 'terraformAction' — nic by nedělala.");
+            }
+
+            return -1;
+        }
+
+        string action = dto.TerraformAction.Trim();
+        int found = -1;
+        for (int i = 0; i < terraformIds.Count; i++)
+        {
+            if (string.Equals(terraformIds[i], action, StringComparison.Ordinal))
+            {
+                found = i;
+                break;
+            }
+        }
+
+        if (found < 0)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}' odkazuje na neexistující teraformaci '{action}'.");
+        }
+
+        // Příliš velký okruh by z jedné stanice udělal celoplošné přetvoření mapy.
+        if (dto.TerraformRadius is < 1 or > 24)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': 'terraformRadius' musí být 1–24, je {dto.TerraformRadius}.");
+        }
+
+        return found;
     }
 
     /// <summary>

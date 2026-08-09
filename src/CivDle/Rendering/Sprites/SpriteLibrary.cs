@@ -128,6 +128,10 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.lumber_camp", SpriteSize, LumberCamp);
         Add(device, "building.lumberyard", SpriteSize, LumberCamp);
         Add(device, "building.tree_nursery", SpriteSize, TreeNursery);
+        Add(device, "building.irrigation_works", SpriteSize, IrrigationWorks);
+        Add(device, "building.drainage_works", SpriteSize, DrainageWorks);
+        Add(device, "building.forestry_office", SpriteSize, ForestryOffice);
+        Add(device, "building.polder_mill", SpriteSize, PolderMill);
         Add(device, "building.scout_balloon", SpriteSize, ScoutBalloon);
         Add(device, "building.radar_station", SpriteSize, RadarStation);
         Add(device, "building.sawmill", SpriteSize, Sawmill);
@@ -1584,6 +1588,75 @@ public sealed class SpriteLibrary : IDisposable
             c.FillRect(9, y, 4, 4, new Color(150, 205, 225));
             c.FillRect(19, y, 4, 4, new Color(150, 205, 225));
         }
+    }
+
+
+    // ----- budovy, které přetvářejí krajinu samy -----
+
+    /// <summary>Zavlažovací dílo: zdymadlo a struhy, ze kterých teče voda do polí.</summary>
+    private static void IrrigationWorks(PixelCanvas c)
+    {
+        c.FillRect(4, 18, 10, 12, new Color(186, 172, 132));   // strojovna
+        c.FillTriangle(2f, 18f, 16f, 18f, 9f, 11f, new Color(128, 104, 70));
+        c.FillRect(7, 24, 4, 6, new Color(96, 74, 50));        // vrata
+
+        // Kanál se stavidlem a rozvod do polí.
+        c.FillRect(16, 20, 14, 4, new Color(86, 140, 190));
+        c.FillRect(19, 18, 2, 8, new Color(120, 96, 66));
+        for (int i = 0; i < 3; i++)
+        {
+            c.FillRect(17 + i * 5, 26, 3, 1, new Color(86, 140, 190));
+            c.FillCircle(18.5f + i * 5, 29f, 1.6f, new Color(112, 168, 92));
+        }
+    }
+
+    /// <summary>Odvodňovací stanice: čerpadlo a stoka, kterou voda z bažiny odtéká.</summary>
+    private static void DrainageWorks(PixelCanvas c)
+    {
+        c.FillRect(6, 14, 14, 16, new Color(146, 154, 148));   // hala čerpadla
+        c.FillTriangle(4f, 14f, 22f, 14f, 13f, 7f, new Color(96, 106, 102));
+        c.FillRect(11, 24, 5, 6, new Color(78, 84, 80));
+        c.FillCircle(13f, 19f, 3.2f, new Color(190, 198, 190)); // kolo čerpadla
+        c.FillRect(12, 12, 2, 4, new Color(110, 116, 112));     // výfuk
+
+        // Odtoková stoka pryč od budovy.
+        c.FillRect(21, 22, 9, 3, new Color(78, 112, 128));
+        c.FillRect(21, 26, 9, 1, new Color(96, 110, 86));
+    }
+
+    /// <summary>Lesní správa: srub s vysazenými řádky a mladým stromkem u cesty.</summary>
+    private static void ForestryOffice(PixelCanvas c)
+    {
+        c.FillRect(4, 17, 14, 13, new Color(126, 98, 64));
+        c.FillTriangle(2f, 17f, 20f, 17f, 11f, 8f, new Color(74, 96, 60));
+        c.FillRect(9, 24, 4, 6, new Color(88, 66, 44));
+
+        // Vysazené řádky za budovou.
+        for (int i = 0; i < 3; i++)
+        {
+            int x = 21 + i % 2 * 5;
+            int y = 14 + i * 6;
+            c.FillRect(x, y + 3, 1, 3, new Color(104, 80, 50));
+            c.FillTriangle(x - 2.5f, y + 3f, x + 3.5f, y + 3f, x + 0.5f, y - 2f, new Color(76, 136, 68));
+        }
+    }
+
+    /// <summary>Poldrový mlýn: čerpací mlýn na hrázi, za ní vysušená zem.</summary>
+    private static void PolderMill(PixelCanvas c)
+    {
+        c.FillRect(18, 22, 12, 8, new Color(96, 148, 186));    // voda za hrází
+        c.FillRect(2, 20, 28, 2, new Color(122, 110, 78));     // hráz
+
+        c.FillRect(9, 12, 9, 10, new Color(198, 186, 148));    // tělo mlýna
+        c.FillTriangle(7f, 12f, 20f, 12f, 13f, 6f, new Color(128, 92, 60));
+        c.FillRect(12, 17, 3, 5, new Color(92, 70, 46));
+
+        // Lopatky.
+        c.FillRect(12, 1, 2, 12, new Color(112, 86, 52));
+        c.FillRect(7, 6, 12, 2, new Color(112, 86, 52));
+
+        // Odvodňovací šnek do kanálu.
+        c.FillRect(18, 19, 6, 2, new Color(150, 140, 110));
     }
 
     // ----- doly a hutě -----

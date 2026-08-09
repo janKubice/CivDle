@@ -92,6 +92,13 @@ public sealed class SettingsStore
             }
         }
 
+        // Neznámý stupeň detailu (starší nebo ručně upravený soubor) by jinak
+        // prošel jako číslo mimo výčet a render by z něj počítal nesmysly.
+        if (!Enum.IsDefined(settings.Detail))
+        {
+            settings = settings with { Detail = defaults.Detail };
+        }
+
         return settings;
     }
 }

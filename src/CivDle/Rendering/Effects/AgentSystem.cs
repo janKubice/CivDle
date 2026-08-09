@@ -85,7 +85,7 @@ public sealed class AgentSystem
 
     public void Update(float dt, Camera2D camera, Simulation simulation)
     {
-        if (camera.Zoom < MinZoom || simulation.Buildings.Length == 0)
+        if (camera.Zoom < DetailLevel.Scale(MinZoom) || simulation.Buildings.Length == 0)
         {
             _count = 0; // oddáleno nebo prázdný svět → nikdo tu není
             return;

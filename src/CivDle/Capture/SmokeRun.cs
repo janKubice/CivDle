@@ -47,8 +47,22 @@ public sealed class SmokeRun
         Check("sázení: zapnout", () => screen.ActivateToolForSmoke(SmokeTool.Plant));
         Frames(screen, time);
 
+        // Šablony: obrazovka i snímání. Pád tady hráč nahlásil hned po vydání
+        // a smoke ho nechytil, protože tenhle nástroj vůbec neprocházel.
+        Check("šablony: obrazovka", () => screen.OpenTemplatesForSmoke());
+        Frames(screen, time);
+        Check("šablony: zavřít", () => screens.Pop());
+        Frames(screen, time);
+
+        Check("šablony: snímat", () => screen.ActivateToolForSmoke(SmokeTool.TemplateCapture));
+        Frames(screen, time);
+        Check("šablony: sejmout a položit", () => CaptureAndPlaceTemplate(screens, sim));
+
         Check("nástroje: vypnout", () => screen.ActivateToolForSmoke(SmokeTool.None));
         Frames(screen, time);
+
+        // Vzestup: nákup po dávkách staví obrazovku znovu po každé koupi.
+        Check("vzestup: nákup po dávkách", () => AscensionRound(screens, sim, time));
 
         // Continue: ulož → načti → postav obrazovku nad načtenou simulací.
         // Přesně tahle cesta hráči spadla, a testy simulace ji nechytí — kříží
@@ -80,13 +94,26 @@ public sealed class SmokeRun
         _passed.Add(what);
     }
 
-    private static void Frames(GameplayScreen screen, GameTime time)
+    private static void Frames(IScreen screen, GameTime time)
     {
         for (int i = 0; i < 3; i++)
         {
             screen.Update(time);
             screen.Draw(time);
         }
+    }
+
+    /// <summary>Otevře Vzestup s hromadou bodů a utratí je všemi násobiči.</summary>
+    private static void AscensionRound(ScreenManager screens, Simulation sim, GameTime time)
+    {
+        sim.DebugGrantPrestigePoints(100_000);
+        var ascension = new AscensionScreen(
+            screens, sim, new WorldInfo(sim.Seed, "medium", "continents"));
+        screens.Push(ascension);
+        Frames(ascension, time);
+        ascension.BuyEverythingForSmoke();
+        Frames(ascension, time);
+        screens.Pop();
     }
 
     private static void BuildRoadsAround(Simulation sim)
@@ -105,6 +132,17 @@ public sealed class SmokeRun
             sim.TryRemoveRoad(sim.CityCenterX + i, sim.CityCenterY);
             sim.TryRemoveRoad(sim.CityCenterX, sim.CityCenterY + i);
         }
+    }
+
+    /// <summary>Sejme kus města do šablony a hned ji zkusí položit jinam.</summary>
+    private static void CaptureAndPlaceTemplate(ScreenManager screens, Simulation sim)
+    {
+        var template = TemplateTool.Capture(
+            sim, screens.Content, "smoke",
+            sim.CityCenterX - 4, sim.CityCenterY - 4, sim.CityCenterX + 4, sim.CityCenterY + 4);
+
+        TemplateTool.CountPlaceable(sim, screens.Content, template, sim.CityCenterX + 40, sim.CityCenterY + 40);
+        TemplateTool.Place(sim, screens.Content, template, sim.CityCenterX + 40, sim.CityCenterY + 40);
     }
 
     private static void MergeAround(Simulation sim)
@@ -127,4 +165,7 @@ public enum SmokeTool
     RoadErase,
     Merge,
     Plant,
+
+    /// <summary>Snímání šablony zástavby (bod 44).</summary>
+    TemplateCapture,
 }

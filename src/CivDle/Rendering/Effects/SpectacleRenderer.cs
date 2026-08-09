@@ -39,7 +39,7 @@ public sealed class SpectacleRenderer
 
     public void Draw(SpriteBatch spriteBatch, Texture2D pixel, Camera2D camera, Simulation simulation)
     {
-        if (camera.Zoom < MinZoom)
+        if (camera.Zoom < DetailLevel.Scale(MinZoom))
         {
             return;
         }

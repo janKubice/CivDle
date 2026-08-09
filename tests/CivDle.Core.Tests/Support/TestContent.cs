@@ -33,6 +33,7 @@ internal static class TestContent
         IReadOnlyList<BuildingDef>? buildings = null,
         GameplayConfig? gameplay = null,
         IReadOnlyList<TechDef>? techs = null,
+        IReadOnlyList<TerraformDef>? terraform = null,
         PrestigeConfig? prestige = null,
         IReadOnlyList<PrestigeUpgradeDef>? prestigeUpgrades = null,
         IReadOnlyList<QuestDef>? quests = null,
@@ -113,7 +114,8 @@ internal static class TestContent
             new DefRegistry<FeatureDef>(features, f => f.Id, "funkce", allowEmpty: true),
             ufo ?? UfoConfig.Disabled,
             Array.Empty<AmbienceDef>(),
-            new DefRegistry<TerraformDef>(Array.Empty<TerraformDef>(), t => t.Id, "terraformace", allowEmpty: true),
+            new DefRegistry<TerraformDef>(
+                terraform ?? Array.Empty<TerraformDef>(), t => t.Id, "terraformace", allowEmpty: true),
             tutorial ?? Array.Empty<TutorialStepDef>(),
             challenges ?? ChallengeCatalog.Empty,
             contracts ?? ContractCatalog.Empty,

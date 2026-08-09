@@ -64,7 +64,9 @@ public sealed record BuildingDto(
     BuildingMilestonesDto? Milestones,
     BuildingSpectacleDto? Spectacle,
     int ReforestRadius,
-    int ScoutRadius);
+    int ScoutRadius,
+    string? TerraformAction,
+    int TerraformRadius);
 
 /// <summary>Podívaná megastruktury tak, jak leží v JSON.</summary>
 public sealed record BuildingSpectacleDto(string? Effect, double IntervalSeconds);

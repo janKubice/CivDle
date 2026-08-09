@@ -60,7 +60,7 @@ public sealed class AirTrafficSystem
 
     public void Update(float dt, Camera2D camera, Simulation simulation)
     {
-        if (_content.Aircraft.Count == 0 || camera.Zoom < MinZoom)
+        if (_content.Aircraft.Count == 0 || camera.Zoom < DetailLevel.Scale(MinZoom))
         {
             _count = 0;
             return;

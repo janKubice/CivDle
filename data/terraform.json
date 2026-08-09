@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "_comment": "Ruční přetváření krajiny. Odemyká se technologií, takže patří až k vyspělé civilizaci. 'from' prázdné = z jakéhokoli biomu.",
+  "_comment": "Ruční přetváření krajiny. Odemyká se technologií, takže patří až k vyspělé civilizaci. 'from' prázdné = z jakéhokoli biomu. Cílem SMÍ být i voda: hráč má mít nad světem plnou kontrolu. Pod budovou ani cestou se nekope, takže si město nezatopí omylem.",
   "terraform": [
     {
       "id": "irrigate",
@@ -85,6 +85,105 @@
         "electronics": 5
       },
       "unlockTech": "decontamination"
+    },
+    {
+      "id": "flood",
+      "to": "shallow_water",
+      "from": [
+        "beach",
+        "mangrove",
+        "swamp",
+        "jungle",
+        "savanna",
+        "desert",
+        "taiga",
+        "tundra",
+        "forest",
+        "grassland",
+        "steppe",
+        "badlands",
+        "fallout"
+      ],
+      "cost": {
+        "tools": 20,
+        "planks": 15
+      },
+      "unlockTech": "hydro_engineering"
+    },
+    {
+      "id": "dredge",
+      "to": "ocean",
+      "from": [
+        "shallow_water"
+      ],
+      "cost": {
+        "tools": 30,
+        "steel": 8
+      },
+      "unlockTech": "hydro_engineering"
+    },
+    {
+      "id": "deepen",
+      "to": "deep_ocean",
+      "from": [
+        "ocean"
+      ],
+      "cost": {
+        "tools": 45,
+        "steel": 15
+      },
+      "unlockTech": "hydro_engineering"
+    },
+    {
+      "id": "break_ice",
+      "to": "shallow_water",
+      "from": [
+        "pack_ice",
+        "ice_shelf"
+      ],
+      "cost": {
+        "tools": 30,
+        "coal": 25
+      },
+      "unlockTech": "hydro_engineering"
+    },
+    {
+      "id": "shoal",
+      "to": "ocean",
+      "from": [
+        "deep_ocean"
+      ],
+      "cost": {
+        "stone": 90,
+        "tools": 20
+      },
+      "unlockTech": "polders"
+    },
+    {
+      "id": "silt",
+      "to": "shallow_water",
+      "from": [
+        "ocean"
+      ],
+      "cost": {
+        "stone": 60,
+        "tools": 15
+      },
+      "unlockTech": "polders"
+    },
+    {
+      "id": "reclaim",
+      "to": "grassland",
+      "from": [
+        "shallow_water",
+        "coral_reef"
+      ],
+      "cost": {
+        "stone": 80,
+        "planks": 40,
+        "tools": 25
+      },
+      "unlockTech": "polders"
     }
   ]
 }
