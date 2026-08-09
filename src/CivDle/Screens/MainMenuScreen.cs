@@ -175,8 +175,15 @@ public sealed class MainMenuScreen : IScreen
         }
 
         var info = new WorldInfo(loaded.Metadata.Seed, loaded.Metadata.SizeId, loaded.Metadata.PresetId);
+
+        // Dohon offline času si vezme načítací obrazovka a odtiká ho po dávkách,
+        // aby okno mezitím žilo a šlo to přeskočit.
+        var catchUp = new CivDle.Core.Sim.OfflineCatchUp(
+            loaded.Simulation, loaded.Metadata.SavedAtUtc, DateTime.UtcNow);
+
         _screens.ReplaceAll(new LoadingScreen(
             _screens, "loading.savedGame",
-            () => new GameplayScreen(_screens, loaded.Simulation, info, loaded.Metadata.SavedAtUtc)));
+            offline => new GameplayScreen(_screens, loaded.Simulation, info, offline),
+            catchUp));
     }
 }

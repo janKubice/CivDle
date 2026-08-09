@@ -130,6 +130,64 @@ public static class DetailLevel
     /// </summary>
     public static float Scale(float baseZoom) => baseZoom * Factor;
 
+    /// <summary>
+    /// Dočasně vypne LOD úplně: všechny vrstvy se kreslí bez ohledu na zoom.
+    ///
+    /// <para>Pro fotku. Na obrazovce je LOD správně — z výšky jsou stromy pod
+    /// rozlišením a platit za ně plnou cenu nemá smysl. Na obrázku, který si
+    /// hráč prohlíží nebo někam pošle, ale nikdo nikam nespěchá a chybějící
+    /// detail je jediná věc, které si všimne.</para>
+    ///
+    /// <para>Používej s <c>using</c> — po dokreslení se prahy vrátí.</para>
+    /// </summary>
+    public static IDisposable FullDetail()
+    {
+        var scope = new DetailScope(Quality, Factor, Decorations, Harvestables, BuildingSprites, Creatures, MaxPerTileWork);
+        Factor = 0f;
+        Decorations = 0f;
+        Harvestables = 0f;
+        BuildingSprites = 0f;
+        Creatures = 0f;
+        MaxPerTileWork = int.MaxValue;
+        return scope;
+    }
+
+    /// <summary>Zapamatované prahy, které se po dokreslení vrátí zpátky.</summary>
+    private sealed class DetailScope : IDisposable
+    {
+        private readonly DetailQuality _quality;
+        private readonly float _factor;
+        private readonly float _decorations;
+        private readonly float _harvestables;
+        private readonly float _buildings;
+        private readonly float _creatures;
+        private readonly int _budget;
+
+        public DetailScope(
+            DetailQuality quality, float factor, float decorations, float harvestables,
+            float buildings, float creatures, int budget)
+        {
+            _quality = quality;
+            _factor = factor;
+            _decorations = decorations;
+            _harvestables = harvestables;
+            _buildings = buildings;
+            _creatures = creatures;
+            _budget = budget;
+        }
+
+        public void Dispose()
+        {
+            Quality = _quality;
+            Factor = _factor;
+            Decorations = _decorations;
+            Harvestables = _harvestables;
+            BuildingSprites = _buildings;
+            Creatures = _creatures;
+            MaxPerTileWork = _budget;
+        }
+    }
+
     /// <summary>Vejde se procházení dlaždic v daném obdélníku do rozpočtu?</summary>
     public static bool FitsBudget(int startX, int startY, int endX, int endY)
     {

@@ -2096,6 +2096,62 @@ public sealed class Simulation
     /// <para>Je pojmenovaný tak, aby bylo z volání poznat, že to není herní
     /// mechanika; záporné číslo se ignoruje, ať se tudy nedá stav rozbít.</para>
     /// </summary>
+    /// <summary>Ladicí: přidá body Odkazu (druhá prestižní vrstva).</summary>
+    public void DebugGrantLegacyPoints(long amount) => _legacy.DebugGrant(amount);
+
+    /// <summary>
+    /// Ladicí: posune úroveň Vzestupu bez resetu éry. Zvedne strop měřítka
+    /// i odemčení vázaná na stupeň — jinak by se pozdní hra nedala vyzkoušet
+    /// jinak než hodinami hraní.
+    /// </summary>
+    public void DebugGrantAscensionLevels(int levels)
+    {
+        if (levels <= 0)
+        {
+            return;
+        }
+
+        AscensionLevel += levels;
+        ScaleCapAnnounced = false;
+        RefreshTierUnlocks();
+        RecomputeDerivedState();
+    }
+
+    /// <summary>Ladicí: naplní všechny sklady na maximum.</summary>
+    public void DebugFillStorages()
+    {
+        for (int i = 0; i < _resources.Length; i++)
+        {
+            _resources[i] = GetStorageCap(i);
+        }
+    }
+
+    /// <summary>Ladicí: přidá lidi rovnou (strop měřítka pak platí dál).</summary>
+    public void DebugAddPopulation(double amount)
+    {
+        if (amount > 0)
+        {
+            Population = Math.Min(Population + amount, Math.Max(0, Math.Min(HousingCapacity, PopulationCap)));
+        }
+    }
+
+    /// <summary>
+    /// Ladicí: dočasně znásobí tempo auto-stavby. Existuje kvůli natáčení
+    /// a testování pozdní hry — chvíli je vidět růst, který by jinak trval
+    /// desítky minut, a pak se vše vrátí k normálu samo.
+    /// </summary>
+    public void DebugBoostAutoBuild(double multiplier, double seconds)
+    {
+        _debugBuildBoost = Math.Max(1.0, multiplier);
+        _debugBuildBoostTicks = (int)Math.Max(0, seconds * TicksPerSecond);
+    }
+
+    /// <summary>Zbývá ladicí boost auto-stavby? (UI to ukazuje, ať hráč ví, proč to lítá.)</summary>
+    public bool DebugBuildBoostActive => _debugBuildBoostTicks > 0;
+
+    private double _debugBuildBoost = 1.0;
+    private int _debugBuildBoostTicks;
+
     public void DebugGrantPrestigePoints(long amount)
     {
         if (amount > 0)
@@ -3125,6 +3181,11 @@ public sealed class Simulation
         _zoneFill.Tick(this);
         _colonySystem.Tick(this); // guvernér: expanze do nových kolonií
         _settlementSystem.Tick(this);
+        if (_debugBuildBoostTicks > 0)
+        {
+            _debugBuildBoostTicks--;
+        }
+
         _reforestSystem.Tick(this);
         _autoTerraformSystem.Tick(this);
         TickScouting();
@@ -4373,7 +4434,8 @@ public sealed class Simulation
     }
 
     /// <summary>Násobič tempa auto-stavby (nikdy pod 1 — zpomalovat ho nic neumí).</summary>
-    private double AutoBuildSpeed() => Math.Max(1.0, _bonuses.AutoBuildSpeed);
+    private double AutoBuildSpeed() =>
+        Math.Max(1.0, _bonuses.AutoBuildSpeed) * (_debugBuildBoostTicks > 0 ? _debugBuildBoost : 1.0);
 
     /// <summary>Preferovat hustotu: auto-stavba nejdřív povýší existující bydlení, než postaví nové (politika „housing_density").</summary>
     public bool PreferHousingDensity { get; private set; }

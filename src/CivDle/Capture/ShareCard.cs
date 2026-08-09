@@ -40,8 +40,15 @@ public sealed class ShareCard
     /// Vrací cestu k souboru, aby ji šlo ukázat hráči — bez ní by obrázek
     /// vznikl někde, kde ho nikdo nenajde.
     /// </summary>
-    public string Save(Simulation simulation, Camera2D sourceCamera, string directory)
+    /// <param name="fullDetail">
+    /// <c>true</c> = vyrenderovat bez LOD, tedy se vším, co by se při daném
+    /// oddálení normálně nekreslilo. Na obrazovce je LOD správně, na fotce
+    /// chybí právě to, čeho si člověk všimne.
+    /// </param>
+    public string Save(Simulation simulation, Camera2D sourceCamera, string directory, bool fullDetail = false)
     {
+        using var detail = fullDetail ? Rendering.DetailLevel.FullDetail() : null;
+
         var device = _screens.GraphicsDevice;
         var content = _screens.Content;
 

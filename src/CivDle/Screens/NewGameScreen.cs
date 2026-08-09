@@ -108,6 +108,6 @@ public sealed class NewGameScreen : IScreen
         // Přes načítací obrazovku: skok z menu rovnou do rozehrané mapy působil
         // jako záseknutí, hráč nestihl přepnout pozornost.
         _screens.ReplaceAll(new LoadingScreen(
-            _screens, "loading.newWorld", () => new GameplayScreen(_screens, simulation, info)));
+            _screens, "loading.newWorld", _ => new GameplayScreen(_screens, simulation, info)));
     }
 }
