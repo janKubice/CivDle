@@ -199,13 +199,20 @@ public class BulkBuilderTests
     public void BatchGrowsOutwardsFromTheAnchor()
     {
         // Skupina má vyrůst kompaktně kolem místa kliknutí, ne v pásu přes mapu.
+        //
+        // Prstenec není nejtěsnější možný (≤ 1): hromadná stavba vynechává
+        // dlaždice vyhrazené pro ulice, takže se za ně musí o kousek rozkročit.
+        // O to přesně jde — slitek 3×3 bez jediné mezery byl důvod, proč z ×N
+        // vycházela zástavba, ke které nevedla cesta.
         var (_, bulk) = NewGame();
         var plan = new List<BulkSlot>();
 
         bulk.PlanNear(Hut, 0, 0, 9, plan);
 
         Assert.Equal(9, plan.Count);
-        Assert.All(plan, slot => Assert.True(Math.Max(Math.Abs(slot.X), Math.Abs(slot.Y)) <= 1));
+        Assert.All(plan, slot => Assert.True(
+            Math.Max(Math.Abs(slot.X), Math.Abs(slot.Y)) <= 3,
+            $"({slot.X},{slot.Y}) je od kotvy moc daleko"));
     }
 
     [Fact]

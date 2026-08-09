@@ -5,6 +5,21 @@ toho, **co nejvíc bolí** a co na sobě závisí.
 
 Značky: `[ ]` čeká · `[~]` rozděláno · `[x]` hotovo
 
+## Stav
+
+| Dávka | Body | Stav |
+|---|---|---|
+| 0 — odpovědi | 1 | odpovězeno (kód není potřeba; chybí `docs/steam/code-signing.md`) |
+| 1 — pády | 7, 6, 19, 40, 9, 32, 13 | **hotovo** |
+| 2 — HUD | 3, 4, 5, 10, 11, 12, 25, 29, 30, 31, 33, 34, 35 | **hotovo** |
+| 3 — nástroje | 24, 20, 23, 22, 26, 17, 27, 28 | **hotovo** |
+| 3 — nástroje | 18 | čeká na rozhodnutí (A/B/C níže) |
+| 4 — budovy | 14, 15, 16, 41, 43 | čeká |
+| 5 — obsah | 8, 37, 36, 21, 38, 39, 42 | čeká |
+| 6 — velké funkce | 44, 2 | čeká |
+
+**Zbývá 15 bodů z 44.**
+
 ---
 
 ## Dávka 0 — odpovědi, ne kód
@@ -38,16 +53,16 @@ Detaily a přesné příkazy: `docs/steam/code-signing.md` (bude doplněno v dá
 
 Nejvyšší priorita: hráč přijde o partii nebo mechanika tiše nedělá nic.
 
-- [ ] **7.** Načítání občas spadne
-- [ ] **6.** „Pokračovat" ukazuje tři tečky → vypadá to jako zamrznutí; nahradit
+- [x] **7.** Načítání občas spadne
+- [x] **6.** „Pokračovat" ukazuje tři tečky → vypadá to jako zamrznutí; nahradit
       ukazatelem postupu
-- [ ] **19.** Terraformace změní dlaždici, ale ne vizuál
-- [ ] **40.** Potopa z modliteb nedělá vůbec nic
-- [ ] **9.** NPC města občas bez budov nebo na nevalidním místě
-- [ ] **32.** Žebříčky tvrdí „připojeno ke Steamu", i když připojeno není
+- [x] **19.** Terraformace změní dlaždici, ale ne vizuál
+- [x] **40.** Potopa z modliteb nedělá vůbec nic
+- [x] **9.** NPC města občas bez budov nebo na nevalidním místě
+- [x] **32.** Žebříčky tvrdí „připojeno ke Steamu", i když připojeno není
       *(regrese, kterou jsem zavedl: `IsAvailable` u lokální platformy vrací
       true schválně, ale obrazovka to čte jako „jsme na Steamu")*
-- [ ] **13.** Radar a pátrací balon neodhalují mapu (nebo extrémně pomalu)
+- [x] **13.** Radar a pátrací balon neodhalují mapu (nebo extrémně pomalu)
 
 ## Dávka 2 — HUD, čitelnost, ikonky
 
@@ -69,17 +84,28 @@ Rychlé a hodně viditelné. Skoro vše je UI, málo rizika.
 
 ## Dávka 3 — nástroje a stavění
 
-- [ ] **24.** Zóny a terraformaci schovat pod jednu ikonu s podmenu (jako stavění)
-- [ ] **20.** Terraformace tažením
-- [ ] **23.** Sázení tažením + hezčí výběr, co sázet
-- [ ] **22.** Terraformace: efekt a zvuk
-- [ ] **26.** Hromadné stavění (×25) staví budovy, ale bez silnic
-- [ ] **17.** Guvernér plní zóny obřími bloky bez cest
+- [x] **24.** Zóny a terraformaci schovat pod jednu ikonu s podmenu (jako stavění)
+- [x] **20.** Terraformace tažením
+- [x] **23.** Sázení tažením + hezčí výběr, co sázet
+- [x] **22.** Terraformace: efekt a zvuk
+- [x] **26.** Hromadné stavění (×25) staví budovy, ale bez silnic
+- [x] **17.** Guvernér plní zóny obřími bloky bez cest
 - [ ] **18.** Univerzální zóny (bydlení+parky, průmysl+těžba) nebo vlastní zóna
       z nastavení
-- [ ] **27.** Cesta k cizímu městu nejde postavit; má se zeptat, ze kterého
+- [x] **27.** Cesta k cizímu městu nejde postavit; má se zeptat, ze kterého
       mého města ji vést
-- [ ] **28.** Automatická cesta mezi městy musí najít hezkou validní trasu
+- [x] **28.** Automatická cesta mezi městy musí najít hezkou validní trasu
+
+## Upřesnění z hraní (8. 8.)
+
+- **16** — „vylepšovat jako 1×1" znamená *stejné chování* jako u řetězce
+  vylepšení 1×1 domku. Půdorys zůstává 2×2; nemá se zmenšovat.
+- **Velké dílo (sink na přebytky)** — nemá to být položka v menu. Má za tím být
+  **výzkum** a pak **obří budova**: díra do země, která opravdu vypadá jako
+  bezedný sink. Řeší se v dávce 4 spolu s velkými půdorysy (body 15, 43), aby
+  se velké stavby dělaly jednou.
+- **×N a tažení** — mřížka ulic platí pro ×N (automat si vybírá místo), ne pro
+  tažení (obdélník kreslí hráč). Opraveno.
 
 ## Dávka 4 — budovy a progrese
 
@@ -132,8 +158,20 @@ Návrh postupu:
 5. **Mod packy** — víc typů obsahu v jednom modu, seznam, mazání, editace
    existujícího modu (teď umí jen zakládat nový).
 
-Tohle je samo o sobě práce na několik dní. Model (`ModDraft`, `ModValidator`)
-a testy z minula zůstávají — mění se UI a rozšiřuje se katalog typů.
+**Upřesnění od tebe (8. 8.):** typy obsahu, které tvůrce musí umět, jsou
+*budova, surovina, událost, výzkum, fauna, jména měst, úkol* — a v principu
+cokoliv dalšího, co je ve hře v datech. U každého typu se nastavují jeho
+vlastní parametry z toho, co hra zná: u budovy velikost půdorysu, co vyrábí,
+co spotřebuje, kolik dá bydlení a pracovních míst, cena, povolené biomy — a
+protože budova má sprite, i kreslítko na ten sprite.
+
+To potvrzuje bod 1 výše jako správný základ: bez katalogu typů v datech by
+každý další typ znamenal novou ručně psanou obrazovku, a u sedmi typů se to
+rozpadne. Odhad zůstává: **několik dní práce**, a je to největší jednotlivá
+položka z celého seznamu.
+
+Model (`ModDraft`, `ModValidator`) a testy z minula zůstávají — mění se UI
+a rozšiřuje se katalog typů.
 
 ---
 
