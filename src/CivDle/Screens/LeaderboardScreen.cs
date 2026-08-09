@@ -87,7 +87,7 @@ public sealed class LeaderboardScreen : IScreen
         layout.Widgets.Add(new Label
         {
             Text = loc["board.title"],
-            TextColor = new Color(240, 205, 110),
+            TextColor = UiPalette.TextBright,
             HorizontalAlignment = HorizontalAlignment.Center,
         });
 
@@ -98,7 +98,7 @@ public sealed class LeaderboardScreen : IScreen
             Text = loc[_screens.Platform.HasOnlineLeaderboards && _screens.Platform.LeaderboardsAllowed
                 ? "board.sourceOnline"
                 : "board.sourceLocal"],
-            TextColor = new Color(160, 170, 186),
+            TextColor = UiPalette.Text,
             Wrap = true,
             Width = PanelWidth,
             HorizontalAlignment = HorizontalAlignment.Center,
@@ -128,10 +128,10 @@ public sealed class LeaderboardScreen : IScreen
     {
         var loc = _screens.Loc;
         var row = new HorizontalStackPanel { Spacing = 0, Width = PanelWidth };
-        row.Widgets.Add(Cell(loc["board.category"], 300, new Color(150, 160, 175)));
-        row.Widgets.Add(Cell(loc["board.now"], 140, new Color(150, 160, 175)));
-        row.Widgets.Add(Cell(loc["board.best"], 140, new Color(150, 160, 175)));
-        row.Widgets.Add(Cell(loc["board.top"], 140, new Color(150, 160, 175)));
+        row.Widgets.Add(Cell(loc["board.category"], 300, UiPalette.TextDim));
+        row.Widgets.Add(Cell(loc["board.now"], 140, UiPalette.TextDim));
+        row.Widgets.Add(Cell(loc["board.best"], 140, UiPalette.TextDim));
+        row.Widgets.Add(Cell(loc["board.top"], 140, UiPalette.TextDim));
         return row;
     }
 
@@ -143,7 +143,7 @@ public sealed class LeaderboardScreen : IScreen
             Width = PanelWidth - 24,
             Height = RowHeight,
             Padding = new Thickness(8, 4),
-            Background = new SolidBrush(new Color(30, 34, 46, 235)),
+            Background = new SolidBrush(UiPalette.Panel),
         };
 
         long current = CurrentValue(board.Id);
@@ -155,9 +155,9 @@ public sealed class LeaderboardScreen : IScreen
         bool atBest = best.HasValue && (board.Ascending ? current <= best.Value : current >= best.Value);
 
         row.Widgets.Add(Cell(_screens.Loc[board.LabelKey], 300, Color.White));
-        row.Widgets.Add(Cell(Format(current, board), 140, atBest ? new Color(150, 220, 150) : Color.LightGray));
-        row.Widgets.Add(Cell(best.HasValue ? Format(best.Value, board) : "—", 140, new Color(235, 200, 140)));
-        row.Widgets.Add(Cell(top.Count > 0 ? Format(top[0].Score, board) : "—", 140, new Color(150, 200, 235)));
+        row.Widgets.Add(Cell(Format(current, board), 140, atBest ? UiPalette.Good : Color.LightGray));
+        row.Widgets.Add(Cell(best.HasValue ? Format(best.Value, board) : "—", 140, UiPalette.TextBright));
+        row.Widgets.Add(Cell(top.Count > 0 ? Format(top[0].Score, board) : "—", 140, UiPalette.Accent));
         return row;
     }
 

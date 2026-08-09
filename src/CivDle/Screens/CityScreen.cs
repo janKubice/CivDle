@@ -161,7 +161,7 @@ public sealed class CityScreen : IScreen
 
         if (state.Absorbed)
         {
-            layout.Widgets.Add(Note(loc["npc.joined"], new Color(150, 220, 150)));
+            layout.Widgets.Add(Note(loc["npc.joined"], UiPalette.Good));
             Finish(layout);
             return;
         }
@@ -173,7 +173,7 @@ public sealed class CityScreen : IScreen
         // ne do nápovědy někde stranou.
         layout.Widgets.Add(Note(
             loc.Format("npc.surround", _simulation.SurroundBuildingsFor(_city.Key)),
-            new Color(150, 158, 175)));
+            UiPalette.TextDim));
         Finish(layout);
     }
 
@@ -228,7 +228,7 @@ public sealed class CityScreen : IScreen
         stack.Widgets.Add(new Label
         {
             Text = state.RoadLinked ? loc["npc.linked"] : loc["npc.noLink"],
-            TextColor = state.RoadLinked ? new Color(150, 220, 150) : new Color(235, 170, 110),
+            TextColor = state.RoadLinked ? UiPalette.Good : UiPalette.Warn,
             Wrap = true,
             Width = PanelWidth - 40,
         });
@@ -238,7 +238,7 @@ public sealed class CityScreen : IScreen
             stack.Widgets.Add(new Label
             {
                 Text = loc.Format("npc.needRelation", catalog.BuyRelation),
-                TextColor = new Color(170, 178, 195),
+                TextColor = UiPalette.Text,
                 Wrap = true,
                 Width = PanelWidth - 40,
             });
@@ -271,7 +271,7 @@ public sealed class CityScreen : IScreen
                 stack.Widgets.Add(new Label
                 {
                     Text = loc["npc.connectFrom"],
-                    TextColor = new Color(170, 178, 195),
+                    TextColor = UiPalette.Text,
                     Wrap = true,
                     Width = PanelWidth - 40,
                 });
@@ -290,7 +290,7 @@ public sealed class CityScreen : IScreen
                     // vlastně nastavené, dokud cestu nepostaví.
                     if (index == _originIndex)
                     {
-                        button.Background = new SolidBrush(new Color(70, 110, 160, 245));
+                        button.Background = new SolidBrush(UiPalette.PanelAccent);
                     }
 
                     row.Widgets.Add(button);
@@ -304,7 +304,7 @@ public sealed class CityScreen : IScreen
                 stack.Widgets.Add(new Label
                 {
                     Text = loc["npc.noRoute"],
-                    TextColor = new Color(235, 120, 110),
+                    TextColor = UiPalette.Bad,
                     Wrap = true,
                     Width = PanelWidth - 40,
                 });
@@ -344,7 +344,7 @@ public sealed class CityScreen : IScreen
         row.Widgets.Add(new Label
         {
             Text = CostFormat.Line(_screens.Content, _screens.Loc, cost),
-            TextColor = affordable ? new Color(150, 220, 150) : new Color(230, 120, 110),
+            TextColor = affordable ? UiPalette.Good : UiPalette.Bad,
             VerticalAlignment = VerticalAlignment.Center,
         });
         return row;
@@ -363,7 +363,7 @@ public sealed class CityScreen : IScreen
     {
         var panel = new Panel
         {
-            Background = new SolidBrush(new Color(30, 34, 44, 230)),
+            Background = new SolidBrush(UiPalette.Panel),
             Padding = new Thickness(14, 12),
         };
         panel.Widgets.Add(content);

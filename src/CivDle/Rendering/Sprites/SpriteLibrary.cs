@@ -284,6 +284,11 @@ public sealed class SpriteLibrary : IDisposable
     {
         var canvas = new PixelCanvas(size, size);
         draw(canvas);
+
+        // Jediné místo, kde se srovnává paleta. Sprity se kreslí dál po svém;
+        // tenhle jeden řádek zajistí, že se všechny trefí do téhož nádechu —
+        // i ty, které někdo přidá zítra a na paletu vůbec nepomyslí.
+        canvas.SnapToPalette();
         _sprites[id] = canvas.ToTexture(device);
     }
 

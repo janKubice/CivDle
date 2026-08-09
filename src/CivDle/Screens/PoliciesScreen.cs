@@ -103,13 +103,13 @@ public sealed class PoliciesScreen : IScreen
             Spacing = 5,
             Width = 436,
             Padding = new Thickness(12, 8),
-            Background = new SolidBrush(new Color(30, 34, 46, 235)),
+            Background = new SolidBrush(UiPalette.Panel),
         };
         box.Widgets.Add(new Label { Text = loc["hud.governor"], TextColor = UiFactory.Accent });
 
         if (!_simulation.IsGovernorUnlocked)
         {
-            box.Widgets.Add(new Label { Text = loc["governor.locked"], TextColor = new Color(210, 170, 120), Wrap = true });
+            box.Widgets.Add(new Label { Text = loc["governor.locked"], TextColor = UiPalette.TextDim, Wrap = true });
             return box;
         }
 
@@ -123,13 +123,13 @@ public sealed class PoliciesScreen : IScreen
                 "governor.pace",
                 (_simulation.AutoBuildInterval / (double)Simulation.TicksPerSecond).ToString("0.#"),
                 _simulation.AutoBuildBudget),
-            TextColor = new Color(150, 200, 235),
+            TextColor = UiPalette.Accent,
         });
 
         box.Widgets.Add(new Label
         {
             Text = loc.Format("governor.level", loc[$"governor.level{_simulation.AutoUpgradeLevel}"]),
-            TextColor = _simulation.AutoUpgradeLevel > 0 ? new Color(150, 220, 150) : Color.LightGray,
+            TextColor = _simulation.AutoUpgradeLevel > 0 ? UiPalette.Good : Color.LightGray,
         });
 
         // Stupně jako řada tlačítek — aktuální je zvýrazněný.
@@ -147,12 +147,12 @@ public sealed class PoliciesScreen : IScreen
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
                     TextColor = active ? Color.White
-                        : unlocked ? new Color(200, 205, 215) : new Color(120, 126, 140),
+                        : unlocked ? UiPalette.Text : UiPalette.TextDim,
                 },
                 Width = 44,
                 Height = 32,
-                Background = new SolidBrush(active ? new Color(48, 92, 72, 240)
-                    : unlocked ? new Color(44, 50, 64, 235) : new Color(32, 35, 44, 200)),
+                Background = new SolidBrush(active ? UiPalette.PanelGood
+                    : unlocked ? UiPalette.Panel : UiPalette.Panel),
             };
             button.Click += (_, _) =>
             {
@@ -171,7 +171,7 @@ public sealed class PoliciesScreen : IScreen
             box.Widgets.Add(new Label
             {
                 Text = loc[_simulation.MaxUnlockedAutoUpgradeLevel < 2 ? "governor.locked2" : "governor.locked3"],
-                TextColor = new Color(210, 170, 120),
+                TextColor = UiPalette.TextDim,
                 Wrap = true,
             });
         }
@@ -186,7 +186,7 @@ public sealed class PoliciesScreen : IScreen
             box.Widgets.Add(new Label
             {
                 Text = loc["governor.mergeLocked"],
-                TextColor = new Color(210, 170, 120),
+                TextColor = UiPalette.TextDim,
                 Wrap = true,
             });
             return box;
@@ -220,7 +220,7 @@ public sealed class PoliciesScreen : IScreen
             box.Widgets.Add(new Label
             {
                 Text = loc["governor.reserveLocked"],
-                TextColor = new Color(210, 170, 120),
+                TextColor = UiPalette.TextDim,
                 Wrap = true,
             });
             return box;
@@ -230,7 +230,7 @@ public sealed class PoliciesScreen : IScreen
         box.Widgets.Add(new Label
         {
             Text = loc.Format("governor.reserve", (int)Math.Round(_simulation.GovernorReserve * 100)),
-            TextColor = new Color(150, 220, 150),
+            TextColor = UiPalette.Good,
         });
 
         var steps = new HorizontalStackPanel { Spacing = 6 };
@@ -245,11 +245,11 @@ public sealed class PoliciesScreen : IScreen
                     Text = percent + " %",
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
-                    TextColor = active ? Color.White : new Color(200, 205, 215),
+                    TextColor = active ? Color.White : UiPalette.Text,
                 },
                 Width = 58,
                 Height = 32,
-                Background = new SolidBrush(active ? new Color(48, 92, 72, 240) : new Color(44, 50, 64, 235)),
+                Background = new SolidBrush(active ? UiPalette.PanelGood : UiPalette.Panel),
             };
             button.Click += (_, _) =>
             {
@@ -274,12 +274,12 @@ public sealed class PoliciesScreen : IScreen
             Spacing = 4,
             Width = 436,
             Padding = new Thickness(12, 8),
-            Background = new SolidBrush(active ? new Color(28, 46, 30, 235) : new Color(26, 30, 38, 235)),
+            Background = new SolidBrush(active ? UiPalette.Panel : UiPalette.Panel),
         };
         row.Widgets.Add(new Label
         {
             Text = loc[policy.NameKey],
-            TextColor = active ? new Color(150, 220, 150) : new Color(200, 205, 215),
+            TextColor = active ? UiPalette.Good : UiPalette.Text,
         });
         row.Widgets.Add(new Label { Text = loc[policy.DescriptionKey], TextColor = Color.LightGray, Wrap = true });
         row.Widgets.Add(UiFactory.SmallButton(active ? loc["policy.on"] : loc["policy.off"], () =>

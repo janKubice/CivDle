@@ -129,6 +129,6 @@ public sealed class PauseScreen : IScreen
 
         _saveStatusText = _screens.Loc[saved ? "pause.saved" : "pause.saveFailed"];
         _saveStatusLabel.Text = _saveStatusText;
-        _saveStatusLabel.TextColor = saved ? Color.LightGreen : new Color(235, 120, 110);
+        _saveStatusLabel.TextColor = saved ? Color.LightGreen : UiPalette.Bad;
     }
 }

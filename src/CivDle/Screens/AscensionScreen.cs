@@ -106,7 +106,7 @@ public sealed class AscensionScreen : IScreen
         {
             Text = loc["prestige.title"],
             HorizontalAlignment = HorizontalAlignment.Center,
-            TextColor = new Color(180, 140, 230),
+            TextColor = UiPalette.Accent,
         });
         // Nevyužité body svítí. Je to jediná věc, kterou má hráč po Vzestupu
         // udělat, a v šedivém řádku mezi ostatními zanikala.
@@ -115,7 +115,7 @@ public sealed class AscensionScreen : IScreen
         {
             Text = loc.Format("prestige.points", _simulation.PrestigePoints),
             HorizontalAlignment = HorizontalAlignment.Center,
-            TextColor = hasPoints ? new Color(255, 215, 120) : Color.LightGray,
+            TextColor = hasPoints ? UiPalette.TextBright : Color.LightGray,
         });
 
         if (hasPoints)
@@ -124,7 +124,7 @@ public sealed class AscensionScreen : IScreen
             {
                 Text = loc["prestige.spendNow"],
                 HorizontalAlignment = HorizontalAlignment.Center,
-                TextColor = new Color(150, 220, 150),
+                TextColor = UiPalette.Good,
                 Wrap = true,
                 Width = PanelWidth - 40,
             });
@@ -174,7 +174,7 @@ public sealed class AscensionScreen : IScreen
         row.Widgets.Add(new Label
         {
             Text = loc["prestige.batch"],
-            TextColor = new Color(180, 185, 200),
+            TextColor = UiPalette.Text,
             VerticalAlignment = VerticalAlignment.Center,
         });
 
@@ -191,7 +191,7 @@ public sealed class AscensionScreen : IScreen
 
             if (size == _batch)
             {
-                button.Background = new SolidBrush(new Color(110, 86, 160, 240));
+                button.Background = new SolidBrush(UiPalette.PanelAccent);
             }
 
             row.Widgets.Add(button);
@@ -231,8 +231,8 @@ public sealed class AscensionScreen : IScreen
                 Padding = new Thickness(20, 8),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Background = new SolidBrush(_confirming
-                    ? new Color(170, 70, 90, 245)
-                    : new Color(120, 80, 170, 240)),
+                    ? UiPalette.PanelBad
+                    : UiPalette.PanelAccent),
             };
 
             // Dvě kliknutí, ne jedno: Vzestup je jediná nevratná akce ve hře
@@ -280,7 +280,7 @@ public sealed class AscensionScreen : IScreen
         {
             Text = loc.Format("prestige.requirement", current, target),
             HorizontalAlignment = HorizontalAlignment.Center,
-            TextColor = new Color(210, 170, 120),
+            TextColor = UiPalette.TextDim,
         });
 
         var bar = new ProgressBar(412, 8);
@@ -312,7 +312,7 @@ public sealed class AscensionScreen : IScreen
             Spacing = 4,
             Width = RowWidth,
             Padding = new Thickness(16, 12),
-            Background = new SolidBrush(new Color(30, 26, 44, 235)),
+            Background = new SolidBrush(UiPalette.Panel),
             Border = new SolidBrush(new Color(120, 96, 180, 160)),
             BorderThickness = new Thickness(1),
         };
@@ -320,14 +320,14 @@ public sealed class AscensionScreen : IScreen
         stack.Widgets.Add(new Label
         {
             Text = loc.Format("prestige.preview.gain", preview.PointsGained, preview.PointsAfter),
-            TextColor = new Color(190, 160, 235),
+            TextColor = UiPalette.Accent,
             Wrap = true,
         });
 
         stack.Widgets.Add(new Label
         {
             Text = loc.Format("prestige.preview.keeps", preview.UpgradesOwned, preview.LevelAfter),
-            TextColor = new Color(150, 220, 150),
+            TextColor = UiPalette.Good,
             Wrap = true,
         });
 
@@ -339,7 +339,7 @@ public sealed class AscensionScreen : IScreen
             {
                 Text = loc.Format("prestige.preview.loses",
                     preview.Buildings, preview.Population, preview.RoadTiles, preview.Techs),
-                TextColor = new Color(235, 150, 120),
+                TextColor = UiPalette.Warn,
                 Wrap = true,
             });
         }
@@ -347,7 +347,7 @@ public sealed class AscensionScreen : IScreen
         stack.Widgets.Add(new Label
         {
             Text = loc.Format("prestige.preview.next", preview.NextRequirement),
-            TextColor = new Color(150, 160, 175),
+            TextColor = UiPalette.TextDim,
             Wrap = true,
         });
 
@@ -364,12 +364,12 @@ public sealed class AscensionScreen : IScreen
         bool maxed = _simulation.IsUpgradeMaxed(upgradeIndex);
         var state = _simulation.CanBuyUpgrade(upgradeIndex);
         var (fill, border) = maxed
-            ? (new Color(26, 40, 30, 235), new Color(90, 150, 110, 170))
+            ? (UiPalette.Panel, new Color(90, 150, 110, 170))
             : state switch
             {
-                PlacementResult.Ok => (new Color(42, 34, 66, 240), new Color(170, 140, 235, 200)),
-                PlacementResult.NotUnlocked => (new Color(22, 20, 30, 220), new Color(70, 70, 84, 120)),
-                _ => (new Color(30, 26, 44, 235), new Color(90, 84, 120, 130)),
+                PlacementResult.Ok => (UiPalette.PanelAccent, new Color(170, 140, 235, 200)),
+                PlacementResult.NotUnlocked => (UiPalette.PanelDeep, new Color(70, 70, 84, 120)),
+                _ => (UiPalette.Panel, new Color(90, 84, 120, 130)),
             };
 
         var row = new VerticalStackPanel
@@ -388,14 +388,14 @@ public sealed class AscensionScreen : IScreen
         header.Widgets.Add(new Label
         {
             Text = loc[upgrade.NameKey],
-            TextColor = maxed ? new Color(150, 220, 160) : new Color(205, 175, 245),
+            TextColor = maxed ? UiPalette.Good : UiPalette.Accent,
         });
         if (upgrade.IsRepeatable)
         {
             header.Widgets.Add(new Label
             {
                 Text = loc.Format("prestige.level", _simulation.UpgradeLevel(upgradeIndex), upgrade.MaxLevel),
-                TextColor = new Color(160, 170, 190),
+                TextColor = UiPalette.Text,
                 HorizontalAlignment = HorizontalAlignment.Right,
             });
         }
@@ -404,7 +404,7 @@ public sealed class AscensionScreen : IScreen
         row.Widgets.Add(new Label
         {
             Text = loc[upgrade.DescriptionKey],
-            TextColor = state == PlacementResult.NotUnlocked ? new Color(140, 140, 152) : Color.LightGray,
+            TextColor = state == PlacementResult.NotUnlocked ? UiPalette.TextDim : Color.LightGray,
             Wrap = true,
             Width = RowWidth - 34,
         });
@@ -433,7 +433,7 @@ public sealed class AscensionScreen : IScreen
         var status = _simulation.CanBuyUpgrade(upgradeIndex);
         if (status == PlacementResult.NotUnlocked)
         {
-            return new Label { Text = loc["prestige.locked"], TextColor = new Color(150, 150, 160) };
+            return new Label { Text = loc["prestige.locked"], TextColor = UiPalette.TextDim };
         }
 
         // Cena další úrovně, ne základní z dat — u opakovatelných roste. Při
@@ -454,7 +454,7 @@ public sealed class AscensionScreen : IScreen
             },
             Padding = new Thickness(14, 5),
             HorizontalAlignment = HorizontalAlignment.Left,
-            Background = new SolidBrush(new Color(72, 56, 110, 235)),
+            Background = new SolidBrush(UiPalette.PanelAccent),
             Enabled = status == PlacementResult.Ok,
         };
         button.Click += (_, _) => BuyBatch(upgradeIndex);

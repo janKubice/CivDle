@@ -100,7 +100,7 @@ public sealed class StatsScreen : IScreen
 
             // Karta s rámečkem — grafy nalepené přímo na ztmavené hře vypadaly
             // jako ladicí výpis, ne jako obrazovka pro hráče.
-            spriteBatch.Draw(_screens.WhitePixel, card, new Color(24, 29, 38, 245));
+            spriteBatch.Draw(_screens.WhitePixel, card, UiPalette.Panel);
             DrawBorder(spriteBatch, card, new Color(62, 72, 88));
 
             // Titulek vlevo, poslední hodnota vpravo a bíle — to je číslo, které
@@ -125,7 +125,7 @@ public sealed class StatsScreen : IScreen
             // Maximum osy u horního okraje — bez měřítka je křivka jen ozdoba.
             var (_, max) = LineChart.RangeOf(values);
             spriteBatch.DrawString(
-                _font, Format(titleKey, max), new Vector2(bounds.Left + 4, bounds.Top + 2), new Color(118, 128, 144));
+                _font, Format(titleKey, max), new Vector2(bounds.Left + 4, bounds.Top + 2), UiPalette.TextDim);
 
             // Trend: kam to jde od poloviny záznamu. Samotné poslední číslo
             // neřekne, jestli město roste, nebo se propadá — a přesně to hráč
@@ -156,9 +156,9 @@ public sealed class StatsScreen : IScreen
         }
 
         double change = (now - past) / past * 100.0;
-        var color = change > 1 ? new Color(140, 225, 150)
-            : change < -1 ? new Color(230, 130, 120)
-            : new Color(150, 158, 172);
+        var color = change > 1 ? UiPalette.Good
+            : change < -1 ? UiPalette.Bad
+            : UiPalette.TextDim;
         string arrow = change > 1 ? "^" : change < -1 ? "v" : "-";
         string text = $"{arrow} {Math.Abs(change):0}%";
 
@@ -206,12 +206,12 @@ public sealed class StatsScreen : IScreen
             settlements.Add(frame.Settlements);
         }
 
-        _series.Add(("stats.population", new Color(120, 200, 255), population));
-        _series.Add(("stats.buildings", new Color(255, 214, 120), buildings));
-        _series.Add(("stats.housing", new Color(180, 160, 240), housing));
-        _series.Add(("stats.happiness", new Color(140, 230, 160), happiness));
-        _series.Add(("stats.pollution", new Color(230, 140, 110), pollution));
-        _series.Add(("stats.settlements", new Color(150, 210, 210), settlements));
+        _series.Add(("stats.population", UiPalette.Accent, population));
+        _series.Add(("stats.buildings", UiPalette.TextBright, buildings));
+        _series.Add(("stats.housing", UiPalette.Accent, housing));
+        _series.Add(("stats.happiness", UiPalette.Good, happiness));
+        _series.Add(("stats.pollution", UiPalette.Bad, pollution));
+        _series.Add(("stats.settlements", UiPalette.Accent, settlements));
     }
 
     private void BuildUi()
@@ -229,7 +229,7 @@ public sealed class StatsScreen : IScreen
         {
             Text = loc["stats.title"],
             HorizontalAlignment = HorizontalAlignment.Center,
-            TextColor = new Color(255, 226, 150),
+            TextColor = UiPalette.TextBright,
         });
 
         // Popisek říká, co ta čísla vlastně jsou — bez něj by graf beze jména

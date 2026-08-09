@@ -51,7 +51,7 @@ public sealed class TemplatesScreen : IScreen
         layout.Widgets.Add(new Label
         {
             Text = loc["templates.title"],
-            TextColor = new Color(240, 205, 110),
+            TextColor = UiPalette.TextBright,
             HorizontalAlignment = HorizontalAlignment.Center,
         });
 
@@ -75,7 +75,7 @@ public sealed class TemplatesScreen : IScreen
             layout.Widgets.Add(new Label
             {
                 Text = loc["templates.empty"],
-                TextColor = new Color(180, 185, 200),
+                TextColor = UiPalette.Text,
                 Wrap = true,
                 Width = PanelWidth - 20,
             });
@@ -120,7 +120,7 @@ public sealed class TemplatesScreen : IScreen
         row.Widgets.Add(new Label
         {
             Text = loc.Format("templates.size", template.Width, template.Height, template.Buildings.Count),
-            TextColor = new Color(190, 195, 210),
+            TextColor = UiPalette.Text,
             VerticalAlignment = VerticalAlignment.Center,
         });
 

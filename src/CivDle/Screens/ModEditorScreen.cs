@@ -109,7 +109,7 @@ public sealed class ModEditorScreen : IScreen
         layout.Widgets.Add(new Label
         {
             Text = loc["modedit.title"],
-            TextColor = new Color(240, 205, 110),
+            TextColor = UiPalette.TextBright,
             HorizontalAlignment = HorizontalAlignment.Center,
         });
         layout.Widgets.Add(Note(loc["modedit.intro"], Color.LightGray));
@@ -125,14 +125,14 @@ public sealed class ModEditorScreen : IScreen
         }
         else
         {
-            body.Widgets.Add(Note(loc["modedit.noTypes"], new Color(235, 150, 130)));
+            body.Widgets.Add(Note(loc["modedit.noTypes"], UiPalette.Warn));
         }
 
         layout.Widgets.Add(new ScrollViewer { Content = body, Height = 460, Width = PanelWidth });
 
         if (_status.Length > 0)
         {
-            layout.Widgets.Add(Note(_status, _statusOk ? new Color(150, 220, 150) : new Color(235, 150, 130)));
+            layout.Widgets.Add(Note(_status, _statusOk ? UiPalette.Good : UiPalette.Warn));
         }
 
         var buttons = new HorizontalStackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
@@ -182,7 +182,7 @@ public sealed class ModEditorScreen : IScreen
 
             if (i == _typeIndex)
             {
-                button.Background = new SolidBrush(new Color(90, 110, 150, 240));
+                button.Background = new SolidBrush(UiPalette.PanelAccent);
             }
 
             row.Widgets.Add(button);
@@ -310,7 +310,7 @@ public sealed class ModEditorScreen : IScreen
             row.Widgets.Add(new Label
             {
                 Text = hint,
-                TextColor = new Color(150, 160, 175),
+                TextColor = UiPalette.TextDim,
                 Width = PanelWidth - 480,
                 VerticalAlignment = VerticalAlignment.Center,
             });
@@ -367,7 +367,7 @@ public sealed class ModEditorScreen : IScreen
 
         if (_draft.Entries.Count == 0)
         {
-            box.Widgets.Add(Note(loc["modedit.contentEmpty"], new Color(150, 160, 175)));
+            box.Widgets.Add(Note(loc["modedit.contentEmpty"], UiPalette.TextDim));
             return box;
         }
 
@@ -498,7 +498,7 @@ public sealed class ModEditorScreen : IScreen
             Spacing = 5,
             Width = PanelWidth - 24,
             Padding = new Thickness(12, 8),
-            Background = new SolidBrush(new Color(30, 34, 46, 235)),
+            Background = new SolidBrush(UiPalette.Panel),
         };
         box.Widgets.Add(new Label { Text = title, TextColor = UiFactory.Accent });
         return box;

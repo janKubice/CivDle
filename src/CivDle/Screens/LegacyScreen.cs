@@ -78,12 +78,12 @@ public sealed class LegacyScreen : IScreen
         {
             Text = loc["legacy.title"],
             HorizontalAlignment = HorizontalAlignment.Center,
-            TextColor = new Color(240, 190, 120),
+            TextColor = UiPalette.TextBright,
         });
 
         if (!_simulation.LegacyAvailable)
         {
-            layout.Widgets.Add(Note(loc["legacy.locked"], new Color(200, 170, 130)));
+            layout.Widgets.Add(Note(loc["legacy.locked"], UiPalette.TextBright));
             Finish(layout);
             return;
         }
@@ -95,7 +95,7 @@ public sealed class LegacyScreen : IScreen
         {
             Text = loc.Format("legacy.points", _simulation.LegacyPoints),
             HorizontalAlignment = HorizontalAlignment.Center,
-            TextColor = hasPoints ? new Color(255, 215, 120) : Color.LightGray,
+            TextColor = hasPoints ? UiPalette.TextBright : Color.LightGray,
         });
 
         if (_simulation.LegacyDepth > 0)
@@ -104,13 +104,13 @@ public sealed class LegacyScreen : IScreen
             {
                 Text = loc.Format("legacy.depth", _simulation.LegacyDepth),
                 HorizontalAlignment = HorizontalAlignment.Center,
-                TextColor = new Color(170, 180, 196),
+                TextColor = UiPalette.Text,
             });
         }
 
         if (hasPoints)
         {
-            layout.Widgets.Add(Note(loc["legacy.spendNow"], new Color(150, 220, 150)));
+            layout.Widgets.Add(Note(loc["legacy.spendNow"], UiPalette.Good));
         }
 
         layout.Widgets.Add(LeaveAction());
@@ -166,7 +166,7 @@ public sealed class LegacyScreen : IScreen
             {
                 Text = loc.Format("legacy.requirement", current, target),
                 HorizontalAlignment = HorizontalAlignment.Center,
-                TextColor = new Color(210, 170, 120),
+                TextColor = UiPalette.TextDim,
             });
 
             var bar = new ProgressBar(PanelWidth - 40, 8);
@@ -191,8 +191,8 @@ public sealed class LegacyScreen : IScreen
             Padding = new Thickness(20, 8),
             HorizontalAlignment = HorizontalAlignment.Center,
             Background = new SolidBrush(_confirming
-                ? new Color(170, 70, 90, 245)
-                : new Color(150, 100, 50, 240)),
+                ? UiPalette.PanelBad
+                : UiPalette.PanelBad),
         };
 
         // Dvě kliknutí: Odkaz maže víc než Vzestup a vrátit se nedá.
@@ -225,14 +225,14 @@ public sealed class LegacyScreen : IScreen
             Spacing = 4,
             Width = PanelWidth - 24,
             Padding = new Thickness(12, 8),
-            Background = new SolidBrush(new Color(44, 34, 26, 235)),
+            Background = new SolidBrush(UiPalette.Panel),
         };
 
         long points = _simulation.PendingLegacyPoints();
         stack.Widgets.Add(new Label
         {
             Text = loc.Format("legacy.preview.gain", points, _simulation.LegacyPoints + points),
-            TextColor = new Color(235, 200, 140),
+            TextColor = UiPalette.TextBright,
             Wrap = true,
         });
 
@@ -246,21 +246,21 @@ public sealed class LegacyScreen : IScreen
         {
             Text = loc.Format("legacy.preview.loses",
                 _simulation.AscensionLevel, _simulation.PrestigePoints, upgradeLevels),
-            TextColor = new Color(235, 150, 120),
+            TextColor = UiPalette.Warn,
             Wrap = true,
         });
 
         stack.Widgets.Add(new Label
         {
             Text = loc["legacy.preview.keeps"],
-            TextColor = new Color(150, 220, 150),
+            TextColor = UiPalette.Good,
             Wrap = true,
         });
 
         stack.Widgets.Add(new Label
         {
             Text = loc.Format("legacy.preview.next", _simulation.LegacyRequirement()),
-            TextColor = new Color(150, 160, 175),
+            TextColor = UiPalette.TextDim,
             Wrap = true,
         });
 
@@ -277,9 +277,9 @@ public sealed class LegacyScreen : IScreen
             Spacing = 3,
             Width = PanelWidth - 24,
             Padding = new Thickness(12, 8),
-            Background = new SolidBrush(new Color(44, 34, 26, 235)),
+            Background = new SolidBrush(UiPalette.Panel),
         };
-        row.Widgets.Add(new Label { Text = loc[upgrade.NameKey], TextColor = new Color(235, 200, 140) });
+        row.Widgets.Add(new Label { Text = loc[upgrade.NameKey], TextColor = UiPalette.TextBright });
         row.Widgets.Add(new Label { Text = loc[upgrade.DescriptionKey], TextColor = Color.LightGray, Wrap = true });
 
         // Úroveň se ukazuje vždy, i u nekoupených: hráč tak hned vidí, že jde
@@ -287,7 +287,7 @@ public sealed class LegacyScreen : IScreen
         row.Widgets.Add(new Label
         {
             Text = loc.Format("legacy.level", _simulation.LegacyLevel(upgradeIndex), upgrade.MaxLevel),
-            TextColor = new Color(150, 160, 175),
+            TextColor = UiPalette.TextDim,
         });
 
         row.Widgets.Add(UpgradeAction(upgradeIndex));
@@ -305,7 +305,7 @@ public sealed class LegacyScreen : IScreen
         var status = _simulation.CanBuyLegacyUpgrade(upgradeIndex);
         if (status == PlacementResult.NotUnlocked)
         {
-            return new Label { Text = loc["legacy.lockedUpgrade"], TextColor = new Color(150, 150, 160) };
+            return new Label { Text = loc["legacy.lockedUpgrade"], TextColor = UiPalette.TextDim };
         }
 
         var button = new Button
@@ -318,7 +318,7 @@ public sealed class LegacyScreen : IScreen
             },
             Padding = new Thickness(14, 5),
             HorizontalAlignment = HorizontalAlignment.Left,
-            Background = new SolidBrush(new Color(110, 78, 46, 235)),
+            Background = new SolidBrush(UiPalette.Panel),
             Enabled = status == PlacementResult.Ok,
         };
         button.Click += (_, _) =>

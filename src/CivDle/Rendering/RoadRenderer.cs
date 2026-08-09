@@ -35,6 +35,18 @@ public sealed class RoadRenderer
     /// <summary>Pod tímhle přiblížením se kreslí jen holá vozovka bez detailů.</summary>
     public const float DetailZoom = 0.8f;
 
+    /// <summary>
+    /// Pod tímhle přiblížením se ze silnic stane <b>kresba sítě</b>: každá
+    /// dlaždice se vyplní celá.
+    ///
+    /// <para>Šestipixelový polštářek má z výšky pod jeden pixel na obrazovce
+    /// a síť se z něj rozpadne na tečky. Přitom právě silniční síť je to
+    /// jediné, podle čeho jde z výšky poznat tvar města — takže se z ní radši
+    /// stane plná čára. Není to zjednodušení kvůli výkonu, ale <b>jiná kresba
+    /// pro jinou vzdálenost</b>.</para>
+    /// </summary>
+    public const float NetworkZoom = CityScaleRenderer.ThresholdZoom;
+
     private readonly Texture2D _pixel;
     private readonly GameContent _content;
 
@@ -48,8 +60,17 @@ public sealed class RoadRenderer
     {
         var (min, max) = camera.VisibleWorldBounds();
         bool detailed = camera.Zoom >= DetailLevel.Scale(DetailZoom);
+        bool network = camera.Zoom < NetworkZoom;
 
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
+        if (network)
+        {
+            DrawNetwork(spriteBatch, simulation.RoadTiles, min, max);
+            DrawNetwork(spriteBatch, simulation.NpcRoadTiles, min, max);
+            spriteBatch.End();
+            return;
+        }
+
         DrawTiles(spriteBatch, simulation, simulation.RoadTiles, min, max, detailed);
 
         // Ulice cizích měst a cesty mezi nimi. Jsou to tytéž silniční dlaždice,
@@ -57,6 +78,30 @@ public sealed class RoadRenderer
         // první pohled poznat, že to nejsou silnice, po kterých se dá jet.
         DrawTiles(spriteBatch, simulation, simulation.NpcRoadTiles, min, max, detailed);
         spriteBatch.End();
+    }
+
+    /// <summary>
+    /// Silnice z výšky: plná dlaždice ve světlé barvě, žádná ramena a žádné
+    /// dotazy na sousedy. Je to mapa sítě, ne vozovka — a jako mapa se má taky
+    /// kreslit.
+    /// </summary>
+    private void DrawNetwork(
+        SpriteBatch spriteBatch, IReadOnlyList<RoadTile> roadTiles, Vector2 min, Vector2 max)
+    {
+        const int tileSize = TerrainRenderer.TileSize;
+        var color = Shade(_content.Gameplay.Roads.MapColor.ToXna(), 1.35f);
+
+        for (int i = 0; i < roadTiles.Count; i++)
+        {
+            int x = roadTiles[i].X * tileSize;
+            int y = roadTiles[i].Y * tileSize;
+            if (x + tileSize < min.X || x > max.X || y + tileSize < min.Y || y > max.Y)
+            {
+                continue;
+            }
+
+            spriteBatch.Draw(_pixel, new Rectangle(x, y, tileSize, tileSize), color * 0.85f);
+        }
     }
 
     /// <summary>Vykreslí jeden seznam silničních dlaždic. Vlastník na vzhled nemá vliv.</summary>

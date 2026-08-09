@@ -90,7 +90,7 @@ public sealed class ModManagerScreen : IScreen
         layout.Widgets.Add(new Label
         {
             Text = loc["mods.title"],
-            TextColor = new Color(240, 205, 110),
+            TextColor = UiPalette.TextBright,
             HorizontalAlignment = HorizontalAlignment.Center,
         });
 
@@ -99,7 +99,7 @@ public sealed class ModManagerScreen : IScreen
             layout.Widgets.Add(new Label
             {
                 Text = loc["mods.restartNeeded"],
-                TextColor = new Color(235, 190, 120),
+                TextColor = UiPalette.TextBright,
                 Wrap = true,
                 Width = PanelWidth,
             });
@@ -131,7 +131,7 @@ public sealed class ModManagerScreen : IScreen
         layout.Widgets.Add(new Label
         {
             Text = loc["mods.orderHint"],
-            TextColor = new Color(150, 160, 175),
+            TextColor = UiPalette.TextDim,
             Wrap = true,
             Width = PanelWidth,
         });
@@ -160,8 +160,8 @@ public sealed class ModManagerScreen : IScreen
             Width = PanelWidth - 24,
             Padding = new Thickness(12, 8),
             Background = new SolidBrush(mod.Status == ModStatus.Broken
-                ? new Color(52, 32, 34, 235)
-                : new Color(30, 34, 46, 235)),
+                ? UiPalette.Panel
+                : UiPalette.Panel),
         };
 
         var header = new HorizontalStackPanel { Spacing = 8 };
@@ -170,15 +170,15 @@ public sealed class ModManagerScreen : IScreen
             Text = $"{mod.Name}  {mod.Version}",
             TextColor = mod.Status switch
             {
-                ModStatus.Enabled => new Color(150, 220, 150),
-                ModStatus.Disabled => new Color(170, 175, 185),
-                _ => new Color(235, 150, 130),
+                ModStatus.Enabled => UiPalette.Good,
+                ModStatus.Disabled => UiPalette.Text,
+                _ => UiPalette.Warn,
             },
         });
 
         if (mod.FromWorkshop)
         {
-            header.Widgets.Add(new Label { Text = loc["mods.fromWorkshop"], TextColor = new Color(150, 200, 235) });
+            header.Widgets.Add(new Label { Text = loc["mods.fromWorkshop"], TextColor = UiPalette.Accent });
         }
 
         row.Widgets.Add(header);
@@ -188,7 +188,7 @@ public sealed class ModManagerScreen : IScreen
             row.Widgets.Add(new Label
             {
                 Text = mod.Problem,
-                TextColor = new Color(235, 170, 140),
+                TextColor = UiPalette.Warn,
                 Wrap = true,
                 Width = PanelWidth - 60,
             });
@@ -199,7 +199,7 @@ public sealed class ModManagerScreen : IScreen
             row.Widgets.Add(new Label
             {
                 Text = loc.Format("mods.overrides", string.Join(", ", mod.DataFiles)),
-                TextColor = new Color(150, 160, 175),
+                TextColor = UiPalette.TextDim,
                 Wrap = true,
                 Width = PanelWidth - 60,
             });

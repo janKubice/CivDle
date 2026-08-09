@@ -94,7 +94,7 @@ public sealed class SpriteEditorScreen : IScreen
         layout.Widgets.Add(new Label
         {
             Text = loc["spriteedit.title"],
-            TextColor = new Color(240, 205, 110),
+            TextColor = UiPalette.TextBright,
             HorizontalAlignment = HorizontalAlignment.Center,
         });
 
@@ -125,7 +125,7 @@ public sealed class SpriteEditorScreen : IScreen
 
         if (_status.Length > 0)
         {
-            layout.Widgets.Add(new Label { Text = _status, TextColor = new Color(150, 220, 150) });
+            layout.Widgets.Add(new Label { Text = _status, TextColor = UiPalette.Good });
         }
 
         var panel = UiFactory.DarkPanel(layout);
@@ -281,7 +281,7 @@ public sealed class SpriteEditorScreen : IScreen
             spriteBatch.Draw(white, box, Palette[i].A > 0 ? Palette[i] : new Color(90, 90, 100));
             if (i == _color)
             {
-                spriteBatch.Draw(white, new Rectangle(box.X, box.Bottom, box.Width, 3), new Color(255, 220, 120));
+                spriteBatch.Draw(white, new Rectangle(box.X, box.Bottom, box.Width, 3), UiPalette.TextBright);
             }
         }
 

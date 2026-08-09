@@ -94,7 +94,7 @@ internal static class UiFactory
     {
         var backdrop = new Panel
         {
-            Background = new SolidBrush(new Color(12, 16, 24, 232)),
+            Background = new SolidBrush(UiPalette.PanelDeep),
             Border = new SolidBrush(new Color(90, 120, 150, 150)),
             BorderThickness = new Thickness(1),
             Padding = new Thickness(36, 28),
@@ -200,7 +200,7 @@ internal static class UiFactory
             TextColor = Color.White,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Top,
-            Background = new SolidBrush(new Color(196, 72, 72, 245)),
+            Background = new SolidBrush(UiPalette.PanelBad),
             Padding = new Thickness(4, 1),
             Visible = false,
         };

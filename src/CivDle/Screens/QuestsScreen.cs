@@ -90,7 +90,7 @@ public sealed class QuestsScreen : IScreen
             list.Widgets.Add(new Label
             {
                 Text = loc["citizen.waiting"],
-                TextColor = new Color(150, 160, 175),
+                TextColor = UiPalette.TextDim,
             });
             return;
         }
@@ -102,18 +102,18 @@ public sealed class QuestsScreen : IScreen
         stack.Widgets.Add(new Label
         {
             Text = loc.Format("citizen.line", _simulation.PendingCitizenName, loc[def.TextKey]),
-            TextColor = new Color(255, 224, 168),
+            TextColor = UiPalette.TextBright,
         });
         stack.Widgets.Add(new Label
         {
             Text = loc.Format("citizen.needs", CostFormat.Line(content, loc, def.Cost)),
-            TextColor = new Color(214, 222, 232),
+            TextColor = UiPalette.TextBright,
         });
         stack.Widgets.Add(new Label
         {
             Text = loc.Format("citizen.timeLeft",
                 DurationFormat.FromTicks(_simulation.PendingCitizenRequest.TicksLeft)),
-            TextColor = new Color(186, 198, 214),
+            TextColor = UiPalette.Text,
         });
 
         if (_simulation.CanHelpCitizen())
@@ -127,8 +127,8 @@ public sealed class QuestsScreen : IScreen
 
         var panel = new Panel
         {
-            Background = new SolidBrush(new Color(42, 38, 30, 210)),
-            Border = new SolidBrush(new Color(255, 224, 168) * 0.5f),
+            Background = new SolidBrush(UiPalette.Panel),
+            Border = new SolidBrush(UiPalette.TextBright * 0.5f),
             BorderThickness = new Thickness(1),
             Padding = new Thickness(10, 8),
             Tooltip = loc["tip.citizens"],
@@ -157,7 +157,7 @@ public sealed class QuestsScreen : IScreen
             list.Widgets.Add(new Label
             {
                 Text = _paidLine,
-                TextColor = new Color(150, 220, 150),
+                TextColor = UiPalette.Good,
             });
         }
 
@@ -177,7 +177,7 @@ public sealed class QuestsScreen : IScreen
             list.Widgets.Add(new Label
             {
                 Text = loc["contract.waiting"],
-                TextColor = new Color(150, 160, 175),
+                TextColor = UiPalette.TextDim,
             });
         }
     }
@@ -197,12 +197,12 @@ public sealed class QuestsScreen : IScreen
         long stock = (long)_simulation.GetResource(def.DemandResourceIndex);
 
         var stack = new VerticalStackPanel { Spacing = 4, Width = 440 };
-        stack.Widgets.Add(new Label { Text = loc[def.NameKey], TextColor = new Color(255, 214, 120) });
+        stack.Widgets.Add(new Label { Text = loc[def.NameKey], TextColor = UiPalette.TextBright });
         stack.Widgets.Add(new Label
         {
             Text = loc.Format("contract.demand",
                 loc[content.Resources[def.DemandResourceIndex].NameKey], state.DemandAmount),
-            TextColor = new Color(214, 222, 232),
+            TextColor = UiPalette.TextBright,
         });
 
         // Pokrok skladu vůči objednávce: „jak daleko jsem", ne jen ano/ne.
@@ -213,14 +213,14 @@ public sealed class QuestsScreen : IScreen
         stack.Widgets.Add(new Label
         {
             Text = $"{Core.Numbers.Format(shown)} / {Core.Numbers.Format(state.DemandAmount)}",
-            TextColor = canDeliver ? new Color(150, 220, 150) : new Color(186, 198, 214),
+            TextColor = canDeliver ? UiPalette.Good : UiPalette.Text,
         });
 
         stack.Widgets.Add(new Label
         {
             Text = loc.Format("contract.rewardLabel",
                 CostFormat.Line(content, loc, _simulation.ContractReward(slot))),
-            TextColor = new Color(150, 220, 150),
+            TextColor = UiPalette.Good,
         });
 
         // Termín barvou: poslední čtvrtina červená, ať se to dá číst koutkem oka.
@@ -228,7 +228,7 @@ public sealed class QuestsScreen : IScreen
         stack.Widgets.Add(new Label
         {
             Text = loc.Format("contract.timeLeft", DurationFormat.FromTicks(state.TicksLeft)),
-            TextColor = left < 0.25 ? new Color(235, 130, 110) : new Color(186, 198, 214),
+            TextColor = left < 0.25 ? UiPalette.Bad : UiPalette.Text,
         });
 
         if (canDeliver)
@@ -236,7 +236,7 @@ public sealed class QuestsScreen : IScreen
             stack.Widgets.Add(new Label
             {
                 Text = "✓ " + loc["contract.ready"],
-                TextColor = new Color(150, 220, 150),
+                TextColor = UiPalette.Good,
             });
             stack.Widgets.Add(UiFactory.MenuButton(loc["contract.deliver"], () =>
             {
@@ -255,15 +255,15 @@ public sealed class QuestsScreen : IScreen
             stack.Widgets.Add(new Label
             {
                 Text = loc.Format("contract.notEnough", Math.Max(1, state.DemandAmount - stock)),
-                TextColor = new Color(235, 170, 110),
+                TextColor = UiPalette.Warn,
             });
         }
 
         // Splnitelná zakázka svítí: zelený rámeček a nádech pozadí, ne jen text.
         var panel = new Panel
         {
-            Background = new SolidBrush(canDeliver ? new Color(26, 46, 32, 220) : new Color(32, 42, 58, 200)),
-            Border = new SolidBrush(canDeliver ? new Color(150, 220, 150) * 0.9f : UiFactory.Accent * 0.55f),
+            Background = new SolidBrush(canDeliver ? UiPalette.Panel : UiPalette.PanelDeep),
+            Border = new SolidBrush(canDeliver ? UiPalette.Good * 0.9f : UiFactory.Accent * 0.55f),
             BorderThickness = new Thickness(canDeliver ? 2 : 1),
             Padding = new Thickness(10, 8),
             Tooltip = loc["tip.contracts"],
@@ -304,7 +304,7 @@ public sealed class QuestsScreen : IScreen
         list.Widgets.Add(new Label
         {
             Text = loc["challenge.resetsAt"],
-            TextColor = new Color(150, 160, 175),
+            TextColor = UiPalette.TextDim,
         });
     }
 
@@ -316,8 +316,8 @@ public sealed class QuestsScreen : IScreen
         long target = challenge.Condition.Target;
 
         var stack = new VerticalStackPanel { Spacing = 3, Width = 440 };
-        stack.Widgets.Add(new Label { Text = loc[challenge.NameKey], TextColor = new Color(255, 214, 120) });
-        stack.Widgets.Add(new Label { Text = loc[challenge.DescriptionKey], TextColor = new Color(186, 198, 214), Wrap = true });
+        stack.Widgets.Add(new Label { Text = loc[challenge.NameKey], TextColor = UiPalette.TextBright });
+        stack.Widgets.Add(new Label { Text = loc[challenge.DescriptionKey], TextColor = UiPalette.Text, Wrap = true });
 
         var bar = new ProgressBar(416);
         bar.SetProgress(target > 0 ? Math.Min(progress, target) / (double)target : 1.0);
@@ -326,12 +326,12 @@ public sealed class QuestsScreen : IScreen
         {
             Text = $"{Math.Min(progress, target)} / {target}   " + loc.Format("panel.reward",
                 CostFormat.Line(content, loc, challenge.Reward)),
-            TextColor = new Color(150, 220, 150),
+            TextColor = UiPalette.Good,
         });
 
         var panel = new Panel
         {
-            Background = new SolidBrush(new Color(32, 42, 58, 200)),
+            Background = new SolidBrush(UiPalette.PanelDeep),
             Border = new SolidBrush(UiFactory.Accent * 0.55f),
             BorderThickness = new Thickness(1),
             Padding = new Thickness(10, 8),
@@ -443,7 +443,7 @@ public sealed class QuestsScreen : IScreen
             Spacing = 3,
             Width = 440,
             Padding = new Thickness(12, 8),
-            Background = new SolidBrush(new Color(28, 36, 50, 235)),
+            Background = new SolidBrush(UiPalette.Panel),
         };
         row.Widgets.Add(new Label { Text = name, TextColor = UiFactory.Accent });
         row.Widgets.Add(new Label { Text = desc, TextColor = Color.LightGray, Wrap = true });
@@ -451,7 +451,7 @@ public sealed class QuestsScreen : IScreen
         var bar = new ProgressBar(416, 8);
         bar.SetProgress(condition.Target > 0 ? current / (double)condition.Target : 1.0);
         row.Widgets.Add(bar.Root);
-        row.Widgets.Add(new Label { Text = $"{current} / {condition.Target}", TextColor = new Color(150, 220, 150) });
+        row.Widgets.Add(new Label { Text = $"{current} / {condition.Target}", TextColor = UiPalette.Good });
         if (reward.Count > 0)
         {
             row.Widgets.Add(new Label
@@ -472,9 +472,9 @@ public sealed class QuestsScreen : IScreen
             Spacing = 8,
             Width = 440,
             Padding = new Thickness(12, 6),
-            Background = new SolidBrush(new Color(24, 34, 28, 235)),
+            Background = new SolidBrush(UiPalette.Panel),
         };
-        row.Widgets.Add(new Label { Text = name, TextColor = new Color(150, 170, 150) });
+        row.Widgets.Add(new Label { Text = name, TextColor = UiPalette.TextDim });
         row.Widgets.Add(new Label { Text = loc["quest.done"], TextColor = Color.LightGreen });
         return row;
     }

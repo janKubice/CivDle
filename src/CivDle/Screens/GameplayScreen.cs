@@ -53,6 +53,7 @@ public sealed class GameplayScreen : IScreen
     private readonly UfoRenderer _ufoRenderer;
     private readonly WeatherRenderer _weatherRenderer;
     private readonly BuildingRenderer _buildingRenderer;
+    private readonly AmbientLifeRenderer _ambientLife;
     private readonly LightsRenderer _lightsRenderer;
     private readonly FaunaSystem _fauna;
     private readonly TrafficSystem _traffic;
@@ -346,6 +347,7 @@ public sealed class GameplayScreen : IScreen
         _rolling = new RollingNumbers(screens.Content.Resources.Count);
         _rolling.SnapTo(simulation.GetResource); // na startu (i po načtení savu) žádné dojíždění
         _buildingRenderer = new BuildingRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
+        _ambientLife = new AmbientLifeRenderer(screens.WhitePixel, screens.Content);
         _lightsRenderer = new LightsRenderer(screens.WhitePixel, screens.Content);
         _fauna = new FaunaSystem(screens.Content);
         _traffic = new TrafficSystem(screens.Content);
@@ -555,6 +557,7 @@ public sealed class GameplayScreen : IScreen
         _buildingRenderer.Update(worldDt); // balony nad kotvišti se houpou
         _lightsRenderer.Update(worldDt);   // okna v noci pomalu mihotají
         _waterRenderer.Update(worldDt);    // odlesky putují po hladině
+        _ambientLife.Update(worldDt);      // kouř stoupá, stromy se kolébají, ptáci krouží
         _weatherRenderer.Update(worldDt, _simulation, _screens.GraphicsDevice.Viewport);
         _minimap.Update(dt, _camera, _simulation);
         _might.Update(dt, _simulation);
@@ -596,6 +599,9 @@ public sealed class GameplayScreen : IScreen
             // Provoz patří NAD silnici a POD budovy — auto má zajet za dům, ne přes něj.
             _traffic.Draw(spriteBatch, _screens.WhitePixel, _camera, DayNightCycle.NightFactor(_simulation.TimeOfDay01));
             _buildingRenderer.Draw(spriteBatch, _camera, _simulation);
+            // Kouř nad střechy, ptáci nad krajinu. Vydrží dál než chodci, takže
+            // scéna nezmrzne hned, jak hráč trochu odjede kamerou.
+            _ambientLife.Draw(spriteBatch, _camera, _simulation);
             _agents.Draw(spriteBatch, _camera);
             _fauna.Draw(spriteBatch, _screens.WhitePixel, _camera);
             // Letouny až za pozemní kulisou — mají letět NAD vším, co stojí na zemi.
@@ -610,7 +616,10 @@ public sealed class GameplayScreen : IScreen
         else
         {
             _roadRenderer.Draw(spriteBatch, _camera, _simulation); // cesty dávají kontext i z výšky
-            _cityScale.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, _camera, _simulation);
+            // V noci se z hustoty stane světelná mapa — město jako souhvězdí.
+            _cityScale.Draw(
+                spriteBatch, _screens.GraphicsDevice.Viewport, _camera, _simulation,
+                DayNightCycle.NightFactor(_simulation.TimeOfDay01));
         }
 
         // Závoj zamoření nad městem, ale pod událostmi a efekty: špína leží
@@ -681,16 +690,16 @@ public sealed class GameplayScreen : IScreen
         {
             DrawTileOverlay(spriteBatch, plantSprite, _tools.PlantGhostX, _tools.PlantGhostY, 1,
                 (_tools.PlantGhostResult == PlacementResult.Ok
-                    ? new Color(120, 240, 140)
-                    : new Color(240, 110, 100)) * 0.7f);
+                    ? UiPalette.Good
+                    : UiPalette.Bad) * 0.7f);
         }
 
         if (_tools.TerraformGhostActive)
         {
             DrawTileOverlay(spriteBatch, _screens.WhitePixel, _tools.TerraformGhostX, _tools.TerraformGhostY, 1,
                 (_tools.TerraformGhostResult == PlacementResult.Ok
-                    ? new Color(140, 230, 200)
-                    : new Color(240, 110, 100)) * 0.55f);
+                    ? UiPalette.Accent
+                    : UiPalette.Bad) * 0.55f);
         }
 
         // V režimu slučování se rozsvítí VŠECHNY bloky, které jdou sloučit —
@@ -707,8 +716,8 @@ public sealed class GameplayScreen : IScreen
         {
             DrawTileOverlay(spriteBatch, _screens.WhitePixel, _tools.MergeGhostX, _tools.MergeGhostY, 2,
                 (_tools.MergeGhostResult == PlacementResult.Ok
-                    ? new Color(150, 235, 150)
-                    : new Color(235, 120, 110)) * 0.45f);
+                    ? UiPalette.Good
+                    : UiPalette.Bad) * 0.45f);
         }
 
         if (_tools.RoadGhostActive)
@@ -718,13 +727,13 @@ public sealed class GameplayScreen : IScreen
             foreach (var (pathX, pathY) in _tools.RoadGhostPath)
             {
                 DrawTileOverlay(spriteBatch, _screens.WhitePixel, pathX, pathY, 1,
-                    (_tools.RoadGhostErasing ? new Color(240, 190, 90) : new Color(150, 230, 160)) * 0.45f);
+                    (_tools.RoadGhostErasing ? UiPalette.TextBright : UiPalette.Good) * 0.45f);
             }
 
             DrawTileOverlay(spriteBatch, _screens.WhitePixel, _tools.RoadGhostX, _tools.RoadGhostY, 1,
                 (_tools.RoadGhostResult != PlacementResult.Ok
-                    ? new Color(235, 120, 110)
-                    : _tools.RoadGhostErasing ? new Color(240, 190, 90) : new Color(200, 200, 190)) * 0.55f);
+                    ? UiPalette.Bad
+                    : _tools.RoadGhostErasing ? UiPalette.TextBright : UiPalette.Text) * 0.55f);
         }
 
         if (_tools.ZonePreviewActive)
@@ -746,14 +755,14 @@ public sealed class GameplayScreen : IScreen
                     && _simulation.CanPlace(defIndex, x, y) == PlacementResult.Ok;
                 int size = fits ? _screens.Content.Buildings[defIndex].FootprintWidth : 1;
                 DrawTileOverlay(spriteBatch, _screens.WhitePixel, x, y, size,
-                    (fits ? new Color(130, 235, 150) : new Color(235, 120, 110)) * 0.55f);
+                    (fits ? UiPalette.Good : UiPalette.Bad) * 0.55f);
             }
 
             foreach (var (dx, dy) in template.Roads)
             {
                 DrawTileOverlay(spriteBatch, _screens.WhitePixel,
                     _tools.TemplateGhostX + dx, _tools.TemplateGhostY + dy, 1,
-                    new Color(200, 200, 190) * 0.45f);
+                    UiPalette.Text * 0.45f);
             }
         }
 
@@ -762,9 +771,9 @@ public sealed class GameplayScreen : IScreen
         if (_tools.AreaPreviewActive)
         {
             var area = _tools.AreaPreview;
-            var tint = (_tools.TemplateCaptureMode ? new Color(240, 210, 120)
-                : _tools.PlantMode ? new Color(120, 240, 140)
-                : new Color(140, 230, 200)) * 0.4f;
+            var tint = (_tools.TemplateCaptureMode ? UiPalette.TextBright
+                : _tools.PlantMode ? UiPalette.Good
+                : UiPalette.Accent) * 0.4f;
             for (int y = area.Y; y < area.Y + area.Height; y++)
             {
                 for (int x = area.X; x < area.X + area.Width; x++)
@@ -848,12 +857,12 @@ public sealed class GameplayScreen : IScreen
                 .Save(_simulation, _camera, _screens.Saves.ShareDirectory, fullDetail);
             _toasts.Add(
                 _screens.Loc.Format(fullDetail ? "share.savedFullDetail" : "share.saved", Path.GetFileName(path)),
-                new Color(255, 226, 150));
+                UiPalette.TextBright);
         }
         catch (IOException error)
         {
             // Plný disk ani zamčená složka nemají shodit rozehranou hru.
-            _toasts.Add(_screens.Loc.Format("share.failed", error.Message), new Color(235, 120, 110));
+            _toasts.Add(_screens.Loc.Format("share.failed", error.Message), UiPalette.Bad);
         }
     }
 
@@ -928,19 +937,19 @@ public sealed class GameplayScreen : IScreen
                 ? loc.Format("tip.landmark.yield",
                     yield.Amount, loc[content.Resources[yield.ResourceIndex].NameKey])
                 : loc["tip.landmark"];
-            accent = new Color(255, 215, 120);
+            accent = UiPalette.TextBright;
         }
         else if (_simulation.IsDiscoveryTile(tileX, tileY) && !_simulation.IsDiscoveryClaimed(tileX, tileY))
         {
             title = loc["tip.discovery"];
             body = loc["tip.discovery.desc"];
-            accent = new Color(160, 220, 255);
+            accent = UiPalette.Accent;
         }
         else if (_simulation.TryGetPlantedNode(tileX, tileY, out int plantedResource))
         {
             title = loc[content.Resources[plantedResource].NameKey];
             body = loc["tip.planted"];
-            accent = new Color(150, 230, 150);
+            accent = UiPalette.Good;
         }
 
         HoverTooltip.Draw(spriteBatch, _screens.WhitePixel, _popupFont,
@@ -1125,8 +1134,8 @@ public sealed class GameplayScreen : IScreen
                 case VisualEventKind.Terraformed:
                     // Odlétnutá hlína a zákmit vody: zásah do krajiny mění jen
                     // barvu dlaždice a bez efektu není poznat, že vůbec proběhl.
-                    _particles.SpawnBurst(center, new Color(150, 125, 95), 12, 40f, 150f);
-                    _particles.SpawnBurst(center, new Color(120, 200, 220), 6, 30f, 110f);
+                    _particles.SpawnBurst(center, UiPalette.TextBright, 12, 40f, 150f);
+                    _particles.SpawnBurst(center, UiPalette.Accent, 6, 30f, 110f);
                     terraformed = true;
                     break;
             }
@@ -1159,7 +1168,7 @@ public sealed class GameplayScreen : IScreen
             var center = new Vector2(
                 (building.X + def.FootprintWidth * 0.5f) * TerrainRenderer.TileSize,
                 (building.Y + def.FootprintHeight * 0.5f) * TerrainRenderer.TileSize);
-            _particles.SpawnBurst(center, new Color(205, 195, 175), 14, 50f, 170f); // prach dopadu
+            _particles.SpawnBurst(center, UiPalette.Text, 14, 50f, 170f); // prach dopadu
             _particles.SpawnBurst(center, def.MapColor.ToXna(), 6, 40f, 120f);
         }
 
@@ -1269,8 +1278,8 @@ public sealed class GameplayScreen : IScreen
         if (_caravans.TryEscort(world, out var caravanPos))
         {
             _floatingText.Add(caravanPos - new Vector2(0f, TerrainRenderer.TileSize * 0.5f),
-                _screens.Loc["hud.escort"], new Color(255, 220, 140));
-            _particles.SpawnBurst(caravanPos, new Color(255, 220, 140), 8, 40f, 130f);
+                _screens.Loc["hud.escort"], UiPalette.TextBright);
+            _particles.SpawnBurst(caravanPos, UiPalette.TextBright, 8, 40f, 130f);
             return;
         }
 
@@ -1333,16 +1342,16 @@ public sealed class GameplayScreen : IScreen
             case HarvestOutcome.Jackpot:
                 // Úlovek života (velryba, obří žíla): největší oslava, jakou hra má —
                 // je to vzácnost odemčená až Vzestupem, musí to být poznat.
-                _floatingText.Add(tileCenter, _screens.Loc.Format("hud.jackpot", amount), new Color(120, 235, 255));
-                _particles.SpawnBurst(tileCenter, new Color(120, 235, 255), 48, 80f, 340f);
-                _particles.SpawnBurst(tileCenter, new Color(255, 255, 255), 24, 40f, 180f);
+                _floatingText.Add(tileCenter, _screens.Loc.Format("hud.jackpot", amount), UiPalette.Accent);
+                _particles.SpawnBurst(tileCenter, UiPalette.Accent, 48, 80f, 340f);
+                _particles.SpawnBurst(tileCenter, UiPalette.TextBright, 24, 40f, 180f);
                 _sounds.PlayChime();
                 break;
 
             case HarvestOutcome.Crit:
                 // Krit: zlatý velký popup + extra jiskry + cinknutí — aktivní klikání se vyplatí.
-                _floatingText.Add(tileCenter, _screens.Loc.Format("hud.crit", amount), new Color(255, 215, 80));
-                _particles.SpawnBurst(tileCenter, new Color(255, 215, 80), 20, 60f, 200f);
+                _floatingText.Add(tileCenter, _screens.Loc.Format("hud.crit", amount), UiPalette.TextBright);
+                _particles.SpawnBurst(tileCenter, UiPalette.TextBright, 20, 60f, 200f);
                 _sounds.PlayChime();
                 break;
 
@@ -1360,7 +1369,7 @@ public sealed class GameplayScreen : IScreen
             _floatingText.Add(
                 tileCenter - new Vector2(0f, TerrainRenderer.TileSize * 0.7f),
                 _screens.Loc.Format("hud.combo", streak),
-                Color.Lerp(new Color(255, 235, 180), new Color(255, 140, 60), Math.Min(1f, (streak - 1) / 10f)));
+                Color.Lerp(UiPalette.TextBright, UiPalette.Bad, Math.Min(1f, (streak - 1) / 10f)));
         }
 
         _sounds.PlayChop();
@@ -1383,7 +1392,7 @@ public sealed class GameplayScreen : IScreen
     /// <summary>Zpětná vazba na posbíranou bublinu / zlatý spawn: zlatý popup, jiskry, cinknutí.</summary>
     private void CollectFeedback(int resourceIndex, int amount, Vector2 worldPos)
     {
-        var color = new Color(255, 224, 130);
+        var color = UiPalette.TextBright;
         _floatingText.Add(worldPos, $"+{amount} {_screens.Loc[_screens.Content.Resources[resourceIndex].NameKey]}", color);
         _particles.SpawnBurst(worldPos, color, 16, 55f, 190f);
         _sounds.PlayChime();
@@ -1450,7 +1459,7 @@ public sealed class GameplayScreen : IScreen
 
         bool freezing = season.NeedsHeating && !_simulation.HasFuelForHeating;
         _seasonLabel.Text = loc.Format("hud.season", loc[season.NameKey]);
-        _seasonLabel.TextColor = freezing ? new Color(235, 140, 120) : season.TintColor.ToXna();
+        _seasonLabel.TextColor = freezing ? UiPalette.Bad : season.TintColor.ToXna();
         _seasonLabel.Tooltip = freezing
             ? loc["hud.season.freezing"]
             : loc.Format("hud.season.tip", loc[season.NameKey], loc[season.DescriptionKey]);
@@ -1509,9 +1518,9 @@ public sealed class GameplayScreen : IScreen
 
         double coverage = _simulation.ToolCoverage;
         _toolsLabel.Text = loc.Format("hud.tools", (int)Math.Round(coverage * 100));
-        _toolsLabel.TextColor = coverage >= 0.75 ? new Color(150, 220, 150)
-            : coverage >= 0.35 ? new Color(230, 210, 130)
-            : new Color(200, 195, 180);
+        _toolsLabel.TextColor = coverage >= 0.75 ? UiPalette.Good
+            : coverage >= 0.35 ? UiPalette.TextBright
+            : UiPalette.Text;
     }
 
     /// <summary>
@@ -1529,9 +1538,9 @@ public sealed class GameplayScreen : IScreen
         }
 
         _pollutionLabel.Text = loc.Format("hud.pollution", (int)Math.Round(severity * 100));
-        _pollutionLabel.TextColor = severity >= 0.6 ? new Color(228, 120, 100)
-            : severity >= 0.3 ? new Color(230, 190, 120)
-            : new Color(180, 190, 170);
+        _pollutionLabel.TextColor = severity >= 0.6 ? UiPalette.Bad
+            : severity >= 0.3 ? UiPalette.TextBright
+            : UiPalette.Text;
     }
 
     /// <summary>
@@ -1572,7 +1581,7 @@ public sealed class GameplayScreen : IScreen
         label.Text = ready > 0
             ? $"{loc["hud.contracts"]} {ready}/{offers} ✓"
             : $"{loc["hud.contracts"]} {offers}";
-        label.TextColor = ready > 0 ? new Color(150, 220, 150) : Color.White;
+        label.TextColor = ready > 0 ? UiPalette.Good : Color.White;
     }
 
     /// <summary>Vyzvedne oznámení ze simulace (splněné úkoly, achievementy, milníky) a udělá z nich toasty.</summary>
@@ -1602,7 +1611,7 @@ public sealed class GameplayScreen : IScreen
             // v rohu vedle „sklad je plný".
             if (!_captureMode && note.TitleKey == "toast.wonderDone")
             {
-                _celebration.Show(subject, new Color(240, 200, 90));
+                _celebration.Show(subject, UiPalette.TextBright);
             }
 
             // Splněný úkol / Vzestup mění seznam aktivních cílů — přestav sledovač.
@@ -1649,7 +1658,7 @@ public sealed class GameplayScreen : IScreen
                 break;
 
             case DirectorCue.Hint:
-                _toasts.Add(_screens.Loc[decision.HintKey], new Color(210, 200, 150));
+                _toasts.Add(_screens.Loc[decision.HintKey], UiPalette.TextBright);
                 break;
         }
     }
@@ -1728,7 +1737,7 @@ public sealed class GameplayScreen : IScreen
 
             _toasts.Add(
                 _screens.Loc.Format("toast.storageFull", _screens.Loc[_screens.Content.Resources[i].NameKey]),
-                new Color(230, 200, 120));
+                UiPalette.TextBright);
         }
     }
 
@@ -1846,17 +1855,17 @@ public sealed class GameplayScreen : IScreen
         var loc = _screens.Loc;
         if (outcome == PrayerOutcome.Answered)
         {
-            _toasts.Add(loc["toast.prayerAnswered"], new Color(255, 226, 150));
-            _floatingText.Add(world, loc["toast.prayerAnswered"], new Color(255, 226, 150));
-            _particles.SpawnBurst(world, new Color(255, 226, 150), 20, 60f, 190f);
+            _toasts.Add(loc["toast.prayerAnswered"], UiPalette.TextBright);
+            _floatingText.Add(world, loc["toast.prayerAnswered"], UiPalette.TextBright);
+            _particles.SpawnBurst(world, UiPalette.TextBright, 20, 60f, 190f);
             _sounds.PlayChime();
             return;
         }
 
         if (outcome == PrayerOutcome.Unanswered)
         {
-            _toasts.Add(loc["toast.prayerUnanswered"], new Color(150, 155, 170));
-            _floatingText.Add(world, loc["toast.prayerUnanswered"], new Color(150, 155, 170));
+            _toasts.Add(loc["toast.prayerUnanswered"], UiPalette.TextDim);
+            _floatingText.Add(world, loc["toast.prayerUnanswered"], UiPalette.TextDim);
             return;
         }
 
@@ -1864,20 +1873,20 @@ public sealed class GameplayScreen : IScreen
         // začne hledat, co se stalo s jeho čtvrtí.
         if (outcome == PrayerOutcome.Strayed)
         {
-            _toasts.Add(loc["toast.prayerStrayed"], new Color(235, 150, 110));
-            _floatingText.Add(world, loc["toast.prayerStrayed"], new Color(235, 150, 110));
+            _toasts.Add(loc["toast.prayerStrayed"], UiPalette.Warn);
+            _floatingText.Add(world, loc["toast.prayerStrayed"], UiPalette.Warn);
         }
     }
 
     private static Color NotificationColor(NotificationKind kind) => kind switch
     {
-        NotificationKind.QuestCompleted => new Color(120, 200, 140),
-        NotificationKind.ContractReady => new Color(150, 220, 150), // stejná zelená jako „✓" na tlačítku zakázek
-        NotificationKind.AchievementUnlocked => new Color(230, 200, 110),
-        NotificationKind.Ascended => new Color(180, 140, 230),
-        NotificationKind.BuildingMilestone => new Color(255, 214, 120), // barva ohňostroje
-        NotificationKind.BuildingMerged => new Color(170, 190, 210), // provozní zpráva, ne svátek
-        _ => new Color(96, 196, 220),
+        NotificationKind.QuestCompleted => UiPalette.Good,
+        NotificationKind.ContractReady => UiPalette.Good, // stejná zelená jako „✓" na tlačítku zakázek
+        NotificationKind.AchievementUnlocked => UiPalette.TextBright,
+        NotificationKind.Ascended => UiPalette.Accent,
+        NotificationKind.BuildingMilestone => UiPalette.TextBright, // barva ohňostroje
+        NotificationKind.BuildingMerged => UiPalette.Text, // provozní zpráva, ne svátek
+        _ => UiPalette.Accent,
     };
 
     // ----- HUD -----
@@ -1928,7 +1937,7 @@ public sealed class GameplayScreen : IScreen
             _resourceRateLabels[i] = new Label
             {
                 VerticalAlignment = VerticalAlignment.Center,
-                TextColor = new Color(120, 190, 130),
+                TextColor = UiPalette.Good,
                 MinWidth = RateLabelWidth,
             };
             chip.Widgets.Add(_resourceRateLabels[i]);
@@ -1959,7 +1968,7 @@ public sealed class GameplayScreen : IScreen
         _idleLabel = new Label
         {
             VerticalAlignment = VerticalAlignment.Center,
-            TextColor = new Color(240, 180, 90),
+            TextColor = UiPalette.Warn,
             Tooltip = _screens.Loc["tip.idleBuildings"],
         };
         summaryRow.Widgets.Add(_idleLabel);
@@ -1986,21 +1995,21 @@ public sealed class GameplayScreen : IScreen
 
         // Pravý horní roh: éra + den/čas + dlaždice pod kurzorem.
         var loc = _screens.Loc;
-        _eraLabel = new Label { TextColor = new Color(210, 185, 120), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.era"] };
-        _eraNextLabel = new Label { TextColor = new Color(160, 150, 120), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.eraNext"] };
-        _tierLabel = new Label { TextColor = new Color(190, 160, 230), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.tier"] };
+        _eraLabel = new Label { TextColor = UiPalette.TextBright, HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.era"] };
+        _eraNextLabel = new Label { TextColor = UiPalette.TextDim, HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.eraNext"] };
+        _tierLabel = new Label { TextColor = UiPalette.Accent, HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.tier"] };
 
         // Prestižní měny patří do HUDu. Body Vzestupu i Odkaz se dosud daly
         // najít JEN uvnitř svých obrazovek, takže hráč o Odkazu nevěděl, i když
         // ho měl — a měna, kterou není vidět, se neutrácí.
         _currencyLabel = new Label
         {
-            TextColor = new Color(230, 200, 120),
+            TextColor = UiPalette.TextBright,
             HorizontalAlignment = HorizontalAlignment.Right,
             Tooltip = loc["tip.prestigeCurrency"],
         };
-        _powerLabel = new Label { TextColor = new Color(120, 200, 240), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.power"] };
-        _weatherLabel = new Label { TextColor = new Color(170, 200, 220), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.weather"] };
+        _powerLabel = new Label { TextColor = UiPalette.Accent, HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.power"] };
+        _weatherLabel = new Label { TextColor = UiPalette.Accent, HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.weather"] };
         _seasonLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right };
         _toolsLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.tools"] };
         _pollutionLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.pollution"] };
@@ -2191,7 +2200,7 @@ public sealed class GameplayScreen : IScreen
         _pendingPrayer = prayerIndex;
         _pendingPrayerStrength = strength;
         _tools.Clear(); // rozestavěná budova by cíl přebila
-        _toasts.Add(_screens.Loc["faith.pickTarget"], new Color(255, 226, 150));
+        _toasts.Add(_screens.Loc["faith.pickTarget"], UiPalette.TextBright);
     }
 
     /// <summary>
@@ -2210,7 +2219,7 @@ public sealed class GameplayScreen : IScreen
         if (_input.WasRightPressed || _input.WasPressed(Keys.Escape))
         {
             _pendingPrayer = -1;
-            _toasts.Add(_screens.Loc["faith.targetCancelled"], new Color(150, 155, 170));
+            _toasts.Add(_screens.Loc["faith.targetCancelled"], UiPalette.TextDim);
             return true;
         }
 
@@ -2256,18 +2265,18 @@ public sealed class GameplayScreen : IScreen
                 // Jedna dávka jisker vypadala jako klepnutí do země, ne jako
                 // kámen z vesmíru.
                 _particles.SpawnBurst(world, Color.White, 40, 200f, 700f);
-                _particles.SpawnBurst(world, new Color(255, 210, 120), 80, 140f, 560f);
-                _particles.SpawnBurst(world, new Color(255, 120, 40), 90, 90f, 430f);
+                _particles.SpawnBurst(world, UiPalette.TextBright, 80, 140f, 560f);
+                _particles.SpawnBurst(world, UiPalette.Bad, 90, 90f, 430f);
                 _particles.SpawnBurst(world, new Color(70, 60, 55), 70, 30f, 240f);
-                _particles.SpawnBurst(world, new Color(150, 190, 80), 30, 20f, 130f); // zelený spad
+                _particles.SpawnBurst(world, UiPalette.Good, 30, 20f, 130f); // zelený spad
                 _fireworks.Burst(world, HashCode.Combine((int)world.X, (int)world.Y));
                 _camera.Shake(22f);
                 _sounds.PlayPlace();
                 break;
 
             case "smite_flood":
-                _particles.SpawnBurst(world, new Color(110, 180, 235), 90, 60f, 380f);
-                _particles.SpawnBurst(world, new Color(200, 230, 245), 50, 30f, 200f);
+                _particles.SpawnBurst(world, UiPalette.Accent, 90, 60f, 380f);
+                _particles.SpawnBurst(world, UiPalette.Accent, 50, 30f, 200f);
                 _camera.Shake(10f);
                 _sounds.PlayPlace();
                 break;
@@ -2278,11 +2287,11 @@ public sealed class GameplayScreen : IScreen
                 break;
 
             case "bless_regrow":
-                _particles.SpawnBurst(world, new Color(120, 220, 120), 45, 40f, 240f);
+                _particles.SpawnBurst(world, UiPalette.Good, 45, 40f, 240f);
                 break;
 
             case "bless_reveal":
-                _particles.SpawnBurst(world, new Color(170, 220, 255), 40, 60f, 300f);
+                _particles.SpawnBurst(world, UiPalette.Accent, 40, 60f, 300f);
                 break;
 
             case "bless_festival":
@@ -2539,7 +2548,7 @@ public sealed class GameplayScreen : IScreen
                 _screens.Content.Gameplay.Boost.DurationSeconds,
                 _screens.Content.Gameplay.Boost.CooldownSeconds),
             () => _simulation.TryStartBoost());
-        _festivalButton.Background = new SolidBrush(new Color(150, 90, 60, 235));
+        _festivalButton.Background = new SolidBrush(UiPalette.PanelBad);
         if (_simulation.IsFeatureUnlocked("festival"))
         {
             row.Widgets.Add(_festivalButton);
@@ -2585,13 +2594,13 @@ public sealed class GameplayScreen : IScreen
         // Prázdný výběr se neukládá — seznam plný nul by byl jen nepořádek.
         if (template.IsEmpty)
         {
-            _toasts.Add(loc["toast.templateEmpty"], new Color(220, 170, 120));
+            _toasts.Add(loc["toast.templateEmpty"], UiPalette.TextBright);
             return;
         }
 
         _screens.Profile.Templates.Add(template.ToSaved());
         _screens.SaveProfile();
-        _toasts.Add(loc.Format("toast.templateSaved", template.Buildings.Count), new Color(150, 220, 150));
+        _toasts.Add(loc.Format("toast.templateSaved", template.Buildings.Count), UiPalette.Good);
     }
 
     /// <summary>
@@ -2858,7 +2867,7 @@ public sealed class GameplayScreen : IScreen
                     TextColor = active ? Color.White : Color.LightGray,
                 },
                 Padding = new Thickness(12, 4),
-                Background = new SolidBrush(active ? new Color(60, 110, 130, 235) : new Color(38, 48, 64, 235)),
+                Background = new SolidBrush(active ? UiPalette.PanelAccent : UiPalette.Panel),
             };
             string captured = category;
             button.Click += (_, _) =>
@@ -2907,8 +2916,8 @@ public sealed class GameplayScreen : IScreen
             // Cena je bílá, dokud na ni hráč má, a červená, když ne. Zelená je
             // vyhrazená VÝROBĚ — dokud byla cena taky zelená, splývalo v dlaždici
             // „co to stojí" s „co to dělá".
-            priceLabel.TextColor = affordable ? new Color(225, 228, 235) : new Color(232, 120, 110);
-            button.Background = new SolidBrush(affordable ? new Color(38, 48, 64, 235) : new Color(30, 34, 42, 170));
+            priceLabel.TextColor = affordable ? UiPalette.TextBright : UiPalette.Bad;
+            button.Background = new SolidBrush(affordable ? UiPalette.Panel : new Color(30, 34, 42, 170));
         }
     }
 
@@ -3094,7 +3103,7 @@ public sealed class GameplayScreen : IScreen
         var priceLabel = new Label
         {
             Text = loc.Format("hud.build.cost", CostFormat.Line(content, loc, def.BuildCost)),
-            TextColor = new Color(225, 228, 235),
+            TextColor = UiPalette.TextBright,
             HorizontalAlignment = HorizontalAlignment.Center,
         };
         caption.Widgets.Add(priceLabel);
@@ -3108,7 +3117,7 @@ public sealed class GameplayScreen : IScreen
             caption.Widgets.Add(new Label
             {
                 Text = effect,
-                TextColor = new Color(140, 210, 150),
+                TextColor = UiPalette.Good,
                 HorizontalAlignment = HorizontalAlignment.Center,
             });
         }
@@ -3119,7 +3128,7 @@ public sealed class GameplayScreen : IScreen
             caption.Widgets.Add(new Label
             {
                 Text = loc.Format("hud.build.needs", needs),
-                TextColor = new Color(220, 180, 120),
+                TextColor = UiPalette.TextBright,
                 HorizontalAlignment = HorizontalAlignment.Center,
             });
         }
@@ -3128,7 +3137,7 @@ public sealed class GameplayScreen : IScreen
         {
             Content = caption,
             Padding = new Thickness(10, 6),
-            Background = new SolidBrush(new Color(38, 48, 64, 235)),
+            Background = new SolidBrush(UiPalette.Panel),
             // Popisek u kurzoru se skládá z definice — nová budova v JSON má
             // vysvětlení hned, bez ručně psaného textu.
             Tooltip = BuildingSummary.Describe(content, loc, def),
@@ -3149,23 +3158,23 @@ public sealed class GameplayScreen : IScreen
     {
         if (_questsBadge is { } quests)
         {
-            UiFactory.SetBadge(quests, RemainingQuestCount(), new Color(70, 110, 160, 245));
+            UiFactory.SetBadge(quests, RemainingQuestCount(), UiPalette.PanelAccent);
         }
 
         if (_contractsBadge is { } contracts)
         {
-            UiFactory.SetBadge(contracts, ReadyContractCount(), new Color(90, 160, 90, 245));
+            UiFactory.SetBadge(contracts, ReadyContractCount(), UiPalette.PanelGood);
         }
 
         if (_techBadge is { } tech)
         {
-            UiFactory.SetBadge(tech, AffordableTechCount(), new Color(70, 130, 180, 245));
+            UiFactory.SetBadge(tech, AffordableTechCount(), UiPalette.PanelAccent);
         }
 
         if (_electionBadge is { } election)
         {
             // U voleb nejde o počet, ale o „teď se dá volit" — jedna tečka stačí.
-            UiFactory.SetBadge(election, _simulation.ElectionTerm >= 0 ? 0 : 1, new Color(200, 160, 60, 245));
+            UiFactory.SetBadge(election, _simulation.ElectionTerm >= 0 ? 0 : 1, UiPalette.Panel);
         }
     }
 
@@ -3234,8 +3243,8 @@ public sealed class GameplayScreen : IScreen
 
         // Tlačítko „Stavět" drží stav otevřeného menu, ať je vidět, co je zapnuté.
         _buildMenuButton.Background = new SolidBrush(_buildMenuOpen
-            ? new Color(60, 110, 130, 235)
-            : new Color(38, 48, 64, 235));
+            ? UiPalette.PanelAccent
+            : UiPalette.Panel);
 
         // Rychlost času: ikona i barva. Pauza svítí, ať je na první pohled jasné,
         // že hra stojí a nečeká se marně na to, až něco doroste.
@@ -3256,13 +3265,13 @@ public sealed class GameplayScreen : IScreen
                 UiFactory.SetBadge(
                     speed,
                     _speed.IsPaused || _speed.Multiplier <= 1.0 ? 0 : (int)Math.Round(_speed.Multiplier),
-                    new Color(70, 110, 160, 245));
+                    UiPalette.PanelAccent);
             }
 
             _speedButton.Tooltip = _screens.Loc["tip.speed"] + '\n' + _speed.Label;
             _speedButton.Background = new SolidBrush(_speed.IsPaused
-                ? new Color(150, 90, 60, 235)
-                : new Color(38, 48, 64, 235));
+                ? UiPalette.PanelBad
+                : UiPalette.Panel);
         }
 
         // Odemčená funkce musí být vidět hned, ne až po restartu. Přestavba je drahá,
@@ -3303,8 +3312,8 @@ public sealed class GameplayScreen : IScreen
             _resourceLabels[i].Text = CivDle.Core.Numbers.FormatRatio(_rolling.Shown(i), cap);
 
             // Přeteklý sklad zežloutne (výzva rozšířit); přírůstek krátce rozsvítí.
-            var baseColor = amount >= cap - 0.5 ? new Color(240, 200, 90) : Color.White;
-            _resourceLabels[i].TextColor = Color.Lerp(baseColor, new Color(190, 255, 190), _rolling.Flash(i));
+            var baseColor = amount >= cap - 0.5 ? UiPalette.TextBright : Color.White;
+            _resourceLabels[i].TextColor = Color.Lerp(baseColor, UiPalette.Good, _rolling.Flash(i));
 
             // Ticker přírůstku za sekundu (jen znatelný nárůst).
             double rate = i < _perSecond.Length ? _perSecond[i] : 0.0;
@@ -3337,8 +3346,8 @@ public sealed class GameplayScreen : IScreen
                 ? loc.Format("hud.tierCapped", tierName, CivDle.Core.Numbers.Format(_simulation.PopulationCap))
                 : loc.Format("hud.tier", tierName);
             _tierLabel.TextColor = capped
-                ? new Color(240, 200, 90)
-                : new Color(190, 160, 230);
+                ? UiPalette.TextBright
+                : UiPalette.Accent;
         }
         else
         {
@@ -3370,12 +3379,12 @@ public sealed class GameplayScreen : IScreen
             {
                 _weatherLabel.Text = loc.Format("hud.weatherExtreme", weatherName,
                     (int)MathF.Ceiling((float)_simulation.WeatherSecondsRemaining));
-                _weatherLabel.TextColor = new Color(240, 170, 80);
+                _weatherLabel.TextColor = UiPalette.Warn;
             }
             else
             {
                 _weatherLabel.Text = loc.Format("hud.weather", weatherName);
-                _weatherLabel.TextColor = new Color(170, 200, 220);
+                _weatherLabel.TextColor = UiPalette.Accent;
             }
         }
         else
@@ -3393,9 +3402,9 @@ public sealed class GameplayScreen : IScreen
         {
             double happiness = _simulation.Happiness;
             _happinessLabel.Text = loc.Format("hud.happiness", (int)Math.Round(happiness * 100));
-            _happinessLabel.TextColor = happiness >= 0.75 ? new Color(150, 220, 150)
-                : happiness >= 0.45 ? new Color(230, 210, 130)
-                : new Color(235, 140, 120);
+            _happinessLabel.TextColor = happiness >= 0.75 ? UiPalette.Good
+                : happiness >= 0.45 ? UiPalette.TextBright
+                : UiPalette.Bad;
 
             // Rozpad v bublině: spokojenost je jediná vrstva, kde se dá udělat
             // chyba, takže hráč musí vidět, KVŮLI ČEMU je zrovna taková. Jedno
@@ -3408,8 +3417,8 @@ public sealed class GameplayScreen : IScreen
         {
             _powerLabel.Text = loc.Format("hud.power", _simulation.TotalPowerSupply, _simulation.TotalPowerDemand);
             _powerLabel.TextColor = _simulation.TotalPowerSupply < _simulation.TotalPowerDemand
-                ? new Color(235, 120, 90)
-                : new Color(120, 200, 240);
+                ? UiPalette.Bad
+                : UiPalette.Accent;
         }
         else
         {
@@ -3510,8 +3519,8 @@ public sealed class GameplayScreen : IScreen
             // a neví, jestli je rozbitý nástroj, nebo jeho zástavba.
             _statusLabel.Text = _tools.MergeGhostActive ? loc["status.merge"] : loc["hud.mergeHint"];
             _statusLabel.TextColor = _tools.MergeGhostActive
-                ? new Color(150, 220, 150)
-                : new Color(220, 190, 120);
+                ? UiPalette.Good
+                : UiPalette.TextBright;
             return;
         }
 
@@ -3519,15 +3528,15 @@ public sealed class GameplayScreen : IScreen
         {
             _statusLabel.Text = loc[_tools.RoadEraseMode ? "status.roadErase" : "status.road"];
             _statusLabel.TextColor = _tools.RoadEraseMode
-                ? new Color(240, 190, 90)
-                : new Color(210, 205, 190);
+                ? UiPalette.TextBright
+                : UiPalette.Text;
             return;
         }
 
         if (_tools.TerraformIndex >= 0)
         {
             _statusLabel.Text = loc[_screens.Content.Terraform[_tools.TerraformIndex].NameKey];
-            _statusLabel.TextColor = new Color(140, 230, 200);
+            _statusLabel.TextColor = UiPalette.Accent;
             return;
         }
 
@@ -3555,7 +3564,7 @@ public sealed class GameplayScreen : IScreen
         if (_tools.TemplateCaptureMode)
         {
             _statusLabel.Text = loc["status.templateCapture"];
-            _statusLabel.TextColor = new Color(240, 210, 120);
+            _statusLabel.TextColor = UiPalette.TextBright;
             return;
         }
 
@@ -3563,7 +3572,7 @@ public sealed class GameplayScreen : IScreen
         {
             _statusLabel.Text = loc.Format("status.templatePlace",
                 activeTemplate.Name, _tools.TemplatePlaceable, activeTemplate.Buildings.Count);
-            _statusLabel.TextColor = _tools.TemplatePlaceable > 0 ? Color.White : new Color(235, 120, 110);
+            _statusLabel.TextColor = _tools.TemplatePlaceable > 0 ? Color.White : UiPalette.Bad;
             return;
         }
 
@@ -3583,14 +3592,14 @@ public sealed class GameplayScreen : IScreen
         if (_tools.BulkPlan.Count > 0)
         {
             _statusLabel.Text = loc.Format("build.bulkCount", _tools.BulkBuildable, _tools.BulkPlan.Count);
-            _statusLabel.TextColor = _tools.BulkBuildable > 0 ? Color.White : new Color(235, 120, 110);
+            _statusLabel.TextColor = _tools.BulkBuildable > 0 ? Color.White : UiPalette.Bad;
             return;
         }
 
         if (_tools.GhostVisible && _tools.GhostResult != PlacementResult.Ok)
         {
             _statusLabel.Text = loc[ErrorKey(_tools.GhostResult)];
-            _statusLabel.TextColor = new Color(235, 120, 110);
+            _statusLabel.TextColor = UiPalette.Bad;
         }
         else
         {
@@ -3630,7 +3639,7 @@ public sealed class GameplayScreen : IScreen
             }
 
             bool affordable = _simulation.CanMerge(group) == PlacementResult.Ok;
-            var tint = (affordable ? new Color(150, 235, 150) : new Color(220, 200, 120)) * 0.28f;
+            var tint = (affordable ? UiPalette.Good : UiPalette.TextBright) * 0.28f;
             spriteBatch.Draw(_screens.WhitePixel, new Rectangle(x, y, ts * 2, ts * 2), tint);
         }
 

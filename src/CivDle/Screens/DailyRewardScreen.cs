@@ -73,7 +73,7 @@ public sealed class DailyRewardScreen : IScreen
         {
             Text = loc["daily.title"],
             HorizontalAlignment = HorizontalAlignment.Center,
-            TextColor = new Color(230, 200, 110),
+            TextColor = UiPalette.TextBright,
         });
         layout.Widgets.Add(new Label
         {
@@ -88,7 +88,7 @@ public sealed class DailyRewardScreen : IScreen
             {
                 Text = $"+{amount.Amount} {loc[content.Resources[amount.ResourceIndex].NameKey]}",
                 HorizontalAlignment = HorizontalAlignment.Center,
-                TextColor = new Color(150, 220, 150),
+                TextColor = UiPalette.Good,
             });
         }
 

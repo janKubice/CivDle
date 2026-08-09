@@ -169,7 +169,7 @@ public sealed class SettlementsScreen : IScreen
                 Text = loc["npc.none"],
                 Wrap = true,
                 Width = 600,
-                TextColor = new Color(150, 160, 175),
+                TextColor = UiPalette.TextDim,
             });
         }
     }
@@ -201,7 +201,7 @@ public sealed class SettlementsScreen : IScreen
 
         if (state.Absorbed)
         {
-            caption.Widgets.Add(new Label { Text = loc["npc.joined"], TextColor = new Color(150, 220, 150) });
+            caption.Widgets.Add(new Label { Text = loc["npc.joined"], TextColor = UiPalette.Good });
         }
         else
         {
@@ -213,7 +213,7 @@ public sealed class SettlementsScreen : IScreen
             caption.Widgets.Add(new Label
             {
                 Text = state.RoadLinked ? loc["npc.linked"] : loc["npc.noLink"],
-                TextColor = state.RoadLinked ? new Color(150, 220, 150) : new Color(235, 170, 110),
+                TextColor = state.RoadLinked ? UiPalette.Good : UiPalette.Warn,
             });
         }
 
@@ -222,7 +222,7 @@ public sealed class SettlementsScreen : IScreen
             Content = caption,
             Width = 600,
             Padding = new Thickness(14, 10),
-            Background = new SolidBrush(new Color(34, 40, 52, 235)),
+            Background = new SolidBrush(UiPalette.Panel),
             Tooltip = loc["npc.openTip"],
         };
         button.Click += (_, _) => _screens.Push(new CityScreen(_screens, _simulation, _camera, city));
@@ -233,7 +233,7 @@ public sealed class SettlementsScreen : IScreen
     {
         var panel = new Panel
         {
-            Background = new Myra.Graphics2D.Brushes.SolidBrush(new Color(30, 34, 44, 230)),
+            Background = new Myra.Graphics2D.Brushes.SolidBrush(UiPalette.Panel),
             Padding = new Thickness(10, 8),
         };
         panel.Widgets.Add(content);
@@ -265,7 +265,7 @@ public sealed class SettlementsScreen : IScreen
             Content = caption,
             Width = 600,
             Padding = new Thickness(12, 8),
-            Background = new SolidBrush(new Color(38, 48, 64, 235)),
+            Background = new SolidBrush(UiPalette.Panel),
         };
         button.Click += (_, _) => JumpTo(settlement);
         return button;

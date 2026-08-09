@@ -108,7 +108,7 @@ public sealed class EventScreen : IScreen
             Width = 340,
             Padding = new Thickness(10, 6),
             HorizontalAlignment = HorizontalAlignment.Center,
-            Background = new SolidBrush(new Color(38, 48, 64, 235)),
+            Background = new SolidBrush(UiPalette.Panel),
             Enabled = CanAfford(choice),
         };
         button.Click += (_, _) =>

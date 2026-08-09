@@ -47,13 +47,13 @@ public sealed class GrandWorkScreen : IScreen
         layout.Widgets.Add(new Label
         {
             Text = loc["grandwork.title"],
-            TextColor = new Color(240, 205, 110),
+            TextColor = UiPalette.TextBright,
             HorizontalAlignment = HorizontalAlignment.Center,
         });
 
         if (!_simulation.GrandWorkAvailable)
         {
-            layout.Widgets.Add(Note(loc["grandwork.locked"], new Color(200, 170, 130)));
+            layout.Widgets.Add(Note(loc["grandwork.locked"], UiPalette.TextBright));
             Finish(layout);
             return;
         }
@@ -81,7 +81,7 @@ public sealed class GrandWorkScreen : IScreen
             {
                 Text = $"{loc[content.Resources[resourceIndex].NameKey]}  "
                     + $"{Numbers.Format(need.Amount - remaining)} / {Numbers.Format(need.Amount)}",
-                TextColor = remaining <= 0 ? new Color(150, 220, 150) : Color.White,
+                TextColor = remaining <= 0 ? UiPalette.Good : Color.White,
                 VerticalAlignment = VerticalAlignment.Center,
             });
 
