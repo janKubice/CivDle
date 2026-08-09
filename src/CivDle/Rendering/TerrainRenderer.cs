@@ -23,11 +23,31 @@ public sealed class TerrainRenderer : IDisposable
     private const int ChunkPixels = ChunkTiles * TileSize;
     private const int MaxCachedChunks = 400;
 
+    /// <summary>
+    /// O kolik dlaždic za okraj chunku se sahá při pečení.
+    ///
+    /// <para>Vzhled dlaždice závisí na okolí (ditherovaná hranice biomu, pěna
+    /// u břehu, hloubka vody). Bez přesahu by se u švu mezi chunky okolí
+    /// „useklo" a hráč by viděl přesně mřížku chunků — tedy pravý opak toho,
+    /// proč se to počítá. Musí pokrýt okno hloubky vody.</para>
+    /// </summary>
+    private const int BakePad = TerrainPainter.WaterWindowRadius;
+
+    private const int PaddedTiles = ChunkTiles + 2 * BakePad;
+
     private readonly GraphicsDevice _device;
     private readonly BiomeRegistry _biomes;
-    private readonly long _seed;
+    private readonly TerrainPainter _painter;
     private readonly Dictionary<long, Chunk> _cache = new();
     private readonly List<long> _evictScratch = new();
+
+    /// <summary>
+    /// Pracovní buffer biomů s přesahem. Znovupoužitelný: pečení chunku je
+    /// sice vzácné, ale při odhalování mapy jich přijde naráz několik desítek
+    /// a alokovat pokaždé kilobajty by dělalo v tu chvíli zbytečné škubnutí.
+    /// </summary>
+    private readonly byte[] _bakeScratch = new byte[PaddedTiles * PaddedTiles];
+
     private int _frame;
 
     /// <summary>
@@ -50,7 +70,7 @@ public sealed class TerrainRenderer : IDisposable
     {
         _device = device;
         _biomes = biomes;
-        _seed = seed;
+        _painter = new TerrainPainter(biomes, seed);
     }
 
     /// <param name="overrides">
@@ -140,27 +160,29 @@ public sealed class TerrainRenderer : IDisposable
         var pixels = new Color[ChunkTiles * ChunkTiles];
         int baseX = chunkX * ChunkTiles;
         int baseY = chunkY * ChunkTiles;
+
+        // Nejdřív se načte celé okolí i s přesahem. Sáhnout na terén jednou za
+        // dlaždici je podstatně levnější než pro každou dlaždici znovu na
+        // devět sousedů — a generátor terénu je z celého pečení to nejdražší.
+        SampleWithPadding(terrain, overrides, baseX, baseY);
+
+        Span<byte> ring = stackalloc byte[9];
         for (int ty = 0; ty < ChunkTiles; ty++)
         {
             for (int tx = 0; tx < ChunkTiles; tx++)
             {
-                int worldX = baseX + tx;
-                int worldY = baseY + ty;
-                // Přepis má přednost před vygenerovaným terénem — je to to,
-                // co hráč (nebo katastrofa) s dlaždicí opravdu udělal.
-                byte biomeIndex = terrain.BiomeAt(worldX, worldY);
-                if (overrides is not null
-                    && overrides.TryGetValue(TileKey.Pack(worldX, worldY), out byte overridden))
+                int px = tx + BakePad;
+                int py = ty + BakePad;
+                for (int dy = -1; dy <= 1; dy++)
                 {
-                    biomeIndex = overridden;
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        ring[(dy + 1) * 3 + dx + 1] = _bakeScratch[(py + dy) * PaddedTiles + px + dx];
+                    }
                 }
 
-                var biome = _biomes[biomeIndex];
-                float brightness = 1f + (HashToUnit(worldX, worldY) * 2f - 1f) * biome.ColorVariation;
-                pixels[ty * ChunkTiles + tx] = new Color(
-                    ClampByte(biome.MapColor.R * brightness),
-                    ClampByte(biome.MapColor.G * brightness),
-                    ClampByte(biome.MapColor.B * brightness));
+                pixels[ty * ChunkTiles + tx] = _painter.Tile(
+                    baseX + tx, baseY + ty, ring, CountWater(px, py));
             }
         }
 
@@ -169,6 +191,55 @@ public sealed class TerrainRenderer : IDisposable
         var chunk = new Chunk(texture);
         _cache[key] = chunk;
         return chunk;
+    }
+
+    /// <summary>
+    /// Načte biomy chunku i s přesahem do pracovního bufferu. Přepis simulace
+    /// má přednost před vygenerovaným terénem — je to to, co hráč (nebo
+    /// katastrofa) s dlaždicí opravdu udělal.
+    /// </summary>
+    private void SampleWithPadding(
+        ITerrain terrain, IReadOnlyDictionary<long, byte>? overrides, int baseX, int baseY)
+    {
+        for (int y = 0; y < PaddedTiles; y++)
+        {
+            int worldY = baseY + y - BakePad;
+            for (int x = 0; x < PaddedTiles; x++)
+            {
+                int worldX = baseX + x - BakePad;
+                byte biomeIndex = terrain.BiomeAt(worldX, worldY);
+                if (overrides is not null
+                    && overrides.TryGetValue(TileKey.Pack(worldX, worldY), out byte overridden))
+                {
+                    biomeIndex = overridden;
+                }
+
+                _bakeScratch[y * PaddedTiles + x] = biomeIndex;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Kolik vody je v okně kolem dlaždice (souřadnice jsou v pracovním
+    /// bufferu, ne ve světě). Z toho se odvozuje hloubka: zátoka mezi mysy má
+    /// zůstat mělká a světlá, otevřené moře tmavé.
+    /// </summary>
+    private int CountWater(int px, int py)
+    {
+        int count = 0;
+        for (int dy = -BakePad; dy <= BakePad; dy++)
+        {
+            int row = (py + dy) * PaddedTiles;
+            for (int dx = -BakePad; dx <= BakePad; dx++)
+            {
+                if (_biomes[_bakeScratch[row + px + dx]].IsWater)
+                {
+                    count++;
+                }
+            }
+        }
+
+        return count;
     }
 
     private void EvictStaleChunks()
@@ -194,19 +265,5 @@ public sealed class TerrainRenderer : IDisposable
         }
     }
 
-    private static byte ClampByte(float value) => (byte)Math.Clamp(value, 0f, 255f);
-
     private static int FloorDiv(int a, int b) => (int)MathF.Floor((float)a / b);
-
-    /// <summary>Deterministický hash dlaždice → 0–1 (mix konstantami ze SplitMix64).</summary>
-    private float HashToUnit(int x, int y)
-    {
-        ulong h = unchecked((ulong)_seed);
-        h ^= (uint)x * 0x9E3779B97F4A7C15UL;
-        h ^= (uint)y * 0xBF58476D1CE4E5B9UL;
-        h = (h ^ (h >> 30)) * 0xBF58476D1CE4E5B9UL;
-        h = (h ^ (h >> 27)) * 0x94D049BB133111EBUL;
-        h ^= h >> 31;
-        return (h >> 40) / (float)(1 << 24);
-    }
 }

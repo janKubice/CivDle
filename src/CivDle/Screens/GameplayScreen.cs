@@ -42,6 +42,7 @@ public sealed class GameplayScreen : IScreen
     private readonly WorldInfo _info;
     private readonly Camera2D _camera = new();
     private readonly TerrainRenderer _terrainRenderer;
+    private readonly WaterRenderer _waterRenderer;
     private readonly DecorationRenderer _decorationRenderer;
     private readonly HarvestableRenderer _harvestables;
     private readonly RoadRenderer _roadRenderer;
@@ -329,6 +330,7 @@ public sealed class GameplayScreen : IScreen
         screens.DisposeMenuBackground(); // pod hrou už netiká ukázkové město z menu
 
         _terrainRenderer = new TerrainRenderer(screens.GraphicsDevice, screens.Content.Biomes, info.Seed);
+        _waterRenderer = new WaterRenderer(screens.WhitePixel);
         _decorationRenderer = new DecorationRenderer(screens.WhitePixel, screens.Content, info.Seed);
         _harvestables = new HarvestableRenderer(screens.Sprites, screens.Content);
         _roadRenderer = new RoadRenderer(screens.WhitePixel, screens.Content);
@@ -551,6 +553,8 @@ public sealed class GameplayScreen : IScreen
 
         CollectCapturedTemplate();
         _buildingRenderer.Update(worldDt); // balony nad kotvišti se houpou
+        _lightsRenderer.Update(worldDt);   // okna v noci pomalu mihotají
+        _waterRenderer.Update(worldDt);    // odlesky putují po hladině
         _weatherRenderer.Update(worldDt, _simulation, _screens.GraphicsDevice.Viewport);
         _minimap.Update(dt, _camera, _simulation);
         _might.Update(dt, _simulation);
@@ -565,6 +569,8 @@ public sealed class GameplayScreen : IScreen
         _terrainRenderer.Draw(
             spriteBatch, _camera, _simulation.Terrain,
             _simulation.BiomeOverrideMap, _simulation.TerrainRevision);
+        // Odlesky hned nad terénem: patří na hladinu, ne přes to, co na ní pluje.
+        _waterRenderer.Draw(spriteBatch, _camera, _simulation);
         _decorationRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
         _zoneRenderer.Draw(spriteBatch, _camera, _simulation); // tint zón na zemi, pod budovami
         _districtRenderer.Draw(spriteBatch, _camera, _simulation); // tvář čtvrtí, taky na zemi
@@ -630,8 +636,13 @@ public sealed class GameplayScreen : IScreen
         DayNightCycle.DrawSeasonTint(
             spriteBatch, _screens.WhitePixel, _screens.GraphicsDevice.Viewport, _simulation.CurrentSeason);
 
-        // Den/noc: ztmavení scény a pak aditivní světla, ať září skrz tmu.
+        // Barva denního světla (teplé ráno → bílé poledne → modrofialový večer).
+        // Pod ztmavením noci: tohle je barva světla, které ještě zbývá.
         double timeOfDay = _simulation.TimeOfDay01;
+        DayNightCycle.DrawGrade(
+            spriteBatch, _screens.WhitePixel, _screens.GraphicsDevice.Viewport, timeOfDay);
+
+        // Den/noc: ztmavení scény a pak aditivní světla, ať září skrz tmu.
         DayNightCycle.DrawOverlay(
             spriteBatch, _screens.WhitePixel, _screens.GraphicsDevice.Viewport,
             _screens.Content.Gameplay.DayNight, timeOfDay);
