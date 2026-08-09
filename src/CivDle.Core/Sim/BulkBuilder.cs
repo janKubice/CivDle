@@ -104,13 +104,18 @@ public sealed class BulkBuilder
         int columns = Math.Abs(toX - fromX) / stepX + 1;
         int rows = Math.Abs(toY - fromY) / stepY + 1;
 
-        // Velký tah nechá volné pruhy pro ulice. Malý ne: když hráč táhne řadu
+        // Tah přes hranici bloku nechá volné pruhy pro ulice — stačí, aby byl
+        // delší než blok v JEDNOM směru: dlouhá řada přes půl města je taky
+        // čtvrť a ulice ji má křížit. Krátký tah zůstane celý: kdo táhne řadu
         // tří chalup, chce tři chalupy, ne dvě a díru.
         //
         // Bez tohohle vyšel z tažení souvislý slitek, ve kterém nezbylo jediné
         // volné políčko — a auto-silnice pak neměla kudy dovnitř, takže cesty
         // obkroužily čtvrť po okraji a uvnitř nebyla ani jedna. Přesně tak to
         // hráč popsal: „staví se to divně na okraji a ne uvnitř".
+        //
+        // Podmínka je schválně „a", ne „nebo": tah PODÉL pruhu pro ulici by se
+        // jinak smazal celý a z „postav řadu deseti" by nevyšlo nic.
         bool leaveStreets = columns * stepX > CityLayout.StreetPeriod
             && rows * stepY > CityLayout.StreetPeriod;
 

@@ -83,6 +83,12 @@ public static class CityLayout
     public static bool IsReservedForStreet(int x, int y) =>
         Mod(x, StreetPeriod) == 0 || Mod(y, StreetPeriod) == 0;
 
+    /// <summary>
+    /// Levý/horní okraj bloku, do kterého dlaždice patří — tedy souřadnice
+    /// pruhu pro ulici. Blok pak zabírá <c>origin+1 … origin+StreetPeriod−1</c>.
+    /// </summary>
+    public static int BlockOrigin(int value) => value - Mod(value, StreetPeriod);
+
     /// <summary>Zbytek po dělení, který funguje i pro záporné souřadnice (mapa je nekonečná oběma směry).</summary>
     private static int Mod(int value, int period)
     {
