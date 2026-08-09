@@ -1317,6 +1317,8 @@
     "status.mergeNoBlock": "Nie ma tu bloku 2x2 takich samych budynków.",
     "status.road": "Przeciągnij, aby położyć drogę.",
     "status.roadErase": "Przeciągnij, aby zrywać drogi.",
+    "status.templateCapture": "Przeciągnij po zabudowie, którą chcesz zapisać jako szablon",
+    "status.templatePlace": "{0} — powstanie {1} z {2}",
     "tech.academies": "Akademie",
     "tech.academies.desc": "Produkcja nauki wyższa o 25 %.",
     "tech.aeronautics": "Aeronautyka",

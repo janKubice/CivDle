@@ -3497,6 +3497,30 @@ public sealed class GameplayScreen : IScreen
             return;
         }
 
+        if (_tools.TemplateCaptureMode)
+        {
+            _statusLabel.Text = loc["status.templateCapture"];
+            _statusLabel.TextColor = new Color(240, 210, 120);
+            return;
+        }
+
+        if (_tools.ActiveTemplate is { } activeTemplate)
+        {
+            _statusLabel.Text = loc.Format("status.templatePlace",
+                activeTemplate.Name, _tools.TemplatePlaceable, activeTemplate.Buildings.Count);
+            _statusLabel.TextColor = _tools.TemplatePlaceable > 0 ? Color.White : new Color(235, 120, 110);
+            return;
+        }
+
+        // Pojistka pro každý DALŠÍ nástroj, který někdo přidá: řádek níž se
+        // sahá do katalogu budov indexem −1. Přesně tak spadly šablony —
+        // nástroj se přidal do AnyActive, ale větev sem nikdo nedopsal.
+        if (_tools.SelectedBuilding < 0)
+        {
+            _statusPanel.Visible = false;
+            return;
+        }
+
         var def = _screens.Content.Buildings[_tools.SelectedBuilding];
 
         // Při tažení je nejdůležitější číslo to, kolik kusů z toho opravdu vznikne
@@ -3579,6 +3603,9 @@ public sealed class GameplayScreen : IScreen
     /// Zapne nástroj pro smoke test (<c>--smoke</c>). Nástroje jinak zapíná
     /// jen kliknutí na tlačítko, které se bez okna a myši nedá simulovat.
     /// </summary>
+    /// <summary>Otevře správu šablon — pro smoke test, který na tlačítko nedosáhne.</summary>
+    internal void OpenTemplatesForSmoke() => OpenTemplates();
+
     internal void ActivateToolForSmoke(Capture.SmokeTool tool)
     {
         _tools.Clear();
@@ -3591,6 +3618,7 @@ public sealed class GameplayScreen : IScreen
                 break;
             case Capture.SmokeTool.Merge: _tools.ToggleMerge(); break;
             case Capture.SmokeTool.Plant: _tools.TogglePlant(); break;
+            case Capture.SmokeTool.TemplateCapture: _tools.ToggleTemplateCapture(); break;
         }
     }
 

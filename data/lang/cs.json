@@ -1317,6 +1317,8 @@
     "status.mergeNoBlock": "Tady žádný blok 2×2 stejných budov není.",
     "status.road": "Tažením polož silnici.",
     "status.roadErase": "Tažením strhni silnici.",
+    "status.templateCapture": "Táhni přes zástavbu, kterou chceš uložit jako šablonu",
+    "status.templatePlace": "{0} — postaví se {1} z {2}",
     "tech.academies": "Akademie",
     "tech.academies.desc": "Výroba vědy 25 % vyšší.",
     "tech.aeronautics": "Vzduchoplavba",

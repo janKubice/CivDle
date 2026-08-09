@@ -47,6 +47,17 @@ public sealed class SmokeRun
         Check("sázení: zapnout", () => screen.ActivateToolForSmoke(SmokeTool.Plant));
         Frames(screen, time);
 
+        // Šablony: obrazovka i snímání. Pád tady hráč nahlásil hned po vydání
+        // a smoke ho nechytil, protože tenhle nástroj vůbec neprocházel.
+        Check("šablony: obrazovka", () => screen.OpenTemplatesForSmoke());
+        Frames(screen, time);
+        Check("šablony: zavřít", () => screens.Pop());
+        Frames(screen, time);
+
+        Check("šablony: snímat", () => screen.ActivateToolForSmoke(SmokeTool.TemplateCapture));
+        Frames(screen, time);
+        Check("šablony: sejmout a položit", () => CaptureAndPlaceTemplate(screens, sim));
+
         Check("nástroje: vypnout", () => screen.ActivateToolForSmoke(SmokeTool.None));
         Frames(screen, time);
 
@@ -107,6 +118,17 @@ public sealed class SmokeRun
         }
     }
 
+    /// <summary>Sejme kus města do šablony a hned ji zkusí položit jinam.</summary>
+    private static void CaptureAndPlaceTemplate(ScreenManager screens, Simulation sim)
+    {
+        var template = TemplateTool.Capture(
+            sim, screens.Content, "smoke",
+            sim.CityCenterX - 4, sim.CityCenterY - 4, sim.CityCenterX + 4, sim.CityCenterY + 4);
+
+        TemplateTool.CountPlaceable(sim, screens.Content, template, sim.CityCenterX + 40, sim.CityCenterY + 40);
+        TemplateTool.Place(sim, screens.Content, template, sim.CityCenterX + 40, sim.CityCenterY + 40);
+    }
+
     private static void MergeAround(Simulation sim)
     {
         for (int y = -14; y <= 14; y++)
@@ -127,4 +149,7 @@ public enum SmokeTool
     RoadErase,
     Merge,
     Plant,
+
+    /// <summary>Snímání šablony zástavby (bod 44).</summary>
+    TemplateCapture,
 }

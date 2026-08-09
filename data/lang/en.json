@@ -1317,6 +1317,8 @@
     "status.mergeNoBlock": "No 2x2 block of identical buildings here.",
     "status.road": "Drag to lay a road.",
     "status.roadErase": "Drag to tear up roads.",
+    "status.templateCapture": "Drag over the blocks you want to save as a template",
+    "status.templatePlace": "{0} — {1} of {2} will be built",
     "tech.academies": "Academies",
     "tech.academies.desc": "Science production up 25 %.",
     "tech.aeronautics": "Aeronautics",

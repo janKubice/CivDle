@@ -1317,6 +1317,8 @@
     "status.mergeNoBlock": "Aquí no hay un bloque 2x2 de edificios iguales.",
     "status.road": "Arrastra para tender una carretera.",
     "status.roadErase": "Arrastra para levantar carreteras.",
+    "status.templateCapture": "Arrastra sobre lo que quieras guardar como plantilla",
+    "status.templatePlace": "{0} — se construirán {1} de {2}",
     "tech.academies": "Academias",
     "tech.academies.desc": "Producción de ciencia +25 %.",
     "tech.aeronautics": "Aeronáutica",

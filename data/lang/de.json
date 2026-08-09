@@ -1317,6 +1317,8 @@
     "status.mergeNoBlock": "Hier ist kein 2x2-Block gleicher Gebäude.",
     "status.road": "Ziehen, um eine Straße zu legen.",
     "status.roadErase": "Ziehen, um Straßen abzureißen.",
+    "status.templateCapture": "Ziehe über die Bebauung, die du als Vorlage speichern willst",
+    "status.templatePlace": "{0} — {1} von {2} werden gebaut",
     "tech.academies": "Akademien",
     "tech.academies.desc": "Wissenschaft-Produktion +25 %.",
     "tech.aeronautics": "Luftfahrt",
