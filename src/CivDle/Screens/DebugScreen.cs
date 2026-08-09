@@ -72,8 +72,19 @@ public sealed class DebugScreen : IScreen
         layout.Widgets.Add(Row("+10k od každé suroviny", GrantResources));
         layout.Widgets.Add(Row("+100 bodů Vzestupu", () => GrantAscensionPoints(100)));
         layout.Widgets.Add(Row("+10 000 bodů Vzestupu", () => GrantAscensionPoints(10_000)));
+        layout.Widgets.Add(Row("Naplnit všechny sklady na maximum", FillStorages));
         layout.Widgets.Add(Row("Vyzkoumat vše, na co dosáhnu", ResearchReachable));
         layout.Widgets.Add(Row("Odhalit mapu v okolí", RevealMap));
+
+        // Pozdní hra: bez těchhle pák se dá vyzkoušet jen tak, že se hraje
+        // několik hodin. Na natáčení a testování balancu je to k ničemu.
+        layout.Widgets.Add(Row("+1 000 bodů Odkazu", () => GrantLegacy(1_000)));
+        layout.Widgets.Add(Row("+1 stupeň Vzestupu (zvedne strop měřítka)", () => GrantAscensionLevels(1)));
+        layout.Widgets.Add(Row("+5 stupňů Vzestupu", () => GrantAscensionLevels(5)));
+        layout.Widgets.Add(Row("+10 000 obyvatel", () => AddPopulation(10_000)));
+        layout.Widgets.Add(Row("Auto-stavba ×20 na minutu", () => BoostBuilding(20, 60)));
+        layout.Widgets.Add(Row("Auto-stavba ×100 na deset sekund", () => BoostBuilding(100, 10)));
+        layout.Widgets.Add(Row("Přetočit čas o hodinu dopředu", () => SkipTime(3600)));
 
         _status = new Label
         {
@@ -100,6 +111,52 @@ public sealed class DebugScreen : IScreen
         var button = UiFactory.SmallButton(label, action);
         button.HorizontalAlignment = HorizontalAlignment.Center;
         return button;
+    }
+
+    private void FillStorages()
+    {
+        _simulation.DebugFillStorages();
+        Report("sklady naplněny na maximum");
+    }
+
+    private void GrantLegacy(long amount)
+    {
+        _simulation.DebugGrantLegacyPoints(amount);
+        Report($"přidáno {amount} bodů Odkazu (celkem {_simulation.LegacyPoints})");
+    }
+
+    private void GrantAscensionLevels(int levels)
+    {
+        _simulation.DebugGrantAscensionLevels(levels);
+        Report($"úroveň Vzestupu je {_simulation.AscensionLevel}, strop měřítka "
+            + $"{CivDle.Core.Numbers.Format(_simulation.PopulationCap)}");
+    }
+
+    private void AddPopulation(double amount)
+    {
+        double before = _simulation.Population;
+        _simulation.DebugAddPopulation(amount);
+        Report($"populace {CivDle.Core.Numbers.Format(before)} → "
+            + $"{CivDle.Core.Numbers.Format(_simulation.Population)} (strop drží měřítko i bydlení)");
+    }
+
+    private void BoostBuilding(double multiplier, double seconds)
+    {
+        _simulation.DebugBoostAutoBuild(multiplier, seconds);
+        Report($"auto-stavba jede ×{multiplier:0} po dobu {seconds:0} s");
+    }
+
+    /// <summary>
+    /// Odtiká zadaný čas naráz. Je to ladicí tlačítko, takže si smí dovolit
+    /// zamrznout na okamžik obrazovku — hráč po tomhle nesahá.
+    /// </summary>
+    private void SkipTime(double seconds)
+    {
+        var now = DateTime.UtcNow;
+        var catchUp = new CivDle.Core.Sim.OfflineCatchUp(_simulation, now.AddSeconds(-seconds), now);
+        catchUp.Advance(catchUp.TotalTicks);
+        catchUp.Finish();
+        Report($"přetočeno o {seconds / 60:0} min ({catchUp.DoneTicks} tiků)");
     }
 
     private void GrantResources()

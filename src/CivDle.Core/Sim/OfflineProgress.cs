@@ -35,38 +35,11 @@ public static class OfflineProgress
     /// </summary>
     public static OfflineSummary Apply(Simulation simulation, DateTime savedAtUtc, DateTime nowUtc)
     {
-        long elapsed = Math.Max(0, (long)(nowUtc - savedAtUtc).TotalSeconds);
-        long credited = Math.Min(elapsed, MaxCreditedSeconds);
-
-        int resourceCount = simulation.ResourceCount;
-        var before = new double[resourceCount];
-        for (int i = 0; i < resourceCount; i++)
-        {
-            before[i] = simulation.GetResource(i);
-        }
-
-        double beforePopulation = simulation.Population;
-        int beforeBuildings = simulation.Buildings.Length;
-
-        long ticks = (long)(credited * Simulation.TicksPerSecond * simulation.Bonuses.OfflineMult);
-        for (long i = 0; i < ticks; i++)
-        {
-            simulation.Tick();
-        }
-
-        simulation.ClearNotifications(); // žádná záplava toastů po přihlášení
-
-        var gains = new double[resourceCount];
-        for (int i = 0; i < resourceCount; i++)
-        {
-            gains[i] = Math.Max(0, simulation.GetResource(i) - before[i]);
-        }
-
-        return new OfflineSummary(
-            elapsed,
-            credited,
-            gains,
-            Math.Max(0, simulation.Population - beforePopulation),
-            Math.Max(0, simulation.Buildings.Length - beforeBuildings));
+        // Dohon celý naráz. Volá se odtud, kde na pár tiků nezáleží (testy,
+        // krátká pauza); hra ho pouští po dávkách přes OfflineCatchUp, aby
+        // okno mezitím překreslovalo a dalo se přeskočit.
+        var catchUp = new OfflineCatchUp(simulation, savedAtUtc, nowUtc);
+        catchUp.Advance(catchUp.TotalTicks);
+        return catchUp.Finish();
     }
 }

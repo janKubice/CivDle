@@ -79,8 +79,12 @@ public sealed class SmokeRun
 
         Check("save: obrazovka po Continue", () =>
         {
+            // Dohon offline času se do smoke vejde celý — je to pár minut.
+            // Hra ho pouští po dávkách přes načítací obrazovku; tady jde o to,
+            // že obrazovka nad DOHNANOU simulací nespadne.
+            var offline = OfflineProgress.Apply(loaded!, DateTime.UtcNow.AddMinutes(-3), DateTime.UtcNow);
             var continued = new GameplayScreen(
-                screens, loaded!, new WorldInfo(sim.Seed, "medium", "continents"), DateTime.UtcNow.AddMinutes(-3));
+                screens, loaded!, new WorldInfo(sim.Seed, "medium", "continents"), offline);
             Frames(continued, time);
             continued.Dispose();
         });

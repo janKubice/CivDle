@@ -57,6 +57,15 @@ public sealed class LegacySystem
             long.MaxValue / 2);
 
     /// <summary>Kolik bodů Odkazu by teď zanechání Odkazu udělilo.</summary>
+    /// <summary>Ladicí přídavek bodů Odkazu (cheat menu; hra sama je jinudy nedává).</summary>
+    internal void DebugGrant(long amount)
+    {
+        if (amount > 0)
+        {
+            Points += amount;
+        }
+    }
+
     public long PendingPoints(long metricValue)
     {
         if (metricValue <= 0 || _config.PointsDivisor <= 0)

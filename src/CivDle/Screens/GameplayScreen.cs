@@ -186,6 +186,7 @@ public sealed class GameplayScreen : IScreen
     private Label _eraLabel = null!;
     private Label _eraNextLabel = null!;
     private Label _tierLabel = null!;
+    private Label _currencyLabel = null!;
     private Label _powerLabel = null!;
     private Label _weatherLabel = null!;
     private Label _seasonLabel = null!;
@@ -297,8 +298,16 @@ public sealed class GameplayScreen : IScreen
     private int _pendingPrayerStrength = 1;
     private int _knownBuildingCount;
 
-    /// <param name="savedAtUtc">Čas uložení načtené hry — spustí offline dohon; <c>null</c> = nová hra.</param>
-    public GameplayScreen(ScreenManager screens, Simulation simulation, WorldInfo info, DateTime? savedAtUtc = null)
+    /// <param name="offline">
+    /// Hotový souhrn offline dohonu; <c>null</c> = nová hra nebo se nic nedohánělo.
+    ///
+    /// <para>Dohon si obrazovka <b>nepočítá sama</b>. Dvanáct hodin je statisíce
+    /// tiků a v konstruktoru je odtikat znamenalo okno, které nepřekresluje ani
+    /// nereaguje — hráč viděl doběhnutý ukazatel, klikl a hra spadla. Počítá se
+    /// po dávkách na načítací obrazovce, sem přijde jen výsledek.</para>
+    /// </param>
+    public GameplayScreen(
+        ScreenManager screens, Simulation simulation, WorldInfo info, OfflineSummary? offline = null)
     {
         _screens = screens;
         _simulation = simulation;
@@ -306,10 +315,9 @@ public sealed class GameplayScreen : IScreen
         // Už odemčené achievementy z profilu, ať se v téhle hře nespouštějí znovu.
         _simulation.SeedUnlockedAchievements(screens.Profile.UnlockedAchievements);
 
-        // Offline postup: dožeň čas od uložení a připrav uvítací souhrn.
-        if (savedAtUtc is { } savedAt)
+        // Offline postup je hotový; zbývá ho zaúčtovat a ukázat.
+        if (offline is { } summary)
         {
-            var summary = OfflineProgress.Apply(_simulation, savedAt, DateTime.UtcNow);
             SyncAchievements(); // co se odemklo offline, zapiš do profilu
             if (summary.Worthwhile)
             {
@@ -447,7 +455,10 @@ public sealed class GameplayScreen : IScreen
 
         if (_input.WasPressed(Keys.F12))
         {
-            SaveShareCard();
+            // Samotné F12 vyfotí to, co je na obrazovce; se Shiftem se scéna
+            // překreslí bez LOD, tedy se vším, co je při daném oddálení schované.
+            bool fullDetail = _input.IsDown(Keys.LeftShift) || _input.IsDown(Keys.RightShift);
+            SaveShareCard(fullDetail);
         }
 
         // Ctrl+Shift+D: ladicí menu. Schválně zkratka bez tlačítka kdekoli
@@ -818,12 +829,15 @@ public sealed class GameplayScreen : IScreen
     /// Uloží sdílitelnou kartu a řekne hráči kam. Bez té hlášky by obrázek
     /// vznikl někde, kde ho nikdo nenajde.
     /// </summary>
-    private void SaveShareCard()
+    private void SaveShareCard(bool fullDetail = false)
     {
         try
         {
-            string path = new Capture.ShareCard(_screens).Save(_simulation, _camera, _screens.Saves.ShareDirectory);
-            _toasts.Add(_screens.Loc.Format("share.saved", Path.GetFileName(path)), new Color(255, 226, 150));
+            string path = new Capture.ShareCard(_screens)
+                .Save(_simulation, _camera, _screens.Saves.ShareDirectory, fullDetail);
+            _toasts.Add(
+                _screens.Loc.Format(fullDetail ? "share.savedFullDetail" : "share.saved", Path.GetFileName(path)),
+                new Color(255, 226, 150));
         }
         catch (IOException error)
         {
@@ -1964,6 +1978,16 @@ public sealed class GameplayScreen : IScreen
         _eraLabel = new Label { TextColor = new Color(210, 185, 120), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.era"] };
         _eraNextLabel = new Label { TextColor = new Color(160, 150, 120), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.eraNext"] };
         _tierLabel = new Label { TextColor = new Color(190, 160, 230), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.tier"] };
+
+        // Prestižní měny patří do HUDu. Body Vzestupu i Odkaz se dosud daly
+        // najít JEN uvnitř svých obrazovek, takže hráč o Odkazu nevěděl, i když
+        // ho měl — a měna, kterou není vidět, se neutrácí.
+        _currencyLabel = new Label
+        {
+            TextColor = new Color(230, 200, 120),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Tooltip = loc["tip.prestigeCurrency"],
+        };
         _powerLabel = new Label { TextColor = new Color(120, 200, 240), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.power"] };
         _weatherLabel = new Label { TextColor = new Color(170, 200, 220), HorizontalAlignment = HorizontalAlignment.Right, Tooltip = loc["tip.weather"] };
         _seasonLabel = new Label { HorizontalAlignment = HorizontalAlignment.Right };
@@ -1976,6 +2000,7 @@ public sealed class GameplayScreen : IScreen
         worldInfoStack.Widgets.Add(_eraLabel);
         worldInfoStack.Widgets.Add(_eraNextLabel);
         worldInfoStack.Widgets.Add(_tierLabel);
+        worldInfoStack.Widgets.Add(_currencyLabel);
         worldInfoStack.Widgets.Add(_powerLabel);
         worldInfoStack.Widgets.Add(_weatherLabel);
         if (_screens.Content.Seasons.IsEnabled)
@@ -3285,6 +3310,21 @@ public sealed class GameplayScreen : IScreen
         else
         {
             _tierLabel.Text = string.Empty;
+        }
+
+        // Měny prestiže: ukáží se, jakmile je hráč má. Nula na startu by byla
+        // jen další nesrozumitelné číslo.
+        {
+            long ascend = _simulation.PrestigePoints;
+            long legacy = _simulation.LegacyAvailable ? _simulation.LegacyPoints : 0;
+            _currencyLabel.Text = (ascend, legacy) switch
+            {
+                (0, 0) => string.Empty,
+                (_, 0) => loc.Format("hud.prestigePoints", CivDle.Core.Numbers.Format(ascend)),
+                (0, _) => loc.Format("hud.legacyPoints", CivDle.Core.Numbers.Format(legacy)),
+                _ => loc.Format("hud.prestigePoints", CivDle.Core.Numbers.Format(ascend))
+                    + "   " + loc.Format("hud.legacyPoints", CivDle.Core.Numbers.Format(legacy)),
+            };
         }
 
         // Počasí: ambientní jen informuje, extrémní varuje (oranžově) i s odpočtem —
