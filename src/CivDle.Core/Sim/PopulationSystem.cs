@@ -31,7 +31,10 @@ internal sealed class PopulationSystem
         // Strop měřítka (stupeň Vzestupu) je druhá, MĚKKÁ brzda: růst se u něj
         // zastaví, ale nic se neboří — je to pobídka k Vzestupu, ne trest
         // (progression-prestige.md §6).
-        double ceiling = Math.Min(sim.HousingCapacity, sim.PopulationCap);
+        // Strop nesmí být záporný. Kdyby se do kapacity znovu dostalo záporné
+        // číslo (chyba jinde), populace by ho následovala do mínusu — a to je
+        // přesně ten stav, který hráč nahlásil.
+        double ceiling = Math.Max(0, Math.Min(sim.HousingCapacity, sim.PopulationCap));
         bool fed = eaten >= demand - 1e-9;
         if (fed && sim.Population < ceiling)
         {
@@ -48,7 +51,7 @@ internal sealed class PopulationSystem
         // po Vzestupu se ptá „kam jsi to dotáhl", ne „kolik jich zbylo na konci".
         if (sim.Population > sim.PeakPopulation)
         {
-            sim.PeakPopulation = (long)sim.Population;
+            sim.PeakPopulation = Numbers.ToLong(sim.Population);
         }
     }
 }

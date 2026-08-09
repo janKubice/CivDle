@@ -24,7 +24,7 @@ public class DemolishMoveTests
         var (content, sim) = Grassland();
         int house = content.Buildings.IndexOf("house");
         int wood = content.Resources.IndexOf("wood");
-        int capBefore = sim.HousingCapacity;
+        double capBefore = sim.HousingCapacity;
 
         Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(house, 2, 2));
         Assert.True(sim.IsOccupied(2, 2));
