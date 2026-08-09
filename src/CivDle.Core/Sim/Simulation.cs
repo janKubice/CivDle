@@ -4878,7 +4878,52 @@ public sealed class Simulation
             }
         }
 
-        return PlacementResult.Ok;
+        return HasRoomToGrow(buildingIndex, _content.Buildings[def.UpgradesToIndex])
+            ? PlacementResult.Ok
+            : PlacementResult.Occupied;
+    }
+
+    /// <summary>
+    /// Vejde se vyšší stupeň na místo toho současného?
+    ///
+    /// <para>Vylepšení dlouho jen vyměnilo definici na místě, protože všechny
+    /// stupně měly stejný půdorys. Jakmile ho ale některý stupeň zvětší
+    /// (chalupa 1×1 → arkologie 3×3), musí se nové dlaždice napřed uvolnit —
+    /// jinak by budova stála na políčkách, o kterých mapa obsazenosti neví,
+    /// a stavělo by se do ní.</para>
+    ///
+    /// <para>Roste se doprava a dolů od původního rohu. Nové dlaždice musí být
+    /// volné a na povoleném biomu; ty původní se nekontrolují, ty už budova má.</para>
+    /// </summary>
+    private bool HasRoomToGrow(int buildingIndex, BuildingDef target)
+    {
+        ref readonly var instance = ref _buildings[buildingIndex];
+        var current = _content.Buildings[instance.DefIndex];
+        if (target.FootprintWidth <= current.FootprintWidth
+            && target.FootprintHeight <= current.FootprintHeight)
+        {
+            return true;
+        }
+
+        for (int tileY = instance.Y; tileY < instance.Y + target.FootprintHeight; tileY++)
+        {
+            for (int tileX = instance.X; tileX < instance.X + target.FootprintWidth; tileX++)
+            {
+                bool inside = tileX < instance.X + current.FootprintWidth
+                    && tileY < instance.Y + current.FootprintHeight;
+                if (inside)
+                {
+                    continue;
+                }
+
+                if (IsOccupied(tileX, tileY) || !target.IsBiomeAllowed(Terrain.BiomeAt(tileX, tileY)))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -4905,8 +4950,20 @@ public sealed class Simulation
         RemoveBuildingBonuses(oldDef);
         instance.DefIndex = oldDef.UpgradesToIndex;
         instance.Progress = 0f;
+
+        // Vyšší stupeň může mít větší půdorys (arkologie je 3×3). Nové dlaždice
+        // se musí zabrat a srovnat, jinak by na nich zůstal strom a dalo by se
+        // do budovy stavět. Že jsou volné, ověřil CanUpgrade.
+        var newDef = _content.Buildings[instance.DefIndex];
+        if (newDef.FootprintWidth != oldDef.FootprintWidth
+            || newDef.FootprintHeight != oldDef.FootprintHeight)
+        {
+            ClearGround(instance.X, instance.Y, newDef.FootprintWidth, newDef.FootprintHeight);
+            RemapOccupancy(buildingIndex);
+        }
+
         ReportVisual(VisualEventKind.BuildingUpgraded, instance.X, instance.Y);
-        ApplyBuildingBonuses(_content.Buildings[instance.DefIndex]);
+        ApplyBuildingBonuses(newDef);
         SettlementsDirty = true;
         DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
