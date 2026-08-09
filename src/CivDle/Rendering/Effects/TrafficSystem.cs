@@ -36,8 +36,12 @@ public sealed class TrafficSystem
     /// <summary>Strop pro testy i pro ladění — kolik vozidel systém nejvýš drží.</summary>
     public static int MaxActive => MaxVehicles;
 
-    /// <summary>Pod tímhle přiblížením je vozidlo pixel — nemá smysl ho počítat.</summary>
-    private const float MinZoom = 0.5f;
+    /// <summary>
+    /// Základní práh: pod tímhle přiblížením je vozidlo pixel a nemá smysl ho
+    /// počítat. Volba detailu v nastavení s ním posouvá (<see cref="DetailLevel.Scale"/>);
+    /// veřejný je kvůli testům, které mají mluvit o vzdálenosti, ne o čísle.
+    /// </summary>
+    public const float MinZoom = 0.5f;
 
     private const float SpawnCooldownSeconds = 0.25f;
     private const float DespawnMargin = 64f;
@@ -84,7 +88,7 @@ public sealed class TrafficSystem
 
     public void Update(float dt, Camera2D camera, Simulation simulation)
     {
-        if (camera.Zoom < MinZoom || _content.Vehicles.Count == 0)
+        if (camera.Zoom < DetailLevel.Scale(MinZoom) || _content.Vehicles.Count == 0)
         {
             _count = 0; // oddáleno → provoz zmizí (z dálky ho stejně nikdo nevidí)
             return;

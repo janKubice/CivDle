@@ -559,7 +559,7 @@ public sealed class GameplayScreen : IScreen
         _districtRenderer.Draw(spriteBatch, _camera, _simulation); // tvář čtvrtí, taky na zemi
         // Landmarky jen zblízka (LOD): z výšky jsou stejně pod rozlišením a dotaz
         // na desítky tisíc dlaždic by zbytečně žral snímky.
-        if (_camera.Zoom >= LandmarkRenderer.MinZoom)
+        if (_camera.Zoom >= DetailLevel.Scale(LandmarkRenderer.MinZoom))
         {
             _landmarkRenderer.Draw(spriteBatch, _camera, _simulation);
         }
@@ -848,7 +848,7 @@ public sealed class GameplayScreen : IScreen
             return;
         }
 
-        if (_desktop.IsMouseOverGUI || _camera.Zoom < LandmarkRenderer.MinZoom)
+        if (_desktop.IsMouseOverGUI || _camera.Zoom < DetailLevel.Scale(LandmarkRenderer.MinZoom))
         {
             return;
         }

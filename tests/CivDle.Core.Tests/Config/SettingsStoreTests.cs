@@ -74,4 +74,24 @@ public class SettingsStoreTests : IDisposable
         Assert.Equal(new GameSettings().ResolutionWidth, settings.ResolutionWidth);
         Assert.Equal(new GameSettings().ResolutionHeight, settings.ResolutionHeight);
     }
+
+    [Fact]
+    public void Load_KeepsAChosenDetailLevel()
+    {
+        Directory.CreateDirectory(_tempDir);
+        File.WriteAllText(_filePath, """{ "detail": "Performance" }""");
+
+        Assert.Equal(DetailQuality.Performance, new SettingsStore(_filePath).Load().Detail);
+    }
+
+    [Fact]
+    public void Load_UnknownDetailLevel_FallsBackToDefault()
+    {
+        // Číslo mimo výčet (starší nebo ručně upravený soubor) by prošlo jako
+        // platná hodnota a render by z něj počítal nesmyslné prahy.
+        Directory.CreateDirectory(_tempDir);
+        File.WriteAllText(_filePath, """{ "detail": 99 }""");
+
+        Assert.Equal(new GameSettings().Detail, new SettingsStore(_filePath).Load().Detail);
+    }
 }

@@ -87,7 +87,7 @@ public sealed class NpcCityRenderer
         SpriteBatch spriteBatch, Camera2D camera, Simulation simulation, int centerTileX, int centerTileY)
     {
         const int tileSize = TerrainRenderer.TileSize;
-        bool detailed = camera.Zoom >= DetailZoom;
+        bool detailed = camera.Zoom >= DetailLevel.Scale(DetailZoom);
 
         foreach (var city in simulation.CitiesNear(centerTileX, centerTileY, ScanRadiusTiles))
         {

@@ -5,6 +5,7 @@ using CivDle.Core.Content;
 using CivDle.Core.Platform;
 using CivDle.Core.Save;
 using CivDle.Core.Sim;
+using CivDle.Rendering;
 using CivDle.Rendering.Sprites;
 using CivDle.Screens;
 using Microsoft.Xna.Framework;
@@ -83,6 +84,10 @@ public sealed class CivDleGame : Game
 
         _graphics = new GraphicsDeviceManager(this);
         ApplyGraphicsToManager(Settings);
+
+        // Prahy detailu musí platit od prvního snímku, ne až po prvním otevření
+        // nastavení — jinak by hráč se slabým strojem viděl trhaný start.
+        DetailLevel.Apply(Settings.Detail);
         Window.Title = "CivDle";
         Window.AllowUserResizing = true;
         IsMouseVisible = true;
@@ -118,6 +123,7 @@ public sealed class CivDleGame : Game
         Settings = settings;
         _settingsStore.Save(settings);
         ApplyGraphicsToManager(settings);
+        DetailLevel.Apply(settings.Detail);
         _graphics.ApplyChanges();
     }
 

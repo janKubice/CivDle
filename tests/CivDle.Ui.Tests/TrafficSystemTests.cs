@@ -18,6 +18,7 @@ namespace CivDle.Ui.Tests;
 ///
 /// <para>Běží headless: <c>Update</c> na grafiku nesahá, kreslení se netestuje.</para>
 /// </summary>
+[Collection("DetailLevel")]
 public sealed class TrafficSystemTests
 {
     private static Camera2D NewCamera()
@@ -115,7 +116,9 @@ public sealed class TrafficSystemTests
         Run(traffic, camera, sim, 600);
         Assert.True(traffic.ActiveCount > 0);
 
-        while (camera.Zoom > 0.3f)
+        // Práh si posouvá hráč v nastavení; test má mluvit o vzdálenosti,
+        // ne o konkrétním čísle, které mu jiné nastavení podtrhne.
+        while (camera.Zoom > DetailLevel.Scale(TrafficSystem.MinZoom) * 0.6f)
         {
             camera.ZoomAt(new Microsoft.Xna.Framework.Vector2(960, 540), 0.8f);
         }

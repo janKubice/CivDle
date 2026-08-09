@@ -40,7 +40,7 @@ public sealed class FaunaSystem
 
     public void Update(float dt, Camera2D camera, Simulation simulation)
     {
-        if (camera.Zoom < MinZoom || _content.Fauna.Count == 0)
+        if (camera.Zoom < DetailLevel.Scale(MinZoom) || _content.Fauna.Count == 0)
         {
             _count = 0; // oddáleno → fauna zmizí (z dálky ji nikdo nevidí)
             return;

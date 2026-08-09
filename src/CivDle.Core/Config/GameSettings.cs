@@ -55,6 +55,12 @@ public sealed record GameSettings
     /// </summary>
     public bool ColorCues { get; init; }
 
+    /// <summary>
+    /// Jak dlouho při oddalování vydrží detaily (LOD). Stroje se liší řádově,
+    /// takže volbu má mít hráč, ne jedna konstanta v kódu.
+    /// </summary>
+    public DetailQuality Detail { get; init; } = DetailQuality.Balanced;
+
     /// <summary>Povolený rozsah zvětšení UI (mimo něj by se rozbilo rozvržení).</summary>
     public const float MinUiScale = 0.8f;
 

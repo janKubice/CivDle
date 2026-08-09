@@ -32,9 +32,19 @@ public sealed class SettingsScreen : IScreen
     private int _uiScaleStep;
     private bool _reduceMotion;
     private bool _colorCues;
+    private int _detailIndex;
 
     /// <summary>Nabízená zvětšení UI (index = krok v přepínači).</summary>
     private static readonly float[] UiScales = { 0.8f, 0.9f, 1.0f, 1.15f, 1.3f, 1.45f, 1.6f };
+
+    /// <summary>Stupně detailu v pořadí, v jakém je přepínač nabízí.</summary>
+    private static readonly DetailQuality[] DetailSteps =
+    {
+        DetailQuality.Performance,
+        DetailQuality.Balanced,
+        DetailQuality.Detailed,
+        DetailQuality.Maximum,
+    };
 
     /// <param name="showBackground">
     /// True v menu (kreslí živé město na pozadí); false z pauzy ve hře, kde by
@@ -61,6 +71,7 @@ public sealed class SettingsScreen : IScreen
         _uiScaleStep = NearestUiScaleStep(settings.SafeUiScale);
         _reduceMotion = settings.ReduceMotion;
         _colorCues = settings.ColorCues;
+        _detailIndex = Math.Max(0, Array.IndexOf(DetailSteps, settings.Detail));
 
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
@@ -133,6 +144,24 @@ public sealed class SettingsScreen : IScreen
         var colorCues = new CycleSelector(2, _colorCues ? 0 : 1, i => loc[i == 0 ? "common.on" : "common.off"]);
         colorCues.SelectionChanged += i => _colorCues = i == 0;
 
+        // Detail při oddálení: popisek pod přepínačem se mění hned, ať hráč
+        // vidí, co si vybral, dřív než dá Použít a bude to zkoušet naslepo.
+        var detailHint = new Label
+        {
+            Text = loc[DetailHintKey(_detailIndex)],
+            TextColor = Color.LightGray,
+            Wrap = true,
+            Width = 420,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        var detail = new CycleSelector(
+            DetailSteps.Length, _detailIndex, i => loc[DetailNameKey(i)]);
+        detail.SelectionChanged += i =>
+        {
+            _detailIndex = i;
+            detailHint.Text = loc[DetailHintKey(i)];
+        };
+
         var layout = new VerticalStackPanel
         {
             Spacing = 14,
@@ -151,6 +180,8 @@ public sealed class SettingsScreen : IScreen
         layout.Widgets.Add(UiFactory.Row(loc["settings.windowMode"], windowMode.Widget));
         layout.Widgets.Add(UiFactory.Row(loc["settings.vsync"], vsync.Widget));
         layout.Widgets.Add(UiFactory.Row(loc["settings.sound"], volume.Widget));
+        layout.Widgets.Add(UiFactory.Row(loc["settings.detail"], detail.Widget));
+        layout.Widgets.Add(detailHint);
         layout.Widgets.Add(new Label { Text = " " });
         layout.Widgets.Add(new Label
         {
@@ -182,12 +213,19 @@ public sealed class SettingsScreen : IScreen
             UiScale = UiScales[_uiScaleStep],
             ReduceMotion = _reduceMotion,
             ColorCues = _colorCues,
+            Detail = DetailSteps[_detailIndex],
         };
 
         _screens.ApplySettings(settings);
         // Změna jazyka rozešle event — tahle i spodní obrazovky se přestaví.
         _screens.Loc.SetLanguage(settings.Language);
     }
+
+    /// <summary>Název stupně detailu v nabídce.</summary>
+    private static string DetailNameKey(int step) => $"settings.detail.{DetailSteps[step].ToString().ToLowerInvariant()}";
+
+    /// <summary>Jednořádkové vysvětlení, co stupeň udělá.</summary>
+    private static string DetailHintKey(int step) => DetailNameKey(step) + ".hint";
 
     /// <summary>Nejbližší nabízený krok zvětšení k uložené hodnotě (soubor mohl někdo ručně upravit).</summary>
     /// <summary>

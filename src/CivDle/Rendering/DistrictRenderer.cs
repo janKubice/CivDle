@@ -81,7 +81,7 @@ public sealed class DistrictRenderer
     public void DrawLabels(SpriteBatch spriteBatch, Camera2D camera, Simulation simulation)
     {
         var districts = simulation.Districts;
-        if (districts.Count == 0 || camera.Zoom < MinLabelZoom)
+        if (districts.Count == 0 || camera.Zoom < DetailLevel.Scale(MinLabelZoom))
         {
             return;
         }
