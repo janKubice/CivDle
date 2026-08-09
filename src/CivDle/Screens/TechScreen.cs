@@ -272,8 +272,8 @@ public sealed class TechScreen : IScreen
             }
 
             var size = _font.MeasureString(name) * _zoom;
-            var labelColor = researched ? new Color(170, 225, 190)
-                : status == PlacementResult.NotUnlocked ? new Color(120, 128, 145)
+            var labelColor = researched ? UiPalette.Good
+                : status == PlacementResult.NotUnlocked ? UiPalette.TextDim
                 : Color.White;
 
             // Jména sousedních hvězd se přes sebe pokládala a nešlo přečíst ani
@@ -301,7 +301,7 @@ public sealed class TechScreen : IScreen
             // Neznámý uzel neprozradí ani jméno — jinak by stačilo přejet myší
             // a celý strom by byl přečtený dopředu.
             HoverTooltip.Draw(spriteBatch, pixel, _font, viewport, _input.MousePosition,
-                loc["tech.unknown"], loc["tech.unknown.desc"], new Color(120, 130, 150));
+                loc["tech.unknown"], loc["tech.unknown.desc"], UiPalette.TextDim);
         }
         else if (_hovered >= 0)
         {
@@ -339,10 +339,10 @@ public sealed class TechScreen : IScreen
 
             HoverTooltip.Draw(spriteBatch, pixel, _font, viewport, _input.MousePosition,
                 loc[tech.NameKey], body,
-                researched ? new Color(150, 235, 175)
-                    : status == PlacementResult.Ok ? new Color(255, 215, 120)
-                    : status == PlacementResult.NotEnoughResources ? new Color(235, 170, 110)
-                    : new Color(160, 168, 184));
+                researched ? UiPalette.Good
+                    : status == PlacementResult.Ok ? UiPalette.TextBright
+                    : status == PlacementResult.NotEnoughResources ? UiPalette.Warn
+                    : UiPalette.Text);
         }
     }
 

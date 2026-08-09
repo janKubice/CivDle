@@ -107,6 +107,23 @@ public sealed class PixelCanvas
         return texture;
     }
 
+    /// <summary>
+    /// Srovná hotovou kresbu na společnou paletu hry (<see cref="GamePalette"/>).
+    ///
+    /// <para>Dělá se to až <b>po</b> kreslení, ne během něj: sprity si můžou
+    /// dál míchat barvy a stínovat průhledností, jak potřebují, a teprve
+    /// výsledek se srovná. Kdyby se snapovalo při každém <see cref="Blend"/>,
+    /// každá poloprůhledná vrstva by kresbu posunula o kus jinam a měkké
+    /// přechody by se rozpadly.</para>
+    /// </summary>
+    public void SnapToPalette()
+    {
+        for (int i = 0; i < _pixels.Length; i++)
+        {
+            _pixels[i] = GamePalette.Snap(_pixels[i]);
+        }
+    }
+
     private static bool SameSide(float px, float py, float ax, float ay, float bx, float by, float refx, float refy)
     {
         float cross1 = (bx - ax) * (py - ay) - (by - ay) * (px - ax);

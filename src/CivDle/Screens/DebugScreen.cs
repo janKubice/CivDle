@@ -56,7 +56,7 @@ public sealed class DebugScreen : IScreen
         layout.Widgets.Add(new Label
         {
             Text = "DEBUG",
-            TextColor = new Color(255, 160, 160),
+            TextColor = UiPalette.Bad,
             HorizontalAlignment = HorizontalAlignment.Center,
         });
 
@@ -89,7 +89,7 @@ public sealed class DebugScreen : IScreen
         _status = new Label
         {
             Text = string.Empty,
-            TextColor = new Color(150, 220, 150),
+            TextColor = UiPalette.Good,
             Wrap = true,
             Width = PanelWidth - 20,
         };

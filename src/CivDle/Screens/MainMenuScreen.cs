@@ -96,7 +96,7 @@ public sealed class MainMenuScreen : IScreen
             buttons.Widgets.Add(new Label
             {
                 Text = _statusText,
-                TextColor = new Color(235, 120, 110),
+                TextColor = UiPalette.Bad,
                 HorizontalAlignment = HorizontalAlignment.Center,
             });
         }
@@ -133,7 +133,7 @@ public sealed class MainMenuScreen : IScreen
                 Text = string.IsNullOrEmpty(entry.Date)
                     ? loc[entry.TitleKey]
                     : $"{loc[entry.TitleKey]}  ·  {entry.Date}",
-                TextColor = new Color(210, 220, 235),
+                TextColor = UiPalette.TextBright,
             });
             for (int i = 0; i < entry.LineCount; i++)
             {

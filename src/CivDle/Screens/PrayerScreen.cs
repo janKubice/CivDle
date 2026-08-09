@@ -88,7 +88,7 @@ public sealed class PrayerScreen : IScreen
         {
             Text = loc["faith.title"],
             HorizontalAlignment = HorizontalAlignment.Center,
-            TextColor = new Color(255, 226, 150),
+            TextColor = UiPalette.TextBright,
         });
 
         if (!_simulation.FaithEnabled)
@@ -131,7 +131,7 @@ public sealed class PrayerScreen : IScreen
         {
             Text = loc.Format("faith.strength", _strength),
             VerticalAlignment = VerticalAlignment.Center,
-            TextColor = new Color(220, 210, 180),
+            TextColor = UiPalette.Text,
         });
 
         for (int level = 1; level <= Simulation.MaxPrayerStrength; level++)
@@ -145,11 +145,11 @@ public sealed class PrayerScreen : IScreen
                     Text = level.ToString(),
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
-                    TextColor = active ? Color.White : new Color(200, 205, 215),
+                    TextColor = active ? Color.White : UiPalette.Text,
                 },
                 Width = 40,
                 Height = 30,
-                Background = new SolidBrush(active ? new Color(92, 72, 40, 240) : new Color(44, 50, 64, 235)),
+                Background = new SolidBrush(active ? UiPalette.Panel : UiPalette.Panel),
             };
             button.Click += (_, _) =>
             {
@@ -169,7 +169,7 @@ public sealed class PrayerScreen : IScreen
         bool affordable = _simulation.GetResource(faith.FaithResourceIndex) >= cost;
 
         var stack = new VerticalStackPanel { Spacing = 4, Width = 470 };
-        stack.Widgets.Add(new Label { Text = loc[prayer.NameKey], TextColor = new Color(255, 214, 120) });
+        stack.Widgets.Add(new Label { Text = loc[prayer.NameKey], TextColor = UiPalette.TextBright });
         stack.Widgets.Add(new Label { Text = loc[prayer.DescriptionKey], TextColor = Color.LightGray, Wrap = true });
 
         // Cena a šance vedle sebe — to je celé to rozhodnutí, a musí být vidět
@@ -177,7 +177,7 @@ public sealed class PrayerScreen : IScreen
         stack.Widgets.Add(new Label
         {
             Text = loc.Format("faith.chance", (int)Math.Round(prayer.ChanceAt(_strength) * 100), cost),
-            TextColor = affordable ? new Color(150, 220, 150) : new Color(235, 170, 110),
+            TextColor = affordable ? UiPalette.Good : UiPalette.Warn,
         });
 
         if (affordable)
@@ -187,8 +187,8 @@ public sealed class PrayerScreen : IScreen
 
         var panel = new Panel
         {
-            Background = new SolidBrush(new Color(38, 34, 26, 220)),
-            Border = new SolidBrush(new Color(200, 176, 120) * 0.5f),
+            Background = new SolidBrush(UiPalette.Panel),
+            Border = new SolidBrush(UiPalette.TextBright * 0.5f),
             BorderThickness = new Thickness(1),
             Padding = new Thickness(10, 8),
             Tooltip = loc["tip.faith"],

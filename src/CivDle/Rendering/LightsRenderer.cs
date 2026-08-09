@@ -19,11 +19,23 @@ public sealed class LightsRenderer
     private readonly Texture2D _pixel;
     private readonly GameContent _content;
 
+    /// <summary>Čas pro mihotání oken. Jediný stav rendereru.</summary>
+    private float _time;
+
     public LightsRenderer(Texture2D whitePixel, GameContent content)
     {
         _pixel = whitePixel;
         _content = content;
     }
+
+    /// <summary>
+    /// Posune mihotání oken.
+    ///
+    /// <para>Bez pohybu byla noc jen statická tečkovaná mapa. Skutečné město
+    /// v noci žije: někde svítí televize, někde někdo zhasne. Stačí, aby se
+    /// pár oken pomalu měnilo, a z obrázku je scéna.</para>
+    /// </summary>
+    public void Update(float dt) => _time += dt;
 
     public void Draw(SpriteBatch spriteBatch, Camera2D camera, Simulation simulation, float nightFactor)
     {
@@ -55,21 +67,53 @@ public sealed class LightsRenderer
             }
 
             // Měkká zář: tři soustředné vrstvy s klesající intenzitou.
-            DrawCenteredGlow(spriteBatch, x + width / 2, y + height / 2, width + 26, height + 26, 0.05f * nightFactor);
-            DrawCenteredGlow(spriteBatch, x + width / 2, y + height / 2, width + 12, height + 12, 0.09f * nightFactor);
-            DrawCenteredGlow(spriteBatch, x + width / 2, y + height / 2, width, height, 0.14f * nightFactor);
+            DrawCenteredGlow(spriteBatch, x + width / 2, y + height / 2, width + 26, height + 26, 0.07f * nightFactor);
+            DrawCenteredGlow(spriteBatch, x + width / 2, y + height / 2, width + 12, height + 12, 0.12f * nightFactor);
+            DrawCenteredGlow(spriteBatch, x + width / 2, y + height / 2, width, height, 0.18f * nightFactor);
 
-            // Rozsvícená okénka — deterministicky podle indexu budovy.
-            int windows = 1 + (int)(Hash(i, 0) % 3);
+            // Rozsvícená okénka. Klíč je POLOHA, ne index v poli: index se při
+            // bourání přerovná a celá ulice by v tu chvíli přeblikla.
+            int key = building.X * 73856093 ^ building.Y * 19349663;
+            int windows = 2 + (int)(Hash(key, 0) % 3);
             for (int w = 0; w < windows; w++)
             {
-                int windowX = x + 3 + (int)(Hash(i, w * 2 + 1) % (ulong)Math.Max(1, width - 6));
-                int windowY = y + 3 + (int)(Hash(i, w * 2 + 2) % (ulong)Math.Max(1, height - 6));
-                spriteBatch.Draw(_pixel, new Rectangle(windowX, windowY, 2, 2), WindowColor * (0.85f * nightFactor));
+                int windowX = x + 3 + (int)(Hash(key, w * 2 + 1) % (ulong)Math.Max(1, width - 6));
+                int windowY = y + 3 + (int)(Hash(key, w * 2 + 2) % (ulong)Math.Max(1, height - 6));
+                float alpha = WindowAlpha(key + w, _time) * nightFactor;
+                if (alpha <= 0.01f)
+                {
+                    continue;
+                }
+
+                spriteBatch.Draw(_pixel, new Rectangle(windowX, windowY, 2, 2), WindowColor * alpha);
             }
         }
 
         spriteBatch.End();
+    }
+
+    /// <summary>
+    /// Jak silně svítí jedno okno v daném čase (0–1).
+    ///
+    /// <para>Skládá se ze dvou pomalých vln s nesoudělnými periodami. Výsledek
+    /// nikdy nezhasne úplně a nikdy se necyklí tak krátce, aby si hráč všiml
+    /// opakování — což je celý rozdíl mezi „město v noci" a „blikající LEDka".
+    /// Fáze je odvozená ze seedu, takže dvě okna vedle sebe nepulzují spolu.</para>
+    ///
+    /// <para>Statické a bez stavu schválně: je to křivka, která se ladí, a
+    /// takhle jde ověřit bez grafiky.</para>
+    /// </summary>
+    public static float WindowAlpha(int seed, float time)
+    {
+        float phase = (Hash(seed, 7) % 1000) / 1000f * MathF.Tau;
+
+        // Nosná vlna: pomalé „doma se něco děje".
+        float slow = 0.78f + 0.16f * MathF.Sin(time * 0.35f + phase);
+
+        // Druhá, rychlejší a slabší — televize za oknem.
+        float fast = 0.06f * MathF.Sin(time * 1.9f + phase * 2.3f);
+
+        return Math.Clamp(slow + fast, 0f, 1f);
     }
 
     private void DrawCenteredGlow(SpriteBatch spriteBatch, int centerX, int centerY, int width, int height, float alpha)

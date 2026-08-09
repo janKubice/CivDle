@@ -126,7 +126,7 @@ public sealed class BuildingInfoScreen : IScreen
                     ? loc["building.roadConnected"]
                     : loc.Format("building.roadMissing",
                         (int)Math.Round(content.Gameplay.Roads.DisconnectedProductionMult * 100)),
-                TextColor = connected ? new Color(150, 220, 150) : new Color(235, 170, 110),
+                TextColor = connected ? UiPalette.Good : UiPalette.Warn,
                 HorizontalAlignment = HorizontalAlignment.Center,
             });
         }
@@ -139,7 +139,7 @@ public sealed class BuildingInfoScreen : IScreen
             layout.Widgets.Add(new Label
             {
                 Text = loc.Format("building.underConstruction", (int)Math.Round(progress * 100)),
-                TextColor = new Color(240, 200, 90),
+                TextColor = UiPalette.TextBright,
                 HorizontalAlignment = HorizontalAlignment.Center,
             });
             layout.Widgets.Add(new Label
@@ -161,7 +161,7 @@ public sealed class BuildingInfoScreen : IScreen
                 Text = bonus > 0
                     ? loc.Format("building.adjacencyGood", BuildingSummary.Percent(bonus))
                     : loc["building.adjacencyNone"],
-                TextColor = bonus > 0 ? new Color(150, 220, 150) : new Color(200, 195, 180),
+                TextColor = bonus > 0 ? UiPalette.Good : UiPalette.Text,
                 HorizontalAlignment = HorizontalAlignment.Center,
             });
         }
@@ -173,7 +173,7 @@ public sealed class BuildingInfoScreen : IScreen
             layout.Widgets.Add(new Label
             {
                 Text = loc.Format("building.haulPenalty", BuildingSummary.Percent(instance.HaulMult)),
-                TextColor = new Color(235, 170, 110),
+                TextColor = UiPalette.Warn,
                 HorizontalAlignment = HorizontalAlignment.Center,
             });
         }
@@ -193,7 +193,7 @@ public sealed class BuildingInfoScreen : IScreen
                 {
                     Text = loc.Format("building.milestoneTier", tier,
                         BuildingSummary.Percent(_simulation.MilestoneMultiplier(instance.DefIndex) - 1.0)),
-                    TextColor = new Color(150, 220, 150),
+                    TextColor = UiPalette.Good,
                     HorizontalAlignment = HorizontalAlignment.Center,
                 });
             }
@@ -203,7 +203,7 @@ public sealed class BuildingInfoScreen : IScreen
                 Text = toNext > 0
                     ? loc.Format("building.milestoneNext", toNext, built)
                     : loc.Format("building.milestoneMax", built),
-                TextColor = toNext > 0 ? new Color(255, 214, 120) : new Color(180, 190, 175),
+                TextColor = toNext > 0 ? UiPalette.TextBright : UiPalette.Text,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Tooltip = loc.Format("tip.milestones", milestones.Every),
             });
@@ -216,7 +216,7 @@ public sealed class BuildingInfoScreen : IScreen
             layout.Widgets.Add(new Label
             {
                 Text = loc.Format("citizen.founder", founder),
-                TextColor = new Color(255, 224, 168),
+                TextColor = UiPalette.TextBright,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Tooltip = loc["tip.citizens"],
             });
@@ -239,7 +239,7 @@ public sealed class BuildingInfoScreen : IScreen
                 layout.Widgets.Add(new Label
                 {
                     Text = loc.Format("building.districtBonus", BuildingSummary.Percent(instance.DistrictMult - 1f)),
-                    TextColor = new Color(150, 220, 150),
+                    TextColor = UiPalette.Good,
                     HorizontalAlignment = HorizontalAlignment.Center,
                 });
             }
@@ -251,7 +251,7 @@ public sealed class BuildingInfoScreen : IScreen
                 layout.Widgets.Add(new Label
                 {
                     Text = loc["building.districtSmog"],
-                    TextColor = new Color(210, 170, 130),
+                    TextColor = UiPalette.TextBright,
                     HorizontalAlignment = HorizontalAlignment.Center,
                     Tooltip = loc["tip.district"],
                 });
@@ -265,7 +265,7 @@ public sealed class BuildingInfoScreen : IScreen
             layout.Widgets.Add(new Label
             {
                 Text = loc.Format("building.pollutionPenalty", BuildingSummary.Percent(instance.PollutionMult)),
-                TextColor = new Color(228, 140, 110),
+                TextColor = UiPalette.Bad,
                 HorizontalAlignment = HorizontalAlignment.Center,
             });
         }
@@ -276,7 +276,7 @@ public sealed class BuildingInfoScreen : IScreen
             layout.Widgets.Add(new Label
             {
                 Text = loc[def.Pollution.IsCleaner ? "building.cleansArea" : "building.pollutesArea"],
-                TextColor = def.Pollution.IsCleaner ? new Color(140, 210, 190) : new Color(210, 170, 130),
+                TextColor = def.Pollution.IsCleaner ? UiPalette.Warn : UiPalette.TextBright,
                 HorizontalAlignment = HorizontalAlignment.Center,
             });
         }
@@ -373,7 +373,7 @@ public sealed class BuildingInfoScreen : IScreen
         stack.Widgets.Add(new Label
         {
             Text = loc[MergeProblemKey(result)],
-            TextColor = new Color(235, 170, 110),
+            TextColor = UiPalette.Warn,
             HorizontalAlignment = HorizontalAlignment.Center,
         });
         return stack;
@@ -407,7 +407,7 @@ public sealed class BuildingInfoScreen : IScreen
             section.Widgets.Add(new Label
             {
                 Text = loc["building.maxLevel"],
-                TextColor = new Color(180, 190, 200),
+                TextColor = UiPalette.Text,
                 HorizontalAlignment = HorizontalAlignment.Center,
             });
             return section;
@@ -429,7 +429,7 @@ public sealed class BuildingInfoScreen : IScreen
             section.Widgets.Add(new Label
             {
                 Text = loc[UpgradeProblemKey(upgradeResult)],
-                TextColor = new Color(235, 170, 110),
+                TextColor = UiPalette.Warn,
                 HorizontalAlignment = HorizontalAlignment.Center,
             });
             return section;

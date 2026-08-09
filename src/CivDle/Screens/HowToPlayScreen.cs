@@ -88,7 +88,7 @@ public sealed class HowToPlayScreen : IScreen
             TextColor = UiFactory.Accent,
             HorizontalAlignment = HorizontalAlignment.Center,
         });
-        layout.Widgets.Add(new Label { Text = loc["howto.intro"], TextColor = new Color(200, 210, 224) });
+        layout.Widgets.Add(new Label { Text = loc["howto.intro"], TextColor = UiPalette.Text });
         layout.Widgets.Add(new Label { Text = " " });
 
         for (int i = 1; i <= StepCount; i++)

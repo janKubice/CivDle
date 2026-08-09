@@ -78,7 +78,7 @@ public sealed class RunSummaryScreen : IScreen
         {
             Text = loc.Format("run.title", _summary.Level),
             HorizontalAlignment = HorizontalAlignment.Center,
-            TextColor = new Color(180, 140, 230),
+            TextColor = UiPalette.Accent,
         });
         layout.Widgets.Add(new Label
         {
@@ -106,7 +106,7 @@ public sealed class RunSummaryScreen : IScreen
         {
             Text = loc.Format("run.points", CivDle.Core.Numbers.Format(_summary.PointsEarned)),
             HorizontalAlignment = HorizontalAlignment.Center,
-            TextColor = new Color(190, 160, 235),
+            TextColor = UiPalette.Accent,
         });
 
         layout.Widgets.Add(RecordLine());
@@ -135,7 +135,7 @@ public sealed class RunSummaryScreen : IScreen
             {
                 Text = loc["run.firstRun"],
                 HorizontalAlignment = HorizontalAlignment.Center,
-                TextColor = new Color(150, 160, 175),
+                TextColor = UiPalette.TextDim,
             };
         }
 
@@ -145,7 +145,7 @@ public sealed class RunSummaryScreen : IScreen
             {
                 Text = loc.Format("run.record", CivDle.Core.Numbers.Format(_summary.PreviousBestPopulation)),
                 HorizontalAlignment = HorizontalAlignment.Center,
-                TextColor = new Color(240, 205, 110),
+                TextColor = UiPalette.TextBright,
             };
         }
 
@@ -153,7 +153,7 @@ public sealed class RunSummaryScreen : IScreen
         {
             Text = loc.Format("run.behindBest", CivDle.Core.Numbers.Format(_summary.PreviousBestPopulation)),
             HorizontalAlignment = HorizontalAlignment.Center,
-            TextColor = new Color(150, 160, 175),
+            TextColor = UiPalette.TextDim,
         };
     }
 
@@ -161,6 +161,6 @@ public sealed class RunSummaryScreen : IScreen
     {
         Text = text,
         HorizontalAlignment = HorizontalAlignment.Center,
-        TextColor = new Color(210, 205, 190),
+        TextColor = UiPalette.Text,
     };
 }

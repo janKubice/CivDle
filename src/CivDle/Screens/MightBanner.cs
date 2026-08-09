@@ -88,7 +88,7 @@ public sealed class MightBanner
         spriteBatch.Begin();
         spriteBatch.DrawString(
             _font, headline, new Vector2(x, y),
-            new Color(255, 226, 150) * glow, 0f, Vector2.Zero,
+            UiPalette.TextBright * glow, 0f, Vector2.Zero,
             new Vector2(HeadlineScale, HeadlineScale));
         spriteBatch.End();
     }
@@ -114,7 +114,7 @@ public sealed class MightBanner
 
         // Záblesk po nárůstu: zlatý nádech, který během chvíle vyprchá.
         float glow = _pulse / PulseSeconds;
-        var color = Color.Lerp(new Color(255, 226, 150), Color.White, glow * 0.6f);
+        var color = Color.Lerp(UiPalette.TextBright, Color.White, glow * 0.6f);
 
         spriteBatch.DrawString(
             _font, headline, new Vector2(x - headlineSize.X * 0.5f, y),
@@ -122,7 +122,7 @@ public sealed class MightBanner
 
         // Popisek a rozpis drobným písmem pod číslem — „odkud to je".
         float lineY = y + headlineSize.Y + 2f;
-        DrawCentered(spriteBatch, _loc["power.title"], x, lineY, new Color(170, 180, 196));
+        DrawCentered(spriteBatch, _loc["power.title"], x, lineY, UiPalette.Text);
 
         lineY += _font.MeasureString("X").Y + 2f;
         for (int i = 0; i < sources.Count; i++)
@@ -134,7 +134,7 @@ public sealed class MightBanner
             }
 
             string line = $"{_loc[sources[i].LabelKey]} ×{Numbers.Format(sources[i].Multiplier)}";
-            DrawCentered(spriteBatch, line, x, lineY, new Color(140, 200, 235));
+            DrawCentered(spriteBatch, line, x, lineY, UiPalette.Accent);
             lineY += _font.MeasureString("X").Y + 1f;
         }
 

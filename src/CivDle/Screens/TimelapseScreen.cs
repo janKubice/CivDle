@@ -288,7 +288,7 @@ public sealed class TimelapseScreen : IScreen
         float progress = _position / (_history.Count - 1);
 
         spriteBatch.Draw(pixel, new Rectangle(left, y, width, 4), new Color(60, 66, 74));
-        spriteBatch.Draw(pixel, new Rectangle(left, y, (int)(width * progress), 4), new Color(255, 226, 150));
+        spriteBatch.Draw(pixel, new Rectangle(left, y, (int)(width * progress), 4), UiPalette.TextBright);
     }
 
     /// <summary>
@@ -393,7 +393,7 @@ public sealed class TimelapseScreen : IScreen
         {
             Text = loc["timelapse.title"],
             HorizontalAlignment = HorizontalAlignment.Center,
-            TextColor = new Color(255, 226, 150),
+            TextColor = UiPalette.TextBright,
         });
 
         _caption = new Label
@@ -407,7 +407,7 @@ public sealed class TimelapseScreen : IScreen
         {
             Text = loc["timelapse.controls"],
             HorizontalAlignment = HorizontalAlignment.Center,
-            TextColor = new Color(150, 160, 175),
+            TextColor = UiPalette.TextDim,
         });
 
         var bottom = new VerticalStackPanel
@@ -425,7 +425,7 @@ public sealed class TimelapseScreen : IScreen
             {
                 Text = loc["timelapse.empty"],
                 HorizontalAlignment = HorizontalAlignment.Center,
-                TextColor = new Color(150, 160, 175),
+                TextColor = UiPalette.TextDim,
             });
         }
 

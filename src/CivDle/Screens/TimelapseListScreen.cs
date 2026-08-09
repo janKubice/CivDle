@@ -91,7 +91,7 @@ public sealed class TimelapseListScreen : IScreen
         {
             Text = loc["timelapse.collection"],
             HorizontalAlignment = HorizontalAlignment.Center,
-            TextColor = new Color(255, 226, 150),
+            TextColor = UiPalette.TextBright,
         });
 
         if (_items.Count == 0)
@@ -102,7 +102,7 @@ public sealed class TimelapseListScreen : IScreen
                 Wrap = true,
                 Width = 460,
                 HorizontalAlignment = HorizontalAlignment.Center,
-                TextColor = new Color(150, 160, 175),
+                TextColor = UiPalette.TextDim,
             });
         }
 
@@ -134,12 +134,12 @@ public sealed class TimelapseListScreen : IScreen
             Spacing = 3,
             Width = 492,
             Padding = new Thickness(12, 8),
-            Background = new Myra.Graphics2D.Brushes.SolidBrush(new Color(28, 32, 40, 235)),
+            Background = new Myra.Graphics2D.Brushes.SolidBrush(UiPalette.Panel),
         };
         row.Widgets.Add(new Label
         {
             Text = timelapse.SavedAtUtc.ToLocalTime().ToString("d. M. yyyy H:mm"),
-            TextColor = new Color(255, 226, 150),
+            TextColor = UiPalette.TextBright,
         });
         row.Widgets.Add(new Label
         {

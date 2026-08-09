@@ -104,7 +104,7 @@ public sealed class ChronicleScreen : IScreen
             list.Widgets.Add(new Label
             {
                 Text = settled ? loc[biome.NameKey] : "· · ·",
-                TextColor = settled ? new Color(220, 205, 160) : new Color(110, 118, 132),
+                TextColor = settled ? UiPalette.Text : UiPalette.TextDim,
                 Tooltip = settled ? null : loc["chronicle.locked"],
             });
         }
@@ -172,7 +172,7 @@ public sealed class ChronicleScreen : IScreen
     {
         var row = new HorizontalStackPanel { Spacing = 8 };
         row.Widgets.Add(new Label { Text = label, Width = 260 });
-        row.Widgets.Add(new Label { Text = value, TextColor = new Color(220, 205, 160) });
+        row.Widgets.Add(new Label { Text = value, TextColor = UiPalette.Text });
         return row;
     }
 }

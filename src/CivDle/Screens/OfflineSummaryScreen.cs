@@ -117,7 +117,7 @@ public sealed class OfflineSummaryScreen : IScreen
     {
         Text = text,
         HorizontalAlignment = HorizontalAlignment.Center,
-        TextColor = new Color(150, 220, 150),
+        TextColor = UiPalette.Good,
     };
 
 }

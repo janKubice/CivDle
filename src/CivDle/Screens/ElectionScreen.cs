@@ -81,7 +81,7 @@ public sealed class ElectionScreen : IScreen
         layout.Widgets.Add(new Label
         {
             Text = loc.Format("election.subtitle", elections.TermDays),
-            TextColor = new Color(190, 200, 214),
+            TextColor = UiPalette.Text,
             HorizontalAlignment = HorizontalAlignment.Center,
         });
 
@@ -91,7 +91,7 @@ public sealed class ElectionScreen : IScreen
             Text = _simulation.HasElected
                 ? loc.Format("election.current", loc[elections.Candidates[_simulation.ElectedCandidate].NameKey])
                 : loc["election.none"],
-            TextColor = new Color(220, 205, 160),
+            TextColor = UiPalette.Text,
             HorizontalAlignment = HorizontalAlignment.Center,
         });
         layout.Widgets.Add(new Label
@@ -131,12 +131,12 @@ public sealed class ElectionScreen : IScreen
         stack.Widgets.Add(new Label
         {
             Text = loc[candidate.NameKey],
-            TextColor = elected ? new Color(150, 220, 150) : new Color(255, 214, 120),
+            TextColor = elected ? UiPalette.Good : UiPalette.TextBright,
         });
         stack.Widgets.Add(new Label
         {
             Text = loc[candidate.DescriptionKey],
-            TextColor = new Color(186, 198, 214),
+            TextColor = UiPalette.Text,
             Wrap = true,
         });
 
@@ -151,8 +151,8 @@ public sealed class ElectionScreen : IScreen
 
         var panel = new Panel
         {
-            Background = new SolidBrush(elected ? new Color(38, 62, 48, 220) : new Color(32, 42, 58, 200)),
-            Border = new SolidBrush(elected ? new Color(120, 200, 140) : UiFactory.Accent * 0.55f),
+            Background = new SolidBrush(elected ? UiPalette.Panel : UiPalette.PanelDeep),
+            Border = new SolidBrush(elected ? UiPalette.Good : UiFactory.Accent * 0.55f),
             BorderThickness = new Thickness(1),
             Padding = new Thickness(10, 8),
         };

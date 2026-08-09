@@ -123,23 +123,36 @@ public sealed class BuildingRenderer
             return;
         }
 
-        var tint = ProsperityLook.Tint(prosperity);
+        // Čím se tenhle konkrétní dům liší od sousedního stejného druhu.
+        // Odvozeno z polohy, takže se to mezi snímky ani po zbourání souseda nemění.
+        var look = BuildingVariation.For(building.X, building.Y, building.DefIndex);
+        var tint = BuildingVariation.Combine(ProsperityLook.Tint(prosperity), look.PaletteIndex);
+
+        // Stín a ztmavení u paty. Kreslí se PŘED budovou a pro všechny stejným
+        // směrem — to je celý trik, díky kterému scéna přestane být plochá.
+        DrawGrounding(spriteBatch, bounds, def.FootprintWidth * def.FootprintHeight);
+
+        // Posun o pixel rozbije dokonalé řady. Až tady, aby stín zůstal podle
+        // půdorysu — kdyby se posouval s budovou, přestal by ležet na zemi.
+        var body = new Rectangle(bounds.X + look.OffsetX, bounds.Y + look.OffsetY, bounds.Width, bounds.Height);
+
         var sprite = _sprites.Get($"building.{def.Id}");
         if (sprite is not null)
         {
-            // Jemný stín pod budovou, ať „sedí" na terénu.
             spriteBatch.Draw(
-                _pixel, new Rectangle(bounds.X + 2, bounds.Bottom - 3, bounds.Width - 2, 3), Color.Black * 0.25f);
-            spriteBatch.Draw(sprite, bounds, tint);
+                sprite, body, null, tint, 0f, Vector2.Zero,
+                look.Mirrored ? SpriteEffects.FlipHorizontally : SpriteEffects.None, 0f);
         }
         else
         {
-            spriteBatch.Draw(_pixel, bounds, Color.Black * 0.6f);
+            spriteBatch.Draw(_pixel, body, Color.Black * 0.6f);
             spriteBatch.Draw(
                 _pixel,
-                new Rectangle(bounds.X + Inset, bounds.Y + Inset, bounds.Width - 2 * Inset, bounds.Height - 2 * Inset),
+                new Rectangle(body.X + Inset, body.Y + Inset, body.Width - 2 * Inset, body.Height - 2 * Inset),
                 ProsperityLook.Modulate(def.MapColor.ToXna(), tint));
         }
+
+        DrawExtra(spriteBatch, look.Extra, body);
 
         if (showsProsperity)
         {
@@ -158,6 +171,57 @@ public sealed class BuildingRenderer
         // červený roh pro všechno znamenal, že hráč viděl „něco je špatně"
         // a musel hádat; barva teď důvod rozliší a bublina ho pojmenuje.
         DrawStallBadge(spriteBatch, building.Stall, bounds);
+    }
+
+    /// <summary>
+    /// Posadí budovu do terénu: ztmavení kolem paty a vržený stín jedním
+    /// společným směrem (<see cref="SceneLight"/>).
+    ///
+    /// <para>Dřív měla každá budova třípixelový proužek u spodní hrany. Ten
+    /// funguje na jednu budovu, ale sto budov s proužkem vypadá jako sto
+    /// nálepek — chybí jim společné světlo. Dvě kresby navíc na budovu je
+    /// cena, kterou to stojí, a platí se jen v detailním režimu.</para>
+    /// </summary>
+    private void DrawGrounding(SpriteBatch spriteBatch, Rectangle bounds, int footprintTiles)
+    {
+        spriteBatch.Draw(_pixel, SceneLight.ContactRect(bounds), SceneLight.ShadowColor * SceneLight.ContactAlpha);
+        spriteBatch.Draw(_pixel, SceneLight.ShadowRect(bounds, footprintTiles), SceneLight.ShadowColor * SceneLight.ShadowAlpha);
+    }
+
+    /// <summary>
+    /// Přístavek, kterým se jeden dům liší od druhého — komín, markýza, prádlo.
+    ///
+    /// <para>Schválně pár pixelů a bez vazby na mechaniku. Kdyby komín něco
+    /// znamenal, musel by hráč ulici číst; takhle si jen všimne, že není
+    /// tapeta.</para>
+    /// </summary>
+    private void DrawExtra(SpriteBatch spriteBatch, BuildingExtra extra, Rectangle bounds)
+    {
+        switch (extra)
+        {
+            case BuildingExtra.Chimney:
+                // Na střeše, u návětrné strany — odtud pak stoupá kouř.
+                spriteBatch.Draw(_pixel, new Rectangle(bounds.X + bounds.Width / 4, bounds.Y - 3, 2, 4),
+                    new Color(92, 78, 68));
+                break;
+
+            case BuildingExtra.Awning:
+                // Pruh nad vchodem u spodní hrany.
+                spriteBatch.Draw(_pixel,
+                    new Rectangle(bounds.X + 2, bounds.Bottom - 6, Math.Max(3, bounds.Width - 4), 2),
+                    new Color(196, 82, 74));
+                break;
+
+            case BuildingExtra.Laundry:
+                // Šňůra podél zdi a na ní dva hadříky.
+                spriteBatch.Draw(_pixel, new Rectangle(bounds.X + 1, bounds.Y + bounds.Height / 3, bounds.Width - 2, 1),
+                    new Color(210, 205, 190) * 0.7f);
+                spriteBatch.Draw(_pixel, new Rectangle(bounds.X + 3, bounds.Y + bounds.Height / 3, 2, 3),
+                    new Color(226, 226, 236));
+                spriteBatch.Draw(_pixel, new Rectangle(bounds.X + bounds.Width - 6, bounds.Y + bounds.Height / 3, 2, 3),
+                    new Color(150, 190, 220));
+                break;
+        }
     }
 
     /// <summary>Houpající se balon nad kotvištěm.</summary>
@@ -242,7 +306,9 @@ public sealed class BuildingRenderer
         int width = bounds.Width;
         int height = bounds.Height;
 
-        spriteBatch.Draw(_pixel, new Rectangle(x + 2, y + height - 3, width - 2, 3), Color.Black * 0.25f);
+        // Staveniště sedí v terénu stejně jako hotová budova — jinak by v jinak
+        // nasvícené ulici plavalo.
+        DrawGrounding(spriteBatch, bounds, def.FootprintWidth * def.FootprintHeight);
 
         // Základy: obrys rozestavěné budovy, ať je vidět, kolik místa zabere.
         spriteBatch.Draw(_pixel, new Rectangle(x, y, width, height), new Color(60, 55, 45) * 0.45f);

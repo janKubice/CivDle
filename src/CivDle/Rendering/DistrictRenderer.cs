@@ -22,8 +22,19 @@ public sealed class DistrictRenderer
 {
     private const int TileSize = TerrainRenderer.TileSize;
 
-    /// <summary>Síla zabarvení země. Záměrně sotva znatelná — je to kulisa, ne UI.</summary>
+    /// <summary>Síla zabarvení země zblízka. Záměrně sotva znatelná — je to kulisa, ne UI.</summary>
     private const float FillAlpha = 0.13f;
+
+    /// <summary>
+    /// Síla zabarvení z výšky.
+    ///
+    /// <para>Zblízka se hráč dívá na domy a barevná plocha pod nimi má jen
+    /// šeptat. Z výšky ale domy zmizí a zůstane hnědozelená kaše — a přesně
+    /// tam se z barevných ploch čtvrtí stává <b>hlavní kresba</b>: mapa, na
+    /// které je vidět, že tady je průmysl a tamhle se bydlí. Proto síla
+    /// s oddálením roste, místo aby jako všechno ostatní klesala.</para>
+    /// </summary>
+    private const float FarFillAlpha = 0.42f;
 
     private const int Border = 2;
 
@@ -53,6 +64,7 @@ public sealed class DistrictRenderer
         }
 
         var (min, max) = camera.VisibleWorldBounds();
+        float fill = FillFor(camera.Zoom);
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
         for (int i = 0; i < districts.Count; i++)
         {
@@ -64,7 +76,7 @@ public sealed class DistrictRenderer
             }
 
             var color = _content.Districts.Types[district.TypeIndex].MapColor.ToXna();
-            spriteBatch.Draw(_pixel, new Rectangle(px, py, pw, ph), color * FillAlpha);
+            spriteBatch.Draw(_pixel, new Rectangle(px, py, pw, ph), color * fill);
             spriteBatch.Draw(_pixel, new Rectangle(px, py, pw, Border), color * 0.5f);
             spriteBatch.Draw(_pixel, new Rectangle(px, py + ph - Border, pw, Border), color * 0.5f);
             spriteBatch.Draw(_pixel, new Rectangle(px, py, Border, ph), color * 0.5f);
@@ -113,6 +125,17 @@ public sealed class DistrictRenderer
         }
 
         spriteBatch.End();
+    }
+
+    /// <summary>
+    /// Jak silně se čtvrť obarví při daném přiblížení. Plynule, ne skokem —
+    /// zlom uprostřed otáčení kolečkem by byl vidět jako bliknutí.
+    /// </summary>
+    public static float FillFor(float zoom)
+    {
+        const float near = 1.0f;
+        float t = Math.Clamp((near - zoom) / (near - CityScaleRenderer.ThresholdZoom), 0f, 1f);
+        return FillAlpha + (FarFillAlpha - FillAlpha) * t;
     }
 
     private static (int X, int Y, int Width, int Height) PixelBounds(in District district) => (

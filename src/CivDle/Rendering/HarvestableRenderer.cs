@@ -84,8 +84,12 @@ public sealed class HarvestableRenderer
         return false;
     }
 
+    /// <summary>Čas pro kolébání stromů ve větru.</summary>
+    private float _time;
+
     public void Update(float dt)
     {
+        _time += dt;
         _finished.Clear();
         foreach (var (key, state) in _chops)
         {
@@ -218,7 +222,12 @@ public sealed class HarvestableRenderer
         }
 
         float shrink = state is null ? 1f : 1f - state.Clicks / (float)ClicksToFell * 0.45f;
-        float rotation = 0f;
+
+        // Stromy se ve větru sotva znatelně kolébají. Je to pár setin radiánu,
+        // ale je to jediný pohyb, který v klidné scéně zbývá — bez něj přestane
+        // mozek číst obraz jako místo a začne ho číst jako obrázek. Kámen se
+        // nekolébá, ten by ve větru vypadal jako guma.
+        float rotation = isTree ? AmbientWind.Sway(tileX, tileY, _time) : 0f;
         if (state is { FallTimer: > 0f })
         {
             float t = 1f - state.FallTimer / FallSeconds;
