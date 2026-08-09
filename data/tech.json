@@ -876,6 +876,28 @@
       ]
     },
     {
+      "id": "hydro_engineering",
+      "cost": {
+        "tools": 150,
+        "steel": 60,
+        "science": 600
+      },
+      "prerequisites": [
+        "terraforming"
+      ]
+    },
+    {
+      "id": "polders",
+      "cost": {
+        "stone": 400,
+        "steel": 90,
+        "science": 900
+      },
+      "prerequisites": [
+        "hydro_engineering"
+      ]
+    },
+    {
       "id": "earthmoving",
       "cost": {
         "tools": 120,
@@ -1838,6 +1860,62 @@
       },
       "prerequisites": [
         "city_blocks"
+      ]
+    },
+    {
+      "id": "irrigation",
+      "cost": {
+        "planks": 60,
+        "stone": 40,
+        "science": 90
+      },
+      "prerequisites": [
+        "crop_rotation"
+      ],
+      "unlocks": [
+        "irrigation_works"
+      ]
+    },
+    {
+      "id": "drainage",
+      "cost": {
+        "stone": 120,
+        "bronze": 20,
+        "science": 160
+      },
+      "prerequisites": [
+        "aqueducts"
+      ],
+      "unlocks": [
+        "drainage_works"
+      ]
+    },
+    {
+      "id": "forestry",
+      "cost": {
+        "planks": 90,
+        "tools": 20,
+        "science": 140
+      },
+      "prerequisites": [
+        "seed_selection"
+      ],
+      "unlocks": [
+        "forestry_office"
+      ]
+    },
+    {
+      "id": "windpumps",
+      "cost": {
+        "planks": 110,
+        "stone": 90,
+        "science": 200
+      },
+      "prerequisites": [
+        "drainage"
+      ],
+      "unlocks": [
+        "polder_mill"
       ]
     }
   ]

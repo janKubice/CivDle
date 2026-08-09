@@ -47,6 +47,7 @@ public sealed class Simulation
     private readonly BuildingMilestoneSystem _milestoneBonuses;
     private readonly HistorySystem _historySystem;
     private readonly ReforestSystem _reforestSystem;
+    private readonly AutoTerraformSystem _autoTerraformSystem;
     private readonly NpcTownSystem _npcTowns; // postavená cizí města (skutečné budovy a silnice)
     private readonly GrandWorkSystem _grandWork; // bezedný odběr přebytků
     private readonly List<GrandWorkStage> _grandWorkDone = new(); // dokončené stupně (drží bonusy)
@@ -169,6 +170,7 @@ public sealed class Simulation
         _milestoneBonuses = new BuildingMilestoneSystem(content);
         _historySystem = new HistorySystem(content);
         _reforestSystem = new ReforestSystem(content);
+        _autoTerraformSystem = new AutoTerraformSystem(content);
         _npcTowns = new NpcTownSystem(content);
         _grandWork = new GrandWorkSystem(content.GrandWork, content.Resources.Count);
         _legacy = new LegacySystem(content.Legacy, content.LegacyUpgrades.All);
@@ -2210,10 +2212,16 @@ public sealed class Simulation
     /// Lze tímhle nástrojem přetvořit dlaždici? Kontroluje odemčení technologií,
     /// vhodný výchozí biom, volnost dlaždice a suroviny.
     /// </summary>
-    public PlacementResult CanTerraform(int actionIndex, int x, int y)
+    public PlacementResult CanTerraform(int actionIndex, int x, int y) =>
+        CanTerraform(actionIndex, x, y, requireTech: true);
+
+    /// <param name="requireTech">
+    /// <c>false</c> u budov, které terén mění samy — budova sama je to odemčení.
+    /// </param>
+    private PlacementResult CanTerraform(int actionIndex, int x, int y, bool requireTech)
     {
         var action = _content.Terraform[actionIndex];
-        if (action.UnlockTechIndex >= 0 && _techLevel[action.UnlockTechIndex] == 0)
+        if (requireTech && action.UnlockTechIndex >= 0 && _techLevel[action.UnlockTechIndex] == 0)
         {
             return PlacementResult.NotUnlocked;
         }
@@ -2256,10 +2264,48 @@ public sealed class Simulation
             _resources[action.Cost[i].ResourceIndex] -= action.Cost[i].Amount;
         }
 
-        SetBiomeOverride(x, y, (byte)action.TargetBiomeIndex);
+        ApplyTerraform(action.TargetBiomeIndex, x, y);
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>
+    /// Zásah budovy, která terén přetváří sama. Platí se stejně jako u ruční
+    /// teraformace — automat šetří klikání, ne suroviny.
+    /// </summary>
+    internal PlacementResult TryAutoTerraform(int actionIndex, int x, int y)
+    {
+        var result = CanTerraform(actionIndex, x, y, requireTech: false);
+        if (result != PlacementResult.Ok)
+        {
+            return result;
+        }
+
+        var action = _content.Terraform[actionIndex];
+        for (int i = 0; i < action.Cost.Count; i++)
+        {
+            _resources[action.Cost[i].ResourceIndex] -= action.Cost[i].Amount;
+        }
+
+        ApplyTerraform(action.TargetBiomeIndex, x, y);
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>
+    /// Samotná přeměna dlaždice — bez placení a bez kontrol. Sdílí ji ruční
+    /// zásah i budovy, které terén přetvářejí samy.
+    /// </summary>
+    private void ApplyTerraform(int targetBiomeIndex, int x, int y)
+    {
+        // Když se dlaždice topí, nesmí na ní zůstat trčet les ani žíla: uzel
+        // by dál nabízel těžbu uprostřed jezera a vypadalo by to jako chyba.
+        if (_content.Biomes[targetBiomeIndex].IsWater)
+        {
+            _nodes.Deplete(x, y, TickCount);
+        }
+
+        SetBiomeOverride(x, y, (byte)targetBiomeIndex);
         TerraformedTiles++;
         ReportVisual(VisualEventKind.Terraformed, x, y);
-        return PlacementResult.Ok;
     }
 
     /// <summary>Kolik dlaždic hráč přetvořil (metrika pro úkoly a achievementy).</summary>
@@ -3016,6 +3062,7 @@ public sealed class Simulation
         _colonySystem.Tick(this); // guvernér: expanze do nových kolonií
         _settlementSystem.Tick(this);
         _reforestSystem.Tick(this);
+        _autoTerraformSystem.Tick(this);
         TickScouting();
         _districtSystem.Tick(this);
         _milestoneBonuses.Tick(this);

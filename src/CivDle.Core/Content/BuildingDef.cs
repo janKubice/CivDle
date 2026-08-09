@@ -173,7 +173,9 @@ public sealed record BuildingDef(
     BuildingMilestones? MilestonesOrNull = null,
     BuildingSpectacle? SpectacleOrNull = null,
     int ReforestRadius = 0,
-    int ScoutRadius = 0)
+    int ScoutRadius = 0,
+    int TerraformActionIndex = -1,
+    int TerraformRadius = 0)
 {
     /// <summary>
     /// Podívaná, kterou budova pravidelně předvádí; <c>null</c> = jen stojí.
@@ -238,6 +240,19 @@ public sealed record BuildingDef(
     /// <b>sčítá</b>: víc stanic vidí dál, protože každá odhaluje ze svého místa.</para>
     /// </summary>
     public bool Scouts => ScoutRadius > 0;
+
+    /// <summary>
+    /// Přetváří budova krajinu sama? (Zavlažovací dílo, odvodňovací stanice…)
+    ///
+    /// <para>Proč to existuje: ruční teraformace je až u vyspělé civilizace, ale
+    /// v poušti nebo v bažině hráč stojí o suchou půdu dávno předtím. Tyhle
+    /// budovy jsou ta dřívější, pomalejší cesta — zaberou místo, dělníky i
+    /// suroviny a mění okolí po jedné dlaždici, ne mávnutím myši.</para>
+    ///
+    /// <para><b>Vlastní odemčení akce se neptá.</b> Budova sama <i>je</i> to
+    /// odemčení; jinak by výzkum na ni neměl smysl.</para>
+    /// </summary>
+    public bool Terraforms => TerraformActionIndex >= 0 && TerraformRadius > 0;
 
     /// <summary>
     /// Jak dlouho se budova staví (v ticích). 0 = stojí hned, jako všechno ostatní.

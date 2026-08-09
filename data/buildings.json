@@ -3346,6 +3346,103 @@
         "air": 0.8
       },
       "buildable": true
+    },
+    {
+      "id": "irrigation_works",
+      "category": "production",
+      "mapColor": "#7FA05A",
+      "footprint": [
+        2,
+        2
+      ],
+      "workerSlots": 3,
+      "buildCost": {
+        "planks": 60,
+        "stone": 40,
+        "tools": 15
+      },
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "grassland",
+        "badlands",
+        "tundra"
+      ],
+      "terraformAction": "irrigate",
+      "terraformRadius": 6
+    },
+    {
+      "id": "drainage_works",
+      "category": "production",
+      "mapColor": "#6E8E86",
+      "footprint": [
+        2,
+        2
+      ],
+      "workerSlots": 4,
+      "buildCost": {
+        "planks": 80,
+        "stone": 60,
+        "bronze": 15
+      },
+      "allowedBiomes": [
+        "swamp",
+        "mangrove",
+        "grassland",
+        "jungle",
+        "forest"
+      ],
+      "terraformAction": "drain",
+      "terraformRadius": 6
+    },
+    {
+      "id": "forestry_office",
+      "category": "production",
+      "mapColor": "#3F6B34",
+      "footprint": [
+        2,
+        2
+      ],
+      "workerSlots": 3,
+      "buildCost": {
+        "planks": 70,
+        "tools": 20
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "forest",
+        "taiga"
+      ],
+      "terraformAction": "afforest",
+      "terraformRadius": 7
+    },
+    {
+      "id": "polder_mill",
+      "category": "production",
+      "mapColor": "#8A7A55",
+      "footprint": [
+        2,
+        2
+      ],
+      "workerSlots": 4,
+      "buildCost": {
+        "planks": 90,
+        "stone": 70,
+        "tools": 20
+      },
+      "allowedBiomes": [
+        "grassland",
+        "beach",
+        "steppe",
+        "swamp",
+        "mangrove"
+      ],
+      "requiresAdjacentWater": true,
+      "terraformAction": "reclaim",
+      "terraformRadius": 5
     }
   ]
 }
