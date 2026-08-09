@@ -153,7 +153,7 @@ public class TechAndUpgradeTests
         int house = content.Buildings.IndexOf("house");
         int cottage = content.Buildings.IndexOf("cottage");
         Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(house, 3, 3));
-        int capAfterHouse = sim.HousingCapacity;
+        double capAfterHouse = sim.HousingCapacity;
         TopUp(sim, content);
 
         Assert.True(sim.TryGetBuildingAt(3, 3, out int idx));

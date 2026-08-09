@@ -110,11 +110,11 @@ internal sealed class HistorySystem
         sim.History.Add(
             new HistoryFrame(
                 sim.TickCount,
-                (long)sim.Population,
+                Numbers.ToLong(sim.Population),
                 buildings.Length,
                 sim.CurrentEraIndex,
                 sim.Happiness,
-                sim.HousingCapacity,
+                Numbers.ToLong(sim.HousingCapacity),
                 sim.AirPollutionOverCity,
                 sim.Settlements.Count),
             _cells);

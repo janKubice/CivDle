@@ -2145,8 +2145,15 @@ public sealed class Simulation
         _boostCooldownRemaining = (int)(_content.Gameplay.Boost.CooldownSeconds * TicksPerSecond);
     }
 
-    /// <summary>Kolik lidí se vejde (základní tábor + domy).</summary>
-    public int HousingCapacity { get; private set; }
+    /// <summary>
+    /// Kolik lidí se vejde (základní tábor + domy).
+    ///
+    /// <para><b>Ne <c>int</c>.</b> Násobič bydlení z Vzestupu se skládá násobně
+    /// přes desítky úrovní, takže jediný vylepšený dům přidá řádově víc, než se
+    /// do 32 bitů vejde. Kapacita pak přetekla do záporu — a protože je stropem
+    /// růstu, stáhla populaci s sebou. Hráč to viděl jako populaci −2,15 mld.</para>
+    /// </summary>
+    public double HousingCapacity { get; private set; }
 
     /// <summary>Součet pracovních míst výrobních budov — obsazenost škáluje výrobu.</summary>
     public int TotalWorkerSlots { get; private set; }
@@ -4233,18 +4240,56 @@ public sealed class Simulation
     }
 
     /// <summary>
+    /// Strop staveb za jeden interval. Existuje kvůli snímkové frekvenci, ne
+    /// kvůli balancu: každá stavba hledá místo a napojuje se na síť, takže
+    /// neomezená dávka by hru na okamžik zastavila. Při dně intervalu (6 tiků)
+    /// je to pořád přes tři tisíce budov za sekundu — na suroviny narazí hráč
+    /// dřív než na tenhle strop.
+    /// </summary>
+    private const int MaxAutoBuildBudget = 2048;
+
+    /// <summary>
     /// Kolik staveb se za interval zkusí. Když už interval narazil na dno,
     /// přeteče zbytek zrychlení sem — jinak by se bonus nad určitou úroveň
     /// přestal projevovat a další upgrady by byly k ničemu.
+    ///
+    /// <para>Počítá se v <c>double</c> a ořezává až na konci. Dřív se výsledek
+    /// přetypovával na <c>int</c> uprostřed výpočtu — jenže bonus se skládá
+    /// násobně přes desítky úrovní, takže na maximu vyšlo číslo mimo rozsah
+    /// <c>int</c>, přeteklo do záporu a <c>Math.Max(1, …)</c> ho srazil na
+    /// <b>jednu</b> stavbu za interval. Čím víc měl hráč vylepšení, tím pomaleji
+    /// se stavělo.</para>
     /// </summary>
     public int AutoBuildBudget
     {
         get
         {
-            int baseInterval = _content.Gameplay.AutoBuild.IntervalTicks;
-            double achieved = baseInterval / (double)AutoBuildInterval; // kolikrát častěji se opravdu staví
-            double leftover = AutoBuildSpeed() / Math.Max(1.0, achieved);
-            return Math.Max(1, BuildsPerInterval * (int)Math.Round(leftover));
+            double baseInterval = Math.Max(1, _content.Gameplay.AutoBuild.IntervalTicks);
+
+            // Co se nevešlo do zkrácení intervalu, jde do počtu staveb za interval.
+            double perInterval = BuildsPerInterval * AutoBuildSpeed() * (AutoBuildInterval / baseInterval);
+            return (int)Math.Clamp(Math.Round(perInterval), 1, MaxAutoBuildBudget);
+        }
+    }
+
+    /// <summary>
+    /// Kolik budov guvernér za interval vylepší. Stupeň říká <b>co</b> smí
+    /// vylepšovat, tempo Vzestupu <b>jak rychle</b> — bez druhé půlky zůstalo
+    /// vylepšování na třech budovách za interval i s vymaxovanými upgrady,
+    /// což u města o tisících domů znamenalo čekat hodiny.
+    /// </summary>
+    public int AutoUpgradeBudget
+    {
+        get
+        {
+            int level = AutoUpgradeLevel;
+            if (level <= 0)
+            {
+                return 0;
+            }
+
+            double perInterval = (double)level * AutoBuildBudget / Math.Max(1, BuildsPerInterval);
+            return (int)Math.Clamp(Math.Round(perInterval), 1, MaxAutoBuildBudget);
         }
     }
 
@@ -4499,8 +4544,8 @@ public sealed class Simulation
     /// </summary>
     public long EvaluateMetric(MetricKind kind, int param) => kind switch
     {
-        MetricKind.Population => (long)Population,
-        MetricKind.HousingCapacity => HousingCapacity,
+        MetricKind.Population => Numbers.ToLong(Population),
+        MetricKind.HousingCapacity => Numbers.ToLong(HousingCapacity),
         MetricKind.Harvested => _harvestedTotals[param],
         MetricKind.ResourceStock => (long)_resources[param],
         MetricKind.TotalBuildings => _buildingCount,
@@ -5598,7 +5643,7 @@ public sealed class Simulation
     /// <summary>Globální bonusy budovy: bydlení, pracovní místa, kapacita skladů (× bonusy Vzestupu).</summary>
     private void ApplyBuildingBonuses(BuildingDef def)
     {
-        HousingCapacity += (int)(def.HousingCapacity * _bonuses.HousingMult);
+        HousingCapacity += def.HousingCapacity * _bonuses.HousingMult;
         TotalWorkerSlots += def.WorkerSlots;
         TotalPowerSupply += def.PowerSupply;
         TotalPowerDemand += def.PowerDemand;
@@ -5628,7 +5673,7 @@ public sealed class Simulation
     /// <summary>Odebere globální bonusy budovy (vylepšení nahrazuje starou úroveň novou).</summary>
     private void RemoveBuildingBonuses(BuildingDef def)
     {
-        HousingCapacity -= (int)(def.HousingCapacity * _bonuses.HousingMult);
+        HousingCapacity -= def.HousingCapacity * _bonuses.HousingMult;
         TotalWorkerSlots -= def.WorkerSlots;
         TotalPowerSupply -= def.PowerSupply;
         TotalPowerDemand -= def.PowerDemand;
@@ -6388,6 +6433,9 @@ public sealed class Simulation
     /// podle aktuálních budov a bonusů Vzestupu. Volá se po koupi upgradu, po Vzestupu
     /// a po načtení savu — drží stav konzistentní bez ohledu na pořadí změn.
     /// </summary>
+    /// <summary>Přepočet odvozeného stavu pro testy (jinak interní, volá ho simulace sama).</summary>
+    public void RecomputeDerivedStateForTests() => RecomputeDerivedState();
+
     internal void RecomputeDerivedState()
     {
         HousingCapacity = _content.Gameplay.BaseHousingCapacity;

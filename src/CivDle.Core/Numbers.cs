@@ -47,6 +47,30 @@ public static class Numbers
         return number + suffix;
     }
 
+    /// <summary>
+    /// Bezpečný převod na <c>long</c> pro metriky, savy a rekordy.
+    ///
+    /// <para>Hodnoty v pozdní hře přerostou i <c>long</c> (kapacita bydlení
+    /// s vymaxovaným Vzestupem jde do 10^16 a výš). Přímé přetypování by
+    /// v takovém případě dalo <b>zápornou</b> hodnotu a cíl nebo achievement by
+    /// se tvářil jako nesplněný. Ořez na kraj rozsahu je jediná odpověď, která
+    /// hráče nezmate.</para>
+    /// </summary>
+    public static long ToLong(double value)
+    {
+        if (double.IsNaN(value))
+        {
+            return 0;
+        }
+
+        if (value >= long.MaxValue)
+        {
+            return long.MaxValue;
+        }
+
+        return value <= long.MinValue ? long.MinValue : (long)value;
+    }
+
     /// <summary>Zápis „aktuální / kapacita" krátce (HUD surovin).</summary>
     public static string FormatRatio(double current, double capacity) => $"{Format(current)}/{Format(capacity)}";
 

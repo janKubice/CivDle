@@ -24,7 +24,7 @@ namespace CivDle.Core.Sim;
 /// <para>Vrstva: čistá simulace, jen čte. Volá se jednou za interval nad
 /// hrstkou míst, ne v tikové smyčce.</para>
 /// </summary>
-internal static class CityLayout
+public static class CityLayout
 {
     /// <summary>Cesta u domu váží nejvíc — kolem ní vznikají ulice.</summary>
     private const int RoadWeight = 9;
@@ -39,10 +39,10 @@ internal static class CityLayout
     /// Rozteč uliční mřížky v dlaždicích. Bloky vycházejí 5×5 s jednodlaždicovou
     /// mezerou mezi nimi.
     /// </summary>
-    private const int StreetPeriod = 6;
+    public const int StreetPeriod = 6;
 
     /// <summary>Jak hezky místo zapadne do města. Vyšší je lepší.</summary>
-    public static int Score(Simulation sim, int x, int y)
+    internal static int Score(Simulation sim, int x, int y)
     {
         int roads = 0;
         int neighbours = 0;

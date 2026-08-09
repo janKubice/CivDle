@@ -104,6 +104,16 @@ public sealed class BulkBuilder
         int columns = Math.Abs(toX - fromX) / stepX + 1;
         int rows = Math.Abs(toY - fromY) / stepY + 1;
 
+        // Velký tah nechá volné pruhy pro ulice. Malý ne: když hráč táhne řadu
+        // tří chalup, chce tři chalupy, ne dvě a díru.
+        //
+        // Bez tohohle vyšel z tažení souvislý slitek, ve kterém nezbylo jediné
+        // volné políčko — a auto-silnice pak neměla kudy dovnitř, takže cesty
+        // obkroužily čtvrť po okraji a uvnitř nebyla ani jedna. Přesně tak to
+        // hráč popsal: „staví se to divně na okraji a ne uvnitř".
+        bool leaveStreets = columns * stepX > CityLayout.StreetPeriod
+            && rows * stepY > CityLayout.StreetPeriod;
+
         int buildable = 0;
         for (int row = 0; row < rows; row++)
         {
@@ -116,6 +126,11 @@ public sealed class BulkBuilder
 
                 int x = fromX + dirX * column * stepX;
                 int y = fromY + dirY * row * stepY;
+                if (leaveStreets && OverlapsStreet(def, x, y))
+                {
+                    continue;
+                }
+
                 var result = Evaluate(defIndex, def, x, y);
                 into.Add(new BulkSlot(x, y, result));
                 if (result == PlacementResult.Ok)
@@ -176,7 +191,7 @@ public sealed class BulkBuilder
                     // 5×5, ke kterému vedla jediná cesta zvenčí. (U tažení se
                     // mřížka NEuplatňuje: tam obdélník nakreslil hráč a nikdo
                     // mu do něj nemá dělat díry.)
-                    if (CityLayout.IsReservedForStreet(x, y))
+                    if (OverlapsStreet(def, x, y))
                     {
                         continue;
                     }
@@ -233,6 +248,26 @@ public sealed class BulkBuilder
             // zůstala v režimu, ve kterém se nedláždí vůbec.
             _simulation.EndBatchPlacement();
         }
+    }
+
+    /// <summary>
+    /// Zasahuje půdorys do pruhu vyhrazeného pro ulici? U větších budov stačí,
+    /// aby na něj sáhla jedinou dlaždicí — jinak by ulici přeťala.
+    /// </summary>
+    private static bool OverlapsStreet(BuildingDef def, int x, int y)
+    {
+        for (int tileY = y; tileY < y + Math.Max(1, def.FootprintHeight); tileY++)
+        {
+            for (int tileX = x; tileX < x + Math.Max(1, def.FootprintWidth); tileX++)
+            {
+                if (CityLayout.IsReservedForStreet(tileX, tileY))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

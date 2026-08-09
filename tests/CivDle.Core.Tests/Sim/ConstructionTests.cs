@@ -74,7 +74,7 @@ public class ConstructionTests
     {
         // Tohle je celý smysl odpočtu: kdyby bonusy platily hned, byla by to kosmetika.
         var sim = NewSim();
-        int housingBefore = sim.HousingCapacity;
+        double housingBefore = sim.HousingCapacity;
         long slotsBefore = sim.TotalWorkerSlots;
         double storageBefore = sim.GetStorageCap(Wood);
 
@@ -104,7 +104,7 @@ public class ConstructionTests
     public void FinishedWonder_TurnsOnAndPaysOff()
     {
         var sim = NewSim();
-        int housingBefore = sim.HousingCapacity;
+        double housingBefore = sim.HousingCapacity;
         Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(0, 0, 0));
 
         RunUntilBuilt(sim);
@@ -163,7 +163,7 @@ public class ConstructionTests
         // systém nadarmo procházel celé město až do konce hry.
         var sim = NewSim();
         Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(0, 0, 0));
-        int housingBefore = sim.HousingCapacity;
+        double housingBefore = sim.HousingCapacity;
 
         Assert.Equal(PlacementResult.Ok, sim.TryDemolish(0));
 
@@ -176,7 +176,7 @@ public class ConstructionTests
     {
         // Doba stavby je vlastnost divů, ne nové pravidlo pro celou hru.
         var sim = NewSim();
-        int housingBefore = sim.HousingCapacity;
+        double housingBefore = sim.HousingCapacity;
 
         Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(1, 5, 5));
 

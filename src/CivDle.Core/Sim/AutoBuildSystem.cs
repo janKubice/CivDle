@@ -74,10 +74,12 @@ internal sealed class AutoBuildSystem
         }
 
         // Guvernér: vylepšování běží NEZÁVISLE na tlaku bydlení — hráč si nastavil,
-        // že se o modernizaci města stará sám. Míra = počet vylepšení za interval.
-        for (int i = 0; i < sim.AutoUpgradeLevel; i++)
+        // že se o modernizaci města stará sám. Stupeň říká CO se smí vylepšovat,
+        // tempo Vzestupu KOLIK toho za interval stihne.
+        int upgradeBudget = sim.AutoUpgradeBudget;
+        for (int i = 0; i < upgradeBudget; i++)
         {
-            if (!TryAutoUpgrade(sim))
+            if (!TryAutoUpgrade(sim, i))
             {
                 break; // není co (nebo na co) vylepšit
             }
@@ -86,6 +88,32 @@ internal sealed class AutoBuildSystem
         // Politika „build_pace" i bonus autobuild_speed zvyšují počet akcí za
         // interval (jinak 1 — pozvolný růst).
         int budget = sim.AutoBuildBudget;
+
+        // Nad jednu stavbu se dláždí až po dávce, stejně jako u hromadné stavby
+        // hráče: jinak by první ulice sebrala místo domu, který měl stát vedle,
+        // a čtvrť by z toho vyšla děravá.
+        bool batched = budget > 1;
+        if (batched)
+        {
+            sim.BeginBatchPlacement();
+        }
+
+        try
+        {
+            Grow(sim, budget);
+        }
+        finally
+        {
+            if (batched)
+            {
+                sim.EndBatchPlacement();
+            }
+        }
+    }
+
+    /// <summary>Samotné kolo růstu: až <paramref name="budget"/> staveb podle potřeb města.</summary>
+    private void Grow(Simulation sim, int budget)
+    {
 
         // Mimo cyklus: stackalloc uvnitř by při vyšším rozpočtu staveb narůstal
         // po každé otáčce (CA2014).
@@ -289,7 +317,16 @@ internal sealed class AutoBuildSystem
             return false; // domy, sklady a služby lidi nepotřebují
         }
 
-        return sim.TotalWorkerSlots + slots > sim.Population * WorkerSlotsPerPerson;
+        // Strop platí jen tehdy, když už teď někde stojí budova bez lidí.
+        //
+        // Dřív to byl tvrdý zákaz: jakmile počet pracovních míst přerostl
+        // populaci × 2,5, guvernér přestal stavět cokoli s dělníky — navždycky.
+        // Zbyly mu domy (nula míst) a pole (hlad tuhle kontrolu obchází), takže
+        // hráč viděl město složené z chalup a polí a žádný důl, hájovnu ani
+        // pilu. Přitom plná zaměstnanost není důvod nestavět: když má město
+        // lidi navíc, je další výrobna přesně to, co potřebuje.
+        return sim.IdleBuildings > 0
+            && sim.TotalWorkerSlots + slots > sim.Population * WorkerSlotsPerPerson;
     }
 
     /// <summary>
@@ -384,11 +421,26 @@ internal sealed class AutoBuildSystem
     /// a na kterou jsou suroviny. Vyšší stupeň zabírá víc kategorií i víc vylepšení
     /// za interval (viz <see cref="Simulation.AutoUpgradeCovers"/>).
     /// </summary>
-    private bool TryAutoUpgrade(Simulation sim)
+    /// <param name="attempt">Pořadí vylepšení v rámci intervalu (posouvá start hledání).</param>
+    private bool TryAutoUpgrade(Simulation sim, int attempt)
     {
         var buildings = sim.Buildings;
-        for (int i = 0; i < buildings.Length; i++)
+        if (buildings.Length == 0)
         {
+            return false;
+        }
+
+        // Hledání nezačíná od nuly. Při vysokém tempu se vylepšuje mnohokrát za
+        // interval a rozhledna od začátku pole by u města o tisících budov
+        // znamenala kvadratickou práci — a pořád by narážela na tutéž budovu.
+        //
+        // Start se odvozuje z TIKU, ne z uloženého kurzoru: tik je součástí savu,
+        // takže načtená hra pokračuje úplně stejně jako ta původní. Kurzor jako
+        // pole třídy by se do savu nedostal a determinismus by se rozešel.
+        int start = (int)((sim.TickCount + attempt) % buildings.Length);
+        for (int step = 0; step < buildings.Length; step++)
+        {
+            int i = (start + step) % buildings.Length;
             var def = _content.Buildings[buildings[i].DefIndex];
             if (def.HasUpgrade && sim.AutoUpgradeCovers(def.Category) && sim.CanUpgrade(i) == PlacementResult.Ok)
             {
