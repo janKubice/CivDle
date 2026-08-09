@@ -24,6 +24,15 @@ public sealed class Simulation
     private readonly Dictionary<long, int> _occupancy = new(); // klíč dlaždice → index budovy + 1
     private readonly HashSet<long> _roads = new();
     private bool[] _roadLinked = Array.Empty<bool>(); // budova ↔ napojení na síť (cache)
+
+    /// <summary>
+    /// Jak daleko od skutečné ulice budova je (0 = dotýká se jí sama).
+    ///
+    /// <para>Drží se vedle <see cref="_roadLinked"/>, protože bez vrstvy by se
+    /// vlna „napojeno" rozlila celým městem a jedna dlaždice by napojila
+    /// všechno — viz <see cref="SpreadRoadLinkThroughBlocks"/>.</para>
+    /// </summary>
+    private byte[] _roadLinkHop = Array.Empty<byte>();
     private bool _roadLinksDirty = true;
     private readonly List<RoadTile> _roadTiles = new(); // pořadí vzniku — deterministické, jde do savu
     private readonly List<Settlement> _settlements = new();
@@ -2633,6 +2642,11 @@ public sealed class Simulation
             Array.Resize(ref _roadLinked, needed);
         }
 
+        if (_roadLinkHop.Length < needed)
+        {
+            Array.Resize(ref _roadLinkHop, needed);
+        }
+
         // Napojení se počítá po BLOCÍCH, ne po jednotlivých budovách: co se
         // dotýká hranou, patří k sobě a stačí, když se silnice dotkne kteréhokoli
         // domu v řadě. Bez toho by řadová zástavba vyžadovala dlažbu mezi každými
@@ -2640,43 +2654,86 @@ public sealed class Simulation
         for (int i = 0; i < _buildingCount; i++)
         {
             _roadLinked[i] = TouchesRoad(_buildings[i]);
+            _roadLinkHop[i] = 0;
         }
 
         SpreadRoadLinkThroughBlocks();
     }
 
     /// <summary>
-    /// Rozšíří „napojeno" na celé bloky dotýkajících se budov. Vlna se opakuje,
-    /// dokud něco přibývá — bloků je málo a běží to jen při změně sítě.
+    /// Jak daleko se smí napojení šířit zástavbou — kolik domů od toho, který
+    /// se silnice opravdu dotýká.
+    ///
+    /// <para>Dvojka odpovídá bloku řadovek: krajní dům stojí u ulice, prostřední
+    /// dva se k ní dostanou přes něj. Dlaždice mezi každými dvěma domy je
+    /// zbytečná a město z toho vypadá jako šachovnice.</para>
+    /// </summary>
+    private const int MaxBlockHops = 2;
+
+    /// <summary>
+    /// Rozšíří „napojeno" na blok dotýkajících se budov — ale jen na
+    /// <see cref="MaxBlockHops"/> domů daleko.
+    ///
+    /// <para><b>Tohle byla ta chyba, kvůli které silnice roky „nefungovaly".</b>
+    /// Vlna se dřív šířila bez omezení, takže v souvislé zástavbě stačila JEDNA
+    /// dlaždice cesty kdekoli ve městě a všech osm set budov se tvářilo jako
+    /// napojených. Automat pak neměl co spravovat a nepoložil ani metr dlažby
+    /// — ani u hromadné stavby, ani u tažení, ani u guvernéra. Hráč viděl bloky
+    /// bez ulic a měl pravdu.</para>
+    ///
+    /// <para>Vlna je proto teď <b>po vrstvách</b> (BFS) s pevným dosahem: co je
+    /// dál než pár domů od skutečné ulice, napojené není a automat tam cestu
+    /// dotáhne.</para>
     /// </summary>
     private void SpreadRoadLinkThroughBlocks()
     {
-        bool changed = true;
-        while (changed)
+        // Vrstva 0 = budovy, které se silnice dotýkají samy. Každý další průchod
+        // přidá sousedy o jeden skok dál; po MaxBlockHops se zastaví.
+        for (int hop = 0; hop < MaxBlockHops; hop++)
         {
-            changed = false;
+            bool changed = false;
             for (int i = 0; i < _buildingCount; i++)
             {
-                if (_roadLinked[i] || !TouchesLinkedBuilding(i))
+                // Šíří se jen z budov, které napojení měly UŽ PŘED touhle vrstvou
+                // — jinak by se v jednom průchodu pole prošlo dopředu a vlna by
+                // se protáhla celým městem, přesně jako dřív.
+                if (_roadLinked[i] || !TouchesLinkedBuilding(i, hop))
                 {
                     continue;
                 }
 
-                _roadLinked[i] = true;
+                _roadLinkHop[i] = (byte)(hop + 1);
                 changed = true;
+            }
+
+            if (!changed)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _buildingCount; i++)
+            {
+                if (_roadLinkHop[i] == hop + 1)
+                {
+                    _roadLinked[i] = true;
+                }
             }
         }
     }
 
-    /// <summary>Dotýká se budova hranou jiné budovy, která už napojení má?</summary>
-    private bool TouchesLinkedBuilding(int buildingIndex)
+    /// <summary>
+    /// Dotýká se budova hranou jiné budovy, která má napojení z NIŽŠÍ vrstvy?
+    /// Omezení na vrstvu je to, co drží vlnu u ulice místo přes celé město.
+    /// </summary>
+    private bool TouchesLinkedBuilding(int buildingIndex, int fromHop)
     {
         ref var building = ref _buildings[buildingIndex];
         var def = _content.Buildings[building.DefIndex];
 
         for (int x = building.X; x < building.X + def.FootprintWidth; x++)
         {
-            if (IsLinkedBuildingAt(x, building.Y - 1) || IsLinkedBuildingAt(x, building.Y + def.FootprintHeight))
+            if (IsLinkedBuildingAt(x, building.Y - 1, fromHop)
+                || IsLinkedBuildingAt(x, building.Y + def.FootprintHeight, fromHop))
             {
                 return true;
             }
@@ -2684,7 +2741,8 @@ public sealed class Simulation
 
         for (int y = building.Y; y < building.Y + def.FootprintHeight; y++)
         {
-            if (IsLinkedBuildingAt(building.X - 1, y) || IsLinkedBuildingAt(building.X + def.FootprintWidth, y))
+            if (IsLinkedBuildingAt(building.X - 1, y, fromHop)
+                || IsLinkedBuildingAt(building.X + def.FootprintWidth, y, fromHop))
             {
                 return true;
             }
@@ -2693,8 +2751,11 @@ public sealed class Simulation
         return false;
     }
 
-    private bool IsLinkedBuildingAt(int x, int y) =>
-        TryGetBuildingAt(x, y, out int index) && index < _roadLinked.Length && _roadLinked[index];
+    private bool IsLinkedBuildingAt(int x, int y, int fromHop) =>
+        TryGetBuildingAt(x, y, out int index)
+        && index < _roadLinked.Length
+        && _roadLinked[index]
+        && _roadLinkHop[index] <= fromHop;
 
     /// <summary>
     /// Sousedí půdorys budovy s nějakou silnicí? Jen ORTOGONÁLNĚ — roh se nepočítá,
