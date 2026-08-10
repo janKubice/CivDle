@@ -63,6 +63,13 @@ The map starts under fog. Send scouts, build radar, and uncover volcanoes,
 geysers, canyons and foreign cities — trade with them, or fold them into your
 empire, buildings and all.
 
+[h2]A game you can just watch[/h2]
+Day slides into evening and the city turns into long shadows and lit windows.
+Heat shimmers above the smelters, smoke drifts from chimneys, light moves across
+the water and the trees sway just enough to notice. No two huts look alike. And
+when you pull the camera all the way out, the view becomes a light map — your
+civilisation as a constellation across a dark landscape.
+
 [h2]What's in CivDle[/h2]
 [list]
 [*]Over 90 buildings, from a hut to an orbital ring
@@ -73,6 +80,8 @@ empire, buildings and all.
 [*]Faith and prayers with real risk — call down rain, or a meteor
 [*]A chronicle, charts and a timelapse of your whole run
 [*]Daily challenges and contracts
+[*]A photo mode that renders the scene at full detail
+[*]Full terraforming — add and remove water, reshape the land under your city
 [*]Full gamepad and Steam Deck support
 [*]English, Czech, German, Polish, Spanish
 [/list]

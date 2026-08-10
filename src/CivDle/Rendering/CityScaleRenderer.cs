@@ -106,16 +106,20 @@ public sealed class CityScaleRenderer
             int y = TileKey.Y(key) * cellPixels;
             float t = MathF.Min(1f, count / (float)DenseCount);
 
+            // Zář roste JEN s hustotou a nemá pevnou složku. Kdyby ji měla,
+            // přispěla by stejně i buňka s jedním domem — a protože se aditivně
+            // sčítají sousedi, slil by se z okraje města ostrý světlý obdélník
+            // místo světel, která k okraji řídnou.
             spriteBatch.Draw(
                 _pixel,
-                new Rectangle(x - cellPixels / 3, y - cellPixels / 3, cellPixels + 2 * cellPixels / 3, cellPixels + 2 * cellPixels / 3),
-                glow * (0.10f + 0.16f * t) * night);
+                new Rectangle(x - cellPixels / 4, y - cellPixels / 4, cellPixels + cellPixels / 2, cellPixels + cellPixels / 2),
+                glow * (0.20f * t) * night);
 
-            int inset = (int)(cellPixels * (0.34f - 0.22f * t));
+            int inset = (int)(cellPixels * (0.36f - 0.24f * t));
             spriteBatch.Draw(
                 _pixel,
                 new Rectangle(x + inset, y + inset, cellPixels - 2 * inset, cellPixels - 2 * inset),
-                core * (0.30f + 0.45f * t) * night);
+                core * (0.18f + 0.52f * t) * night);
         }
 
         spriteBatch.End();

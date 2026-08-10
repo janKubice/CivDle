@@ -186,6 +186,69 @@ internal static class CityFixture
     }
 
     /// <summary>
+    /// Najde pobřeží poblíž města — místo, kde se do jednoho záběru vejde
+    /// zástavba i otevřená voda.
+    ///
+    /// <para>Vzniklo kvůli obchodu: pěna u břehu, hloubka a odlesky na hladině
+    /// jsou to nejhezčí, co hra kreslí, ale na snímku uprostřed města nejsou
+    /// vidět vůbec. Hledá se dlaždice, která má kolem sebe <b>obojí</b> —
+    /// samotná voda je prázdná plocha, samotné město nemá břeh.</para>
+    /// </summary>
+    /// <returns>false, když město žádnou vodu v dosahu nemá (vnitrozemský seed).</returns>
+    public static bool TryFindShore(Simulation sim, out int shoreX, out int shoreY)
+    {
+        const int radius = 90;
+        const int sample = 6; // poloměr okolí, ze kterého se počítá poměr voda/souš
+
+        shoreX = sim.CityCenterX;
+        shoreY = sim.CityCenterY;
+        int bestScore = int.MinValue;
+
+        for (int y = -radius; y <= radius; y += 3)
+        {
+            for (int x = -radius; x <= radius; x += 3)
+            {
+                int tileX = sim.CityCenterX + x;
+                int tileY = sim.CityCenterY + y;
+
+                int water = 0;
+                int built = 0;
+                for (int dy = -sample; dy <= sample; dy += 2)
+                {
+                    for (int dx = -sample; dx <= sample; dx += 2)
+                    {
+                        if (sim.IsWaterAt(tileX + dx, tileY + dy))
+                        {
+                            water++;
+                        }
+                        else if (sim.IsOccupied(tileX + dx, tileY + dy))
+                        {
+                            built++;
+                        }
+                    }
+                }
+
+                // Nejlepší je vyrovnaný poměr: víc vody i víc domů znamená
+                // pokaždé horší záběr než rovnováha mezi nimi.
+                if (water == 0 || built == 0)
+                {
+                    continue;
+                }
+
+                int score = Math.Min(water, built) * 4 - Math.Abs(x) - Math.Abs(y);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    shoreX = tileX;
+                    shoreY = tileY;
+                }
+            }
+        }
+
+        return bestScore > int.MinValue;
+    }
+
+    /// <summary>
     /// Najde místo, kde je na co se dívat: pevnina s pestrým okolím (les, voda,
     /// kopce). Plochá step je taky mapa, ale na snímku nemá co nabídnout.
     /// </summary>

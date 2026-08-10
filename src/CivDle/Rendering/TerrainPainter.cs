@@ -40,7 +40,17 @@ public sealed class TerrainPainter
     private const float MacroStrength = 0.055f;
 
     /// <summary>Jak moc ztmavne otevřená voda oproti mělčině.</summary>
-    private const float DepthDarken = 0.30f;
+    private const float DepthDarken = 0.20f;
+
+    /// <summary>
+    /// Kolik dlaždic „rozmaže" hloubku, aby z gradientu nebyly schody.
+    ///
+    /// <para>Okno hloubky se posunem o dlaždici změní skokem o celou řadu, takže
+    /// by hladina dostala viditelné pásy — a to je přesně ta mřížka, kterou tenhle
+    /// soubor jinde rozbíjí. Rozhodí se proto samotný <b>vstup</b>: hranice mezi
+    /// dvěma hloubkami se rozsype na stipl a oko z něj přečte plynulý přechod.</para>
+    /// </summary>
+    private const float DepthDither = 4.5f;
 
     /// <summary>Barva pěny na pobřeží.</summary>
     private static readonly Color Foam = new(232, 244, 250);
@@ -96,7 +106,8 @@ public sealed class TerrainPainter
     {
         // Hloubka: podíl vody v okolí. Zátoka mezi mysy zůstane světlá,
         // otevřené moře ztmavne — z jedné barvy je najednou pobřeží.
-        float openness = Math.Clamp(waterInWindow / (float)WaterWindowTiles, 0f, 1f);
+        float dithered = waterInWindow + (Unit(worldX, worldY, 9) - 0.5f) * DepthDither;
+        float openness = Math.Clamp(dithered / WaterWindowTiles, 0f, 1f);
         float depth = openness * openness; // mělčina se drží déle, hloubka nastupuje rychle
         var color = Shade(biome.MapColor, brightness * (1f - DepthDarken * depth));
 
