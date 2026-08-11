@@ -33,15 +33,22 @@ public sealed class DebugScreen : IScreen
     private readonly ScreenManager _screens;
     private readonly Simulation _simulation;
     private readonly Camera2D _camera;
+    private readonly Capture.CheatMode? _cheats;
     private readonly InputManager _input = new();
     private Desktop? _desktop;
     private Label? _status;
 
-    public DebugScreen(ScreenManager screens, Simulation simulation, Camera2D camera)
+    /// <param name="cheats">
+    /// Přepínače na natáčení. <c>null</c> tam, kde se ladicí menu otevírá mimo
+    /// hru — cheaty patří k rozehrané relaci, ne k menu.
+    /// </param>
+    public DebugScreen(
+        ScreenManager screens, Simulation simulation, Camera2D camera, Capture.CheatMode? cheats = null)
     {
         _screens = screens;
         _simulation = simulation;
         _camera = camera;
+        _cheats = cheats;
         BuildUi();
     }
 
@@ -68,6 +75,15 @@ public sealed class DebugScreen : IScreen
             Width = PanelWidth - 20,
             HorizontalAlignment = HorizontalAlignment.Center,
         });
+
+        // Trvalé přepínače nahoře, jednorázové páky pod nimi. Na natáčení je
+        // rozdíl podstatný: jednorázová páka uprostřed záběru nepomůže.
+        if (_cheats is not null)
+        {
+            var cheats = _cheats;
+            layout.Widgets.Add(ToggleRow("debug.cheatResources", () => cheats.Resources, cheats.ToggleResources));
+            layout.Widgets.Add(ToggleRow("debug.cheatGovernor", () => cheats.Governor, cheats.ToggleGovernor));
+        }
 
         layout.Widgets.Add(Row("+10k od každé suroviny", GrantResources));
         layout.Widgets.Add(Row("+100 bodů Vzestupu", () => GrantAscensionPoints(100)));
@@ -104,6 +120,27 @@ public sealed class DebugScreen : IScreen
         var root = new Panel();
         root.Widgets.Add(panel);
         _desktop = _screens.NewDesktop(root);
+    }
+
+    /// <summary>
+    /// Řádek s přepínačem: popisek nese stav, aby bylo z jednoho pohledu vidět,
+    /// co je zapnuté. Bez toho by autor hádal, proč se sklady samy plní.
+    /// </summary>
+    private Widget ToggleRow(string labelKey, Func<bool> isOn, Action toggle)
+    {
+        string Caption() => $"{_screens.Loc[labelKey]} — {_screens.Loc[isOn() ? "common.on" : "common.off"]}";
+
+        var button = UiFactory.SmallButton(Caption(), () => { });
+        button.Click += (_, _) =>
+        {
+            toggle();
+            if (button.Content is Label label)
+            {
+                label.Text = Caption();
+            }
+        };
+
+        return button;
     }
 
     private Widget Row(string label, Action action)

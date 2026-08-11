@@ -72,6 +72,17 @@ public sealed class Camera2D
     /// </summary>
     public void SetZoom(float zoom) => Zoom = Math.Clamp(zoom, MinZoom, MaxZoom);
 
+    /// <summary>
+    /// Nastaví měřítko <b>bez horní meze</b>. Jen pro kreslení mimo obrazovku.
+    ///
+    /// <para>Horní mez existuje proto, aby si hráč nepřiblížil scénu do kaše.
+    /// Při focení do vyššího rozlišení ale zoom neznamená „přiblížit se" —
+    /// znamená „nakreslit tentýž výřez do víc pixelů", a tam by mez usekla
+    /// přesně to, kvůli čemu se fotí ve 4K. Na obrazovku se tahle metoda
+    /// nepoužívá.</para>
+    /// </summary>
+    public void SetCaptureZoom(float zoom) => Zoom = Math.Max(MinZoom, zoom);
+
     /// <summary>Aktualizuje rozměry viewportu — volat každý snímek (okno jde zvětšovat).</summary>
     public void SetViewport(int width, int height)
     {
