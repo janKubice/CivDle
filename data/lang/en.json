@@ -1319,6 +1319,7 @@
     "settings.language": "Language:",
     "settings.reduceMotion": "Reduce motion",
     "settings.resolution": "Resolution:",
+    "settings.shadows": "Building shadows",
     "settings.sound": "Volume:",
     "settings.title": "Settings",
     "settings.uiScale": "Interface size",

@@ -17,12 +17,14 @@ public sealed class BuildingRenderer
     private const int Inset = 2;
 
     private readonly Texture2D _pixel;
+    private readonly SoftShadow _shadow;
     private readonly GameContent _content;
     private readonly SpriteLibrary _sprites;
 
-    public BuildingRenderer(Texture2D whitePixel, GameContent content, SpriteLibrary sprites)
+    public BuildingRenderer(Texture2D whitePixel, GameContent content, SpriteLibrary sprites, SoftShadow shadow)
     {
         _pixel = whitePixel;
+        _shadow = shadow;
         _content = content;
         _sprites = sprites;
     }
@@ -174,18 +176,25 @@ public sealed class BuildingRenderer
     }
 
     /// <summary>
-    /// Posadí budovu do terénu: ztmavení kolem paty a vržený stín jedním
-    /// společným směrem (<see cref="SceneLight"/>).
+    /// Posadí budovu do terénu měkkou skvrnou u paty, jedním společným směrem
+    /// světla (<see cref="SceneLight"/>).
     ///
-    /// <para>Dřív měla každá budova třípixelový proužek u spodní hrany. Ten
-    /// funguje na jednu budovu, ale sto budov s proužkem vypadá jako sto
-    /// nálepek — chybí jim společné světlo. Dvě kresby navíc na budovu je
-    /// cena, kterou to stojí, a platí se jen v detailním režimu.</para>
+    /// <para>Dřív to byly dva plné obdélníky — kopie budovy posunutá stranou
+    /// a rámeček kolem paty. Vypadalo to jako tmavé krabice čouhající z domů
+    /// a u shluků se slévaly do špinavých ploch. Teď je to jedna měkká skvrna:
+    /// jedno kreslení místo dvou a hlavně žádná tvrdá hrana.</para>
     /// </summary>
     private void DrawGrounding(SpriteBatch spriteBatch, Rectangle bounds, int footprintTiles)
     {
-        spriteBatch.Draw(_pixel, SceneLight.ContactRect(bounds), SceneLight.ShadowColor * SceneLight.ContactAlpha);
-        spriteBatch.Draw(_pixel, SceneLight.ShadowRect(bounds, footprintTiles), SceneLight.ShadowColor * SceneLight.ShadowAlpha);
+        if (!SceneLight.Enabled)
+        {
+            return;
+        }
+
+        _shadow.Draw(
+            spriteBatch,
+            SceneLight.ShadowRect(bounds, footprintTiles),
+            SceneLight.ShadowColor * SceneLight.ShadowAlpha);
     }
 
     /// <summary>

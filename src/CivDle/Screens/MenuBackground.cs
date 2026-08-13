@@ -54,7 +54,7 @@ public sealed class MenuBackground : IDisposable
         _decorations = new DecorationRenderer(screens.WhitePixel, content, seed);
         _harvestables = new HarvestableRenderer(screens.Sprites, content);
         _roads = new RoadRenderer(screens.WhitePixel, content);
-        _buildings = new BuildingRenderer(screens.WhitePixel, content, screens.Sprites);
+        _buildings = new BuildingRenderer(screens.WhitePixel, content, screens.Sprites, screens.SoftShadow);
         _lights = new LightsRenderer(screens.WhitePixel, content);
         _fauna = new FaunaSystem(content);
         _agents = new AgentSystem(content, screens.Sprites);

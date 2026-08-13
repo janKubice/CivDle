@@ -35,6 +35,7 @@ public sealed class SettingsScreen : IScreen
     private int _detailIndex;
     private int _captureIndex;
     private bool _captureStrip;
+    private bool _shadows;
 
     /// <summary>Nabízená zvětšení UI (index = krok v přepínači).</summary>
     private static readonly float[] UiScales = { 0.8f, 0.9f, 1.0f, 1.15f, 1.3f, 1.45f, 1.6f };
@@ -84,6 +85,7 @@ public sealed class SettingsScreen : IScreen
         _detailIndex = Math.Max(0, Array.IndexOf(DetailSteps, settings.Detail));
         _captureIndex = Math.Max(0, Array.IndexOf(CaptureSteps, settings.CaptureResolution));
         _captureStrip = settings.CaptureStrip;
+        _shadows = settings.Shadows;
 
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
@@ -174,6 +176,9 @@ public sealed class SettingsScreen : IScreen
             detailHint.Text = loc[DetailHintKey(i)];
         };
 
+        var shadows = new CycleSelector(2, _shadows ? 0 : 1, i => loc[i == 0 ? "common.on" : "common.off"]);
+        shadows.SelectionChanged += i => _shadows = i == 0;
+
         // Focení a natáčení: rozlišení nezávisí na okně, proužek se dá vypnout.
         // Obojí je nastavení „jak vypadá to, co z hry odejde ven".
         var captureHint = new Label
@@ -221,6 +226,7 @@ public sealed class SettingsScreen : IScreen
         layout.Widgets.Add(UiFactory.Row(loc["settings.uiScale"], uiScale.Widget));
         layout.Widgets.Add(UiFactory.Row(loc["settings.reduceMotion"], reduceMotion.Widget));
         layout.Widgets.Add(UiFactory.Row(loc["settings.colorCues"], colorCues.Widget));
+        layout.Widgets.Add(UiFactory.Row(loc["settings.shadows"], shadows.Widget));
         layout.Widgets.Add(UiFactory.Row(loc["settings.capture"], capture.Widget));
         layout.Widgets.Add(captureHint);
         layout.Widgets.Add(UiFactory.Row(loc["settings.captureStrip"], captureStrip.Widget));
@@ -248,6 +254,7 @@ public sealed class SettingsScreen : IScreen
             Detail = DetailSteps[_detailIndex],
             CaptureResolution = CaptureSteps[_captureIndex],
             CaptureStrip = _captureStrip,
+            Shadows = _shadows,
         };
 
         _screens.ApplySettings(settings);
