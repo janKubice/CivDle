@@ -227,7 +227,7 @@ internal sealed class AutoBuildSystem
 
         for (int defIndex = 0; defIndex < _content.Buildings.Count; defIndex++)
         {
-            if (!_content.Buildings[defIndex].AutoBuild || !sim.IsBuildingUnlocked(defIndex))
+            if (!IsAllowed(sim, defIndex))
             {
                 continue;
             }
@@ -343,6 +343,22 @@ internal sealed class AutoBuildSystem
     private const int AnchorAttempts = 8;
 
     /// <summary>
+    /// Smí guvernér tuhle budovu vůbec postavit?
+    ///
+    /// <para>Kromě značky <c>autoBuild</c> a odemčení rozhoduje i plán hráče:
+    /// zakázané kategorie guvernér nestaví, i když by je město potřebovalo.
+    /// Je to jeho příkaz, ne chyba — kdo si vypne monumenty, nechce je vidět
+    /// vyrůstat, ani když má plné sklady.</para>
+    /// </summary>
+    private bool IsAllowed(Simulation sim, int defIndex)
+    {
+        var def = _content.Buildings[defIndex];
+        return def.AutoBuild
+            && sim.IsBuildingUnlocked(defIndex)
+            && sim.Plan.AllowsCategory(def.Category);
+    }
+
+    /// <summary>
     /// Seřadí auto-stavitelné budovy podle toho, jak dobře pokrývají danou
     /// potřebu (nejlepší první). Vrací, kolik jich do výběru vůbec patří.
     ///
@@ -357,7 +373,7 @@ internal sealed class AutoBuildSystem
 
         for (int defIndex = 0; defIndex < _content.Buildings.Count; defIndex++)
         {
-            if (!_content.Buildings[defIndex].AutoBuild || !sim.IsBuildingUnlocked(defIndex))
+            if (!IsAllowed(sim, defIndex))
             {
                 continue;
             }
