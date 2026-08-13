@@ -125,7 +125,41 @@ Praktické:
 
 ---
 
-## 4. Pořadí prací
+## 4. Nástroje na natáčení (ve hře)
+
+| Klávesa | Co dělá |
+|---|---|
+| `F11` | Fotorežim — schová HUD. Hra pod ním běží dál. |
+| `F12` | Fotka. `Shift+F12` ji vyrenderuje bez LOD, tedy se vším, co je při daném oddálení schované. |
+| `F9` | Začne / ukončí **natáčení jízdy kamery**. Po ukončení se spustí render videa. |
+| `F8` | **Cheaty na natáčení**: nevyčerpatelné sklady a guvernér na plný plyn. |
+| `Ctrl+Shift+D` | Ladicí menu — cheaty se dají zapnout i po jednom. |
+
+Rozlišení fotek a videa a proužek s čísly se nastavují v **Nastavení**
+(1080p / 1440p / 4K, výchozí 1440p). Rozlišení nezávisí na velikosti okna:
+hrát se dá v okně a fotit ve 4K.
+
+### Jak funguje video
+
+Nahrává se **jen pohyb kamery**, ne obraz. Jeden 4K snímek bez LOD se
+v reálném čase vyrenderovat nestíhá, takže by živé nahrávání dalo video
+v kvalitě obrazovky — tedy přesně to, čemu se chceme vyhnout. Po `F9` se proto
+scéna vyrenderuje **mimo reálný čas**, snímek po snímku, každý tak dlouho, jak
+potřebuje. Výsledek je sekvence PNG v 60 fps.
+
+Renderuje se nad **kopií světa**, ne nad rozehranou hrou — natočit si záběr
+tedy neposune tvoji partii o délku videa dopředu.
+
+Ze sekvence udělá video ffmpeg; hra vypíše hotový příkaz do konzole:
+
+```
+ffmpeg -framerate 60 -i "frame-%06d.png" -c:v libx264 -preset slow -crf 16 -pix_fmt yuv420p civdle.mp4
+```
+
+> **Počítej s místem.** 1080p/60 zabere zhruba 2–4 GB na minutu záběru, 4K
+> násobně víc. Renderuj po krátkých záběrech a sekvenci po zakódování smaž.
+
+## 5. Pořadí prací
 
 1. `--capture` → devět snímků, vyber z nich sadu podle tabulky výš
 2. Natoč surové záběry pro trailer (OBS, 60 fps, bez komprese)

@@ -61,6 +61,21 @@ public sealed record GameSettings
     /// </summary>
     public DetailQuality Detail { get; init; } = DetailQuality.Balanced;
 
+    /// <summary>
+    /// V jakém rozlišení se ukládají fotky a renderuje video. Nezávisí na
+    /// velikosti okna — hrát se dá v okně a fotit ve 4K.
+    /// </summary>
+    public CaptureResolution CaptureResolution { get; init; } = CaptureResolution.Qhd1440;
+
+    /// <summary>
+    /// Kreslit na fotce dole proužek se jménem města a čísly?
+    ///
+    /// <para>Na sdílení je proužek to hlavní — dá obrázku smysl i pro toho, kdo
+    /// hru nezná. Do traileru a na store stránku se ale nehodí: tam má být
+    /// vidět hra, ne cedule s čísly.</para>
+    /// </summary>
+    public bool CaptureStrip { get; init; } = true;
+
     /// <summary>Povolený rozsah zvětšení UI (mimo něj by se rozbilo rozvržení).</summary>
     public const float MinUiScale = 0.8f;
 

@@ -33,6 +33,8 @@ public sealed class SettingsScreen : IScreen
     private bool _reduceMotion;
     private bool _colorCues;
     private int _detailIndex;
+    private int _captureIndex;
+    private bool _captureStrip;
 
     /// <summary>Nabízená zvětšení UI (index = krok v přepínači).</summary>
     private static readonly float[] UiScales = { 0.8f, 0.9f, 1.0f, 1.15f, 1.3f, 1.45f, 1.6f };
@@ -44,6 +46,14 @@ public sealed class SettingsScreen : IScreen
         DetailQuality.Balanced,
         DetailQuality.Detailed,
         DetailQuality.Maximum,
+    };
+
+    /// <summary>Stupně rozlišení focení v pořadí, v jakém je přepínač nabízí.</summary>
+    private static readonly CaptureResolution[] CaptureSteps =
+    {
+        CaptureResolution.Hd1080,
+        CaptureResolution.Qhd1440,
+        CaptureResolution.Uhd4K,
     };
 
     /// <param name="showBackground">
@@ -72,6 +82,8 @@ public sealed class SettingsScreen : IScreen
         _reduceMotion = settings.ReduceMotion;
         _colorCues = settings.ColorCues;
         _detailIndex = Math.Max(0, Array.IndexOf(DetailSteps, settings.Detail));
+        _captureIndex = Math.Max(0, Array.IndexOf(CaptureSteps, settings.CaptureResolution));
+        _captureStrip = settings.CaptureStrip;
 
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
@@ -162,6 +174,23 @@ public sealed class SettingsScreen : IScreen
             detailHint.Text = loc[DetailHintKey(i)];
         };
 
+        // Focení a natáčení: rozlišení nezávisí na okně, proužek se dá vypnout.
+        // Obojí je nastavení „jak vypadá to, co z hry odejde ven".
+        var captureHint = new Label
+        {
+            Text = loc["settings.capture.hint"],
+            TextColor = UiPalette.TextDim,
+            Wrap = true,
+            Width = 420,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        var capture = new CycleSelector(
+            CaptureSteps.Length, _captureIndex, i => loc[CaptureNameKey(i)]);
+        capture.SelectionChanged += i => _captureIndex = i;
+
+        var captureStrip = new CycleSelector(2, _captureStrip ? 0 : 1, i => loc[i == 0 ? "common.on" : "common.off"]);
+        captureStrip.SelectionChanged += i => _captureStrip = i == 0;
+
         var layout = new VerticalStackPanel
         {
             Spacing = 14,
@@ -192,6 +221,9 @@ public sealed class SettingsScreen : IScreen
         layout.Widgets.Add(UiFactory.Row(loc["settings.uiScale"], uiScale.Widget));
         layout.Widgets.Add(UiFactory.Row(loc["settings.reduceMotion"], reduceMotion.Widget));
         layout.Widgets.Add(UiFactory.Row(loc["settings.colorCues"], colorCues.Widget));
+        layout.Widgets.Add(UiFactory.Row(loc["settings.capture"], capture.Widget));
+        layout.Widgets.Add(captureHint);
+        layout.Widgets.Add(UiFactory.Row(loc["settings.captureStrip"], captureStrip.Widget));
         layout.Widgets.Add(new Label { Text = " " });
         layout.Widgets.Add(UiFactory.MenuButton(loc["settings.apply"], Apply));
         layout.Widgets.Add(UiFactory.MenuButton(loc["settings.back"], _screens.Pop));
@@ -214,6 +246,8 @@ public sealed class SettingsScreen : IScreen
             ReduceMotion = _reduceMotion,
             ColorCues = _colorCues,
             Detail = DetailSteps[_detailIndex],
+            CaptureResolution = CaptureSteps[_captureIndex],
+            CaptureStrip = _captureStrip,
         };
 
         _screens.ApplySettings(settings);
@@ -222,6 +256,10 @@ public sealed class SettingsScreen : IScreen
     }
 
     /// <summary>Název stupně detailu v nabídce.</summary>
+    /// <summary>Klíč překladu pro stupeň rozlišení focení.</summary>
+    private static string CaptureNameKey(int step) =>
+        $"settings.capture.{CaptureSteps[step].ToString().ToLowerInvariant()}";
+
     private static string DetailNameKey(int step) => $"settings.detail.{DetailSteps[step].ToString().ToLowerInvariant()}";
 
     /// <summary>Jednořádkové vysvětlení, co stupeň udělá.</summary>

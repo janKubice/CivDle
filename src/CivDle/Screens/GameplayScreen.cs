@@ -88,6 +88,15 @@ public sealed class GameplayScreen : IScreen
     /// </summary>
     private bool _photoMode;
 
+    /// <summary>Cheaty na natáčení: nevyčerpatelné sklady a guvernér na maximum.</summary>
+    private readonly Capture.CheatMode _cheats = new();
+
+    /// <summary>Rozepsaná jízda kamery; <c>null</c> = zrovna se nenatáčí.</summary>
+    private Capture.CameraTake? _take;
+
+    /// <summary>Čas od začátku natáčení (herní, takže pauza záběr nepokazí).</summary>
+    private double _takeTime;
+
     /// <summary>Kolik sekund zbývá do dalšího zásahu těžebního paprsku.</summary>
     private float _laserCooldown;
     private readonly GameSounds _sounds;
@@ -465,6 +474,23 @@ public sealed class GameplayScreen : IScreen
             SaveShareCard(fullDetail);
         }
 
+        // F8: cheaty pro natáčení. Nevyčerpatelné sklady a guvernér na plný
+        // plyn — aby uprostřed záběru nedošla prkna a tempo se nepropadlo.
+        if (_input.WasPressed(Keys.F8))
+        {
+            _cheats.ToggleAll();
+            _toasts.Add(
+                _screens.Loc[_cheats.Enabled ? "cheat.on" : "cheat.off"],
+                _cheats.Enabled ? UiPalette.Warn : UiPalette.TextDim);
+        }
+
+        // F9: natáčení jízdy kamery. Nahrává se jen pohyb — scéna se pak
+        // vyrenderuje mimo reálný čas v plné kvalitě a bez LOD.
+        if (_input.WasPressed(Keys.F9))
+        {
+            ToggleTakeRecording();
+        }
+
         // Ctrl+Shift+D: ladicí menu. Schválně zkratka bez tlačítka kdekoli
         // v nabídce — je to nástroj na testování pozdní hry, ne herní obsah,
         // a hráč, který ho nehledá, na něj nemá narazit.
@@ -472,7 +498,7 @@ public sealed class GameplayScreen : IScreen
             && (_input.IsDown(Keys.LeftControl) || _input.IsDown(Keys.RightControl))
             && (_input.IsDown(Keys.LeftShift) || _input.IsDown(Keys.RightShift)))
         {
-            _screens.Push(new DebugScreen(_screens, _simulation, _camera));
+            _screens.Push(new DebugScreen(_screens, _simulation, _camera, _cheats));
             return;
         }
 
@@ -551,6 +577,16 @@ public sealed class GameplayScreen : IScreen
             UpdateCaravan(worldDt);
             _golden.Update(worldDt, _camera, _simulation);
             _discoveries.Update(worldDt);
+        }
+
+        // Cheaty se udržují herním časem: v pauze se nic nedosypává a záběr,
+        // který si autor rozmyslí, se nezačne sám plnit surovinami.
+        _cheats.Apply(_simulation, worldDt);
+
+        if (_take is not null)
+        {
+            _takeTime += worldDt;
+            _take.Record(_takeTime, _camera.Position, _camera.Zoom);
         }
 
         CollectCapturedTemplate();
@@ -851,12 +887,18 @@ public sealed class GameplayScreen : IScreen
     /// </summary>
     private void SaveShareCard(bool fullDetail = false)
     {
+        var settings = _screens.Settings;
+        var options = Capture.ShareCardOptions.For(
+            settings.CaptureResolution, settings.CaptureStrip, fullDetail);
+
         try
         {
             string path = new Capture.ShareCard(_screens)
-                .Save(_simulation, _camera, _screens.Saves.ShareDirectory, fullDetail);
+                .Save(_simulation, _camera, _screens.Saves.ShareDirectory, options);
             _toasts.Add(
-                _screens.Loc.Format(fullDetail ? "share.savedFullDetail" : "share.saved", Path.GetFileName(path)),
+                _screens.Loc.Format(
+                    fullDetail ? "share.savedFullDetail" : "share.saved",
+                    Path.GetFileName(path)) + $" ({options.Width}×{options.Height})",
                 UiPalette.TextBright);
         }
         catch (IOException error)
@@ -864,6 +906,74 @@ public sealed class GameplayScreen : IScreen
             // Plný disk ani zamčená složka nemají shodit rozehranou hru.
             _toasts.Add(_screens.Loc.Format("share.failed", error.Message), UiPalette.Bad);
         }
+    }
+
+    /// <summary>
+    /// Začne, nebo ukončí natáčení jízdy kamery.
+    ///
+    /// <para>Při ukončení se svět <b>zkopíruje</b> přes save a video se
+    /// renderuje nad kopií. Kdyby se renderovalo nad hráčovou hrou, posunul by
+    /// mu render svět o délku videa dopředu — natočit si záběr by znamenalo
+    /// změnit si rozehranou partii.</para>
+    /// </summary>
+    private void ToggleTakeRecording()
+    {
+        if (_take is null)
+        {
+            _take = new Capture.CameraTake();
+            _takeTime = 0;
+            _photoMode = true; // do videa HUD nepatří
+            _tools.Clear();
+            _toasts.Add(_screens.Loc["video.recording"], UiPalette.Warn);
+            return;
+        }
+
+        var take = _take;
+        _take = null;
+
+        if (take.Duration < MinTakeSeconds)
+        {
+            _toasts.Add(_screens.Loc["video.tooShort"], UiPalette.TextDim);
+            return;
+        }
+
+        try
+        {
+            var settings = _screens.Settings;
+            var options = Capture.ShareCardOptions.For(
+                settings.CaptureResolution, withStrip: false, fullDetail: true);
+
+            string directory = Path.Combine(
+                _screens.Saves.ShareDirectory, $"video-{DateTime.Now:yyyyMMdd-HHmmss}");
+
+            var render = new Capture.VideoRender(
+                _screens, CloneSimulation(), take, options, directory);
+            _screens.Push(new VideoRenderScreen(_screens, render));
+        }
+        catch (Exception error) when (error is IOException or InvalidOperationException)
+        {
+            _toasts.Add(_screens.Loc.Format("video.failed", error.Message), UiPalette.Bad);
+        }
+    }
+
+    /// <summary>Nejkratší záběr, který má smysl renderovat.</summary>
+    private const double MinTakeSeconds = 0.5;
+
+    /// <summary>
+    /// Kopie světa přes save. Serializace je jediná cesta, jak dostat nezávislý
+    /// svět — a je to tatáž cesta, kterou prochází Continue, takže se testuje
+    /// sama sebou.
+    /// </summary>
+    private Simulation CloneSimulation()
+    {
+        var serializer = new Core.Save.SaveGameSerializer();
+        using var stream = new MemoryStream();
+        serializer.Write(
+            stream, _simulation,
+            new Core.Save.SaveMetadata(_simulation.Seed, _info.SizeId, _info.PresetId, DateTime.UtcNow));
+        stream.Position = 0;
+        var (clone, _) = serializer.Read(stream, _screens.Content);
+        return clone;
     }
 
     /// <summary>

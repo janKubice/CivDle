@@ -61,6 +61,11 @@ public sealed class SmokeRun
         Check("nástroje: vypnout", () => screen.ActivateToolForSmoke(SmokeTool.None));
         Frames(screen, time);
 
+        // Fotka i video: obojí kreslí do render targetu mimo obrazovku a obojí
+        // umí spadnout způsobem, který se na obrazovce nikdy neprojeví.
+        Check("fotka: uložit bez proužku ve vysokém rozlišení", () => PhotoRound(screens, sim));
+        Check("video: vyrenderovat pár snímků", () => VideoRound(screens, sim));
+
         // Vzestup: nákup po dávkách staví obrazovku znovu po každé koupi.
         Check("vzestup: nákup po dávkách", () => AscensionRound(screens, sim, time));
 
@@ -118,6 +123,45 @@ public sealed class SmokeRun
         ascension.BuyEverythingForSmoke();
         Frames(ascension, time);
         screens.Pop();
+    }
+
+    /// <summary>Uloží fotku v jiném rozlišení a bez proužku — cesta, kterou hráč jede na store snímky.</summary>
+    private static void PhotoRound(ScreenManager screens, Simulation sim)
+    {
+        var camera = new Rendering.Camera2D();
+        camera.SetViewport(1920, 1080);
+        camera.CenterOn(
+            new Vector2(sim.CityCenterX * Rendering.TerrainRenderer.TileSize,
+                        sim.CityCenterY * Rendering.TerrainRenderer.TileSize), 2f);
+
+        string directory = Path.Combine(Path.GetTempPath(), "civdle-smoke-photo");
+        var options = ShareCardOptions.For(
+            CivDle.Core.Config.CaptureResolution.Hd1080, withStrip: false, fullDetail: true);
+
+        new ShareCard(screens).Save(sim, camera, directory, options);
+    }
+
+    /// <summary>
+    /// Vyrenderuje pár snímků videa. Schválně jen pár: jde o to, jestli projde
+    /// render target, vzorkování jízdy a zápis PNG — ne o délku.
+    /// </summary>
+    private static void VideoRound(ScreenManager screens, Simulation sim)
+    {
+        var take = new CameraTake();
+        var center = new Vector2(
+            sim.CityCenterX * Rendering.TerrainRenderer.TileSize,
+            sim.CityCenterY * Rendering.TerrainRenderer.TileSize);
+        take.Record(0, center, 2f);
+        take.Record(0.05, center + new Vector2(64, 32), 2.2f);
+
+        string directory = Path.Combine(Path.GetTempPath(), "civdle-smoke-video");
+        var options = ShareCardOptions.For(
+            CivDle.Core.Config.CaptureResolution.Hd1080, withStrip: false, fullDetail: true);
+
+        using var render = new VideoRender(screens, sim, take, options, directory);
+        while (render.RenderNextFrame())
+        {
+        }
     }
 
     private static void BuildRoadsAround(Simulation sim)
