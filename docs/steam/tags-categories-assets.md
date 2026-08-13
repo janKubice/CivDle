@@ -85,32 +85,12 @@ Příkaz `CivDle.exe --capture <složka>` nafotí **screenshoty ze skutečné hr
 ne makety. Kamera i stav světa jsou dané seedem, takže se dají kdykoli přesně
 zopakovat.
 
-### Doporučené pořadí screenshotů na store stránce
+### Pořadí screenshotů, trailer a GIFy
 
-Steam ukazuje první čtyři v náhledu. Pořadí je marketingové rozhodnutí:
+Mají vlastní dokument, aby existoval jeden zdroj pravdy:
+**`docs/steam/trailer-a-obrazky.md`**.
 
-1. **Rozrostlé město za dne** — hlavní obrázek, ukazuje měřítko
-2. **Odzoomovaná aglomerace** — „takhle velké to bude"
-3. **Noční město** — nejhezčí záběr, rozsvícená okna
-4. **Strom technologií** — hloubka obsahu
-5. **Zimní město** — roční období, živý svět
-6. **Achievementy** — kolik toho hra nabízí
-
-## 5. Trailer
-
-Steam chce video, ne GIF. GIFy z `docs/steam/generated/gifs/` použij na
-**Twitter/X, Reddit a Discord**, ne do store stránky.
-
-Struktura, která u idle her funguje (30–45 s):
-
-| Čas | Co je vidět |
-|---|---|
-| 0:00–0:03 | Jedna chatrč na prázdné mapě. Ticho. |
-| 0:03–0:10 | Zrychlený růst — časosběr, město se rozlévá |
-| 0:10–0:18 | Přiblížení: auta, lidi, roční období |
-| 0:18–0:25 | Číslo ×N vyskočí o řád; Vzestup |
-| 0:25–0:35 | Odzoomovaná aglomerace přes celou obrazovku |
-| 0:35–0:42 | Editor modů — „a můžeš si přidat vlastní" |
-| 0:42–0:45 | Logo + „Wishlist now" |
-
-Nahoď na začátek to největší číslo, jaké máš. Idle publikum kupuje měřítko.
+Ve zkratce: `--capture` vyrobí devět snímků, do obchodu jde jako první denní
+město (musí být čitelné i jako miniatura) a hned druhá noční aglomerace.
+Trailer začíná růstem, ne logem, a má 38 vteřin. GIFy do store stránky
+nepatří — Steam je v popisu nepovoluje; jsou na sociální sítě.

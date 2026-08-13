@@ -24,6 +24,15 @@ public sealed class CaptureDirector
 
     private readonly string _outputDirectory;
     private readonly List<StoreShot> _shots;
+
+    /// <summary>
+    /// Focení běží bez LOD. Na obrazovce je odbourávání detailu správně —
+    /// z výšky jsou stromy pod rozlišením a platit za ně plnou cenu nemá smysl.
+    /// Na obrázku, který visí v obchodě, ale nikdo nikam nespěchá a chybějící
+    /// detail je jediná věc, které si zákazník všimne.
+    /// </summary>
+    private readonly IDisposable _fullDetail;
+
     private int _shotIndex;
     private int _frame;
     private Color[]? _buffer;
@@ -32,6 +41,7 @@ public sealed class CaptureDirector
     {
         _outputDirectory = outputDirectory;
         _shots = DefaultShots();
+        _fullDetail = Rendering.DetailLevel.FullDetail();
     }
 
     /// <summary>Jsou všechny snímky hotové (a hra může skončit)?</summary>
@@ -45,10 +55,13 @@ public sealed class CaptureDirector
     {
         new StoreShot("01-city", ShotSubject.City, Minutes: 14, Zoom: 3.6f, Seed: 20260728),
         new StoreShot("02-night", ShotSubject.Night, Minutes: 14, Zoom: 3.6f, Seed: 20260728),
-        new StoreShot("03-winter", ShotSubject.Winter, Minutes: 12, Zoom: 3.4f, Seed: 4711),
-        new StoreShot("04-achievements", ShotSubject.Achievements, Minutes: 12, Zoom: 3.2f, Seed: 20260728),
-        new StoreShot("05-tech-tree", ShotSubject.Tech, Minutes: 10, Zoom: 3.0f, Seed: 991),
+        new StoreShot("03-coast", ShotSubject.Coast, Minutes: 14, Zoom: 3.2f, Seed: 20260728),
+        new StoreShot("04-golden-hour", ShotSubject.GoldenHour, Minutes: 14, Zoom: 3.8f, Seed: 20260728),
+        new StoreShot("05-winter", ShotSubject.Winter, Minutes: 12, Zoom: 3.4f, Seed: 4711),
         new StoreShot("06-scale", ShotSubject.Scale, Minutes: 16, Zoom: 0.6f, Seed: 20260728),
+        new StoreShot("07-night-scale", ShotSubject.NightScale, Minutes: 16, Zoom: 0.35f, Seed: 20260728),
+        new StoreShot("08-tech-tree", ShotSubject.Tech, Minutes: 10, Zoom: 3.0f, Seed: 991),
+        new StoreShot("09-achievements", ShotSubject.Achievements, Minutes: 12, Zoom: 3.2f, Seed: 20260728),
     };
 
     /// <summary>Připraví scénu dalšího snímku a vrátí obrazovku, kterou má hra ukázat.</summary>
@@ -71,6 +84,7 @@ public sealed class CaptureDirector
         switch (shot.Subject)
         {
             case ShotSubject.Night:
+            case ShotSubject.NightScale:
                 CityFixture.TickUntilTimeOfDay(sim, from: 0.90, to: 0.98);
                 break;
 
@@ -79,6 +93,22 @@ public sealed class CaptureDirector
                 CityFixture.TickUntilPostcardMoment(sim, screens.Content, from: 0.40, to: 0.58);
                 break;
 
+            case ShotSubject.Coast:
+                // Podvečer, ne poledne: nízké světlo dá vodě odlesk a budovám
+                // dlouhé stíny. V poledne je z pobřeží jen modrá plocha.
+                CityFixture.TickUntilTimeOfDay(sim, from: 0.72, to: 0.78);
+                if (CityFixture.TryFindShore(sim, out int shoreX, out int shoreY))
+                {
+                    focus = new Vector2(
+                        (shoreX + 0.5f) * Rendering.TerrainRenderer.TileSize,
+                        (shoreY + 0.5f) * Rendering.TerrainRenderer.TileSize);
+                }
+
+                break;
+
+            case ShotSubject.GoldenHour:
+                CityFixture.TickUntilTimeOfDay(sim, from: 0.76, to: 0.82);
+                break;
         }
 
         var gameplay = new GameplayScreen(screens, sim, new WorldInfo(shot.Seed, "medium", "continents"));
@@ -107,6 +137,11 @@ public sealed class CaptureDirector
 
         Save(device, _shots[_shotIndex].FileName);
         _shotIndex++;
+        if (Finished)
+        {
+            _fullDetail.Dispose();
+        }
+
         return true;
     }
 

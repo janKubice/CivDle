@@ -20,6 +20,24 @@ public enum ShotSubject
 
     /// <summary>Odzoomovaný pohled na aglomeraci.</summary>
     Scale,
+
+    /// <summary>
+    /// Město na pobřeží za podvečerního světla. Pěna u břehu, hloubka vody
+    /// a odlesky na hladině jsou to nejhezčí, co hra kreslí — a uprostřed
+    /// města nejsou vidět vůbec.
+    /// </summary>
+    Coast,
+
+    /// <summary>
+    /// Podvečer: modrofialové světlo, dlouhé stíny, první rozsvícená okna.
+    /// Nejsilnější obrázek, co hra má, a na poledním záběru z něj není nic.
+    /// </summary>
+    GoldenHour,
+
+    /// <summary>
+    /// Aglomerace z výšky v noci — z hustoty zástavby se stane světelná mapa.
+    /// </summary>
+    NightScale,
 }
 
 /// <summary>

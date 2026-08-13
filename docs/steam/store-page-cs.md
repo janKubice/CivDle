@@ -65,6 +65,13 @@ Mapa začíná pod mlhou. Vysíláš průzkumníky, stavíš radary, nacházíš
 gejzíry, kaňony a cizí města — s těmi můžeš obchodovat, nebo je přibrat ke své
 říši i s jejich budovami.
 
+[h2]Hra, na kterou se dá jen koukat[/h2]
+Den se přelije do večera a z města zbydou dlouhá stíny a rozsvícená okna.
+Nad hutěmi se chvěje vzduch, z komínů stoupá kouř, po hladině putují odlesky
+a stromy se sotva znatelně kolébají ve větru. Žádné dvě chalupy nejsou stejné.
+A když odjedeš kamerou až nahoru, změní se pohled ve světelnou mapu — tvoje
+civilizace jako souhvězdí v tmavé krajině.
+
 [h2]Co v CivDle najdeš[/h2]
 [list]
 [*]Přes 90 budov od chatrče po orbitální prstenec
@@ -75,6 +82,8 @@ gejzíry, kaňony a cizí města — s těmi můžeš obchodovat, nebo je přibr
 [*]Víra a modlitby s rizikem — přivolej déšť, nebo meteor
 [*]Kronika, grafy a časosběr celé partie
 [*]Denní výzvy a zakázky
+[*]Fotorežim, který scénu vyrenderuje v plném detailu
+[*]Plná teraformace — přidávej a ubírej vodu, měň krajinu pod městem
 [*]Plná podpora gamepadu a Steam Decku
 [*]Čeština, angličtina, němčina, polština, španělština
 [/list]
