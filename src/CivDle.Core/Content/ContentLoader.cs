@@ -2032,7 +2032,8 @@ public sealed class ContentLoader
             dto.ReforestRadius,
             dto.ScoutRadius,
             terraformAction,
-            dto.TerraformRadius);
+            dto.TerraformRadius,
+            Math.Clamp(dto.Paving ?? 1.0, 0.0, 1.0));
     }
 
     /// <summary>

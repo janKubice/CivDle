@@ -53,6 +53,7 @@ public sealed class GameplayScreen : IScreen
     private readonly UfoRenderer _ufoRenderer;
     private readonly WeatherRenderer _weatherRenderer;
     private readonly BuildingRenderer _buildingRenderer;
+    private readonly UrbanGroundRenderer _urbanGround;
     private readonly AmbientLifeRenderer _ambientLife;
     private readonly LightsRenderer _lightsRenderer;
     private readonly FaunaSystem _fauna;
@@ -356,6 +357,7 @@ public sealed class GameplayScreen : IScreen
         _rolling = new RollingNumbers(screens.Content.Resources.Count);
         _rolling.SnapTo(simulation.GetResource); // na startu (i po načtení savu) žádné dojíždění
         _buildingRenderer = new BuildingRenderer(screens.WhitePixel, screens.Content, screens.Sprites, screens.SoftShadow);
+        _urbanGround = new UrbanGroundRenderer(screens.SoftShadow, screens.Content);
         _ambientLife = new AmbientLifeRenderer(screens.WhitePixel, screens.Content);
         _lightsRenderer = new LightsRenderer(screens.WhitePixel, screens.Content);
         _fauna = new FaunaSystem(screens.Content);
@@ -590,6 +592,7 @@ public sealed class GameplayScreen : IScreen
         }
 
         CollectCapturedTemplate();
+        _urbanGround.Update(worldDt, _simulation);
         _buildingRenderer.Update(worldDt); // balony nad kotvišti se houpou
         _lightsRenderer.Update(worldDt);   // okna v noci pomalu mihotají
         _waterRenderer.Update(worldDt);    // odlesky putují po hladině
@@ -611,6 +614,7 @@ public sealed class GameplayScreen : IScreen
         // Odlesky hned nad terénem: patří na hladinu, ne přes to, co na ní pluje.
         _waterRenderer.Draw(spriteBatch, _camera, _simulation);
         _decorationRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
+        _urbanGround.Draw(spriteBatch, _camera); // zpevněná zem, aby zeleň zbyla jen v parcích
         _zoneRenderer.Draw(spriteBatch, _camera, _simulation); // tint zón na zemi, pod budovami
         _districtRenderer.Draw(spriteBatch, _camera, _simulation); // tvář čtvrtí, taky na zemi
         // Landmarky jen zblízka (LOD): z výšky jsou stejně pod rozlišením a dotaz

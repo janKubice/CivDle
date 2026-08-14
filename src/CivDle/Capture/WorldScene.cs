@@ -30,6 +30,7 @@ public sealed class WorldScene : IDisposable
     private readonly TerrainRenderer _terrain;
     private readonly WaterRenderer _water;
     private readonly DecorationRenderer _decorations;
+    private readonly UrbanGroundRenderer _urbanGround;
     private readonly RoadRenderer _roads;
     private readonly BuildingRenderer _buildings;
     private readonly AmbientLifeRenderer _ambient;
@@ -44,6 +45,7 @@ public sealed class WorldScene : IDisposable
         _terrain = new TerrainRenderer(device, content.Biomes, seed);
         _water = new WaterRenderer(pixel);
         _decorations = new DecorationRenderer(pixel, content, seed);
+        _urbanGround = new UrbanGroundRenderer(screens.SoftShadow, content);
         _roads = new RoadRenderer(pixel, content);
         _buildings = new BuildingRenderer(pixel, content, screens.Sprites, screens.SoftShadow);
         _ambient = new AmbientLifeRenderer(pixel, content);
@@ -55,9 +57,10 @@ public sealed class WorldScene : IDisposable
     /// a hladina by byla ze skla — tedy přesně ty věci, kvůli kterým se
     /// natáčí video a ne screenshot.
     /// </summary>
-    public void Update(float dt)
+    public void Update(float dt, Simulation simulation)
     {
         _water.Update(dt);
+        _urbanGround.Update(dt, simulation);
         _ambient.Update(dt);
         _lights.Update(dt);
         _buildings.Update(dt);
@@ -73,6 +76,7 @@ public sealed class WorldScene : IDisposable
             simulation.BiomeOverrideMap, simulation.TerrainRevision);
         _water.Draw(spriteBatch, camera, simulation);
         _decorations.Draw(spriteBatch, camera, simulation.Terrain);
+        _urbanGround.Draw(spriteBatch, camera);
         _roads.Draw(spriteBatch, camera, simulation);
         _buildings.Draw(spriteBatch, camera, simulation);
         _ambient.Draw(spriteBatch, camera, simulation);
