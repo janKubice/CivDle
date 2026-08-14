@@ -39,6 +39,10 @@ public sealed class ShareCard
         var device = _screens.GraphicsDevice;
         using var scene = new WorldScene(_screens, _screens.Content, simulation.Seed);
 
+        // Jednorázový snímek: vrstvy, které si stav dopočítávají za běhu (zpevněná
+        // zem), musí dostat aspoň jeden takt, jinak by na fotce chyběly.
+        scene.Update(0f, simulation);
+
         using var target = new RenderTarget2D(device, options.Width, options.Height);
         device.SetRenderTarget(target);
         device.Clear(new Color(16, 22, 28));

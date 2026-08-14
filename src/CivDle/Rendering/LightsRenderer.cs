@@ -16,6 +16,25 @@ public sealed class LightsRenderer
     private static readonly Color GlowColor = new(255, 190, 100);
     private static readonly Color WindowColor = new(255, 233, 168);
 
+    /// <summary>
+    /// Lampy svítí chladněji než okna. Je to drobnost, ale dělá rozdíl: kdyby
+    /// měly stejný tón, splynou ulice s domy do jedné oranžové kaše a z výšky
+    /// není poznat, kudy vede síť.
+    /// </summary>
+    private static readonly Color LampColor = new(214, 226, 255);
+
+    /// <summary>
+    /// Každá kolikátá dlaždice silnice dostane lampu. Na každé by z výšky
+    /// vznikla souvislá zářící čára místo řady světel.
+    /// </summary>
+    private const int LampSpacing = 3;
+
+    /// <summary>
+    /// Pod tímhle přiblížením se lampy nekreslí. Jsou to dva pixely — níž už
+    /// jen zašumí obraz a stojí výkon u desetitisíců dlaždic.
+    /// </summary>
+    private const float LampZoom = 0.55f;
+
     private readonly Texture2D _pixel;
     private readonly GameContent _content;
 
@@ -52,6 +71,8 @@ public sealed class LightsRenderer
             blendState: BlendState.Additive,
             samplerState: SamplerState.PointClamp,
             transformMatrix: camera.Transform);
+
+        DrawStreetLamps(spriteBatch, camera, simulation, nightFactor, min, max);
 
         for (int i = 0; i < buildings.Length; i++)
         {
@@ -114,6 +135,71 @@ public sealed class LightsRenderer
         float fast = 0.06f * MathF.Sin(time * 1.9f + phase * 2.3f);
 
         return Math.Clamp(slow + fast, 0f, 1f);
+    }
+
+    /// <summary>
+    /// Pouliční osvětlení: řada drobných světel podél silnic.
+    ///
+    /// <para>V noci svítila jen okna, takže město vypadalo jako rozsypané
+    /// světélkující kostky bez souvislosti. Lampy podél ulic ukážou <b>tvar
+    /// města</b> — z výšky je pak vidět síť, ne jen shluk. Je to tatáž
+    /// informace, kterou přes den nese silnice.</para>
+    ///
+    /// <para>Lampa je jedno malé jádro a jeden slabší kruh kolem. Víc vrstev
+    /// nemá smysl: při běžném přiblížení je celá lampa pár pixelů.</para>
+    /// </summary>
+    private void DrawStreetLamps(
+        SpriteBatch spriteBatch, Camera2D camera, Simulation simulation,
+        float nightFactor, Vector2 min, Vector2 max)
+    {
+        if (camera.Zoom < DetailLevel.Scale(LampZoom))
+        {
+            return;
+        }
+
+        DrawLampsAlong(spriteBatch, simulation.RoadTiles, nightFactor, min, max);
+        DrawLampsAlong(spriteBatch, simulation.NpcRoadTiles, nightFactor, min, max);
+    }
+
+    /// <summary>Rozsvítí lampy nad jedním seznamem silničních dlaždic.</summary>
+    private void DrawLampsAlong(
+        SpriteBatch spriteBatch, IReadOnlyList<RoadTile> roadTiles,
+        float nightFactor, Vector2 min, Vector2 max)
+    {
+        const int tileSize = TerrainRenderer.TileSize;
+
+        for (int i = 0; i < roadTiles.Count; i++)
+        {
+            var tile = roadTiles[i];
+
+            // Rozteč se počítá ze souřadnic, ne z pořadí v seznamu: pořadí
+            // závisí na tom, v jakém sledu hráč silnice stavěl, takže by se
+            // lampy po každém dostavěném kusu přeskládaly jinam.
+            if (((tile.X * 2 + tile.Y * 3) % LampSpacing) != 0)
+            {
+                continue;
+            }
+
+            int x = tile.X * tileSize;
+            int y = tile.Y * tileSize;
+            if (x + tileSize < min.X || x > max.X || y + tileSize < min.Y || y > max.Y)
+            {
+                continue;
+            }
+
+            int centerX = x + tileSize / 2;
+            int centerY = y + tileSize / 2;
+            float alpha = nightFactor * 0.5f;
+
+            spriteBatch.Draw(
+                _pixel,
+                new Rectangle(centerX - 5, centerY - 5, 10, 10),
+                LampColor * (alpha * 0.22f));
+            spriteBatch.Draw(
+                _pixel,
+                new Rectangle(centerX - 1, centerY - 1, 2, 2),
+                LampColor * alpha);
+        }
     }
 
     private void DrawCenteredGlow(SpriteBatch spriteBatch, int centerX, int centerY, int width, int height, float alpha)

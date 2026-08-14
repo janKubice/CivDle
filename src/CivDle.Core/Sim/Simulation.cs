@@ -53,6 +53,7 @@ public sealed class Simulation
     private readonly GrandWorkSystem _grandWork; // bezedný odběr přebytků
     private readonly List<GrandWorkStage> _grandWorkDone = new(); // dokončené stupně (drží bonusy)
     private readonly LegacySystem _legacy; // druhá prestižní vrstva (Odkaz)
+    private readonly AutoResearchSystem _autoResearch = new(); // odemyká se až v Odkazu
     private readonly ConstructionSystem _constructionSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
@@ -3178,6 +3179,10 @@ public sealed class Simulation
         _haulSystem.Tick(this);
         _populationSystem.Tick(this);
         _autoBuild.Tick(this);
+
+        // Až po auto-stavbě: nová technologie často odemkne budovu, a je
+        // přirozenější postavit ji hned příští tik než ji držet interval navíc.
+        _autoResearch.Tick(this);
         _zoneFill.Tick(this);
         _colonySystem.Tick(this); // guvernér: expanze do nových kolonií
         _settlementSystem.Tick(this);
@@ -5623,6 +5628,43 @@ public sealed class Simulation
         return PlacementResult.Ok;
     }
 
+    /// <summary>Kolik technologií obsah nabízí.</summary>
+    public int TechCount => _content.Techs.Count;
+
+    /// <summary>
+    /// Kolik surovin dohromady stojí další úroveň technologie. Slouží
+    /// automatickému výzkumu k výběru „nejlevnější dostupné".
+    ///
+    /// <para>Sčítá se přes suroviny bez vážení: cílem není ekonomicky přesné
+    /// srovnání, ale stabilní pořadí, ve kterém se strom prochází zhruba tak,
+    /// jak by šel hráč.</para>
+    /// </summary>
+    public double TotalResearchCost(int techIndex)
+    {
+        var tech = _content.Techs[techIndex];
+        int level = _techLevel[techIndex];
+
+        double total = 0;
+        for (int i = 0; i < tech.Cost.Count; i++)
+        {
+            total += ResearchCost(tech.Cost[i].Amount, level);
+        }
+
+        return total;
+    }
+
+    /// <summary>
+    /// Kolik uzlů za interval zvládne automatický výzkum (0 = vypnutý).
+    /// Odemyká se vylepšením Odkazu.
+    /// </summary>
+    public double AutoResearchLevel => _bonuses.AutoResearchLevel;
+
+    /// <summary>Násobič tempa automatického výzkumu (nikdy pod 1).</summary>
+    public double ResearchSpeed => Math.Max(1.0, _bonuses.ResearchSpeed);
+
+    /// <summary>Běží automatický výzkum? (Pro cedulku v UI.)</summary>
+    public bool AutoResearchActive => AutoResearchLevel >= 1;
+
     /// <summary>Příkaz hráče: vyzkoumat technologii — odečte cenu a odemkne její budovy.</summary>
     public PlacementResult TryResearch(int techIndex)
     {
@@ -6492,8 +6534,8 @@ public sealed class Simulation
         // Kategorie 1: trvalé upgrady Vzestupu (násobí se mezi sebou).
         double production = 1.0, harvest = 1.0, growth = 1.0, housing = 1.0, storage = 1.0;
         double start = 1.0, offline = 1.0, discovery = 1.0, festival = 1.0, autoBuild = 1.0;
-        double combo = 1.0;
-        double critChance = 0.0, jackpot = 0.0, research = 0.0;
+        double combo = 1.0, researchSpeed = 1.0;
+        double critChance = 0.0, jackpot = 0.0, research = 0.0, autoResearch = 0.0;
 
         for (int i = 0; i < _upgradeLevels.Length; i++)
         {
@@ -6530,7 +6572,7 @@ public sealed class Simulation
         // proto se sčítá zvlášť a teprve výsledek se do násobičů promítne.
         double techProduction = 1.0, techHarvest = 1.0, techGrowth = 1.0, techHousing = 1.0;
         double techStorage = 1.0, techOffline = 1.0, techDiscovery = 1.0, techFestival = 1.0, techAutoBuild = 1.0;
-        double techCombo = 1.0;
+        double techCombo = 1.0, techResearchSpeed = 1.0;
 
         // Cílené efekty jdou do vlastního pole; bez toho by „+5 % dřeva"
         // zvedlo i výrobu oceli.
@@ -6572,6 +6614,7 @@ public sealed class Simulation
                 case "crit_chance": critChance += magnitude; break;
                 case "jackpot_chance": jackpot += magnitude; break;
                 case "research_discount": research += magnitude; break;
+                case "research_speed": techResearchSpeed += magnitude; break;
             }
         }
 
@@ -6589,7 +6632,9 @@ public sealed class Simulation
             festival * techFestival,
             Math.Min(research, 0.9),
             autoBuild * techAutoBuild,
-            combo * techCombo);
+            combo * techCombo,
+            autoResearch,
+            researchSpeed * techResearchSpeed);
 
         // Násobičové efekty se skládají mocninou; ty, které se sčítají do
         // pravděpodobnosti (kritický sběr) nebo do slevy, přirozeně součtem.
@@ -6611,6 +6656,12 @@ public sealed class Simulation
                 case "crit_chance": critChance += sum; break;
                 case "jackpot_chance": jackpot += sum; break;
                 case "research_discount": research += sum; break;
+                case "research_speed": researchSpeed *= multiplier; break;
+
+                // Automatický výzkum je POČET uzlů za interval, ne násobič —
+                // proto se úrovně sčítají. Násobení by z první koupené úrovně
+                // udělalo nulu krát cokoli.
+                case "auto_research": autoResearch += sum; break;
             }
         }
     }

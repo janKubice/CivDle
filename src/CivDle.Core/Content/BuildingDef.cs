@@ -140,6 +140,15 @@ public sealed record BuildingSpectacle(SpectacleEffect Effect, double IntervalSe
 /// <param name="UpgradeCost">Cena vylepšení na další úroveň.</param>
 /// <param name="PowerSupply">Kolik elektřiny budova dodává (elektrárny); 0 = žádnou.</param>
 /// <param name="PowerDemand">Kolik elektřiny budova potřebuje; &gt;0 = její výroba škáluje s pokrytím sítě.</param>
+/// <param name="Paving">
+/// Jak moc budova zpevňuje zem pod sebou (0–1, výchozí 1 = plně).
+///
+/// <para>Existuje kvůli tomu, aby velkoměsto vypadalo shora jako město: pod
+/// hustou zástavbou se zeleň ztratí a zbude jen tam, kde ji hráč nechal —
+/// takže park uprostřed betonu něco znamená. Pole a rybárny ale mají zůstat
+/// zelené, jinak by z farmy byl parkoviště, a to je přesně ta výjimka,
+/// kterou nejde odvodit z kategorie: farma i ocelárna jsou „production".</para>
+/// </param>
 /// <param name="MergesToIndex">Index budovy, na kterou se sloučí blok 2×2 stejných; −1 = neslučuje se.</param>
 /// <param name="MergeCostOrNull">Cena sloučení (nad rámec už postavených budov).</param>
 public sealed record BuildingDef(
@@ -175,7 +184,8 @@ public sealed record BuildingDef(
     int ReforestRadius = 0,
     int ScoutRadius = 0,
     int TerraformActionIndex = -1,
-    int TerraformRadius = 0)
+    int TerraformRadius = 0,
+    double Paving = 1.0)
 {
     /// <summary>
     /// Podívaná, kterou budova pravidelně předvádí; <c>null</c> = jen stojí.

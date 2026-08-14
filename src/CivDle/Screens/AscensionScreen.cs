@@ -134,6 +134,8 @@ public sealed class AscensionScreen : IScreen
 
         layout.Widgets.Add(BatchPicker());
 
+        layout.Widgets.Add(LegacyTeaser());
+
         // Upgrady (strom) ve scrollu.
         var list = new VerticalStackPanel { Spacing = 8 };
         var upgrades = _screens.Content.PrestigeUpgrades;
@@ -167,6 +169,79 @@ public sealed class AscensionScreen : IScreen
     /// Přepínač „kolik úrovní naráz". Kupovat po jedné je u opakovatelných
     /// upgradů, kde hráč utrácí stovky bodů, jen klikání.
     /// </summary>
+    /// <summary>
+    /// Ukazatel na vrstvu nad Vzestupem.
+    ///
+    /// <para>Odkaz byl doteď <b>úplně neviditelný</b>, dokud se neodemkl: hráč
+    /// se nikde nedozvěděl, že existuje, ani že k němu vede pátý Vzestup. Měna,
+    /// o které se hráč dozví teprve ve chvíli, kdy ji už má, není odměna —
+    /// je to překvapení, které si nemohl naplánovat.</para>
+    ///
+    /// <para>Panel je proto vidět od začátku a vždycky říká <em>jednu</em> další
+    /// věc: kolik Vzestupů chybí, nebo že už se dá odkaz zanechat.</para>
+    /// </summary>
+    private Widget LegacyTeaser()
+    {
+        var loc = _screens.Loc;
+        var box = new VerticalStackPanel
+        {
+            Spacing = 4,
+            Padding = new Thickness(10, 8),
+            Width = PanelWidth - 40,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Background = new SolidBrush(UiPalette.Panel),
+        };
+
+        box.Widgets.Add(new Label
+        {
+            Text = loc["hud.legacy"],
+            TextColor = UiFactory.Accent,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        });
+
+        box.Widgets.Add(new Label
+        {
+            Text = loc["legacy.teaser"],
+            TextColor = Color.LightGray,
+            Wrap = true,
+            Width = PanelWidth - 70,
+        });
+
+        if (!_simulation.LegacyAvailable)
+        {
+            // Před prvním Vzestupem: řekni, čím se to otevře.
+            box.Widgets.Add(new Label
+            {
+                Text = loc["legacy.teaser.locked"],
+                TextColor = UiPalette.TextDim,
+                Wrap = true,
+                Width = PanelWidth - 70,
+            });
+
+            return box;
+        }
+
+        long progress = _simulation.LegacyProgress();
+        long required = _simulation.LegacyRequirement();
+        bool ready = _simulation.CanLeaveLegacy();
+
+        box.Widgets.Add(new Label
+        {
+            Text = ready
+                ? loc.Format("legacy.teaser.ready", _simulation.PendingLegacyPoints())
+                : loc.Format("legacy.teaser.progress", progress, required),
+            TextColor = ready ? UiPalette.Good : UiPalette.Text,
+            Wrap = true,
+            Width = PanelWidth - 70,
+        });
+
+        box.Widgets.Add(UiFactory.SmallButton(
+            loc["legacy.teaser.open"],
+            () => _screens.Push(new LegacyScreen(_screens, _simulation))));
+
+        return box;
+    }
+
     private Widget BatchPicker()
     {
         var loc = _screens.Loc;

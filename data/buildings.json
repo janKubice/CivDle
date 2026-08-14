@@ -399,7 +399,8 @@
         "every": 5,
         "bonusPerStep": 0.1,
         "maxSteps": 10
-      }
+      },
+      "paving": 0.1
     },
     {
       "id": "plantation",
@@ -442,7 +443,8 @@
         "every": 8,
         "bonusPerStep": 0.12,
         "maxSteps": 8
-      }
+      },
+      "paving": 0.1
     },
     {
       "id": "warehouse",
@@ -1456,7 +1458,8 @@
         "every": 5,
         "bonusPerStep": 0.1,
         "maxSteps": 10
-      }
+      },
+      "paving": 0.0
     },
     {
       "id": "hunters_lodge",
@@ -1833,7 +1836,8 @@
         "every": 10,
         "bonusPerStep": 0.15,
         "maxSteps": 6
-      }
+      },
+      "paving": 0.0
     },
     {
       "id": "deep_sea_port",
