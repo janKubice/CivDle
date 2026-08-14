@@ -193,9 +193,31 @@ public sealed class AscensionScreen : IScreen
             parts.Add(loc.Format("prestige.inherit.buildings", _simulation.InheritedBuildings));
         }
 
+        if (_simulation.InheritedRoads > 0)
+        {
+            parts.Add(loc.Format("prestige.inherit.roads", _simulation.InheritedRoads));
+        }
+
+        if (_simulation.InheritedWonders > 0)
+        {
+            parts.Add(loc.Format("prestige.inherit.wonders", _simulation.InheritedWonders));
+        }
+
+        if (_simulation.InheritedResourceShare > 0)
+        {
+            parts.Add(loc.Format(
+                "prestige.inherit.resources",
+                (int)Math.Round(_simulation.InheritedResourceShare * 100)));
+        }
+
         if (_simulation.InheritsMap)
         {
             parts.Add(loc["prestige.inherit.map"]);
+        }
+
+        if (_simulation.InheritsHistory)
+        {
+            parts.Add(loc["prestige.inherit.history"]);
         }
 
         bool any = parts.Count > 0;

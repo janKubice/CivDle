@@ -155,6 +155,50 @@
       "prerequisites": [
         "worn_paths"
       ],
+      "maxLevel": 10,
+      "costGrowth": 1.5
+    },
+    {
+      "id": "eternal_roads",
+      "effect": "keep_roads",
+      "magnitude": 60.0,
+      "cost": 18,
+      "prerequisites": [
+        "eternal_foundations"
+      ],
+      "maxLevel": 15,
+      "costGrowth": 1.4
+    },
+    {
+      "id": "vaults_of_ages",
+      "effect": "keep_resources",
+      "magnitude": 0.08,
+      "cost": 16,
+      "prerequisites": [
+        "ancient_vaults"
+      ],
+      "maxLevel": 10,
+      "costGrowth": 1.45
+    },
+    {
+      "id": "deathless_wonders",
+      "effect": "keep_wonders",
+      "magnitude": 1.0,
+      "cost": 40,
+      "prerequisites": [
+        "eternal_foundations"
+      ],
+      "maxLevel": 10,
+      "costGrowth": 1.6
+    },
+    {
+      "id": "unbroken_chronicle",
+      "effect": "keep_history",
+      "magnitude": 1.0,
+      "cost": 22,
+      "prerequisites": [
+        "ancestral_libraries"
+      ],
       "maxLevel": 1,
       "costGrowth": 1.0
     }
