@@ -355,7 +355,7 @@ public sealed class GameplayScreen : IScreen
         _cityPulse = new CityPulseRenderer(screens.WhitePixel, screens.Content);
         _rolling = new RollingNumbers(screens.Content.Resources.Count);
         _rolling.SnapTo(simulation.GetResource); // na startu (i po načtení savu) žádné dojíždění
-        _buildingRenderer = new BuildingRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
+        _buildingRenderer = new BuildingRenderer(screens.WhitePixel, screens.Content, screens.Sprites, screens.SoftShadow);
         _ambientLife = new AmbientLifeRenderer(screens.WhitePixel, screens.Content);
         _lightsRenderer = new LightsRenderer(screens.WhitePixel, screens.Content);
         _fauna = new FaunaSystem(screens.Content);

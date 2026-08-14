@@ -99,6 +99,12 @@ public sealed class CivDleGame : Game
     /// <summary>Sdílená 1×1 bílá textura na kreslení obdélníků (budovy, overlay…).</summary>
     public Texture2D WhitePixel { get; private set; } = null!;
 
+    /// <summary>
+    /// Měkká skvrna na stíny. Sdílená stejně jako bílý pixel — je to drobný
+    /// render zdroj, který potřebuje víc vrstev a nemá smysl ho mít pětkrát.
+    /// </summary>
+    public SoftShadow SoftShadow { get; private set; } = null!;
+
     /// <summary>Procedurální sprity a ikony (suroviny, budovy, objekty, agenti).</summary>
     public SpriteLibrary Sprites { get; private set; } = null!;
 
@@ -124,6 +130,7 @@ public sealed class CivDleGame : Game
         _settingsStore.Save(settings);
         ApplyGraphicsToManager(settings);
         DetailLevel.Apply(settings.Detail);
+        SceneLight.Apply(settings.Shadows);
         _graphics.ApplyChanges();
     }
 
@@ -132,6 +139,7 @@ public sealed class CivDleGame : Game
         SpriteBatch = new SpriteBatch(GraphicsDevice);
         WhitePixel = new Texture2D(GraphicsDevice, 1, 1);
         WhitePixel.SetData(new[] { Color.White });
+        SoftShadow = new SoftShadow(GraphicsDevice);
         Sprites = new SpriteLibrary(GraphicsDevice);
 
         // Obrázky z modů přebijí procedurální modely — bez toho by kreslítko

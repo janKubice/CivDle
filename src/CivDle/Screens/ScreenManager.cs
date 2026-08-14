@@ -5,6 +5,7 @@ using CivDle.Core.Save;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
+using CivDle.Rendering;
 namespace CivDle.Screens;
 
 /// <summary>
@@ -79,6 +80,9 @@ public sealed class ScreenManager
 
     /// <summary>Sdílená 1×1 bílá textura na obdélníky (overlay, budovy).</summary>
     public Texture2D WhitePixel => Game.WhitePixel;
+
+    /// <summary>Sdílená měkká skvrna na stíny.</summary>
+    public SoftShadow SoftShadow => Game.SoftShadow;
 
     /// <summary>Procedurální sprity a ikony (suroviny, budovy, objekty, agenti).</summary>
     public Rendering.Sprites.SpriteLibrary Sprites => Game.Sprites;

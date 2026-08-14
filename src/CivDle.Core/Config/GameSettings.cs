@@ -76,6 +76,15 @@ public sealed record GameSettings
     /// </summary>
     public bool CaptureStrip { get; init; } = true;
 
+    /// <summary>
+    /// Kreslit pod budovami stín?
+    ///
+    /// <para>Stín dává scéně hloubku, ale je to výrazný zásah do vzhledu
+    /// a ne každému sedí. Vypnutí je legitimní volba, ne degradace — proto
+    /// v nastavení a ne schované za stupněm detailu.</para>
+    /// </summary>
+    public bool Shadows { get; init; } = true;
+
     /// <summary>Povolený rozsah zvětšení UI (mimo něj by se rozbilo rozvržení).</summary>
     public const float MinUiScale = 0.8f;
 

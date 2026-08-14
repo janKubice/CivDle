@@ -124,6 +124,16 @@ public sealed class SaveGameSerializer
             w.Write(simulation.AutoUpgradeLevelRaw);
             w.Write(simulation.AutoMergeRaw);
             w.Write(simulation.GovernorReserveRaw);
+
+            // Plán se připojuje na konec téže sekce; starší save ho prostě
+            // nemá a načte se s výchozím (= dosavadní chování).
+            var plan = simulation.Plan;
+            w.Write((int)plan.Focus);
+            w.Write(plan.BlockedCategories.Count);
+            foreach (string category in plan.BlockedCategories)
+            {
+                w.Write(category);
+            }
         });
         WriteSection(writer, SectionFog, w =>
         {
@@ -344,6 +354,23 @@ public sealed class SaveGameSerializer
         {
             simulation.RestoreGovernorReserve(reader.ReadDouble());
         }
+
+        // Plán guvernéra přibyl jako poslední. Bez něj zůstane výchozí, tedy
+        // přesně to chování, které rozehraná hra měla.
+        if (reader.BaseStream.Position >= reader.BaseStream.Length)
+        {
+            return;
+        }
+
+        var focus = (GovernorFocus)reader.ReadInt32();
+        int blockedCount = reader.ReadInt32();
+        var blocked = new List<string>(Math.Max(0, blockedCount));
+        for (int i = 0; i < blockedCount; i++)
+        {
+            blocked.Add(reader.ReadString());
+        }
+
+        simulation.RestorePlan(focus, blocked);
     }
 
     private static void WriteChallenges(BinaryWriter writer, Simulation simulation)

@@ -38,7 +38,7 @@ public sealed class CapsuleDirector
         var terrainRenderer = new TerrainRenderer(device, content.Biomes, seed);
         var decorations = new DecorationRenderer(screens.WhitePixel, content, seed);
         var roads = new RoadRenderer(screens.WhitePixel, content);
-        var buildings = new BuildingRenderer(screens.WhitePixel, content, screens.Sprites);
+        var buildings = new BuildingRenderer(screens.WhitePixel, content, screens.Sprites, screens.SoftShadow);
         var harvestables = new HarvestableRenderer(screens.Sprites, content);
 
         Directory.CreateDirectory(_outputDirectory);

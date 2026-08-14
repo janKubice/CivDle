@@ -4303,6 +4303,17 @@ public sealed class Simulation
         return true;
     }
 
+    /// <summary>
+    /// Plán guvernéra: kam tlačit (velikost vs. kvalita) a co smí stavět.
+    /// Automatizace bez kontroly není pomocník, ale spolubydlící, který
+    /// přestavuje byt podle svého.
+    /// </summary>
+    public GovernorPlan Plan { get; } = new();
+
+    /// <summary>Obnoví plán guvernéra ze savu.</summary>
+    internal void RestorePlan(GovernorFocus focus, IEnumerable<string> blockedCategories) =>
+        Plan.Restore(focus, blockedCategories);
+
     /// <summary>ID technologie, po které umí guvernér i slučovat bloky (data-driven odkaz).</summary>
     public const string GovernorMergeTechId = "urban_planning";
 
@@ -4408,6 +4419,15 @@ public sealed class Simulation
 
             // Co se nevešlo do zkrácení intervalu, jde do počtu staveb za interval.
             double perInterval = BuildsPerInterval * AutoBuildSpeed() * (AutoBuildInterval / baseInterval);
+
+            // Zaměření plánu rozpočet váží. Vyvážený plán má váhu 1, takže se
+            // nic nemění pro toho, kdo si nic nenastavil.
+            perInterval *= Plan.GrowthWeight;
+            if (!Plan.BuildsAtAll)
+            {
+                return 0; // „jen kvalita" znamená, že město nemá růst do šířky
+            }
+
             return (int)Math.Clamp(Math.Round(perInterval), 1, MaxAutoBuildBudget);
         }
     }
@@ -4428,7 +4448,31 @@ public sealed class Simulation
                 return 0;
             }
 
-            double perInterval = (double)level * AutoBuildBudget / Math.Max(1, BuildsPerInterval);
+            if (!Plan.UpgradesAtAll)
+            {
+                return 0; // „jen růst" znamená, že se nemá vylepšovat
+            }
+
+            // Rozpočet se odvozuje od tempa stavby, ne od jejího VÁŽENÉHO
+            // výsledku — jinak by „jen kvalita" (kde se nestaví) nevylepšovala
+            // vůbec, protože by násobila nulou.
+            double perInterval = (double)level * UnweightedBuildBudget / Math.Max(1, BuildsPerInterval);
+            perInterval *= Plan.QualityWeight;
+            return (int)Math.Clamp(Math.Round(perInterval), 1, MaxAutoBuildBudget);
+        }
+    }
+
+    /// <summary>
+    /// Tempo stavby <b>bez</b> vážení plánem. Slouží jako společný základ pro
+    /// obě strany plánu: kdyby se vylepšování odvozovalo od váženého tempa
+    /// stavby, „jen kvalita" by násobila nulou a nevylepšovala by nic.
+    /// </summary>
+    private int UnweightedBuildBudget
+    {
+        get
+        {
+            double baseInterval = Math.Max(1, _content.Gameplay.AutoBuild.IntervalTicks);
+            double perInterval = BuildsPerInterval * AutoBuildSpeed() * (AutoBuildInterval / baseInterval);
             return (int)Math.Clamp(Math.Round(perInterval), 1, MaxAutoBuildBudget);
         }
     }

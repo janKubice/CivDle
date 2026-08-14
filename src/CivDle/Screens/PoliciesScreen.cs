@@ -95,6 +95,153 @@ public sealed class PoliciesScreen : IScreen
     /// zámek (automatizace se odemyká, není výchozí). Po odemčení si nastaví míru —
     /// od „vypnuto" po „vše, svižně".
     /// </summary>
+    /// <summary>Zaměření guvernéra jako táhlo: od „jen růst" po „jen kvalita".</summary>
+    private static readonly GovernorFocus[] FocusSteps =
+    {
+        GovernorFocus.Growth,
+        GovernorFocus.MostlyGrowth,
+        GovernorFocus.Balanced,
+        GovernorFocus.MostlyQuality,
+        GovernorFocus.Quality,
+    };
+
+    /// <summary>
+    /// Táhlo velikost ↔ kvalita.
+    ///
+    /// <para>Bez něj měl hráč na výběr jen „vylepšuj" a „nevylepšuj". Kdo chtěl
+    /// kompaktní vypiplané město, neměl jak guvernérovi říct, ať přestane
+    /// zabírat krajinu; kdo chtěl expandovat, ho nemohl přimět nechat
+    /// vylepšování být.</para>
+    /// </summary>
+    private Widget FocusRow()
+    {
+        var loc = _screens.Loc;
+        var plan = _simulation.Plan;
+
+        var box = new VerticalStackPanel { Spacing = 5 };
+        box.Widgets.Add(new Label
+        {
+            Text = loc.Format("governor.focus", loc[FocusKey(plan.Focus)]),
+            TextColor = UiPalette.Accent,
+        });
+
+        var row = new HorizontalStackPanel { Spacing = 6 };
+        foreach (var focus in FocusSteps)
+        {
+            var captured = focus;
+            bool active = plan.Focus == focus;
+            var button = new Button
+            {
+                Content = new Label
+                {
+                    Text = loc[FocusShortKey(focus)],
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextColor = active ? Color.White : UiPalette.Text,
+                },
+                Width = 80,
+                Height = 32,
+                Background = new SolidBrush(active ? UiPalette.PanelGood : UiPalette.Panel),
+            };
+            button.Click += (_, _) =>
+            {
+                _simulation.Plan.SetFocus(captured);
+                BuildUi();
+            };
+            row.Widgets.Add(button);
+        }
+
+        box.Widgets.Add(row);
+
+        // Krajní volby znamenají, že jedna půlka práce úplně stojí. To musí být
+        // napsané — jinak vypadá guvernér, který nestaví, jako rozbitý.
+        if (!plan.BuildsAtAll || !plan.UpgradesAtAll)
+        {
+            box.Widgets.Add(new Label
+            {
+                Text = loc[plan.BuildsAtAll ? "governor.focus.noBuild" : "governor.focus.noUpgrade"],
+                TextColor = UiPalette.Warn,
+                Wrap = true,
+            });
+        }
+
+        return box;
+    }
+
+    /// <summary>
+    /// Přepínače kategorií: co všechno smí guvernér stavět.
+    ///
+    /// <para>Seznam se bere z obsahu, ne z pevného výčtu v kódu — jinak by
+    /// budovy z modů neměly jak se do nabídky dostat.</para>
+    /// </summary>
+    private Widget CategoryRows()
+    {
+        var loc = _screens.Loc;
+        var plan = _simulation.Plan;
+
+        var box = new VerticalStackPanel { Spacing = 5 };
+        box.Widgets.Add(new Label { Text = loc["governor.categories"], TextColor = UiPalette.Accent });
+        box.Widgets.Add(new Label
+        {
+            Text = loc["governor.categories.hint"],
+            TextColor = Color.LightGray,
+            Wrap = true,
+        });
+
+        var row = new HorizontalStackPanel { Spacing = 6 };
+        int inRow = 0;
+        foreach (string category in AutoBuildCategories())
+        {
+            string captured = category;
+            bool allowed = plan.AllowsCategory(category);
+            var button = new Button
+            {
+                Content = new Label
+                {
+                    Text = loc[$"category.{category}"],
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextColor = allowed ? Color.White : UiPalette.TextDim,
+                },
+                Width = 132,
+                Height = 30,
+                Background = new SolidBrush(allowed ? UiPalette.PanelGood : UiPalette.Panel),
+            };
+            button.Click += (_, _) =>
+            {
+                _simulation.Plan.SetCategoryAllowed(captured, !_simulation.Plan.AllowsCategory(captured));
+                BuildUi();
+            };
+
+            row.Widgets.Add(button);
+            if (++inRow % 3 == 0)
+            {
+                box.Widgets.Add(row);
+                row = new HorizontalStackPanel { Spacing = 6 };
+            }
+        }
+
+        if (inRow % 3 != 0)
+        {
+            box.Widgets.Add(row);
+        }
+
+        return box;
+    }
+
+    /// <summary>Kategorie, které vůbec připadají v úvahu — tedy ty s auto-stavitelnou budovou.</summary>
+    private IEnumerable<string> AutoBuildCategories() =>
+        _screens.Content.Buildings.All
+            .Where(b => b.AutoBuild)
+            .Select(b => b.Category)
+            .Distinct()
+            .OrderBy(c => c, StringComparer.Ordinal);
+
+    private static string FocusKey(GovernorFocus focus) =>
+        $"governor.focus.{focus.ToString().ToLowerInvariant()}";
+
+    private static string FocusShortKey(GovernorFocus focus) => FocusKey(focus) + ".short";
+
     private Widget GovernorSection()
     {
         var loc = _screens.Loc;
@@ -163,6 +310,9 @@ public sealed class PoliciesScreen : IScreen
         }
 
         box.Widgets.Add(levels);
+
+        box.Widgets.Add(FocusRow());
+        box.Widgets.Add(CategoryRows());
 
         // U zamčeného stupně musí být vidět, ČÍM se odemkne — jinak vypadá
         // přeškrtnuté tlačítko jako rozbitá hra.

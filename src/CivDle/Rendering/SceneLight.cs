@@ -3,25 +3,29 @@ using Microsoft.Xna.Framework;
 namespace CivDle.Rendering;
 
 /// <summary>
-/// Odkud na scénu svítí. Jedno místo pro celou hru.
-///
-/// <para>Proč to vzniklo: každý renderer si stín kreslil po svém — budova měla
-/// třípixelový proužek u spodní hrany, strom nic, landmark zase něco jiného.
-/// Když každý objekt vrhá stín jinam (nebo žádný), scéna nevypadá jako místo
-/// se sluncem, ale jako nálepky na papíře. Stačí, aby všechno vrhalo stín
-/// <b>stejným směrem</b>, a plochý obraz najednou má hloubku.</para>
+/// Odkud na scénu svítí a jak velký stín z toho padá. Jedno místo pro celou hru.
 ///
 /// <para>Světlo je zleva shora, stín tedy padá doprava dolů. Je to volba, ne
 /// fyzika: v top-down pohledu s pixelovými sprity je čitelnost důležitější než
 /// správnost, a stín doprava dolů nezakrývá vchody, které se kreslí u spodní
 /// hrany.</para>
 ///
-/// <para>Délka stínu roste s <b>výškou</b> objektu, kterou v 2D odhadujeme
-/// z půdorysu: katedrála o dvou dlaždicích má vrhat delší stín než chalupa.
-/// Bez toho by celé město vypadalo jako jedna nízká vrstva.</para>
+/// <para><b>Přepsáno po pohledu na výsledek.</b> První verze kreslila dva plné
+/// obdélníky: kopii budovy posunutou stranou a rámeček kolem paty. Na papíře to
+/// dávalo smysl, na obrazovce ne — sprity nejsou obdélníky, takže z toho byly
+/// tvrdé tmavé krabice čouhající z budov a u shluků se slévaly do špinavých
+/// ploch na trávě. Vypadalo to jako flek, ne jako stín.</para>
+///
+/// <para>Teď je stín <b>měkká plochá skvrna u paty</b> budovy, mírně posunutá
+/// po směru světla — tak, jak se to v top-down pixel artu dělá. Nekopíruje tvar
+/// objektu (ten stejně neznáme), jen říká „tady to stojí na zemi". Měkký okraj
+/// je to podstatné: právě tvrdá hrana dělala z předchozí verze krabici.</para>
+///
+/// <para>Délka roste s <b>výškou</b> objektu, kterou v 2D odhadujeme z půdorysu:
+/// katedrála o dvou dlaždicích má vrhat větší stín než chalupa.</para>
 ///
 /// <para>Vrstva: čistý render, žádný stav — jen převod „jak velký objekt" na
-/// „kam a jak dlouhý stín".</para>
+/// „kam a jak velká skvrna".</para>
 /// </summary>
 public static class SceneLight
 {
@@ -31,29 +35,44 @@ public static class SceneLight
     /// <summary>Svislá složka směru stínu (kladná = dolů).</summary>
     public const float DirectionY = 0.78f;
 
-    /// <summary>Stín nejnižšího objektu v pixelech. Míň by nebylo vidět.</summary>
-    public const float MinLength = 3f;
+    /// <summary>Posun stínu u nejnižšího objektu v pixelech.</summary>
+    public const float MinLength = 2f;
 
     /// <summary>
-    /// Strop délky stínu. Bez něj by megastruktura o osmi dlaždicích vrhala
-    /// stín přes půl obrazovky a zakryla by ulici, na které stojí.
+    /// Strop posunu. Bez něj by megastruktura o osmi dlaždicích odhodila stín
+    /// přes půl ulice, na které stojí.
     /// </summary>
-    public const float MaxLength = 14f;
-
-    /// <summary>Krytí vrženého stínu. Záměrně slabé — je to nádech, ne díra.</summary>
-    public const float ShadowAlpha = 0.28f;
+    public const float MaxLength = 9f;
 
     /// <summary>
-    /// Krytí ztmavení kolem paty budovy (ambient occlusion). Ještě slabší než
-    /// stín: kdyby bylo vidět jako obrys, vypadaly by budovy orámované.
+    /// Krytí stínu. Vyšší než u staré verze schválně — měkký okraj unese víc
+    /// než tvrdá hrana, která při stejné hodnotě bila do očí.
     /// </summary>
-    public const float ContactAlpha = 0.14f;
+    public const float ShadowAlpha = 0.34f;
+
+    /// <summary>
+    /// Jak plochá je skvrna vůči šířce budovy. Půlka by byla kruh, což
+    /// v top-down pohledu vypadá jako díra pod domem.
+    /// </summary>
+    private const float Flatness = 0.42f;
 
     /// <summary>Barva stínu. Nejde o černou — modravý stín působí jako denní světlo.</summary>
     public static readonly Color ShadowColor = new(28, 30, 46);
 
     /// <summary>
-    /// Jak daleko sahá stín objektu o daném půdorysu (v pixelech).
+    /// Kreslí se stín vůbec? Hráč si ho může v nastavení vypnout.
+    ///
+    /// <para>Statické ze stejného důvodu jako <see cref="DetailLevel"/>: čte to
+    /// renderer v každém snímku, je to čistě prezentační přepínač bez stavu
+    /// a protahovat ho konstruktory vrstev by nic nezpřehlednilo.</para>
+    /// </summary>
+    public static bool Enabled { get; private set; } = true;
+
+    /// <summary>Nastaví se při startu a při změně nastavení.</summary>
+    public static void Apply(bool enabled) => Enabled = enabled;
+
+    /// <summary>
+    /// Jak daleko se stín odsune od objektu o daném půdorysu (v pixelech).
     ///
     /// <para>Roste odmocninou, ne lineárně: mezi chalupou a domem má být rozdíl
     /// vidět, mezi mrakodrapem a megastrukturou už nikoho nezajímá.</para>
@@ -64,40 +83,30 @@ public static class SceneLight
         return Math.Clamp(MinLength * MathF.Sqrt(tiles), MinLength, MaxLength);
     }
 
-    /// <summary>Posun stínu objektu o daném půdorysu (zaokrouhlený na pixely).</summary>
-    public static Point OffsetFor(int footprintTiles)
-    {
-        float length = LengthFor(footprintTiles);
-        return new Point(
-            (int)MathF.Round(length * DirectionX),
-            (int)MathF.Round(length * DirectionY));
-    }
-
     /// <summary>
-    /// Obdélník vrženého stínu pod objektem. Stín je o něco nižší než objekt —
-    /// jinak by vypadal jako druhá kopie budovy posunutá stranou.
+    /// Obdélník, do kterého se vykreslí měkká skvrna stínu — plochá elipsa
+    /// u spodní hrany objektu, posunutá po směru světla.
+    ///
+    /// <para>Skvrna schválně přesahuje šířku budovy jen málo a leží <b>hlavně
+    /// pod ní</b>: stín, který je větší než objekt, čte oko jako druhý objekt.</para>
     /// </summary>
     public static Rectangle ShadowRect(Rectangle bounds, int footprintTiles)
     {
-        var offset = OffsetFor(footprintTiles);
-        int shrink = Math.Min(bounds.Height / 4, 4);
-        return new Rectangle(
-            bounds.X + offset.X,
-            bounds.Y + offset.Y + shrink,
-            bounds.Width,
-            Math.Max(1, bounds.Height - shrink));
-    }
+        float length = LengthFor(footprintTiles);
 
-    /// <summary>
-    /// Ztmavení těsně kolem paty objektu — to, čemu se v 3D říká ambient
-    /// occlusion. Obdélník o pár pixelů větší než budova, kreslený pod ni.
-    /// Díky němu budova „sedí" v terénu, místo aby na něm ležela.
-    /// </summary>
-    public static Rectangle ContactRect(Rectangle bounds)
-    {
-        const int spread = 2;
+        int width = bounds.Width + (int)MathF.Round(length);
+        int height = Math.Max(3, (int)MathF.Round(bounds.Width * Flatness));
+
+        // Střed skvrny sedí na spodní hraně budovy a odtud se posune po směru
+        // světla. Kdyby seděl na středu budovy, vypadala by budova, že se
+        // vznáší nad vlastním stínem.
+        float centerX = bounds.X + bounds.Width * 0.5f + length * DirectionX;
+        float centerY = bounds.Bottom + length * DirectionY * 0.5f;
+
         return new Rectangle(
-            bounds.X - spread, bounds.Y - spread,
-            bounds.Width + 2 * spread, bounds.Height + 2 * spread);
+            (int)MathF.Round(centerX - width * 0.5f),
+            (int)MathF.Round(centerY - height * 0.5f),
+            width,
+            height);
     }
 }

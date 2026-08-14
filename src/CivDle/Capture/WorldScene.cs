@@ -45,7 +45,7 @@ public sealed class WorldScene : IDisposable
         _water = new WaterRenderer(pixel);
         _decorations = new DecorationRenderer(pixel, content, seed);
         _roads = new RoadRenderer(pixel, content);
-        _buildings = new BuildingRenderer(pixel, content, screens.Sprites);
+        _buildings = new BuildingRenderer(pixel, content, screens.Sprites, screens.SoftShadow);
         _ambient = new AmbientLifeRenderer(pixel, content);
         _lights = new LightsRenderer(pixel, content);
     }
