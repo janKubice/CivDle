@@ -134,6 +134,7 @@ public sealed class AscensionScreen : IScreen
 
         layout.Widgets.Add(BatchPicker());
 
+        layout.Widgets.Add(InheritanceRow());
         layout.Widgets.Add(LegacyTeaser());
 
         // Upgrady (strom) ve scrollu.
@@ -169,6 +170,47 @@ public sealed class AscensionScreen : IScreen
     /// Přepínač „kolik úrovní naráz". Kupovat po jedné je u opakovatelných
     /// upgradů, kde hráč utrácí stovky bodů, jen klikání.
     /// </summary>
+    /// <summary>
+    /// Co Vzestup přežije.
+    ///
+    /// <para>Dědictví je ta nejsilnější věc, kterou Odkaz nabízí, a zároveň
+    /// jediná, kterou hráč <b>nevidí na číslech</b> — pozná ji až v okamžiku
+    /// resetu, kdy je pozdě se rozmýšlet. Proto stojí přímo nad tlačítkem
+    /// Vzestupu: v jedné větě, čím se tenhle reset liší od minulého.</para>
+    /// </summary>
+    private Widget InheritanceRow()
+    {
+        var loc = _screens.Loc;
+
+        var parts = new List<string>(3);
+        if (_simulation.InheritedTechs > 0)
+        {
+            parts.Add(loc.Format("prestige.inherit.techs", _simulation.InheritedTechs));
+        }
+
+        if (_simulation.InheritedBuildings > 0)
+        {
+            parts.Add(loc.Format("prestige.inherit.buildings", _simulation.InheritedBuildings));
+        }
+
+        if (_simulation.InheritsMap)
+        {
+            parts.Add(loc["prestige.inherit.map"]);
+        }
+
+        bool any = parts.Count > 0;
+        return new Label
+        {
+            Text = any
+                ? loc.Format("prestige.inherit", string.Join(" · ", parts))
+                : loc["prestige.inherit.none"],
+            TextColor = any ? UiPalette.Good : UiPalette.TextDim,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Wrap = true,
+            Width = PanelWidth - 40,
+        };
+    }
+
     /// <summary>
     /// Ukazatel na vrstvu nad Vzestupem.
     ///
