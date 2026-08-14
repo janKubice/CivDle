@@ -2378,6 +2378,7 @@ public sealed class ContentLoader
             // Dědictví: tyhle tři ruší část samotného resetu. Do Vzestupu
             // nepatří — ten reset provádí, takže by si protiřečil.
             "keep_techs", "keep_buildings", "keep_map",
+            "keep_roads", "keep_resources", "keep_wonders", "keep_history",
         };
 
     private (PrestigeConfig Config, DefRegistry<PrestigeUpgradeDef> Upgrades) LoadPrestige(

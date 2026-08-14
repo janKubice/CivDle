@@ -122,6 +122,81 @@ public class LegacyInheritanceTests
     }
 
     [Fact]
+    public void KeptRoadsSurviveTheReset()
+    {
+        // Bez cest je zděděné jádro k ničemu: budovy stojí, ale nemají se jak
+        // obsloužit a hráč překresluje totéž, co tam bylo.
+        var sim = ReadyForInheritance("eternal_roads", levels: 1);
+        for (int i = 0; i < 20; i++)
+        {
+            sim.AddRoadTileForTest(sim.CityCenterX + i, sim.CityCenterY);
+        }
+
+        int before = sim.RoadTiles.Count;
+        Assert.True(before > 0);
+
+        AscendNow(sim);
+
+        Assert.True(sim.RoadTiles.Count > 0, "po Vzestupu nezůstala ani jedna silnice");
+        Assert.Equal(sim.RoadTiles.Count, sim.LastInheritedRoads);
+    }
+
+    [Fact]
+    public void KeptResourcesNeverMakeTheStartWorse()
+    {
+        // Kdyby zděděný podíl vyšel míň než běžný startovní stav, dostal by
+        // hráč za koupené vylepšení HORŠÍ začátek — opak toho, co kupoval.
+        var content = TestData.LoadRealContent();
+        var plain = GrownWorld(content);
+        AscendNow(plain);
+
+        var rich = ReadyForInheritance("vaults_of_ages", levels: 1, content);
+        rich.DebugFillStorages();
+        AscendNow(rich);
+
+        for (int r = 0; r < rich.ResourceCount; r++)
+        {
+            Assert.True(
+                rich.GetResource(r) >= plain.GetResource(r) - 0.001,
+                $"surovina {r}: dědictví dalo míň než běžný start");
+        }
+    }
+
+    [Fact]
+    public void TheEyeOfAgesIsLevelable()
+    {
+        // Binární vylepšení je slepá ulička — po jedné koupi se na něm uvízne.
+        var sim = ReadyForInheritance("eye_of_ages", levels: 3);
+
+        Assert.True(sim.InheritsMap);
+        Assert.True(sim.InheritedRevealRadius > 0, "další úrovně Oka věků nic nepřidaly");
+    }
+
+    [Fact]
+    public void TheChronicleSurvivesAscension()
+    {
+        var sim = ReadyForInheritance("unbroken_chronicle", levels: 1);
+        sim.CaptureHistoryNow();
+        int before = sim.History.Count;
+        Assert.True(before > 0, "test potřebuje aspoň jeden snímek kroniky");
+
+        AscendNow(sim);
+
+        Assert.True(sim.History.Count >= before, "kronika se i s Nepřerušenou kronikou smazala");
+    }
+
+    [Fact]
+    public void WithoutTheChronicleHistoryStartsOver()
+    {
+        var sim = GrownWorld();
+        sim.CaptureHistoryNow();
+
+        AscendNow(sim);
+
+        Assert.True(sim.History.Count <= 1, "časosběr měl začít nanovo");
+    }
+
+    [Fact]
     public void RealContentOffersAllThreeInheritances()
     {
         // Efekt bez vylepšení v datech je mrtvý kód.
@@ -136,6 +211,10 @@ public class LegacyInheritanceTests
         Assert.Contains("keep_techs", effects);
         Assert.Contains("keep_buildings", effects);
         Assert.Contains("keep_map", effects);
+        Assert.Contains("keep_roads", effects);
+        Assert.Contains("keep_resources", effects);
+        Assert.Contains("keep_wonders", effects);
+        Assert.Contains("keep_history", effects);
     }
 
     // ----- pomůcky -----
@@ -199,25 +278,39 @@ public class LegacyInheritanceTests
         return sim;
     }
 
-    /// <summary>Koupí vylepšení Odkazu i s jeho předpoklady.</summary>
+    /// <summary>
+    /// Koupí vylepšení Odkazu i s celým řetězem předpokladů.
+    ///
+    /// <para>Rekurzivně: řetězy jsou víc než jeden článek dlouhé (Věčné cesty
+    /// stojí na Věčných základech a ty na Věčné výhni), takže nákup jen přímých
+    /// předpokladů skončí na „NotUnlocked".</para>
+    /// </summary>
     private static void BuyLegacyChain(Simulation sim, GameContent content, string upgradeId, int levels)
     {
         var upgrades = content.LegacyUpgrades;
         Assert.True(upgrades.TryIndexOf(upgradeId, out int index), $"vylepšení '{upgradeId}' v datech chybí");
 
         sim.DebugGrantLegacyPoints(10_000_000);
-
-        foreach (int prereq in upgrades[index].PrerequisiteIndices)
-        {
-            if (sim.LegacyLevel(prereq) == 0)
-            {
-                Assert.Equal(PlacementResult.Ok, sim.TryBuyLegacyUpgrade(prereq));
-            }
-        }
+        BuyPrerequisites(sim, content, index);
 
         for (int i = 0; i < levels; i++)
         {
             Assert.Equal(PlacementResult.Ok, sim.TryBuyLegacyUpgrade(index));
+        }
+    }
+
+    /// <summary>Koupí (rekurzivně) všechny předpoklady daného vylepšení.</summary>
+    private static void BuyPrerequisites(Simulation sim, GameContent content, int index)
+    {
+        foreach (int prereq in content.LegacyUpgrades[index].PrerequisiteIndices)
+        {
+            if (sim.LegacyLevel(prereq) > 0)
+            {
+                continue;
+            }
+
+            BuyPrerequisites(sim, content, prereq);
+            Assert.Equal(PlacementResult.Ok, sim.TryBuyLegacyUpgrade(prereq));
         }
     }
 

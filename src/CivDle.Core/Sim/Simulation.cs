@@ -58,6 +58,15 @@ public sealed class Simulation
     /// <summary>Budovy zapamatované při Vzestupu, než se svět resetuje.</summary>
     private readonly List<LegacyInheritance.KeptBuilding> _inheritedBuildings = new();
 
+    /// <summary>Silnice zapamatované při Vzestupu.</summary>
+    private readonly List<RoadTile> _inheritedRoads = new();
+
+    /// <summary>Zásoby zapamatované při Vzestupu (indexem je surovina).</summary>
+    private readonly List<double> _inheritedResources = new();
+
+    /// <summary>Kolik dlaždic silnic při posledním Vzestupu zůstalo (pro bilanci).</summary>
+    public int LastInheritedRoads { get; private set; }
+
     /// <summary>Kolik technologií se při posledním Vzestupu zdědilo (pro bilanci).</summary>
     public int LastInheritedTechs { get; private set; }
 
@@ -5637,6 +5646,34 @@ public sealed class Simulation
         return PlacementResult.Ok;
     }
 
+    /// <summary>Nejvyšší podíl surovin, který jde přes Vzestup přenést.</summary>
+    private const double MaxKeptResourceShare = 0.8;
+
+    /// <summary>Kolik dlaždic silnic Vzestup přežije (dědictví Odkazu).</summary>
+    public int InheritedRoads => (int)Math.Floor(_bonuses.KeptRoads);
+
+    /// <summary>Jaký podíl surovin Vzestup přežije (0–0,8).</summary>
+    public double InheritedResourceShare => _bonuses.KeptResourceShare;
+
+    /// <summary>Kolik divů a megastruktur Vzestup přežije nad rámec běžných budov.</summary>
+    public int InheritedWonders => (int)Math.Floor(_bonuses.KeptWonders);
+
+    /// <summary>Přežije časosběr celou civilizaci, ne jen jeden běh?</summary>
+    public bool InheritsHistory => _bonuses.KeepsHistory >= 1;
+
+    /// <summary>
+    /// O kolik dlaždic se při novém běhu navíc odhalí okolí středu.
+    ///
+    /// <para>První úroveň Oka věků drží mapu, každá další ji <b>rozšiřuje</b> —
+    /// jinak by to bylo jediné dědictví, které se nedá stupňovat, a hráč by na
+    /// něm po jedné koupi uvízl.</para>
+    /// </summary>
+    public int InheritedRevealRadius =>
+        Math.Max(0, (int)Math.Floor(_bonuses.KeepsMap) - 1) * MapRevealPerLevel;
+
+    /// <summary>Kolik dlaždic přidá jedna úroveň Oka věků nad rámec první.</summary>
+    private const int MapRevealPerLevel = 24;
+
     /// <summary>Kolik technologií Vzestup přežije (dědictví Odkazu).</summary>
     public int InheritedTechs => (int)Math.Floor(_bonuses.KeptTechs);
 
@@ -5647,7 +5684,26 @@ public sealed class Simulation
     public bool InheritsMap => _bonuses.KeepsMap >= 1;
 
     /// <summary>Dědí se vůbec něco? (Pro cedulku před Vzestupem.)</summary>
-    public bool HasInheritance => InheritedTechs > 0 || InheritedBuildings > 0 || InheritsMap;
+    public bool HasInheritance =>
+        InheritedTechs > 0 || InheritedBuildings > 0 || InheritsMap
+        || InheritedRoads > 0 || InheritedResourceShare > 0 || InheritedWonders > 0
+        || InheritsHistory;
+
+    /// <summary>
+    /// Je budova div nebo megastruktura?
+    ///
+    /// <para>Bere se z kategorie v datech, ne z pevného seznamu — mod, který
+    /// přidá vlastní monument, se tím do dědictví dostane sám.</para>
+    /// </summary>
+    internal bool IsWonder(int defIndex) =>
+        _content.Buildings[defIndex].Category is "monument" or "megastructure";
+
+    /// <summary>
+    /// Nastaví zásobu při dědictví. Ořízne se stropem skladu — zděděné zlato
+    /// nesmí přetéct přes kapacitu, kterou nový svět ještě nemá.
+    /// </summary>
+    internal void SetResourceForInheritance(int resourceIndex, double amount) =>
+        _resources[resourceIndex] = Math.Min(amount, _storageCaps[resourceIndex]);
 
     /// <summary>Jsou splněné předpoklady technologie? (Cenu neřeší.)</summary>
     internal bool PrerequisitesMet(int techIndex)
@@ -6552,7 +6608,9 @@ public sealed class Simulation
         ScaleCapAnnounced = false; // nový strop, nová novinka
 
         // Dědictví se musí sebrat TEĎ, dokud město ještě stojí.
-        LegacyInheritance.Capture(this, InheritedBuildings, _inheritedBuildings);
+        LegacyInheritance.Capture(this, InheritedBuildings, InheritedWonders, _inheritedBuildings);
+        LegacyInheritance.CaptureRoads(this, InheritedRoads, _inheritedRoads);
+        LegacyInheritance.CaptureResources(this, _inheritedResources);
 
         ResetEra(); // uvnitř i RefreshTierUnlocks — nové měřítko může odemknout megastruktury
 
@@ -6561,7 +6619,17 @@ public sealed class Simulation
         // znovu. Takhle sedí zděděné město na znalostech, které k němu patří.
         LastInheritedTechs = LegacyInheritance.GrantTechs(this, InheritedTechs);
         LastInheritedBuildings = LegacyInheritance.Restore(this, _inheritedBuildings);
+        LastInheritedRoads = LegacyInheritance.RestoreRoads(this, _inheritedRoads);
+        LegacyInheritance.RestoreResources(this, _inheritedResources, InheritedResourceShare);
+
         _inheritedBuildings.Clear();
+        _inheritedRoads.Clear();
+
+        // Oko věků nad první úrovní rozšiřuje výhled kolem středu.
+        if (InheritedRevealRadius > 0)
+        {
+            Fog.Reveal(CityCenterX, CityCenterY, InheritedRevealRadius);
+        }
 
         if (LastInheritedBuildings > 0)
         {
@@ -6596,6 +6664,7 @@ public sealed class Simulation
         double combo = 1.0, researchSpeed = 1.0;
         double critChance = 0.0, jackpot = 0.0, research = 0.0, autoResearch = 0.0;
         double keptTechs = 0.0, keptBuildings = 0.0, keepsMap = 0.0;
+        double keptRoads = 0.0, keptResources = 0.0, keptWonders = 0.0, keepsHistory = 0.0;
 
         for (int i = 0; i < _upgradeLevels.Length; i++)
         {
@@ -6697,7 +6766,14 @@ public sealed class Simulation
             researchSpeed * techResearchSpeed,
             keptTechs,
             keptBuildings,
-            keepsMap);
+            keepsMap,
+            keptRoads,
+
+            // Podíl surovin má strop: sto procent by z Vzestupu udělalo jen
+            // změnu čísla nahoře a přestal by být rozhodnutím.
+            Math.Min(keptResources, MaxKeptResourceShare),
+            keptWonders,
+            keepsHistory);
 
         // Násobičové efekty se skládají mocninou; ty, které se sčítají do
         // pravděpodobnosti (kritický sběr) nebo do slevy, přirozeně součtem.
@@ -6730,6 +6806,10 @@ public sealed class Simulation
                 case "keep_techs": keptTechs += sum; break;
                 case "keep_buildings": keptBuildings += sum; break;
                 case "keep_map": keepsMap += sum; break;
+                case "keep_roads": keptRoads += sum; break;
+                case "keep_resources": keptResources += sum; break;
+                case "keep_wonders": keptWonders += sum; break;
+                case "keep_history": keepsHistory += sum; break;
             }
         }
     }
@@ -6779,7 +6859,11 @@ public sealed class Simulation
         _districts.Clear(); // čtvrti se poznají znovu, až nová zástavba doroste
         HighestSettlementRank = -1; // v novém měřítku je i první osada zas událost
         _founders.Clear(); // zakladatelé patří ke světu, který právě skončil
-        History.Clear();   // a časosběr taky — nový svět začíná prázdným listem
+        // Kronika: bez Nepřerušené kroniky patří časosběr k jednomu běhu.
+        if (!InheritsHistory)
+        {
+            History.Clear();   // nový svět začíná prázdným listem
+        }
         _npcStates.Clear(); // cizí města nového měřítka hráče ještě neznají
         _npcTowns.Clear();  // a jejich zástavba se postaví znovu, až je hráč najde
         // Mlha: kdo si koupil Oko věků, svět znovu neobjevuje.
