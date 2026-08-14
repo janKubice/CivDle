@@ -208,7 +208,8 @@ public sealed record GameplayFileDto(
     BulkBuildDto? BulkBuild,
     LaserDto? Laser,
     HistoryDto? History,
-    ResearchDto? Research);
+    ResearchDto? Research,
+    DemoDto? Demo);
 
 /// <summary>Škálování cen výzkumu tak, jak leží v JSON.</summary>
 public sealed record ResearchDto(
@@ -641,3 +642,9 @@ public sealed record TerraformDto(
     string[]? From,
     Dictionary<string, int>? Cost,
     string? UnlockTech);
+
+/// <summary>Meze demoverze tak, jak leží v JSON.</summary>
+public sealed record DemoDto(
+    double PopulationCap,
+    long AscensionRequirement,
+    double TechFraction);

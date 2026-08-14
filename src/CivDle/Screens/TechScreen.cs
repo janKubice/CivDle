@@ -27,6 +27,13 @@ public sealed class TechScreen : IScreen
     private static readonly Color AvailableColor = new(255, 215, 120);
     private static readonly Color UnaffordableColor = new(160, 130, 80);
     private static readonly Color LockedColor = new(78, 88, 108);
+
+    /// <summary>
+    /// Uzel, na který demo nedosáhne. Teplá barva schválně: zamčené předpoklady
+    /// jsou studeně šedé („na tohle si počkám"), tohle je jiný druh zámku
+    /// („tohle si musím koupit") a hráč to má poznat bez čtení.
+    /// </summary>
+    private static readonly Color DemoLockedColor = new(150, 108, 72);
     private static readonly Color EdgeDoneColor = new(110, 210, 150, 190);
     /// <summary>Uzel, ke kterému se hráč ještě nedostal — jen matná tečka.</summary>
     private static readonly Color UnknownColor = new(64, 72, 92);
@@ -216,7 +223,9 @@ public sealed class TechScreen : IScreen
             // další úroveň, musí v souhvězdí pořád svítit jako něco k vzetí.
             bool researched = _simulation.IsTechMaxed(i);
             var status = _simulation.CanResearch(i);
+            bool beyondDemo = _simulation.IsTechBeyondDemo(i);
             var color = researched ? ResearchedColor
+                : beyondDemo ? DemoLockedColor
                 : status == PlacementResult.Ok ? AvailableColor
                 : status == PlacementResult.NotEnoughResources ? UnaffordableColor
                 : LockedColor;
@@ -310,14 +319,18 @@ public sealed class TechScreen : IScreen
             var status = _simulation.CanResearch(_hovered);
             // Nejdřív VERDIKT („můžeš / nemáš na to / zamčené"), teprve pak popis.
             // Dřív musel hráč cenu porovnávat sám a nevěděl, na čem je.
+            // Zamčeno demem se musí říct jinak než „chybí ti předpoklad" —
+            // jinak by hráč hledal ve stromu cestu, která v ukázce neexistuje.
             string verdict = researched
                 ? loc["tech.researched"]
-                : status switch
-                {
-                    PlacementResult.Ok => loc["tech.canResearch"],
-                    PlacementResult.NotUnlocked => loc.Format("tech.needs", PrerequisiteNames(_hovered)),
-                    _ => loc["tech.tooExpensive"],
-                };
+                : _simulation.IsTechBeyondDemo(_hovered)
+                    ? loc["demo.techLocked"]
+                    : status switch
+                    {
+                        PlacementResult.Ok => loc["tech.canResearch"],
+                        PlacementResult.NotUnlocked => loc.Format("tech.needs", PrerequisiteNames(_hovered)),
+                        _ => loc["tech.tooExpensive"],
+                    };
 
             string body = verdict + '\n' + loc[tech.DescriptionKey];
 

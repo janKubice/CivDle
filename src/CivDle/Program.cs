@@ -44,8 +44,20 @@ try
     // Data leží vedle binárky — funguje pro `dotnet run` i pro publish jedním exe.
     // Mody bydlí ve vlastní složce vedle nich: kdyby přepisovaly data/, každá
     // aktualizace hry by je smazala a dva mody by se nedaly použít naráz.
-    var mods = ModCatalog.Discover(Path.Combine(AppContext.BaseDirectory, "mods"));
+    // Demo mody nenačítá vůbec. Není to jen skrytá obrazovka: ukázka má
+    // ukazovat hru tak, jak ji autor postavil, a mod by do ní mohl přinést
+    // cokoli — včetně obsahu, který má být až v plné verzi.
+    var mods = Edition.IsDemo
+        ? Array.Empty<ModPackage>()
+        : ModCatalog.Discover(Path.Combine(AppContext.BaseDirectory, "mods"));
+
     var content = new ContentLoader().LoadFrom(Path.Combine(AppContext.BaseDirectory, "data"), mods);
+    if (Edition.IsDemo)
+    {
+        content.EnableDemoEdition();
+        Console.WriteLine("edice: DEMO");
+    }
+
     foreach (var mod in mods)
     {
         Console.WriteLine($"mod: {mod.Name} {mod.Version} ({mod.Id})");

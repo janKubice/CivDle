@@ -144,7 +144,10 @@ public sealed class CivDleGame : Game
 
         // Obrázky z modů přebijí procedurální modely — bez toho by kreslítko
         // v tvůrci obsahu vyrábělo soubory, které nikdo nikdy neuvidí.
-        Sprites.LoadModSprites(GraphicsDevice, Path.Combine(AppContext.BaseDirectory, "mods"));
+        if (!Edition.IsDemo)
+        {
+            Sprites.LoadModSprites(GraphicsDevice, Path.Combine(AppContext.BaseDirectory, "mods"));
+        }
         Sounds = new GameSounds();
         MyraEnvironment.Game = this;
 

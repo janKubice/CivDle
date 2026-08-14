@@ -40,6 +40,39 @@ internal static class UiFactory
         return button;
     }
 
+    /// <summary>
+    /// Tlačítko zamčené demoverzí — vypadá jinak než tlačítko, na které hráč
+    /// „ještě nedosáhl".
+    ///
+    /// <para>Tohle je celý smysl: v demu je spousta věcí nedostupných a hráč
+    /// musí <b>na první pohled</b> poznat, které z nich čekají na postup ve hře
+    /// a které na koupi plné verze. Kdyby zamčené demo vypadalo jako běžná
+    /// nesplněná podmínka, hledal by ve hře cestu, která neexistuje.</para>
+    ///
+    /// <para>Proto zámek přímo v popisce a jiná barva — ne jen zašedlé
+    /// tlačítko, které se dá splést s čímkoli jiným.</para>
+    /// </summary>
+    public static Button DemoLockedButton(string text, string explanation)
+    {
+        var button = new Button
+        {
+            Content = CenteredLabel($"🔒 {text}"),
+            Width = MenuButtonWidth,
+            Height = MenuButtonHeight,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Background = new SolidBrush(UiPalette.Panel),
+            Tooltip = explanation,
+            Enabled = false,
+        };
+
+        if (button.Content is Label label)
+        {
+            label.TextColor = UiPalette.TextDim;
+        }
+
+        return button;
+    }
+
     /// <summary>Malé tlačítko (šipky přepínačů, „Náhodný"…).</summary>
     /// <param name="tooltip">Vysvětlení u kurzoru (Myra ho kreslí u myši); null = bez popisku.</param>
     /// <summary>

@@ -2466,7 +2466,13 @@ public sealed class Simulation
             // stokrát — a nemůže se to s žebříkem rozejít.
             int steps = AscensionLevel - _content.AscensionTiers[tier].Order;
             double cap = _content.AscensionTiers[tier].PopulationCap;
-            return steps <= 0 ? cap : cap * Math.Pow(ScaleGrowthPerAscension, steps);
+            double scaled = steps <= 0 ? cap : cap * Math.Pow(ScaleGrowthPerAscension, steps);
+
+            // Demo má vlastní strop. Bere se to nižší z obou, takže v rané hře
+            // platí normální žebřík a demo se projeví, teprve až by ho hráč
+            // přerostl — jinak by ukázka začínala tvrdším limitem, než jaký má
+            // samotná první éra.
+            return _content.IsDemo ? Math.Min(scaled, _content.Demo.PopulationCap) : scaled;
         }
     }
 
@@ -5619,6 +5625,11 @@ public sealed class Simulation
     /// </summary>
     public PlacementResult CanResearch(int techIndex)
     {
+        if (IsTechBeyondDemo(techIndex))
+        {
+            return PlacementResult.NotUnlocked;
+        }
+
         var tech = _content.Techs[techIndex];
         int level = _techLevel[techIndex];
         if (level >= tech.MaxLevel)
@@ -5724,6 +5735,38 @@ public sealed class Simulation
     /// nekupuje, hráč za něj zaplatil body Odkazu už dřív.
     /// </summary>
     internal void GrantTechFree(int techIndex) => UnlockTech(techIndex);
+
+    /// <summary>
+    /// Je technologie mimo výřez, který ukázka nabízí?
+    ///
+    /// <para>Výřez je <b>uzávěr přes předpoklady</b> (viz
+    /// <see cref="DemoTechSelection"/>), ne prostě prvních N v pořadí dat.
+    /// Strom totiž není psaný striktně od kořene, takže by prostý řez nechal
+    /// v nabídce uzly, ke kterým v ukázce nevede cesta — a to vypadá jako
+    /// chyba, ne jako hranice dema.</para>
+    /// </summary>
+    /// <summary>Běží tenhle svět v demoverzi? (Pro testy a UI.)</summary>
+    public bool ContentIsDemoForTests => _content.IsDemo;
+
+    /// <summary>
+    /// Maska technologií dostupných v ukázce. Počítá se až při prvním dotazu
+    /// a pak se drží — je odvozená z obsahu, takže se během hry nemění.
+    /// </summary>
+    private bool[]? _demoTechs;
+
+    /// <inheritdoc cref="IsTechBeyondDemo"/>
+    public bool IsTechBeyondDemo(int techIndex)
+    {
+        if (!_content.IsDemo)
+        {
+            return false;
+        }
+
+        _demoTechs ??= DemoTechSelection.Build(
+            _content.Techs.All, _content.Demo.TechCountFor(_content.Techs.Count));
+
+        return !_demoTechs[techIndex];
+    }
 
     /// <summary>Kolik technologií obsah nabízí.</summary>
     public int TechCount => _content.Techs.Count;
@@ -6023,6 +6066,14 @@ public sealed class Simulation
     /// </summary>
     public long AscensionRequirement()
     {
+        // Demo: první Vzestup zůstává normální, aby si hráč prestiž osahal
+        // celou. Od druhého platí práh z dat — a ten je zároveň cíl, na kterém
+        // ukázka končí.
+        if (_content.IsDemo && AscensionLevel >= 1)
+        {
+            return Math.Max(1, _content.Demo.AscensionRequirement);
+        }
+
         var requirement = _content.Prestige.Requirement;
         double scaled = requirement.Target * Math.Pow(_content.Prestige.RequirementGrowth, AscensionLevel);
 

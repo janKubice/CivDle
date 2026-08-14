@@ -7,6 +7,25 @@ namespace CivDle.Core.Content;
 /// </summary>
 public sealed class GameContent
 {
+    /// <summary>
+    /// Běží demoverze?
+    ///
+    /// <para>Přepíná se <b>při startu</b> podle toho, jak byla hra přeložená
+    /// (<c>-p:GameEdition=Demo</c>), ne podle dat ani nastavení. Meze samotné
+    /// jsou v datech (<see cref="GameplayConfig.Demo"/>) — tady je jen vypínač.</para>
+    ///
+    /// <para>Proč měnitelná vlastnost na jinak neměnném obsahu: edice není
+    /// obsah, je to režim celé aplikace. Nastaví se jednou, dřív než vznikne
+    /// jakákoli simulace, a pak už se nesahá.</para>
+    /// </summary>
+    public bool IsDemo { get; private set; }
+
+    /// <summary>Zapne demo režim. Volá se jednou při startu hry.</summary>
+    public void EnableDemoEdition() => IsDemo = true;
+
+    /// <summary>Meze demoverze (platí, jen když <see cref="IsDemo"/>).</summary>
+    public DemoConfig Demo => Gameplay.Demo;
+
     public GameContent(
         BiomeRegistry biomes,
         DefRegistry<Resource> resources,

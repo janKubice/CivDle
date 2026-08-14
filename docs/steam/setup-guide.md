@@ -226,3 +226,43 @@ zamítnutí, na které narazíš:
 [ ] Věkové hodnocení vyplněné
 [ ] Review odeslaná ≥ 2 týdny před plánovaným vydáním
 ```
+
+## Demoverze
+
+Demo je **samostatný build**, ne přepínač za běhu:
+
+```bash
+./publish.sh win-x64 demo      # → dist/win-x64-demo
+./publish.sh linux-x64 demo
+```
+
+O edici rozhoduje překladová konstanta (`src/CivDle/Edition.cs`), takže se plná
+hra nemůže omylem tvářit jako demo ani naopak — na disku není nic, co by šlo
+přejmenovat nebo smazat a tím edici přepnout. Že běží demo, se pozná i z konzole
+(`edice: DEMO`).
+
+### Co demo omezuje
+
+| Věc | V demu |
+|---|---|
+| Obyvatelé | strop z `data/gameplay.json` → `demo.populationCap` (výchozí 10 000) |
+| Vzestup | **první normální**, od druhého práh `demo.ascensionRequirement` |
+| Strom výzkumu | `demo.techFraction` dílu (výchozí 20 %), vždy souvislý výřez |
+| Mody | nenačítají se vůbec (ani sprity) |
+| Achievementy, žebříčky | zamčené |
+
+Meze jsou v **datech**, ne v kódu: demo se ladí podle toho, jak dlouho má trvat,
+a překládat kvůli tomu hru je zbytečné. Blok `demo` v `gameplay.json` má i plná
+hra — tam se jen ignoruje.
+
+### Proč právě takhle
+
+- **Výřez stromu je uzávěr přes předpoklady**, ne „prvních N v pořadí". Strom
+  není psaný striktně od kořene, takže prostý řez by nechal v nabídce uzly, ke
+  kterým v ukázce nevede cesta. Hlídá to test `TheCutKeepsTheTreeConnected`.
+- **První Vzestup zůstává normální**, aby si hráč osahal mechaniku, na které hra
+  stojí. Druhý je cíl, na kterém ukázka končí.
+- **Zamčené kvůli demu vypadá jinak než nesplněná podmínka.** Zámek v popisce,
+  teplá barva uzlu ve stromu, odznak „DEMO" v menu. Bez toho by hráč hledal ve
+  hře cestu, která neexistuje.
+

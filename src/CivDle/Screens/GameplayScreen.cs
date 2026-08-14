@@ -964,6 +964,13 @@ public sealed class GameplayScreen : IScreen
     private const double MinTakeSeconds = 0.5;
 
     /// <summary>
+    /// Řekne nahlas, že tuhle věc má jen plná verze. Ticho po kliknutí by
+    /// vypadalo jako rozbité tlačítko.
+    /// </summary>
+    private void ShowDemoLocked() =>
+        _toasts.Add(_screens.Loc["demo.locked"], UiPalette.Warn);
+
+    /// <summary>
     /// Kopie světa přes save. Serializace je jediná cesta, jak dostat nezávislý
     /// svět — a je to tatáž cesta, kterou prochází Continue, takže se testuje
     /// sama sebou.
@@ -2546,13 +2553,29 @@ public sealed class GameplayScreen : IScreen
                 () => _screens.Push(new StatsScreen(_screens, _simulation.History))), slot++, columns);
         }
 
-        Place(grid, UiFactory.ToolButton(
-            Ico("ui.trophy"), loc["hud.achievements"] + '\n' + loc["tip.achievements"],
-            () => _screens.Push(new AchievementsScreen(_screens, _simulation))), slot++, columns);
+        // Achievementy a žebříčky v demu nejsou. Zůstávají v liště zamčené,
+        // ne skryté: hráč má vidět, co v plné verzi je — a hlavně nemá hledat
+        // ve hře cestu, jak je odemknout, když žádná není.
+        if (Edition.IsDemo)
+        {
+            Place(grid, UiFactory.ToolButton(
+                Ico("ui.trophy"), loc["hud.achievements"] + '\n' + loc["demo.locked"],
+                ShowDemoLocked), slot++, columns);
 
-        Place(grid, UiFactory.ToolButton(
-            Ico("ui.stats"), loc["hud.leaderboards"] + '\n' + loc["board.title"],
-            () => _screens.Push(new LeaderboardScreen(_screens, _simulation))), slot++, columns);
+            Place(grid, UiFactory.ToolButton(
+                Ico("ui.stats"), loc["hud.leaderboards"] + '\n' + loc["demo.locked"],
+                ShowDemoLocked), slot++, columns);
+        }
+        else
+        {
+            Place(grid, UiFactory.ToolButton(
+                Ico("ui.trophy"), loc["hud.achievements"] + '\n' + loc["tip.achievements"],
+                () => _screens.Push(new AchievementsScreen(_screens, _simulation))), slot++, columns);
+
+            Place(grid, UiFactory.ToolButton(
+                Ico("ui.stats"), loc["hud.leaderboards"] + '\n' + loc["board.title"],
+                () => _screens.Push(new LeaderboardScreen(_screens, _simulation))), slot++, columns);
+        }
 
         if (_simulation.IsFeatureUnlocked("elections") && _screens.Content.Elections.IsEnabled)
         {
@@ -3456,11 +3479,17 @@ public sealed class GameplayScreen : IScreen
             // zastavený růst jako porouchaná hra, ne jako pobídka k Vzestupu.
             string tierName = loc[tiers[tierIndex].NameKey];
             bool capped = _simulation.IsAtScaleCap;
-            _tierLabel.Text = capped
-                ? loc.Format("hud.tierCapped", tierName, CivDle.Core.Numbers.Format(_simulation.PopulationCap))
-                : loc.Format("hud.tier", tierName);
+
+            // V demu se u stropu musí říct, že ho drží ukázka, ne měřítko —
+            // jinak hráč hledá Vzestup, který strop nezvedne.
+            bool demoCap = capped && Edition.IsDemo;
+            _tierLabel.Text = demoCap
+                ? loc.Format("demo.popCap", CivDle.Core.Numbers.Format(_simulation.PopulationCap))
+                : capped
+                    ? loc.Format("hud.tierCapped", tierName, CivDle.Core.Numbers.Format(_simulation.PopulationCap))
+                    : loc.Format("hud.tier", tierName);
             _tierLabel.TextColor = capped
-                ? UiPalette.TextBright
+                ? demoCap ? UiPalette.Warn : UiPalette.TextBright
                 : UiPalette.Accent;
         }
         else
