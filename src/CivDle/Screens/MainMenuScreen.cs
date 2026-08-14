@@ -70,6 +70,28 @@ public sealed class MainMenuScreen : IScreen
             });
         }
 
+        // Jméno hry pod znakem. Samotný znak je hezký, ale menu díky němu
+        // nikde neřeklo, jak se hra jmenuje — a to je první věc, kterou má
+        // titulní obrazovka sdělit.
+        buttons.Widgets.Add(new Label
+        {
+            Text = "CivDle",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            TextColor = UiFactory.Accent,
+        });
+
+        // Odznak edice. V demu musí být jasné hned z menu, co hráč hraje —
+        // jinak si stížnosti na „chybějící obsah" odnese plná verze.
+        if (Edition.IsDemo)
+        {
+            buttons.Widgets.Add(new Label
+            {
+                Text = loc["demo.badge"],
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextColor = UiPalette.Warn,
+            });
+        }
+
         buttons.Widgets.Add(new Label { Text = " " });
         if (_screens.Saves.HasSave)
         {
@@ -78,7 +100,9 @@ public sealed class MainMenuScreen : IScreen
 
         buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.newGame"], () => _screens.Push(new NewGameScreen(_screens))));
         buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.howto"], () => _screens.Push(new HowToPlayScreen(_screens, dimBackground: false))));
-        buttons.Widgets.Add(UiFactory.MenuButton(loc["hud.mods"], () => _screens.Push(new ModManagerScreen(_screens))));
+        buttons.Widgets.Add(Edition.IsDemo
+            ? UiFactory.DemoLockedButton(loc["hud.mods"], loc["demo.locked"])
+            : UiFactory.MenuButton(loc["hud.mods"], () => _screens.Push(new ModManagerScreen(_screens))));
         buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.chronicle"], () => _screens.Push(new ChronicleScreen(_screens))));
 
         // Sbírka časosběrů se nabízí, až když v ní něco je — prázdná police

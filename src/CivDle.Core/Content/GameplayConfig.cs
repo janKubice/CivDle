@@ -481,8 +481,12 @@ public sealed record GameplayConfig(
     BulkBuildConfig? BulkBuildOrNull = null,
     LaserConfig? LaserOrNull = null,
     HistoryConfig? HistoryOrNull = null,
-    ResearchConfig? ResearchOrNull = null)
+    ResearchConfig? ResearchOrNull = null,
+    DemoConfig? DemoOrNull = null)
 {
+    /// <summary>Meze demoverze; chybí-li v datech, platí výchozí.</summary>
+    public DemoConfig Demo => DemoOrNull ?? DemoConfig.Default;
+
     /// <summary>Nastavení časosběru; chybí-li v datech, se nic nezaznamenává.</summary>
     public HistoryConfig History => HistoryOrNull ?? HistoryConfig.Disabled;
 
@@ -532,4 +536,40 @@ public sealed record StaffingConfig(double ScarcityThreshold)
 {
     /// <summary>Výchozí nastavení pro data, která blok neuvádějí.</summary>
     public static StaffingConfig Default { get; } = new(0.6);
+}
+
+/// <summary>
+/// Meze demoverze — kam až hráč v ukázce dojde.
+///
+/// <para>Jsou v datech, ne v kódu, schválně: demo se ladí podle toho, jak
+/// dlouho má trvat (jinak před Next Festem, jinak natrvalo na store stránce),
+/// a přeložit kvůli tomu hru je zbytečné.</para>
+///
+/// <para><b>Samy o sobě nic nedělají.</b> Platí, teprve když je spuštěná demo
+/// edice (<see cref="GameContent.IsDemo"/>) — plná hra tenhle blok v datech má
+/// taky a ignoruje ho.</para>
+/// </summary>
+/// <param name="PopulationCap">Strop obyvatel. Ukázka nemá být nekonečná.</param>
+/// <param name="AscensionRequirement">
+/// Práh <b>druhého</b> Vzestupu. První zůstává normální, aby si hráč prestiž
+/// osahal celou; druhý je cíl, na kterém demo končí.
+/// </param>
+/// <param name="TechFraction">Jaký díl stromu výzkumu je v ukázce dostupný (0–1).</param>
+public sealed record DemoConfig(
+    double PopulationCap,
+    long AscensionRequirement,
+    double TechFraction)
+{
+    /// <summary>Výchozí meze, když si data neřeknou jinak.</summary>
+    public static DemoConfig Default { get; } = new(10_000, 10_000, 0.2);
+
+    /// <summary>Díl stromu oříznutý do rozumného rozsahu (ochrana proti překlepu v datech).</summary>
+    public double SafeTechFraction => Math.Clamp(TechFraction, 0.05, 1.0);
+
+    /// <summary>
+    /// Kolik uzlů stromu je v ukázce dostupných. Vždy aspoň jeden — strom bez
+    /// jediné dostupné technologie by vypadal jako rozbitá hra.
+    /// </summary>
+    public int TechCountFor(int totalTechs) =>
+        Math.Clamp((int)Math.Ceiling(totalTechs * SafeTechFraction), 1, Math.Max(1, totalTechs));
 }

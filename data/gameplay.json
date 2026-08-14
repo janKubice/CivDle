@@ -150,5 +150,10 @@
     "costGrowthPerTech": 0.05,
     "levelCostMultiplier": 1.9
   },
-  "_comment_planting": "Co jde zasadit. Druhy se odemykaji vyzkumem (requiresTech), takze sazeni roste spolu s hrou misto jedne vecne moznosti. Prvni druh je zaroven to, co seje UFO."
+  "_comment_planting": "Co jde zasadit. Druhy se odemykaji vyzkumem (requiresTech), takze sazeni roste spolu s hrou misto jedne vecne moznosti. Prvni druh je zaroven to, co seje UFO.",
+  "demo": {
+    "populationCap": 10000,
+    "ascensionRequirement": 10000,
+    "techFraction": 0.2
+  }
 }

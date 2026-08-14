@@ -84,4 +84,12 @@
     <Content Include="..\..\mods\**" LinkBase="mods" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+
+  <!-- Demo edice: ./publish.sh <rid> demo → -p:GameEdition=Demo.
+       Přes konstantu, ne přes soubor v datech: o tom, jestli je build demo,
+       nesmí rozhodovat nic, co jde na disku omylem přejmenovat. -->
+  <PropertyGroup Condition="'$(GameEdition)' == 'Demo'">
+    <DefineConstants>$(DefineConstants);DEMO</DefineConstants>
+  </PropertyGroup>
+
 </Project>

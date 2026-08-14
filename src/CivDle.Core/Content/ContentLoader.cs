@@ -2947,6 +2947,10 @@ public sealed class ContentLoader
 
         var planting = ParsePlanting(path, file.Planting, resources, techs);
 
+        var demo = file.Demo is null
+            ? DemoConfig.Default
+            : new DemoConfig(file.Demo.PopulationCap, file.Demo.AscensionRequirement, file.Demo.TechFraction);
+
         return new GameplayConfig(
             file.StartingPopulation,
             startingBuildings,
@@ -2977,7 +2981,8 @@ public sealed class ContentLoader
             ParseBulkBuild(path, file.BulkBuild),
             ParseLaser(path, file.Laser),
             ParseHistory(path, file.History),
-            ParseResearch(path, file.Research));
+            ParseResearch(path, file.Research),
+            demo);
     }
 
     /// <summary>
