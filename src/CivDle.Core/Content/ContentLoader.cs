@@ -2374,6 +2374,10 @@ public sealed class ContentLoader
             // stromu součást hry, teprve po několika Vzestupech z něj zbyde
             // rutina, kterou má smysl automatizovat.
             "auto_research",
+
+            // Dědictví: tyhle tři ruší část samotného resetu. Do Vzestupu
+            // nepatří — ten reset provádí, takže by si protiřečil.
+            "keep_techs", "keep_buildings", "keep_map",
         };
 
     private (PrestigeConfig Config, DefRegistry<PrestigeUpgradeDef> Upgrades) LoadPrestige(

@@ -44,7 +44,10 @@ public readonly record struct PrestigeBonuses(
     double AutoBuildSpeed = 1.0,
     double ComboPower = 1.0,
     double AutoResearchLevel = 0.0,
-    double ResearchSpeed = 1.0)
+    double ResearchSpeed = 1.0,
+    double KeptTechs = 0.0,
+    double KeptBuildings = 0.0,
+    double KeepsMap = 0.0)
 {
     /// <summary>Neutrální bonusy (vše 1.0 / 0) — žádné upgrady.</summary>
     public static PrestigeBonuses None { get; } = new(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0);

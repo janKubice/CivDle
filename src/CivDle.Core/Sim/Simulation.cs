@@ -54,6 +54,15 @@ public sealed class Simulation
     private readonly List<GrandWorkStage> _grandWorkDone = new(); // dokončené stupně (drží bonusy)
     private readonly LegacySystem _legacy; // druhá prestižní vrstva (Odkaz)
     private readonly AutoResearchSystem _autoResearch = new(); // odemyká se až v Odkazu
+
+    /// <summary>Budovy zapamatované při Vzestupu, než se svět resetuje.</summary>
+    private readonly List<LegacyInheritance.KeptBuilding> _inheritedBuildings = new();
+
+    /// <summary>Kolik technologií se při posledním Vzestupu zdědilo (pro bilanci).</summary>
+    public int LastInheritedTechs { get; private set; }
+
+    /// <summary>Kolik budov při posledním Vzestupu zůstalo stát (pro bilanci).</summary>
+    public int LastInheritedBuildings { get; private set; }
     private readonly ConstructionSystem _constructionSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
@@ -5628,6 +5637,38 @@ public sealed class Simulation
         return PlacementResult.Ok;
     }
 
+    /// <summary>Kolik technologií Vzestup přežije (dědictví Odkazu).</summary>
+    public int InheritedTechs => (int)Math.Floor(_bonuses.KeptTechs);
+
+    /// <summary>Kolik budov Vzestup přežije (dědictví Odkazu).</summary>
+    public int InheritedBuildings => (int)Math.Floor(_bonuses.KeptBuildings);
+
+    /// <summary>Zůstává po Vzestupu odhalená mapa? (Dědictví Odkazu.)</summary>
+    public bool InheritsMap => _bonuses.KeepsMap >= 1;
+
+    /// <summary>Dědí se vůbec něco? (Pro cedulku před Vzestupem.)</summary>
+    public bool HasInheritance => InheritedTechs > 0 || InheritedBuildings > 0 || InheritsMap;
+
+    /// <summary>Jsou splněné předpoklady technologie? (Cenu neřeší.)</summary>
+    internal bool PrerequisitesMet(int techIndex)
+    {
+        foreach (int prereq in _content.Techs[techIndex].PrerequisiteIndices)
+        {
+            if (_techLevel[prereq] == 0)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Odemkne technologii bez placení. Jen pro dědictví Odkazu — dědictví se
+    /// nekupuje, hráč za něj zaplatil body Odkazu už dřív.
+    /// </summary>
+    internal void GrantTechFree(int techIndex) => UnlockTech(techIndex);
+
     /// <summary>Kolik technologií obsah nabízí.</summary>
     public int TechCount => _content.Techs.Count;
 
@@ -6509,7 +6550,25 @@ public sealed class Simulation
         PrestigePoints += points;
         AscensionLevel++;
         ScaleCapAnnounced = false; // nový strop, nová novinka
+
+        // Dědictví se musí sebrat TEĎ, dokud město ještě stojí.
+        LegacyInheritance.Capture(this, InheritedBuildings, _inheritedBuildings);
+
         ResetEra(); // uvnitř i RefreshTierUnlocks — nové měřítko může odemknout megastruktury
+
+        // Technologie napřed, budovy až po nich: zděděná budova, jejíž
+        // technologie se nevrátila, by stála, ale hráč by ji neuměl postavit
+        // znovu. Takhle sedí zděděné město na znalostech, které k němu patří.
+        LastInheritedTechs = LegacyInheritance.GrantTechs(this, InheritedTechs);
+        LastInheritedBuildings = LegacyInheritance.Restore(this, _inheritedBuildings);
+        _inheritedBuildings.Clear();
+
+        if (LastInheritedBuildings > 0)
+        {
+            // Zděděné budovy mění kapacity i odvozený stav; bez přepočtu by
+            // město začalo s domy, které „nejsou vidět" ve statistikách.
+            RecomputeDerivedState();
+        }
         EnqueueNotification(new GameNotification(NotificationKind.Ascended, "toast.ascended", "prestige.ascendedSubject"));
 
         // Největší okamžik ve hře si zaslouží ohňostroj nad novým světem.
@@ -6536,6 +6595,7 @@ public sealed class Simulation
         double start = 1.0, offline = 1.0, discovery = 1.0, festival = 1.0, autoBuild = 1.0;
         double combo = 1.0, researchSpeed = 1.0;
         double critChance = 0.0, jackpot = 0.0, research = 0.0, autoResearch = 0.0;
+        double keptTechs = 0.0, keptBuildings = 0.0, keepsMap = 0.0;
 
         for (int i = 0; i < _upgradeLevels.Length; i++)
         {
@@ -6634,7 +6694,10 @@ public sealed class Simulation
             autoBuild * techAutoBuild,
             combo * techCombo,
             autoResearch,
-            researchSpeed * techResearchSpeed);
+            researchSpeed * techResearchSpeed,
+            keptTechs,
+            keptBuildings,
+            keepsMap);
 
         // Násobičové efekty se skládají mocninou; ty, které se sčítají do
         // pravděpodobnosti (kritický sběr) nebo do slevy, přirozeně součtem.
@@ -6662,6 +6725,11 @@ public sealed class Simulation
                 // proto se úrovně sčítají. Násobení by z první koupené úrovně
                 // udělalo nulu krát cokoli.
                 case "auto_research": autoResearch += sum; break;
+
+                // Dědictví jsou POČTY, ne násobiče — proto součet úrovní.
+                case "keep_techs": keptTechs += sum; break;
+                case "keep_buildings": keptBuildings += sum; break;
+                case "keep_map": keepsMap += sum; break;
             }
         }
     }
@@ -6714,8 +6782,12 @@ public sealed class Simulation
         History.Clear();   // a časosběr taky — nový svět začíná prázdným listem
         _npcStates.Clear(); // cizí města nového měřítka hráče ještě neznají
         _npcTowns.Clear();  // a jejich zástavba se postaví znovu, až je hráč najde
-        Fog.Clear();       // nový svět se musí objevit znovu
-        Fog.Reveal(0, 0, FogRevealRadius * 2);
+        // Mlha: kdo si koupil Oko věků, svět znovu neobjevuje.
+        if (!InheritsMap)
+        {
+            Fog.Clear();       // nový svět se musí objevit znovu
+            Fog.Reveal(0, 0, FogRevealRadius * 2);
+        }
         PendingCitizenRequest = CitizenRequest.None;
         CitizenCooldownTicks = 0;
         ResetContractBoard(); // zákazníci z minulého měřítka na novou nástěnku nepatří
