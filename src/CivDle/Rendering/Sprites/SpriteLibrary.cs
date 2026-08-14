@@ -74,6 +74,8 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "ui.tech", IconSize, ScienceIcon);
         Add(device, "ui.governor", IconSize, UiGovernor);
         Add(device, "ui.ascend", IconSize, UiAscend);
+        Add(device, "ui.grandwork", IconSize, UiGrandWork);
+        Add(device, "ui.legacy", IconSize, UiLegacy);
         Add(device, "ui.stats", IconSize, UiStats);
         Add(device, "ui.trophy", IconSize, UiTrophy);
         Add(device, "ui.chronicle", IconSize, UiChronicle);
@@ -636,6 +638,50 @@ public sealed class SpriteLibrary : IDisposable
         c.FillTriangle(12f, 2f, 20f, 12f, 4f, 12f, new Color(190, 160, 235));
         c.FillRect(9, 12, 6, 10, new Color(150, 120, 205));
         c.FillCircle(12f, 18f, 2f, new Color(240, 226, 255));
+    }
+
+    /// <summary>
+    /// Velké dílo: rozestavěná věž s lešením.
+    ///
+    /// <para>Vzestup, Velké dílo a Odkaz spolu sousedí v liště a dlouho měly
+    /// všechny tři <b>tutéž ikonu</b>. Tři stejné obrázky vedle sebe znamenají,
+    /// že hráč o dvou z těch mechanik neví — ne že si je splete, ale že je
+    /// vůbec nezaregistruje.</para>
+    /// </summary>
+    private static void UiGrandWork(PixelCanvas c)
+    {
+        var stone = new Color(206, 198, 180);
+        var shade = new Color(158, 150, 134);
+        var scaffold = new Color(150, 110, 70);
+
+        // Zužující se věž — silueta „stavíme něco obřího".
+        c.FillRect(8, 6, 8, 4, stone);
+        c.FillRect(7, 10, 10, 5, stone);
+        c.FillRect(6, 15, 12, 6, shade);
+
+        // Lešení po stranách: bez něj by to byl jen komín.
+        c.FillRect(4, 9, 2, 12, scaffold);
+        c.FillRect(18, 9, 2, 12, scaffold);
+        c.FillRect(4, 13, 16, 1, scaffold);
+
+        c.FillCircle(12f, 4f, 2f, new Color(255, 226, 150));
+    }
+
+    /// <summary>
+    /// Odkaz: věčný plamen na podstavci. Vrstva, která přežije i Vzestup, má
+    /// vypadat jako něco, co se předává dál — ne jako další šipka nahoru.
+    /// </summary>
+    private static void UiLegacy(PixelCanvas c)
+    {
+        var pedestal = new Color(120, 128, 150);
+        var pedestalLit = new Color(160, 168, 190);
+
+        c.FillRect(7, 18, 10, 4, pedestal);
+        c.FillRect(9, 14, 6, 4, pedestalLit);
+
+        // Plamen: dvě vrstvy, aby měl jádro a nebyl to placatý trojúhelník.
+        c.FillTriangle(12f, 2f, 17f, 13f, 7f, 13f, new Color(255, 168, 72));
+        c.FillTriangle(12f, 6f, 15f, 13f, 9f, 13f, new Color(255, 232, 160));
     }
 
     private static void UiStats(PixelCanvas c)

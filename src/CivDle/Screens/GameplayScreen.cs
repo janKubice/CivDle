@@ -2522,7 +2522,7 @@ public sealed class GameplayScreen : IScreen
         if (_simulation.GrandWorkAvailable)
         {
             Place(grid, UiFactory.ToolButton(
-                Ico("ui.ascend"), loc["hud.grandwork"] + '\n' + loc["grandwork.desc"],
+                Ico("ui.grandwork"), loc["hud.grandwork"] + '\n' + loc["grandwork.desc"],
                 () => _screens.Push(new GrandWorkScreen(_screens, _simulation))), slot++, columns);
         }
 
@@ -2531,7 +2531,7 @@ public sealed class GameplayScreen : IScreen
         if (_simulation.LegacyAvailable)
         {
             Place(grid, UiFactory.ToolButton(
-                Ico("ui.ascend"), loc["hud.legacy"] + '\n' + loc["legacy.desc"],
+                Ico("ui.legacy"), loc["hud.legacy"] + '\n' + loc["legacy.desc"],
                 () => _screens.Push(new LegacyScreen(_screens, _simulation))), slot++, columns);
         }
 
