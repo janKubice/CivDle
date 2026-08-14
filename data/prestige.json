@@ -239,6 +239,14 @@
       ],
       "maxLevel": 30,
       "costGrowth": 1.3
+    },
+    {
+      "id": "open_academies",
+      "effect": "research_speed",
+      "magnitude": 0.25,
+      "cost": 40,
+      "maxLevel": 15,
+      "costGrowth": 1.35
     }
   ]
 }

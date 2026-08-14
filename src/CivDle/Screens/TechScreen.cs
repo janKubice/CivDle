@@ -540,6 +540,22 @@ public sealed class TechScreen : IScreen
             TextColor = Color.LightGray,
         });
 
+        // Automatický výzkum: běží tiše na pozadí, takže bez cedulky by hráč
+        // viděl jen samo od sebe ubývající suroviny a nevěděl proč.
+        if (_simulation.AutoResearchActive)
+        {
+            header.Widgets.Add(new Label
+            {
+                Text = loc.Format(
+                    "tech.auto",
+                    CivDle.Core.Sim.AutoResearchSchedule.BudgetFor(_simulation.AutoResearchLevel),
+                    (CivDle.Core.Sim.AutoResearchSchedule.IntervalFor(_simulation.ResearchSpeed)
+                        / (double)CivDle.Core.Sim.Simulation.TicksPerSecond).ToString("0.#")),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextColor = UiPalette.Good,
+            });
+        }
+
         var headerPanel = UiFactory.DarkPanel(header);
         headerPanel.HorizontalAlignment = HorizontalAlignment.Center;
         headerPanel.VerticalAlignment = VerticalAlignment.Top;

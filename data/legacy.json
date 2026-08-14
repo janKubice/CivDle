@@ -102,6 +102,28 @@
       ],
       "maxLevel": 25,
       "costGrowth": 1.4
+    },
+    {
+      "id": "automatic_scholars",
+      "effect": "auto_research",
+      "magnitude": 1.0,
+      "cost": 10,
+      "prerequisites": [
+        "ancestral_memory"
+      ],
+      "maxLevel": 8,
+      "costGrowth": 1.45
+    },
+    {
+      "id": "swift_minds",
+      "effect": "research_speed",
+      "magnitude": 0.5,
+      "cost": 6,
+      "prerequisites": [
+        "automatic_scholars"
+      ],
+      "maxLevel": 20,
+      "costGrowth": 1.3
     }
   ]
 }

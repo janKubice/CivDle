@@ -2356,7 +2356,7 @@ public sealed class ContentLoader
     {
         "production_mult", "harvest_mult", "growth_mult", "housing_mult", "storage_mult", "start_resources", "offline_mult",
         "crit_chance", "jackpot_chance", "discovery_luck", "festival_power", "research_discount", "autobuild_speed",
-        "combo_power",
+        "combo_power", "research_speed",
     };
 
     /// <summary>
@@ -2366,7 +2366,15 @@ public sealed class ContentLoader
     /// Vzestup a hráč by neměl důvod ho udělat.
     /// </summary>
     private static readonly HashSet<string> KnownLegacyEffects =
-        new(KnownPrestigeEffects, StringComparer.Ordinal) { "ascension_points_mult", "ascension_discount" };
+        new(KnownPrestigeEffects, StringComparer.Ordinal)
+        {
+            "ascension_points_mult", "ascension_discount",
+
+            // Automatický výzkum patří výhradně sem: v první hře je klikání ve
+            // stromu součást hry, teprve po několika Vzestupech z něj zbyde
+            // rutina, kterou má smysl automatizovat.
+            "auto_research",
+        };
 
     private (PrestigeConfig Config, DefRegistry<PrestigeUpgradeDef> Upgrades) LoadPrestige(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
