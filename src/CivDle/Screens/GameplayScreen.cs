@@ -2528,8 +2528,6 @@ public sealed class GameplayScreen : IScreen
                 () => _screens.Push(new AscensionScreen(_screens, _simulation, _info))), slot++, columns);
         }
 
-<<<<<<< HEAD
-=======
         // Velké dílo se v liště objeví, teprve až je čím sypat — dřív by to byla
         // nabídka na něco, co hráč nemá jak použít.
         if (_simulation.GrandWorkAvailable)
@@ -2548,7 +2546,6 @@ public sealed class GameplayScreen : IScreen
                 () => _screens.Push(new LegacyScreen(_screens, _simulation))), slot++, columns);
         }
 
->>>>>>> 724fc3d9bce586e4d75c9584c0a80e11f97a0a02
         if (_simulation.HistoryEnabled)
         {
             Place(grid, UiFactory.ToolButton(
@@ -2565,8 +2562,6 @@ public sealed class GameplayScreen : IScreen
                 Ico("ui.trophy"), loc["hud.achievements"] + '\n' + loc["demo.locked"],
                 ShowDemoLocked), slot++, columns);
 
-<<<<<<< HEAD
-=======
             Place(grid, UiFactory.ToolButton(
                 Ico("ui.stats"), loc["hud.leaderboards"] + '\n' + loc["demo.locked"],
                 ShowDemoLocked), slot++, columns);
@@ -2582,7 +2577,6 @@ public sealed class GameplayScreen : IScreen
                 () => _screens.Push(new LeaderboardScreen(_screens, _simulation))), slot++, columns);
         }
 
->>>>>>> ff58934690cceac6f7621ef0a1306775fbfae9ef
         if (_simulation.IsFeatureUnlocked("elections") && _screens.Content.Elections.IsEnabled)
         {
             _electionBadge = UiFactory.ToolButtonWithBadge(
