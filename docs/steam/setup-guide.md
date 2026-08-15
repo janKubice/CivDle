@@ -231,6 +231,23 @@ zamítnutí, na které narazíš:
 
 Demo je **samostatný build**, ne přepínač za běhu:
 
+**Windows — dvojklik:**
+
+| Soubor | Co udělá |
+|---|---|
+| `publish-plna-hra.bat` | plná hra → `dist\win-x64` |
+| `publish-demo.bat` | demoverze → `dist\win-x64-demo` |
+
+Okno po dokončení **počká na klávesu**, takže je vidět i chyba. Obojí je jen
+zkratka na `publish.cmd`, kde je celá logika:
+
+```cmd
+publish.cmd                  :: win-x64, plná hra
+publish.cmd win-x64 demo     :: win-x64, demo
+```
+
+**macOS a Linux:**
+
 ```bash
 ./publish.sh win-x64 demo      # → dist/win-x64-demo
 ./publish.sh linux-x64 demo

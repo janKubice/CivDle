@@ -18,11 +18,18 @@ namespace CivDle;
 /// </summary>
 public static class Edition
 {
+    /// <summary>
+    /// Běží demoverze?
+    ///
+    /// <para><c>static readonly</c>, ne <c>const</c>: u konstanty by překladač
+    /// v plném buildu viděl každé <c>if (Edition.IsDemo)</c> jako mrtvý kód
+    /// a zasypal build varováními CS0162. Chování je stejné (hodnota se stejně
+    /// rozhoduje při překladu), jen se nekřičí na něco, co je záměr.</para>
+    /// </summary>
+    public static readonly bool IsDemo =
 #if DEMO
-    /// <summary>Běží demoverze?</summary>
-    public const bool IsDemo = true;
+        true;
 #else
-    /// <summary>Běží demoverze?</summary>
-    public const bool IsDemo = false;
+        false;
 #endif
 }
