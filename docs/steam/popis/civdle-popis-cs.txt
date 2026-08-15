@@ -1,0 +1,52 @@
+[h1]Z chatrče do města pro miliony[/h1]
+
+Založíš osadu, postavíš pilu — a ono se to najednou rozjede samo. Guvernér
+zakládá čtvrti podél cest, karavany objíždějí sousedy a číslo obyvatel nahoře
+přeskočí z tisíců do milionů.
+
+Hraje se to i bez tebe. S tebou jen rychleji.
+
+[h2]Všechno na sebe navazuje[/h2]
+Dřevo na prkna, prkna na nábytek. Ruda na ocel, ocel na stroje. Každá budova
+potřebuje vstupy a lidi, kteří v ní pracují. Když přiblížíš, uvidíš město, které
+doopravdy žije: auta na silnicích, obyvatele se jmény a přáními, střídání
+ročních období a počasí, které se převaluje přes krajinu.
+
+[h2]Roste, i když se nedíváš[/h2]
+Guvernér staví podle toho, co zrovna chybí — dojde bydlení, staví domy; dojdou
+prkna, postaví pilu. Můžeš mu říct, jestli má město spíš rozšiřovat, nebo
+vylepšovat, a co všechno smí stavět. Namaluješ zónu a čtvrť v ní vyroste sama.
+Co se stalo, když jsi byl pryč, ti hra po návratu poctivě spočítá.
+
+[h2]Až narazíš na strop, začneš znovu[/h2]
+Vzestup smaže město, ale trvalá vylepšení ti nechá — a další civilizace roste
+násobně rychleji. Nad tím leží [b]Odkaz[/b]: hlubší reset, po kterém si můžeš
+odnést i to, co Vzestup normálně bere. Znalosti. Jádro města i s cestami. Divy,
+na kterých jsi dělal nejdýl. Nakonec z resetu zbude jen to, co si sám vybereš.
+
+[h2]Svět, na který se dá jen koukat[/h2]
+Den se přelije do večera, ve městě se rozsvítí okna a lampy podél ulic. Nad
+hutěmi se chvěje vzduch, po hladině putují odlesky, stromy se sotva znatelně
+kolébají ve větru. Žádné dvě chalupy nejsou stejné. A když odjedeš kamerou až
+nahoru, změní se tvoje civilizace ve světelnou mapu v tmavé krajině.
+
+[h2]Co je uvnitř[/h2]
+[list]
+[*]Přes 90 budov, od chatrče po orbitální prstenec
+[*]Sedm ér: od dřeva a kamene po fúzi a nanotechnologie
+[*]Souhvězdí technologií, které se odkrývá, jak zkoumáš
+[*]Mlha války, průzkumníci a cizí města — obchoduj s nimi, nebo je připoj i s jejich budovami
+[*]Teraformace: přidávej a ubírej vodu, měň krajinu pod městem
+[*]Distrikty, které vzniknou samy a dají synergii
+[*]Víra a modlitby s rizikem — přivolej déšť, nebo meteor
+[*]Kronika, grafy a časosběr celé partie
+[*]96 achievementů, denní výzvy a zakázky
+[*]Fotorežim, který scénu vyrenderuje v plném detailu
+[*]Plná podpora gamepadu a Steam Decku
+[*]Čeština, angličtina, němčina, polština, španělština
+[/list]
+
+[h2]Všechno jde přepsat[/h2]
+Celý obsah hry je v JSON — budovy, suroviny, výzkum, události, biomy, počasí.
+Editor modů je přímo ve hře: vytvoříš vlastní budovu i surovinu, nakreslíš jí
+sprite, hned ji vyzkoušíš a jedním tlačítkem pošleš na Workshop.

@@ -1,0 +1,56 @@
+[h1]Od chaty do miasta dla milionów[/h1]
+
+Zakładasz osadę, stawiasz tartak — i nagle rusza samo. Gubernator wytycza
+dzielnice wzdłuż dróg, karawany objeżdżają sąsiadów, a licznik ludności skacze
+z tysięcy na miliony.
+
+Gra idzie bez ciebie. Z tobą po prostu szybciej.
+
+[h2]Wszystko się z sobą wiąże[/h2]
+Drewno na deski, deski na meble. Ruda na stal, stal na maszyny. Każdy budynek
+potrzebuje dostaw i ludzi, którzy w nim pracują. Przybliż, a zobaczysz miasto,
+które naprawdę żyje: samochody na drogach, mieszkańców z imionami i życzeniami,
+zmieniające się pory roku i pogodę przetaczającą się nad krajobrazem.
+
+[h2]Rośnie, kiedy cię nie ma[/h2]
+Gubernator buduje to, czego akurat brakuje — zabraknie mieszkań, stawia domy;
+zabraknie desek, stawia tartak. Ty decydujesz, czy ma miasto raczej rozbudowywać
+wszerz, czy ulepszać to, co stoi, i co w ogóle wolno mu budować. Malujesz strefę,
+a dzielnica wyrasta w niej sama. Po powrocie gra uczciwie rozliczy każdą minutę
+twojej nieobecności.
+
+[h2]Gdy trafisz w sufit, zaczynasz od nowa[/h2]
+Wzniesienie kasuje miasto, ale zostawia stałe ulepszenia — a następna cywilizacja
+rośnie wielokrotnie szybciej. Nad tym jest [b]Dziedzictwo[/b]: głębszy reset, po
+którym możesz zabrać ze sobą to, co Wzniesienie normalnie odbiera. Wiedzę. Rdzeń
+miasta razem z drogami. Cuda, nad którymi siedziałeś najdłużej. W końcu reset
+zabiera tylko to, na co mu pozwolisz.
+
+[h2]Świat, na który da się po prostu patrzeć[/h2]
+Dzień przechodzi w wieczór, w mieście zapalają się okna i latarnie wzdłuż ulic.
+Nad hutami drga powietrze, po wodzie wędrują odblaski, drzewa ledwo zauważalnie
+kołyszą się na wietrze. Żadne dwie chaty nie są takie same. A kiedy odjedziesz
+kamerą do samej góry, twoja cywilizacja zmieni się w mapę świateł w ciemnym
+krajobrazie.
+
+[h2]Co jest w środku[/h2]
+[list]
+[*]Ponad 90 budynków, od chaty po pierścień orbitalny
+[*]Siedem epok: od drewna i kamienia po fuzję i nanotechnologię
+[*]Konstelacja technologii, która odsłania się w miarę badań
+[*]Mgła wojny, zwiadowcy i obce miasta — handluj z nimi albo przyłącz je razem z budynkami
+[*]Terraformowanie: dodawaj i odprowadzaj wodę, zmieniaj teren pod miastem
+[*]Dzielnice, które powstają same i dają synergie
+[*]Wiara i modlitwy z ryzykiem — sprowadź deszcz albo meteor
+[*]Kronika, wykresy i poklatkowy zapis całej rozgrywki
+[*]96 osiągnięć, dzienne wyzwania i zlecenia
+[*]Tryb zdjęciowy renderujący scenę w pełnych detalach
+[*]Pełna obsługa gamepada i Steam Decka
+[*]Polski, angielski, czeski, niemiecki, hiszpański
+[/list]
+
+[h2]Wszystko da się przepisać[/h2]
+Cała zawartość gry siedzi w JSON — budynki, surowce, badania, wydarzenia, biomy,
+pogoda. Edytor modów jest wbudowany: tworzysz własny budynek albo surowiec,
+rysujesz mu sprite, od razu go sprawdzasz i jednym przyciskiem wysyłasz na
+Warsztat.
