@@ -34,6 +34,16 @@ internal sealed class CityShowcaseShot : ITrailerShot
     private const float StartZoom = 1.36f;
     private const float EndZoom = 1.62f;
 
+    /// <summary>
+    /// Se titulkem se couvne a městečko se posune nahoru, aby mu pruh s textem
+    /// neseděl na spodní čtvrtině. Dřív ho zakrýval — a zakrývat to, kvůli čemu
+    /// se záběr točí, je ta nejhloupější možná chyba.
+    /// </summary>
+    private const float CaptionZoomOut = 0.86f;
+
+    /// <summary>O kolik návrhových pixelů se městečko zvedne nad pruh s titulkem.</summary>
+    private const float CaptionLift = 96f;
+
     /// <summary>O kolik dlaždic se kamera za celý záběr posune.</summary>
     private const float DriftTiles = 3.2f;
 
@@ -89,9 +99,20 @@ internal sealed class CityShowcaseShot : ITrailerShot
         float time = (float)VideoTiming.TimeOfFrame(frameIndex);
         float t = time / (float)DurationSeconds;
 
+        float zoom = MathHelper.Lerp(StartZoom, EndZoom, Smooth(t));
+        if (_caption is not null)
+        {
+            zoom *= CaptionZoomOut;
+        }
+
+        // Posun se dělí přiblížením: na obrazovce má být pořád stejný, ať je
+        // kamera kdekoli.
+        float lift = _caption is null ? 0f : CaptionLift / zoom;
+
         _camera.Position = _town.Center
+            + new Vector2(0f, lift)
             + _driftDirection * (t - 0.5f) * DriftTiles * TerrainRenderer.TileSize;
-        _camera.SetCaptureZoom(MathHelper.Lerp(StartZoom, EndZoom, Smooth(t)) * _canvas.Scale);
+        _camera.SetCaptureZoom(zoom * _canvas.Scale);
 
         _scene.Draw(_camera, _town.Simulation, new Viewport(0, 0, _canvas.Width, _canvas.Height));
 
@@ -127,15 +148,15 @@ internal sealed class CityShowcaseShot : ITrailerShot
             return;
         }
 
-        const float bandTop = 806f;
-        const float bandHeight = 138f;
+        const float bandTop = 858f;
+        const float bandHeight = 132f;
 
         _canvas.Fill(0, bandTop, TrailerCanvas.DesignWidth, bandHeight, new Color(9, 12, 17) * (0.72f * alpha));
         _canvas.Fill(0, bandTop, TrailerCanvas.DesignWidth, 2, Gold * (0.45f * alpha));
 
         float fontScale = _canvas.FitScale(_caption, TrailerCanvas.DesignWidth - 260f, 3.4f);
         _canvas.DrawCentered(
-            _caption, TrailerCanvas.DesignWidth / 2f, bandTop + 40f, fontScale, Gold * alpha);
+            _caption, TrailerCanvas.DesignWidth / 2f, bandTop + 36f, fontScale, Gold * alpha);
     }
 
     /// <summary>Plynulý náběh i dojezd — lineární zoom je na videu vidět jako škubnutí.</summary>

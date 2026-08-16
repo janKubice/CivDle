@@ -48,7 +48,7 @@ internal sealed class TrailerDirector
     /// ne náhodná: každé z nich staví na pláni, kde se z plánu postaví přes
     /// devadesát procent parcel. Na horším semínku zůstanou v ulicích díry.
     /// </summary>
-    private static readonly long[] CitySeeds = { 20260816, 30313, 777001, 4242 };
+    private static readonly long[] CitySeeds = { 30313, 777001, 4242, 20260816 };
 
     private readonly string _outputDirectory;
     private readonly TrailerPreset _preset;
