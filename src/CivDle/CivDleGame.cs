@@ -34,6 +34,7 @@ public sealed class CivDleGame : Game
     private readonly ProfileStore _profileStore;
     private readonly CaptureDirector? _capture;
     private readonly string? _capsuleDirectory;
+    private readonly TrailerDirector? _trailer;
     private readonly GameContent _content;
     private readonly bool _smoke;
     private readonly bool _perf;
@@ -50,6 +51,14 @@ public sealed class CivDleGame : Game
     /// <param name="capsuleDirectory">
     /// Není-li null, hra místo menu vyrobí obrázky do obchodu (header, library,
     /// ikonu) a skončí.
+    /// </param>
+    /// <param name="trailerDirectory">
+    /// Není-li null, hra místo menu natočí záběry do traileru (přehlídku spritů
+    /// a přelety nad městečky) do téhle složky a skončí.
+    /// </param>
+    /// <param name="trailerPreview">
+    /// Natáčet jen náhled (půlka rozlišení, dvě města) — na posouzení kompozice
+    /// to stačí a je to za zlomek času.
     /// </param>
     /// <param name="smoke">
     /// Projet všechny nástroje herní obrazovky a skončit. Chytá pády, které se
@@ -69,6 +78,8 @@ public sealed class CivDleGame : Game
         GameContent content,
         string? captureDirectory = null,
         string? capsuleDirectory = null,
+        string? trailerDirectory = null,
+        bool trailerPreview = false,
         bool smoke = false,
         bool perf = false)
     {
@@ -77,6 +88,10 @@ public sealed class CivDleGame : Game
         _perf = perf;
         _capture = captureDirectory is null ? null : new CaptureDirector(captureDirectory);
         _capsuleDirectory = capsuleDirectory;
+        _trailer = trailerDirectory is null
+            ? null
+            : new TrailerDirector(
+                trailerDirectory, trailerPreview ? TrailerPreset.Preview : TrailerPreset.Full);
         _settingsStore = new SettingsStore(GetSettingsPath());
         Settings = _settingsStore.Load();
         _profileStore = new ProfileStore(GetProfilePath());
@@ -163,7 +178,8 @@ public sealed class CivDleGame : Game
 
         // Obchod je anglicky: snímky do Steamu musí být v jazyce, kterému rozumí
         // každý, kdo si stránku otevře — ne v tom, který má vývojář nastavený.
-        bool storeMode = _capture is not null || _capsuleDirectory is not null || _smoke || _perf;
+        bool storeMode = _capture is not null || _capsuleDirectory is not null
+            || _trailer is not null || _smoke || _perf;
         var localization = new Localization(content.Languages, storeMode ? "en" : Settings.Language);
         var saves = new SaveStore(Path.Combine(GetProfileDirectory(), "saves", "save.civdle"));
 
@@ -184,6 +200,13 @@ public sealed class CivDleGame : Game
             new CapsuleDirector(_capsuleDirectory).RenderAll(screens, scene);
             Exit();
             return; // _screens zůstává null — Update ani Draw už nemají co dělat
+        }
+
+        if (_trailer is not null)
+        {
+            _trailer.RenderAll(screens);
+            Exit();
+            return;
         }
 
         _screens = screens;
@@ -248,7 +271,7 @@ public sealed class CivDleGame : Game
 
         if (_screens is null)
         {
-            return; // režim kapslí: hotovo v LoadContent, hra se zavírá
+            return; // režim kapslí/traileru: hotovo v LoadContent, hra se zavírá
         }
 
         _screens.Update(gameTime);
@@ -288,7 +311,8 @@ public sealed class CivDleGame : Game
     {
         // Focení do obchodu má pevné rozlišení: Steam chce 1920×1080 a snímky
         // nesmí záviset na tom, jak měl kdo naposled nastavené okno.
-        bool capturing = _capture is not null || _capsuleDirectory is not null || _smoke || _perf;
+        bool capturing = _capture is not null || _capsuleDirectory is not null
+            || _trailer is not null || _smoke || _perf;
         _graphics.PreferredBackBufferWidth = capturing ? CaptureWidth : settings.ResolutionWidth;
         _graphics.PreferredBackBufferHeight = capturing ? CaptureHeight : settings.ResolutionHeight;
         _graphics.SynchronizeWithVerticalRetrace = settings.VSync;

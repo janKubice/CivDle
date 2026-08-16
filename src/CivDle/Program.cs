@@ -12,7 +12,8 @@ using CivDle.Core.Content.Mods;
 bool automated = args.Contains("--smoke")
     || args.Contains("--perf")
     || args.Contains("--capture")
-    || args.Contains("--capsules");
+    || args.Contains("--capsules")
+    || args.Contains("--trailer");
 
 try
 {
@@ -32,6 +33,15 @@ try
         capsuleDirectory = args[capsuleFlag + 1];
     }
 
+    // --trailer <složka> [--nahled]: natočí záběry do traileru a skončí.
+    string? trailerDirectory = null;
+    int trailerFlag = Array.IndexOf(args, "--trailer");
+    if (trailerFlag >= 0 && trailerFlag + 1 < args.Length)
+    {
+        trailerDirectory = args[trailerFlag + 1];
+    }
+
+    bool trailerPreview = args.Contains("--nahled");
     bool smoke = args.Contains("--smoke");
     bool perf = args.Contains("--perf");
 
@@ -63,7 +73,8 @@ try
         Console.WriteLine($"mod: {mod.Name} {mod.Version} ({mod.Id})");
     }
 
-    using var game = new CivDleGame(content, captureDirectory, capsuleDirectory, smoke, perf);
+    using var game = new CivDleGame(
+        content, captureDirectory, capsuleDirectory, trailerDirectory, trailerPreview, smoke, perf);
     game.Run();
     return 0;
 }
