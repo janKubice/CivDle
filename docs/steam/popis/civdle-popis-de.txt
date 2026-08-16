@@ -1,0 +1,58 @@
+[h1]Von der Hütte zur Millionenstadt[/h1]
+
+Du gründest eine Siedlung, stellst ein Sägewerk hin — und dann läuft es von
+allein. Der Gouverneur legt Viertel entlang der Straßen an, Karawanen fahren zu
+den Nachbarn, und die Einwohnerzahl springt von Tausenden auf Millionen.
+
+Es läuft auch ohne dich. Mit dir nur schneller.
+
+[h2]Alles hängt an allem[/h2]
+Holz wird zu Brettern, Bretter werden zu Möbeln. Erz wird zu Stahl, Stahl zu
+Maschinen. Jedes Gebäude braucht Zulieferung und Leute, die darin arbeiten. Zoom
+hinein und du siehst eine Stadt, die wirklich lebt: Autos auf den Straßen,
+Bewohner mit Namen und Wünschen, wechselnde Jahreszeiten und Wetter, das über
+das Land zieht.
+
+[h2]Sie wächst, während du weg bist[/h2]
+Der Gouverneur baut das, was gerade fehlt — fehlt Wohnraum, entstehen Häuser;
+fehlen Bretter, entsteht ein Sägewerk. Du sagst ihm, ob er die Stadt eher
+ausdehnen oder das Bestehende verbessern soll, und was er überhaupt bauen darf.
+Male eine Zone und darin wächst ein Viertel von selbst. Was passiert ist,
+während du weg warst, rechnet dir das Spiel bei der Rückkehr ehrlich vor.
+
+[h2]An der Grenze fängst du neu an[/h2]
+Der Aufstieg löscht die Stadt, lässt dir aber die dauerhaften Verbesserungen —
+und die nächste Zivilisation wächst um ein Vielfaches schneller. Darüber liegt
+das [b]Vermächtnis[/b]: ein tieferer Schnitt, nach dem du mitnehmen kannst, was
+der Aufstieg sonst nimmt. Wissen. Den Kern deiner Stadt samt Straßen. Die
+Wunder, an denen du am längsten gebaut hast. Am Ende nimmt der Reset nur noch
+das, was du ihm lässt.
+
+[h2]Eine Welt, der man einfach zusehen kann[/h2]
+Der Tag geht in den Abend über, Fenster gehen an und Laternen säumen die
+Straßen. Über den Hütten flimmert die Luft, Spiegelungen ziehen über das Wasser,
+Bäume wiegen sich kaum merklich im Wind. Keine zwei Häuschen sind gleich. Und
+wenn du die Kamera ganz nach oben ziehst, wird deine Zivilisation zu einer Karte
+aus Lichtern in dunkler Landschaft.
+
+[h2]Was drin ist[/h2]
+[list]
+[*]Über 90 Gebäude, von der Hütte bis zum Orbitalring
+[*]Sieben Zeitalter: von Holz und Stein bis Fusion und Nanotechnik
+[*]Ein Sternbild aus Technologien, das sich beim Forschen öffnet
+[*]Nebel des Krieges, Kundschafter und fremde Städte — handle mit ihnen oder nimm sie samt Gebäuden auf
+[*]Terraforming: Wasser hinzufügen und ableiten, das Land unter der Stadt umformen
+[*]Bezirke, die von selbst entstehen und Synergien geben
+[*]Glaube und Gebete mit Risiko — rufe Regen herbei oder einen Meteor
+[*]Chronik, Diagramme und ein Zeitraffer des ganzen Durchgangs
+[*]96 Erfolge, tägliche Herausforderungen und Aufträge
+[*]Fotomodus, der die Szene in voller Detailstufe rendert
+[*]Volle Unterstützung für Gamepad und Steam Deck
+[*]Deutsch, Englisch, Tschechisch, Polnisch, Spanisch
+[/list]
+
+[h2]Alles lässt sich umschreiben[/h2]
+Der gesamte Inhalt steckt in JSON — Gebäude, Rohstoffe, Forschung, Ereignisse,
+Biome, Wetter. Der Mod-Editor ist eingebaut: eigenes Gebäude oder eigenen
+Rohstoff anlegen, Sprite zeichnen, sofort ausprobieren und mit einem Klick in
+den Workshop schicken.

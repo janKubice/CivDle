@@ -1,0 +1,56 @@
+[h1]From one shack to a city of millions[/h1]
+
+You found a settlement, put up a sawmill — and then it takes off on its own.
+The governor lays out districts along the roads, caravans do the rounds of your
+neighbours, and the population counter jumps from thousands to millions.
+
+It runs without you. With you, it just runs faster.
+
+[h2]Everything feeds into everything[/h2]
+Wood into planks, planks into furniture. Ore into steel, steel into machines.
+Every building needs inputs and people to work it. Zoom in and you'll find a
+city that actually lives: cars on the roads, citizens with names and wishes,
+seasons turning, weather rolling across the land.
+
+[h2]It grows while you're away[/h2]
+The governor builds whatever is missing — out of housing, it puts up homes; out
+of planks, it builds a sawmill. You decide whether it should spread the city out
+or improve what stands, and what it's allowed to build at all. Paint a zone and
+a district grows there by itself. Come back later and the game accounts for
+every minute you were gone.
+
+[h2]Hit the ceiling, start again[/h2]
+Ascension wipes the city but keeps your permanent upgrades — and the next
+civilization grows many times faster. Above that sits [b]Legacy[/b]: a deeper
+reset that lets you carry over the things Ascension normally takes. Knowledge.
+The core of your city, roads and all. The wonders you spent longest on. In the
+end, the only thing the reset takes is what you let it.
+
+[h2]A world worth just watching[/h2]
+Day bleeds into evening, windows light up and street lamps come on along the
+roads. Air shimmers above the smelters, reflections drift across the water,
+trees sway just barely in the wind. No two cottages are alike. And when you pull
+the camera all the way out, your civilization turns into a map of lights in a
+dark landscape.
+
+[h2]What's in it[/h2]
+[list]
+[*]Over 90 buildings, from a shack to an orbital ring
+[*]Seven eras: wood and stone through to fusion and nanotech
+[*]A constellation of technologies that unfolds as you research
+[*]Fog of war, scouts and foreign cities — trade with them or absorb them, buildings and all
+[*]Terraforming: add and drain water, reshape the land under your city
+[*]Districts that form on their own and grant synergies
+[*]Faith and prayers with a risk — call down rain, or a meteor
+[*]A chronicle, graphs and a timelapse of the whole run
+[*]96 achievements, daily challenges and contracts
+[*]Photo mode that renders the scene in full detail
+[*]Full gamepad and Steam Deck support
+[*]English, Czech, German, Polish, Spanish
+[/list]
+
+[h2]Rewrite any of it[/h2]
+All of the game's content lives in JSON — buildings, resources, research,
+events, biomes, weather. The mod editor is built in: make your own building or
+resource, draw its sprite, try it out on the spot, and push it to the Workshop
+with one button.

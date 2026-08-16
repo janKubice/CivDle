@@ -2105,16 +2105,6 @@ public sealed class Simulation
     /// <summary>Nasbírané body Vzestupu (trvalá měna na permanentní upgrady).</summary>
     public long PrestigePoints { get; internal set; }
 
-    /// <summary>
-    /// Přidá body Vzestupu — <b>jen pro ladicí menu</b>.
-    ///
-    /// <para>Ve hře body vznikají jedině Vzestupem. Tenhle vstup existuje proto,
-    /// že jinak se prestižní vrstva dá vyzkoušet jedině tak, že se hra odehraje
-    /// až k Vzestupu — u každé změny v nákupech vylepšení desítky minut.</para>
-    ///
-    /// <para>Je pojmenovaný tak, aby bylo z volání poznat, že to není herní
-    /// mechanika; záporné číslo se ignoruje, ať se tudy nedá stav rozbít.</para>
-    /// </summary>
     /// <summary>Ladicí: přidá body Odkazu (druhá prestižní vrstva).</summary>
     public void DebugGrantLegacyPoints(long amount) => _legacy.DebugGrant(amount);
 
@@ -2134,6 +2124,31 @@ public sealed class Simulation
         ScaleCapAnnounced = false;
         RefreshTierUnlocks();
         RecomputeDerivedState();
+    }
+
+    /// <summary>
+    /// Ladicí: vyzkoumá technologii bez placení a bez ohledu na předpoklady.
+    ///
+    /// <para>Existuje kvůli nástrojům, které mají <b>ukázat obsah</b>, ne ho
+    /// odehrát — trailer, snímky do obchodu, ladicí menu. Cestou přes
+    /// <c>TryResearch</c> se tam dojít nedá: zásoby se ořezávají na kapacitu
+    /// skladu, takže na hlubší uzly stromu by nástroj musel napřed postavit
+    /// sklady — a to je jiná úloha než „postav hezké městečko".</para>
+    ///
+    /// <para><b>Demo se tudy obejít nedá.</b> Uzel mimo výřez ukázky zůstane
+    /// zamčený i pro nástroj; jinak by stačilo ladicí menu a hranice dema by
+    /// byla jen doporučení.</para>
+    /// </summary>
+    /// <returns>false, když je uzel mimo výřez demoverze.</returns>
+    public bool DebugGrantTech(int techIndex)
+    {
+        if (IsTechBeyondDemo(techIndex))
+        {
+            return false;
+        }
+
+        UnlockTech(techIndex);
+        return true;
     }
 
     /// <summary>Ladicí: naplní všechny sklady na maximum.</summary>
@@ -2171,6 +2186,16 @@ public sealed class Simulation
     private double _debugBuildBoost = 1.0;
     private int _debugBuildBoostTicks;
 
+    /// <summary>
+    /// Přidá body Vzestupu — <b>jen pro ladicí menu</b>.
+    ///
+    /// <para>Ve hře body vznikají jedině Vzestupem. Tenhle vstup existuje proto,
+    /// že jinak se prestižní vrstva dá vyzkoušet jedině tak, že se hra odehraje
+    /// až k Vzestupu — u každé změny v nákupech vylepšení desítky minut.</para>
+    ///
+    /// <para>Je pojmenovaný tak, aby bylo z volání poznat, že to není herní
+    /// mechanika; záporné číslo se ignoruje, ať se tudy nedá stav rozbít.</para>
+    /// </summary>
     public void DebugGrantPrestigePoints(long amount)
     {
         if (amount > 0)
@@ -5736,15 +5761,6 @@ public sealed class Simulation
     /// </summary>
     internal void GrantTechFree(int techIndex) => UnlockTech(techIndex);
 
-    /// <summary>
-    /// Je technologie mimo výřez, který ukázka nabízí?
-    ///
-    /// <para>Výřez je <b>uzávěr přes předpoklady</b> (viz
-    /// <see cref="DemoTechSelection"/>), ne prostě prvních N v pořadí dat.
-    /// Strom totiž není psaný striktně od kořene, takže by prostý řez nechal
-    /// v nabídce uzly, ke kterým v ukázce nevede cesta — a to vypadá jako
-    /// chyba, ne jako hranice dema.</para>
-    /// </summary>
     /// <summary>Běží tenhle svět v demoverzi? (Pro testy a UI.)</summary>
     public bool ContentIsDemoForTests => _content.IsDemo;
 
@@ -5754,7 +5770,15 @@ public sealed class Simulation
     /// </summary>
     private bool[]? _demoTechs;
 
-    /// <inheritdoc cref="IsTechBeyondDemo"/>
+    /// <summary>
+    /// Je technologie mimo výřez, který ukázka nabízí?
+    ///
+    /// <para>Výřez je <b>uzávěr přes předpoklady</b> (viz
+    /// <see cref="DemoTechSelection"/>), ne prostě prvních N v pořadí dat.
+    /// Strom totiž není psaný striktně od kořene, takže by prostý řez nechal
+    /// v nabídce uzly, ke kterým v ukázce nevede cesta — a to vypadá jako
+    /// chyba, ne jako hranice dema.</para>
+    /// </summary>
     public bool IsTechBeyondDemo(int techIndex)
     {
         if (!_content.IsDemo)

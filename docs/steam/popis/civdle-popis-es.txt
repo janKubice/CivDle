@@ -1,0 +1,58 @@
+[h1]De una choza a una ciudad de millones[/h1]
+
+Fundas un asentamiento, levantas un aserradero… y de pronto arranca solo. El
+gobernador traza barrios junto a las carreteras, las caravanas visitan a los
+vecinos y el contador de población salta de miles a millones.
+
+Avanza sin ti. Contigo, solo que más rápido.
+
+[h2]Todo depende de todo[/h2]
+La madera se convierte en tablones, los tablones en muebles. El mineral en
+acero, el acero en máquinas. Cada edificio necesita suministros y gente que
+trabaje en él. Acércate y verás una ciudad que vive de verdad: coches por las
+carreteras, habitantes con nombre y deseos, estaciones que cambian y un tiempo
+que recorre el paisaje.
+
+[h2]Crece mientras no estás[/h2]
+El gobernador construye lo que falta: si no hay viviendas, levanta casas; si no
+hay tablones, monta un aserradero. Tú le dices si debe expandir la ciudad o
+mejorar lo que ya existe, y qué puede construir siquiera. Pintas una zona y allí
+crece un barrio por su cuenta. Al volver, el juego te rinde cuentas de cada
+minuto que estuviste fuera.
+
+[h2]Cuando llegas al tope, empiezas de nuevo[/h2]
+La Ascensión borra la ciudad pero te deja las mejoras permanentes, y la
+siguiente civilización crece muchas veces más rápido. Por encima está el
+[b]Legado[/b]: un corte más profundo tras el cual puedes llevarte lo que la
+Ascensión normalmente se lleva. El conocimiento. El núcleo de tu ciudad con sus
+carreteras. Las maravillas que más tiempo te costaron. Al final, el reinicio
+solo se lleva lo que tú le dejes.
+
+[h2]Un mundo que apetece mirar[/h2]
+El día se funde en la tarde, se encienden las ventanas y las farolas junto a las
+calles. Sobre las fundiciones tiembla el aire, los reflejos recorren el agua,
+los árboles se mecen apenas con el viento. No hay dos casas iguales. Y cuando
+alejas la cámara del todo, tu civilización se convierte en un mapa de luces
+sobre un paisaje oscuro.
+
+[h2]Qué incluye[/h2]
+[list]
+[*]Más de 90 edificios, de la choza al anillo orbital
+[*]Siete eras: de la madera y la piedra a la fusión y la nanotecnología
+[*]Una constelación de tecnologías que se abre según investigas
+[*]Niebla de guerra, exploradores y ciudades ajenas: comercia con ellas o anéxalas con todo y edificios
+[*]Terraformación: añade y drena agua, transforma el terreno bajo la ciudad
+[*]Distritos que surgen solos y dan sinergias
+[*]Fe y oraciones con riesgo: invoca lluvia… o un meteorito
+[*]Crónica, gráficas y un time-lapse de toda la partida
+[*]96 logros, desafíos diarios y contratos
+[*]Modo foto que renderiza la escena con todo el detalle
+[*]Compatibilidad total con mando y Steam Deck
+[*]Español, inglés, checo, alemán, polaco
+[/list]
+
+[h2]Todo se puede reescribir[/h2]
+Todo el contenido del juego vive en JSON: edificios, recursos, investigación,
+eventos, biomas, clima. El editor de mods viene incorporado: creas tu propio
+edificio o recurso, le dibujas el sprite, lo pruebas al momento y lo subes a la
+Workshop con un botón.
