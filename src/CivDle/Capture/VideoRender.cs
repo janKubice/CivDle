@@ -34,7 +34,7 @@ public sealed class VideoRender : IDisposable
     private readonly Camera2D _camera = new();
     private readonly IDisposable _fullDetail;
     private readonly RenderTarget2D _target;
-    private readonly Color[] _buffer;
+    private readonly FrameSequence _frames;
 
     private bool _disposed;
 
@@ -57,10 +57,9 @@ public sealed class VideoRender : IDisposable
         _fullDetail = DetailLevel.FullDetail();
 
         _target = new RenderTarget2D(screens.GraphicsDevice, options.Width, options.Height);
-        _buffer = new Color[options.Width * options.Height];
+        _frames = new FrameSequence(screens.GraphicsDevice, directory, options.Width, options.Height);
 
         _camera.SetViewport(options.Width, options.Height);
-        System.IO.Directory.CreateDirectory(directory);
     }
 
     /// <summary>Kam se snímky ukládají.</summary>
@@ -117,28 +116,9 @@ public sealed class VideoRender : IDisposable
         _scene.Draw(_camera, _simulation, new Viewport(0, 0, _options.Width, _options.Height));
         device.SetRenderTarget(null);
 
-        Save(DoneFrames);
+        _frames.SaveAs(_target, DoneFrames);
         DoneFrames++;
         return true;
-    }
-
-    /// <summary>
-    /// Uloží snímek jako <c>frame-000123.png</c>. Šestimístné číslo schválně:
-    /// ffmpeg čte sekvenci podle vzoru a při kratším čísle by se po tisícovce
-    /// snímků rozsypalo pořadí.
-    /// </summary>
-    private void Save(int frameIndex)
-    {
-        _target.GetData(_buffer);
-
-        string path = Path.Combine(Directory, $"frame-{frameIndex:D6}.png");
-        using var stream = File.Create(path);
-
-        // Ukládá se přes pomocnou texturu, ne přímo z render targetu: ten je
-        // pořád svázaný se zařízením a SaveAsPng z něj během kreslení zlobí.
-        using var texture = new Texture2D(_screens.GraphicsDevice, _options.Width, _options.Height);
-        texture.SetData(_buffer);
-        texture.SaveAsPng(stream, _options.Width, _options.Height);
     }
 
     public void Dispose()
