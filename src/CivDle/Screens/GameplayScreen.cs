@@ -256,6 +256,10 @@ public sealed class GameplayScreen : IScreen
     private const int BuildMenuMaxWidth = 1180;
 
     private Widget _buildMenuPanel = null!;
+
+    /// <summary>Hledání ve stavebním katalogu — devadesát budov se očima neprojde.</summary>
+    private SearchIndex _buildSearch = new(Array.Empty<string>());
+    private TextBox _buildSearchBox = null!;
     private Widget _statusPanel = null!;
     private HorizontalStackPanel _roadModePanel = null!;
     private Button _roadAddButton = null!;
@@ -2209,6 +2213,25 @@ public sealed class GameplayScreen : IScreen
         _buildItemsPanel = new HorizontalStackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
 
         var buildStack = new VerticalStackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
+
+        // Hledání nad záložkami: při zapsaném dotazu se kategorie přeskočí
+        // a hledá se napříč celým katalogem. Kdo hledá "pila", nechce napřed
+        // uhodnout, jestli patří pod výrobu nebo pod sklady.
+        var searchRow = new HorizontalStackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
+        searchRow.Widgets.Add(new Label
+        {
+            Text = loc["search.label"],
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        _buildSearchBox = new TextBox { Width = 220 };
+        _buildSearchBox.TextChanged += (_, _) =>
+        {
+            _buildSearch.Search(_buildSearchBox.Text);
+            PopulateBuildItems();
+        };
+        searchRow.Widgets.Add(_buildSearchBox);
+        buildStack.Widgets.Add(searchRow);
+
         buildStack.Widgets.Add(_buildCategoryPanel);
 
         // S hodně odemčenými budovami se řada nevešla na obrazovku a ty za
@@ -3125,6 +3148,7 @@ public sealed class GameplayScreen : IScreen
             _selectedCategory = categories[0];
         }
 
+        RebuildBuildSearchIndex();
         PopulateCategoryTabs(categories);
         PopulateBuildItems();
     }
@@ -3188,13 +3212,73 @@ public sealed class GameplayScreen : IScreen
         _buildButtons.Clear();
         for (int i = 0; i < content.Buildings.Count; i++)
         {
-            if (_simulation.IsBuildingBuildable(i) && content.Buildings[i].Category == _selectedCategory)
+            if (!_simulation.IsBuildingBuildable(i))
+            {
+                continue;
+            }
+
+            // Při hledání kategorie nerozhoduje: dotaz je silnější filtr než
+            // záložka a nutit hráče trefit obojí by hledání zabilo.
+            bool passes = _buildSearch.IsFiltering
+                ? _buildSearch.IsMatch(i)
+                : content.Buildings[i].Category == _selectedCategory;
+
+            if (passes)
             {
                 _buildItemsPanel.Widgets.Add(BuildingButton(i));
             }
         }
 
         RefreshBuildAffordability();
+    }
+
+    /// <summary>
+    /// Postaví rejstřík stavebního katalogu.
+    ///
+    /// <para>Kromě jména se hledá i v <b>surovinách, které budova vyrábí nebo
+    /// spotřebuje</b>. Hráč obvykle neřeší budovu, ale surovinu: „potřebuju
+    /// prkna" má najít pilu, i když si nevzpomene, jak se jmenuje.</para>
+    ///
+    /// <para>Nestavitelné budovy dostanou prázdný text, takže se nedají najít —
+    /// katalog nesmí prozrazovat obsah, ke kterému se hráč nedostal.</para>
+    /// </summary>
+    private void RebuildBuildSearchIndex()
+    {
+        var loc = _screens.Loc;
+        var content = _screens.Content;
+        var entries = new string[content.Buildings.Count];
+
+        for (int i = 0; i < content.Buildings.Count; i++)
+        {
+            if (!_simulation.IsBuildingBuildable(i))
+            {
+                entries[i] = string.Empty;
+                continue;
+            }
+
+            var def = content.Buildings[i];
+            var text = new System.Text.StringBuilder();
+            text.Append(loc[def.NameKey]).Append(' ').Append(def.Id);
+            text.Append(' ').Append(loc[$"category.{def.Category}"]);
+
+            if (def.Recipe is { } recipe)
+            {
+                foreach (var output in recipe.Outputs)
+                {
+                    text.Append(' ').Append(loc[content.Resources[output.ResourceIndex].NameKey]);
+                }
+
+                foreach (var input in recipe.Inputs)
+                {
+                    text.Append(' ').Append(loc[content.Resources[input.ResourceIndex].NameKey]);
+                }
+            }
+
+            entries[i] = text.ToString();
+        }
+
+        _buildSearch = new SearchIndex(entries);
+        _buildSearch.Search(_buildSearchBox?.Text);
     }
 
     /// <summary>
@@ -3976,6 +4060,15 @@ public sealed class GameplayScreen : IScreen
     /// </summary>
     /// <summary>Otevře správu šablon — pro smoke test, který na tlačítko nedosáhne.</summary>
     internal void OpenTemplatesForSmoke() => OpenTemplates();
+
+    /// <summary>Napíše dotaz do hledání ve stavebním katalogu — smoke nemá klávesnici.</summary>
+    internal int SearchBuildMenuForSmoke(string query)
+    {
+        _buildSearchBox.Text = query;
+        _buildSearch.Search(query);
+        PopulateBuildItems();
+        return _buildItemsPanel.Widgets.Count;
+    }
 
     internal void ShowBottlenecksForSmoke()
     {

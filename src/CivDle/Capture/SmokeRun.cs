@@ -57,6 +57,20 @@ public sealed class SmokeRun
         // Strom výzkumu: sto padesát uzlů a hledání nad nimi. Obrazovka sem
         // dřív vůbec nechodila, takže pád v ní by se projevil až u hráče.
         TechScreen? tech = null;
+        // Stavební katalog má devadesát budov; hledání v něm musí projít
+        // i tehdy, když dotaz nesedí na nic.
+        Check("katalog: hledat", () =>
+        {
+            int hits = screen.SearchBuildMenuForSmoke("pil");
+            int none = screen.SearchBuildMenuForSmoke("qwertzuiop");
+            screen.SearchBuildMenuForSmoke(string.Empty);
+            if (none != 0)
+            {
+                throw new InvalidOperationException($"nesmyslný dotaz vrátil {none} budov");
+            }
+        });
+        Frames(screen, time);
+
         // Inspektor úzkých hrdel: projde všechny budovy a přebarví je, takže
         // pád v něm by přišel právě ve chvíli, kdy má hráč velké město.
         Check("inspektor: zapnout", screen.ShowBottlenecksForSmoke);
