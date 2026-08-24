@@ -2554,7 +2554,12 @@ public sealed class Simulation
     public bool IsBuildingUnlocked(int defIndex) => _buildingUnlocked[defIndex];
 
     /// <summary>Smí hráč budovu přímo postavit (odemčená a nemarkovaná jako jen-upgrade)?</summary>
-    public bool IsBuildingBuildable(int defIndex) => _buildingUnlocked[defIndex] && _content.Buildings[defIndex].Buildable;
+    public bool IsBuildingBuildable(int defIndex) =>
+        _buildingUnlocked[defIndex]
+        && _content.Buildings[defIndex].Buildable
+        // Věž ve hře bez útoků je past: hráč ji postaví, zaplatí za ni dělníky
+        // a nikdy se nedozví, proč nic nedělá.
+        && (!_content.Buildings[defIndex].IsArmed || FrontierDefense);
 
     // ----- měřítko (stupně Vzestupu) -----
 
@@ -3549,7 +3554,9 @@ public sealed class Simulation
 
         if (!IsBuildingBuildable(defIndex))
         {
-            return PlacementResult.NotUnlocked;
+            return def.IsArmed && !FrontierDefense
+                ? PlacementResult.NeedsDefenceMode
+                : PlacementResult.NotUnlocked;
         }
 
         if (def.NeedsSettlementRank && NearestSettlementRank(x, y) < def.MinSettlementRank)

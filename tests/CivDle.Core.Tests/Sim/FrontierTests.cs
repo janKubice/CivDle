@@ -46,21 +46,40 @@ public class FrontierTests
     }
 
     [Fact]
-    public void WithTheModeOffTowersNeverEvenReload()
+    public void WithTheModeOffTowersCannotEvenBeBuilt()
     {
-        // Druhá půlka téhož: nejde jen o to, že se nikdo neobjeví. Celý systém
-        // se nesmí ani rozběhnout — kdyby tikal naprázdno, platí za něj i ten,
-        // kdo si režim nezapnul.
+        // Věž ve hře bez útoků je past: hráč ji postaví, zaplatí za ni dělníky
+        // a nikdy se nedozví, proč nic nedělá.
         var (sim, content) = World();
+        int tower = content.Buildings.IndexOf("watchtower");
+
+        Assert.Equal(PlacementResult.NeedsDefenceMode, sim.CanPlace(tower, 4, 4));
+        Assert.False(sim.IsBuildingBuildable(tower));
+    }
+
+    [Fact]
+    public void WithTheModeOffNothingEvenReloads()
+    {
+        // Druhá půlka „nulového dopadu": nejde jen o to, že se nikdo neobjeví.
+        // Celý systém se nesmí ani rozběhnout — kdyby tikal naprázdno, platí
+        // za něj i ten, kdo si režim nezapnul.
+        //
+        // Věže se staví v zapnutém režimu a ten se pak odepře: jinak by se
+        // vůbec nedaly postavit a test by neověřil nic.
+        var (sim, content) = Defended();
         PlaceTowers(sim, content, count: 8);
+        Assert.Contains(sim.Buildings.ToArray(), b => content.Buildings[b.DefIndex].IsArmed);
 
-        TickPast(sim, content.Frontier.TickOfWave(2));
+        var (plain, _) = World();
+        TickPast(plain, content.Frontier.TickOfWave(2));
 
-        foreach (var building in sim.Buildings.ToArray())
+        foreach (var building in plain.Buildings.ToArray())
         {
             Assert.Equal(0, building.ReloadTicks);
             Assert.Equal(0, building.DisabledTicks);
         }
+
+        Assert.Equal(0, plain.Frontier.Count);
     }
 
     [Fact]

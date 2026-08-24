@@ -25,6 +25,12 @@ public enum PlacementResult
     NeedsWaterAccess,
 
     /// <summary>
+    /// Obranná věž ve hře, kde se nikdo nebrání. Není to chyba hráče — je to
+    /// budova, která má smysl jen ve volitelném režimu obrany.
+    /// </summary>
+    NeedsDefenceMode,
+
+    /// <summary>
     /// Podmořská stavba je mimo dosah přístavu — moře tam sice je, ale nikdo ho
     /// nezásobuje. Řeší se přístavem blíž, ne jiným místem na dně.
     /// </summary>

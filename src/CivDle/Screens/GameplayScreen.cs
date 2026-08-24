@@ -4306,6 +4306,7 @@ public sealed class GameplayScreen : IScreen
         PlacementResult.NotEnoughResources => "build.error.resources",
         PlacementResult.NeedsWaterAccess => "build.error.waterAccess",
         PlacementResult.NoSubseaLink => "build.error.subsea",
+        PlacementResult.NeedsDefenceMode => "build.error.frontierOff",
         PlacementResult.SettlementTooSmall => "build.error.settlementTooSmall",
         _ => "build.title",
     };
