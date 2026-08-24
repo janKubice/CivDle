@@ -2248,6 +2248,15 @@ public sealed class Simulation
     /// Vyhlásí slavnost bez ohledu na ochlazení. Používá jen modlitba: hráč za
     /// ni zaplatil vírou a riskoval, že nebude vyslyšena — to je ta cena.
     /// </summary>
+    /// <summary>
+    /// Vyhlásí slavnost za zlatý úlovek — bez ohledu na ochlazení.
+    ///
+    /// <para>Fénix je vzácný sám o sobě (objeví se jednou za pár minut a musí
+    /// se stihnout kliknout), takže druhá závora navíc by z odměny udělala
+    /// zklamání: „našel jsi ho, ale zrovna teď ti není k ničemu".</para>
+    /// </summary>
+    public void GrantGoldenFestival() => ForceBoost();
+
     internal void ForceBoost()
     {
         _boostTicksRemaining = (int)(_content.Gameplay.Boost.DurationSeconds * TicksPerSecond);

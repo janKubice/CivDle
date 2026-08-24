@@ -482,10 +482,14 @@ public sealed record GameplayConfig(
     LaserConfig? LaserOrNull = null,
     HistoryConfig? HistoryOrNull = null,
     ResearchConfig? ResearchOrNull = null,
-    DemoConfig? DemoOrNull = null)
+    DemoConfig? DemoOrNull = null,
+    GoldenConfig? GoldenOrNull = null)
 {
     /// <summary>Meze demoverze; chybí-li v datech, platí výchozí.</summary>
     public DemoConfig Demo => DemoOrNull ?? DemoConfig.Default;
+
+    /// <summary>Zlaté úlovky; bez bloku v datech zůstane jeden bezejmenný třpyt.</summary>
+    public GoldenConfig Golden => GoldenOrNull ?? GoldenConfig.Default;
 
     /// <summary>Nastavení časosběru; chybí-li v datech, se nic nezaznamenává.</summary>
     public HistoryConfig History => HistoryOrNull ?? HistoryConfig.Disabled;
@@ -555,6 +559,48 @@ public sealed record StaffingConfig(double ScarcityThreshold)
 /// osahal celou; druhý je cíl, na kterém demo končí.
 /// </param>
 /// <param name="TechFraction">Jaký díl stromu výzkumu je v ukázce dostupný (0–1).</param>
+/// <summary>
+/// Jeden druh zlatého úlovku — vzácný tvor, na kterého se dá kliknout.
+///
+/// <para>Data, ne kód: přidat fénixe nebo křišťálovou rybku má být záznam
+/// v JSON, ne nová třída. Odměna je buď balík suroviny, nebo slavnost —
+/// dvě čísla a jeden přepínač, žádná logika v datech.</para>
+/// </summary>
+/// <param name="Sprite">ID spritu ve knihovně (např. <c>fx.golden</c>).</param>
+/// <param name="LifeSeconds">Jak dlouho je k mání, než zmizí.</param>
+/// <param name="DriftTilesPerSecond">Jak rychle se posouvá; 0 = stojí.</param>
+/// <param name="RewardFraction">Podíl kapacity skladu, který padne.</param>
+/// <param name="MinReward">Spodní mez odměny, ať se malý sklad vyplatí taky.</param>
+/// <param name="GrantsFestival">Místo surovin vyhlásí slavnost.</param>
+public sealed record GoldenKindDef(
+    string Id,
+    string Sprite,
+    double LifeSeconds,
+    double DriftTilesPerSecond,
+    double RewardFraction,
+    int MinReward,
+    bool GrantsFestival);
+
+/// <summary>
+/// Zlaté úlovky: jak často se objevují a co všechno se může objevit.
+///
+/// <para>Vzácnost je celý smysl — příliš krátký rozestup a přestane to být
+/// událost. Proto je rozestup v datech, ne v kódu.</para>
+/// </summary>
+public sealed record GoldenConfig(
+    double MinGapSeconds,
+    double MaxGapSeconds,
+    IReadOnlyList<GoldenKindDef> Kinds)
+{
+    /// <summary>Záloha, když blok v datech chybí — jeden bezejmenný třpyt jako dřív.</summary>
+    public static GoldenConfig Default { get; } = new(
+        65, 120,
+        new[] { new GoldenKindDef("golden", "fx.golden", 7, 0, 0.08, 15, false) });
+
+    /// <summary>Je vůbec co losovat?</summary>
+    public bool IsEnabled => Kinds.Count > 0;
+}
+
 public sealed record DemoConfig(
     double PopulationCap,
     long AscensionRequirement,

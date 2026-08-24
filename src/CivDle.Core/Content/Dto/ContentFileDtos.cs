@@ -209,7 +209,8 @@ public sealed record GameplayFileDto(
     LaserDto? Laser,
     HistoryDto? History,
     ResearchDto? Research,
-    DemoDto? Demo);
+    DemoDto? Demo,
+    GoldenDto? Golden);
 
 /// <summary>Škálování cen výzkumu tak, jak leží v JSON.</summary>
 public sealed record ResearchDto(
@@ -648,3 +649,19 @@ public sealed record DemoDto(
     double PopulationCap,
     long AscensionRequirement,
     double TechFraction);
+
+/// <summary>Zlaté úlovky tak, jak leží v JSON.</summary>
+public sealed record GoldenDto(
+    double MinGapSeconds,
+    double MaxGapSeconds,
+    IReadOnlyList<GoldenKindDto>? Kinds);
+
+/// <summary>Jeden druh zlatého úlovku.</summary>
+public sealed record GoldenKindDto(
+    string Id,
+    string Sprite,
+    double LifeSeconds,
+    double DriftTilesPerSecond,
+    double RewardFraction,
+    int MinReward,
+    bool GrantsFestival = false);

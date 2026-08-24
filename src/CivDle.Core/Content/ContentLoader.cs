@@ -2951,6 +2951,10 @@ public sealed class ContentLoader
             ? DemoConfig.Default
             : new DemoConfig(file.Demo.PopulationCap, file.Demo.AscensionRequirement, file.Demo.TechFraction);
 
+        // Zlaté úlovky: bez bloku zůstane jeden bezejmenný třpyt jako dřív,
+        // takže starý gameplay.json (i z modu) načte beze změny.
+        var golden = ReadGolden(file.Golden, path);
+
         return new GameplayConfig(
             file.StartingPopulation,
             startingBuildings,
@@ -2982,7 +2986,8 @@ public sealed class ContentLoader
             ParseLaser(path, file.Laser),
             ParseHistory(path, file.History),
             ParseResearch(path, file.Research),
-            demo);
+            demo,
+            golden);
     }
 
     /// <summary>
@@ -2993,6 +2998,56 @@ public sealed class ContentLoader
     /// Škálování cen výzkumu. Chybí-li blok, platí ceny přesně tak, jak jsou
     /// v tech.json — starší data a mody tím nic neztratí.
     /// </summary>
+    /// <summary>
+    /// Načte zlaté úlovky a ověří je při načtení (fail-fast).
+    ///
+    /// <para>Chybný záznam by se jinak projevil až tím, že po dvou minutách
+    /// hraní vyskočí neviditelný tvor bez odměny — a to nikdo nespojí s daty.</para>
+    /// </summary>
+    private static GoldenConfig ReadGolden(GoldenDto? dto, string path)
+    {
+        if (dto?.Kinds is null || dto.Kinds.Count == 0)
+        {
+            return GoldenConfig.Default;
+        }
+
+        if (dto.MinGapSeconds <= 0 || dto.MaxGapSeconds < dto.MinGapSeconds)
+        {
+            throw new ContentLoadException(
+                path,
+                $"golden má nesmyslné rozestupy ({dto.MinGapSeconds} až {dto.MaxGapSeconds} s).");
+        }
+
+        var kinds = new GoldenKindDef[dto.Kinds.Count];
+        for (int i = 0; i < dto.Kinds.Count; i++)
+        {
+            var kind = dto.Kinds[i];
+            if (string.IsNullOrWhiteSpace(kind.Id) || string.IsNullOrWhiteSpace(kind.Sprite))
+            {
+                throw new ContentLoadException(path, $"zlatý úlovek #{i} nemá id nebo sprite.");
+            }
+
+            if (kind.LifeSeconds <= 0)
+            {
+                throw new ContentLoadException(
+                    path,
+                    $"zlatý úlovek '{kind.Id}' by zmizel dřív, než se objeví "
+                    + $"(lifeSeconds = {kind.LifeSeconds}).");
+            }
+
+            kinds[i] = new GoldenKindDef(
+                kind.Id.Trim(),
+                kind.Sprite.Trim(),
+                kind.LifeSeconds,
+                Math.Max(0, kind.DriftTilesPerSecond),
+                Math.Max(0, kind.RewardFraction),
+                Math.Max(0, kind.MinReward),
+                kind.GrantsFestival);
+        }
+
+        return new GoldenConfig(dto.MinGapSeconds, dto.MaxGapSeconds, kinds);
+    }
+
     private static ResearchConfig? ParseResearch(string path, ResearchDto? dto)
     {
         if (dto is null)

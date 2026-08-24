@@ -1947,6 +1947,7 @@
     "inspector.storageFull": "storage full – output is lost",
     "inspector.building": "under construction",
     "building.upgradeAll": "Upgrade all ({0}×)",
-    "building.upgradeAllDone": "Upgraded: {0}"
+    "building.upgradeAllDone": "Upgraded: {0}",
+    "golden.festival": "Festival!"
   }
 }

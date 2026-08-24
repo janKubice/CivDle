@@ -1947,6 +1947,7 @@
     "inspector.storageFull": "almacén lleno – la producción se pierde",
     "inspector.building": "en construcción",
     "building.upgradeAll": "Mejorar todos ({0}×)",
-    "building.upgradeAllDone": "Mejorados: {0}"
+    "building.upgradeAllDone": "Mejorados: {0}",
+    "golden.festival": "¡Fiesta!"
   }
 }

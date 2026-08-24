@@ -14,11 +14,6 @@ namespace CivDle.Rendering;
 /// </summary>
 public sealed class GoldenSpawnSystem
 {
-    // Vzácnost je celý smysl zlatého úlovku — původní rozestup byl tak krátký,
-    // že přestal být událostí.
-    private const float MinSpawnGap = 65f;
-    private const float MaxSpawnGap = 120f;
-    private const float LifeSeconds = 7f;
     private const float CollectRadiusTiles = 1.1f;
 
     private readonly SpriteLibrary _sprites;
@@ -31,11 +26,17 @@ public sealed class GoldenSpawnSystem
     private float _age;
     private float _nextSpawnTimer;
 
+    /// <summary>Který druh se právě objevil (index do dat).</summary>
+    private int _kind;
+
+    /// <summary>Kudy tvor plave. Pohyb je půlka toho, proč si ho hráč všimne.</summary>
+    private Vector2 _drift;
+
     public GoldenSpawnSystem(SpriteLibrary sprites, GameContent content)
     {
         _sprites = sprites;
         _content = content;
-        _nextSpawnTimer = MaxSpawnGap;
+        _nextSpawnTimer = (float)content.Gameplay.Golden.MaxGapSeconds;
     }
 
     public void Update(float dt, Camera2D camera, Simulation simulation)
@@ -43,7 +44,13 @@ public sealed class GoldenSpawnSystem
         if (_active)
         {
             _age += dt;
-            if (_age >= LifeSeconds)
+
+            // Tvor se posouvá. Stojící třpyt splyne s ostatními efekty na mapě;
+            // pohyb je to, co oko chytí.
+            _worldX += _drift.X * dt;
+            _worldY += _drift.Y * dt;
+
+            if (_age >= Current.LifeSeconds)
             {
                 _active = false;
                 _nextSpawnTimer = NextGap();
@@ -53,7 +60,8 @@ public sealed class GoldenSpawnSystem
         }
 
         _nextSpawnTimer -= dt;
-        if (_nextSpawnTimer <= 0f && camera.Zoom >= DetailLevel.Creatures)
+        if (_nextSpawnTimer <= 0f && camera.Zoom >= DetailLevel.Creatures
+            && _content.Gameplay.Golden.IsEnabled)
         {
             Spawn(camera, simulation);
         }
@@ -77,6 +85,18 @@ public sealed class GoldenSpawnSystem
             return false;
         }
 
+        // Fénix místo surovin vyhlásí slavnost. Je to jiná odměna, ne větší:
+        // suroviny se hodí, když něco chybí, slavnost když všechno běží.
+        if (Current.GrantsFestival)
+        {
+            simulation.GrantGoldenFestival();
+            position = new Vector2(_worldX, _worldY);
+            _active = false;
+            _nextSpawnTimer = NextGap();
+            resourceIndex = -1;
+            return true;
+        }
+
         // Jen ze surovin, které hráč zná. Losovat z celého registru znamenalo, že
         // ze zlatého nálezu padl nanomateriál dřív, než hráč tušil, že existuje —
         // pokazí to progresi i překvapení z první vlastní výroby.
@@ -92,7 +112,8 @@ public sealed class GoldenSpawnSystem
             return false;
         }
 
-        amount = (int)Math.Max(15, simulation.GetStorageCap(resourceIndex) * 0.08);
+        amount = (int)Math.Max(
+            Current.MinReward, simulation.GetStorageCap(resourceIndex) * Current.RewardFraction);
         simulation.AddResource(resourceIndex, amount);
         position = new Vector2(_worldX, _worldY);
         _active = false;
@@ -107,14 +128,15 @@ public sealed class GoldenSpawnSystem
             return;
         }
 
-        var sprite = _sprites.Get("fx.golden");
+        var sprite = _sprites.Get(Current.Sprite);
         if (sprite is null)
         {
             return;
         }
 
+        float life = (float)Current.LifeSeconds;
         float pulse = 1f + 0.15f * MathF.Sin(_age * 6f);
-        float fade = _age > LifeSeconds - 1.5f ? (LifeSeconds - _age) / 1.5f : 1f;
+        float fade = _age > life - 1.5f ? (life - _age) / 1.5f : 1f;
         float size = TerrainRenderer.TileSize * 1.3f * pulse;
 
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
@@ -142,6 +164,13 @@ public sealed class GoldenSpawnSystem
             int tileY = _rng.Next(minY, maxY);
             if (!_content.Biomes[simulation.BiomeAt(tileX, tileY)].IsWater)
             {
+                var kinds = _content.Gameplay.Golden.Kinds;
+                _kind = _rng.Next(kinds.Count);
+
+                float angle = (float)(_rng.NextDouble() * Math.Tau);
+                float speed = (float)kinds[_kind].DriftTilesPerSecond * tileSize;
+                _drift = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * speed;
+
                 _worldX = (tileX + 0.5f) * tileSize;
                 _worldY = (tileY + 0.5f) * tileSize;
                 _age = 0f;
@@ -153,5 +182,13 @@ public sealed class GoldenSpawnSystem
         _nextSpawnTimer = 3f; // samá voda — zkus to za chvíli znovu
     }
 
-    private float NextGap() => MinSpawnGap + (float)_rng.NextDouble() * (MaxSpawnGap - MinSpawnGap);
+    /// <summary>Druh, který je právě k mání.</summary>
+    private GoldenKindDef Current => _content.Gameplay.Golden.Kinds[_kind];
+
+    private float NextGap()
+    {
+        var golden = _content.Gameplay.Golden;
+        return (float)(golden.MinGapSeconds
+            + _rng.NextDouble() * (golden.MaxGapSeconds - golden.MinGapSeconds));
+    }
 }

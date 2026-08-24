@@ -1541,10 +1541,18 @@ public sealed class GameplayScreen : IScreen
     }
 
     /// <summary>Zpětná vazba na posbíranou bublinu / zlatý spawn: zlatý popup, jiskry, cinknutí.</summary>
+    /// <param name="resourceIndex">
+    /// Záporný index znamená, že odměnou nebyly suroviny, ale slavnost —
+    /// zlatý fénix. Bez téhle větve by se hra pokusila sáhnout do registru
+    /// surovin mimo rozsah a spadla by přesně ve chvíli odměny.
+    /// </param>
     private void CollectFeedback(int resourceIndex, int amount, Vector2 worldPos)
     {
         var color = UiPalette.TextBright;
-        _floatingText.Add(worldPos, $"+{amount} {_screens.Loc[_screens.Content.Resources[resourceIndex].NameKey]}", color);
+        string text = resourceIndex < 0
+            ? _screens.Loc["golden.festival"]
+            : $"+{amount} {_screens.Loc[_screens.Content.Resources[resourceIndex].NameKey]}";
+        _floatingText.Add(worldPos, text, color);
         _particles.SpawnBurst(worldPos, color, 16, 55f, 190f);
         _sounds.PlayChime();
     }

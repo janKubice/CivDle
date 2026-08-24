@@ -1947,6 +1947,7 @@
     "inspector.storageFull": "plný sklad – výroba propadá",
     "inspector.building": "staví se",
     "building.upgradeAll": "Vylepšit všechny ({0}×)",
-    "building.upgradeAllDone": "Vylepšeno: {0}"
+    "building.upgradeAllDone": "Vylepšeno: {0}",
+    "golden.festival": "Slavnost!"
   }
 }

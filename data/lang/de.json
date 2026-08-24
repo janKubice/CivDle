@@ -1947,6 +1947,7 @@
     "inspector.storageFull": "Lager voll – Ertrag geht verloren",
     "inspector.building": "im Bau",
     "building.upgradeAll": "Alle verbessern ({0}×)",
-    "building.upgradeAllDone": "Verbessert: {0}"
+    "building.upgradeAllDone": "Verbessert: {0}",
+    "golden.festival": "Fest!"
   }
 }
