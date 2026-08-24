@@ -301,6 +301,19 @@ Co doopravdy chybí:
 
 **Odhad:** 4 dny (obsah 1, síť 1,5, pohled 1, odemčení a hlášky 0,5). **Riziko:** střední — nové je jen šíření sítě, zbytek jsou data.
 
+> **Hotovo.** Bod 3 (svoz) nakonec nestál nic: `HaulSystem` bere za sběrné
+> místo každou budovu se skladem a přístav sklad má, takže podmořská stavba
+> u přístavu má dobrý svoz sama od sebe. Naopak přibyla věc, kterou plán
+> nečekal — trest za nenapojení na silnici. Na dno silnice nevede a nikdy
+> nepovede, takže by celá vrstva natrvalo jela na šedesát procent; podmořské
+> budovy jsou z toho pravidla ven.
+>
+> Pohled pod hladinu vyšel jinak, než plán čekal, a líp: místo ztmavování
+> hladiny se kreslí **dosah sítě** — nádech a obrys nad vodou, kam přístav
+> dosáhne. Sám se rozsvítí, když má hráč v ruce budovu na dno, a klávesou **M**
+> se dá zapnout natrvalo. Dno podle hloubky se dá dodělat, ale tohle je ta
+> informace, kterou hráč doopravdy potřebuje.
+
 ### 6.6 Orbita
 
 Není to jiná mapa, je to **jiný pohled na tutéž** — a hlavně jiný druh stavby: družice se nestaví na dlaždici, **vypouští se**.
@@ -371,12 +384,15 @@ Setřídil jsem to podle toho, **co udělá z hráče dema kupce**, ne podle vel
 
 ### Před demem — 6 dnů
 
-> **Stav k dnešku:** položky 1, 2, 4 a 6 hotové, plus inspektor úzkých hrdel
-> a sníh na střechách. Zbývá sandbox (3) a tilt-shift (7).
+> **Stav k dnešku: hotovo celé.** Všech sedm položek stojí a je otestovaných.
 >
-> Cestou se našly dvě chyby mimo plán: `--capture` tiše umírá u velkého města
-> (patří k položce „index budov pro render") a hledání zpočátku prozrazovalo
-> neodhalené technologie.
+> Cestou se našly tři chyby mimo plán:
+> * `--capture` tiše umírá u velkého města (patří k položce „index budov pro render"),
+> * hledání zpočátku prozrazovalo neodhalené technologie,
+> * **osm budov ve hře nešlo postavit vůbec** — přístav, rybářství a šest
+>   megastruktur měly `buildable: false` bez toho, aby na ně cokoli vylepšovalo.
+>   Megastruktury přitom „odemykal" stupeň měřítka, což nikdy nemohlo zabrat.
+>   Opraveno a pohlídané třemi testy dosažitelnosti.
 
 | # | Co | Dny | Proč právě teď |
 |---|---|---|---|

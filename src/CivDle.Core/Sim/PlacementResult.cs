@@ -25,6 +25,12 @@ public enum PlacementResult
     NeedsWaterAccess,
 
     /// <summary>
+    /// Podmořská stavba je mimo dosah přístavu — moře tam sice je, ale nikdo ho
+    /// nezásobuje. Řeší se přístavem blíž, ne jiným místem na dně.
+    /// </summary>
+    NoSubseaLink,
+
+    /// <summary>
     /// Sídlo v okolí je na tuhle stavbu moc malé (letiště nepatří do osady o třech
     /// chalupách). Roste s hierarchií sídel — stačí kolem dostavět.
     /// </summary>

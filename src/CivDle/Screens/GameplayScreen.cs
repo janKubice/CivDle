@@ -47,6 +47,17 @@ public sealed class GameplayScreen : IScreen
     private readonly HarvestableRenderer _harvestables;
     private readonly RoadRenderer _roadRenderer;
     private readonly ZoneRenderer _zoneRenderer;
+    private readonly SubseaRenderer _subseaRenderer;
+
+    /// <summary>
+    /// Jak moc je vidět dosah podmořské sítě (0–1). Rozsvěcí se samo, když má
+    /// hráč v ruce podmořskou budovu, a dá se zapnout natrvalo klávesou.
+    /// Plynule, ne skokem: skok při každém výběru budovy trhá celou obrazovkou.
+    /// </summary>
+    private float _subseaFade;
+
+    /// <summary>Drží hráč dosah zapnutý ručně?</summary>
+    private bool _showSubsea;
     private readonly PollutionRenderer _pollutionRenderer;
     private readonly StallOverlayRenderer _stallOverlay;
 
@@ -360,6 +371,7 @@ public sealed class GameplayScreen : IScreen
         _harvestables = new HarvestableRenderer(screens.Sprites, screens.Content);
         _roadRenderer = new RoadRenderer(screens.WhitePixel, screens.Content);
         _zoneRenderer = new ZoneRenderer(screens.WhitePixel, screens.Content);
+        _subseaRenderer = new SubseaRenderer(screens.WhitePixel);
         _pollutionRenderer = new PollutionRenderer(screens.WhitePixel, screens.Content);
         _stallOverlay = new StallOverlayRenderer(screens.WhitePixel, screens.Content);
         _landmarkRenderer = new LandmarkRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
@@ -527,6 +539,13 @@ public sealed class GameplayScreen : IScreen
             _bottleneckLegend.Visible = _showBottlenecks;
         }
 
+        // M: dosah podmořské sítě. Sám se ukáže, když má hráč v ruce budovu na
+        // dno — tohle je pro chvíli, kdy se teprve rozmýšlí, kam s přístavem.
+        if (_input.WasPressed(Keys.M) && _simulation.Subsea.IsEnabled)
+        {
+            _showSubsea = !_showSubsea;
+        }
+
         // Start otevře pauzu, Y stavební menu — bez nich by ovladač uměl jen
         // chodit po mapě.
         if (_input.WasPadPressed(GamePadMap.Pause))
@@ -614,6 +633,7 @@ public sealed class GameplayScreen : IScreen
             _take.Record(_takeTime, _camera.Position, _camera.Zoom);
         }
 
+        UpdateSubseaOverlay(dt);
         CollectCapturedTemplate();
         _urbanGround.Update(worldDt, _simulation);
         _buildingRenderer.Update(worldDt); // balony nad kotvišti se houpou
@@ -639,6 +659,9 @@ public sealed class GameplayScreen : IScreen
         _decorationRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
         _urbanGround.Draw(spriteBatch, _camera); // zpevněná zem, aby zeleň zbyla jen v parcích
         _zoneRenderer.Draw(spriteBatch, _camera, _simulation); // tint zón na zemi, pod budovami
+        // Dosah podmořské sítě patří nad vodu, ale pod všechno ostatní —
+        // je to informace o ploše, ne o tom, co na ní stojí.
+        _subseaRenderer.Draw(spriteBatch, _camera, _simulation, _subseaFade);
         _districtRenderer.Draw(spriteBatch, _camera, _simulation); // tvář čtvrtí, taky na zemi
         // Landmarky jen zblízka (LOD): z výšky jsou stejně pod rozlišením a dotaz
         // na desítky tisíc dlaždic by zbytečně žral snímky.
@@ -1213,6 +1236,29 @@ public sealed class GameplayScreen : IScreen
     }
 
     // ----- vstup -----
+
+    /// <summary>
+    /// Rozsvítí a zhasne dosah podmořské sítě.
+    ///
+    /// <para>Sám se ukáže, jakmile má hráč v ruce budovu na dno — v tu chvíli
+    /// je to jediná informace, kterou potřebuje. Klávesou se dá zapnout
+    /// natrvalo, když si teprve vybírá místo pro přístav.</para>
+    ///
+    /// <para>Běží reálným časem, ne herním: je to prvek rozhraní, a v pauze
+    /// nemá zamrznout napůl rozsvícený.</para>
+    /// </summary>
+    private void UpdateSubseaOverlay(float dt)
+    {
+        const float FadeSpeed = 5f;
+
+        bool wanted = _showSubsea
+            || (_tools.SelectedBuilding >= 0
+                && _screens.Content.Buildings[_tools.SelectedBuilding].IsSubsea);
+
+        float target = wanted ? 1f : 0f;
+        _subseaFade = MathHelper.Clamp(
+            _subseaFade + Math.Sign(target - _subseaFade) * FadeSpeed * dt, 0f, 1f);
+    }
 
     private void UpdateCamera(float dt, bool mouseOverUi)
     {
@@ -4202,6 +4248,7 @@ public sealed class GameplayScreen : IScreen
         PlacementResult.WrongBiome => "build.error.wrongBiome",
         PlacementResult.NotEnoughResources => "build.error.resources",
         PlacementResult.NeedsWaterAccess => "build.error.waterAccess",
+        PlacementResult.NoSubseaLink => "build.error.subsea",
         PlacementResult.SettlementTooSmall => "build.error.settlementTooSmall",
         _ => "build.title",
     };

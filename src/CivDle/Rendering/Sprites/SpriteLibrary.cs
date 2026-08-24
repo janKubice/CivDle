@@ -68,6 +68,8 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "icon.computer", IconSize, ComputerIcon);
         Add(device, "icon.robot", IconSize, RobotIcon);
         Add(device, "icon.uranium", IconSize, UraniumIcon);
+        Add(device, "icon.kelp", IconSize, KelpIcon);
+        Add(device, "icon.nodules", IconSize, NodulesIcon);
 
         // Ikony do HUD. Lišta plná slov je v akční hře nečitelná: hráč hledá
         // tvar, ne text. Popis nese bublina, ikona nese poznání.
@@ -268,6 +270,17 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.airfield", SpriteSize, canvas => Airfield(canvas, big: false));
         Add(device, "building.airport", SpriteSize, canvas => Airfield(canvas, big: true));
         Add(device, "building.spaceport", SpriteSize, Spaceport);
+
+        // Podmoří. Všechny stojí na dně, takže mají společný rys: nekreslí se
+        // jim střecha proti nebi, ale silueta proti vodě — světlejší obrys
+        // a nahoře bublina, aby bylo na první pohled poznat, že je to pod
+        // hladinou, a ne dům, co se topí.
+        Add(device, "building.kelp_farm", SpriteSize, KelpFarm);
+        Add(device, "building.fish_pen", SpriteSize, FishPen);
+        Add(device, "building.nodule_harvester", SpriteSize, NoduleHarvester);
+        Add(device, "building.vent_generator", SpriteSize, VentGenerator);
+        Add(device, "building.deep_smelter", SpriteSize, DeepSmelter);
+        Add(device, "building.sea_dome", SpriteSize, SeaDome);
 
         // Megastavby.
         Add(device, "building.megacity_spire", SpriteSize, MegacitySpire);
@@ -2100,6 +2113,158 @@ public sealed class SpriteLibrary : IDisposable
     // ----- ikony pozdějších surovin -----
 
     /// <summary>Ruda: hrubé kusy kamene s barevnou žílou.</summary>
+    // ----- podmoří -----
+
+    /// <summary>Barva obrysu podmořských staveb — světlá, ať je vidět proti tmavé vodě.</summary>
+    private static readonly Color SubseaTrim = new(150, 214, 226);
+
+    /// <summary>Stoupající bublinky. Společná značka „tohle je pod hladinou".</summary>
+    private static void Bubbles(PixelCanvas c, float x)
+    {
+        c.FillCircle(x, 6f, 1.6f, new Color(200, 236, 244) * 0.85f);
+        c.FillCircle(x + 3f, 3f, 1.1f, new Color(200, 236, 244) * 0.7f);
+        c.FillCircle(x - 2f, 2f, 0.8f, new Color(200, 236, 244) * 0.55f);
+    }
+
+    /// <summary>Řasová farma: lana ode dna vzhůru, na nich pásy chaluh.</summary>
+    private static void KelpFarm(PixelCanvas c)
+    {
+        c.FillRect(4, 27, 24, 3, new Color(96, 92, 82)); // kotevní rám na dně
+        for (int i = 0; i < 4; i++)
+        {
+            int x = 6 + i * 6;
+            c.FillRect(x, 10, 1, 17, new Color(120, 116, 104)); // lano
+            c.FillCircle(x + 0.5f, 13f, 2.6f, new Color(63, 122, 74));
+            c.FillCircle(x + 0.5f, 18f, 3f, new Color(74, 138, 82));
+            c.FillCircle(x + 0.5f, 23f, 2.4f, new Color(56, 106, 66));
+        }
+
+        Bubbles(c, 16f);
+    }
+
+    /// <summary>Sádky: kruhová klec s rybami a lávkou po obvodu.</summary>
+    private static void FishPen(PixelCanvas c)
+    {
+        c.FillCircle(16f, 19f, 11f, new Color(46, 96, 112) * 0.8f);
+        c.FillCircle(16f, 19f, 9f, new Color(38, 82, 98) * 0.7f);
+
+        // Obruč klece.
+        for (int angle = 0; angle < 360; angle += 30)
+        {
+            double radians = angle * Math.PI / 180.0;
+            c.FillCircle(16f + (float)(Math.Cos(radians) * 10.5), 19f + (float)(Math.Sin(radians) * 10.5), 1.1f, SubseaTrim);
+        }
+
+        // Ryby uvnitř.
+        c.FillCircle(13f, 17f, 2f, new Color(196, 208, 216));
+        c.FillTriangle(10f, 15.5f, 10f, 18.5f, 12f, 17f, new Color(196, 208, 216));
+        c.FillCircle(19f, 22f, 1.7f, new Color(170, 186, 198));
+        c.FillTriangle(22f, 20.8f, 22f, 23.2f, 20f, 22f, new Color(170, 186, 198));
+
+        Bubbles(c, 22f);
+    }
+
+    /// <summary>Sběrač konkrecí: pásový podvozek a sací hlava těsně nad dnem.</summary>
+    private static void NoduleHarvester(PixelCanvas c)
+    {
+        c.FillRect(3, 28, 26, 2, new Color(78, 70, 60)); // rozrytá stopa ve dně
+        c.FillRect(6, 20, 20, 7, new Color(122, 108, 92)); // pásy
+        for (int i = 0; i < 5; i++)
+        {
+            c.FillRect(7 + i * 4, 21, 2, 5, new Color(88, 78, 68));
+        }
+
+        c.FillRect(9, 12, 14, 8, new Color(158, 142, 118)); // tělo
+        c.FillRect(9, 12, 14, 2, SubseaTrim * 0.8f);
+        c.FillRect(22, 22, 7, 3, new Color(140, 126, 106)); // sací hubice
+        c.FillCircle(28f, 25f, 2f, new Color(96, 84, 70));
+
+        // Vysbírané konkrece na hromádce.
+        c.FillCircle(5f, 25f, 1.6f, new Color(91, 75, 58));
+        c.FillCircle(8f, 26f, 1.2f, new Color(108, 90, 70));
+
+        Bubbles(c, 12f);
+    }
+
+    /// <summary>Elektrárna u průduchu: černý komín, oblak a turbína nad ním.</summary>
+    private static void VentGenerator(PixelCanvas c)
+    {
+        c.FillRect(2, 27, 28, 3, new Color(70, 62, 58)); // čedičové dno
+        c.FillTriangle(10f, 27f, 20f, 27f, 15f, 14f, new Color(58, 50, 48)); // komín
+        c.FillCircle(15f, 13f, 3.4f, new Color(72, 46, 42));
+
+        // Horký oblak — proto tu ta elektrárna stojí.
+        c.FillCircle(15f, 8f, 4.2f, new Color(196, 118, 88) * 0.75f);
+        c.FillCircle(19f, 5f, 3f, new Color(214, 140, 104) * 0.6f);
+        c.FillCircle(11f, 4f, 2.4f, new Color(214, 140, 104) * 0.45f);
+
+        // Turbína na patce vedle komína.
+        c.FillRect(22, 18, 7, 9, new Color(148, 152, 158));
+        c.FillRect(22, 18, 7, 2, SubseaTrim);
+        c.FillCircle(25.5f, 22.5f, 2.2f, new Color(96, 102, 110));
+    }
+
+    /// <summary>Hlubinná huť: tlakový trup s rozžhaveným okem pece.</summary>
+    private static void DeepSmelter(PixelCanvas c)
+    {
+        c.FillRect(2, 27, 28, 3, new Color(84, 76, 66));
+        c.FillRect(5, 11, 22, 16, new Color(122, 112, 100)); // trup
+        c.FillRect(5, 11, 22, 2, SubseaTrim * 0.85f);
+        c.FillRect(5, 25, 22, 2, new Color(88, 80, 72));
+
+        // Otvor pece — jediné teplé místo obrázku, aby bylo poznat, že se taví.
+        c.FillRect(11, 16, 10, 7, new Color(60, 46, 40));
+        c.FillRect(12, 17, 8, 5, new Color(228, 132, 62));
+        c.FillRect(13, 18, 6, 3, new Color(250, 196, 120));
+
+        c.FillRect(8, 5, 3, 6, new Color(104, 96, 88));  // výfuk
+        c.FillRect(21, 5, 3, 6, new Color(104, 96, 88));
+        Bubbles(c, 9.5f);
+        Bubbles(c, 22.5f);
+    }
+
+    /// <summary>Obytný dóm: prosklená kupole s okny a spojovacím tunelem.</summary>
+    private static void SeaDome(PixelCanvas c)
+    {
+        c.FillRect(2, 27, 28, 3, new Color(88, 84, 76)); // dno
+        c.FillRect(4, 23, 24, 4, new Color(126, 124, 120)); // patka
+
+        c.FillCircle(16f, 22f, 12f, SubseaTrim * 0.45f);   // sklo
+        c.FillCircle(16f, 22f, 10f, new Color(96, 146, 164) * 0.6f);
+
+        // Žebra kupole.
+        c.FillRect(15, 10, 2, 13, SubseaTrim * 0.8f);
+        c.FillTriangle(6f, 22f, 26f, 22f, 16f, 10f, SubseaTrim * 0.18f);
+
+        // Rozsvícená okna — tady někdo bydlí.
+        c.FillRect(10, 18, 3, 3, new Color(246, 216, 150));
+        c.FillRect(19, 18, 3, 3, new Color(246, 216, 150));
+        c.FillRect(14, 14, 4, 3, new Color(246, 226, 176));
+
+        c.FillRect(0, 24, 5, 3, new Color(118, 116, 112)); // tunel k dalšímu dómu
+        Bubbles(c, 27f);
+    }
+
+    /// <summary>Řasy: tři listy chaluhy s bublinkami vzduchového měchýře.</summary>
+    private static void KelpIcon(PixelCanvas c)
+    {
+        c.FillRect(11, 6, 2, 14, new Color(52, 96, 60));
+        c.FillCircle(8f, 10f, 3.2f, new Color(74, 138, 82));
+        c.FillCircle(16f, 13f, 3.6f, new Color(63, 122, 74));
+        c.FillCircle(9f, 16f, 3f, new Color(84, 152, 90));
+        c.FillCircle(15f, 8f, 1.4f, new Color(196, 224, 172)); // měchýř
+    }
+
+    /// <summary>Konkrece: tmavé hrudky s kovovým leskem.</summary>
+    private static void NodulesIcon(PixelCanvas c)
+    {
+        c.FillCircle(9f, 15f, 5.5f, new Color(72, 60, 48));
+        c.FillCircle(16f, 12f, 4.5f, new Color(88, 74, 58));
+        c.FillCircle(13f, 18f, 3.5f, new Color(64, 54, 44));
+        c.FillCircle(7.5f, 13f, 1.6f, new Color(134, 118, 92)); // lesk
+        c.FillCircle(15f, 10.5f, 1.3f, new Color(148, 130, 100));
+    }
+
     private static void OreIcon(PixelCanvas c, Color ore)
     {
         c.FillCircle(9f, 15f, 6f, new Color(112, 106, 100));

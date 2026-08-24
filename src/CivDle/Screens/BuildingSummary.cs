@@ -76,6 +76,13 @@ internal static class BuildingSummary
             text.Append('\n').Append(loc["tip.build.needsWater"]);
         }
 
+        // Že se budova staví na dno a jen v dosahu přístavu, se z ceny ani
+        // z receptu nepozná — a je to první věc, o kterou se hráč zarazí.
+        if (def.IsSubsea)
+        {
+            text.Append('\n').Append(loc["tip.build.subsea"]);
+        }
+
         // Že budova mění krajinu sama, se z ceny ani receptu nepozná — a je to
         // ten jediný důvod, proč ji hráč staví.
         if (def.Terraforms)

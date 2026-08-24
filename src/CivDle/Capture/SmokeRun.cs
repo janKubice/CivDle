@@ -99,6 +99,12 @@ public sealed class SmokeRun
         Frames(screen, time);
         Check("šablony: sejmout a položit", () => CaptureAndPlaceTemplate(screens, sim));
 
+        // Podmoří: přístav otevře moře a na dně vyroste farma. Bez tohohle
+        // kroku by se celá vrstva poprvé nakreslila až u hráče — a kreslí se
+        // jinak než zástavba na souši (voda pod budovou, vlastní sprity).
+        Check("podmoří: přístav a farma na dně", () => SubseaRound(screens, sim));
+        Frames(screen, time);
+
         Check("nástroje: vypnout", () => screen.ActivateToolForSmoke(SmokeTool.None));
         Frames(screen, time);
 
@@ -220,6 +226,111 @@ public sealed class SmokeRun
         while (render.RenderNextFrame())
         {
         }
+    }
+
+    /// <summary>
+    /// Postaví u břehu přístav a hned za ním podmořskou farmu.
+    ///
+    /// <para>Když se u seedu smoke světa žádný břeh nenajde, krok se tiše
+    /// přeskočí — smoke má hlídat pády, ne tvar generované mapy.</para>
+    /// </summary>
+    private static void SubseaRound(ScreenManager screens, Simulation sim)
+    {
+        var content = screens.Content;
+        for (int i = 0; i < content.Techs.Count; i++)
+        {
+            sim.DebugGrantTech(i);
+        }
+
+        sim.DebugFillStorages();
+
+        if (!CityFixture.TryFindShore(sim, out int shoreX, out int shoreY))
+        {
+            return;
+        }
+
+        int harbour = content.Buildings.IndexOf("harbor");
+        int farm = content.Buildings.IndexOf("kelp_farm");
+
+        // Přístav chce suchou dlaždici u vody, farma vodní v jeho dosahu —
+        // obojí se hledá v okolí břehu, protože přesné souřadnice závisí na seedu.
+        if (!TryPlaceNear(sim, harbour, shoreX, shoreY, wantWater: false))
+        {
+            Console.WriteLine($"podmoří: u břehu {shoreX},{shoreY} není místo pro přístav, přeskakuji");
+            return;
+        }
+
+        int harbourX = sim.Buildings[^1].X, harbourY = sim.Buildings[^1].Y;
+
+        // Farma se hledá od PŘÍSTAVU, ne od břehu: přístav mohl skončit dvacet
+        // dlaždic vedle a dosah sítě se počítá od něj.
+        if (!TryPlaceNear(sim, farm, harbourX, harbourY, wantWater: true))
+        {
+            Console.WriteLine($"podmoří: přístav na {harbourX},{harbourY}, ale farma se nikam nevešla");
+            return;
+        }
+
+        Console.WriteLine(
+            $"podmoří: přístav {harbourX},{harbourY}, síť pokrývá {sim.Subsea.CoveredTiles} dlaždic");
+
+        // Fotka od přístavu, ne od centra města. Je to jediné místo, kde se
+        // podmořské sprity a dosah sítě opravdu nakreslí — bez ní by se render
+        // téhle vrstvy poprvé ukázal až u hráče.
+        PhotoAt(screens, sim, harbourX, harbourY, "civdle-smoke-subsea");
+    }
+
+    /// <summary>Uloží fotku vycentrovanou na konkrétní dlaždici.</summary>
+    private static void PhotoAt(ScreenManager screens, Simulation sim, int tileX, int tileY, string folder)
+    {
+        var camera = new Rendering.Camera2D();
+        camera.SetViewport(1920, 1080);
+        camera.CenterOn(
+            new Vector2(tileX * Rendering.TerrainRenderer.TileSize, tileY * Rendering.TerrainRenderer.TileSize),
+            3f);
+
+        new ShareCard(screens).Save(
+            sim, camera, Path.Combine(Path.GetTempPath(), folder),
+            ShareCardOptions.For(
+                CivDle.Core.Config.CaptureResolution.Hd1080, withStrip: false, fullDetail: true));
+    }
+
+    /// <summary>
+    /// Zkusí položit budovu na nejbližší vhodnou dlaždici v okolí bodu.
+    ///
+    /// <para>Okolí je široké schválně: <c>TryFindShore</c> hledá břeh, kde je
+    /// zároveň zástavba (aby na snímku bylo vidět město u vody), takže těsně
+    /// kolem něj je všechno zabrané. Nejbližší volné místo bylo v testu skoro
+    /// dvacet dlaždic daleko — s užším okruhem se krok tiše přeskakoval.</para>
+    /// </summary>
+    private static bool TryPlaceNear(Simulation sim, int defIndex, int centerX, int centerY, bool wantWater)
+    {
+        const int Radius = 60;
+
+        int bestDistance = int.MaxValue;
+        int bestX = 0, bestY = 0;
+
+        for (int dy = -Radius; dy <= Radius; dy++)
+        {
+            for (int dx = -Radius; dx <= Radius; dx++)
+            {
+                int x = centerX + dx, y = centerY + dy;
+                if (sim.IsWaterAt(x, y) != wantWater || sim.CanPlace(defIndex, x, y) != PlacementResult.Ok)
+                {
+                    continue;
+                }
+
+                int distance = Math.Max(Math.Abs(dx), Math.Abs(dy));
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    bestX = x;
+                    bestY = y;
+                }
+            }
+        }
+
+        return bestDistance != int.MaxValue
+            && sim.TryPlaceBuildingFree(defIndex, bestX, bestY) == PlacementResult.Ok;
     }
 
     private static void BuildRoadsAround(Simulation sim)

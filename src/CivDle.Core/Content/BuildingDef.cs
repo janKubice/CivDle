@@ -185,8 +185,29 @@ public sealed record BuildingDef(
     int ScoutRadius = 0,
     int TerraformActionIndex = -1,
     int TerraformRadius = 0,
-    double Paving = 1.0)
+    double Paving = 1.0,
+    bool Subsea = false,
+    bool SubseaAnchor = false)
 {
+    /// <summary>
+    /// Stojí tahle budova na mořském dně?
+    ///
+    /// <para>Neplyne z vlastního pole v JSON, ale z <c>allowedBiomes</c>: budova,
+    /// která smí stát <b>jenom</b> na vodě, je podmořská a nic jiného to
+    /// znamenat nemůže. Vlastní příznak by šel nastavit v rozporu s biomy
+    /// a dvě pravdy o téže budově se dřív nebo později rozejdou.</para>
+    /// </summary>
+    public bool IsSubsea => Subsea;
+
+    /// <summary>
+    /// Otevírá tahle budova moře kolem sebe pro podmořskou stavbu? (Přístavy.)
+    ///
+    /// <para>Tohle naopak <b>vlastní příznak v datech je</b>: z biomů se odvodit
+    /// nedá — přístav stojí na břehu úplně stejně jako maják, a jestli má
+    /// zásobovat dno, je rozhodnutí obsahu, ne důsledek terénu.</para>
+    /// </summary>
+    public bool IsSubseaAnchor => SubseaAnchor;
+
     /// <summary>
     /// Podívaná, kterou budova pravidelně předvádí; <c>null</c> = jen stojí.
     /// </summary>

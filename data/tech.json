@@ -1917,6 +1917,51 @@
       "unlocks": [
         "polder_mill"
       ]
+    },
+    {
+      "id": "submersibles",
+      "cost": {
+        "steel": 40,
+        "machine_parts": 15,
+        "science": 900
+      },
+      "prerequisites": [
+        "rail_freight"
+      ],
+      "unlocks": [
+        "kelp_farm",
+        "fish_pen"
+      ]
+    },
+    {
+      "id": "deep_diving",
+      "cost": {
+        "steel": 70,
+        "machine_parts": 30,
+        "science": 1400
+      },
+      "prerequisites": [
+        "submersibles"
+      ],
+      "unlocks": [
+        "nodule_harvester",
+        "sea_dome"
+      ]
+    },
+    {
+      "id": "hydrothermal_tapping",
+      "cost": {
+        "machine_parts": 45,
+        "electronics": 20,
+        "science": 1900
+      },
+      "prerequisites": [
+        "deep_diving"
+      ],
+      "unlocks": [
+        "vent_generator",
+        "deep_smelter"
+      ]
     }
   ]
 }

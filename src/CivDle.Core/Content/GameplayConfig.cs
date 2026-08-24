@@ -483,13 +483,17 @@ public sealed record GameplayConfig(
     HistoryConfig? HistoryOrNull = null,
     ResearchConfig? ResearchOrNull = null,
     DemoConfig? DemoOrNull = null,
-    GoldenConfig? GoldenOrNull = null)
+    GoldenConfig? GoldenOrNull = null,
+    SubseaConfig? SubseaOrNull = null)
 {
     /// <summary>Meze demoverze; chybí-li v datech, platí výchozí.</summary>
     public DemoConfig Demo => DemoOrNull ?? DemoConfig.Default;
 
     /// <summary>Zlaté úlovky; bez bloku v datech zůstane jeden bezejmenný třpyt.</summary>
     public GoldenConfig Golden => GoldenOrNull ?? GoldenConfig.Default;
+
+    /// <summary>Podmořská síť; bez bloku v datech je vrstva vypnutá.</summary>
+    public SubseaConfig Subsea => SubseaOrNull ?? SubseaConfig.Disabled;
 
     /// <summary>Nastavení časosběru; chybí-li v datech, se nic nezaznamenává.</summary>
     public HistoryConfig History => HistoryOrNull ?? HistoryConfig.Disabled;
@@ -599,6 +603,27 @@ public sealed record GoldenConfig(
 
     /// <summary>Je vůbec co losovat?</summary>
     public bool IsEnabled => Kinds.Count > 0;
+}
+
+/// <summary>
+/// Podmořská vrstva: jak daleko od přístavu se dá stavět na dně.
+///
+/// <para>Proč vůbec dosah: bez něj by šel dóm postavit uprostřed oceánu na
+/// druhé polokouli. Podmořská stavba není nezávislá osada — visí na přístavu,
+/// který ji zásobuje. Dosah tedy není jen omezení, je to <b>ta mechanika</b>:
+/// hráč nejdřív rozhodne kam přístav, a moře kolem něj tím teprve otevře.</para>
+///
+/// <para>Šíří se to jen po vodě (viz <c>SubseaNetwork</c>), takže poloostrov je
+/// hráz — dvě zátoky vedle sebe nejsou totéž co jedna.</para>
+/// </summary>
+/// <param name="Range">Kolik vodních dlaždic od kotvy síť dosáhne. 0 = vrstva vypnutá.</param>
+public sealed record SubseaConfig(int Range)
+{
+    /// <summary>Bez bloku v datech se pod hladinou nestaví vůbec.</summary>
+    public static SubseaConfig Disabled { get; } = new(0);
+
+    /// <summary>Dá se na dně vůbec stavět?</summary>
+    public bool IsEnabled => Range > 0;
 }
 
 public sealed record DemoConfig(

@@ -98,7 +98,12 @@ internal sealed class ProductionSystem
 
             // Bez napojení na silnici se zboží odváží hůř. Silnice tím přestávají
             // být dekorací a auto-stavba sítě dostává smysl.
-            if (disconnectedMult < 1.0 && !sim.IsBuildingConnected(i))
+            //
+            // Podmořské budovy z toho ven: k dómu na dně žádná silnice nevede
+            // a nikdy nepovede — zásobuje ho přístav loděmi. Bez téhle výjimky
+            // by celá vrstva jela natrvalo na šedesát procent za něco, s čím
+            // hráč nemůže nic udělat.
+            if (disconnectedMult < 1.0 && !def.IsSubsea && !sim.IsBuildingConnected(i))
             {
                 pace *= (float)disconnectedMult;
             }

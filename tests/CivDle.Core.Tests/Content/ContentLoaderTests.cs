@@ -265,7 +265,29 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
-    public void LoadFrom_BuildingOnWaterBiome_Throws()
+    public void LoadFrom_BuildingOnWaterAndLand_Throws()
+    {
+        // Na vodě se stavět SMÍ — od podmořské vrstvy. Co nesmí, je budova,
+        // která by stála na louce i na dně: podmořská se pozná právě tím, že
+        // jinam nesmí, takže dvojaká maska by tu vlastnost tiše zrušila.
+        WriteAllValid();
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "house", "mapColor": "#B5651D", "footprint": [1, 1],
+              "buildCost": { "wood": 5 }, "allowedBiomes": ["grass", "water"] }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("vodní i pevninské", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_BuildingOnWaterOnly_IsSubsea()
     {
         WriteAllValid();
         Write("buildings.json", """
@@ -278,9 +300,28 @@ public class ContentLoaderTests : IDisposable
         }
         """);
 
+        var content = Load();
+
+        Assert.True(content.Buildings[content.Buildings.IndexOf("house")].IsSubsea);
+    }
+
+    [Fact]
+    public void LoadFrom_SubseaAnchorThatIsItselfSubsea_Throws()
+    {
+        WriteAllValid();
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "house", "mapColor": "#B5651D", "footprint": [1, 1],
+              "buildCost": { "wood": 5 }, "allowedBiomes": ["water"], "subseaAnchor": true }
+          ]
+        }
+        """);
+
         var ex = Assert.Throws<ContentLoadException>(Load);
 
-        Assert.Contains("vodní", ex.Message);
+        Assert.Contains("kotva", ex.Message);
     }
 
     [Fact]

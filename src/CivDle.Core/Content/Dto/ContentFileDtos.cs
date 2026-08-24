@@ -67,7 +67,8 @@ public sealed record BuildingDto(
     int ScoutRadius,
     string? TerraformAction,
     int TerraformRadius,
-    double? Paving);
+    double? Paving,
+    bool SubseaAnchor = false);
 
 /// <summary>Podívaná megastruktury tak, jak leží v JSON.</summary>
 public sealed record BuildingSpectacleDto(string? Effect, double IntervalSeconds);
@@ -210,7 +211,8 @@ public sealed record GameplayFileDto(
     HistoryDto? History,
     ResearchDto? Research,
     DemoDto? Demo,
-    GoldenDto? Golden);
+    GoldenDto? Golden,
+    SubseaDto? Subsea);
 
 /// <summary>Škálování cen výzkumu tak, jak leží v JSON.</summary>
 public sealed record ResearchDto(
@@ -650,6 +652,9 @@ public sealed record DemoDto(
     double PopulationCap,
     long AscensionRequirement,
     double TechFraction);
+
+/// <summary>Podmořská vrstva tak, jak leží v JSON.</summary>
+public sealed record SubseaDto(int Range);
 
 /// <summary>Zlaté úlovky tak, jak leží v JSON.</summary>
 public sealed record GoldenDto(

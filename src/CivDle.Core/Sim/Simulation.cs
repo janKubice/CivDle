@@ -38,6 +38,17 @@ public sealed class Simulation
     private readonly List<Settlement> _settlements = new();
     private readonly ProductionSystem _production;
     private readonly HaulSystem _haulSystem;
+    private readonly SubseaNetwork _subsea;
+
+    /// <summary>
+    /// Přepočítat dosah podmořské sítě? Líně: zástavba se mění často, ale na
+    /// dotaz „smím sem stavět" se čeká jen když má hráč v ruce podmořskou
+    /// budovu. Počítat záplavu při každém domku by byla práce pro nikoho.
+    /// </summary>
+    private bool _subseaDirty = true;
+
+    /// <summary>Kotvy sítě — plní se při přepočtu, aby se pole nealokovalo pokaždé znovu.</summary>
+    private readonly List<SubseaNetwork.Anchor> _subseaAnchors = new();
     private readonly SeasonSystem _seasonSystem;
     private readonly ToolsSystem _toolsSystem;
     private readonly PollutionSystem _pollutionSystem;
@@ -180,6 +191,7 @@ public sealed class Simulation
 
         _production = new ProductionSystem(content);
         _haulSystem = new HaulSystem(content);
+        _subsea = new SubseaNetwork(content.Gameplay.Subsea.Range, IsWaterAt);
         _seasonSystem = new SeasonSystem(content);
         _toolsSystem = new ToolsSystem(content);
         _pollutionSystem = new PollutionSystem(content);
@@ -1471,6 +1483,44 @@ public sealed class Simulation
 
     /// <summary>Je na dlaždici voda? (Render z toho hledá, kam vyplout.)</summary>
     public bool IsWaterAt(int x, int y) => _content.Biomes[BiomeAt(x, y)].IsWater;
+
+    /// <summary>
+    /// Podmořská síť: kam až od přístavů sahá moře, ve kterém se dá stavět.
+    ///
+    /// <para>Přepočítává se líně — teprve když se na ni někdo zeptá poté, co se
+    /// změnila zástavba. Render z ní jen čte (kreslí dosah pod hladinou), takže
+    /// je veřejná; zapisovat do ní zvenčí nejde.</para>
+    /// </summary>
+    public SubseaNetwork Subsea
+    {
+        get
+        {
+            RefreshSubseaIfNeeded();
+            return _subsea;
+        }
+    }
+
+    private void RefreshSubseaIfNeeded()
+    {
+        if (!_subseaDirty)
+        {
+            return;
+        }
+
+        _subseaDirty = false;
+        _subseaAnchors.Clear();
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            var def = _content.Buildings[_buildings[i].DefIndex];
+            if (def.IsSubseaAnchor || def.IsSubsea)
+            {
+                _subseaAnchors.Add(new SubseaNetwork.Anchor(
+                    _buildings[i].X, _buildings[i].Y, def.FootprintWidth, def.FootprintHeight));
+            }
+        }
+
+        _subsea.Rebuild(_subseaAnchors);
+    }
 
     /// <summary>Sousedí dlaždice s vodou? (Povodeň bere jen to, co stojí u ní.)</summary>
     private bool IsWaterNextTo(int x, int y) =>
@@ -3374,6 +3424,14 @@ public sealed class Simulation
         if (def.NeedsWaterAccess && !HasAdjacentWater(def, x, y))
         {
             return PlacementResult.NeedsWaterAccess;
+        }
+
+        // Na dně se staví jen v dosahu přístavu. Biom je v pořádku (moře je
+        // moře), chybí zásobování — proto vlastní výsledek a ne „špatný biom":
+        // hráč se má dozvědět, že řešením je přístav blíž, ne jiné místo.
+        if (def.IsSubsea && !Subsea.CoversFootprint(x, y, def.FootprintWidth, def.FootprintHeight))
+        {
+            return PlacementResult.NoSubseaLink;
         }
 
         return CanPay(def.BuildCost) ? PlacementResult.Ok : PlacementResult.NotEnoughResources;
@@ -5677,6 +5735,11 @@ public sealed class Simulation
             }
         }
 
+        if (def.IsSubseaAnchor || def.IsSubsea)
+        {
+            _subseaDirty = true; // přesunutý přístav otevírá jiné moře než dřív
+        }
+
         building.X = x;
         building.Y = y;
         // Přesun mění biom pod budovou i její okolí → cachované násobiče jdou s ní.
@@ -6116,6 +6179,14 @@ public sealed class Simulation
             BuildTicksRemaining = asConstructionSite ? def.BuildTicks : 0,
         };
         _buildingCount++;
+
+        // Přístav otevírá moře kolem sebe, podmořská budova síť prodlužuje.
+        // Tudy prochází i obnova ze savu, takže se síť po načtení spočítá sama.
+        if (def.IsSubseaAnchor || def.IsSubsea)
+        {
+            _subseaDirty = true;
+        }
+
         if (asConstructionSite && def.TakesTimeToBuild)
         {
             BuildingsUnderConstruction++;
@@ -6158,6 +6229,14 @@ public sealed class Simulation
     /// </summary>
     private void ForgetBuilding(int buildingIndex, BuildingDef def)
     {
+        // Tudy prochází KAŽDÉ odebrání budovy — zboření i sloučení čtyř domů
+        // v jeden. Kdyby si značku nastavovalo každé zvlášť, jedna cesta by
+        // zůstala pozadu a moře by po zbořeném přístavu zůstalo otevřené.
+        if (def.IsSubseaAnchor || def.IsSubsea)
+        {
+            _subseaDirty = true;
+        }
+
         if (_buildings[buildingIndex].IsComplete)
         {
             RemoveBuildingBonuses(def);

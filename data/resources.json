@@ -120,6 +120,18 @@
       "mapColor": "#A5D63F",
       "startAmount": 0,
       "baseStorage": 60
+    },
+    {
+      "id": "kelp",
+      "mapColor": "#3F7A4A",
+      "startAmount": 0,
+      "baseStorage": 120
+    },
+    {
+      "id": "nodules",
+      "mapColor": "#5B4B3A",
+      "startAmount": 0,
+      "baseStorage": 90
     }
   ]
 }

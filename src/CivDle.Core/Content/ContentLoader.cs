@@ -1896,7 +1896,13 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"Budova '{id}' nemá vyplněné 'allowedBiomes'.");
         }
 
+        // Voda a souš se v jedné budově nemíchají. Vodní biomy jsou od té doby,
+        // co existuje podmořská vrstva, legitimní stavební plocha — ale budova,
+        // která smí „na louku i na dno", by nedávala smysl ani ve hře, ani
+        // v kódu: podmořská se pozná právě tím, že jinam nesmí (BuildingDef).
         var mask = new bool[biomes.Count];
+        bool sawWater = false;
+        bool sawLand = false;
         foreach (var biomeId in dto.AllowedBiomes)
         {
             if (biomeId is null || !biomes.TryIndexOf(biomeId.Trim(), out int biomeIndex))
@@ -1906,7 +1912,17 @@ public sealed class ContentLoader
 
             if (biomes[biomeIndex].IsWater)
             {
-                throw new ContentLoadException(path, $"Budova '{id}': biom '{biomeId}' v 'allowedBiomes' je vodní — na vodě se zatím stavět nedá.");
+                sawWater = true;
+            }
+            else
+            {
+                sawLand = true;
+            }
+
+            if (sawWater && sawLand)
+            {
+                throw new ContentLoadException(path,
+                    $"Budova '{id}' má v 'allowedBiomes' vodní i pevninské biomy. Buď stojí na souši, nebo na dně — obojí naráz ne.");
             }
 
             mask[biomeIndex] = true;
@@ -2021,6 +2037,14 @@ public sealed class ContentLoader
 
         int terraformAction = ParseTerraformAction(path, id, dto, terraformIds);
 
+        // Podmořská = smí stát jen na vodě. Odvozuje se, nezadává (viz BuildingDef).
+        bool subsea = IsWaterOnly(mask, biomes);
+        if (subsea && dto.SubseaAnchor)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}' je podmořská a zároveň 'subseaAnchor' — kotva musí stát na břehu, jinak nemá co otevírat.");
+        }
+
         return new BuildingDef(
             id, category, color, dto.Footprint[0], dto.Footprint[1],
             dto.WorkerSlots, dto.HousingCapacity, buildCost, recipe, mask,
@@ -2034,7 +2058,34 @@ public sealed class ContentLoader
             dto.ScoutRadius,
             terraformAction,
             dto.TerraformRadius,
-            Math.Clamp(dto.Paving ?? 1.0, 0.0, 1.0));
+            Math.Clamp(dto.Paving ?? 1.0, 0.0, 1.0),
+            subsea,
+            dto.SubseaAnchor);
+    }
+
+    /// <summary>
+    /// Smí budova stát <b>jen</b> na vodě? Prázdná maska (budova bez omezení)
+    /// se za podmořskou nepovažuje — ta smí všude, což je něco jiného.
+    /// </summary>
+    private static bool IsWaterOnly(bool[] mask, BiomeRegistry biomes)
+    {
+        bool any = false;
+        for (int i = 0; i < mask.Length && i < biomes.Count; i++)
+        {
+            if (!mask[i])
+            {
+                continue;
+            }
+
+            if (!biomes[i].IsWater)
+            {
+                return false;
+            }
+
+            any = true;
+        }
+
+        return any;
     }
 
     /// <summary>
@@ -2955,6 +3006,7 @@ public sealed class ContentLoader
         // Zlaté úlovky: bez bloku zůstane jeden bezejmenný třpyt jako dřív,
         // takže starý gameplay.json (i z modu) načte beze změny.
         var golden = ReadGolden(file.Golden, path);
+        var subsea = ReadSubsea(file.Subsea, path);
 
         return new GameplayConfig(
             file.StartingPopulation,
@@ -2988,7 +3040,31 @@ public sealed class ContentLoader
             ParseHistory(path, file.History),
             ParseResearch(path, file.Research),
             demo,
-            golden);
+            golden,
+            subsea);
+    }
+
+    /// <summary>
+    /// Podmořská vrstva. Chybí-li blok, je vypnutá — starší data i mody tím
+    /// dostanou přesně tu hru, jakou měly.
+    /// </summary>
+    private static SubseaConfig ReadSubsea(SubseaDto? dto, string path)
+    {
+        if (dto is null)
+        {
+            return SubseaConfig.Disabled;
+        }
+
+        // Strop je tu proti překlepu: dosah v tisících dlaždic by při každém
+        // postaveném přístavu rozlil zaplavování přes půl oceánu a hra by se
+        // sekla na místě, kde by to nikdo nehledal.
+        if (dto.Range is < 0 or > 64)
+        {
+            throw new ContentLoadException(path,
+                $"'subsea.range' musí být 0–64, je {dto.Range}.");
+        }
+
+        return new SubseaConfig(dto.Range);
     }
 
     /// <summary>
