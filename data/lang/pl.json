@@ -1931,6 +1931,8 @@
     "zone.residential": "Mieszkalna",
     "zone.science": "Naukowa",
     "zone.services": "Usługowa",
-    "zone.storage": "Magazynowa"
+    "zone.storage": "Magazynowa",
+    "search.label": "Szukaj:",
+    "search.results": "znaleziono: {0}"
   }
 }

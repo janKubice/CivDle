@@ -1931,6 +1931,8 @@
     "zone.residential": "Residencial",
     "zone.science": "Ciencia",
     "zone.services": "Servicios",
-    "zone.storage": "Almacenaje"
+    "zone.storage": "Almacenaje",
+    "search.label": "Buscar:",
+    "search.results": "encontrados: {0}"
   }
 }

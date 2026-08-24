@@ -3813,6 +3813,14 @@ public sealed class GameplayScreen : IScreen
     /// <summary>Otevře správu šablon — pro smoke test, který na tlačítko nedosáhne.</summary>
     internal void OpenTemplatesForSmoke() => OpenTemplates();
 
+    /// <summary>Otevře strom výzkumu a vrátí ho — smoke si v něm zkouší hledání.</summary>
+    internal TechScreen OpenTechForSmoke()
+    {
+        var screen = new TechScreen(_screens, _simulation);
+        _screens.Push(screen);
+        return screen;
+    }
+
     internal void ActivateToolForSmoke(Capture.SmokeTool tool)
     {
         _tools.Clear();

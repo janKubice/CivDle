@@ -1931,6 +1931,8 @@
     "zone.residential": "Wohngebiet",
     "zone.science": "Wissenschaft",
     "zone.services": "Dienstleistungen",
-    "zone.storage": "Lager"
+    "zone.storage": "Lager",
+    "search.label": "Suchen:",
+    "search.results": "gefunden: {0}"
   }
 }

@@ -54,6 +54,28 @@ public sealed class SmokeRun
         Check("šablony: zavřít", () => screens.Pop());
         Frames(screen, time);
 
+        // Strom výzkumu: sto padesát uzlů a hledání nad nimi. Obrazovka sem
+        // dřív vůbec nechodila, takže pád v ní by se projevil až u hráče.
+        TechScreen? tech = null;
+        Check("výzkum: obrazovka", () => tech = screen.OpenTechForSmoke());
+        Frames(screen, time);
+        Check("výzkum: hledat", () => tech!.SearchForSmoke("dre"));
+        Frames(screen, time);
+        Check("výzkum: hledat nesmysl", () => tech!.SearchForSmoke("qwertzuiop"));
+        Frames(screen, time);
+        Check("výzkum: zrušit hledání", () =>
+        {
+            tech!.SearchForSmoke(string.Empty);
+            if (tech.SearchMatchCountForSmoke != screens.Content.Techs.Count)
+            {
+                throw new InvalidOperationException(
+                    "po smazání dotazu se nevrátil celý strom "
+                    + $"({tech.SearchMatchCountForSmoke} z {screens.Content.Techs.Count})");
+            }
+        });
+        Check("výzkum: zavřít", () => screens.Pop());
+        Frames(screen, time);
+
         Check("šablony: snímat", () => screen.ActivateToolForSmoke(SmokeTool.TemplateCapture));
         Frames(screen, time);
         Check("šablony: sejmout a položit", () => CaptureAndPlaceTemplate(screens, sim));

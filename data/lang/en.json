@@ -1931,6 +1931,8 @@
     "zone.residential": "Residential",
     "zone.science": "Science",
     "zone.services": "Services",
-    "zone.storage": "Storage"
+    "zone.storage": "Storage",
+    "search.label": "Search:",
+    "search.results": "found: {0}"
   }
 }

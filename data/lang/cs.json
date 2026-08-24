@@ -1931,6 +1931,8 @@
     "zone.residential": "Obytná",
     "zone.science": "Vědecká",
     "zone.services": "Služby",
-    "zone.storage": "Skladová"
+    "zone.storage": "Skladová",
+    "search.label": "Hledat:",
+    "search.results": "nalezeno: {0}"
   }
 }
