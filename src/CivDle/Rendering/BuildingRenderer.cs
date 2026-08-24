@@ -36,9 +36,20 @@ public sealed class BuildingRenderer
     public void Update(float dt) => _time += dt;
 
     /// <summary>Vykreslí všechny viditelné budovy.</summary>
+    /// <summary>
+    /// Kolik sněhu leží na střechách (0 = nic). Bere se z právě běžícího
+    /// období; render si nic nepamatuje, jen si to na začátku snímku přečte.
+    /// </summary>
+    /// <summary>Barva sněhu — nádech do modra, ne čistě bílá; čistá bílá vypadá jako díra.</summary>
+    private static readonly Color SnowColor = new(232, 240, 250);
+
+    private float _snow;
+
     public void Draw(SpriteBatch spriteBatch, Camera2D camera, Simulation simulation)
     {
         var (min, max) = camera.VisibleWorldBounds();
+        _snow = (float)(simulation.CurrentSeason?.SnowCover ?? 0.0);
+        _snowCaps.Clear();
 
         // Zjednodušený režim: při oddálení jsou budovy pár pixelů velké, takže
         // sprite, stín ani odznaky nejsou k rozeznání — a přitom stojí tři kresby
@@ -92,6 +103,7 @@ public sealed class BuildingRenderer
         }
 
         spriteBatch.End();
+        DrawSnowPass(spriteBatch, camera);
     }
 
     /// <summary>Je budova ve výřezu? Vrací i její definici a obdélník ve světě.</summary>
@@ -141,9 +153,12 @@ public sealed class BuildingRenderer
         var sprite = _sprites.Get($"building.{def.Id}");
         if (sprite is not null)
         {
-            spriteBatch.Draw(
-                sprite, body, null, tint, 0f, Vector2.Zero,
-                look.Mirrored ? SpriteEffects.FlipHorizontally : SpriteEffects.None, 0f);
+            var flip = look.Mirrored ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
+            spriteBatch.Draw(sprite, body, null, tint, 0f, Vector2.Zero, flip, 0f);
+            if (_snow > 0.001f)
+            {
+                _snowCaps.Add(($"building.{def.Id}", body, flip));
+            }
         }
         else
         {
@@ -173,6 +188,66 @@ public sealed class BuildingRenderer
         // červený roh pro všechno znamenal, že hráč viděl „něco je špatně"
         // a musel hádat; barva teď důvod rozliší a bublina ho pojmenuje.
         DrawStallBadge(spriteBatch, building.Stall, bounds);
+    }
+
+    /// <summary>Střechy k zasněžení, posbírané při hlavním průchodu.</summary>
+    private readonly List<(string SpriteId, Rectangle Body, SpriteEffects Flip)> _snowCaps = new();
+
+    /// <summary>
+    /// Sníh na střechách — druhý průchod bílou siluetou.
+    ///
+    /// <para>Dvě slepé uličky, než tohle sedlo. Prostý bílý pruh přes horní
+    /// okraj obdélníku visel ve vzduchu nad domem jako police: sprity
+    /// nevyplňují celý obdélník. A obarvit sprite bíle v běžném míchání
+    /// nefunguje vůbec — tint <b>násobí</b>, takže tmavě hnědá střecha krát
+    /// bílá je pořád tmavě hnědá střecha.</para>
+    ///
+    /// <para>Ani aditivní míchání nestačilo: přičítá tutéž tmavou barvu, takže
+    /// hnědá střecha jen mírně zesvětlá. Řešením je <b>bílá silueta</b> spritu
+    /// (<see cref="Sprites.SpriteLibrary.Mask"/>) — má tvar střechy, ale bílé
+    /// RGB, takže se dá kreslit jako sníh. Cenou je jeden batch navíc za
+    /// snímek, a jen v zimě.</para>
+    ///
+    /// <para>Proč ne druhá, zimní sada spritů: devadesát čtyři budov krát dvě
+    /// roční verze je sto osmdesát obrázků k překreslení při každé změně —
+    /// a modům by zimní varianty stejně chyběly.</para>
+    /// </summary>
+    private void DrawSnowPass(SpriteBatch spriteBatch, Camera2D camera)
+    {
+        if (_snowCaps.Count == 0)
+        {
+            return;
+        }
+
+        // Necelá třetina výšky: sníh drží na střeše, ne na stěnách.
+        const float capFraction = 0.34f;
+
+        spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
+
+        foreach (var (spriteId, body, flip) in _snowCaps)
+        {
+            var sprite = _sprites.Mask(spriteId);
+            if (sprite is null)
+            {
+                continue;
+            }
+
+            int sourceHeight = Math.Max(1, (int)MathF.Round(sprite.Height * capFraction));
+            int destHeight = Math.Max(1, (int)MathF.Round(body.Height * capFraction));
+
+            spriteBatch.Draw(
+                sprite,
+                new Rectangle(body.X, body.Y, body.Width, destHeight),
+                new Rectangle(0, 0, sprite.Width, sourceHeight),
+                SnowColor * _snow,
+                0f,
+                Vector2.Zero,
+                flip,
+                0f);
+        }
+
+        spriteBatch.End();
+        _snowCaps.Clear();
     }
 
     /// <summary>

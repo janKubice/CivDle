@@ -269,7 +269,8 @@ public sealed record SeasonDto(
     double HarvestMult,
     double GrowthMult,
     double FuelPerPersonPerSecond,
-    double ColdGrowthMult);
+    double ColdGrowthMult,
+    double SnowCover = 0.0);
 
 /// <summary>Nastavení spokojenosti tak, jak leží v JSON.</summary>
 public sealed record HappinessDto(

@@ -379,7 +379,8 @@ public sealed class ContentLoader
             seasons.Add(new SeasonDef(
                 id, tint, dto.TintAlpha,
                 dto.FoodProductionMult, dto.HarvestMult, dto.GrowthMult,
-                dto.FuelPerPersonPerSecond, dto.ColdGrowthMult));
+                dto.FuelPerPersonPerSecond, dto.ColdGrowthMult,
+                Math.Clamp(dto.SnowCover, 0, 1)));
         }
 
         return new SeasonCalendar(seasons, file.DaysPerSeason, fuelIndex);

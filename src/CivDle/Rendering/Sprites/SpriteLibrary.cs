@@ -27,8 +27,26 @@ public sealed class SpriteLibrary : IDisposable
 
     private readonly Dictionary<string, Texture2D> _sprites = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Bílé siluety spritů, počítané až na vyžádání.
+    ///
+    /// <para>K čemu: obarvit sprite bíle přes tint nejde — tint <b>násobí</b>,
+    /// takže tmavě hnědá střecha krát bílá je pořád tmavě hnědá střecha.
+    /// Aditivní míchání ji zesvětlí jen o zlomek, protože přičítá tutéž
+    /// tmavou barvu. Silueta má bílé RGB a průhlednost původního spritu, takže
+    /// se dá kreslit v jakékoli barvě a přesně kopíruje tvar.</para>
+    ///
+    /// <para>Počítá se líně: masku potřebuje sníh na střechách, tedy zlomek
+    /// spritů a jen v zimě. Vyrábět je pro všechno při startu by byla dvojnásobná
+    /// paměť za něco, co se většinou nepoužije.</para>
+    /// </summary>
+    private readonly Dictionary<string, Texture2D> _masks = new(StringComparer.Ordinal);
+
+    private readonly GraphicsDevice _device;
+
     public SpriteLibrary(GraphicsDevice device)
     {
+        _device = device;
         // Suroviny (ikony do HUD).
         Add(device, "icon.wood", IconSize, WoodIcon);
         Add(device, "icon.planks", IconSize, PlanksIcon);
@@ -272,8 +290,49 @@ public sealed class SpriteLibrary : IDisposable
     /// <summary>Sprite podle ID, nebo <c>null</c>, když neexistuje.</summary>
     public Texture2D? Get(string id) => _sprites.GetValueOrDefault(id);
 
+    /// <summary>
+    /// Bílá silueta spritu — tentýž tvar, ale v barvě, kterou si volající
+    /// určí tintem. Vrací <c>null</c>, když sprite neexistuje.
+    /// </summary>
+    public Texture2D? Mask(string id)
+    {
+        if (_masks.TryGetValue(id, out var cached))
+        {
+            return cached;
+        }
+
+        var source = Get(id);
+        if (source is null)
+        {
+            return null;
+        }
+
+        var pixels = new Color[source.Width * source.Height];
+        source.GetData(pixels);
+        for (int i = 0; i < pixels.Length; i++)
+        {
+            // Bílá s původní průhledností. Sprity jsou přednásobené alfou,
+            // takže i bílá musí být předem ztlumená na svou alfu — jinak by
+            // okraje svítily přes svůj vlastní tvar.
+            byte alpha = pixels[i].A;
+            pixels[i] = new Color(alpha, alpha, alpha, alpha);
+        }
+
+        var mask = new Texture2D(_device, source.Width, source.Height);
+        mask.SetData(pixels);
+        _masks[id] = mask;
+        return mask;
+    }
+
     public void Dispose()
     {
+        foreach (var mask in _masks.Values)
+        {
+            mask.Dispose();
+        }
+
+        _masks.Clear();
+
         foreach (var texture in _sprites.Values)
         {
             texture.Dispose();
