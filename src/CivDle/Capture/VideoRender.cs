@@ -129,6 +129,7 @@ public sealed class VideoRender : IDisposable
         }
 
         _disposed = true;
+        _frames.Dispose();
         _target.Dispose();
         _scene.Dispose();
         _fullDetail.Dispose();
