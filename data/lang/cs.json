@@ -1937,6 +1937,14 @@
     "tip.resource.production": "Výroba: {0}/s",
     "tip.resource.consumption": "Spotřeba: {0}/s",
     "tip.resource.net": "Čistý tok: {0}/s",
-    "tip.resource.wasted": "Propadá do plného skladu: {0}/s"
+    "tip.resource.wasted": "Propadá do plného skladu: {0}/s",
+    "inspector.title": "Úzká hrdla",
+    "inspector.hint": "B – zapnout/vypnout",
+    "inspector.working": "pracuje",
+    "inspector.missingInput": "chybí surovina",
+    "inspector.noWorkers": "chybí lidi",
+    "inspector.noTerrain": "došlo, co těžit",
+    "inspector.storageFull": "plný sklad – výroba propadá",
+    "inspector.building": "staví se"
   }
 }

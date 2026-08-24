@@ -1937,6 +1937,14 @@
     "tip.resource.production": "Produkcja: {0}/s",
     "tip.resource.consumption": "Zużycie: {0}/s",
     "tip.resource.net": "Bilans: {0}/s",
-    "tip.resource.wasted": "Traci się przez pełny magazyn: {0}/s"
+    "tip.resource.wasted": "Traci się przez pełny magazyn: {0}/s",
+    "inspector.title": "Wąskie gardła",
+    "inspector.hint": "B – włącz/wyłącz",
+    "inspector.working": "pracuje",
+    "inspector.missingInput": "brak surowca",
+    "inspector.noWorkers": "brak ludzi",
+    "inspector.noTerrain": "nie ma czego wydobywać",
+    "inspector.storageFull": "magazyn pełny – produkcja przepada",
+    "inspector.building": "w budowie"
   }
 }

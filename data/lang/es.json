@@ -1937,6 +1937,14 @@
     "tip.resource.production": "Producción: {0}/s",
     "tip.resource.consumption": "Consumo: {0}/s",
     "tip.resource.net": "Flujo neto: {0}/s",
-    "tip.resource.wasted": "Se pierde por almacén lleno: {0}/s"
+    "tip.resource.wasted": "Se pierde por almacén lleno: {0}/s",
+    "inspector.title": "Cuellos de botella",
+    "inspector.hint": "B – activar/desactivar",
+    "inspector.working": "trabajando",
+    "inspector.missingInput": "falta recurso",
+    "inspector.noWorkers": "faltan trabajadores",
+    "inspector.noTerrain": "no queda nada que extraer",
+    "inspector.storageFull": "almacén lleno – la producción se pierde",
+    "inspector.building": "en construcción"
   }
 }

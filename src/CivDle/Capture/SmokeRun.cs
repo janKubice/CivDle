@@ -57,6 +57,11 @@ public sealed class SmokeRun
         // Strom výzkumu: sto padesát uzlů a hledání nad nimi. Obrazovka sem
         // dřív vůbec nechodila, takže pád v ní by se projevil až u hráče.
         TechScreen? tech = null;
+        // Inspektor úzkých hrdel: projde všechny budovy a přebarví je, takže
+        // pád v něm by přišel právě ve chvíli, kdy má hráč velké město.
+        Check("inspektor: zapnout", screen.ShowBottlenecksForSmoke);
+        Frames(screen, time);
+
         Check("výzkum: obrazovka", () => tech = screen.OpenTechForSmoke());
         Frames(screen, time);
         Check("výzkum: hledat", () => tech!.SearchForSmoke("dre"));

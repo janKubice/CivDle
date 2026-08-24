@@ -1937,6 +1937,14 @@
     "tip.resource.production": "Production: {0}/s",
     "tip.resource.consumption": "Consumption: {0}/s",
     "tip.resource.net": "Net flow: {0}/s",
-    "tip.resource.wasted": "Lost to full storage: {0}/s"
+    "tip.resource.wasted": "Lost to full storage: {0}/s",
+    "inspector.title": "Bottlenecks",
+    "inspector.hint": "B – toggle",
+    "inspector.working": "working",
+    "inspector.missingInput": "missing input",
+    "inspector.noWorkers": "no workers",
+    "inspector.noTerrain": "nothing left to harvest",
+    "inspector.storageFull": "storage full – output is lost",
+    "inspector.building": "under construction"
   }
 }

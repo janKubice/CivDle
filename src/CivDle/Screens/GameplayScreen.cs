@@ -48,6 +48,16 @@ public sealed class GameplayScreen : IScreen
     private readonly RoadRenderer _roadRenderer;
     private readonly ZoneRenderer _zoneRenderer;
     private readonly PollutionRenderer _pollutionRenderer;
+    private readonly StallOverlayRenderer _stallOverlay;
+
+    /// <summary>
+    /// Běží inspektor úzkých hrdel? Je to pohled, ne nástroj — nic nemění,
+    /// takže nepatří mezi nástroje a nemá vlastní kurzor.
+    /// </summary>
+    private bool _showBottlenecks;
+
+    /// <summary>Legenda inspektoru; ukazuje se jen se zapnutým pohledem.</summary>
+    private Widget _bottleneckLegend = null!;
     private readonly DistrictRenderer _districtRenderer;
     private readonly LandmarkRenderer _landmarkRenderer;
     private readonly UfoRenderer _ufoRenderer;
@@ -347,6 +357,7 @@ public sealed class GameplayScreen : IScreen
         _roadRenderer = new RoadRenderer(screens.WhitePixel, screens.Content);
         _zoneRenderer = new ZoneRenderer(screens.WhitePixel, screens.Content);
         _pollutionRenderer = new PollutionRenderer(screens.WhitePixel, screens.Content);
+        _stallOverlay = new StallOverlayRenderer(screens.WhitePixel, screens.Content);
         _landmarkRenderer = new LandmarkRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
         _ufoRenderer = new UfoRenderer(screens.WhitePixel);
         _sounds = screens.Sounds;
@@ -502,6 +513,14 @@ public sealed class GameplayScreen : IScreen
         {
             _screens.Push(new DebugScreen(_screens, _simulation, _camera, _cheats));
             return;
+        }
+
+        // B: inspektor úzkých hrdel. Samotné písmeno schválně — je to pohled,
+        // do kterého hráč skáče a zase z něj vyskakuje, ne obscurní nástroj.
+        if (_input.WasPressed(Keys.B))
+        {
+            _showBottlenecks = !_showBottlenecks;
+            _bottleneckLegend.Visible = _showBottlenecks;
         }
 
         // Start otevře pauzu, Y stavební menu — bez nich by ovladač uměl jen
@@ -665,6 +684,13 @@ public sealed class GameplayScreen : IScreen
         // Závoj zamoření nad městem, ale pod událostmi a efekty: špína leží
         // na krajině, nemá zakrývat, co se zrovna děje.
         _pollutionRenderer.Draw(spriteBatch, _camera, _simulation);
+
+        // Inspektor až nad zamořením: je to odpověď na otázku „co stojí",
+        // a ta má překrýt všechno ostatní, dokud si ji hráč nevypne.
+        if (_showBottlenecks)
+        {
+            _stallOverlay.Draw(spriteBatch, _camera, _simulation);
+        }
 
         // Cedule čtvrtí až nad zástavbu — jméno místa má být čitelné i tam,
         // kde je pod ním nejhustěji postaveno.
@@ -1819,6 +1845,11 @@ public sealed class GameplayScreen : IScreen
 
         _rateTimer = 0f;
         RefreshResourceTooltips();
+        if (_showBottlenecks)
+        {
+            RefreshBottleneckCounts();
+        }
+
         WarnAboutFullStorage(dt);
     }
 
@@ -2264,6 +2295,11 @@ public sealed class GameplayScreen : IScreen
         bottomBar.Widgets.Add(BuildToolButtons());
 
         var root = new Panel();
+        // Legenda inspektoru: bez ní je barevná mapa hádanka. Skrytá, dokud
+        // si hráč pohled nezapne.
+        _bottleneckLegend = BuildBottleneckLegend();
+        root.Widgets.Add(_bottleneckLegend);
+
         root.Widgets.Add(topLeft);
         root.Widgets.Add(topRight);
 
@@ -2907,6 +2943,79 @@ public sealed class GameplayScreen : IScreen
     /// Popisek suroviny u kurzoru: kdo ji vyrábí a kdo ji spotřebovává. Skládá se
     /// z definic budov, takže nová surovina v JSON dostane vysvětlení sama.
     /// </summary>
+    /// <summary>
+    /// Legenda inspektoru úzkých hrdel: barva, co znamená a kolik budov v tom
+    /// stavu právě je.
+    ///
+    /// <para>Počty jsou tam schválně. Barevná mapa řekne „kde", ale ne „čeho
+    /// je nejvíc" — a hráč se rozhoduje podle toho, co se vyplatí řešit jako
+    /// první, ne podle nejbližší červené skvrny.</para>
+    /// </summary>
+    private Widget BuildBottleneckLegend()
+    {
+        var loc = _screens.Loc;
+        var rows = new VerticalStackPanel { Spacing = 4 };
+        rows.Widgets.Add(new Label { Text = loc["inspector.title"], TextColor = UiPalette.TextBright });
+
+        _legendCounts = new Label[StallOverlayRenderer.Legend.Count];
+        for (int i = 0; i < StallOverlayRenderer.Legend.Count; i++)
+        {
+            var (key, color) = StallOverlayRenderer.Legend[i];
+            var row = new HorizontalStackPanel { Spacing = 8 };
+            row.Widgets.Add(new Panel
+            {
+                Width = 14,
+                Height = 14,
+                VerticalAlignment = VerticalAlignment.Center,
+                Background = new SolidBrush(color),
+            });
+            row.Widgets.Add(new Label { Text = loc[key], VerticalAlignment = VerticalAlignment.Center });
+            _legendCounts[i] = new Label
+            {
+                TextColor = UiPalette.TextDim,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            row.Widgets.Add(_legendCounts[i]);
+            rows.Widgets.Add(row);
+        }
+
+        rows.Widgets.Add(new Label { Text = loc["inspector.hint"], TextColor = UiPalette.TextFaint });
+
+        var panel = UiFactory.DarkPanel(rows);
+
+        // Vlevo dole, ne uprostřed: střed levé strany drží sledovač úkolů
+        // a legenda se pod něj schovala. Spodní okraj je jediné místo, kde
+        // v této hře nic trvale nesedí — dolní lišta je vystředěná.
+        panel.HorizontalAlignment = HorizontalAlignment.Left;
+        panel.VerticalAlignment = VerticalAlignment.Bottom;
+        panel.Margin = new Myra.Graphics2D.Thickness(0, 0, 0, 96);
+        panel.Visible = false;
+        return panel;
+    }
+
+    private Label[] _legendCounts = Array.Empty<Label>();
+
+    /// <summary>
+    /// Přepočítá, kolik budov je v kterém stavu. Běží jen se zapnutým
+    /// inspektorem a na nízké frekvenci — je to průchod všemi budovami.
+    /// </summary>
+    private void RefreshBottleneckCounts()
+    {
+        Span<int> counts = stackalloc int[StallOverlayRenderer.Legend.Count];
+        var buildings = _simulation.Buildings;
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            int slot = StallOverlayRenderer.LegendSlot(
+                _simulation, buildings[i], _screens.Content.Buildings[buildings[i].DefIndex]);
+            counts[slot]++;
+        }
+
+        for (int i = 0; i < _legendCounts.Length; i++)
+        {
+            _legendCounts[i].Text = counts[i].ToString();
+        }
+    }
+
     /// <summary>
     /// Tok se znaménkem. Nula se píše jako nula, ne jako „+0" — jinak by
     /// vyrovnaná bilance vypadala jako drobný zisk.
@@ -3867,6 +3976,13 @@ public sealed class GameplayScreen : IScreen
     /// </summary>
     /// <summary>Otevře správu šablon — pro smoke test, který na tlačítko nedosáhne.</summary>
     internal void OpenTemplatesForSmoke() => OpenTemplates();
+
+    internal void ShowBottlenecksForSmoke()
+    {
+        _showBottlenecks = true;
+        _bottleneckLegend.Visible = true;
+        RefreshBottleneckCounts();
+    }
 
     /// <summary>Otevře strom výzkumu a vrátí ho — smoke si v něm zkouší hledání.</summary>
     internal TechScreen OpenTechForSmoke()
