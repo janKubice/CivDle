@@ -340,6 +340,13 @@ Setřídil jsem to podle toho, **co udělá z hráče dema kupce**, ne podle vel
 
 ### Před demem — 6 dnů
 
+> **Stav k dnešku:** položky 1, 2, 4 a 6 hotové, plus inspektor úzkých hrdel
+> a sníh na střechách. Zbývá sandbox (3) a tilt-shift (7).
+>
+> Cestou se našly dvě chyby mimo plán: `--capture` tiše umírá u velkého města
+> (patří k položce „index budov pro render") a hledání zpočátku prozrazovalo
+> neodhalené technologie.
+
 | # | Co | Dny | Proč právě teď |
 |---|---|---|---|
 | 1 | Hledání ve stromu a stavebním menu (4.3) | 0,5 | 149 technologií bez hledání je bariéra hned v první hodině |
