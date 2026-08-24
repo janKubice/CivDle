@@ -1359,6 +1359,7 @@
     "settings.capture.qhd1440": "1440p",
     "settings.capture.uhd4k": "4K",
     "settings.captureStrip": "Proužek s čísly na fotce",
+    "settings.captureTiltShift": "Tilt-shift na fotce (město jako model)",
     "settings.captureStrip.hint": "Na sdílení dává obrázku smysl. Do traileru a do obchodu se nehodí.",
     "settings.colorCues": "Značky u barev",
     "settings.detail": "Detail při oddálení",

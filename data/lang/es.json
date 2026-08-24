@@ -1359,6 +1359,7 @@
     "settings.capture.qhd1440": "1440p",
     "settings.capture.uhd4k": "4K",
     "settings.captureStrip": "Franja de cifras en las fotos",
+    "settings.captureTiltShift": "Tilt-shift en las fotos (ciudad en miniatura)",
     "settings.captureStrip.hint": "Ideal para compartir. No para el tráiler ni la página de la tienda.",
     "settings.colorCues": "Símbolos además del color",
     "settings.detail": "Detalle al alejar",

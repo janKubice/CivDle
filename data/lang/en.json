@@ -1359,6 +1359,7 @@
     "settings.capture.qhd1440": "1440p",
     "settings.capture.uhd4k": "4K",
     "settings.captureStrip": "Number strip on photos",
+    "settings.captureTiltShift": "Tilt-shift on photos (city as a model)",
     "settings.captureStrip.hint": "Great for sharing. Not for trailers or the store page.",
     "settings.colorCues": "Symbols with colour",
     "settings.detail": "Detail when zoomed out",

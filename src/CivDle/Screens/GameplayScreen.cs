@@ -923,7 +923,7 @@ public sealed class GameplayScreen : IScreen
     {
         var settings = _screens.Settings;
         var options = Capture.ShareCardOptions.For(
-            settings.CaptureResolution, settings.CaptureStrip, fullDetail);
+            settings.CaptureResolution, settings.CaptureStrip, fullDetail, settings.CaptureTiltShift);
 
         try
         {
@@ -975,7 +975,8 @@ public sealed class GameplayScreen : IScreen
         {
             var settings = _screens.Settings;
             var options = Capture.ShareCardOptions.For(
-                settings.CaptureResolution, withStrip: false, fullDetail: true);
+                settings.CaptureResolution, withStrip: false, fullDetail: true,
+                tiltShift: settings.CaptureTiltShift);
 
             string directory = Path.Combine(
                 _screens.Saves.ShareDirectory, $"video-{DateTime.Now:yyyyMMdd-HHmmss}");
@@ -2184,6 +2185,7 @@ public sealed class GameplayScreen : IScreen
         _dayLabel = new Label { TextColor = UiFactory.Accent, Tooltip = loc["tip.day"] };
         _cursorLabel = new Label { TextColor = Color.LightGray };
         var worldInfoStack = new VerticalStackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Right };
+
         worldInfoStack.Widgets.Add(_eraLabel);
         worldInfoStack.Widgets.Add(_eraNextLabel);
         worldInfoStack.Widgets.Add(_tierLabel);

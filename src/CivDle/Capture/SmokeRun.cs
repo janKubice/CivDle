@@ -166,7 +166,17 @@ public sealed class SmokeRun
         screens.Pop();
     }
 
-    /// <summary>Uloží fotku v jiném rozlišení a bez proužku — cesta, kterou hráč jede na store snímky.</summary>
+    /// <summary>
+    /// Uloží fotku v jiném rozlišení a bez proužku — cesta, kterou hráč jede na
+    /// store snímky. Fotí se dvakrát: bez tilt-shiftu i s ním.
+    ///
+    /// <para>Ta druhá fotka tu je proto, že efekt jde přes vlastní render
+    /// targety a přepínání cíle uprostřed kreslení. To je přesně ten druh věci,
+    /// která projde překladačem a spadne až na cizí grafice — a jedině tady se
+    /// to dá chytit dřív než u hráče. Obě fotky jdou do jiné složky: liší se
+    /// jen jménem se sekundou a při dvou uloženích v téže sekundě by si
+    /// přepsaly soubor.</para>
+    /// </summary>
     private static void PhotoRound(ScreenManager screens, Simulation sim)
     {
         var camera = new Rendering.Camera2D();
@@ -175,11 +185,18 @@ public sealed class SmokeRun
             new Vector2(sim.CityCenterX * Rendering.TerrainRenderer.TileSize,
                         sim.CityCenterY * Rendering.TerrainRenderer.TileSize), 2f);
 
-        string directory = Path.Combine(Path.GetTempPath(), "civdle-smoke-photo");
-        var options = ShareCardOptions.For(
-            CivDle.Core.Config.CaptureResolution.Hd1080, withStrip: false, fullDetail: true);
+        var card = new ShareCard(screens);
 
-        new ShareCard(screens).Save(sim, camera, directory, options);
+        card.Save(
+            sim, camera, Path.Combine(Path.GetTempPath(), "civdle-smoke-photo"),
+            ShareCardOptions.For(
+                CivDle.Core.Config.CaptureResolution.Hd1080, withStrip: false, fullDetail: true));
+
+        card.Save(
+            sim, camera, Path.Combine(Path.GetTempPath(), "civdle-smoke-photo-tiltshift"),
+            ShareCardOptions.For(
+                CivDle.Core.Config.CaptureResolution.Hd1080, withStrip: true, fullDetail: true,
+                tiltShift: true));
     }
 
     /// <summary>

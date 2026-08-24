@@ -1359,6 +1359,7 @@
     "settings.capture.qhd1440": "1440p",
     "settings.capture.uhd4k": "4K",
     "settings.captureStrip": "Pasek z liczbami na zdjęciu",
+    "settings.captureTiltShift": "Tilt-shift na zdjęciu (miasto jak makieta)",
     "settings.captureStrip.hint": "Świetny do dzielenia się. Nie do zwiastuna ani na stronę sklepu.",
     "settings.colorCues": "Symbole obok koloru",
     "settings.detail": "Szczegóły przy oddaleniu",

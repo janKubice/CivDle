@@ -77,6 +77,16 @@ public sealed record GameSettings
     public bool CaptureStrip { get; init; } = true;
 
     /// <summary>
+    /// Fotit s tilt-shiftem — rozostřeným okrajem, po kterém město vypadá jako
+    /// model na stole?
+    ///
+    /// <para>Výchozí je vypnuto: je to výrazný zásah do obrázku a kdo chce
+    /// ukázat, co postavil, chce většinou vidět celé město ostře. Zapíná se
+    /// na jedno kliknutí, když jde o hezkou fotku, ne o důkaz.</para>
+    /// </summary>
+    public bool CaptureTiltShift { get; init; }
+
+    /// <summary>
     /// Kreslit pod budovami stín?
     ///
     /// <para>Stín dává scéně hloubku, ale je to výrazný zásah do vzhledu

@@ -35,6 +35,7 @@ public sealed class SettingsScreen : IScreen
     private int _detailIndex;
     private int _captureIndex;
     private bool _captureStrip;
+    private bool _captureTiltShift;
     private bool _shadows;
 
     /// <summary>Nabízená zvětšení UI (index = krok v přepínači).</summary>
@@ -85,6 +86,7 @@ public sealed class SettingsScreen : IScreen
         _detailIndex = Math.Max(0, Array.IndexOf(DetailSteps, settings.Detail));
         _captureIndex = Math.Max(0, Array.IndexOf(CaptureSteps, settings.CaptureResolution));
         _captureStrip = settings.CaptureStrip;
+        _captureTiltShift = settings.CaptureTiltShift;
         _shadows = settings.Shadows;
 
         BuildUi();
@@ -196,6 +198,9 @@ public sealed class SettingsScreen : IScreen
         var captureStrip = new CycleSelector(2, _captureStrip ? 0 : 1, i => loc[i == 0 ? "common.on" : "common.off"]);
         captureStrip.SelectionChanged += i => _captureStrip = i == 0;
 
+        var tiltShift = new CycleSelector(2, _captureTiltShift ? 0 : 1, i => loc[i == 0 ? "common.on" : "common.off"]);
+        tiltShift.SelectionChanged += i => _captureTiltShift = i == 0;
+
         var layout = new VerticalStackPanel
         {
             Spacing = 14,
@@ -230,6 +235,7 @@ public sealed class SettingsScreen : IScreen
         layout.Widgets.Add(UiFactory.Row(loc["settings.capture"], capture.Widget));
         layout.Widgets.Add(captureHint);
         layout.Widgets.Add(UiFactory.Row(loc["settings.captureStrip"], captureStrip.Widget));
+        layout.Widgets.Add(UiFactory.Row(loc["settings.captureTiltShift"], tiltShift.Widget));
         layout.Widgets.Add(new Label { Text = " " });
         layout.Widgets.Add(UiFactory.MenuButton(loc["settings.apply"], Apply));
         layout.Widgets.Add(UiFactory.MenuButton(loc["settings.back"], _screens.Pop));
@@ -254,6 +260,7 @@ public sealed class SettingsScreen : IScreen
             Detail = DetailSteps[_detailIndex],
             CaptureResolution = CaptureSteps[_captureIndex],
             CaptureStrip = _captureStrip,
+            CaptureTiltShift = _captureTiltShift,
             Shadows = _shadows,
         };
 

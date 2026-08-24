@@ -22,6 +22,9 @@ namespace CivDle.Capture;
 /// </summary>
 public sealed class ShareCard
 {
+    /// <summary>Barva pod scénou i pod proužkem — obloha, než se něco nakreslí.</summary>
+    private static readonly Color Background = new(16, 22, 28);
+
     private readonly ScreenManager _screens;
 
     public ShareCard(ScreenManager screens) => _screens = screens;
@@ -44,10 +47,18 @@ public sealed class ShareCard
         scene.Update(0f, simulation);
 
         using var target = new RenderTarget2D(device, options.Width, options.Height);
-        device.SetRenderTarget(target);
-        device.Clear(new Color(16, 22, 28));
 
-        DrawScene(scene, simulation, sourceCamera, options);
+        if (options.TiltShift)
+        {
+            DrawSceneWithTiltShift(scene, simulation, sourceCamera, options, target);
+        }
+        else
+        {
+            device.SetRenderTarget(target);
+            device.Clear(Background);
+            DrawScene(scene, simulation, sourceCamera, options);
+        }
+
         if (options.WithStrip)
         {
             DrawStrip(simulation, options);
@@ -60,6 +71,33 @@ public sealed class ShareCard
         using var stream = File.Create(path);
         target.SaveAsPng(stream, options.Width, options.Height);
         return path;
+    }
+
+    /// <summary>
+    /// Totéž, jen přes rozostření okrajů: scéna se nejdřív vykreslí stranou a
+    /// teprve pak se složí do karty.
+    ///
+    /// <para>Musí to být dvě textury: efekt čte celý obraz, aby ho mohl zmenšit,
+    /// a číst z textury, do které se zrovna kreslí, nejde.</para>
+    /// </summary>
+    private void DrawSceneWithTiltShift(
+        WorldScene scene, Simulation simulation, Camera2D sourceCamera,
+        ShareCardOptions options, RenderTarget2D target)
+    {
+        var device = _screens.GraphicsDevice;
+
+        using var sceneTarget = new RenderTarget2D(device, options.Width, options.SceneHeight);
+        device.SetRenderTarget(sceneTarget);
+        device.Clear(Background);
+        DrawScene(scene, simulation, sourceCamera, options);
+
+        using var tiltShift = new TiltShift(device, _screens.SpriteBatch);
+        tiltShift.Render(
+            sceneTarget,
+            target,
+            new Rectangle(0, 0, options.Width, options.SceneHeight),
+            Background,
+            TiltShiftOptions.Default);
     }
 
     /// <summary>
