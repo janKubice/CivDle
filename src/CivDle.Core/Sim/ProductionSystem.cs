@@ -134,6 +134,7 @@ internal sealed class ProductionSystem
             for (int j = 0; j < recipe.Inputs.Count; j++)
             {
                 resources[recipe.Inputs[j].ResourceIndex] -= recipe.Inputs[j].Amount;
+                sim.Ledger.RecordConsumed(recipe.Inputs[j].ResourceIndex, recipe.Inputs[j].Amount);
             }
 
             for (int j = 0; j < recipe.Outputs.Count; j++)
@@ -154,7 +155,14 @@ internal sealed class ProductionSystem
                 // kterými je strom plný, se musí projevit i ve výrobě.
                 yield *= sim.ResourceProductionMult(index);
 
-                resources[index] = Math.Min(resources[index] + yield, storageCaps[index]);
+                // Účtuje se zvlášť, co se do skladu VEŠLO a co propadlo. Plný
+                // sklad výrobu nezastaví, přebytek mizí — je to záměr, ale bez
+                // téhle dvojice čísel hráč nemá jak zjistit, že o něj přichází.
+                double before = resources[index];
+                resources[index] = Math.Min(before + yield, storageCaps[index]);
+                double stored = resources[index] - before;
+                sim.Ledger.RecordProduced(index, stored);
+                sim.Ledger.RecordWasted(index, yield - stored);
             }
 
             // Ohlas dokončený cyklus renderu — bez tohohle je město opticky mrtvé,

@@ -75,6 +75,7 @@ public sealed class Simulation
     private readonly ConstructionSystem _constructionSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
+    private readonly ResourceLedger _ledger;
     private readonly ZoneFillSystem _zoneFill;
     private readonly ColonySystem _colonySystem;
     private readonly WeatherSystem _weatherSystem;
@@ -200,6 +201,7 @@ public sealed class Simulation
         ResetContractBoard();
         _populationSystem = new PopulationSystem(content.Gameplay);
         _autoBuild = new AutoBuildSystem(content, seed);
+        _ledger = new ResourceLedger(content.Resources.Count);
         _zoneFill = new ZoneFillSystem(content, seed);
         _colonySystem = new ColonySystem(content, seed);
         _weatherSystem = new WeatherSystem(content, seed);
@@ -950,6 +952,11 @@ public sealed class Simulation
         for (int i = 0; i < cost.Count; i++)
         {
             _resources[cost[i].ResourceIndex] -= cost[i].Amount;
+
+            // Jediné místo, kudy procházejí VŠECHNY útraty (stavba, vylepšení,
+            // sloučení, výzkum, silnice). Proto se spotřeba účtuje tady, ne
+            // v devíti voláních — jinak by se na jedno vždycky zapomnělo.
+            _ledger.RecordConsumed(cost[i].ResourceIndex, cost[i].Amount);
         }
     }
 
@@ -2684,6 +2691,13 @@ public sealed class Simulation
     /// <summary>Počet druhů surovin.</summary>
     public int ResourceCount => _resources.Length;
 
+    /// <summary>
+    /// Kolik se čeho vyrábí, spotřebovává a propadá. HUD z toho staví bilanci —
+    /// ze samotné zásoby se „nevyrábí se" od „vyrábí se a hned spotřebuje"
+    /// rozeznat nedá.
+    /// </summary>
+    public ResourceLedger Ledger => _ledger;
+
     /// <summary>Aktuální zásoba suroviny.</summary>
     public double GetResource(int resourceIndex) => _resources[resourceIndex];
 
@@ -3263,6 +3277,10 @@ public sealed class Simulation
         }
 
         UpdateUfo();
+
+        // Uzávěrka toků až na konci: v tuhle chvíli už zapsaly všechny systémy,
+        // které v tomhle tiku něco vyrobily nebo zaplatily.
+        _ledger.EndTick(TicksPerSecond);
     }
 
     /// <summary>Jak často se přepočítá těžiště města (tiky) — pomalý systém, ne každý tik.</summary>
@@ -3480,10 +3498,7 @@ public sealed class Simulation
 
         var def = _content.Buildings[defIndex];
         var cost = def.BuildCost;
-        for (int i = 0; i < cost.Count; i++)
-        {
-            _resources[cost[i].ResourceIndex] -= cost[i].Amount;
-        }
+        Pay(cost);
 
         AddBuilding(defIndex, x, y, progress: 0f);
         if (!def.TakesTimeToBuild)
@@ -5284,10 +5299,7 @@ public sealed class Simulation
 
         var def = _content.Buildings[group.DefIndex];
         var cost = def.MergeCost;
-        for (int i = 0; i < cost.Count; i++)
-        {
-            _resources[cost[i].ResourceIndex] -= cost[i].Amount;
-        }
+        Pay(cost);
 
         // Od nejvyššího indexu: odebrání přesouvá poslední budovu na uvolněné
         // místo, takže při mazání odspodu by se zbylé indexy posunuly pod rukama.
@@ -5433,10 +5445,7 @@ public sealed class Simulation
         var oldDef = _content.Buildings[instance.DefIndex];
 
         var cost = oldDef.UpgradeCost;
-        for (int i = 0; i < cost.Count; i++)
-        {
-            _resources[cost[i].ResourceIndex] -= cost[i].Amount;
-        }
+        Pay(cost);
 
         RemoveBuildingBonuses(oldDef);
         instance.DefIndex = oldDef.UpgradesToIndex;
