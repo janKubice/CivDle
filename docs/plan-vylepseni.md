@@ -218,11 +218,22 @@ Nejlevnější z trojice, protože přebíjení pravidel už existuje: `content.
 
 **Odhad:** 2 dny rámec + 1 den na scénář. **Riziko:** nízké.
 
-### 5.2 Frontier Defense
+### 5.2 Frontier Defense — jako režim, ne jako jiná hra
 
-**Ponechat mimo CivDle** — je to tvoje rozhodnutí a je správné. Boj v relaxačním builderu mění žánr a s ním i publikum a recenze.
+Původně jsem ho psal ven z CivDle. Chceš ho uvnitř, tak ho plánuju uvnitř — s jednou podmínkou, na které stojí, jestli to hru poškodí: **je to volitelný režim, ne nové pravidlo pro všechny.** Zapíná se při zakládání světa (totéž místo jako sandbox, 5.3) a kdo ho nezapne, o boji se nedozví. Relaxační jádro tím zůstane relaxační.
 
-Co z toho jde využít pro tu samostatnou hru: generátor mapy, `TerrainRenderer`, `RoadRenderer`, `SpriteLibrary` a `AgentSystem` jsou na CivDle nezávislé. Až na to dojde, vytáhne se z toho sdílená knihovna, ne kopie.
+Co je potřeba postavit:
+
+1. **Vlny z dat** — `data/frontier.json`: v kterém tiku, z které strany, co přijde a jak silné to je. Deterministický rozvrh, žádná náhoda bez seedu — jinak se rozejde save i test.
+2. **Útočníci jako plochá data** — `struct[]` v Core (pozice, cíl, zdraví, typ). Jsou to stovky entit v tikové smyčce, tedy přesně ta vrstva, kde CLAUDE.md říká „ploché pole, ne strom objektů".
+3. **Cesta k městu bez A\*** — jedno **spádové pole** na hrubé mřížce 8×8 k těžišti města, přepočet jen při změně zástavby. Je to tatáž mřížka jako u energetiky (2.2a); postav ji jednou a použij dvakrát.
+4. **Obranné budovy jsou normální budovy** — blok `defense` v `buildings.json` (dosah, poškození za tik, provoz). Stavějí se, vylepšují a stojí údržbu jako všechno ostatní. Kód navíc je jenom míření.
+5. **Zásah město nezničí** — budova se poškodí a na N tiků vypadne z výroby, pak se opraví. Trvalá ztráta postupu je v idle hře trest za to, že šel hráč spát.
+6. **Do savu** jde stav vln a poškození, ne jednotliví útočníci uprostřed pole — ti se dopočítají z rozvrhu.
+
+*Testy:* tentýž seed a tentýž počet tiků dá tutéž vlnu i tytéž ztráty; věž střílí na nejbližšího a při shodě podle indexu (ne podle pořadí ve slovníku, to by rozbilo determinismus); **vypnutý režim = nulový dopad na délku tiku** — změřit, ne tvrdit.
+
+**Odhad:** 6 dnů. **Riziko:** vysoké — jediná položka celého plánu, která přidává novou entitu do tikové smyčky. Proto je **poslední**: napřed to, co prodává demo.
 
 ### 5.3 Sandbox
 
@@ -274,17 +285,37 @@ Skoro hotové: `CheatMode` (neomezené suroviny, guvernér na maximum) existuje.
 
 **Odhad:** 1 den (jména a avatary) + 1 den (žebříčkový trik). Předpokládá §7.0.
 
-### 6.5 Podmoří a orbita
+### 6.5 Podmoří
 
-**Odložit, a když, tak jen orbitu.**
+**Je to levnější, než jsem psal, a mýlil jsem se v tom hlavním.** Není to druhá mapa. Vodní biomy jsou v datech i s hloubkou (`coral_reef`, `shallow_water`, `ocean`, `deep_ocean`, `pack_ice`), generátor je umí — a `CanPlace` na vodu **vůbec nesahá**: kontroluje jen `allowedBiomes`. Budova, která má v datech povolené moře, se na moře dá postavit už dnes.
 
-Podmořská vrstva je druhá mapa — vlastní generování, vlastní pravidla stavby, vlastní vykreslování. To je expanze, ne položka.
+Co doopravdy chybí:
 
-Orbita se dá udělat levně a přitom působivě: **není to jiná mapa, je to jiný pohled na tutéž.** Oddálení za dnešní maximum, planeta jako kotouč, na oběžné dráze pár objektů. Solární zrcadlo a komunikační družice jsou pak normální budovy s globálním efektem.
+1. **Obsah** — `buildings.json`: řasová farma, sádky, těžní věž nad průduchem, obytný dóm. K tomu suroviny do `resources.json` a názvy do pěti jazyků. Tohle je většina práce a je to práce v datech, ne v kódu.
+2. **Pravidlo dosahu.** Bez něj si hráč postaví dóm uprostřed oceánu na druhé polokouli. Podmořská stavba musí být **v dosahu přístavu** nebo jiné podmořské stavby — tedy síť, která se šíří po vodě stejným způsobem jako energetika (2.2a). Jedna mřížka, dva systémy.
+3. **Svoz od přístavu, ne od centra.** `HaulSystem` měří vzdálenost k těžišti města; přes moře to nedává smysl. Podmořská budova počítá svoz od nejbližšího přístavu v síti.
+4. **Pohled pod hladinu** — přepínač, který ztlumí hladinu, vykreslí dno podle hloubky (odstín z hodnoty, kterou už generátor má) a rozsvítí postavené struktury. Bez toho jsou to domečky plovoucí na modré.
+5. **Odemčení technologií** v pozdní éře, ne od začátku.
 
-**Odhad:** orbitální pohled 3 dny, podmoří 10+. **Riziko:** vysoké u obojího.
+*Testy:* stavba mimo dosah přístavu se odmítne s vlastní hláškou; síť se šíří jen po vodě a nepřeskočí pevninu; svoz se počítá od přístavu; síť přežije uložení a načtení.
 
-### 6.6 Zvonohra a festivaly
+**Odhad:** 4 dny (obsah 1, síť 1,5, pohled 1, odemčení a hlášky 0,5). **Riziko:** střední — nové je jen šíření sítě, zbytek jsou data.
+
+### 6.6 Orbita
+
+Není to jiná mapa, je to **jiný pohled na tutéž** — a hlavně jiný druh stavby: družice se nestaví na dlaždici, **vypouští se**.
+
+1. **Kosmodrom** je normální budova: drahá, pozdní, velký půdorys. Bez něj se nedá vypustit nic.
+2. **`data/orbit.json`** — družice: id, cena, doba výroby, globální efekt, sprite, výška dráhy, rychlost. Efekty **výhradně přes `RecomputeBonuses`**, ať se skládají se vším ostatním: solární zrcadlo výrobu, meteorologická mírní počasí, komunikační zrychluje výzkum, průzkumná odhaluje mlhu.
+3. **Stav v savu je pole `int`** — kolik kterých družic je nahoře a co se zrovna staví. Nic víc: poloha na dráze je funkce tiku, ta se nepočítá a neukládá.
+4. **Orbitální obrazovka** — planeta jako kotouč (barvy z minimapy, tu už máš), družice po elipsách, klik na družici ukáže její efekt.
+5. **Odemčení** až vesmírnou érou.
+
+*Testy:* efekt družice se projeví v násobiči a po demontáži zmizí; poloha na dráze je funkcí tiku (tentýž tik = tentýž obrázek); počet družic přežije save/load.
+
+**Odhad:** 3 dny. **Riziko:** nízké — do simulace města to nesahá, jen přidává modifikátory a jednu obrazovku.
+
+### 6.7 Zvonohra a festivaly
 
 Festivaly existují (boost + efekt). Chybí ta vizuální slavnost: stánky, lampiony, tanec.
 
@@ -367,30 +398,54 @@ Setřídil jsem to podle toho, **co udělá z hráče dema kupce**, ne podle vel
 | 11 | Mikro-animace obyvatel (3.1) | 2,5 |
 | 12 | Fázové megastruktury (2.3) | 1 |
 
-### Steam a komunita — 9 dnů
+### Steam — 2 dny
 
 | # | Co | Dny |
 |---|---|---|
 | 13 | Steamworks (7.0) | 2 |
-| 14 | Workshop (7.1) | 2,5 |
-| 15 | Steam Deck (7.2) | 2 |
-| 16 | Karavany přátel (6.4) | 2 |
+
+Stojí samostatně schválně: je to **hradlo**, ne položka. Dokud neběží, nedá se dělat 7.1, 7.2 ani 6.4 — a nesmí se to zdržet kvůli obsahu, protože vydání na něm visí.
+
+### Nové vrstvy — 7 dnů
+
+| # | Co | Dny | Proč v tomhle pořadí |
+|---|---|---|---|
+| 14 | Podmoří (6.5) | 4 | Většina je obsah v datech; nové je jen šíření sítě po vodě |
+| 15 | Orbita (6.6) | 3 | Nesahá do simulace města, takže se nemá o co rozbít |
+
+Podmoří je napřed proto, že jeho síť je tatáž mřížka jako u energetiky (2.2a) — když už se staví, ať slouží dvakrát. Orbita je za ním, protože je to koncová meta a chce mít pod sebou hotový strom technologií.
+
+### Komunita a Deck — 6,5 dne
+
+| # | Co | Dny |
+|---|---|---|
+| 16 | Workshop (7.1) | 2,5 |
+| 17 | Steam Deck (7.2) | 2 |
+| 18 | Karavany přátel (6.4) | 2 |
+
+### Poslední — 6 dnů
+
+| # | Co | Dny |
+|---|---|---|
+| 19 | Frontier Defense jako volitelný režim (5.2) | 6 |
+
+Poslední z jediného důvodu: je to jediná položka, která přidává novou entitu do tikové smyčky. Když se něco pokazí, pokazí to výkon i determinismus všeho ostatního — a to se hledá líp v hotové hře než v rozestavěné.
 
 ### Velké věci — až bude prostor
 
-Anomálie a expedice (2.1b), doktríny (2.4), kronika (6.3), osobnosti (6.1), scénáře (5.1), plavení dřeva (6.2), hustotní mapa (1.3), zvonohra (6.6), sdílení šablon (7.3), plán guvernéra na sídlo (4.4).
+Anomálie a expedice (2.1b), doktríny (2.4), kronika (6.3), osobnosti (6.1), scénáře (5.1), plavení dřeva (6.2), hustotní mapa (1.3), zvonohra (6.7), sdílení šablon (7.3), plán guvernéra na sídlo (4.4).
 
 ### Nedělat teď
 
-* **Frontier Defense (5.2)** — samostatná hra.
-* **Podmoří (6.5)** — expanze, ne funkce.
-* **Železnice (2.2c)** — vlastní dopravní vrstva.
+* **Železnice (2.2c)** — vlastní dopravní vrstva, vlastní graf, vlastní entity. Není o co se opřít.
 * **Vlákna na pozadí (1.2)** — dokud měření neukáže, že to je opravdu potřeba, je to jen riziko pro determinismus.
 
 ---
 
 ## Co si z toho odnést
 
-Celý dokument je zhruba **24 dnů do konce Steam integrace** a dalších ~25 na velké věci. To je něco jiného než ta původní matice — ne proto, že by nápady byly špatné, ale protože odhady v ní nepočítaly s tím, co už stojí (což některé věci zlevňuje) ani s tím, co chybí kolem (což jiné zdražuje).
+Celý dokument je zhruba **37 dnů do Frontier Defense včetně** a dalších ~25 na velké věci. To je něco jiného než ta původní matice — ne proto, že by nápady byly špatné, ale protože odhady v ní nepočítaly s tím, co už stojí (což některé věci zlevňuje) ani s tím, co chybí kolem (což jiné zdražuje).
+
+Nic z toho seznamu není škrtnuté. Tři věci, které jsem původně psal ven z hry — podmoří, orbita a Frontier Defense — jsou uvnitř a mají svoje kroky, testy i odhady. U dvou z nich se ukázalo, že je hra unese líp, než jsem čekal: podmoří proto, že vodní biomy i hloubka už v datech jsou a `CanPlace` na vodu nesahá, orbita proto, že to není mapa, ale pohled a pár modifikátorů.
 
 První den práce z toho seznamu — hledání ve stromu — bude znát víc než celý §6.
