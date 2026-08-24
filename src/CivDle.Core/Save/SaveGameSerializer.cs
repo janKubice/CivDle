@@ -84,6 +84,13 @@ public sealed class SaveGameSerializer
     /// </summary>
     private const string SectionTechLevels = "techlevels";
 
+    /// <summary>
+    /// Režim hry (zatím jen pískoviště). Vlastní sekce, ne bit v „core":
+    /// starší savy ji prostě nemají a načtou se jako normální hra, což je
+    /// přesně to, co chceme — žádná migrace, žádná verze navíc.
+    /// </summary>
+    private const string SectionMode = "mode";
+
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
     {
@@ -195,6 +202,7 @@ public sealed class SaveGameSerializer
         WriteSection(writer, SectionHistory, w => WriteHistory(w, simulation));
 
         WriteSection(writer, SectionTechLevels, w => WriteTechLevels(w, simulation));
+        WriteSection(writer, SectionMode, w => w.Write(simulation.Sandbox));
     }
 
     /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
@@ -512,6 +520,15 @@ public sealed class SaveGameSerializer
             case SectionMilestones: ReadMilestones(section, content, simulation); break;
             case SectionHistory: ReadHistory(section, simulation); break;
             case SectionTechLevels: ReadTechLevels(section, content, simulation); break;
+            case SectionMode:
+                // Jednosměrka: z pískoviště se do normální hry vrátit nedá, takže
+                // se jen zapíná. Kdyby se dalo i vypnout, dala by se hra „vyprat".
+                if (section.ReadBoolean())
+                {
+                    simulation.MarkAsSandbox();
+                }
+
+                break;
             case SectionRuns:
                 simulation.PeakPopulation = section.ReadInt64();  // pořadí musí sedět se zápisem
                 simulation.BestRunPopulation = section.ReadInt64();

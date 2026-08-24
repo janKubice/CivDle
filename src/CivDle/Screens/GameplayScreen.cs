@@ -2186,6 +2186,21 @@ public sealed class GameplayScreen : IScreen
         _cursorLabel = new Label { TextColor = Color.LightGray };
         var worldInfoStack = new VerticalStackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Right };
 
+        // Cedulka pískoviště je první a je vidět pořád. Hráč musí mít po ruce
+        // odpověď na „proč se mi neodemykají achievementy" dřív, než se na to
+        // stihne zeptat — a po načtení savu po týdnu si sám nevzpomene, jakou
+        // hru to tehdy zakládal.
+        if (_simulation.Sandbox)
+        {
+            worldInfoStack.Widgets.Add(new Label
+            {
+                Text = loc["hud.sandbox"],
+                TextColor = UiPalette.Warn,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Tooltip = loc["tip.sandbox"],
+            });
+        }
+
         worldInfoStack.Widgets.Add(_eraLabel);
         worldInfoStack.Widgets.Add(_eraNextLabel);
         worldInfoStack.Widgets.Add(_tierLabel);

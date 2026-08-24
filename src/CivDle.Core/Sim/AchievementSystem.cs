@@ -22,7 +22,11 @@ internal sealed class AchievementSystem
 
     public void Tick(Simulation sim)
     {
-        if (sim.TickCount < _nextCheckTick)
+        // V pískovišti se neodemyká nic. Kontroluje se to tady, na jediném
+        // místě, kde achievement vzniká — kdyby se to řešilo až při zápisu do
+        // profilu, hráči by v pískovišti vyskakovaly toasty za něco, co se mu
+        // nikam nezapíše, a to je horší než mlčet.
+        if (sim.Sandbox || sim.TickCount < _nextCheckTick)
         {
             return;
         }

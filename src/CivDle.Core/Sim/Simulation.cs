@@ -935,15 +935,39 @@ public sealed class Simulation
     }
 
     /// <summary>
-    /// Má hráč na cenu?
+    /// Hraje se v pískovišti? Pak je všechno zadarmo — a hra se nikam nepočítá.
+    ///
+    /// <para>Příznak je <b>stav rozehrané hry</b>, ne přepínač relace: ukládá se
+    /// do savu a po načtení platí dál. To je celá pointa. Kdyby se dal zapnout
+    /// a zase vypnout, stačilo by si v pískovišti postavit město, přepnout zpět
+    /// a sebrat za něj achievementy — a tím by achievementy přestaly znamenat
+    /// cokoli pro všechny ostatní.</para>
+    ///
+    /// <para>Volí se při zakládání světa a od té chvíle je neměnný.</para>
+    /// </summary>
+    public bool Sandbox { get; private set; }
+
+    /// <summary>
+    /// Zapne pískoviště. Jen při zakládání světa a při načtení savu —
+    /// zpátky cesta nevede, viz <see cref="Sandbox"/>.
+    /// </summary>
+    public void MarkAsSandbox() => Sandbox = true;
+
+    /// <summary>
+    /// Má hráč na cenu? V pískovišti vždycky.
     ///
     /// <para>Jediné místo, kudy procházejí VŠECHNY kontroly ceny (stavba,
     /// vylepšení, sloučení, terén, sázení, živnost). Kdyby si každá počítala
-    /// sama — jako to bylo dřív — rozešly by se a na jednu by se při každé
-    /// změně pravidel zapomnělo.</para>
+    /// sama — jako to bylo dřív — musela by se každá zvlášť dozvědět
+    /// i o pískovišti, a na jednu by se vždycky zapomnělo.</para>
     /// </summary>
     private bool CanPay(IReadOnlyList<ResourceAmount> cost)
     {
+        if (Sandbox)
+        {
+            return true;
+        }
+
         for (int i = 0; i < cost.Count; i++)
         {
             if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
@@ -963,6 +987,11 @@ public sealed class Simulation
     /// </summary>
     private bool CanPayResearch(TechDef tech, int level)
     {
+        if (Sandbox)
+        {
+            return true;
+        }
+
         for (int i = 0; i < tech.Cost.Count; i++)
         {
             if (_resources[tech.Cost[i].ResourceIndex] < ResearchCost(tech.Cost[i].Amount, level))
@@ -976,6 +1005,11 @@ public sealed class Simulation
 
     private void Pay(IReadOnlyList<ResourceAmount> cost)
     {
+        if (Sandbox)
+        {
+            return;
+        }
+
         for (int i = 0; i < cost.Count; i++)
         {
             _resources[cost[i].ResourceIndex] -= cost[i].Amount;

@@ -19,6 +19,7 @@ public sealed class NewGameScreen : IScreen
     private CycleSelector _preset = null!;
     private string _seedText;
     private int _presetIndex;
+    private bool _sandbox;
 
     public NewGameScreen(ScreenManager screens)
     {
@@ -67,6 +68,18 @@ public sealed class NewGameScreen : IScreen
             i => loc[worldGen.Presets[i].NameKey]);
         _preset.SelectionChanged += i => _presetIndex = i;
 
+        var sandbox = new CycleSelector(2, _sandbox ? 1 : 0, i => loc[i == 0 ? "newgame.mode.normal" : "newgame.mode.sandbox"]);
+        sandbox.SelectionChanged += i => _sandbox = i == 1;
+
+        var sandboxHint = new Label
+        {
+            Text = loc["newgame.mode.hint"],
+            TextColor = UiPalette.TextDim,
+            Wrap = true,
+            Width = 420,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+
         var layout = new VerticalStackPanel
         {
             Spacing = 14,
@@ -84,6 +97,8 @@ public sealed class NewGameScreen : IScreen
             _seedBox,
             UiFactory.SmallButton(loc["newgame.seedRandom"], () => _seedBox.Text = SeedUtil.NewRandom().ToString())));
         layout.Widgets.Add(UiFactory.Row(loc["newgame.worldType"], _preset.Widget));
+        layout.Widgets.Add(UiFactory.Row(loc["newgame.mode"], sandbox.Widget));
+        layout.Widgets.Add(sandboxHint);
         layout.Widgets.Add(new Label { Text = " " });
         layout.Widgets.Add(UiFactory.MenuButton(loc["newgame.create"], StartGame));
         layout.Widgets.Add(UiFactory.MenuButton(loc["newgame.back"], _screens.Pop));
@@ -102,6 +117,12 @@ public sealed class NewGameScreen : IScreen
         // zpětnou kompatibilitu (výchozí velikost z katalogu).
         var terrain = new ProceduralTerrain(content.Biomes, preset, seed);
         var simulation = new Simulation(content, terrain, seed);
+
+        // Volí se jen tady. Rozehraná hra režim nemění — viz Simulation.Sandbox.
+        if (_sandbox)
+        {
+            simulation.MarkAsSandbox();
+        }
         string sizeId = content.WorldGen.Sizes[content.WorldGen.DefaultSizeIndex].Id;
         var info = new WorldInfo(seed, sizeId, preset.Id);
 
