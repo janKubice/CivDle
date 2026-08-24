@@ -1933,6 +1933,10 @@
     "zone.services": "Servicios",
     "zone.storage": "Almacenaje",
     "search.label": "Buscar:",
-    "search.results": "encontrados: {0}"
+    "search.results": "encontrados: {0}",
+    "tip.resource.production": "Producción: {0}/s",
+    "tip.resource.consumption": "Consumo: {0}/s",
+    "tip.resource.net": "Flujo neto: {0}/s",
+    "tip.resource.wasted": "Se pierde por almacén lleno: {0}/s"
   }
 }

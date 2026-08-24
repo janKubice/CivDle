@@ -1933,6 +1933,10 @@
     "zone.services": "Dienstleistungen",
     "zone.storage": "Lager",
     "search.label": "Suchen:",
-    "search.results": "gefunden: {0}"
+    "search.results": "gefunden: {0}",
+    "tip.resource.production": "Produktion: {0}/s",
+    "tip.resource.consumption": "Verbrauch: {0}/s",
+    "tip.resource.net": "Nettofluss: {0}/s",
+    "tip.resource.wasted": "Geht durch volles Lager verloren: {0}/s"
   }
 }

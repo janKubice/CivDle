@@ -1933,6 +1933,10 @@
     "zone.services": "Služby",
     "zone.storage": "Skladová",
     "search.label": "Hledat:",
-    "search.results": "nalezeno: {0}"
+    "search.results": "nalezeno: {0}",
+    "tip.resource.production": "Výroba: {0}/s",
+    "tip.resource.consumption": "Spotřeba: {0}/s",
+    "tip.resource.net": "Čistý tok: {0}/s",
+    "tip.resource.wasted": "Propadá do plného skladu: {0}/s"
   }
 }

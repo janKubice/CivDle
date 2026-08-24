@@ -1933,6 +1933,10 @@
     "zone.services": "Usługowa",
     "zone.storage": "Magazynowa",
     "search.label": "Szukaj:",
-    "search.results": "znaleziono: {0}"
+    "search.results": "znaleziono: {0}",
+    "tip.resource.production": "Produkcja: {0}/s",
+    "tip.resource.consumption": "Zużycie: {0}/s",
+    "tip.resource.net": "Bilans: {0}/s",
+    "tip.resource.wasted": "Traci się przez pełny magazyn: {0}/s"
   }
 }

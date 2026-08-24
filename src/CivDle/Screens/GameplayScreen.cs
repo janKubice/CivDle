@@ -1818,6 +1818,7 @@ public sealed class GameplayScreen : IScreen
         }
 
         _rateTimer = 0f;
+        RefreshResourceTooltips();
         WarnAboutFullStorage(dt);
     }
 
@@ -2062,6 +2063,8 @@ public sealed class GameplayScreen : IScreen
                 MinWidth = RateLabelWidth,
             };
             chip.Widgets.Add(_resourceRateLabels[i]);
+            // Bublina se přepisuje průběžně (viz RefreshResourceTooltips) —
+            // bilance je živé číslo, ne popis budovy.
             chip.Tooltip = ResourceTooltip(i);
             // Neznámá surovina se v pruhu vůbec neukáže — hra nesmí prozrazovat
             // obsah, ke kterému se hráč ještě nedostal (odhalí se získáním).
@@ -2904,6 +2907,37 @@ public sealed class GameplayScreen : IScreen
     /// Popisek suroviny u kurzoru: kdo ji vyrábí a kdo ji spotřebovává. Skládá se
     /// z definic budov, takže nová surovina v JSON dostane vysvětlení sama.
     /// </summary>
+    /// <summary>
+    /// Tok se znaménkem. Nula se píše jako nula, ne jako „+0" — jinak by
+    /// vyrovnaná bilance vypadala jako drobný zisk.
+    /// </summary>
+    internal static string Flow(double perSecond)
+    {
+        string number = CivDle.Core.Numbers.Format(Math.Abs(perSecond));
+        return perSecond > 0.005 ? "+" + number
+            : perSecond < -0.005 ? "-" + number
+            : number;
+    }
+
+    /// <summary>
+    /// Přepíše bubliny surovin aktuální bilancí.
+    ///
+    /// <para>Volá se na nízké frekvenci, ne každý snímek: skládá se z ní text
+    /// se seznamy budov a dělat to šedesátkrát za vteřinu pro každou surovinu
+    /// by byla čirá práce navíc — bublinu stejně vidí jen ta jedna, nad kterou
+    /// je kurzor.</para>
+    /// </summary>
+    private void RefreshResourceTooltips()
+    {
+        for (int i = 0; i < _resourceChips.Length; i++)
+        {
+            if (_resourceChips[i].Visible)
+            {
+                _resourceChips[i].Tooltip = ResourceTooltip(i);
+            }
+        }
+    }
+
     private string ResourceTooltip(int resourceIndex)
     {
         var loc = _screens.Loc;
@@ -2923,6 +2957,27 @@ public sealed class GameplayScreen : IScreen
         }
 
         var text = new System.Text.StringBuilder(loc[content.Resources[resourceIndex].NameKey]);
+
+        // Bilance nahoře, seznamy budov až pod ní. Hráč se dívá kvůli otázce
+        // „proč mi to nepřibývá" — odpověď musí být první řádek, ne poslední.
+        var ledger = _simulation.Ledger;
+        double made = ledger.ProducedPerSecond(resourceIndex);
+        double used = ledger.ConsumedPerSecond(resourceIndex);
+        double lost = ledger.WastedPerSecond(resourceIndex);
+        if (made > 0.005 || used > 0.005)
+        {
+            text.Append('\n').Append(loc.Format("tip.resource.production", Flow(made)));
+            text.Append('\n').Append(loc.Format("tip.resource.consumption", Flow(used)));
+            text.Append('\n').Append(loc.Format("tip.resource.net", Flow(made - used)));
+        }
+
+        // Propad se hlásí, jen když se doopravdy děje — je to výzva postavit
+        // sklad, ne trvalý řádek do inventáře.
+        if (lost > 0.005)
+        {
+            text.Append('\n').Append(loc.Format("tip.resource.wasted", Flow(lost)));
+        }
+
         if (producers.Count > 0)
         {
             text.Append('\n').Append(loc.Format("tip.resource.producedBy", string.Join(", ", producers.Take(6))));

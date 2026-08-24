@@ -1933,6 +1933,10 @@
     "zone.services": "Services",
     "zone.storage": "Storage",
     "search.label": "Search:",
-    "search.results": "found: {0}"
+    "search.results": "found: {0}",
+    "tip.resource.production": "Production: {0}/s",
+    "tip.resource.consumption": "Consumption: {0}/s",
+    "tip.resource.net": "Net flow: {0}/s",
+    "tip.resource.wasted": "Lost to full storage: {0}/s"
   }
 }
