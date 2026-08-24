@@ -653,6 +653,25 @@ public sealed record DemoDto(
     long AscensionRequirement,
     double TechFraction);
 
+/// <summary>Obsah souboru <c>data/orbit.json</c>.</summary>
+public sealed record OrbitFileDto(
+    int SchemaVersion,
+    string? LaunchBuilding,
+    List<SatelliteDto>? Satellites);
+
+/// <summary>Jeden druh družice tak, jak leží v JSON.</summary>
+public sealed record SatelliteDto(
+    string Id,
+    string? Sprite,
+    Dictionary<string, int>? Cost,
+    double CostGrowth,
+    int BuildTicks,
+    string Effect,
+    double Magnitude,
+    int MaxCount,
+    double Altitude,
+    double Speed);
+
 /// <summary>Podmořská vrstva tak, jak leží v JSON.</summary>
 public sealed record SubseaDto(int Range);
 

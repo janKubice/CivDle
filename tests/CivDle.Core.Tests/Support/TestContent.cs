@@ -61,7 +61,8 @@ internal static class TestContent
         CitizenCatalog? citizens = null,
         GrandWorkConfig? grandWork = null,
         LegacyConfig? legacy = null,
-        IReadOnlyList<PrestigeUpgradeDef>? legacyUpgrades = null)
+        IReadOnlyList<PrestigeUpgradeDef>? legacyUpgrades = null,
+        OrbitCatalog? orbit = null)
     {
         biomes ??= new[] { WaterBiome(), LandBiome("grass") };
         resources ??= new[] { new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 10, BaseStorage: 1000) };
@@ -132,7 +133,9 @@ internal static class TestContent
             grandWork: grandWork, // null = Velké dílo v testech vypnuté
             legacy: legacy, // null = Odkaz v testech vypnutý
             legacyUpgrades: new DefRegistry<PrestigeUpgradeDef>(
-                legacyUpgrades ?? Array.Empty<PrestigeUpgradeDef>(), u => u.Id, "upgrade Odkazu", allowEmpty: true));
+                legacyUpgrades ?? Array.Empty<PrestigeUpgradeDef>(), u => u.Id, "upgrade Odkazu", allowEmpty: true),
+            aircraft: null,
+            orbit: orbit); // null = orbita v testech vypnutá
     }
 
     /// <summary>Výchozí prestige config testů (Vzestup od 50 obyvatel, body = populace ÷ 15).</summary>

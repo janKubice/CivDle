@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Oběžná dráha: koncová meta. Družice se nestaví na dlaždici, vypouští se z kosmodromu, a co dělá, dělá globálně. Efekty jsou tytéž jako u Vzestupu a Velkého díla — jeden slovník násobičů, ne tři. Cena každé další roste geometricky, takže i strop maxCount má před sebou poctivou brzdu. altitude a speed jsou JEN pro kreslení: poloha na dráze se počítá z tiku a neukládá se.",
+  "launchBuilding": "spaceport",
+  "satellites": [
+    {
+      "id": "solar_mirror",
+      "cost": { "steel": 400, "electronics": 120, "computer": 60 },
+      "costGrowth": 1.7,
+      "buildTicks": 1800,
+      "effect": "production_mult",
+      "magnitude": 0.1,
+      "maxCount": 6,
+      "altitude": 0.42,
+      "speed": 0.03
+    },
+    {
+      "id": "weather_watch",
+      "cost": { "electronics": 200, "computer": 90, "machine_parts": 150 },
+      "costGrowth": 1.7,
+      "buildTicks": 1500,
+      "effect": "growth_mult",
+      "magnitude": 0.12,
+      "maxCount": 4,
+      "altitude": 0.55,
+      "speed": 0.024
+    },
+    {
+      "id": "comm_array",
+      "cost": { "computer": 160, "electronics": 240, "nanomaterial": 60 },
+      "costGrowth": 1.8,
+      "buildTicks": 2100,
+      "effect": "research_speed",
+      "magnitude": 0.15,
+      "maxCount": 4,
+      "altitude": 0.68,
+      "speed": 0.019
+    },
+    {
+      "id": "survey_eye",
+      "cost": { "computer": 120, "nanomaterial": 90, "robot": 40 },
+      "costGrowth": 1.6,
+      "buildTicks": 1500,
+      "effect": "discovery_luck",
+      "magnitude": 0.2,
+      "maxCount": 3,
+      "altitude": 0.8,
+      "speed": 0.015
+    },
+    {
+      "id": "orbital_depot",
+      "cost": { "nanomaterial": 200, "robot": 120, "steel": 900 },
+      "costGrowth": 1.9,
+      "buildTicks": 2700,
+      "effect": "storage_mult",
+      "magnitude": 0.18,
+      "maxCount": 4,
+      "altitude": 0.93,
+      "speed": 0.011
+    }
+  ]
+}

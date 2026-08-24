@@ -31,6 +31,23 @@ public sealed class SpriteCoverageTests
     }
 
     [Fact]
+    public void EverySatellite_HasASprite()
+    {
+        // Družice bez spritu by na orbitální obrazovce prostě nebyla vidět —
+        // a hráč by za ni přitom zaplatil pozdní ekonomiku.
+        var registered = RegisteredIds("orbit");
+        var content = LoadContent();
+
+        var missing = content.Orbit.Satellites
+            .Where(s => !registered.Contains(s.Id))
+            .Select(s => s.Id)
+            .ToList();
+
+        Assert.True(missing.Count == 0,
+            $"Družice bez spritu (na dráze by nebyly vidět): {string.Join(", ", missing)}");
+    }
+
+    [Fact]
     public void EveryResource_HasAnIcon()
     {
         var registered = RegisteredIds("icon");

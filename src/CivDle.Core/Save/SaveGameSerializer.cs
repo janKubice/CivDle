@@ -91,6 +91,12 @@ public sealed class SaveGameSerializer
     /// </summary>
     private const string SectionMode = "mode";
 
+    /// <summary>
+    /// Družice na oběžné dráze. Vlastní sekce: starší save ji nemá a načte se
+    /// s prázdnou dráhou, což je přesně stav před tím, než orbita existovala.
+    /// </summary>
+    private const string SectionOrbit = "orbit";
+
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
     {
@@ -203,6 +209,21 @@ public sealed class SaveGameSerializer
 
         WriteSection(writer, SectionTechLevels, w => WriteTechLevels(w, simulation));
         WriteSection(writer, SectionMode, w => w.Write(simulation.Sandbox));
+        WriteSection(writer, SectionOrbit, w =>
+        {
+            // Ukládá se JEN kolik čeho je nahoře a co se staví. Poloha družice
+            // na dráze je funkce tiku, takže ji není co ukládat a nemá se jak
+            // rozejít s obrázkem.
+            var counts = simulation.Orbit.CountsForSave();
+            w.Write(counts.Count);
+            for (int i = 0; i < counts.Count; i++)
+            {
+                w.Write(counts[i]);
+            }
+
+            w.Write(simulation.Orbit.UnderConstruction);
+            w.Write(simulation.Orbit.TicksLeft);
+        });
     }
 
     /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
@@ -520,6 +541,16 @@ public sealed class SaveGameSerializer
             case SectionMilestones: ReadMilestones(section, content, simulation); break;
             case SectionHistory: ReadHistory(section, simulation); break;
             case SectionTechLevels: ReadTechLevels(section, content, simulation); break;
+            case SectionOrbit:
+                int satelliteKinds = section.ReadInt32();
+                var launched = new int[satelliteKinds];
+                for (int i = 0; i < satelliteKinds; i++)
+                {
+                    launched[i] = section.ReadInt32();
+                }
+
+                simulation.RestoreOrbit(launched, section.ReadInt32(), section.ReadInt32());
+                break;
             case SectionMode:
                 // Jednosměrka: z pískoviště se do normální hry vrátit nedá, takže
                 // se jen zapíná. Kdyby se dalo i vypnout, dala by se hra „vyprat".

@@ -326,7 +326,16 @@ Není to jiná mapa, je to **jiný pohled na tutéž** — a hlavně jiný druh 
 
 *Testy:* efekt družice se projeví v násobiči a po demontáži zmizí; poloha na dráze je funkcí tiku (tentýž tik = tentýž obrázek); počet družic přežije save/load.
 
-**Odhad:** 3 dny. **Riziko:** nízké — do simulace města to nesahá, jen přidává modifikátory a jednu obrazovku.
+> **Hotovo.** Pět družic v `data/orbit.json`, kosmodrom už v datech byl.
+> Efekty jdou tímtéž slovníkem jako Vzestup a Velké dílo, takže se skládají
+> se vším ostatním a nevznikla druhá soustava násobičů. Do savu jde pole
+> `int` a jeden rozestavěný start, nic víc.
+>
+> Dvě věci vyšly jinak, než plán čekal. **Jeden start naráz** — ne kvůli
+> výkonu, ale aby vypuštění zůstalo událost; deset družic ve frontě je
+> nákupní seznam. A **cena každé další roste geometricky**, takže i strop
+> `maxCount` má před sebou brzdu: šestá družice stojí desetkrát víc než první
+> a hráč se sám rozhodne, kdy přestat.
 
 ### 6.7 Zvonohra a festivaly
 
@@ -426,8 +435,8 @@ Stojí samostatně schválně: je to **hradlo**, ne položka. Dokud neběží, n
 
 | # | Co | Dny | Proč v tomhle pořadí |
 |---|---|---|---|
-| 14 | Podmoří (6.5) | 4 | Většina je obsah v datech; nové je jen šíření sítě po vodě |
-| 15 | Orbita (6.6) | 3 | Nesahá do simulace města, takže se nemá o co rozbít |
+| 14 | ~~Podmoří (6.5)~~ **hotovo** | 4 | Většina je obsah v datech; nové je jen šíření sítě po vodě |
+| 15 | ~~Orbita (6.6)~~ **hotovo** | 3 | Nesahá do simulace města, takže se nemá o co rozbít |
 
 Podmoří je napřed proto, že jeho síť je tatáž mřížka jako u energetiky (2.2a) — když už se staví, ať slouží dvakrát. Orbita je za ním, protože je to koncová meta a chce mít pod sebou hotový strom technologií.
 

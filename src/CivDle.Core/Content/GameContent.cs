@@ -70,8 +70,10 @@ public sealed class GameContent
         GrandWorkConfig? grandWork = null,
         LegacyConfig? legacy = null,
         DefRegistry<PrestigeUpgradeDef>? legacyUpgrades = null,
-        IReadOnlyList<AircraftDef>? aircraft = null)
+        IReadOnlyList<AircraftDef>? aircraft = null,
+        OrbitCatalog? orbit = null)
     {
+        Orbit = orbit ?? OrbitCatalog.Empty;
         Vehicles = vehicles ?? Array.Empty<VehicleDef>();
         Aircraft = aircraft ?? Array.Empty<AircraftDef>();
         Mods = mods ?? Array.Empty<Mods.ModPackage>();
@@ -211,7 +213,7 @@ public sealed class GameContent
         Biomes, Resources, Buildings, Techs, Prestige, PrestigeUpgrades, Quests, QuestsDynamic,
         Achievements, Events, Eras, WorldGen, gameplay, Languages, SettlementNames, Decorations,
         Fauna, Devlog, ZoneTypes, Policies, AscensionTiers, Weather, Landmarks, Features, Ufo,
-        Ambience, Terraform, Tutorial, Challenges, Contracts, Districts, SettlementRanks, Citizens, Elections, Milestones, Seasons, Faith, NpcCities, Vehicles, Mods, GrandWork, Legacy, LegacyUpgrades, Aircraft);
+        Ambience, Terraform, Tutorial, Challenges, Contracts, Districts, SettlementRanks, Citizens, Elections, Milestones, Seasons, Faith, NpcCities, Vehicles, Mods, GrandWork, Legacy, LegacyUpgrades, Aircraft, Orbit);
 
     /// <summary>Milníky postupu z <c>data/milestones.json</c> (smí být prázdné).</summary>
     public IReadOnlyList<MilestoneDef> Milestones { get; }
@@ -245,6 +247,11 @@ public sealed class GameContent
 
     /// <summary>Létající kulisa z <c>data/vehicles.json</c> (smí být prázdná).</summary>
     public IReadOnlyList<AircraftDef> Aircraft { get; }
+
+    /// <summary>
+    /// Družice na oběžné dráze. Prázdné = hra orbitu nemá (starší data, mody).
+    /// </summary>
+    public OrbitCatalog Orbit { get; }
 
     /// <summary>
     /// Načtené mody, jejichž data se do obsahu vlila. Hra je ukazuje hráči —

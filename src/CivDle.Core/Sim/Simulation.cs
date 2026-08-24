@@ -63,6 +63,7 @@ public sealed class Simulation
     private readonly NpcTownSystem _npcTowns; // postavená cizí města (skutečné budovy a silnice)
     private readonly GrandWorkSystem _grandWork; // bezedný odběr přebytků
     private readonly List<GrandWorkStage> _grandWorkDone = new(); // dokončené stupně (drží bonusy)
+    private readonly OrbitSystem _orbit;
     private readonly LegacySystem _legacy; // druhá prestižní vrstva (Odkaz)
     private readonly AutoResearchSystem _autoResearch = new(); // odemyká se až v Odkazu
 
@@ -207,6 +208,7 @@ public sealed class Simulation
         _streetPaver = new StreetGridPaver(content);
         _npcTowns = new NpcTownSystem(content);
         _grandWork = new GrandWorkSystem(content.GrandWork, content.Resources.Count);
+        _orbit = new OrbitSystem(content.Orbit);
         _legacy = new LegacySystem(content.Legacy, content.LegacyUpgrades.All);
         History = new CityHistory(content.Gameplay.History.MaxFrames);
         _constructionSystem = new ConstructionSystem(content);
@@ -3372,7 +3374,111 @@ public sealed class Simulation
 
         // Uzávěrka toků až na konci: v tuhle chvíli už zapsaly všechny systémy,
         // které v tomhle tiku něco vyrobily nebo zaplatily.
+        TickOrbit();
+
         _ledger.EndTick(TicksPerSecond);
+    }
+
+    // ----- orbita -----
+
+    /// <summary>
+    /// Co má hráč na oběžné dráze. Render z toho čte polohu družic, UI nabídku
+    /// ke startu; zapisovat se dá jen přes <see cref="TryLaunchSatellite"/>
+    /// a <see cref="TryDismantleSatellite"/>.
+    /// </summary>
+    public OrbitSystem Orbit => _orbit;
+
+    /// <summary>
+    /// Stojí někde hotový kosmodrom? Bez něj se nedá vypustit nic — družice
+    /// má být odměna za dostavěné město, ne položka v menu.
+    /// </summary>
+    public bool HasLaunchSite
+    {
+        get
+        {
+            if (!_content.Orbit.NeedsLaunchSite)
+            {
+                return true;
+            }
+
+            int wanted = _content.Orbit.LaunchBuildingIndex;
+            for (int i = 0; i < _buildingCount; i++)
+            {
+                if (_buildings[i].DefIndex == wanted && _buildings[i].IsComplete)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>Lze vypustit družici daného druhu?</summary>
+    public PlacementResult CanLaunchSatellite(int satelliteIndex)
+    {
+        if (!_content.Orbit.IsEnabled || satelliteIndex < 0 || satelliteIndex >= _content.Orbit.Count)
+        {
+            return PlacementResult.NotUnlocked;
+        }
+
+        if (!HasLaunchSite || _orbit.IsFull(satelliteIndex))
+        {
+            return PlacementResult.NotUnlocked;
+        }
+
+        // Jeden start naráz. Ne kvůli výkonu — kvůli tomu, aby vypuštění bylo
+        // událost. Deset družic ve frontě je nákupní seznam, ne meta.
+        if (_orbit.UnderConstruction >= 0)
+        {
+            return PlacementResult.Occupied;
+        }
+
+        return CanPay(_orbit.NextCost(satelliteIndex))
+            ? PlacementResult.Ok
+            : PlacementResult.NotEnoughResources;
+    }
+
+    /// <summary>Příkaz hráče: zaplať a začni stavět družici.</summary>
+    public PlacementResult TryLaunchSatellite(int satelliteIndex)
+    {
+        var result = CanLaunchSatellite(satelliteIndex);
+        if (result != PlacementResult.Ok)
+        {
+            return result;
+        }
+
+        Pay(_orbit.NextCost(satelliteIndex));
+        _orbit.BeginLaunch(satelliteIndex);
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>
+    /// Příkaz hráče: sundej družici z dráhy. Bez náhrady — vrátit ji na zem
+    /// v celku nejde a hráč to dělá jen proto, aby uvolnil místo pro jinou.
+    /// </summary>
+    public bool TryDismantleSatellite(int satelliteIndex)
+    {
+        if (satelliteIndex < 0 || satelliteIndex >= _content.Orbit.Count || !_orbit.Dismantle(satelliteIndex))
+        {
+            return false;
+        }
+
+        RecomputeBonuses();
+        return true;
+    }
+
+    private void TickOrbit()
+    {
+        int launched = _orbit.Tick();
+        if (launched < 0)
+        {
+            return;
+        }
+
+        RecomputeBonuses();
+        EnqueueNotification(new GameNotification(
+            NotificationKind.Milestone, "toast.satellite", $"satellite.{_content.Orbit[launched].Id}"));
     }
 
     /// <summary>Jak často se přepočítá těžiště města (tiky) — pomalý systém, ne každý tik.</summary>
@@ -6957,6 +7063,19 @@ public sealed class Simulation
             }
         }
 
+        // Pátá kategorie: družice. Sahají na tytéž násobiče jako Vzestup —
+        // to je celá pointa. Kdyby měla orbita vlastní cestu k bonusům, byly by
+        // ve hře dvě soustavy násobičů a dřív nebo později by se rozešly.
+        var satellites = _content.Orbit.Satellites;
+        for (int i = 0; i < satellites.Count; i++)
+        {
+            int count = _orbit.CountOf(i);
+            if (count > 0)
+            {
+                Scale(satellites[i].Effect, satellites[i].MultiplierAt(count), satellites[i].Magnitude * count);
+            }
+        }
+
         // Kategorie 2: výzkum. Platí jen v rámci běhu (Vzestup ho resetuje),
         // proto se sčítá zvlášť a teprve výsledek se do násobičů promítne.
         double techProduction = 1.0, techHarvest = 1.0, techGrowth = 1.0, techHousing = 1.0;
@@ -7136,6 +7255,8 @@ public sealed class Simulation
         CitizenCooldownTicks = 0;
         ResetContractBoard(); // zákazníci z minulého měřítka na novou nástěnku nepatří
         ContractsCompleted = 0; // a v novém měřítku začínají objednávky zas malé
+        _orbit.Reset();     // družice patří ke světu, který právě skončil — kosmodrom taky
+        _subseaDirty = true; // bez přístavů nezůstane otevřená ani dlaždice moře
         _buildingCount = 0;
 
         Array.Clear(_techLevel);
@@ -7162,6 +7283,14 @@ public sealed class Simulation
         SettlementsDirty = true;
         DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
+    }
+
+    /// <summary>Obnova oběžné dráhy ze savu.</summary>
+    internal void RestoreOrbit(IReadOnlyList<int> counts, int buildingIndex, int ticksLeft)
+    {
+        _orbit.Restore(counts, buildingIndex, ticksLeft);
+        RecomputeBonuses();
+        RecomputeDerivedState();
     }
 
     /// <summary>Indexy vyzkoumaných technologií (pro serializaci savu).</summary>

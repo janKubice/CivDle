@@ -2670,6 +2670,16 @@ public sealed class GameplayScreen : IScreen
                 () => _screens.Push(new GrandWorkScreen(_screens, _simulation))), slot++, columns);
         }
 
+        // Orbita se v liště objeví, teprve až stojí kosmodrom. Dřív by to byl
+        // odkaz na obrazovku, ze které se nedá nic udělat — a koncová meta se
+        // nemá ohlašovat dvě éry předem.
+        if (_simulation.HasLaunchSite)
+        {
+            Place(grid, UiFactory.ToolButton(
+                Ico("orbit.planet"), loc["hud.orbit"] + '\n' + loc["tip.orbit"],
+                () => _screens.Push(new OrbitScreen(_screens, _simulation))), slot++, columns);
+        }
+
         // Odkaz se ukáže až po prvním Vzestupu — vrstva nad mechanikou, kterou
         // hráč ještě nezná, by byla jen matoucí tlačítko navíc.
         if (_simulation.LegacyAvailable)

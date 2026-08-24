@@ -2,6 +2,7 @@ using CivDle.Core.Save;
 using CivDle.Core.Sim;
 using CivDle.Screens;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 
 namespace CivDle.Capture;
 
@@ -103,6 +104,12 @@ public sealed class SmokeRun
         // kroku by se celá vrstva poprvé nakreslila až u hráče — a kreslí se
         // jinak než zástavba na souši (voda pod budovou, vlastní sprity).
         Check("podmoří: přístav a farma na dně", () => SubseaRound(screens, sim));
+        Frames(screen, time);
+
+        // Orbita: obrazovka kreslí planetu a družice mimo mapu, takže na ni
+        // nesáhne žádný jiný krok. Vypuštění se zkusí naostro — start je
+        // jediná cesta, kterou se družice na dráhu dostane.
+        Check("orbita: vypustit a nakreslit", () => OrbitRound(screens, sim, time));
         Frames(screen, time);
 
         Check("nástroje: vypnout", () => screen.ActivateToolForSmoke(SmokeTool.None));
@@ -277,6 +284,81 @@ public sealed class SmokeRun
         // podmořské sprity a dosah sítě opravdu nakreslí — bez ní by se render
         // téhle vrstvy poprvé ukázal až u hráče.
         PhotoAt(screens, sim, harbourX, harbourY, "civdle-smoke-subsea");
+    }
+
+    /// <summary>
+    /// Postaví kosmodrom, vypustí družici a nechá orbitální obrazovku pár
+    /// snímků žít — i s družicí na dráze, ne jen s prázdným kotoučem.
+    /// </summary>
+    private static void OrbitRound(ScreenManager screens, Simulation sim, GameTime time)
+    {
+        var content = screens.Content;
+        if (!content.Orbit.IsEnabled || !content.Orbit.NeedsLaunchSite)
+        {
+            return;
+        }
+
+        // Kosmodrom chce měřítko i velkoměsto; ve smoke světě obojí obejdeme
+        // ladicími pákami — testuje se orbita, ne cesta k ní.
+        sim.DebugGrantAscensionLevels(4);
+        sim.DebugFillStorages();
+
+        int port = content.Buildings.IndexOf("spaceport");
+        if (!TryPlaceNear(sim, port, sim.CityCenterX, sim.CityCenterY, wantWater: false))
+        {
+            Console.WriteLine("orbita: kosmodrom se nikam nevešel, přeskakuji");
+            return;
+        }
+
+        // Rozestavěný kosmodrom nic nevypustí — dotikáme ho.
+        var def = content.Buildings[port];
+        for (int i = 0; i < def.BuildTicks + 10 && !sim.HasLaunchSite; i++)
+        {
+            sim.Tick();
+        }
+
+        var orbitScreen = new OrbitScreen(screens, sim);
+        screens.Push(orbitScreen);
+        Frames(orbitScreen, time);
+
+        sim.DebugFillStorages();
+        var result = orbitScreen.LaunchForSmoke(0);
+        Console.WriteLine($"orbita: start družice = {result}, kosmodrom = {sim.HasLaunchSite}");
+
+        // Dotikat start, ať se na obrazovce kreslí i hotová družice na dráze.
+        for (int i = 0; i < content.Orbit[0].BuildTicks + 10 && sim.Orbit.UnderConstruction >= 0; i++)
+        {
+            sim.Tick();
+        }
+
+        Frames(orbitScreen, time);
+        Console.WriteLine($"orbita: na dráze {sim.Orbit.TotalLaunched}");
+        PhotoScreen(screens, orbitScreen, time, "civdle-smoke-orbit");
+        screens.Pop();
+    }
+
+    /// <summary>
+    /// Vyfotí obrazovku tak, jak ji vidí hráč (i s panely). Fotka scény tudy
+    /// nepomůže — orbitální pohled není nad mapou.
+    /// </summary>
+    private static void PhotoScreen(ScreenManager screens, IScreen screen, GameTime time, string folder)
+    {
+        var device = screens.GraphicsDevice;
+        int width = device.PresentationParameters.BackBufferWidth;
+        int height = device.PresentationParameters.BackBufferHeight;
+
+        screen.Draw(time);
+
+        var buffer = new Color[width * height];
+        device.GetBackBufferData(buffer);
+
+        using var texture = new Texture2D(device, width, height);
+        texture.SetData(buffer);
+
+        string directory = Path.Combine(Path.GetTempPath(), folder);
+        Directory.CreateDirectory(directory);
+        using var stream = File.Create(Path.Combine(directory, "orbit.png"));
+        texture.SaveAsPng(stream, width, height);
     }
 
     /// <summary>Uloží fotku vycentrovanou na konkrétní dlaždici.</summary>

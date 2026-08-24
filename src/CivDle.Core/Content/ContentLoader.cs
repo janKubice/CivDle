@@ -88,7 +88,10 @@ public sealed class ContentLoader
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources, buildings, techs);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons);
+        // Orbita se načítá PŘED jazyky: jména družic se validují spolu se
+        // zbytkem obsahu, takže musí být na světě dřív, než se kontrolují klíče.
+        var orbit = LoadOrbit(Path.Combine(dataDirectory, "orbit.json"), resources, buildings);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
@@ -101,7 +104,7 @@ public sealed class ContentLoader
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
             worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, faith, npcCities, vehicles, mods,
-            grandWork, legacy, legacyUpgrades, aircraft);
+            grandWork, legacy, legacyUpgrades, aircraft, orbit);
     }
 
     // ----- cizí města -----
@@ -186,6 +189,98 @@ public sealed class ContentLoader
     /// Načte Velké dílo. Chybějící soubor <b>není chyba</b> — je to volitelná
     /// mechanika a hra bez ní běží dál (stejně jako víra).
     /// </summary>
+    /// <summary>
+    /// Načte oběžnou dráhu. Chybějící soubor není chyba — vrstva je volitelná
+    /// a hra (i starší mody) musí naběhnout bez ní.
+    /// </summary>
+    private OrbitCatalog LoadOrbit(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings)
+    {
+        if (!File.Exists(path))
+        {
+            return OrbitCatalog.Empty;
+        }
+
+        var file = ReadFile<OrbitFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var satellites = new List<SatelliteDef>();
+        foreach (var dto in file.Satellites ?? new List<SatelliteDto>())
+        {
+            string id = dto.Id?.Trim() ?? string.Empty;
+            if (id.Length == 0)
+            {
+                throw new ContentLoadException(path, "Družice bez 'id'.");
+            }
+
+            if (!seen.Add(id))
+            {
+                throw new ContentLoadException(path, $"Družice '{id}' je v datech dvakrát.");
+            }
+
+            string effect = dto.Effect?.Trim() ?? string.Empty;
+
+            // Družice sahají na tytéž násobiče jako Vzestup a Velké dílo, takže
+            // i slovník je společný — jinak by překlep tiše nedělal nic a hráč
+            // by platil miliardy za družici bez efektu.
+            if (!KnownPrestigeEffects.Contains(effect))
+            {
+                throw new ContentLoadException(
+                    path, $"Družice '{id}': neznámý efekt '{effect}' (známé: {string.Join(", ", KnownPrestigeEffects)}).");
+            }
+
+            if (dto.Magnitude <= 0)
+            {
+                throw new ContentLoadException(path, $"Družice '{id}': 'magnitude' musí být kladná.");
+            }
+
+            var cost = ParseResourceAmounts(path, id, "cost", dto.Cost, resources);
+            if (cost.Count == 0)
+            {
+                throw new ContentLoadException(path, $"Družice '{id}' nic nestojí — koncová meta zadarmo není meta.");
+            }
+
+            if (dto.MaxCount <= 0)
+            {
+                throw new ContentLoadException(path, $"Družice '{id}': 'maxCount' musí být aspoň 1.");
+            }
+
+            if (dto.BuildTicks <= 0)
+            {
+                throw new ContentLoadException(path, $"Družice '{id}': 'buildTicks' musí být kladné — start má trvat.");
+            }
+
+            double growth = dto.CostGrowth <= 0 ? 1.0 : dto.CostGrowth;
+            if (growth is < 1.0 or > 10.0)
+            {
+                throw new ContentLoadException(path, $"Družice '{id}': 'costGrowth' musí být 1–10, je {growth}.");
+            }
+
+            satellites.Add(new SatelliteDef(
+                id,
+                string.IsNullOrWhiteSpace(dto.Sprite) ? $"orbit.{id}" : dto.Sprite.Trim(),
+                cost,
+                growth,
+                dto.BuildTicks,
+                effect,
+                dto.Magnitude,
+                dto.MaxCount,
+                Math.Clamp(dto.Altitude, 0.1, 1.0),
+                dto.Speed));
+        }
+
+        int launchSite = -1;
+        if (!string.IsNullOrWhiteSpace(file.LaunchBuilding)
+            && !buildings.TryIndexOf(file.LaunchBuilding.Trim(), out launchSite))
+        {
+            throw new ContentLoadException(
+                path, $"Orbita odkazuje na neexistující kosmodrom '{file.LaunchBuilding}'.");
+        }
+
+        return new OrbitCatalog(satellites, launchSite);
+    }
+
     private GrandWorkConfig LoadGrandWork(
         string path,
         DefRegistry<Resource> resources,
@@ -3855,7 +3950,8 @@ public sealed class ContentLoader
         CitizenCatalog citizens,
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
-        SeasonCalendar seasons)
+        SeasonCalendar seasons,
+        OrbitCatalog orbit)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -3889,7 +3985,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit);
         FillGapsFromBaseLanguage(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -3925,9 +4021,16 @@ public sealed class ContentLoader
         CitizenCatalog citizens,
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
-        SeasonCalendar seasons)
+        SeasonCalendar seasons,
+        OrbitCatalog orbit)
     {
         var required = new List<string>();
+        foreach (var satellite in orbit.Satellites)
+        {
+            required.Add($"satellite.{satellite.Id}");
+            required.Add($"satellite.{satellite.Id}.desc");
+        }
+
         required.AddRange(biomes.All.Select(b => b.NameKey));
         required.AddRange(resources.All.Select(r => r.NameKey));
         required.AddRange(buildings.All.Select(b => b.NameKey));

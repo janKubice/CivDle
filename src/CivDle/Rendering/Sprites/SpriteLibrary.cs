@@ -25,6 +25,12 @@ public sealed class SpriteLibrary : IDisposable
     /// <summary>Velikost znaku hry v hlavním menu.</summary>
     public const int LogoSize = 96;
 
+    /// <summary>
+    /// Planeta v orbitálním pohledu. Větší než ostatní sprity schválně: kreslí
+    /// se přes půl obrazovky a při zvětšení menší předlohy by z ní byly kostky.
+    /// </summary>
+    public const int PlanetSize = 128;
+
     private readonly Dictionary<string, Texture2D> _sprites = new(StringComparer.Ordinal);
 
     /// <summary>
@@ -281,6 +287,15 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.vent_generator", SpriteSize, VentGenerator);
         Add(device, "building.deep_smelter", SpriteSize, DeepSmelter);
         Add(device, "building.sea_dome", SpriteSize, SeaDome);
+
+        // Orbita. Planeta je větší (kreslí se přes půl obrazovky), družice
+        // naopak drobné — na dráze jsou to tečky s panely.
+        Add(device, "orbit.planet", PlanetSize, Planet);
+        Add(device, "orbit.solar_mirror", SpriteSize, SolarMirror);
+        Add(device, "orbit.weather_watch", SpriteSize, WeatherWatch);
+        Add(device, "orbit.comm_array", SpriteSize, CommArray);
+        Add(device, "orbit.survey_eye", SpriteSize, SurveyEye);
+        Add(device, "orbit.orbital_depot", SpriteSize, OrbitalDepot);
 
         // Megastavby.
         Add(device, "building.megacity_spire", SpriteSize, MegacitySpire);
@@ -2263,6 +2278,86 @@ public sealed class SpriteLibrary : IDisposable
         c.FillCircle(13f, 18f, 3.5f, new Color(64, 54, 44));
         c.FillCircle(7.5f, 13f, 1.6f, new Color(134, 118, 92)); // lesk
         c.FillCircle(15f, 10.5f, 1.3f, new Color(148, 130, 100));
+    }
+
+    // ----- orbita -----
+
+    /// <summary>Panel družice — společný tvar, ať je poznat, že patří k sobě.</summary>
+    private static void Panels(PixelCanvas c, int y, Color color)
+    {
+        c.FillRect(2, y, 8, 5, color);
+        c.FillRect(22, y, 8, 5, color);
+        c.FillRect(3, y + 1, 6, 3, color * 1.35f);
+        c.FillRect(23, y + 1, 6, 3, color * 1.35f);
+    }
+
+    /// <summary>
+    /// Planeta pod dráhou. Nekreslí se z mapy: v orbitálním pohledu jde
+    /// o měřítko, ne o to, kde přesně hráč staví.
+    /// </summary>
+    private static void Planet(PixelCanvas c)
+    {
+        float r = 54f;
+        c.FillCircle(64f, 64f, r + 4f, new Color(84, 150, 200) * 0.22f);   // atmosféra
+        c.FillCircle(64f, 64f, r, new Color(34, 78, 124));                 // oceán
+        c.FillCircle(56f, 54f, r * 0.5f, new Color(44, 96, 146) * 0.7f);   // světlejší polokoule
+
+        // Pevniny. Pár skvrn stačí — jde o siluetu, ne o zeměpis.
+        c.FillCircle(48f, 46f, 15f, new Color(72, 126, 74));
+        c.FillCircle(60f, 38f, 9f, new Color(84, 140, 82));
+        c.FillCircle(84f, 60f, 13f, new Color(66, 118, 70));
+        c.FillCircle(70f, 88f, 16f, new Color(78, 132, 78));
+        c.FillCircle(40f, 78f, 8f, new Color(70, 122, 72));
+
+        // Polární čepičky a odlesk na okraji.
+        c.FillCircle(64f, 16f, 11f, new Color(226, 236, 242) * 0.8f);
+        c.FillCircle(64f, 112f, 9f, new Color(226, 236, 242) * 0.7f);
+        c.FillCircle(46f, 44f, 6f, new Color(255, 255, 255) * 0.16f);
+    }
+
+    /// <summary>Solární zrcadlo: velká odrazná plocha na krátkém trupu.</summary>
+    private static void SolarMirror(PixelCanvas c)
+    {
+        c.FillRect(12, 12, 8, 8, new Color(148, 152, 160));
+        c.FillCircle(16f, 16f, 3f, new Color(250, 236, 178));
+        Panels(c, 13, new Color(236, 214, 140));
+    }
+
+    /// <summary>Meteorologická: kapkovité tělo a talíř dolů k planetě.</summary>
+    private static void WeatherWatch(PixelCanvas c)
+    {
+        c.FillRect(12, 10, 8, 9, new Color(158, 162, 170));
+        c.FillTriangle(11f, 19f, 21f, 19f, 16f, 25f, new Color(120, 176, 208)); // talíř k Zemi
+        Panels(c, 12, new Color(96, 150, 200));
+    }
+
+    /// <summary>Komunikační: dvě antény do stran a blikající maják.</summary>
+    private static void CommArray(PixelCanvas c)
+    {
+        c.FillRect(13, 12, 6, 10, new Color(150, 154, 162));
+        c.FillCircle(16f, 9f, 2.4f, new Color(240, 160, 140)); // maják
+        c.FillRect(15, 6, 2, 4, new Color(120, 124, 132));
+        Panels(c, 14, new Color(120, 132, 200));
+    }
+
+    /// <summary>Průzkumné oko: dlouhý tubus objektivu namířený dolů.</summary>
+    private static void SurveyEye(PixelCanvas c)
+    {
+        c.FillRect(13, 8, 6, 12, new Color(142, 146, 154));
+        c.FillRect(14, 20, 4, 5, new Color(96, 100, 108));  // tubus
+        c.FillCircle(16f, 25f, 2.6f, new Color(150, 220, 240)); // čočka
+        Panels(c, 11, new Color(110, 170, 180));
+    }
+
+    /// <summary>Orbitální sklad: hranatý modul s doky.</summary>
+    private static void OrbitalDepot(PixelCanvas c)
+    {
+        c.FillRect(10, 11, 12, 11, new Color(168, 164, 152));
+        c.FillRect(10, 11, 12, 3, new Color(198, 194, 182));
+        c.FillRect(7, 14, 3, 5, new Color(132, 128, 118));   // dok
+        c.FillRect(22, 14, 3, 5, new Color(132, 128, 118));
+        c.FillRect(13, 16, 6, 4, new Color(96, 94, 88));     // vrata
+        Panels(c, 24, new Color(150, 160, 176));
     }
 
     private static void OreIcon(PixelCanvas c, Color ore)
