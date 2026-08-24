@@ -180,6 +180,11 @@ public sealed class TechScreen : IScreen
                     _screens.Sounds.PlayChime();
                     _flashNode = hit;
                     _flashAge = 0f;
+
+                    // Vyzkoumáním se odhalí navazující uzly, takže rejstřík
+                    // zestárl — bez přestavby by je hledání nenašlo.
+                    RebuildSearchIndex();
+                    _search.Search(_searchBox.Text);
                 }
             }
         }
@@ -571,6 +576,16 @@ public sealed class TechScreen : IScreen
         var entries = new string[techs.Count];
         for (int i = 0; i < techs.Count; i++)
         {
+            // Neodhalený uzel se nesmí dát najít. Strom se odkrývá postupně
+            // a hledání by ten závoj obešlo: hráč napíše „uran" a dozví se,
+            // že uran ve hře je, dřív než se k němu dopracoval. Prázdný text
+            // nevyhoví žádnému dotazu.
+            if (!_simulation.IsTechKnown(i))
+            {
+                entries[i] = string.Empty;
+                continue;
+            }
+
             var text = new System.Text.StringBuilder();
             text.Append(loc[techs[i].NameKey]).Append(' ');
             text.Append(loc[techs[i].DescriptionKey]).Append(' ');

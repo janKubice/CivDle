@@ -139,6 +139,21 @@ public class SearchIndexTests
     }
 
     [Fact]
+    public void AnEmptyEntryNeverMatches()
+    {
+        // Takhle se ze stromu výzkumu vyřazují uzly, které hráč ještě nemá
+        // odhalené: dostanou prázdný text a hledání je nenajde. Kdyby
+        // prázdný text vyhověl čemukoli, prozradilo by hledání celý strom.
+        var index = new SearchIndex(new[] { string.Empty, "dřevo" });
+
+        index.Search("e");
+
+        Assert.False(index.IsMatch(0));
+        Assert.True(index.IsMatch(1));
+        Assert.Equal(1, index.MatchCount);
+    }
+
+    [Fact]
     public void AnEmptyIndexDoesNotBlowUp()
     {
         // Mod může vyprázdnit registr; obrazovka se kvůli tomu nesmí složit.
