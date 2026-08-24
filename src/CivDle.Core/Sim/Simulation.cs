@@ -3405,10 +3405,16 @@ public sealed class Simulation
     /// <summary>Zapne režim obrany. Jen při zakládání světa a při načtení savu.</summary>
     public void EnableFrontierDefense()
     {
-        if (_content.Frontier.IsAvailable)
+        if (!_content.Frontier.IsAvailable)
         {
-            FrontierDefense = true;
+            return;
         }
+
+        FrontierDefense = true;
+
+        // Rozvrh začíná TEĎ, ne od nuly. Zapnout režim v rozehrané hře jinak
+        // znamená, že se během pár vteřin vysypou všechny zmeškané vlny naráz.
+        _frontier.SkipToTick(TickCount);
     }
 
     /// <summary>Stav bitvy — render z něj čte útočníky, UI počty a čas do vlny.</summary>

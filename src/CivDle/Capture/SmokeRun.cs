@@ -316,13 +316,15 @@ public sealed class SmokeRun
                 wantWater: false);
         }
 
-        // Dotikat k první vlně a pak ještě chvíli, ať se stihne i střelba.
-        while (sim.TickCount < content.Frontier.FirstWaveTick)
+        // Rozvrh začíná zapnutím režimu, ne od nuly — dotikáme k té první vlně.
+        while (sim.TickCount < sim.Frontier.NextWaveTick)
         {
             sim.Tick();
         }
 
-        for (int i = 0; i < 400; i++)
+        // Dost dlouho, aby vlna došla od místa zrodu až k věžím: útočník ujde
+        // dvacetinu dlaždice za tik, takže pár set tiků je pořád „na obzoru".
+        for (int i = 0; i < 1400; i++)
         {
             sim.Tick();
         }

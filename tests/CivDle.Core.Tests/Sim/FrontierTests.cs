@@ -96,6 +96,24 @@ public class FrontierTests
     }
 
     [Fact]
+    public void TurningTheModeOnLaterDoesNotDumpAllTheMissedWavesAtOnce()
+    {
+        // Přesně tohle se stalo ve smoke běhu: režim zapnutý nad rozehraným
+        // městem začal dohánět rozvrh od nuly a za pár vteřin stálo na mapě
+        // sedmdesát útočníků naráz.
+        var (sim, content) = World();
+        TickPast(sim, content.Frontier.TickOfWave(8));
+
+        sim.EnableFrontierDefense();
+        TickPast(sim, sim.TickCount + 5);
+
+        Assert.Equal(0, sim.Frontier.Count);
+        Assert.True(
+            sim.Frontier.NextWaveTick > sim.TickCount,
+            "další vlna má teprve přijít, ne se dohánět zpětně");
+    }
+
+    [Fact]
     public void AttackersSpawnAwayFromTheCityAndWalkTowardIt()
     {
         var (sim, content) = Defended();

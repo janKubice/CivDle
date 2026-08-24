@@ -109,6 +109,29 @@ public sealed class FrontierSystem
         }
     }
 
+    /// <summary>
+    /// Přeskočí vlny, které měly přijít dřív, než se režim zapnul.
+    ///
+    /// <para>Bez tohohle se rozvrh „dohání": režim zapnutý v rozehrané hře
+    /// spustí v každém tiku jednu zmeškanou vlnu a za pár vteřin stojí na mapě
+    /// sedmdesát útočníků naráz. Ve smoke běhu se to stalo hned napoprvé.</para>
+    ///
+    /// <para>Dohánění při normálním běhu (i offline) tím netrpí: tam se tiká
+    /// po jednom a vlny chodí v pořadí, jak mají.</para>
+    /// </summary>
+    public void SkipToTick(long tick)
+    {
+        if (!_config.IsAvailable)
+        {
+            return;
+        }
+
+        while (_config.TickOfWave(_nextWave) <= tick)
+        {
+            _nextWave++;
+        }
+    }
+
     /// <summary>Vyprázdní bojiště (Vzestup, nový svět).</summary>
     public void Reset()
     {
