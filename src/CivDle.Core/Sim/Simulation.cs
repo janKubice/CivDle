@@ -934,11 +934,38 @@ public sealed class Simulation
         return count;
     }
 
+    /// <summary>
+    /// Má hráč na cenu?
+    ///
+    /// <para>Jediné místo, kudy procházejí VŠECHNY kontroly ceny (stavba,
+    /// vylepšení, sloučení, terén, sázení, živnost). Kdyby si každá počítala
+    /// sama — jako to bylo dřív — rozešly by se a na jednu by se při každé
+    /// změně pravidel zapomnělo.</para>
+    /// </summary>
     private bool CanPay(IReadOnlyList<ResourceAmount> cost)
     {
         for (int i = 0; i < cost.Count; i++)
         {
             if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Totéž pro výzkum. Vlastní metoda schválně: cena technologie se škáluje
+    /// podle už vyzkoumaného, a vyrobit si kvůli kontrole škálovaný seznam by
+    /// znamenalo alokaci — a strom si o kontrolu říká pro každý uzel při každém
+    /// překreslení.
+    /// </summary>
+    private bool CanPayResearch(TechDef tech, int level)
+    {
+        for (int i = 0; i < tech.Cost.Count; i++)
+        {
+            if (_resources[tech.Cost[i].ResourceIndex] < ResearchCost(tech.Cost[i].Amount, level))
             {
                 return false;
             }
@@ -1682,15 +1709,7 @@ public sealed class Simulation
             return false;
         }
 
-        for (int i = 0; i < def.Cost.Count; i++)
-        {
-            if (_resources[def.Cost[i].ResourceIndex] < def.Cost[i].Amount)
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return CanPay(def.Cost);
     }
 
     /// <summary>
@@ -2363,15 +2382,7 @@ public sealed class Simulation
             return PlacementResult.Occupied; // pod budovou ani cestou se nekope
         }
 
-        for (int i = 0; i < action.Cost.Count; i++)
-        {
-            if (_resources[action.Cost[i].ResourceIndex] < action.Cost[i].Amount)
-            {
-                return PlacementResult.NotEnoughResources;
-            }
-        }
-
-        return PlacementResult.Ok;
+        return CanPay(action.Cost) ? PlacementResult.Ok : PlacementResult.NotEnoughResources;
     }
 
     /// <summary>Příkaz hráče: přetvoř dlaždici (zaplatí cenu a přepíše biom).</summary>
@@ -2588,19 +2599,7 @@ public sealed class Simulation
     /// </summary>
     public bool CanAfford(IReadOnlyList<ResourceAmount> cost) => CanPay(cost);
 
-    public bool CanAfford(int defIndex)
-    {
-        var cost = _content.Buildings[defIndex].BuildCost;
-        for (int i = 0; i < cost.Count; i++)
-        {
-            if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
+    public bool CanAfford(int defIndex) => CanPay(_content.Buildings[defIndex].BuildCost);
 
     /// <summary>
     /// Zná už hráč tuhle surovinu (někdy ji získal)? HUD neznámé suroviny NEUKAZUJE
@@ -3343,16 +3342,7 @@ public sealed class Simulation
             return PlacementResult.NeedsWaterAccess;
         }
 
-        var cost = def.BuildCost;
-        for (int i = 0; i < cost.Count; i++)
-        {
-            if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
-            {
-                return PlacementResult.NotEnoughResources;
-            }
-        }
-
-        return PlacementResult.Ok;
+        return CanPay(def.BuildCost) ? PlacementResult.Ok : PlacementResult.NotEnoughResources;
     }
 
     /// <summary>Dotýká se půdorys budovy aspoň jednou stranou vody (moře, jezera či řeky)?</summary>
@@ -3697,15 +3687,7 @@ public sealed class Simulation
             return PlacementResult.NotUnlocked;
         }
 
-        for (int i = 0; i < species.Cost.Count; i++)
-        {
-            if (_resources[species.Cost[i].ResourceIndex] < species.Cost[i].Amount)
-            {
-                return PlacementResult.NotEnoughResources;
-            }
-        }
-
-        return PlacementResult.Ok;
+        return CanPay(species.Cost) ? PlacementResult.Ok : PlacementResult.NotEnoughResources;
     }
 
     /// <summary>
@@ -5272,16 +5254,7 @@ public sealed class Simulation
             }
         }
 
-        var cost = def.MergeCost;
-        for (int i = 0; i < cost.Count; i++)
-        {
-            if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
-            {
-                return PlacementResult.NotEnoughResources;
-            }
-        }
-
-        return PlacementResult.Ok;
+        return CanPay(def.MergeCost) ? PlacementResult.Ok : PlacementResult.NotEnoughResources;
     }
 
     /// <summary>
@@ -5381,13 +5354,9 @@ public sealed class Simulation
             return PlacementResult.NotUnlocked;
         }
 
-        var cost = def.UpgradeCost;
-        for (int i = 0; i < cost.Count; i++)
+        if (!CanPay(def.UpgradeCost))
         {
-            if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
-            {
-                return PlacementResult.NotEnoughResources;
-            }
+            return PlacementResult.NotEnoughResources;
         }
 
         return HasRoomToGrow(buildingIndex, _content.Buildings[def.UpgradesToIndex])
@@ -5785,16 +5754,7 @@ public sealed class Simulation
             }
         }
 
-        var cost = tech.Cost;
-        for (int i = 0; i < cost.Count; i++)
-        {
-            if (_resources[cost[i].ResourceIndex] < ResearchCost(cost[i].Amount, level))
-            {
-                return PlacementResult.NotEnoughResources;
-            }
-        }
-
-        return PlacementResult.Ok;
+        return CanPayResearch(tech, level) ? PlacementResult.Ok : PlacementResult.NotEnoughResources;
     }
 
     /// <summary>Nejvyšší podíl surovin, který jde přes Vzestup přenést.</summary>
@@ -5953,12 +5913,9 @@ public sealed class Simulation
             return result;
         }
 
-        var tech = _content.Techs[techIndex];
-        int level = _techLevel[techIndex];
-        for (int i = 0; i < tech.Cost.Count; i++)
-        {
-            _resources[tech.Cost[i].ResourceIndex] -= ResearchCost(tech.Cost[i].Amount, level);
-        }
+        // Přes Pay, ne odečtem na místě: jinak by se výzkum neobjevil v účtování
+        // toků a hráč by v bilanci viděl, jak mu suroviny mizí „samy od sebe".
+        Pay(ScaledResearchCost(techIndex));
 
         UnlockTech(techIndex);
         return PlacementResult.Ok;
