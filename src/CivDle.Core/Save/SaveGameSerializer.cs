@@ -97,6 +97,13 @@ public sealed class SaveGameSerializer
     /// </summary>
     private const string SectionOrbit = "orbit";
 
+    /// <summary>
+    /// Stav volitelné obrany: která vlna je na řadě a kdo je zrovna na mapě.
+    /// Útočníci se ukládají schválně — dopočítat je z rozvrhu by znamenalo, že
+    /// se uložením a načtením dá rozběhnutá vlna zrušit.
+    /// </summary>
+    private const string SectionFrontier = "frontier";
+
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
     {
@@ -208,7 +215,52 @@ public sealed class SaveGameSerializer
         WriteSection(writer, SectionHistory, w => WriteHistory(w, simulation));
 
         WriteSection(writer, SectionTechLevels, w => WriteTechLevels(w, simulation));
-        WriteSection(writer, SectionMode, w => w.Write(simulation.Sandbox));
+        WriteSection(writer, SectionMode, w =>
+        {
+            w.Write(simulation.Sandbox);
+            w.Write(simulation.FrontierDefense); // připojeno na konec: starší save to prostě nemá
+        });
+        WriteSection(writer, SectionFrontier, w =>
+        {
+            var frontier = simulation.Frontier;
+            w.Write(frontier.NextWave);
+            w.Write(frontier.Killed);
+            w.Write(frontier.ReachedCity);
+
+            var attackers = frontier.Attackers;
+            w.Write(attackers.Length);
+            for (int i = 0; i < attackers.Length; i++)
+            {
+                w.Write(attackers[i].X);
+                w.Write(attackers[i].Y);
+                w.Write(attackers[i].Health);
+                w.Write(attackers[i].TypeIndex);
+                w.Write(attackers[i].AttackCooldown);
+            }
+
+            // Poškození drží budovy, ale sekce budov je stará a měnit ji kvůli
+            // volitelnému režimu by znamenalo nový formát pro všechny. Tady je
+            // to pár čísel a starší save je prostě nemá.
+            var buildings = simulation.Buildings;
+            int damaged = 0;
+            for (int i = 0; i < buildings.Length; i++)
+            {
+                if (buildings[i].DisabledTicks > 0)
+                {
+                    damaged++;
+                }
+            }
+
+            w.Write(damaged);
+            for (int i = 0; i < buildings.Length; i++)
+            {
+                if (buildings[i].DisabledTicks > 0)
+                {
+                    w.Write(i);
+                    w.Write(buildings[i].DisabledTicks);
+                }
+            }
+        });
         WriteSection(writer, SectionOrbit, w =>
         {
             // Ukládá se JEN kolik čeho je nahoře a co se staví. Poloha družice
@@ -504,6 +556,34 @@ public sealed class SaveGameSerializer
         }
     }
 
+    /// <summary>Načte stav bitvy: vlnu, počty a útočníky na mapě.</summary>
+    private static void ReadFrontier(BinaryReader section, Simulation simulation)
+    {
+        int nextWave = section.ReadInt32();
+        int killed = section.ReadInt32();
+        int reached = section.ReadInt32();
+
+        int count = section.ReadInt32();
+        var attackers = new Attacker[Math.Max(0, count)];
+        for (int i = 0; i < attackers.Length; i++)
+        {
+            attackers[i].X = section.ReadSingle();
+            attackers[i].Y = section.ReadSingle();
+            attackers[i].Health = section.ReadInt32();
+            attackers[i].TypeIndex = section.ReadInt32();
+            attackers[i].AttackCooldown = section.ReadInt32();
+        }
+
+        int damaged = section.ReadInt32();
+        var damage = new (int Index, int Ticks)[Math.Max(0, damaged)];
+        for (int i = 0; i < damage.Length; i++)
+        {
+            damage[i] = (section.ReadInt32(), section.ReadInt32());
+        }
+
+        simulation.RestoreFrontier(nextWave, killed, reached, attackers, damage);
+    }
+
     private static void ApplySection(string name, BinaryReader section, GameContent content, Simulation simulation)
     {
         switch (name)
@@ -559,6 +639,16 @@ public sealed class SaveGameSerializer
                     simulation.MarkAsSandbox();
                 }
 
+                // Obrana je připojená za pískovištěm; save z doby před ní tady
+                // prostě končí a přečte se jako „režim vypnutý".
+                if (section.BaseStream.Position < section.BaseStream.Length && section.ReadBoolean())
+                {
+                    simulation.EnableFrontierDefense();
+                }
+
+                break;
+            case SectionFrontier:
+                ReadFrontier(section, simulation);
                 break;
             case SectionRuns:
                 simulation.PeakPopulation = section.ReadInt64();  // pořadí musí sedět se zápisem

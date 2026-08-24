@@ -1962,6 +1962,20 @@
         "vent_generator",
         "deep_smelter"
       ]
+    },
+    {
+      "id": "watchtowers",
+      "cost": {
+        "wood": 40,
+        "stone": 30,
+        "science": 120
+      },
+      "prerequisites": [
+        "masonry"
+      ],
+      "unlocks": [
+        "watchtower"
+      ]
     }
   ]
 }

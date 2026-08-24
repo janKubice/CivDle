@@ -91,6 +91,7 @@ public sealed class ContentLoader
         // Orbita se načítá PŘED jazyky: jména družic se validují spolu se
         // zbytkem obsahu, takže musí být na světě dřív, než se kontrolují klíče.
         var orbit = LoadOrbit(Path.Combine(dataDirectory, "orbit.json"), resources, buildings);
+        var frontier = LoadFrontier(Path.Combine(dataDirectory, "frontier.json"));
         var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
@@ -104,7 +105,7 @@ public sealed class ContentLoader
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
             worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, faith, npcCities, vehicles, mods,
-            grandWork, legacy, legacyUpgrades, aircraft, orbit);
+            grandWork, legacy, legacyUpgrades, aircraft, orbit, frontier);
     }
 
     // ----- cizí města -----
@@ -189,6 +190,110 @@ public sealed class ContentLoader
     /// Načte Velké dílo. Chybějící soubor <b>není chyba</b> — je to volitelná
     /// mechanika a hra bez ní běží dál (stejně jako víra).
     /// </summary>
+    /// <summary>
+    /// Načte pravidla obrany. Chybějící soubor není chyba — režim je volitelný
+    /// a hra (i starší mody) musí naběhnout bez něj.
+    /// </summary>
+    private FrontierConfig LoadFrontier(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return FrontierConfig.Disabled;
+        }
+
+        var file = ReadFile<FrontierFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var attackers = new List<AttackerDef>();
+        foreach (var dto in file.Attackers ?? new List<AttackerDto>())
+        {
+            string id = dto.Id?.Trim() ?? string.Empty;
+            if (id.Length == 0)
+            {
+                throw new ContentLoadException(path, "Útočník bez 'id'.");
+            }
+
+            if (!seen.Add(id))
+            {
+                throw new ContentLoadException(path, $"Útočník '{id}' je v datech dvakrát.");
+            }
+
+            if (dto.Health <= 0)
+            {
+                throw new ContentLoadException(path, $"Útočník '{id}': 'health' musí být kladné.");
+            }
+
+            // Nulová rychlost = útočník, který se nikdy nikam nedostane. Vlna by
+            // pak nikdy neskončila a tikala by donekonečna.
+            if (dto.Speed <= 0)
+            {
+                throw new ContentLoadException(path, $"Útočník '{id}': 'speed' musí být kladná, jinak se nikdy nedojde k městu.");
+            }
+
+            attackers.Add(new AttackerDef(
+                id,
+                string.IsNullOrWhiteSpace(dto.Sprite) ? $"attacker.{id}" : dto.Sprite.Trim(),
+                dto.Health,
+                dto.Speed,
+                Math.Max(0, dto.Damage),
+                Math.Max(1, dto.AttackIntervalTicks)));
+        }
+
+        var waves = new List<IReadOnlyList<WaveEntry>>();
+        foreach (var wave in file.Waves ?? new List<List<WaveEntryDto>>())
+        {
+            var entries = new List<WaveEntry>();
+            foreach (var entry in wave)
+            {
+                int index = attackers.FindIndex(a => string.Equals(a.Id, entry.Attacker?.Trim(), StringComparison.Ordinal));
+                if (index < 0)
+                {
+                    throw new ContentLoadException(path, $"Vlna odkazuje na neexistujícího útočníka '{entry.Attacker}'.");
+                }
+
+                if (entry.Count <= 0)
+                {
+                    throw new ContentLoadException(path, $"Vlna s '{entry.Attacker}': 'count' musí být kladný.");
+                }
+
+                entries.Add(new WaveEntry(index, entry.Count));
+            }
+
+            if (entries.Count == 0)
+            {
+                throw new ContentLoadException(path, "Prázdná vlna — nikdo by nepřišel a rozvrh by se tiše posunul.");
+            }
+
+            waves.Add(entries);
+        }
+
+        if (attackers.Count > 0 && waves.Count == 0)
+        {
+            throw new ContentLoadException(path, "Jsou definovaní útočníci, ale žádná vlna je nepošle.");
+        }
+
+        double growth = file.StrengthGrowth <= 0 ? 1.0 : file.StrengthGrowth;
+        if (growth is < 1.0 or > 5.0)
+        {
+            throw new ContentLoadException(path, $"'strengthGrowth' musí být 1–5, je {growth}.");
+        }
+
+        if (waves.Count > 0 && file.WaveIntervalTicks <= 0)
+        {
+            throw new ContentLoadException(path, "'waveIntervalTicks' musí být kladný, jinak přijdou všechny vlny naráz.");
+        }
+
+        return new FrontierConfig(
+            Math.Max(0, file.FirstWaveTick),
+            file.WaveIntervalTicks,
+            growth,
+            Math.Max(8, file.SpawnDistance),
+            Math.Max(1, file.RepairTicks),
+            attackers,
+            waves);
+    }
+
     /// <summary>
     /// Načte oběžnou dráhu. Chybějící soubor není chyba — vrstva je volitelná
     /// a hra (i starší mody) musí naběhnout bez ní.
@@ -2132,6 +2237,21 @@ public sealed class ContentLoader
 
         int terraformAction = ParseTerraformAction(path, id, dto, terraformIds);
 
+        DefenseRule? defense = null;
+        if (dto.Defense is { } defenseDto)
+        {
+            // Věž bez dostřelu nebo bez poškození vypadá v datech jako obrana
+            // a nikdy nic neudělá — přesně ten druh tiché chyby, kterou
+            // fail-fast existuje chytat.
+            if (defenseDto.Range <= 0 || defenseDto.Damage <= 0)
+            {
+                throw new ContentLoadException(path,
+                    $"Budova '{id}': 'defense' musí mít kladný 'range' i 'damage', jinak se nebrání.");
+            }
+
+            defense = new DefenseRule(defenseDto.Range, defenseDto.Damage, Math.Max(1, defenseDto.IntervalTicks));
+        }
+
         // Podmořská = smí stát jen na vodě. Odvozuje se, nezadává (viz BuildingDef).
         bool subsea = IsWaterOnly(mask, biomes);
         if (subsea && dto.SubseaAnchor)
@@ -2155,7 +2275,8 @@ public sealed class ContentLoader
             dto.TerraformRadius,
             Math.Clamp(dto.Paving ?? 1.0, 0.0, 1.0),
             subsea,
-            dto.SubseaAnchor);
+            dto.SubseaAnchor,
+            defense);
     }
 
     /// <summary>

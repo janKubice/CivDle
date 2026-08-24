@@ -18,6 +18,13 @@ public enum ShotSubject
     /// <summary>Strom technologií.</summary>
     Tech,
 
+    /// <summary>
+    /// Oběžná dráha s vypuštěnými družicemi. Koncová meta hry, kterou v běžném
+    /// pohledu není vidět vůbec — družice nemá dlaždici, takže bez vlastního
+    /// záběru by o ní zákazník z obrázků nevěděl.
+    /// </summary>
+    Orbit,
+
     /// <summary>Odzoomovaný pohled na aglomeraci.</summary>
     Scale,
 

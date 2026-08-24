@@ -64,6 +64,7 @@ public sealed class Simulation
     private readonly GrandWorkSystem _grandWork; // bezedný odběr přebytků
     private readonly List<GrandWorkStage> _grandWorkDone = new(); // dokončené stupně (drží bonusy)
     private readonly OrbitSystem _orbit;
+    private readonly FrontierSystem _frontier;
     private readonly LegacySystem _legacy; // druhá prestižní vrstva (Odkaz)
     private readonly AutoResearchSystem _autoResearch = new(); // odemyká se až v Odkazu
 
@@ -209,6 +210,7 @@ public sealed class Simulation
         _npcTowns = new NpcTownSystem(content);
         _grandWork = new GrandWorkSystem(content.GrandWork, content.Resources.Count);
         _orbit = new OrbitSystem(content.Orbit);
+        _frontier = new FrontierSystem(content.Frontier);
         _legacy = new LegacySystem(content.Legacy, content.LegacyUpgrades.All);
         History = new CityHistory(content.Gameplay.History.MaxFrames);
         _constructionSystem = new ConstructionSystem(content);
@@ -3376,7 +3378,56 @@ public sealed class Simulation
         // které v tomhle tiku něco vyrobily nebo zaplatily.
         TickOrbit();
 
+        // Obrana je volitelný režim: kdo si ho nezapnul, nezaplatí za něj ani
+        // jednu podmínku navíc v tiku.
+        if (FrontierDefense)
+        {
+            _frontier.Tick(this);
+        }
+
         _ledger.EndTick(TicksPerSecond);
+    }
+
+    // ----- obrana (volitelný režim) -----
+
+    /// <summary>
+    /// Hraje se s obranou? Jako u pískoviště je to <b>stav rozehrané hry</b>:
+    /// volí se při zakládání světa, ukládá se a zpátky cesta nevede. Kdyby se
+    /// dal režim zapínat a vypínat, dal by se vypnout vždycky těsně před vlnou.
+    /// </summary>
+    public bool FrontierDefense { get; private set; }
+
+    /// <summary>Zapne režim obrany. Jen při zakládání světa a při načtení savu.</summary>
+    public void EnableFrontierDefense()
+    {
+        if (_content.Frontier.IsAvailable)
+        {
+            FrontierDefense = true;
+        }
+    }
+
+    /// <summary>Stav bitvy — render z něj čte útočníky, UI počty a čas do vlny.</summary>
+    public FrontierSystem Frontier => _frontier;
+
+
+    /// <summary>
+    /// Poškodí budovu: na <paramref name="ticks"/> tiků vypadne z výroby a pak
+    /// se sama opraví.
+    ///
+    /// <para>Žádné bourání. Trvalá ztráta postupu je v idle hře trest za to, že
+    /// šel hráč spát — a režim obrany je zábava navíc, ne past.</para>
+    /// </summary>
+    public void DamageBuilding(int buildingIndex, int ticks)
+    {
+        if (buildingIndex < 0 || buildingIndex >= _buildingCount || ticks <= 0)
+        {
+            return;
+        }
+
+        // Zásahy se nesčítají donekonečna: strop je jedna oprava navíc, jinak
+        // by hejno útočníků vyřadilo budovu na hodiny reálného času.
+        int cap = _content.Frontier.RepairTicks * 2;
+        _buildings[buildingIndex].DisabledTicks = Math.Min(cap, _buildings[buildingIndex].DisabledTicks + ticks);
     }
 
     // ----- orbita -----
@@ -7256,6 +7307,7 @@ public sealed class Simulation
         ResetContractBoard(); // zákazníci z minulého měřítka na novou nástěnku nepatří
         ContractsCompleted = 0; // a v novém měřítku začínají objednávky zas malé
         _orbit.Reset();     // družice patří ke světu, který právě skončil — kosmodrom taky
+        _frontier.Reset();  // a útočníci taky: nový svět, nová fronta
         _subseaDirty = true; // bez přístavů nezůstane otevřená ani dlaždice moře
         _buildingCount = 0;
 
@@ -7283,6 +7335,36 @@ public sealed class Simulation
         SettlementsDirty = true;
         DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
+    }
+
+    /// <summary>
+    /// Obnova bitvy ze savu. Útočníci s neplatným druhem se zahodí — save
+    /// z jiného obsahu (nebo z modu, který útočníka ubral) nemá shodit hru.
+    /// </summary>
+    internal void RestoreFrontier(
+        int nextWave, int killed, int reachedCity,
+        Attacker[] attackers, (int Index, int Ticks)[] damage)
+    {
+        int kinds = _content.Frontier.Attackers.Count;
+        int kept = 0;
+        for (int i = 0; i < attackers.Length; i++)
+        {
+            if (attackers[i].TypeIndex >= 0 && attackers[i].TypeIndex < kinds && attackers[i].Health > 0)
+            {
+                attackers[kept++] = attackers[i];
+            }
+        }
+
+        _frontier.Restore(nextWave, killed, reachedCity, attackers.AsSpan(0, kept));
+
+        for (int i = 0; i < damage.Length; i++)
+        {
+            var (index, ticks) = damage[i];
+            if (index >= 0 && index < _buildingCount && ticks > 0)
+            {
+                _buildings[index].DisabledTicks = ticks;
+            }
+        }
     }
 
     /// <summary>Obnova oběžné dráhy ze savu.</summary>

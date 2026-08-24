@@ -187,8 +187,18 @@ public sealed record BuildingDef(
     int TerraformRadius = 0,
     double Paving = 1.0,
     bool Subsea = false,
-    bool SubseaAnchor = false)
+    bool SubseaAnchor = false,
+    DefenseRule? DefenseOrNull = null)
 {
+    /// <summary>
+    /// Brání se budova, když přijde vlna? <c>null</c> = ne, což je drtivá
+    /// většina — obrana je volitelný režim, ne vlastnost města.
+    /// </summary>
+    public DefenseRule? Defense => DefenseOrNull;
+
+    /// <summary>Umí tahle budova střílet?</summary>
+    public bool IsArmed => DefenseOrNull is { IsArmed: true };
+
     /// <summary>
     /// Stojí tahle budova na mořském dně?
     ///

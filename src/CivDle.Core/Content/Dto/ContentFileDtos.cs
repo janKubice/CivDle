@@ -68,7 +68,8 @@ public sealed record BuildingDto(
     string? TerraformAction,
     int TerraformRadius,
     double? Paving,
-    bool SubseaAnchor = false);
+    bool SubseaAnchor = false,
+    DefenseDto? Defense = null);
 
 /// <summary>Podívaná megastruktury tak, jak leží v JSON.</summary>
 public sealed record BuildingSpectacleDto(string? Effect, double IntervalSeconds);
@@ -652,6 +653,32 @@ public sealed record DemoDto(
     double PopulationCap,
     long AscensionRequirement,
     double TechFraction);
+
+/// <summary>Obsah souboru <c>data/frontier.json</c>.</summary>
+public sealed record FrontierFileDto(
+    int SchemaVersion,
+    int FirstWaveTick,
+    int WaveIntervalTicks,
+    double StrengthGrowth,
+    int SpawnDistance,
+    int RepairTicks,
+    List<AttackerDto>? Attackers,
+    List<List<WaveEntryDto>>? Waves);
+
+/// <summary>Jeden druh útočníka tak, jak leží v JSON.</summary>
+public sealed record AttackerDto(
+    string Id,
+    string? Sprite,
+    int Health,
+    double Speed,
+    int Damage,
+    int AttackIntervalTicks);
+
+/// <summary>Položka vlny tak, jak leží v JSON.</summary>
+public sealed record WaveEntryDto(string Attacker, int Count);
+
+/// <summary>Obrana budovy tak, jak leží v JSON.</summary>
+public sealed record DefenseDto(int Range, int Damage, int IntervalTicks);
 
 /// <summary>Obsah souboru <c>data/orbit.json</c>.</summary>
 public sealed record OrbitFileDto(

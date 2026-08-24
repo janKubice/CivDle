@@ -3623,6 +3623,75 @@
       "buildTicks": 1200,
       "minSettlementRank": "town",
       "paving": 0.0
+    },
+    {
+      "id": "watchtower",
+      "category": "civic",
+      "mapColor": "#8A7B5F",
+      "footprint": [
+        1,
+        1
+      ],
+      "workerSlots": 2,
+      "buildCost": {
+        "wood": 25,
+        "stone": 15
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "jungle"
+      ],
+      "defense": {
+        "range": 7,
+        "damage": 3,
+        "intervalTicks": 12
+      },
+      "upgradesTo": "bastion",
+      "upgradeCost": {
+        "stone": 60,
+        "iron": 25
+      },
+      "paving": 0.0
+    },
+    {
+      "id": "bastion",
+      "category": "civic",
+      "mapColor": "#6E6350",
+      "footprint": [
+        2,
+        2
+      ],
+      "workerSlots": 6,
+      "buildCost": {
+        "stone": 60,
+        "iron": 25
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "jungle"
+      ],
+      "defense": {
+        "range": 11,
+        "damage": 8,
+        "intervalTicks": 10
+      },
+      "buildable": false,
+      "buildTicks": 400,
+      "paving": 0.0
     }
   ]
 }

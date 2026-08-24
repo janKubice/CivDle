@@ -235,6 +235,20 @@ Co je potřeba postavit:
 
 **Odhad:** 6 dnů. **Riziko:** vysoké — jediná položka celého plánu, která přidává novou entitu do tikové smyčky. Proto je **poslední**: napřed to, co prodává demo.
 
+> **Hotovo.** Jedna věc vyšla jinak, a líp: **spádové pole nebylo potřeba**.
+> Útočník jde přímo k těžišti města, a když mu v cestě stojí budova, pustí se
+> do ní. Není to zjednodušení, je to ta mechanika — hradba z budov opravdu
+> zdrží, protože se musí prokousat. Ušetřilo to celý bod 3 i mřížku, kterou
+> měla obrana sdílet s energetikou.
+>
+> Zásah budovu nezničí, jen ji na chvíli vyřadí z výroby (a poškození se
+> nesčítá donekonečna — strop je jedna oprava navíc). Inspektor úzkých hrdel
+> dostal šestou barvu, takže se poškozená budova pozná i v přehledu.
+>
+> Podmínku „vypnutý režim = nulový dopad" hlídají dva testy: nejen že se nikdo
+> neobjeví, ale ani jedna věž se za tři vlny nenabije. Kdyby systém tikal
+> naprázdno, platil by za něj i ten, kdo si režim nezapnul.
+
 ### 5.3 Sandbox
 
 Skoro hotové: `CheatMode` (neomezené suroviny, guvernér na maximum) existuje.
@@ -452,7 +466,7 @@ Podmoří je napřed proto, že jeho síť je tatáž mřížka jako u energetik
 
 | # | Co | Dny |
 |---|---|---|
-| 19 | Frontier Defense jako volitelný režim (5.2) | 6 |
+| 19 | ~~Frontier Defense jako volitelný režim (5.2)~~ **hotovo** | 6 |
 
 Poslední z jediného důvodu: je to jediná položka, která přidává novou entitu do tikové smyčky. Když se něco pokazí, pokazí to výkon i determinismus všeho ostatního — a to se hledá líp v hotové hře než v rozestavěné.
 

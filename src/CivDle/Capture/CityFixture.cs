@@ -171,6 +171,81 @@ internal static class CityFixture
         }
     }
 
+    /// <summary>
+    /// Postaví kosmodrom, sklady a vypustí od každého druhu družice jednu.
+    ///
+    /// <para>Pro záběr do obchodu a pro smoke běh. Ladicí páky se tu používají
+    /// bez omluvy: dostat se ke koncové metě normálním hraním trvá hodiny
+    /// a nástroj má ukázat, jak to vypadá, ne odehrát celou hru.</para>
+    /// </summary>
+    public static void FillTheOrbit(Simulation sim, GameContent content)
+    {
+        if (!content.Orbit.IsEnabled)
+        {
+            return;
+        }
+
+        for (int i = 0; i < content.Techs.Count; i++)
+        {
+            sim.DebugGrantTech(i);
+        }
+
+        sim.DebugGrantAscensionLevels(4); // megastruktury chtějí měřítko
+
+        // Sklady: družice stojí stovky oceli, základní kapacita jsou desítky.
+        // Bez nich by se na start nedalo našetřit ani s plnými sklady.
+        int warehouse = content.Buildings.IndexOf("warehouse");
+        for (int i = 0; i < 24; i++)
+        {
+            TryPlaceFreeNear(sim, warehouse, sim.CityCenterX + 30 + (i % 8) * 3, sim.CityCenterY + 30 + (i / 8) * 3);
+        }
+
+        int port = content.Buildings.IndexOf("spaceport");
+        if (!TryPlaceFreeNear(sim, port, sim.CityCenterX + 20, sim.CityCenterY - 20))
+        {
+            return;
+        }
+
+        var def = content.Buildings[port];
+        for (int i = 0; i < def.BuildTicks + 10 && !sim.HasLaunchSite; i++)
+        {
+            sim.Tick();
+        }
+
+        for (int kind = 0; kind < content.Orbit.Count; kind++)
+        {
+            sim.DebugFillStorages();
+            if (sim.TryLaunchSatellite(kind) != PlacementResult.Ok)
+            {
+                continue;
+            }
+
+            for (int i = 0; i < content.Orbit[kind].BuildTicks + 10 && sim.Orbit.UnderConstruction >= 0; i++)
+            {
+                sim.Tick();
+            }
+        }
+    }
+
+    /// <summary>Položí budovu na první volné místo v okolí bodu (bez placení).</summary>
+    private static bool TryPlaceFreeNear(Simulation sim, int defIndex, int centerX, int centerY)
+    {
+        const int Radius = 40;
+
+        for (int dy = -Radius; dy <= Radius; dy++)
+        {
+            for (int dx = -Radius; dx <= Radius; dx++)
+            {
+                if (sim.TryPlaceBuildingFree(defIndex, centerX + dx, centerY + dy) == PlacementResult.Ok)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Odtiká, dokud nenastane období daného ID.</summary>
     public static void TickUntilSeason(Simulation sim, string seasonId)
     {

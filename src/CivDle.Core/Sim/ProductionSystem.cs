@@ -68,6 +68,17 @@ internal sealed class ProductionSystem
         for (int i = 0; i < buildings.Length; i++)
         {
             ref var building = ref buildings[i];
+
+            // Poškození se hlásí PŘED receptem: vyřazený je i dům a sklad,
+            // které nic nevyrábějí, a inspektor to má ukázat u obojího.
+            // Mimo režim obrany je ten údaj navždy nula, takže běžnou hru
+            // to nestojí nic.
+            if (building.DisabledTicks > 0)
+            {
+                building.Stall = BuildingStall.Damaged;
+                continue;
+            }
+
             var def = _defs[building.DefIndex];
             var recipe = def.Recipe;
             if (recipe is null)

@@ -297,6 +297,14 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "orbit.survey_eye", SpriteSize, SurveyEye);
         Add(device, "orbit.orbital_depot", SpriteSize, OrbitalDepot);
 
+        // Obrana (volitelný režim). Věže jsou budovy, útočníci agenti — proto
+        // jsou menší a kreslí se v měřítku chodců, ne domů.
+        Add(device, "building.watchtower", SpriteSize, canvas => Tower(canvas, tall: false));
+        Add(device, "building.bastion", SpriteSize, canvas => Tower(canvas, tall: true));
+        Add(device, "attacker.raider", 14, canvas => Raider(canvas, new Color(168, 74, 62)));
+        Add(device, "attacker.brute", 18, canvas => Brute(canvas));
+        Add(device, "attacker.skirmisher", 12, canvas => Raider(canvas, new Color(196, 138, 62)));
+
         // Megastavby.
         Add(device, "building.megacity_spire", SpriteSize, MegacitySpire);
         Add(device, "building.grand_exchange", SpriteSize, GrandExchange);
@@ -2358,6 +2366,57 @@ public sealed class SpriteLibrary : IDisposable
         c.FillRect(22, 14, 3, 5, new Color(132, 128, 118));
         c.FillRect(13, 16, 6, 4, new Color(96, 94, 88));     // vrata
         Panels(c, 24, new Color(150, 160, 176));
+    }
+
+    // ----- obrana -----
+
+    /// <summary>Strážní věž a bašta: týž tvar, jiná výška a mohutnost.</summary>
+    private static void Tower(PixelCanvas c, bool tall)
+    {
+        int top = tall ? 4 : 10;
+        int width = tall ? 16 : 12;
+        int left = 16 - (width / 2);
+
+        c.FillRect(left - 2, 27, width + 4, 4, new Color(122, 114, 98));      // patka
+        c.FillRect(left, top, width, 27 - top, new Color(158, 150, 132));     // trup
+        c.FillRect(left, top, width, 3, new Color(178, 170, 152));
+
+        // Cimbuří — z něj je na první pohled poznat, že to není komín.
+        for (int i = 0; i < width; i += 4)
+        {
+            c.FillRect(left + i, top - 3, 2, 3, new Color(140, 132, 116));
+        }
+
+        c.FillRect(16 - 2, top + 6, 4, 5, new Color(64, 58, 50));             // střílna
+        if (tall)
+        {
+            c.FillRect(left - 3, 14, 3, 13, new Color(140, 132, 116));        // opěráky
+            c.FillRect(left + width, 14, 3, 13, new Color(140, 132, 116));
+        }
+    }
+
+    /// <summary>
+    /// Útočník. Kreslí se v měřítku chodce, ne domu — je to agent na mapě,
+    /// a kdyby byl velký jako budova, vypadal by jako obléhací stroj.
+    /// </summary>
+    private static void Raider(PixelCanvas c, Color cloth)
+    {
+        c.FillCircle(7f, 4f, 2.6f, new Color(216, 178, 148)); // hlava
+        c.FillRect(5, 6, 5, 6, cloth);                        // tělo
+        c.FillRect(4, 12, 2, 2, new Color(72, 60, 50));       // nohy
+        c.FillRect(8, 12, 2, 2, new Color(72, 60, 50));
+        c.FillRect(10, 3, 1, 9, new Color(150, 150, 156));    // zbraň
+    }
+
+    /// <summary>Obr: širší, tmavší a se štítem — má vydržet, ne doběhnout.</summary>
+    private static void Brute(PixelCanvas c)
+    {
+        c.FillCircle(9f, 5f, 3.2f, new Color(198, 162, 134));
+        c.FillRect(5, 8, 9, 7, new Color(104, 82, 72));
+        c.FillRect(4, 15, 3, 3, new Color(62, 52, 44));
+        c.FillRect(11, 15, 3, 3, new Color(62, 52, 44));
+        c.FillRect(1, 7, 4, 8, new Color(136, 128, 112));     // štít
+        c.FillRect(2, 9, 2, 4, new Color(160, 152, 134));
     }
 
     private static void OreIcon(PixelCanvas c, Color ore)

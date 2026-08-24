@@ -2,7 +2,6 @@ using CivDle.Core.Save;
 using CivDle.Core.Sim;
 using CivDle.Screens;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 
 namespace CivDle.Capture;
 
@@ -106,10 +105,13 @@ public sealed class SmokeRun
         Check("podmoří: přístav a farma na dně", () => SubseaRound(screens, sim));
         Frames(screen, time);
 
-        // Orbita: obrazovka kreslí planetu a družice mimo mapu, takže na ni
-        // nesáhne žádný jiný krok. Vypuštění se zkusí naostro — start je
-        // jediná cesta, kterou se družice na dráhu dostane.
         Check("orbita: vypustit a nakreslit", () => OrbitRound(screens, sim, time));
+        Frames(screen, time);
+
+        // Obrana: vlna útočníků na mapě. Kreslí se jinak než cokoli jiného
+        // (agenti se zlomkovou polohou, proužky zdraví, šrafování na budovách)
+        // a v běžné hře se ten kód nikdy nespustí.
+        Check("obrana: vlna a věže", () => FrontierRound(screens, sim, screen, time));
         Frames(screen, time);
 
         Check("nástroje: vypnout", () => screen.ActivateToolForSmoke(SmokeTool.None));
@@ -287,78 +289,79 @@ public sealed class SmokeRun
     }
 
     /// <summary>
-    /// Postaví kosmodrom, vypustí družici a nechá orbitální obrazovku pár
-    /// snímků žít — i s družicí na dráze, ne jen s prázdným kotoučem.
+    /// Zapne obranu, postaví věnec věží a nechá přijít vlnu.
+    ///
+    /// <para>Režim se tu zapíná ladicí cestou schválně: ve hře se volí při
+    /// zakládání světa a smoke běh staví nad hotovým městem.</para>
+    /// </summary>
+    private static void FrontierRound(
+        ScreenManager screens, Simulation sim, GameplayScreen screen, GameTime time)
+    {
+        var content = screens.Content;
+        if (!content.Frontier.IsAvailable)
+        {
+            return;
+        }
+
+        sim.EnableFrontierDefense();
+
+        int tower = content.Buildings.IndexOf("watchtower");
+        for (int i = 0; i < 16; i++)
+        {
+            double angle = Math.Tau * i / 16;
+            TryPlaceNear(
+                sim, tower,
+                sim.CityCenterX + (int)Math.Round(Math.Cos(angle) * 18),
+                sim.CityCenterY + (int)Math.Round(Math.Sin(angle) * 18),
+                wantWater: false);
+        }
+
+        // Dotikat k první vlně a pak ještě chvíli, ať se stihne i střelba.
+        while (sim.TickCount < content.Frontier.FirstWaveTick)
+        {
+            sim.Tick();
+        }
+
+        for (int i = 0; i < 400; i++)
+        {
+            sim.Tick();
+        }
+
+        Console.WriteLine(
+            $"obrana: na mapě {sim.Frontier.Count}, sestřeleno {sim.Frontier.Killed}, "
+            + $"prošlo {sim.Frontier.ReachedCity}");
+
+        // Kamera na město, ať útočníci opravdu projdou kreslením.
+        screen.FocusForCapture(
+            new Vector2(
+                sim.CityCenterX * Rendering.TerrainRenderer.TileSize,
+                sim.CityCenterY * Rendering.TerrainRenderer.TileSize),
+            zoom: 2f);
+        Frames(screen, time);
+    }
+
+    /// <summary>
+    /// Vypustí družice a nechá orbitální obrazovku pár snímků žít — i s tím,
+    /// co je na dráze, ne jen s prázdným kotoučem.
+    ///
+    /// <para>Obrazovka kreslí planetu a družice mimo mapu, takže se na ni
+    /// žádný jiný krok nedostane.</para>
     /// </summary>
     private static void OrbitRound(ScreenManager screens, Simulation sim, GameTime time)
     {
         var content = screens.Content;
-        if (!content.Orbit.IsEnabled || !content.Orbit.NeedsLaunchSite)
+        if (!content.Orbit.IsEnabled)
         {
             return;
         }
 
-        // Kosmodrom chce měřítko i velkoměsto; ve smoke světě obojí obejdeme
-        // ladicími pákami — testuje se orbita, ne cesta k ní.
-        sim.DebugGrantAscensionLevels(4);
-        sim.DebugFillStorages();
-
-        int port = content.Buildings.IndexOf("spaceport");
-        if (!TryPlaceNear(sim, port, sim.CityCenterX, sim.CityCenterY, wantWater: false))
-        {
-            Console.WriteLine("orbita: kosmodrom se nikam nevešel, přeskakuji");
-            return;
-        }
-
-        // Rozestavěný kosmodrom nic nevypustí — dotikáme ho.
-        var def = content.Buildings[port];
-        for (int i = 0; i < def.BuildTicks + 10 && !sim.HasLaunchSite; i++)
-        {
-            sim.Tick();
-        }
+        CityFixture.FillTheOrbit(sim, content);
 
         var orbitScreen = new OrbitScreen(screens, sim);
         screens.Push(orbitScreen);
         Frames(orbitScreen, time);
-
-        sim.DebugFillStorages();
-        var result = orbitScreen.LaunchForSmoke(0);
-        Console.WriteLine($"orbita: start družice = {result}, kosmodrom = {sim.HasLaunchSite}");
-
-        // Dotikat start, ať se na obrazovce kreslí i hotová družice na dráze.
-        for (int i = 0; i < content.Orbit[0].BuildTicks + 10 && sim.Orbit.UnderConstruction >= 0; i++)
-        {
-            sim.Tick();
-        }
-
-        Frames(orbitScreen, time);
-        Console.WriteLine($"orbita: na dráze {sim.Orbit.TotalLaunched}");
-        PhotoScreen(screens, orbitScreen, time, "civdle-smoke-orbit");
+        Console.WriteLine($"orbita: kosmodrom = {sim.HasLaunchSite}, na dráze {sim.Orbit.TotalLaunched}");
         screens.Pop();
-    }
-
-    /// <summary>
-    /// Vyfotí obrazovku tak, jak ji vidí hráč (i s panely). Fotka scény tudy
-    /// nepomůže — orbitální pohled není nad mapou.
-    /// </summary>
-    private static void PhotoScreen(ScreenManager screens, IScreen screen, GameTime time, string folder)
-    {
-        var device = screens.GraphicsDevice;
-        int width = device.PresentationParameters.BackBufferWidth;
-        int height = device.PresentationParameters.BackBufferHeight;
-
-        screen.Draw(time);
-
-        var buffer = new Color[width * height];
-        device.GetBackBufferData(buffer);
-
-        using var texture = new Texture2D(device, width, height);
-        texture.SetData(buffer);
-
-        string directory = Path.Combine(Path.GetTempPath(), folder);
-        Directory.CreateDirectory(directory);
-        using var stream = File.Create(Path.Combine(directory, "orbit.png"));
-        texture.SaveAsPng(stream, width, height);
     }
 
     /// <summary>Uloží fotku vycentrovanou na konkrétní dlaždici.</summary>

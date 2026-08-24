@@ -20,6 +20,7 @@ public sealed class NewGameScreen : IScreen
     private string _seedText;
     private int _presetIndex;
     private bool _sandbox;
+    private bool _frontier;
 
     public NewGameScreen(ScreenManager screens)
     {
@@ -80,6 +81,18 @@ public sealed class NewGameScreen : IScreen
             HorizontalAlignment = HorizontalAlignment.Center,
         };
 
+        var frontier = new CycleSelector(2, _frontier ? 1 : 0, i => loc[i == 0 ? "newgame.frontier.off" : "newgame.frontier.on"]);
+        frontier.SelectionChanged += i => _frontier = i == 1;
+
+        var frontierHint = new Label
+        {
+            Text = loc["newgame.frontier.hint"],
+            TextColor = UiPalette.TextDim,
+            Wrap = true,
+            Width = 420,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+
         var layout = new VerticalStackPanel
         {
             Spacing = 14,
@@ -99,6 +112,15 @@ public sealed class NewGameScreen : IScreen
         layout.Widgets.Add(UiFactory.Row(loc["newgame.worldType"], _preset.Widget));
         layout.Widgets.Add(UiFactory.Row(loc["newgame.mode"], sandbox.Widget));
         layout.Widgets.Add(sandboxHint);
+
+        // Obrana se nabízí jen tehdy, když ji obsah vůbec má — bez dat by to
+        // byl přepínač, po kterém se nic nestane.
+        if (_screens.Content.Frontier.IsAvailable)
+        {
+            layout.Widgets.Add(UiFactory.Row(loc["newgame.frontier"], frontier.Widget));
+            layout.Widgets.Add(frontierHint);
+        }
+
         layout.Widgets.Add(new Label { Text = " " });
         layout.Widgets.Add(UiFactory.MenuButton(loc["newgame.create"], StartGame));
         layout.Widgets.Add(UiFactory.MenuButton(loc["newgame.back"], _screens.Pop));
@@ -122,6 +144,11 @@ public sealed class NewGameScreen : IScreen
         if (_sandbox)
         {
             simulation.MarkAsSandbox();
+        }
+
+        if (_frontier)
+        {
+            simulation.EnableFrontierDefense();
         }
         string sizeId = content.WorldGen.Sizes[content.WorldGen.DefaultSizeIndex].Id;
         var info = new WorldInfo(seed, sizeId, preset.Id);

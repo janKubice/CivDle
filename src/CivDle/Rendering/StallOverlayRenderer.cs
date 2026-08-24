@@ -42,6 +42,7 @@ public sealed class StallOverlayRenderer
     private static readonly Color NoTerrain = new(226, 152, 62);
     private static readonly Color StorageFull = new(230, 208, 88);
     private static readonly Color Building = new(130, 134, 146);
+    private static readonly Color Damaged = new(198, 66, 120);
 
     private readonly Texture2D _pixel;
     private readonly GameContent _content;
@@ -105,6 +106,8 @@ public sealed class StallOverlayRenderer
                 return NoWorkers;
             case BuildingStall.NoTerrain:
                 return NoTerrain;
+            case BuildingStall.Damaged:
+                return Damaged;
         }
 
         return HasNowhereToPut(simulation, def) ? StorageFull : Working;
@@ -165,5 +168,6 @@ public sealed class StallOverlayRenderer
         ("inspector.noTerrain", NoTerrain),
         ("inspector.storageFull", StorageFull),
         ("inspector.building", Building),
+        ("inspector.damaged", Damaged),
     };
 }

@@ -23,6 +23,9 @@ public enum BuildingStall : byte
 
     /// <summary>Ještě se staví.</summary>
     UnderConstruction,
+
+    /// <summary>Poškozená útokem — na chvíli mimo provoz, opraví se sama.</summary>
+    Damaged,
 }
 
 /// <summary>
@@ -33,6 +36,21 @@ public struct BuildingInstance
 {
     /// <summary>Index definice v registru budov.</summary>
     public int DefIndex;
+
+    /// <summary>
+    /// Kolik tiků je budova mimo provoz po zásahu; 0 = v pořádku.
+    ///
+    /// <para>Poškození je dočasné schválně: v idle hře je trvalá ztráta trestem
+    /// za to, že šel hráč spát. Existuje jen ve volitelném režimu obrany,
+    /// jinde zůstane navždy nula.</para>
+    /// </summary>
+    public int DisabledTicks;
+
+    /// <summary>
+    /// Kolik tiků do další rány, umí-li budova střílet. <c>short</c> stačí
+    /// a struktura zůstane malá — je jich v poli statisíce.
+    /// </summary>
+    public short ReloadTicks;
 
     /// <summary>Levý horní roh v dlaždicích.</summary>
     public int X;

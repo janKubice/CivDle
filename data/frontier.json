@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Frontier Defense: VOLITELNÝ režim, zapíná se při zakládání světa. Rozvrh je deterministický (tik, směr i počet plynou z čísla vlny) — bez toho by se rozešel save i test. Zásah budovu nezničí, jen ji na 'damage' tiků vyřadí z výroby; opraví se sama za 'repairTicks'.",
+  "firstWaveTick": 3000,
+  "waveIntervalTicks": 2400,
+  "strengthGrowth": 1.18,
+  "spawnDistance": 60,
+  "repairTicks": 300,
+  "attackers": [
+    { "id": "raider", "health": 12, "speed": 0.05, "damage": 120, "attackIntervalTicks": 20 },
+    { "id": "brute", "health": 40, "speed": 0.03, "damage": 300, "attackIntervalTicks": 30 },
+    { "id": "skirmisher", "health": 8, "speed": 0.09, "damage": 80, "attackIntervalTicks": 15 }
+  ],
+  "waves": [
+    [ { "attacker": "raider", "count": 4 } ],
+    [ { "attacker": "raider", "count": 3 }, { "attacker": "skirmisher", "count": 3 } ],
+    [ { "attacker": "raider", "count": 5 }, { "attacker": "brute", "count": 1 } ],
+    [ { "attacker": "skirmisher", "count": 6 }, { "attacker": "brute", "count": 2 } ]
+  ]
+}

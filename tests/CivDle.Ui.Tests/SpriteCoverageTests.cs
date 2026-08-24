@@ -48,6 +48,23 @@ public sealed class SpriteCoverageTests
     }
 
     [Fact]
+    public void EveryAttacker_HasASprite()
+    {
+        // Neviditelný útočník je nefér: hráč by viděl, jak mu ubývají budovy,
+        // a neměl by na co střílet.
+        var registered = RegisteredIds("attacker");
+        var content = LoadContent();
+
+        var missing = content.Frontier.Attackers
+            .Where(a => !registered.Contains(a.Id))
+            .Select(a => a.Id)
+            .ToList();
+
+        Assert.True(missing.Count == 0,
+            $"Útočníci bez spritu (nebylo by je vidět): {string.Join(", ", missing)}");
+    }
+
+    [Fact]
     public void EveryResource_HasAnIcon()
     {
         var registered = RegisteredIds("icon");

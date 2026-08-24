@@ -48,6 +48,7 @@ public sealed class GameplayScreen : IScreen
     private readonly RoadRenderer _roadRenderer;
     private readonly ZoneRenderer _zoneRenderer;
     private readonly SubseaRenderer _subseaRenderer;
+    private readonly FrontierRenderer _frontierRenderer;
 
     /// <summary>
     /// Jak moc je vidět dosah podmořské sítě (0–1). Rozsvěcí se samo, když má
@@ -223,6 +224,9 @@ public sealed class GameplayScreen : IScreen
     private Label _powerLabel = null!;
     private Label _weatherLabel = null!;
     private Label _seasonLabel = null!;
+
+    /// <summary>Stav bitvy v HUDu; <c>null</c> mimo režim obrany.</summary>
+    private Label? _frontierLabel;
     private Label _toolsLabel = null!;
     private Label _pollutionLabel = null!;
 
@@ -372,6 +376,7 @@ public sealed class GameplayScreen : IScreen
         _roadRenderer = new RoadRenderer(screens.WhitePixel, screens.Content);
         _zoneRenderer = new ZoneRenderer(screens.WhitePixel, screens.Content);
         _subseaRenderer = new SubseaRenderer(screens.WhitePixel);
+        _frontierRenderer = new FrontierRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
         _pollutionRenderer = new PollutionRenderer(screens.WhitePixel, screens.Content);
         _stallOverlay = new StallOverlayRenderer(screens.WhitePixel, screens.Content);
         _landmarkRenderer = new LandmarkRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
@@ -689,6 +694,9 @@ public sealed class GameplayScreen : IScreen
             // scéna nezmrzne hned, jak hráč trochu odjede kamerou.
             _ambientLife.Draw(spriteBatch, _camera, _simulation);
             _agents.Draw(spriteBatch, _camera);
+            // Útočníci mezi chodce a faunu: chodí po zemi jako oni. Mimo režim
+            // obrany je to prázdné volání, které se vrátí na prvním řádku.
+            _frontierRenderer.Draw(spriteBatch, _camera, _simulation);
             _fauna.Draw(spriteBatch, _screens.WhitePixel, _camera);
             // Letouny až za pozemní kulisou — mají letět NAD vším, co stojí na zemi.
             _airTraffic.Draw(spriteBatch, _camera);
@@ -1651,6 +1659,31 @@ public sealed class GameplayScreen : IScreen
     }
 
     /// <summary>
+    /// Stav bitvy v HUD: buď kolik nepřátel je na mapě, nebo za jak dlouho
+    /// přijde další vlna. To druhé je důležitější — je to čas, který má hráč
+    /// na to postavit další věž.
+    /// </summary>
+    private void UpdateFrontierLabel(Localization loc)
+    {
+        if (_frontierLabel is null)
+        {
+            return;
+        }
+
+        var frontier = _simulation.Frontier;
+        if (frontier.Count > 0)
+        {
+            _frontierLabel.Text = loc.Format("frontier.enemies", frontier.Count);
+            _frontierLabel.TextColor = UiPalette.Bad;
+            return;
+        }
+
+        double seconds = Math.Max(0, frontier.NextWaveTick - _simulation.TickCount) / Simulation.TicksPerSecond;
+        _frontierLabel.Text = loc.Format("frontier.calm", DurationFormat.Human(seconds));
+        _frontierLabel.TextColor = UiPalette.TextDim;
+    }
+
+    /// <summary>
     /// Roční období v HUD. Barvu si nese období samo (nádech z dat), takže se
     /// dá číst koutkem oka; zima bez dřeva navíc zčervená a řekne proč — mrznoucí
     /// město je jediná situace, kdy období hráče skutečně brzdí.
@@ -2245,6 +2278,19 @@ public sealed class GameplayScreen : IScreen
                 HorizontalAlignment = HorizontalAlignment.Right,
                 Tooltip = loc["tip.sandbox"],
             });
+        }
+
+        // Stav obrany je v HUDu jen v zapnutém režimu — jinde by to byl řádek
+        // o mechanice, kterou hráč nemá.
+        if (_simulation.FrontierDefense)
+        {
+            _frontierLabel = new Label
+            {
+                TextColor = UiPalette.Warn,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Tooltip = loc["tip.frontier"],
+            };
+            worldInfoStack.Widgets.Add(_frontierLabel);
         }
 
         worldInfoStack.Widgets.Add(_eraLabel);
@@ -3865,6 +3911,7 @@ public sealed class GameplayScreen : IScreen
         }
 
         UpdateSeasonLabel(loc);
+        UpdateFrontierLabel(loc);
         UpdateToolsLabel(loc);
         UpdatePollutionLabel(loc);
         UpdateContractsButton(loc);
