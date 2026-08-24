@@ -1945,6 +1945,8 @@
     "inspector.noWorkers": "faltan trabajadores",
     "inspector.noTerrain": "no queda nada que extraer",
     "inspector.storageFull": "almacén lleno – la producción se pierde",
-    "inspector.building": "en construcción"
+    "inspector.building": "en construcción",
+    "building.upgradeAll": "Mejorar todos ({0}×)",
+    "building.upgradeAllDone": "Mejorados: {0}"
   }
 }

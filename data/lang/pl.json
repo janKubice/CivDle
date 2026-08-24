@@ -1945,6 +1945,8 @@
     "inspector.noWorkers": "brak ludzi",
     "inspector.noTerrain": "nie ma czego wydobywać",
     "inspector.storageFull": "magazyn pełny – produkcja przepada",
-    "inspector.building": "w budowie"
+    "inspector.building": "w budowie",
+    "building.upgradeAll": "Ulepsz wszystkie ({0}×)",
+    "building.upgradeAllDone": "Ulepszono: {0}"
   }
 }

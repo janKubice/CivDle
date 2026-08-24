@@ -1945,6 +1945,8 @@
     "inspector.noWorkers": "no workers",
     "inspector.noTerrain": "nothing left to harvest",
     "inspector.storageFull": "storage full – output is lost",
-    "inspector.building": "under construction"
+    "inspector.building": "under construction",
+    "building.upgradeAll": "Upgrade all ({0}×)",
+    "building.upgradeAllDone": "Upgraded: {0}"
   }
 }

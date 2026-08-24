@@ -1945,6 +1945,8 @@
     "inspector.noWorkers": "chybí lidi",
     "inspector.noTerrain": "došlo, co těžit",
     "inspector.storageFull": "plný sklad – výroba propadá",
-    "inspector.building": "staví se"
+    "inspector.building": "staví se",
+    "building.upgradeAll": "Vylepšit všechny ({0}×)",
+    "building.upgradeAllDone": "Vylepšeno: {0}"
   }
 }

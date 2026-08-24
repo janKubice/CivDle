@@ -5433,6 +5433,103 @@ public sealed class Simulation
     /// Příkaz hráče: vylepší budovu na další úroveň (mění se na místě — stejný půdorys).
     /// Odečte cenu vylepšení a přepočítá globální bonusy (bydlení, práce, sklady).
     /// </summary>
+    /// <summary>
+    /// Kolik budov téhož druhu ve stejné čtvrti jde vylepšit — a co to dá
+    /// dohromady. Slouží tlačítku „vylepšit všechny": hráč musí předem vidět
+    /// počet i cenu, ne kliknout a zjistit to potom.
+    /// </summary>
+    /// <param name="buildingIndex">Budova, od které se odpichujeme (její druh a čtvrť).</param>
+    public (int Count, IReadOnlyList<ResourceAmount> Cost) PreviewUpgradeAll(int buildingIndex)
+    {
+        if (buildingIndex < 0 || buildingIndex >= _buildingCount)
+        {
+            return (0, Array.Empty<ResourceAmount>());
+        }
+
+        int count = CountUpgradableSiblings(buildingIndex);
+        if (count == 0)
+        {
+            return (0, Array.Empty<ResourceAmount>());
+        }
+
+        var unit = _content.Buildings[_buildings[buildingIndex].DefIndex].UpgradeCost;
+        var total = new ResourceAmount[unit.Count];
+        for (int i = 0; i < unit.Count; i++)
+        {
+            total[i] = new ResourceAmount(unit[i].ResourceIndex, unit[i].Amount * count);
+        }
+
+        return (count, total);
+    }
+
+    /// <summary>
+    /// Vylepší všechny budovy téhož druhu ve stejné čtvrti a vrátí, kolik jich
+    /// bylo.
+    ///
+    /// <para>Bez tohohle musel hráč u čtyřiceti domků kliknout čtyřicetkrát —
+    /// nejotravnější klikání ve hře, protože je zcela bezmyšlenkovité.</para>
+    ///
+    /// <para>Jde odzadu: vylepšení mění pole budov (přepisuje definici na
+    /// místě), a při průchodu odpředu by se posunuly indexy pod rukama.
+    /// Vylepšuje se, dokud stačí suroviny — částečný výsledek je lepší než
+    /// odmítnutí, protože hráč vidí, že se něco stalo, a doplní zbytek.</para>
+    /// </summary>
+    public int TryUpgradeAllLike(int buildingIndex)
+    {
+        if (buildingIndex < 0 || buildingIndex >= _buildingCount)
+        {
+            return 0;
+        }
+
+        int defIndex = _buildings[buildingIndex].DefIndex;
+        int district = _buildings[buildingIndex].DistrictIndex;
+
+        int upgraded = 0;
+        for (int i = _buildingCount - 1; i >= 0; i--)
+        {
+            if (_buildings[i].DefIndex != defIndex || _buildings[i].DistrictIndex != district)
+            {
+                continue;
+            }
+
+            if (TryUpgradeBuilding(i) == PlacementResult.Ok)
+            {
+                upgraded++;
+            }
+        }
+
+        return upgraded;
+    }
+
+    private int CountUpgradableSiblings(int buildingIndex)
+    {
+        int defIndex = _buildings[buildingIndex].DefIndex;
+        int district = _buildings[buildingIndex].DistrictIndex;
+
+        int count = 0;
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            // Cena se nekontroluje: náhled má ukázat, KOLIK to je celkem,
+            // i když na to hráč zrovna nemá. Jinak by tlačítko nabízelo
+            // pokaždé jiné číslo podle stavu skladu.
+            if (_buildings[i].DefIndex == defIndex
+                && _buildings[i].DistrictIndex == district
+                && CanUpgradeIgnoringCost(i))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    /// <summary>Jde budovu vylepšit, kdyby na to byly suroviny?</summary>
+    private bool CanUpgradeIgnoringCost(int buildingIndex)
+    {
+        var result = CanUpgrade(buildingIndex);
+        return result is PlacementResult.Ok or PlacementResult.NotEnoughResources;
+    }
+
     public PlacementResult TryUpgradeBuilding(int buildingIndex)
     {
         var result = CanUpgrade(buildingIndex);
