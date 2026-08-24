@@ -1,5 +1,7 @@
 using CivDle.Core.Content;
+using CivDle.Core.Sim;
 using CivDle.Core.Tests.Support;
+using CivDle.Core.World;
 using Xunit;
 
 namespace CivDle.Core.Tests.Content;
@@ -73,15 +75,44 @@ public class SpectacleTests
     {
         // Urychlovač ani maják nesmí být k mání od začátku — je to odměna
         // za dotažené měřítko.
+        //
+        // Testuje se chování, ne příznak v datech. Dřív tu stálo
+        // `Assert.False(def.Buildable)` a znamenalo to něco jiného, než se
+        // myslelo: `buildable: false` je „jen jako cíl vylepšení", tedy
+        // NIKDY — a protože na megastruktury nic nevylepšuje, nešly postavit
+        // ani po dosažení stupně. Zamykání dělá stupeň měřítka, ne ten příznak.
         var content = TestData.LoadRealContent();
+        var fresh = new Simulation(content, new UniformTerrain(content.Biomes.IndexOf("grassland")));
 
         foreach (string id in new[] { "particle_accelerator", "fusion_beacon" })
         {
-            var def = content.Buildings[content.Buildings.IndexOf(id)];
-            Assert.False(def.Buildable, $"'{id}' se nemá dát postavit rovnou.");
+            int index = content.Buildings.IndexOf(id);
+
+            Assert.False(fresh.IsBuildingBuildable(index), $"'{id}' se nemá dát postavit hned na začátku.");
             Assert.Contains(
                 content.AscensionTiers.All,
-                tier => tier.UnlockedBuildingIndices.Contains(content.Buildings.IndexOf(id)));
+                tier => tier.UnlockedBuildingIndices.Contains(index));
+        }
+    }
+
+    [Fact]
+    public void MegastructuresBecomeBuildableWhenTheScaleIsReached()
+    {
+        // Druhá půlka téhož: odemčení musí být k něčemu. Přesně tohle v datech
+        // dlouho neplatilo — stupeň budovu „odemkl" a postavit se pořád nedala.
+        var content = TestData.LoadRealContent();
+
+        foreach (var tier in content.AscensionTiers.All)
+        {
+            foreach (int index in tier.UnlockedBuildingIndices)
+            {
+                var sim = new Simulation(content, new UniformTerrain(content.Biomes.IndexOf("grassland")));
+                sim.DebugGrantAscensionLevels(tier.Order);
+
+                Assert.True(
+                    sim.IsBuildingBuildable(index),
+                    $"'{content.Buildings[index].Id}' odemyká stupeň '{tier.Id}', ale postavit se nedá.");
+            }
         }
     }
 }

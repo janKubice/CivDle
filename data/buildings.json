@@ -1786,7 +1786,7 @@
         "tundra",
         "desert"
       ],
-      "buildable": false,
+      "buildable": true,
       "upgradesTo": "deep_sea_port",
       "upgradeCost": {
         "steel": 45,
@@ -1821,7 +1821,7 @@
         "tundra",
         "desert"
       ],
-      "buildable": false,
+      "buildable": true,
       "adjacency": {
         "biomes": [
           "shallow_water",
@@ -2014,7 +2014,7 @@
       "upkeep": {
         "electronics": 1
       },
-      "buildable": false,
+      "buildable": true,
       "buildTicks": 2400,
       "minSettlementRank": "large_city",
       "spectacle": {
@@ -2064,7 +2064,7 @@
       "upkeep": {
         "steel": 2
       },
-      "buildable": false,
+      "buildable": true,
       "buildTicks": 1800,
       "minSettlementRank": "city"
     },
@@ -2090,7 +2090,7 @@
         "tundra",
         "desert"
       ],
-      "buildable": false,
+      "buildable": true,
       "buildTicks": 6000,
       "minSettlementRank": "metropolis",
       "spectacle": {
@@ -2132,7 +2132,7 @@
         "tundra",
         "desert"
       ],
-      "buildable": false,
+      "buildable": true,
       "buildTicks": 3600,
       "pollution": {
         "air": 2.0,
@@ -2177,7 +2177,7 @@
         "tundra",
         "desert"
       ],
-      "buildable": false,
+      "buildable": true,
       "buildTicks": 4800,
       "minSettlementRank": "metropolis",
       "spectacle": {
@@ -2211,7 +2211,7 @@
       "upkeep": {
         "nanomaterial": 1
       },
-      "buildable": false,
+      "buildable": true,
       "buildTicks": 5400,
       "minSettlementRank": "metropolis",
       "spectacle": {
