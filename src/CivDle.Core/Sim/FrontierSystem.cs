@@ -132,6 +132,21 @@ public sealed class FrontierSystem
         }
     }
 
+    /// <summary>
+    /// Ladicí: pošle další vlnu hned teď.
+    ///
+    /// <para>Pro nástroje — smoke běh a snímky. Dotikat k vlně poctivě znamená
+    /// až dva a půl tisíce tiků nad rozrostlým městem, a na tom, co se má
+    /// ověřit (že bitva proběhne a nakreslí se), to nic nemění.</para>
+    /// </summary>
+    public void DebugForceWave(Simulation sim)
+    {
+        if (_config.IsAvailable)
+        {
+            SpawnDueWaveNow(sim);
+        }
+    }
+
     /// <summary>Vyprázdní bojiště (Vzestup, nový svět).</summary>
     public void Reset()
     {
@@ -160,6 +175,12 @@ public sealed class FrontierSystem
             return false;
         }
 
+        SpawnDueWaveNow(sim);
+        return true;
+    }
+
+    private void SpawnDueWaveNow(Simulation sim)
+    {
         var wave = _config.WaveAt(_nextWave);
         for (int i = 0; i < wave.Count; i++)
         {
@@ -171,7 +192,6 @@ public sealed class FrontierSystem
         }
 
         _nextWave++;
-        return true;
     }
 
     /// <summary>

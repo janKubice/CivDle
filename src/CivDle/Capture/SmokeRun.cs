@@ -320,20 +320,14 @@ public sealed class SmokeRun
                 radius: 10);
         }
 
-        // Rozvrh začíná zapnutím režimu, ne od nuly — dotikáme k té první vlně.
-        //
-        // Cíl se čte JEDNOU dopředu. Kdyby se četl v podmínce, posunul by se
-        // s každou příchozí vlnou o další rozestup dál a smyčka by nikdy
-        // neskončila — přesně to smoke běh třikrát po sobě udělal.
-        long firstWave = sim.Frontier.NextWaveTick;
-        while (sim.TickCount < firstWave)
-        {
-            sim.Tick();
-        }
+        // Vlnu pošleme hned. Dotikat k ní poctivě je až dva a půl tisíce tiků
+        // nad pětisetbudovým městem — minuty čekání na něco, co se stejně má
+        // jen nakreslit.
+        sim.Frontier.DebugForceWave(sim);
 
-        // Dost dlouho, aby vlna došla od místa zrodu až k věžím: útočník ujde
-        // dvacetinu dlaždice za tik, takže pár set tiků je pořád „na obzoru".
-        for (int i = 0; i < 1400; i++)
+        // A pak dost dlouho, aby vlna došla k věžím: útočník ujde dvacetinu
+        // dlaždice za tik, takže pár set tiků je pořád „na obzoru".
+        for (int i = 0; i < 900; i++)
         {
             sim.Tick();
         }
