@@ -321,7 +321,12 @@ public sealed class SmokeRun
         }
 
         // Rozvrh začíná zapnutím režimu, ne od nuly — dotikáme k té první vlně.
-        while (sim.TickCount < sim.Frontier.NextWaveTick)
+        //
+        // Cíl se čte JEDNOU dopředu. Kdyby se četl v podmínce, posunul by se
+        // s každou příchozí vlnou o další rozestup dál a smyčka by nikdy
+        // neskončila — přesně to smoke běh třikrát po sobě udělal.
+        long firstWave = sim.Frontier.NextWaveTick;
+        while (sim.TickCount < firstWave)
         {
             sim.Tick();
         }
