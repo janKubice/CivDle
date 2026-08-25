@@ -2265,6 +2265,39 @@ public sealed class Simulation
         return true;
     }
 
+    /// <summary>
+    /// Ladicí: dostaví všechno rozestavěné.
+    ///
+    /// <para>Existuje kvůli nástrojům (snímky do obchodu, smoke běh). Kosmodrom
+    /// se staví sedm minut herního času a protikat je jen proto, aby na snímku
+    /// stál, znamenalo deset minut čekání na každý běh.</para>
+    /// </summary>
+    public void DebugCompleteConstruction()
+    {
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            if (_buildings[i].BuildTicksRemaining > 0)
+            {
+                // Přes tutéž cestu, kterou jde normální dostavba — jinak by se
+                // ladicí zkratka časem rozešla s tím, co dělá hra.
+                _buildings[i].BuildTicksRemaining = 0;
+                CompleteConstruction(i, _content.Buildings[_buildings[i].DefIndex]);
+            }
+        }
+    }
+
+    /// <summary>Ladicí: dokončí rozestavěný start družice okamžitě.</summary>
+    public void DebugFinishLaunch()
+    {
+        while (_orbit.UnderConstruction >= 0)
+        {
+            if (_orbit.Tick() >= 0)
+            {
+                RecomputeBonuses();
+            }
+        }
+    }
+
     /// <summary>Ladicí: naplní všechny sklady na maximum.</summary>
     public void DebugFillStorages()
     {

@@ -197,44 +197,42 @@ internal static class CityFixture
         int warehouse = content.Buildings.IndexOf("warehouse");
         for (int i = 0; i < 24; i++)
         {
-            TryPlaceFreeNear(sim, warehouse, sim.CityCenterX + 30 + (i % 8) * 3, sim.CityCenterY + 30 + (i / 8) * 3);
+            TryPlaceFreeNear(sim, warehouse, sim.CityCenterX + 30 + (i % 8) * 3, sim.CityCenterY + 30 + (i / 8) * 3, radius: 6);
         }
 
         int port = content.Buildings.IndexOf("spaceport");
-        if (!TryPlaceFreeNear(sim, port, sim.CityCenterX + 20, sim.CityCenterY - 20))
+        if (!TryPlaceFreeNear(sim, port, sim.CityCenterX + 20, sim.CityCenterY - 20, radius: 25))
         {
             return;
         }
 
-        var def = content.Buildings[port];
-        for (int i = 0; i < def.BuildTicks + 10 && !sim.HasLaunchSite; i++)
-        {
-            sim.Tick();
-        }
+        // Kosmodrom i starty se dokončí rovnou. Protikat je znamená čtrnáct
+        // tisíc tiků nad rozrostlým městem — deset minut čekání na každý běh
+        // nástroje, a na výsledku by nebyl vidět rozdíl.
+        sim.DebugCompleteConstruction();
 
         for (int kind = 0; kind < content.Orbit.Count; kind++)
         {
             sim.DebugFillStorages();
-            if (sim.TryLaunchSatellite(kind) != PlacementResult.Ok)
+            if (sim.TryLaunchSatellite(kind) == PlacementResult.Ok)
             {
-                continue;
-            }
-
-            for (int i = 0; i < content.Orbit[kind].BuildTicks + 10 && sim.Orbit.UnderConstruction >= 0; i++)
-            {
-                sim.Tick();
+                sim.DebugFinishLaunch();
             }
         }
     }
 
-    /// <summary>Položí budovu na první volné místo v okolí bodu (bez placení).</summary>
-    private static bool TryPlaceFreeNear(Simulation sim, int defIndex, int centerX, int centerY)
+    /// <summary>
+    /// Položí budovu na první volné místo v okolí bodu (bez placení).
+    ///
+    /// <para>Okruh je parametr, protože na něm záleží víc, než by člověk čekal:
+    /// hledání je kvadratické v poloměru a nad rozrostlým městem se z dvaceti
+    /// takových hledání stanou minuty.</para>
+    /// </summary>
+    private static bool TryPlaceFreeNear(Simulation sim, int defIndex, int centerX, int centerY, int radius = 40)
     {
-        const int Radius = 40;
-
-        for (int dy = -Radius; dy <= Radius; dy++)
+        for (int dy = -radius; dy <= radius; dy++)
         {
-            for (int dx = -Radius; dx <= Radius; dx++)
+            for (int dx = -radius; dx <= radius; dx++)
             {
                 if (sim.TryPlaceBuildingFree(defIndex, centerX + dx, centerY + dy) == PlacementResult.Ok)
                 {

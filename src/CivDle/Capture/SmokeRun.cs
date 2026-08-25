@@ -309,11 +309,15 @@ public sealed class SmokeRun
         for (int i = 0; i < 16; i++)
         {
             double angle = Math.Tau * i / 16;
+            // Na okraji města, ne uvnitř: uprostřed je všechno zastavěné
+            // a věž by se nikam nevešla. Okruh hledání je malý schválně —
+            // šestnáct prohledávání celé krajiny by se sečetlo do minut.
             TryPlaceNear(
                 sim, tower,
-                sim.CityCenterX + (int)Math.Round(Math.Cos(angle) * 18),
-                sim.CityCenterY + (int)Math.Round(Math.Sin(angle) * 18),
-                wantWater: false);
+                sim.CityCenterX + (int)Math.Round(Math.Cos(angle) * 30),
+                sim.CityCenterY + (int)Math.Round(Math.Sin(angle) * 30),
+                wantWater: false,
+                radius: 10);
         }
 
         // Rozvrh začíná zapnutím režimu, ne od nuly — dotikáme k té první vlně.
@@ -389,9 +393,10 @@ public sealed class SmokeRun
     /// kolem něj je všechno zabrané. Nejbližší volné místo bylo v testu skoro
     /// dvacet dlaždic daleko — s užším okruhem se krok tiše přeskakoval.</para>
     /// </summary>
-    private static bool TryPlaceNear(Simulation sim, int defIndex, int centerX, int centerY, bool wantWater)
+    private static bool TryPlaceNear(
+        Simulation sim, int defIndex, int centerX, int centerY, bool wantWater, int radius = 60)
     {
-        const int Radius = 60;
+        int Radius = radius;
 
         int bestDistance = int.MaxValue;
         int bestX = 0, bestY = 0;
