@@ -410,7 +410,12 @@ Setřídil jsem to podle toho, **co udělá z hráče dema kupce**, ne podle vel
 > **Stav k dnešku: hotovo celé.** Všech sedm položek stojí a je otestovaných.
 >
 > Cestou se našly tři chyby mimo plán:
-> * `--capture` tiše umírá u velkého města (patří k položce „index budov pro render"),
+> * `--capture` nedojede sadu snímků do konce (patří k položce „index budov pro
+>   render"). Původně to tu stálo jako „tiše umírá"; při měření se ukázalo, že
+>   spíš **trvá neúnosně dlouho** — deset snímků, každý si napřed vypěstuje
+>   čtrnáctiminutové město, a v kontejneru stojí jeden tik nad takovým městem
+>   46 ms. Tři snímky z deseti za pětadvacet minut. Než tomu říkat pád, patří
+>   sem měření: kolik z toho je růst města a kolik samotné kreslení.
 > * hledání zpočátku prozrazovalo neodhalené technologie,
 > * **osm budov ve hře nešlo postavit vůbec** — přístav, rybářství a šest
 >   megastruktur měly `buildable: false` bez toho, aby na ně cokoli vylepšovalo.
