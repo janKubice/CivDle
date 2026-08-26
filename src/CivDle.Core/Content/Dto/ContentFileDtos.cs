@@ -170,7 +170,12 @@ public sealed record NpcCitiesFileDto(
     int TradeRelation,
     double CaravanBonusAtFullRelation,
     List<NpcArchetypeDto>? Archetypes,
-    List<string>? Names);
+    List<string>? Names,
+    DemandSpikeDto? DemandSpike = null);
+
+/// <summary>Tržní konjunktura tak, jak leží v JSON.</summary>
+public sealed record DemandSpikeDto(
+    double IntervalSeconds, double DurationSeconds, int ChancePercent, double Multiplier);
 
 /// <summary>Jeden druh cizího města tak, jak leží v JSON.</summary>
 public sealed record NpcArchetypeDto(

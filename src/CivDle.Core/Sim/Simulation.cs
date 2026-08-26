@@ -919,14 +919,71 @@ public sealed class Simulation
             }
 
             var trade = catalog.Archetypes[city.ArchetypeIndex].Trade;
+            double multiplier = IsCityInDemandSpike(city.Key) ? catalog.Spike!.Multiplier : 1.0;
             for (int i = 0; i < trade.Count; i++)
             {
-                AddResource(trade[i].ResourceIndex, trade[i].Amount);
+                AddResource(trade[i].ResourceIndex, trade[i].Amount * multiplier);
+            }
+
+            // Hláška jen na první dodávce okna: konjunktura trvá minuty a
+            // opakovaný toast na každou dodávku by z novinky udělal otravu.
+            if (multiplier > 1.0 && IsFirstTradeOfSpike())
+            {
+                EnqueueNotification(new GameNotification(
+                    NotificationKind.ContractOffered, "toast.demandSpike",
+                    catalog.Archetypes[city.ArchetypeIndex].NameKey));
             }
 
             state.Trades++;
             state.Relation = Math.Min(100, state.Relation + 1); // obchod sbližuje
             _npcStates[city.Key] = state;
+        }
+    }
+
+    /// <summary>
+    /// Platí tohle město právě líp?
+    ///
+    /// <para>Čistá funkce seedu, města a času — nikam se to neukládá.
+    /// Konjunktura, která by se ukládala, by znamenala stav navíc v savu za
+    /// něco, co jde spočítat.</para>
+    /// </summary>
+    public bool IsCityInDemandSpike(long cityKey)
+    {
+        if (_content.NpcCities.Spike is not { } spike || !_content.NpcCities.HasSpikes)
+        {
+            return false;
+        }
+
+        long window = TickCount / Math.Max(1, spike.IntervalTicks);
+        long into = TickCount - (window * spike.IntervalTicks);
+        if (into >= spike.DurationTicks)
+        {
+            return false;
+        }
+
+        return SpikeRoll(cityKey, window) < spike.ChancePercent;
+    }
+
+    /// <summary>Je tohle první dodávka uvnitř okna konjunktury?</summary>
+    private bool IsFirstTradeOfSpike()
+    {
+        var spike = _content.NpcCities.Spike!;
+        long into = TickCount % Math.Max(1, spike.IntervalTicks);
+        return into < _content.NpcCities.TradeIntervalTicks;
+    }
+
+    /// <summary>Kostka pro konjunkturu — deterministicky ze seedu, města a okna.</summary>
+    private int SpikeRoll(long cityKey, long window)
+    {
+        unchecked
+        {
+            ulong h = (ulong)Seed * 0x9E3779B97F4A7C15UL;
+            h ^= (ulong)cityKey * 0xBF58476D1CE4E5B9UL;
+            h ^= (ulong)window * 0x94D049BB133111EBUL;
+            h ^= h >> 30;
+            h *= 0xBF58476D1CE4E5B9UL;
+            h ^= h >> 27;
+            return (int)((h ^ (h >> 31)) % 100);
         }
     }
 

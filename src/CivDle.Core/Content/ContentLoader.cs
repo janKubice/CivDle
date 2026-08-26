@@ -185,7 +185,52 @@ public sealed class ContentLoader
             Math.Max(0, file.TradeRelation),
             Math.Max(0.0, file.CaravanBonusAtFullRelation),
             new DefRegistry<NpcCityArchetype>(archetypes, a => a.Id, "cizí město", allowEmpty: true),
-            names);
+            names,
+            ParseDemandSpike(path, file.DemandSpike));
+    }
+
+    /// <summary>
+    /// Tržní konjunktura. Chybějící blok není chyba — bez něj se ceny nehýbou
+    /// a obchod se chová jako dřív.
+    /// </summary>
+    private static DemandSpike? ParseDemandSpike(string path, DemandSpikeDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (dto.IntervalSeconds <= 0)
+        {
+            throw new ContentLoadException(path, "'demandSpike.intervalSeconds' musí být kladné.");
+        }
+
+        // Konjunktura delší než okno by nikdy neskončila — a „pořád lepší cena"
+        // není konjunktura, jen jiná cena.
+        if (dto.DurationSeconds <= 0 || dto.DurationSeconds >= dto.IntervalSeconds)
+        {
+            throw new ContentLoadException(
+                path,
+                $"'demandSpike.durationSeconds' musí být mezi 0 a 'intervalSeconds' ({dto.IntervalSeconds}), "
+                + $"je {dto.DurationSeconds}.");
+        }
+
+        if (dto.ChancePercent is < 0 or > 100)
+        {
+            throw new ContentLoadException(path, $"'demandSpike.chancePercent' má být 0–100, je {dto.ChancePercent}.");
+        }
+
+        if (dto.Multiplier <= 1.0)
+        {
+            throw new ContentLoadException(
+                path, $"'demandSpike.multiplier' musí být větší než 1, je {dto.Multiplier} — jinak není co slavit.");
+        }
+
+        return new DemandSpike(
+            (int)Math.Round(dto.IntervalSeconds * Simulation.TicksPerSecond),
+            (int)Math.Round(dto.DurationSeconds * Simulation.TicksPerSecond),
+            dto.ChancePercent,
+            dto.Multiplier);
     }
 
     // ----- víra -----

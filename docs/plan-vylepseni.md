@@ -162,6 +162,20 @@ Tři věci předem:
 **Tržní konjunktury** — NPC města už obchodují, tohle je časově omezená cena.
 *Postup:* pole `demandSpike` do `npc-cities.json` + hláška do notifikací. **0,5 dne.**
 
+> **Hotovo.** Blok `demandSpike` v `npc-cities.json`: jednou za sedm minut se
+> u každého města losuje, jestli nastane konjunktura, a když ano, platí půldruhé
+> minuty dvojnásobek.
+>
+> **Nikam se to neukládá.** Kdy nastane, plyne z hashe seedu, města a pořadí
+> okna — tentýž svět má tytéž konjunktury a save neroste. Kdyby to byla náhoda
+> za běhu, dala by se vylosovat opakovaným načtením hry.
+>
+> Města nemají konjunkturu naráz (test to hlídá): kdyby ano, nebylo by na co se
+> rozhodovat — hráč by prostě počkal a prodal všude.
+>
+> Loader odmítne konjunkturu delší než okno („pořád lepší cena" není
+> konjunktura, jen jiná cena) i násobič ≤ 1.
+
 ### 2.2 Řetězce, energetika, železnice
 
 **Energetika** je hotová jako **jedno globální číslo** — `sim.PowerFactor` násobí `ProductionSystem`. Posun je v prostoru a je to dobrý posun: udělá z toho rozhodnutí „kam".
