@@ -136,6 +136,43 @@ public sealed record BuildingSpectacle(SpectacleEffect Effect, double IntervalSe
 /// <param name="Amount">Kolik suroviny jedna kláda unese.</param>
 /// <param name="IntervalTicks">Jak často splav pouští další.</param>
 /// <param name="CatchMultiplier">Kolikrát víc se z klády vytáhne (odměna za cestu po vodě).</param>
+/// <summary>
+/// Jak zní okolí budovy. Behavior-ID: data řeknou <b>který</b> zvuk a jak
+/// daleko je slyšet, kód ví, <b>jak</b> ho vyrobit.
+///
+/// <para>Zvuk se syntetizuje, nevozí se soubory („no balast") — a proto je
+/// druh výčet v kódu, ne cesta k souboru v datech.</para>
+/// </summary>
+public enum SoundLoop
+{
+    /// <summary>Mlýn, pila: pomalé vrzání a rytmické bouchání.</summary>
+    Mill,
+
+    /// <summary>Výheň, huť: hluboké dunění a syčení.</summary>
+    Forge,
+
+    /// <summary>Voda: přístav, jez, mola.</summary>
+    Water,
+
+    /// <summary>Trh, náměstí: šum hlasů.</summary>
+    Market,
+
+    /// <summary>Stroje: pravidelný tep továrny.</summary>
+    Machinery,
+}
+
+/// <summary>
+/// Zvuk okolí budovy.
+///
+/// <para>Proč to ve hře je: relaxační jádro stálo skoro jen na obraze. Zvuk,
+/// který se mění podle toho, kam hráč zamíří kamerou, je ta věc, díky které
+/// město působí obydleně i když se na něm zrovna nic nehýbe.</para>
+/// </summary>
+/// <param name="Loop">Který zvuk.</param>
+/// <param name="RadiusTiles">Do jaké vzdálenosti je slyšet.</param>
+/// <param name="Volume">Jak nahlas přímo u ní (0–1).</param>
+public sealed record BuildingSound(SoundLoop Loop, double RadiusTiles, double Volume);
+
 public sealed record RaftRule(
     bool Drops,
     bool Catches,
@@ -216,8 +253,12 @@ public sealed record BuildingDef(
     bool SubseaAnchor = false,
     DefenseRule? DefenseOrNull = null,
     IReadOnlyList<BuildStage>? StagesOrNull = null,
-    RaftRule? RaftOrNull = null)
+    RaftRule? RaftOrNull = null,
+    BuildingSound? SoundOrNull = null)
 {
+    /// <summary>Zní tahle budova, když je hráč blízko? <c>null</c> = mlčí.</summary>
+    public BuildingSound? Sound => SoundOrNull;
+
     /// <summary>
     /// Plaví tahle budova dřevo po řece, nebo ho z ní vytahuje?
     /// <c>null</c> = ani jedno, což je drtivá většina budov.

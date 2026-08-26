@@ -159,7 +159,12 @@
         "perTile": 0.025,
         "max": 0.35
       },
-      "terrainHarvestRadius": 5
+      "terrainHarvestRadius": 5,
+      "sound": {
+        "loop": "mill",
+        "radiusTiles": 12,
+        "volume": 0.4
+      }
     },
     {
       "id": "tree_nursery",
@@ -257,6 +262,11 @@
         "every": 5,
         "bonusPerStep": 0.1,
         "maxSteps": 10
+      },
+      "sound": {
+        "loop": "mill",
+        "radiusTiles": 12,
+        "volume": 0.45
       }
     },
     {
@@ -325,6 +335,11 @@
       "raft": {
         "catches": true,
         "catchMultiplier": 1.6
+      },
+      "sound": {
+        "loop": "water",
+        "radiusTiles": 12,
+        "volume": 0.4
       }
     },
     {
@@ -601,6 +616,11 @@
         "every": 5,
         "bonusPerStep": 0.1,
         "maxSteps": 10
+      },
+      "sound": {
+        "loop": "mill",
+        "radiusTiles": 13,
+        "volume": 0.4
       }
     },
     {
@@ -633,7 +653,12 @@
       "upkeep": {
         "food": 1
       },
-      "autoBuild": true
+      "autoBuild": true,
+      "sound": {
+        "loop": "market",
+        "radiusTiles": 12,
+        "volume": 0.4
+      }
     },
     {
       "id": "toolmaker",
@@ -670,6 +695,11 @@
         "every": 8,
         "bonusPerStep": 0.12,
         "maxSteps": 8
+      },
+      "sound": {
+        "loop": "forge",
+        "radiusTiles": 10,
+        "volume": 0.35
       }
     },
     {
@@ -884,6 +914,11 @@
         "every": 8,
         "bonusPerStep": 0.12,
         "maxSteps": 8
+      },
+      "sound": {
+        "loop": "forge",
+        "radiusTiles": 14,
+        "volume": 0.55
       }
     },
     {
@@ -1200,6 +1235,11 @@
         "every": 10,
         "bonusPerStep": 0.15,
         "maxSteps": 6
+      },
+      "sound": {
+        "loop": "machinery",
+        "radiusTiles": 13,
+        "volume": 0.5
       }
     },
     {
@@ -1765,6 +1805,11 @@
         "every": 8,
         "bonusPerStep": 0.12,
         "maxSteps": 8
+      },
+      "sound": {
+        "loop": "machinery",
+        "radiusTiles": 12,
+        "volume": 0.45
       }
     },
     {
@@ -1862,7 +1907,12 @@
         "steel": 45,
         "machine_parts": 20
       },
-      "subseaAnchor": true
+      "subseaAnchor": true,
+      "sound": {
+        "loop": "water",
+        "radiusTiles": 14,
+        "volume": 0.45
+      }
     },
     {
       "id": "fishery",
@@ -1908,7 +1958,12 @@
         "bonusPerStep": 0.15,
         "maxSteps": 6
       },
-      "paving": 0.0
+      "paving": 0.0,
+      "sound": {
+        "loop": "water",
+        "radiusTiles": 12,
+        "volume": 0.35
+      }
     },
     {
       "id": "deep_sea_port",
@@ -2180,7 +2235,12 @@
           "atProgress": 0.78,
           "sprite": "building.grand_exchange"
         }
-      ]
+      ],
+      "sound": {
+        "loop": "market",
+        "radiusTiles": 18,
+        "volume": 0.55
+      }
     },
     {
       "id": "orbital_ring",
@@ -2538,6 +2598,11 @@
         "every": 10,
         "bonusPerStep": 0.15,
         "maxSteps": 6
+      },
+      "sound": {
+        "loop": "mill",
+        "radiusTiles": 14,
+        "volume": 0.5
       }
     },
     {

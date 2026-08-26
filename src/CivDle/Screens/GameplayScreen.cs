@@ -165,6 +165,9 @@ public sealed class GameplayScreen : IScreen
 
     /// <summary>Klády plující po řekách.</summary>
     private readonly RaftRenderer _raftRenderer;
+
+    /// <summary>Zvuk města podle toho, kam se hráč dívá.</summary>
+    private readonly Audio.SpatialSoundscape _cityAudio;
     private readonly BubbleSystem _bubbles;
     private readonly CaravanSystem _caravans;
     private readonly GoldenSpawnSystem _golden;
@@ -444,6 +447,7 @@ public sealed class GameplayScreen : IScreen
         _festival = new FestivalRenderer(screens.WhitePixel);
         _poiRenderer = new PoiRenderer(screens.Sprites, screens.WhitePixel);
         _raftRenderer = new RaftRenderer(screens.Sprites, screens.WhitePixel);
+        _cityAudio = new Audio.SpatialSoundscape(screens.Content);
 
         var viewport = screens.GraphicsDevice.Viewport;
         _camera.SetViewport(viewport.Width, viewport.Height);
@@ -495,6 +499,7 @@ public sealed class GameplayScreen : IScreen
         // Kulisa podle biomu a počasí — atmosféra stála skoro jen na obraze.
         _soundscape.Update(dt, _simulation);
         _carillon.Update(dt, _simulation);
+        _cityAudio.Update(dt, _camera, _simulation);
         _hoverSeconds += dt;
         _unsavedPlaySeconds += dt;
 
@@ -1296,6 +1301,8 @@ public sealed class GameplayScreen : IScreen
         _ambient.Dispose();
         _soundscape.Stop();
         _soundscape.Dispose();
+        _cityAudio.Stop();
+        _cityAudio.Dispose();
     }
 
     // ----- vstup -----

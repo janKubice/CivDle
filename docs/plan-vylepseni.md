@@ -320,6 +320,26 @@ Vypadá to o chlup hůř než gaussovské rozostření a nikdo to nepozná. **1 
 
 **Odhad:** 2 dny. **Riziko:** nízké, ale chce sluchátka a trpělivost.
 
+> **Hotovo — a se stropem přísnějším, než plán navrhoval.**
+>
+> Plán počítal s osmi nejbližšími zdroji. Ukázalo se, že to nestačí: osm pil
+> vedle sebe je pořád osm pil. Zní proto **jeden hlas na druh zvuku**, ne na
+> budovu — hráč slyší „mlýnskou čtvrť" jako jednu věc, která je hlasitější,
+> když je mlýnů víc (do šesti, dál už je to jen víc téhož), a chodí zprava
+> doleva, jak jede kamerou.
+>
+> Druh zvuku je behavior-ID (`mill`, `forge`, `water`, `market`, `machinery`),
+> ne cesta k souboru: zvuky se syntetizují, žádné audio assety se nevozí.
+> Smyčka každého druhu vznikne, teprve až je poprvé potřeba — kdo nikdy
+> nepostaví huť, nezaplatí za ni ani jeden buffer.
+>
+> Míchání je **čistá statická funkce** (`SpatialMix`) a testuje se bez
+> reproduktoru: co je slyšet a odkud je rozhodnutí o hře, ne o zvukové kartě.
+> Test hlídá i to, že sto pil nepřeteče hlasitost.
+>
+> Dotaz na okolní budovy jde přes index z bodu 1.1 a běží pětkrát za sekundu,
+> ne každý snímek — město se za dvě stě milisekund nezmění.
+
 ---
 
 ## 4. UI a komfort

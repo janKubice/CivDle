@@ -71,7 +71,11 @@ public sealed record BuildingDto(
     bool SubseaAnchor = false,
     DefenseDto? Defense = null,
     List<BuildStageDto>? Stages = null,
-    RaftDto? Raft = null);
+    RaftDto? Raft = null,
+    BuildingSoundDto? Sound = null);
+
+/// <summary>Zvuk okolí budovy tak, jak leží v JSON.</summary>
+public sealed record BuildingSoundDto(string? Loop, double RadiusTiles, double Volume);
 
 /// <summary>Plavení dřeva tak, jak leží v JSON.</summary>
 public sealed record RaftDto(

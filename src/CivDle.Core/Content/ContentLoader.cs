@@ -2995,7 +2995,44 @@ public sealed class ContentLoader
             dto.SubseaAnchor,
             defense,
             stages,
-            ParseRaft(path, id, dto.Raft, resources));
+            ParseRaft(path, id, dto.Raft, resources),
+            ParseBuildingSound(path, id, dto.Sound));
+    }
+
+    /// <summary>
+    /// Zvuk okolí budovy. <c>null</c> u většiny — město, ve kterém zní všechno,
+    /// zní jako kaše.
+    /// </summary>
+    private static BuildingSound? ParseBuildingSound(string path, string id, BuildingSoundDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        // Druh zná kód, ne data: zvuky se syntetizují, takže „cesta k souboru"
+        // by ukazovala na nic. Překlep by znamenal budovu, která tiše mlčí.
+        if (!Enum.TryParse<SoundLoop>(dto.Loop?.Trim(), ignoreCase: true, out var loop))
+        {
+            throw new ContentLoadException(
+                path,
+                $"Budova '{id}': neznámý zvuk '{dto.Loop}' "
+                + $"(známé: {string.Join(", ", Enum.GetNames<SoundLoop>())}).");
+        }
+
+        // Nulový dosah nebo hlasitost = budova, která se tváří, že zní, a mlčí.
+        if (dto.RadiusTiles <= 0)
+        {
+            throw new ContentLoadException(path, $"Budova '{id}': 'sound.radiusTiles' musí být kladné.");
+        }
+
+        if (dto.Volume is <= 0 or > 1)
+        {
+            throw new ContentLoadException(
+                path, $"Budova '{id}': 'sound.volume' má být 0–1, je {dto.Volume}.");
+        }
+
+        return new BuildingSound(loop, dto.RadiusTiles, dto.Volume);
     }
 
     /// <summary>
