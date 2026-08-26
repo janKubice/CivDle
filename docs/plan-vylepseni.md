@@ -514,6 +514,19 @@ Gamepad a `GamePadMap` existují. Zbývá: rozložení pro 1280×800 (Myra šká
 
 **Odhad:** 1,5 dne. **Riziko:** nízké.
 
+> **Hotovo.** Kód je `CIVD1:` + Base64 ze zkomprimovaného zápisu. Hlavička
+> nese verzi formátu, takže až se někdy změní, starší hra kód pozná a řekne to
+> slušně místo toho, aby položila nesmysl.
+>
+> Schránka je tenká vrstvička nad SDL (`SDL_SetClipboardText`), na kterém
+> DesktopGL stojí — jméno knihovny bez přípony, takže tentýž zápis platí na
+> Windows, Linuxu i macOS. Když schránka nejde, hráč jen zkopíruje ručně;
+> spadnout kvůli schránce by bylo absurdní.
+>
+> Osm testů na poškozený vstup: prázdno, cizí text, platný Base64 co není
+> gzip, useknutý kód, budoucí verze formátu, celý soubor vložený do pole.
+> Do schránky se dostane leccos.
+
 ---
 
 ## 8. Doporučené pořadí
