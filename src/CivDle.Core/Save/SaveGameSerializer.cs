@@ -112,6 +112,13 @@ public sealed class SaveGameSerializer
     /// </summary>
     private const string SectionFigures = "figures";
 
+    /// <summary>
+    /// Melodie zvonohry — osm čísel. Vlastní sekce, protože je to jediná věc
+    /// v savu, kterou hráč složil sám: starší sav ji nemá a načte se s výchozí
+    /// melodií z dat, ne s tichem.
+    /// </summary>
+    private const string SectionCarillon = "carillon";
+
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
     {
@@ -300,6 +307,16 @@ public sealed class SaveGameSerializer
             for (int i = 0; i < remembered.Count; i++)
             {
                 w.Write(remembered[i]);
+            }
+        });
+
+        WriteSection(writer, SectionCarillon, w =>
+        {
+            var notes = simulation.Carillon.Notes;
+            w.Write(notes.Count);
+            for (int i = 0; i < notes.Count; i++)
+            {
+                w.Write(notes[i]);
             }
         });
     }
@@ -582,6 +599,19 @@ public sealed class SaveGameSerializer
         }
     }
 
+    /// <summary>Načte melodii zvonohry.</summary>
+    private static void ReadCarillon(BinaryReader section, Simulation simulation)
+    {
+        int count = section.ReadInt32();
+        var notes = new int[Math.Max(0, count)];
+        for (int i = 0; i < notes.Length; i++)
+        {
+            notes[i] = section.ReadInt32();
+        }
+
+        simulation.RestoreCarillon(notes);
+    }
+
     /// <summary>
     /// Načte osobnosti: kdo žije a na koho město vzpomíná.
     ///
@@ -704,6 +734,9 @@ public sealed class SaveGameSerializer
                 break;
             case SectionFigures:
                 ReadFigures(section, simulation);
+                break;
+            case SectionCarillon:
+                ReadCarillon(section, simulation);
                 break;
             case SectionRuns:
                 simulation.PeakPopulation = section.ReadInt64();  // pořadí musí sedět se zápisem

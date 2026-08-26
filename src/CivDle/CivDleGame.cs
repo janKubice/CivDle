@@ -171,6 +171,10 @@ public sealed class CivDleGame : Game
             Sprites.LoadModSprites(GraphicsDevice, Path.Combine(AppContext.BaseDirectory, "mods"));
         }
         Sounds = new GameSounds();
+
+        // Zvonohra se ladí z dat (základní tón, délka tónu), takže se musí
+        // naladit až po načtení obsahu — a stačí jednou za běh.
+        Sounds.TuneCarillon(_content.Carillon);
         MyraEnvironment.Game = this;
 
         // Tooltipy Myry se kreslí u kurzoru — hráč nemusí očima skákat na spodní

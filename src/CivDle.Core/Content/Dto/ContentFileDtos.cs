@@ -671,6 +671,14 @@ public sealed record FigureDto(
     string? Milestone,
     string? Statue);
 
+/// <summary>Obsah souboru <c>data/carillon.json</c>.</summary>
+public sealed record CarillonFileDto(
+    int SchemaVersion,
+    string? Building,
+    List<int>? DefaultTune,
+    double BaseFrequency,
+    double NoteSeconds);
+
 /// <summary>Obsah souboru <c>data/chronicle.json</c>.</summary>
 public sealed record ChronicleFileDto(int SchemaVersion, List<ChronicleTemplateDto>? Lines);
 

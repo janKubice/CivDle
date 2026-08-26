@@ -153,6 +153,12 @@ public sealed class GameplayScreen : IScreen
     /// <summary>Závoj přes neprozkoumaný svět — kreslí se až nad mapou a budovami.</summary>
     private readonly FogRenderer _fogRenderer;
     private readonly NpcCityRenderer _npcCityRenderer;
+
+    /// <summary>Přehrávač melodie zvonohry — zvoní, když simulace ohlásí slavnost.</summary>
+    private readonly Audio.CarillonPlayer _carillon;
+
+    /// <summary>Výzdoba slavnosti — girlandy a stoupající lampiony.</summary>
+    private readonly FestivalRenderer _festival;
     private readonly BubbleSystem _bubbles;
     private readonly CaravanSystem _caravans;
     private readonly GoldenSpawnSystem _golden;
@@ -427,6 +433,9 @@ public sealed class GameplayScreen : IScreen
         _cityScale = new CityScaleRenderer(screens.WhitePixel, _popupFont);
         _districtRenderer = new DistrictRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont);
         _npcCityRenderer = new NpcCityRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont);
+        _carillon = new Audio.CarillonPlayer(screens.Sounds, screens.Content.Carillon.NoteSeconds);
+        _carillon.Resync(simulation); // načtená hra nemá uvítat melodií za dávnou slavnost
+        _festival = new FestivalRenderer(screens.WhitePixel);
 
         var viewport = screens.GraphicsDevice.Viewport;
         _camera.SetViewport(viewport.Width, viewport.Height);
@@ -477,6 +486,7 @@ public sealed class GameplayScreen : IScreen
 
         // Kulisa podle biomu a počasí — atmosféra stála skoro jen na obraze.
         _soundscape.Update(dt, _simulation);
+        _carillon.Update(dt, _simulation);
         _hoverSeconds += dt;
         _unsavedPlaySeconds += dt;
 
@@ -646,6 +656,7 @@ public sealed class GameplayScreen : IScreen
             _agents.Update(worldDt, _camera, _simulation);
             _airTraffic.Update(worldDt, _camera, _simulation);
             _bubbles.Update(worldDt, _simulation);
+            _festival.Update(worldDt, _camera, _simulation);
             UpdateCaravan(worldDt);
             _golden.Update(worldDt, _camera, _simulation);
             _discoveries.Update(worldDt);
@@ -731,6 +742,7 @@ public sealed class GameplayScreen : IScreen
             _caravans.Draw(spriteBatch, _camera);
             _golden.Draw(spriteBatch, _camera);
             _spectacles.Draw(spriteBatch, _screens.WhitePixel, _camera, _simulation);
+            _festival.Draw(spriteBatch, _camera, _simulation);
             _fireworks.Draw(spriteBatch, _screens.WhitePixel, _camera);
             _laser.Draw(spriteBatch, _screens.WhitePixel, _camera);
         }
@@ -2808,6 +2820,15 @@ public sealed class GameplayScreen : IScreen
             Place(grid, UiFactory.ToolButton(
                 Ico("ui.stats"), loc["hud.stats"] + '\n' + loc["tip.stats"],
                 () => _screens.Push(new StatsScreen(_screens, _simulation.History))), slot++, columns);
+        }
+
+        // Zvonohra se v liště ukáže, teprve až nějaká stojí — do prázdna se
+        // melodie skládá blbě.
+        if (_simulation.HasCarillon)
+        {
+            Place(grid, UiFactory.ToolButton(
+                Ico("ui.carillon"), loc["carillon.title"] + '\n' + loc["tip.carillon"],
+                () => _screens.Push(new CarillonScreen(_screens, _simulation, _carillon))), slot++, columns);
         }
 
         // Kronika stojí vedle statistik schválně: obojí čte tentýž časosběr,

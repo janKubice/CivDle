@@ -94,6 +94,7 @@ public sealed class ContentLoader
         var frontier = LoadFrontier(Path.Combine(dataDirectory, "frontier.json"));
         var figures = LoadFigures(Path.Combine(dataDirectory, "figures.json"), buildings, milestones);
         var chronicle = LoadChronicle(Path.Combine(dataDirectory, "chronicle.json"));
+        var carillon = LoadCarillon(Path.Combine(dataDirectory, "carillon.json"), buildings);
         var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit, figures, chronicle);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
@@ -107,7 +108,7 @@ public sealed class ContentLoader
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
             worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, faith, npcCities, vehicles, mods,
-            grandWork, legacy, legacyUpgrades, aircraft, orbit, frontier, figures, chronicle);
+            grandWork, legacy, legacyUpgrades, aircraft, orbit, frontier, figures, chronicle, carillon);
     }
 
     // ----- cizí města -----
@@ -280,6 +281,59 @@ public sealed class ContentLoader
         }
 
         return new FigureCatalog(figures);
+    }
+
+    /// <summary>
+    /// Načte nastavení zvonohry. Chybějící soubor není chyba — je to ozdoba,
+    /// ne mechanika, na které by hra stála.
+    /// </summary>
+    private CarillonConfig LoadCarillon(string path, DefRegistry<BuildingDef> buildings)
+    {
+        if (!File.Exists(path))
+        {
+            return CarillonConfig.Disabled;
+        }
+
+        var file = ReadFile<CarillonFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        if (string.IsNullOrWhiteSpace(file.Building))
+        {
+            throw new ContentLoadException(path, "Zvonohra nemá vyplněnou budovu ('building').");
+        }
+
+        if (!buildings.TryIndexOf(file.Building.Trim(), out int buildingIndex))
+        {
+            throw new ContentLoadException(path, $"Zvonohra odkazuje na neexistující budovu '{file.Building}'.");
+        }
+
+        if (file.BaseFrequency is < 20 or > 8000)
+        {
+            throw new ContentLoadException(
+                path, $"Zvonohra: 'baseFrequency' má být 20–8000 Hz, je {file.BaseFrequency}.");
+        }
+
+        if (file.NoteSeconds is <= 0 or > 5)
+        {
+            throw new ContentLoadException(
+                path, $"Zvonohra: 'noteSeconds' má být 0–5 s, je {file.NoteSeconds}.");
+        }
+
+        // Výchozí melodie je obsah, ne kód: kdyby seděla v kódu, nešla by
+        // změnit modem a zvonohra by ve všech hrách začínala stejně.
+        var tune = file.DefaultTune ?? new List<int>();
+        foreach (int note in tune)
+        {
+            if (note < Carillon.Rest || note >= Carillon.Degrees)
+            {
+                throw new ContentLoadException(
+                    path,
+                    $"Zvonohra: tón {note} je mimo stupnici "
+                    + $"({Carillon.Rest} = pauza, jinak 0–{Carillon.Degrees - 1}).");
+            }
+        }
+
+        return new CarillonConfig(buildingIndex, tune, file.BaseFrequency, file.NoteSeconds);
     }
 
     /// <summary>

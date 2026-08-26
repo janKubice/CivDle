@@ -103,6 +103,7 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "ui.grandwork", IconSize, UiGrandWork);
         Add(device, "ui.legacy", IconSize, UiLegacy);
         Add(device, "ui.figures", IconSize, UiFigures);
+        Add(device, "ui.carillon", IconSize, UiCarillon);
         Add(device, "ui.stats", IconSize, UiStats);
         Add(device, "ui.trophy", IconSize, UiTrophy);
         Add(device, "ui.chronicle", IconSize, UiChronicle);
@@ -267,6 +268,7 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.statue_scholar", SpriteSize, StatueScholar);
         Add(device, "building.statue_agronomist", SpriteSize, StatueAgronomist);
         Add(device, "building.statue_navigator", SpriteSize, StatueNavigator);
+        Add(device, "building.carillon", SpriteSize, CarillonTower);
         Add(device, "building.triumphal_arch", SpriteSize, TriumphalArch);
         Add(device, "building.clock_tower", SpriteSize, ClockTower);
         Add(device, "building.great_pit", SpriteSize, GreatPit);
@@ -778,6 +780,16 @@ public sealed class SpriteLibrary : IDisposable
     /// Odkaz: věčný plamen na podstavci. Vrstva, která přežije i Vzestup, má
     /// vypadat jako něco, co se předává dál — ne jako další šipka nahoru.
     /// </summary>
+    /// <summary>Ikona zvonohry: zvon a nad ním závěs.</summary>
+    private static void UiCarillon(PixelCanvas c)
+    {
+        var bronze = new Color(198, 166, 92);
+        c.FillRect(4, 4, 16, 2, new Color(140, 128, 104));   // závěs
+        c.FillTriangle(6f, 18f, 18f, 18f, 12f, 6f, bronze);  // plášť zvonu
+        c.FillRect(5, 18, 14, 2, new Color(226, 200, 130));  // věnec
+        c.FillCircle(12f, 21f, 1.6f, new Color(120, 104, 76)); // srdce
+    }
+
     /// <summary>Ikona osobností: postava na soklu — totéž, co po ní zbude na mapě.</summary>
     private static void UiFigures(PixelCanvas c)
     {
@@ -1495,6 +1507,17 @@ public sealed class SpriteLibrary : IDisposable
         MemorialBase(c, new Color(132, 146, 156), new Color(168, 192, 206));
         c.FillRect(20, 8, 1, 14, new Color(120, 104, 84));   // stěžeň v ruce
         c.FillTriangle(21f, 8f, 21f, 17f, 27f, 13f, new Color(230, 232, 226)); // plachta
+    }
+
+    /// <summary>Zvonice: věž s otevřeným patrem a zvonem v něm.</summary>
+    private static void CarillonTower(PixelCanvas c)
+    {
+        var stone = new Color(176, 162, 130);
+        c.FillRect(10, 12, 12, 18, stone);                    // věž
+        c.FillRect(11, 6, 10, 7, new Color(148, 136, 110));    // otevřené patro
+        c.FillTriangle(8f, 6f, 24f, 6f, 16f, 0f, new Color(128, 92, 72)); // stříška
+        c.FillTriangle(13f, 12f, 19f, 12f, 16f, 7f, new Color(198, 166, 92)); // zvon
+        c.FillRect(12, 20, 8, 2, new Color(148, 136, 110));    // římsa
     }
 
     private static void TriumphalArch(PixelCanvas c)

@@ -1412,6 +1412,71 @@ public class ContentLoaderTests : IDisposable
 
     private static readonly string[] ChronicleKeys = { "chronicle.line.today" };
 
+    // ----- zvonohra -----
+
+    [Fact]
+    public void Carillon_LoadsItsBuildingAndDefaultTune()
+    {
+        WriteAllValid();
+        Write("carillon.json", """
+        {
+          "schemaVersion": 1, "building": "house",
+          "defaultTune": [0, 2, 4, -1], "baseFrequency": 523.25, "noteSeconds": 0.45
+        }
+        """);
+
+        var content = Load();
+
+        Assert.True(content.Carillon.IsEnabled);
+        Assert.Equal(content.Buildings.IndexOf("house"), content.Carillon.BuildingIndex);
+        Assert.Equal(new[] { 0, 2, 4, -1 }, content.Carillon.DefaultTune);
+    }
+
+    [Fact]
+    public void Carillon_WithAnUnknownBuilding_Throws()
+    {
+        WriteAllValid();
+        Write("carillon.json", """
+        { "schemaVersion": 1, "building": "zvonice_ktera_neni", "baseFrequency": 523.25, "noteSeconds": 0.45 }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("zvonice_ktera_neni", ex.Message);
+    }
+
+    [Fact]
+    public void Carillon_WithANoteOutsideTheScale_Throws()
+    {
+        // Tón mimo stupnici by se tiše přehrál jako pauza a hráč by měl
+        // v melodii díru, kterou nezpůsobil.
+        WriteAllValid();
+        Write("carillon.json", """
+        {
+          "schemaVersion": 1, "building": "house",
+          "defaultTune": [0, 99], "baseFrequency": 523.25, "noteSeconds": 0.45
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("carillon.json", ex.Message);
+        Assert.Contains("99", ex.Message);
+    }
+
+    [Fact]
+    public void Carillon_WithAnImpossibleFrequency_Throws()
+    {
+        WriteAllValid();
+        Write("carillon.json", """
+        { "schemaVersion": 1, "building": "house", "baseFrequency": 0, "noteSeconds": 0.45 }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("baseFrequency", ex.Message);
+    }
+
     // ----- pomůcky -----
 
     private GameContent Load() => new ContentLoader().LoadFrom(_tempDir);

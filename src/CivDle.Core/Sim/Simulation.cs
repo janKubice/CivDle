@@ -80,6 +80,7 @@ public sealed class Simulation
     private bool _powerDirty = true;
     private readonly FrontierSystem _frontier;
     private readonly FigureSystem _figures;
+    private readonly Carillon _carillon;
     private readonly LegacySystem _legacy; // druhá prestižní vrstva (Odkaz)
     private readonly AutoResearchSystem _autoResearch = new(); // odemyká se až v Odkazu
 
@@ -227,6 +228,7 @@ public sealed class Simulation
         _orbit = new OrbitSystem(content.Orbit);
         _frontier = new FrontierSystem(content.Frontier);
         _figures = new FigureSystem(content.Figures);
+        _carillon = new Carillon(content.Carillon);
         _legacy = new LegacySystem(content.Legacy, content.LegacyUpgrades.All);
         History = new CityHistory(content.Gameplay.History.MaxFrames);
         _constructionSystem = new ConstructionSystem(content);
@@ -2415,6 +2417,7 @@ public sealed class Simulation
 
         _boostTicksRemaining = (int)(_content.Gameplay.Boost.DurationSeconds * TicksPerSecond);
         _boostCooldownRemaining = (int)(_content.Gameplay.Boost.CooldownSeconds * TicksPerSecond);
+        RingCarillon();
         return true;
     }
 
@@ -2435,7 +2438,67 @@ public sealed class Simulation
     {
         _boostTicksRemaining = (int)(_content.Gameplay.Boost.DurationSeconds * TicksPerSecond);
         _boostCooldownRemaining = (int)(_content.Gameplay.Boost.CooldownSeconds * TicksPerSecond);
+        RingCarillon();
     }
+
+    // ----- zvonohra -----
+
+    /// <summary>Melodie, kterou zvonohra hraje. Mění ji hráč, drží ji sav.</summary>
+    public Carillon Carillon => _carillon;
+
+    /// <summary>
+    /// Kolikrát už zvonohra zvonila.
+    ///
+    /// <para>Číslo, ne událost: audio vrstva si pamatuje, na čem stálo posledně,
+    /// a když se hodnota změnila, zahraje. Simulace tím pádem o zvuku neví
+    /// vůbec nic a nemá do čeho zapisovat mimo sebe — což je přesně to
+    /// oddělení vrstev z CLAUDE.md.</para>
+    /// </summary>
+    public long CarillonRings { get; private set; }
+
+    /// <summary>
+    /// Stojí ve městě hotová zvonohra? Prochází zástavbu, takže se to nemá
+    /// volat z tikové smyčky — slavnost začíná jednou za pár minut.
+    /// </summary>
+    public bool HasCarillon
+    {
+        get
+        {
+            if (!_content.Carillon.IsEnabled)
+            {
+                return false;
+            }
+
+            int wanted = _content.Carillon.BuildingIndex;
+            for (int i = 0; i < _buildingCount; i++)
+            {
+                if (_buildings[i].DefIndex == wanted && _buildings[i].Stall != BuildingStall.UnderConstruction)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Slavnost začala — jestli je čím, zvonohra zazvoní.
+    ///
+    /// <para>Váže se na slavnost schválně: zvonění každou herní hodinu by po
+    /// třech hodinách hraní byl hluk, ze kterého si hráč vypne zvuk. Takhle
+    /// zvoní přesně tehdy, když se ve městě něco slaví.</para>
+    /// </summary>
+    private void RingCarillon()
+    {
+        if (!_carillon.IsSilent && HasCarillon)
+        {
+            CarillonRings++;
+        }
+    }
+
+    /// <summary>Obnoví melodii ze savu (bez zvonění).</summary>
+    internal void RestoreCarillon(IReadOnlyList<int> notes) => _carillon.Restore(notes);
 
     /// <summary>
     /// Kolik lidí se vejde (základní tábor + domy).

@@ -472,6 +472,30 @@ Zvonohra je lepší nápad, než vypadá: `GameSounds` **generuje tóny procedur
 
 **Odhad:** zvonohra 1,5 dne, vizuál festivalu 1 den. **Riziko:** nízké. Milá, sdílitelná drobnost.
 
+> **Hotovo — obojí.** Zvonohra je budova, osm tónů v savu a notový editor,
+> kde klik posune tón o stupeň výš a z nejvyššího přeteče do pauzy. Notová
+> osnova by byla hezčí a nikdo by ji neuměl ovládat myší za tři vteřiny.
+>
+> Ani jeden zvukový soubor: tón zvonu je základní sinus plus <b>nepřesná</b>
+> vyšší harmonická (2,76×, ne 3×). Ta nepřesnost je celý rozdíl mezi zvonem
+> a pípnutím — skutečné zvony mají harmonické mimo celé násobky. Základní
+> frekvenci i délku tónu drží `data/carillon.json`, ne kód.
+>
+> Zvoní se **při slavnosti**, ne každou herní hodinu: pravidelné zvonění by
+> po třech hodinách hraní byl hluk, po kterém si hráč vypne zvuk. Simulace
+> jen zvedne počítadlo `CarillonRings`; že se z toho stane melodie, ví až
+> audio vrstva — sim o zvuku nesmí vědět nic.
+>
+> Vizuál slavnosti: girlandy světel nad ulicemi a papírové lampiony stoupající
+> nad město. Girlandy se **nepamatují** — poloha je funkce dlaždice (hash
+> souřadnic), takže nestojí ani bajt stavu a mezi snímky se nehnou. Lampiony
+> stav mít musí, a tak jsou v poolu o pevné velikosti; test to hlídá minutou
+> běhu.
+>
+> **Tanec ne.** Rozhýbat chodce znamená zasáhnout do `AgentSystem`, což je
+> jediná věc v renderu, která má tvrdý požadavek na pool a nulovou alokaci —
+> a to za pár otočených panáčků nestojí.
+
 ---
 
 ## 7. Steam
@@ -646,9 +670,9 @@ Poslední z jediného důvodu: je to jediná položka, která přidává novou e
 
 ### Velké věci — až bude prostor
 
-Hotovo: ~~sdílení šablon (7.3)~~, ~~osobnosti (6.1)~~, ~~kronika (6.3)~~.
+Hotovo: ~~sdílení šablon (7.3)~~, ~~osobnosti (6.1)~~, ~~kronika (6.3)~~, ~~zvonohra a vizuál slavnosti (6.7)~~.
 
-Zbývá: anomálie a expedice (2.1b), doktríny (2.4), scénáře (5.1), plavení dřeva (6.2), hustotní mapa (1.3), zvonohra (6.7), plán guvernéra na sídlo (4.4).
+Zbývá: anomálie a expedice (2.1b), doktríny (2.4), scénáře (5.1), plavení dřeva (6.2), hustotní mapa (1.3), plán guvernéra na sídlo (4.4).
 
 ### Nedělat teď
 

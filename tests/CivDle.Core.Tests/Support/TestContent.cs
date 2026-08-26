@@ -63,7 +63,8 @@ internal static class TestContent
         LegacyConfig? legacy = null,
         IReadOnlyList<PrestigeUpgradeDef>? legacyUpgrades = null,
         OrbitCatalog? orbit = null,
-        FigureCatalog? figures = null)
+        FigureCatalog? figures = null,
+        CarillonConfig? carillon = null)
     {
         biomes ??= new[] { WaterBiome(), LandBiome("grass") };
         resources ??= new[] { new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 10, BaseStorage: 1000) };
@@ -137,7 +138,9 @@ internal static class TestContent
                 legacyUpgrades ?? Array.Empty<PrestigeUpgradeDef>(), u => u.Id, "upgrade Odkazu", allowEmpty: true),
             aircraft: null,
             orbit: orbit, // null = orbita v testech vypnutá
-            figures: figures); // null = osobnosti v testech vypnuté
+            figures: figures, // null = osobnosti v testech vypnuté
+            chronicle: null, // kronika v testech vypnutá
+            carillon: carillon); // null = zvonohra v testech vypnutá
     }
 
     /// <summary>Výchozí prestige config testů (Vzestup od 50 obyvatel, body = populace ÷ 15).</summary>

@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "building": "carillon",
+  "defaultTune": [0, 2, 4, 7, -1, 4, 2, 0],
+  "baseFrequency": 523.25,
+  "noteSeconds": 0.45
+}

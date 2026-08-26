@@ -3079,6 +3079,35 @@
       ]
     },
     {
+      "id": "carillon",
+      "category": "monument",
+      "mapColor": "#C7B06A",
+      "footprint": [
+        1,
+        1
+      ],
+      "serviceValue": 16,
+      "buildCost": {
+        "stone": 140,
+        "bronze": 60,
+        "planks": 40
+      },
+      "upkeep": {
+        "planks": 1
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ]
+    },
+    {
       "id": "observatory",
       "category": "monument",
       "mapColor": "#7E8CA3",
