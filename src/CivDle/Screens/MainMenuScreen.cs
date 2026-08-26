@@ -99,6 +99,14 @@ public sealed class MainMenuScreen : IScreen
         }
 
         buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.newGame"], () => _screens.Push(new NewGameScreen(_screens))));
+        // Scénáře hned pod novou hrou: je to druhý způsob, jak začít, ne
+        // vedlejší obrazovka. V demu ne — demo je o tom ukázat jádro.
+        if (!Edition.IsDemo && _screens.Content.Scenarios.IsEnabled)
+        {
+            buttons.Widgets.Add(UiFactory.MenuButton(
+                loc["scenarios.title"], () => _screens.Push(new ScenariosScreen(_screens))));
+        }
+
         buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.howto"], () => _screens.Push(new HowToPlayScreen(_screens, dimBackground: false))));
         buttons.Widgets.Add(Edition.IsDemo
             ? UiFactory.DemoLockedButton(loc["hud.mods"], loc["demo.locked"])

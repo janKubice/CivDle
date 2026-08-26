@@ -119,6 +119,15 @@ public sealed class SaveGameSerializer
     /// </summary>
     private const string SectionCarillon = "carillon";
 
+    /// <summary>
+    /// Běžící scénář: který a jak dopadl.
+    ///
+    /// <para>Ukládá se i výsledek. Bez něj by se po načtení dohrané hry
+    /// scénář rozběhl znovu a hráč by mohl prohru „vyzkoušet znovu" prostým
+    /// načtením — přesně to, co dělá zadání bezcenným.</para>
+    /// </summary>
+    private const string SectionScenario = "scenario";
+
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
     {
@@ -319,6 +328,17 @@ public sealed class SaveGameSerializer
                 w.Write(notes[i]);
             }
         });
+
+        if (simulation.InScenario)
+        {
+            WriteSection(writer, SectionScenario, w =>
+            {
+                // Jménem, ne indexem: pořadí v datech se mezi verzemi změní
+                // a hráč by se probudil v jiném scénáři, než ve kterém usnul.
+                w.Write(simulation.Scenario!.Id);
+                w.Write((int)simulation.ScenarioResult);
+            });
+        }
     }
 
     /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
@@ -737,6 +757,10 @@ public sealed class SaveGameSerializer
                 break;
             case SectionCarillon:
                 ReadCarillon(section, simulation);
+                break;
+            case SectionScenario:
+                int scenarioIndex = content.Scenarios.IndexOf(section.ReadString());
+                simulation.RestoreScenario(scenarioIndex, (ScenarioOutcome)section.ReadInt32());
                 break;
             case SectionRuns:
                 simulation.PeakPopulation = section.ReadInt64();  // pořadí musí sedět se zápisem

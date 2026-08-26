@@ -671,6 +671,28 @@ public sealed record FigureDto(
     string? Milestone,
     string? Statue);
 
+/// <summary>Obsah souboru <c>data/scenarios.json</c>.</summary>
+public sealed record ScenariosFileDto(int SchemaVersion, List<ScenarioDto>? Scenarios);
+
+/// <summary>Jeden scénář tak, jak leží v JSON.</summary>
+public sealed record ScenarioDto(
+    string? Id,
+    long Seed,
+    string? Preset,
+    GameplayOverrideDto? Gameplay,
+    Dictionary<string, int>? StartingResources,
+    GoalConditionDto? Goal,
+    GoalConditionDto? FailBelow,
+    double TimeLimitSeconds,
+    List<string>? Rules);
+
+/// <summary>Přebití herních čísel scénářem. Co chybí, zůstane z gameplay.json.</summary>
+public sealed record GameplayOverrideDto(
+    double? StartingPopulation,
+    int? BaseHousingCapacity,
+    double? PopulationGrowthPerSecond,
+    double? FoodPerPersonPerSecond);
+
 /// <summary>Obsah souboru <c>data/carillon.json</c>.</summary>
 public sealed record CarillonFileDto(
     int SchemaVersion,

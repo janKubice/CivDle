@@ -95,7 +95,9 @@ public sealed class ContentLoader
         var figures = LoadFigures(Path.Combine(dataDirectory, "figures.json"), buildings, milestones);
         var chronicle = LoadChronicle(Path.Combine(dataDirectory, "chronicle.json"));
         var carillon = LoadCarillon(Path.Combine(dataDirectory, "carillon.json"), buildings);
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit, figures, chronicle);
+        var scenarios = LoadScenarios(
+            Path.Combine(dataDirectory, "scenarios.json"), resources, buildings, techs, worldGen);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit, figures, chronicle, scenarios);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
@@ -108,7 +110,8 @@ public sealed class ContentLoader
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
             worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, faith, npcCities, vehicles, mods,
-            grandWork, legacy, legacyUpgrades, aircraft, orbit, frontier, figures, chronicle, carillon);
+            grandWork, legacy, legacyUpgrades, aircraft, orbit, frontier, figures, chronicle, carillon,
+            scenarios);
     }
 
     // ----- cizí města -----
@@ -281,6 +284,167 @@ public sealed class ContentLoader
         }
 
         return new FigureCatalog(figures);
+    }
+
+    /// <summary>
+    /// Načte scénáře. Chybějící soubor není chyba — bez nich se jen nenabídne
+    /// režim, volná hra běží dál.
+    /// </summary>
+    private ScenarioCatalog LoadScenarios(
+        string path,
+        DefRegistry<Resource> resources,
+        DefRegistry<BuildingDef> buildings,
+        DefRegistry<TechDef> techs,
+        WorldGenCatalog worldGen)
+    {
+        if (!File.Exists(path))
+        {
+            return ScenarioCatalog.Empty;
+        }
+
+        var file = ReadFile<ScenariosFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var scenarios = new List<ScenarioDef>();
+        foreach (var dto in file.Scenarios ?? new List<ScenarioDto>())
+        {
+            string id = dto.Id?.Trim() ?? string.Empty;
+            if (id.Length == 0)
+            {
+                throw new ContentLoadException(path, "Scénář bez 'id'.");
+            }
+
+            if (!seen.Add(id))
+            {
+                throw new ContentLoadException(path, $"Scénář '{id}' je v datech dvakrát.");
+            }
+
+            // Bez cíle to není scénář, ale jen jinak nastavená volná hra —
+            // a hráč by čekal konec, který nikdy nepřijde.
+            if (dto.Goal is null)
+            {
+                throw new ContentLoadException(path, $"Scénář '{id}' nemá cíl ('goal').");
+            }
+
+            int preset = -1;
+            if (!string.IsNullOrWhiteSpace(dto.Preset))
+            {
+                preset = IndexOfPreset(worldGen, dto.Preset.Trim());
+                if (preset < 0)
+                {
+                    throw new ContentLoadException(
+                        path, $"Scénář '{id}' odkazuje na neexistující preset '{dto.Preset}'.");
+                }
+            }
+
+            if (dto.TimeLimitSeconds < 0)
+            {
+                throw new ContentLoadException(
+                    path, $"Scénář '{id}': 'timeLimitSeconds' nesmí být záporné.");
+            }
+
+            var rules = new List<ScenarioRule>();
+            foreach (string name in dto.Rules ?? new List<string>())
+            {
+                if (!Enum.TryParse<ScenarioRule>(name?.Trim(), ignoreCase: true, out var rule))
+                {
+                    throw new ContentLoadException(
+                        path,
+                        $"Scénář '{id}': neznámé pravidlo '{name}' "
+                        + $"(známá: {string.Join(", ", Enum.GetNames<ScenarioRule>())}).");
+                }
+
+                rules.Add(rule);
+            }
+
+            scenarios.Add(new ScenarioDef(
+                id,
+                dto.Seed,
+                preset,
+                ParseGameplayOverride(path, id, dto.Gameplay),
+                ParseResourceAmounts(path, id, "startingResources", dto.StartingResources, resources),
+                ParseCondition(path, $"scénář '{id}' (goal)", dto.Goal, resources, buildings, techs),
+                ParseFailCondition(path, id, dto.FailBelow, resources, buildings, techs),
+                dto.TimeLimitSeconds,
+                rules));
+        }
+
+        return new ScenarioCatalog(scenarios);
+    }
+
+    /// <summary>
+    /// Podmínka prohry. Vlastní parser, protože se čte obráceně („metrika ≤
+    /// práh") a smí mít práh nula — „lidí klesne na nulu" je ta nejběžnější
+    /// prohra a <see cref="ParseCondition"/> by ji odmítl.
+    /// </summary>
+    private static GoalCondition? ParseFailCondition(
+        string path, string id, GoalConditionDto? dto,
+        DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        var (kind, param) = ParseMetric(
+            path, $"scénář '{id}' (failBelow)", dto.Metric, dto.Resource, dto.Building, dto.Tech,
+            resources, buildings, techs);
+
+        if (dto.Target < 0)
+        {
+            throw new ContentLoadException(
+                path, $"Scénář '{id}': 'failBelow.target' nesmí být záporný, je {dto.Target}.");
+        }
+
+        return new GoalCondition(kind, param, dto.Target);
+    }
+
+    private static GameplayOverride ParseGameplayOverride(string path, string id, GameplayOverrideDto? dto)
+    {
+        if (dto is null)
+        {
+            return GameplayOverride.None;
+        }
+
+        if (dto.StartingPopulation is < 0)
+        {
+            throw new ContentLoadException(path, $"Scénář '{id}': 'startingPopulation' nesmí být záporná.");
+        }
+
+        if (dto.BaseHousingCapacity is < 0)
+        {
+            throw new ContentLoadException(path, $"Scénář '{id}': 'baseHousingCapacity' nesmí být záporná.");
+        }
+
+        // Záporný růst by znamenal město, které se samo vylidňuje bez ohledu
+        // na jídlo — a to už je jiná mechanika, ne jiné číslo.
+        if (dto.PopulationGrowthPerSecond is < 0)
+        {
+            throw new ContentLoadException(path, $"Scénář '{id}': 'populationGrowthPerSecond' nesmí být záporný.");
+        }
+
+        if (dto.FoodPerPersonPerSecond is < 0)
+        {
+            throw new ContentLoadException(path, $"Scénář '{id}': 'foodPerPersonPerSecond' nesmí být záporná.");
+        }
+
+        return new GameplayOverride(
+            dto.StartingPopulation, dto.BaseHousingCapacity,
+            dto.PopulationGrowthPerSecond, dto.FoodPerPersonPerSecond);
+    }
+
+    private static int IndexOfPreset(WorldGenCatalog worldGen, string id)
+    {
+        for (int i = 0; i < worldGen.Presets.Count; i++)
+        {
+            if (string.Equals(worldGen.Presets[i].Id, id, StringComparison.Ordinal))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     /// <summary>
@@ -4344,7 +4508,8 @@ public sealed class ContentLoader
         SeasonCalendar seasons,
         OrbitCatalog orbit,
         FigureCatalog figures,
-        ChronicleCatalog chronicle)
+        ChronicleCatalog chronicle,
+        ScenarioCatalog scenarios)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -4378,7 +4543,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit, figures, chronicle);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit, figures, chronicle, scenarios);
         FillGapsFromBaseLanguage(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -4417,7 +4582,8 @@ public sealed class ContentLoader
         SeasonCalendar seasons,
         OrbitCatalog orbit,
         FigureCatalog figures,
-        ChronicleCatalog chronicle)
+        ChronicleCatalog chronicle,
+        ScenarioCatalog scenarios)
     {
         var required = new List<string>();
         foreach (var satellite in orbit.Satellites)
@@ -4440,6 +4606,12 @@ public sealed class ContentLoader
         foreach (var line in chronicle.Templates)
         {
             required.Add(line.TextKey);
+        }
+
+        foreach (var scenario in scenarios.Scenarios)
+        {
+            required.Add(scenario.NameKey);
+            required.Add(scenario.DescriptionKey);
         }
 
         required.AddRange(biomes.All.Select(b => b.NameKey));

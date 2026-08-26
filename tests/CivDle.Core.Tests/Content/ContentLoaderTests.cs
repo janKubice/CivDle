@@ -1477,6 +1477,114 @@ public class ContentLoaderTests : IDisposable
         Assert.Contains("baseFrequency", ex.Message);
     }
 
+    // ----- scénáře -----
+
+    [Fact]
+    public void Scenario_LoadsItsGoalRulesAndOverrides()
+    {
+        WriteWorldWithScenario("""
+        {
+          "id": "test", "seed": 42, "preset": "p",
+          "gameplay": { "startingPopulation": 3 },
+          "startingResources": { "wood": 25 },
+          "goal": { "metric": "population", "target": 100 },
+          "failBelow": { "metric": "population", "target": 0 },
+          "timeLimitSeconds": 600,
+          "rules": ["noAscension"]
+        }
+        """);
+
+        var content = Load();
+        var scenario = content.Scenarios[0];
+
+        Assert.Equal(42, scenario.Seed);
+        Assert.Equal(3, scenario.Gameplay.StartingPopulation);
+        Assert.Equal(100, scenario.Goal.Target);
+        Assert.True(scenario.Has(ScenarioRule.NoAscension));
+        Assert.True(scenario.HasTimeLimit);
+
+        // Prohra „lidí klesne na nulu" musí projít — běžný cíl s prahem 0 by
+        // neprošel a tohle je přesně ta výjimka.
+        Assert.Equal(0, scenario.FailBelow!.Value.Target);
+    }
+
+    [Fact]
+    public void Scenario_WithoutAGoal_Throws()
+    {
+        // Bez cíle to není scénář, ale jinak nastavená volná hra — a hráč by
+        // čekal konec, který nikdy nepřijde.
+        WriteWorldWithScenario("""{ "id": "test", "seed": 1 }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("goal", ex.Message);
+    }
+
+    [Fact]
+    public void Scenario_WithAnUnknownRule_Throws()
+    {
+        WriteWorldWithScenario("""
+        {
+          "id": "test", "seed": 1,
+          "goal": { "metric": "population", "target": 10 },
+          "rules": ["zakazano_vsechno"]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("zakazano_vsechno", ex.Message);
+    }
+
+    [Fact]
+    public void Scenario_WithAnUnknownPreset_Throws()
+    {
+        WriteWorldWithScenario("""
+        {
+          "id": "test", "seed": 1, "preset": "svet_ktery_neni",
+          "goal": { "metric": "population", "target": 10 }
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("svet_ktery_neni", ex.Message);
+    }
+
+    [Fact]
+    public void Scenario_WithoutItsNameInTheLanguage_Throws()
+    {
+        WriteAllValid();
+        Write("scenarios.json", """
+        {
+          "schemaVersion": 1,
+          "scenarios": [
+            { "id": "test", "seed": 1, "goal": { "metric": "population", "target": 10 } }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("scenario.test", ex.Message);
+    }
+
+    /// <summary>Minimální data + jeden scénář (i s jeho jménem a popisem v jazycích).</summary>
+    private void WriteWorldWithScenario(string scenarioJson)
+    {
+        WriteAllValid();
+        Write(Path.Combine("lang", "cs.json"), LangJson("cs", "Čeština", extraKeys: ScenarioKeys));
+        Write(Path.Combine("lang", "en.json"), LangJson("en", "English", extraKeys: ScenarioKeys));
+        Write("scenarios.json", $$"""
+        {
+          "schemaVersion": 1,
+          "scenarios": [ {{scenarioJson}} ]
+        }
+        """);
+    }
+
+    private static readonly string[] ScenarioKeys = { "scenario.test", "scenario.test.desc" };
+
     // ----- pomůcky -----
 
     private GameContent Load() => new ContentLoader().LoadFrom(_tempDir);

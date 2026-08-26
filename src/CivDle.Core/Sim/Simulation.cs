@@ -987,6 +987,126 @@ public sealed class Simulation
     /// </summary>
     public void MarkAsSandbox() => Sandbox = true;
 
+    // ----- scénáře -----
+
+    /// <summary>
+    /// Který scénář se hraje; −1 = volná hra.
+    ///
+    /// <para>Stav rozehrané hry, ne přepínač relace — stejně jako pískoviště.
+    /// Volí se při zakládání světa a od té chvíle je neměnný: přepnout scénář
+    /// uprostřed by znamenalo splnit zadání v jiném světě, než ve kterém bylo
+    /// zadané.</para>
+    /// </summary>
+    public int ScenarioIndex { get; private set; } = -1;
+
+    /// <summary>Hraje se scénář?</summary>
+    public bool InScenario => ScenarioIndex >= 0;
+
+    /// <summary>Jak scénář dopadl (dokud běží, <see cref="ScenarioOutcome.Running"/>).</summary>
+    public ScenarioOutcome ScenarioResult { get; private set; } = ScenarioOutcome.Running;
+
+    /// <summary>Definice běžícího scénáře, nebo <c>null</c>.</summary>
+    public ScenarioDef? Scenario =>
+        InScenario && ScenarioIndex < _content.Scenarios.Count ? _content.Scenarios[ScenarioIndex] : null;
+
+    /// <summary>Platí v téhle hře zvláštní pravidlo scénáře?</summary>
+    public bool ScenarioRuleActive(ScenarioRule rule) => Scenario?.Has(rule) == true;
+
+    /// <summary>
+    /// Kolik sekund do konce; <see cref="double.PositiveInfinity"/> = bez limitu.
+    /// </summary>
+    public double ScenarioSecondsLeft
+    {
+        get
+        {
+            var scenario = Scenario;
+            if (scenario is null || !scenario.HasTimeLimit)
+            {
+                return double.PositiveInfinity;
+            }
+
+            return Math.Max(0, scenario.TimeLimitSeconds - (TickCount / (double)TicksPerSecond));
+        }
+    }
+
+    /// <summary>
+    /// Začne scénář: nasype startovní zásoby a zapamatuje si zadání.
+    /// Jen při zakládání světa; obnova ze savu jde přes <see cref="RestoreScenario"/>.
+    /// </summary>
+    public void StartScenario(int index)
+    {
+        if (index < 0 || index >= _content.Scenarios.Count)
+        {
+            return;
+        }
+
+        ScenarioIndex = index;
+        ScenarioResult = ScenarioOutcome.Running;
+
+        var starting = _content.Scenarios[index].StartingResources;
+        for (int i = 0; i < starting.Count; i++)
+        {
+            AddResource(starting[i].ResourceIndex, starting[i].Amount);
+        }
+    }
+
+    /// <summary>Obnoví scénář ze savu — bez startovních zásob, ty už hráč dostal.</summary>
+    internal void RestoreScenario(int index, ScenarioOutcome outcome)
+    {
+        if (index >= 0 && index < _content.Scenarios.Count)
+        {
+            ScenarioIndex = index;
+            ScenarioResult = outcome;
+        }
+    }
+
+    /// <summary>
+    /// Rozhodne, jestli scénář právě skončil.
+    ///
+    /// <para>Běží na nízké frekvenci jako milníky: zadání jsou prahy metrik
+    /// a ty se za desetinu sekundy nezmění o nic, co by stálo za dotaz.</para>
+    ///
+    /// <para><b>Výhra má přednost před prohrou.</b> Když v tomtéž tiku vyprší
+    /// čas a zároveň se splní cíl, hráč vyhrál — dohnat zadání na poslední
+    /// chvíli je ta nejlepší část scénáře a nemá ji sebrat pořadí <c>if</c>ů.
+    /// </para>
+    /// </summary>
+    private void TickScenario()
+    {
+        if (ScenarioResult != ScenarioOutcome.Running || TickCount % ScenarioCheckTicks != 0)
+        {
+            return;
+        }
+
+        var scenario = Scenario;
+        if (scenario is null)
+        {
+            return;
+        }
+
+        if (EvaluateMetric(scenario.Goal.Kind, scenario.Goal.Param) >= scenario.Goal.Target)
+        {
+            ScenarioResult = ScenarioOutcome.Won;
+            EnqueueNotification(new GameNotification(
+                NotificationKind.Milestone, "toast.scenarioWon", scenario.NameKey));
+            return;
+        }
+
+        bool timeUp = scenario.HasTimeLimit && ScenarioSecondsLeft <= 0;
+        bool collapsed = scenario.FailBelow is { } fail
+            && EvaluateMetric(fail.Kind, fail.Param) <= fail.Target;
+
+        if (timeUp || collapsed)
+        {
+            ScenarioResult = ScenarioOutcome.Lost;
+            EnqueueNotification(new GameNotification(
+                NotificationKind.WorldEvent, "toast.scenarioLost", scenario.NameKey));
+        }
+    }
+
+    /// <summary>Jak často se ptáme, jestli scénář skončil (~1× za sekundu).</summary>
+    private const int ScenarioCheckTicks = 10;
+
     /// <summary>
     /// Má hráč na cenu? V pískovišti vždycky.
     ///
@@ -1523,6 +1643,17 @@ public sealed class Simulation
 
     /// <summary>Kolik chunků indexu je obsazených. Pro testy a diagnostiku.</summary>
     public int BuildingChunkCount => _buildingIndex.ChunkCount;
+
+    /// <summary>
+    /// Kolikátá je tohle podoba zástavby. Zvedne se s každou přidanou i
+    /// odebranou budovou.
+    ///
+    /// <para>Existuje kvůli renderu, který si zástavbu <b>peče do textur</b>:
+    /// podle počtu budov to poznat nejde, protože zbourat jednu a postavit
+    /// jinou nechá počet stejný — a upečená mapa by pak ukazovala město, které
+    /// už nestojí.</para>
+    /// </summary>
+    public long BuildingRevision { get; private set; }
 
     /// <summary>
     /// Podmořská síť: kam až od přístavů sahá moře, ve kterém se dá stavět.
@@ -3519,7 +3650,12 @@ public sealed class Simulation
         _pollutionSystem.Tick(this); // taky po výrobě: dýmá to, co dnes běželo
         _haulSystem.Tick(this);
         _populationSystem.Tick(this);
-        _autoBuild.Tick(this);
+        // Scénář smí guvernérovi zakázat stavět. Kontrola je tady, ne uvnitř
+        // auto-stavby: je to pravidlo běhu, ne vlastnost systému.
+        if (!ScenarioRuleActive(ScenarioRule.NoAutoBuild))
+        {
+            _autoBuild.Tick(this);
+        }
 
         // Až po auto-stavbě: nová technologie často odemkne budovu, a je
         // přirozenější postavit ji hned příští tik než ji držet interval navíc.
@@ -3560,6 +3696,7 @@ public sealed class Simulation
         // které v tomhle tiku něco vyrobily nebo zaplatily.
         TickOrbit();
         TickFigures();
+        TickScenario();
 
         // Obrana je volitelný režim: kdo si ho nezapnul, nezaplatí za něj ani
         // jednu podmínku navíc v tiku.
@@ -6637,6 +6774,8 @@ public sealed class Simulation
             Array.Resize(ref _buildings, _buildings.Length * 2);
         }
 
+        BuildingRevision++; // render si zástavbu peče do textur a musí poznat změnu
+
         // Kronika: biom, na kterém město stavělo. Zaznamenává se tady, protože
         // tudy prochází i obnova ze savu — jinak by se po načtení zapomněl.
         _settledBiomes[Terrain.BiomeAt(x, y)] = true;
@@ -6735,6 +6874,7 @@ public sealed class Simulation
     /// </summary>
     private void ForgetBuilding(int buildingIndex, BuildingDef def)
     {
+        BuildingRevision++;
         _buildingIndex.Remove(
             buildingIndex,
             _buildings[buildingIndex].X,
@@ -7344,6 +7484,13 @@ public sealed class Simulation
     /// </summary>
     public PlacementResult TryAscend()
     {
+        // Scénář je jeden běh se zadáním. Vzestup by ho vyresetoval doprostřed
+        // a hráč by přišel o to, co měl dokončit.
+        if (ScenarioRuleActive(ScenarioRule.NoAscension))
+        {
+            return PlacementResult.NotUnlocked;
+        }
+
         if (!CanAscend())
         {
             return PlacementResult.NotEnoughResources;

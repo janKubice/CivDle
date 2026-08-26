@@ -66,6 +66,34 @@ Tři věci předem:
 
 **Odhad:** hustotní mapa 2 dny, atlas 1 den. **Riziko:** nízké.
 
+> **Hotovo: hustotní mapa. Atlas ne.**
+>
+> Agregátní pohled se kreslil **buňku po buňce** a k tomu si každý snímek
+> znovu stavěl slovník přes všechny budovy — tisíce draw callů za obrázek,
+> který se nemění, dokud někdo něco nepostaví. Teď se zastavěnost peče do
+> textur po kusech (64×64 buněk, jeden texel = jedna buňka) a překresluje se
+> **líně**.
+>
+> Co je „líně": ptá se `Simulation.BuildingRevision`, což je počítadlo, které
+> se zvedne s každou přidanou i odebranou budovou. Podle **počtu** budov to
+> poznat nejde — zbourat jednu a postavit jinou nechá počet stejný a mapa by
+> ukazovala město, které už nestojí. Do savu nejde, je to čistě pomůcka pro
+> render.
+>
+> Textury jsou dvě na kus, denní a noční. Jedna by nestačila: v noci má jas
+> růst **jen** s hustotou (pevná složka slije okraj města do ostrého
+> obdélníku), zatímco ve dne musí být vidět i buňka s jedním domem.
+>
+> Pečení jde přes index zástavby z bodu 1.1 — bez něj by každý kus mapy stál
+> průchod všemi budovami a peklo by se to hůř, než se dřív kreslilo. Kusy se
+> vyhazují, když se jich nakupí přes strop a nikdo se na ně nedívá; nekonečná
+> mapa jinak znamená nekonečně textur.
+>
+> **Atlas ne.** Plán ho sám řadí až za hustotní mapu s tím, že přínos bude
+> menší — a měření z bodu 1.4 mezitím ukázalo, že tik ani snímek nestojí na
+> přepínání textur. Dělat mechanickou práci bez čísla, které by ji zdůvodnilo,
+> je přesně to, co si tenhle dokument u bodu 1.4 zakázal.
+
 ### 1.4 Zero-allocation
 
 **Postup:** neřeš to plošně, měř.
@@ -281,6 +309,31 @@ Nejlevnější z trojice, protože přebíjení pravidel už existuje: `content.
 *Zvláštnosti podle scénáře:* „mráz" a „voda jen do 10 polí od zdroje" jsou pravidla navíc → behavior-ID hook, ne `if` ve scénáři.
 
 **Odhad:** 2 dny rámec + 1 den na scénář. **Riziko:** nízké.
+
+> **Hotovo.** Tři scénáře v `data/scenarios.json`: první tisícovka, tvrdá
+> zima, vlastníma rukama. Každý má pevný seed — scénář musí být pro všechny
+> tentýž svět, jinak se výsledky nedají srovnat a „těžké zadání" znamená
+> u každého něco jiného.
+>
+> Cíl i prohra jdou přes `GoalCondition`, tedy přes tentýž systém jako úkoly
+> a achievementy. Prohra má ale <b>vlastní parser</b>: čte se obráceně
+> („metrika ≤ práh") a smí mít práh nula, protože „lidí klesne na nulu" je ta
+> nejběžnější prohra a běžná kontrola cílů ji odmítá.
+>
+> **Výhra má přednost před prohrou.** Když v tomtéž tiku vyprší čas a zároveň
+> padne cíl, hráč vyhrál. Dohnat zadání na poslední chvíli je ta nejlepší část
+> scénáře a nemá ji sebrat pořadí `if`ů — test to hlídá jmenovitě.
+>
+> Přebití čísel je záměrně **malá vyjmenovaná sada** (startovní populace,
+> kapacita tábora, růst, spotřeba jídla) a jde přes `WithGameplay`, tedy tutéž
+> cestu, kterou už používají nástroje na balanc. „Scénář smí přepsat cokoli"
+> zní lákavě a znamená to, že se každá změna v `gameplay.json` musí ověřit
+> proti každému scénáři.
+>
+> Zvláštní pravidla jsou behavior-ID (`noAutoBuild`, `noAscension`), ne `if`
+> ve scénáři. Do savu jde scénář **jménem, ne indexem** — pořadí v datech se
+> mezi verzemi změní — a s ním i výsledek: bez něj by se prohra dala odklikat
+> prostým načtením hry.
 
 ### 5.2 Frontier Defense — jako režim, ne jako jiná hra
 
@@ -670,9 +723,9 @@ Poslední z jediného důvodu: je to jediná položka, která přidává novou e
 
 ### Velké věci — až bude prostor
 
-Hotovo: ~~sdílení šablon (7.3)~~, ~~osobnosti (6.1)~~, ~~kronika (6.3)~~, ~~zvonohra a vizuál slavnosti (6.7)~~.
+Hotovo: ~~sdílení šablon (7.3)~~, ~~osobnosti (6.1)~~, ~~kronika (6.3)~~, ~~zvonohra a vizuál slavnosti (6.7)~~, ~~hustotní mapa (1.3)~~, ~~scénáře (5.1)~~.
 
-Zbývá: anomálie a expedice (2.1b), doktríny (2.4), scénáře (5.1), plavení dřeva (6.2), hustotní mapa (1.3), plán guvernéra na sídlo (4.4).
+Zbývá: anomálie a expedice (2.1b), doktríny (2.4), plavení dřeva (6.2), plán guvernéra na sídlo (4.4).
 
 ### Nedělat teď
 

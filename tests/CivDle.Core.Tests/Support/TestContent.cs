@@ -64,7 +64,8 @@ internal static class TestContent
         IReadOnlyList<PrestigeUpgradeDef>? legacyUpgrades = null,
         OrbitCatalog? orbit = null,
         FigureCatalog? figures = null,
-        CarillonConfig? carillon = null)
+        CarillonConfig? carillon = null,
+        ScenarioCatalog? scenarios = null)
     {
         biomes ??= new[] { WaterBiome(), LandBiome("grass") };
         resources ??= new[] { new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 10, BaseStorage: 1000) };
@@ -140,7 +141,8 @@ internal static class TestContent
             orbit: orbit, // null = orbita v testech vypnutá
             figures: figures, // null = osobnosti v testech vypnuté
             chronicle: null, // kronika v testech vypnutá
-            carillon: carillon); // null = zvonohra v testech vypnutá
+            carillon: carillon, // null = zvonohra v testech vypnutá
+            scenarios: scenarios); // null = scénáře v testech vypnuté
     }
 
     /// <summary>Výchozí prestige config testů (Vzestup od 50 obyvatel, body = populace ÷ 15).</summary>

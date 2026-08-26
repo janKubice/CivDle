@@ -430,7 +430,7 @@ public sealed class GameplayScreen : IScreen
         _popupFont = Stylesheet.Current.LabelStyle.Font;
         _might = new MightBanner(screens.WhitePixel, _popupFont, screens.Loc);
         _toasts = new ToastRenderer(screens.WhitePixel, _popupFont);
-        _cityScale = new CityScaleRenderer(screens.WhitePixel, _popupFont);
+        _cityScale = new CityScaleRenderer(screens.WhitePixel, _popupFont, screens.GraphicsDevice);
         _districtRenderer = new DistrictRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont);
         _npcCityRenderer = new NpcCityRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont);
         _carillon = new Audio.CarillonPlayer(screens.Sounds, screens.Content.Carillon.NoteSeconds);
@@ -1279,6 +1279,7 @@ public sealed class GameplayScreen : IScreen
         _screens.Loc.LanguageChanged -= BuildUi;
         _screens.UiSettingsChanged -= BuildUi;
         _terrainRenderer.Dispose();
+        _cityScale.Dispose(); // upečené textury hustoty
         _minimap.Dispose();
         _vignette.Dispose();
         _ambient.Dispose();
