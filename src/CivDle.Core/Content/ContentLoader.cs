@@ -3223,6 +3223,7 @@ public sealed class ContentLoader
         // takže starý gameplay.json (i z modu) načte beze změny.
         var golden = ReadGolden(file.Golden, path);
         var subsea = ReadSubsea(file.Subsea, path);
+        var power = ReadPower(file.Power, path);
 
         return new GameplayConfig(
             file.StartingPopulation,
@@ -3257,7 +3258,29 @@ public sealed class ContentLoader
             ParseResearch(path, file.Research),
             demo,
             golden,
-            subsea);
+            subsea,
+            power);
+    }
+
+    /// <summary>
+    /// Rozvod proudu. Chybí-li blok, platí jedno globální číslo jako dřív —
+    /// starší data i mody tím dostanou přesně tu hru, jakou měly.
+    /// </summary>
+    private static PowerConfig ReadPower(PowerDto? dto, string path)
+    {
+        if (dto is null)
+        {
+            return PowerConfig.Global;
+        }
+
+        // Strop proti překlepu: dosah ve stovkách buněk je záplava přes půl
+        // světa při každé postavené elektrárně.
+        if (dto.Range is < 0 or > 64)
+        {
+            throw new ContentLoadException(path, $"'power.range' musí být 0–64, je {dto.Range}.");
+        }
+
+        return new PowerConfig(dto.Range);
     }
 
     /// <summary>

@@ -123,6 +123,20 @@ Tři věci předem:
 *Testy:* budova v dosahu má 1.0, mimo 0.0; při nedostatku výkonu klesnou všechny poměrně (ne že první tři dostanou a zbytek nic).
 **2,5 dne.** Riziko: střední — mění se křivka ekonomiky, chce projet `--perf` i balanční nástroj.
 
+> **Hotovo.** `PowerGridSystem` na mřížce 8×8, přepočet líný (až se zeptá
+> výroba poté, co se změnila zástavba). Elektrárna se rozlévá záplavou do
+> dosahu z dat a **rozděluje výkon poměrně podle poptávky** — díky tomu je
+> výsledek nezávislý na pořadí elektráren a při nedostatku klesnou všichni
+> stejně, místo aby dvě továrny jely naplno a třetí o dlaždici dál vůbec.
+>
+> Bez bloku `power` v datech zůstane staré globální číslo, takže mody
+> a starší obsah dostanou přesně tu hru, jakou měly.
+>
+> Přibyl **pohled na pokrytí** (klávesa **E**, sám se rozsvítí, když má hráč
+> v ruce elektrárnu nebo budovu na proud). Bez něj je dosah pravidlo, které
+> se nedá odhadnout — továrna by jen tiše jela na třetinu a hráč by hledal
+> důvod v surovinách.
+
 **Hlubší řetězce** (mouka→chléb, chmel→pivo, ruda→ocel→stroje) jsou **čistě data**: `resources.json` + `buildings.json` + lokalizace do pěti jazyků + ikony. Kód nula.
 **1 den na řetězec**, dominantní náklad jsou ikony a překlady.
 
@@ -465,7 +479,7 @@ Setřídil jsem to podle toho, **co udělá z hráče dema kupce**, ne podle vel
 |---|---|---|
 | 8 | ~~Měření alokací + opravy podle čísel (1.4)~~ **hotovo** | 2 |
 | 9 | ~~Index budov pro render (1.1)~~ **hotovo** | 1,5 |
-| 10 | Prostorová energetika (2.2a) | 2,5 |
+| 10 | ~~Prostorová energetika (2.2a)~~ **hotovo** | 2,5 |
 | 11 | Mikro-animace obyvatel (3.1) | 2,5 |
 | 12 | Fázové megastruktury (2.3) | 1 |
 

@@ -1870,6 +1870,7 @@
     "tip.build.needsPower": "Braucht {0} Strom",
     "tip.build.needsWater": "Muss ans Wasser gebaut werden",
     "tip.build.power": "Liefert {0} Strom",
+    "tip.build.powerRange": "Strom hat Reichweite — ein Kraftwerk muss ihn liefern (E zeigt die Abdeckung).",
     "tip.build.produces": "Produziert: {0} ({1}/s)",
     "tip.build.services": "Versorgt {0} Bewohner",
     "tip.build.storage": "Erhöht das Lager: {0}",

@@ -1870,6 +1870,7 @@
     "tip.build.needsPower": "Needs {0} power",
     "tip.build.needsWater": "Must be built next to water",
     "tip.build.power": "Supplies {0} power",
+    "tip.build.powerRange": "Power has a range — it must reach from a plant (E shows coverage).",
     "tip.build.produces": "Produces: {0} ({1}/s)",
     "tip.build.services": "Serves {0} residents",
     "tip.build.storage": "Raises storage: {0}",

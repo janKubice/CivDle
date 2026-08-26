@@ -484,7 +484,8 @@ public sealed record GameplayConfig(
     ResearchConfig? ResearchOrNull = null,
     DemoConfig? DemoOrNull = null,
     GoldenConfig? GoldenOrNull = null,
-    SubseaConfig? SubseaOrNull = null)
+    SubseaConfig? SubseaOrNull = null,
+    PowerConfig? PowerOrNull = null)
 {
     /// <summary>Meze demoverze; chybí-li v datech, platí výchozí.</summary>
     public DemoConfig Demo => DemoOrNull ?? DemoConfig.Default;
@@ -494,6 +495,9 @@ public sealed record GameplayConfig(
 
     /// <summary>Podmořská síť; bez bloku v datech je vrstva vypnutá.</summary>
     public SubseaConfig Subsea => SubseaOrNull ?? SubseaConfig.Disabled;
+
+    /// <summary>Rozvod proudu; bez bloku v datech platí jedno globální číslo jako dřív.</summary>
+    public PowerConfig Power => PowerOrNull ?? PowerConfig.Global;
 
     /// <summary>Nastavení časosběru; chybí-li v datech, se nic nezaznamenává.</summary>
     public HistoryConfig History => HistoryOrNull ?? HistoryConfig.Disabled;
@@ -603,6 +607,27 @@ public sealed record GoldenConfig(
 
     /// <summary>Je vůbec co losovat?</summary>
     public bool IsEnabled => Kinds.Count > 0;
+}
+
+/// <summary>
+/// Rozvod proudu.
+///
+/// <para>Dokud tenhle blok v datech nebyl, byla energie <b>jedno globální
+/// číslo</b>: součet výroby děleno součet spotřeby, stejný pro celou říši.
+/// Elektrárna postavená kdekoli zásobovala všechno, takže „kam s ní" nebyla
+/// otázka. S dosahem se z ní stává rozhodnutí o místě.</para>
+///
+/// <para>Bez bloku v datech zůstane globální chování — starší data i mody
+/// dostanou přesně tu hru, jakou měly.</para>
+/// </summary>
+/// <param name="Range">Kolik buněk 8×8 od elektrárny proud dosáhne. 0 = globální rozvod jako dřív.</param>
+public sealed record PowerConfig(int Range)
+{
+    /// <summary>Jedno číslo pro celou říši (chování před prostorovým rozvodem).</summary>
+    public static PowerConfig Global { get; } = new(0);
+
+    /// <summary>Má proud dosah, nebo teče všude?</summary>
+    public bool IsEnabled => Range > 0;
 }
 
 /// <summary>

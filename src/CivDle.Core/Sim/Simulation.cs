@@ -70,6 +70,14 @@ public sealed class Simulation
     /// změně zástavby; render z něj jen čte (viz <see cref="BuildingsIn"/>).
     /// </summary>
     private readonly BuildingIndex _buildingIndex = new();
+
+    /// <summary>
+    /// Rozvod proudu po hrubé mřížce. Přepočítává se líně — až když se zeptá
+    /// výroba poté, co se změnila zástavba.
+    /// </summary>
+    private readonly PowerGridSystem _powerGrid = new();
+
+    private bool _powerDirty = true;
     private readonly FrontierSystem _frontier;
     private readonly LegacySystem _legacy; // druhá prestižní vrstva (Odkaz)
     private readonly AutoResearchSystem _autoResearch = new(); // odemyká se až v Odkazu
@@ -2456,6 +2464,45 @@ public sealed class Simulation
     /// <summary>Pokrytí elektrické sítě (0–1): škáluje výrobu budov závislých na proudu.</summary>
     public double PowerFactor => TotalPowerDemand == 0 ? 1.0 : Math.Min(1.0, (double)TotalPowerSupply / TotalPowerDemand);
 
+    /// <summary>
+    /// Jak dobře je místo zásobené proudem: 1 = plný výkon, 0 = tma.
+    ///
+    /// <para>Bez bloku <c>power</c> v datech vrací globální
+    /// <see cref="PowerFactor"/> — starší obsah i mody se chovají jako dřív.</para>
+    ///
+    /// <para>Mřížka se přepočítává líně: až když se někdo zeptá poté, co se
+    /// změnila zástavba. Výroba se ptá jednou za tik na budovu, takže se
+    /// přepočet ve skutečnosti stane jednou za změnu, ne pořád.</para>
+    /// </summary>
+    public double PowerAt(int x, int y)
+    {
+        if (!_content.Gameplay.Power.IsEnabled)
+        {
+            return PowerFactor;
+        }
+
+        RefreshPowerIfNeeded();
+        return _powerGrid.CoverageAt(x, y);
+    }
+
+    /// <summary>Kolik výkonu do místa doteče (pro UI a testy).</summary>
+    public double PowerSupplyAt(int x, int y)
+    {
+        RefreshPowerIfNeeded();
+        return _powerGrid.SupplyAt(x, y);
+    }
+
+    private void RefreshPowerIfNeeded()
+    {
+        if (!_powerDirty)
+        {
+            return;
+        }
+
+        _powerDirty = false;
+        _powerGrid.Rebuild(BuildingsMutable, _content);
+    }
+
     /// <summary>Postavené budovy (jen ke čtení; render z nich kreslí).</summary>
     public ReadOnlySpan<BuildingInstance> Buildings => _buildings.AsSpan(0, _buildingCount);
 
@@ -2925,6 +2972,14 @@ public sealed class Simulation
     internal void CompleteConstruction(int buildingIndex, BuildingDef def)
     {
         BuildingsUnderConstruction = Math.Max(0, BuildingsUnderConstruction - 1);
+
+        // Rozestavěná elektrárna nedodává; dostavěná ano. Bez tohohle by se
+        // proud objevil až při příští změně zástavby, tedy nikdy.
+        if (def.PowerSupply > 0 || def.PowerDemand > 0)
+        {
+            _powerDirty = true;
+        }
+
         ApplyBuildingBonuses(def);
         WondersCompleted++;
         SettlementsDirty = true;
@@ -5972,6 +6027,11 @@ public sealed class Simulation
         _buildingIndex.Remove(buildingIndex, building.X, building.Y, def.FootprintWidth, def.FootprintHeight);
         _buildingIndex.Add(buildingIndex, x, y, def.FootprintWidth, def.FootprintHeight);
 
+        if (def.PowerSupply > 0 || def.PowerDemand > 0)
+        {
+            _powerDirty = true; // přesunutá elektrárna svítí jinam
+        }
+
         building.X = x;
         building.Y = y;
         // Přesun mění biom pod budovou i její okolí → cachované násobiče jdou s ní.
@@ -6421,6 +6481,11 @@ public sealed class Simulation
         _buildingIndex.Add(_buildingCount, x, y, def.FootprintWidth, def.FootprintHeight);
         _buildingCount++;
 
+        if (def.PowerSupply > 0 || def.PowerDemand > 0)
+        {
+            _powerDirty = true;
+        }
+
         // Přístav otevírá moře kolem sebe, podmořská budova síť prodlužuje.
         // Tudy prochází i obnova ze savu, takže se síť po načtení spočítá sama.
         if (def.IsSubseaAnchor || def.IsSubsea)
@@ -6476,6 +6541,11 @@ public sealed class Simulation
             _buildings[buildingIndex].Y,
             def.FootprintWidth,
             def.FootprintHeight);
+
+        if (def.PowerSupply > 0 || def.PowerDemand > 0)
+        {
+            _powerDirty = true;
+        }
 
         // Tudy prochází KAŽDÉ odebrání budovy — zboření i sloučení čtyř domů
         // v jeden. Kdyby si značku nastavovalo každé zvlášť, jedna cesta by
@@ -7400,6 +7470,8 @@ public sealed class Simulation
         _orbit.Reset();     // družice patří ke světu, který právě skončil — kosmodrom taky
         _frontier.Reset();  // a útočníci taky: nový svět, nová fronta
         _buildingIndex.Clear();
+        _powerGrid.Clear();
+        _powerDirty = true;
         _subseaDirty = true; // bez přístavů nezůstane otevřená ani dlaždice moře
         _buildingCount = 0;
 

@@ -213,7 +213,8 @@ public sealed record GameplayFileDto(
     ResearchDto? Research,
     DemoDto? Demo,
     GoldenDto? Golden,
-    SubseaDto? Subsea);
+    SubseaDto? Subsea,
+    PowerDto? Power);
 
 /// <summary>Škálování cen výzkumu tak, jak leží v JSON.</summary>
 public sealed record ResearchDto(
@@ -698,6 +699,9 @@ public sealed record SatelliteDto(
     int MaxCount,
     double Altitude,
     double Speed);
+
+/// <summary>Rozvod proudu tak, jak leží v JSON.</summary>
+public sealed record PowerDto(int Range);
 
 /// <summary>Podmořská vrstva tak, jak leží v JSON.</summary>
 public sealed record SubseaDto(int Range);

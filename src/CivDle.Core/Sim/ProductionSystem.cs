@@ -53,6 +53,9 @@ internal sealed class ProductionSystem
 
         var resources = sim.Resources;
         var storageCaps = sim.StorageCaps;
+        // Prostorový rozvod: proud se ptá u budovy, ne u říše. Globální číslo
+        // se použije jen tehdy, když obsah dosah nedefinuje.
+        bool spatialPower = _content.Gameplay.Power.IsEnabled;
         float powerFactor = (float)sim.PowerFactor;
 
         // Počasí i bonusy jsou pro celý tik konstantní — spočítej jednou, ne u každé
@@ -105,7 +108,11 @@ internal sealed class ProductionSystem
 
             // Budovy závislé na proudu zpomalí při nedostatečném pokrytí sítě
             // (spotřebují vstupy pomaleji — žádný tvrdý trest, jen míň výkonu).
-            float pace = def.NeedsPower ? staffing * powerFactor : staffing;
+            float pace = staffing;
+            if (def.NeedsPower)
+            {
+                pace *= spatialPower ? (float)sim.PowerAt(building.X, building.Y) : powerFactor;
+            }
 
             // Bez napojení na silnici se zboží odváží hůř. Silnice tím přestávají
             // být dekorací a auto-stavba sítě dostává smysl.

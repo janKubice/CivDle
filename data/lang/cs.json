@@ -1870,6 +1870,7 @@
     "tip.build.needsPower": "Potřebuje {0} elektřiny",
     "tip.build.needsWater": "Musí stát u vody",
     "tip.build.power": "Dodává {0} elektřiny",
+    "tip.build.powerRange": "Proud má dosah — musí být v dosahu elektrárny (E ukáže pokrytí).",
     "tip.build.produces": "Vyrábí: {0} ({1}× za s)",
     "tip.build.services": "Obslouží {0} obyvatel",
     "tip.build.storage": "Zvýší sklad: {0}",

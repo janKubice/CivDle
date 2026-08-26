@@ -69,6 +69,13 @@ internal static class BuildingSummary
         if (def.NeedsPower)
         {
             text.Append('\n').Append(loc.Format("tip.build.needsPower", def.PowerDemand));
+
+            // Že proud má dosah, se z čísla spotřeby nepozná — a je to první
+            // věc, o kterou se hráč zarazí, když mu továrna jede na třetinu.
+            if (content.Gameplay.Power.IsEnabled)
+            {
+                text.Append('\n').Append(loc["tip.build.powerRange"]);
+            }
         }
 
         if (def.NeedsWaterAccess)

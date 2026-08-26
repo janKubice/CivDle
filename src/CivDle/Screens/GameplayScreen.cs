@@ -48,6 +48,13 @@ public sealed class GameplayScreen : IScreen
     private readonly RoadRenderer _roadRenderer;
     private readonly ZoneRenderer _zoneRenderer;
     private readonly SubseaRenderer _subseaRenderer;
+    private readonly PowerOverlayRenderer _powerRenderer;
+
+    /// <summary>Jak moc je vidět pokrytí proudem (0–1). Rozsvěcí se plynule.</summary>
+    private float _powerFade;
+
+    /// <summary>Drží hráč pohled na rozvod proudu zapnutý ručně?</summary>
+    private bool _showPower;
     private readonly FrontierRenderer _frontierRenderer;
 
     /// <summary>
@@ -376,6 +383,7 @@ public sealed class GameplayScreen : IScreen
         _roadRenderer = new RoadRenderer(screens.WhitePixel, screens.Content);
         _zoneRenderer = new ZoneRenderer(screens.WhitePixel, screens.Content);
         _subseaRenderer = new SubseaRenderer(screens.WhitePixel);
+        _powerRenderer = new PowerOverlayRenderer(screens.WhitePixel);
         _frontierRenderer = new FrontierRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
         _pollutionRenderer = new PollutionRenderer(screens.WhitePixel, screens.Content);
         _stallOverlay = new StallOverlayRenderer(screens.WhitePixel, screens.Content);
@@ -544,6 +552,14 @@ public sealed class GameplayScreen : IScreen
             _bottleneckLegend.Visible = _showBottlenecks;
         }
 
+        // E: pokrytí proudem. Sám se ukáže, když má hráč v ruce elektrárnu
+        // nebo budovu, která proud potřebuje — tehdy je to jediná informace,
+        // podle které se rozhoduje kam.
+        if (_input.WasPressed(Keys.E) && _screens.Content.Gameplay.Power.IsEnabled)
+        {
+            _showPower = !_showPower;
+        }
+
         // M: dosah podmořské sítě. Sám se ukáže, když má hráč v ruce budovu na
         // dno — tohle je pro chvíli, kdy se teprve rozmýšlí, kam s přístavem.
         if (_input.WasPressed(Keys.M) && _simulation.Subsea.IsEnabled)
@@ -639,6 +655,7 @@ public sealed class GameplayScreen : IScreen
         }
 
         UpdateSubseaOverlay(dt);
+        UpdatePowerOverlay(dt);
         CollectCapturedTemplate();
         _urbanGround.Update(worldDt, _simulation);
         _buildingRenderer.Update(worldDt); // balony nad kotvišti se houpou
@@ -667,6 +684,8 @@ public sealed class GameplayScreen : IScreen
         // Dosah podmořské sítě patří nad vodu, ale pod všechno ostatní —
         // je to informace o ploše, ne o tom, co na ní stojí.
         _subseaRenderer.Draw(spriteBatch, _camera, _simulation, _subseaFade);
+        // Rozvod proudu taky na zem, pod budovy — je to informace o ploše.
+        _powerRenderer.Draw(spriteBatch, _camera, _simulation, _powerFade);
         _districtRenderer.Draw(spriteBatch, _camera, _simulation); // tvář čtvrtí, taky na zemi
         // Landmarky jen zblízka (LOD): z výšky jsou stejně pod rozlišením a dotaz
         // na desítky tisíc dlaždic by zbytečně žral snímky.
@@ -1266,6 +1285,26 @@ public sealed class GameplayScreen : IScreen
         float target = wanted ? 1f : 0f;
         _subseaFade = MathHelper.Clamp(
             _subseaFade + Math.Sign(target - _subseaFade) * FadeSpeed * dt, 0f, 1f);
+    }
+
+    /// <summary>
+    /// Rozsvítí a zhasne pohled na rozvod proudu. Stejně jako u podmoří:
+    /// sám při budově, které se to týká, klávesou natrvalo.
+    /// </summary>
+    private void UpdatePowerOverlay(float dt)
+    {
+        const float FadeSpeed = 5f;
+
+        bool wanted = _showPower;
+        if (!wanted && _tools.SelectedBuilding >= 0)
+        {
+            var def = _screens.Content.Buildings[_tools.SelectedBuilding];
+            wanted = def.PowerSupply > 0 || def.PowerDemand > 0;
+        }
+
+        float target = wanted && _screens.Content.Gameplay.Power.IsEnabled ? 1f : 0f;
+        _powerFade = MathHelper.Clamp(
+            _powerFade + Math.Sign(target - _powerFade) * FadeSpeed * dt, 0f, 1f);
     }
 
     private void UpdateCamera(float dt, bool mouseOverUi)

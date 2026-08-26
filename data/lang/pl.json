@@ -1870,6 +1870,7 @@
     "tip.build.needsPower": "Potrzebuje {0} prądu",
     "tip.build.needsWater": "Musi stać przy wodzie",
     "tip.build.power": "Daje {0} prądu",
+    "tip.build.powerRange": "Prąd ma zasięg — musi dosięgnąć z elektrowni (E pokazuje pokrycie).",
     "tip.build.produces": "Produkuje: {0} ({1}/s)",
     "tip.build.services": "Obsługuje {0} mieszkańców",
     "tip.build.storage": "Zwiększa magazyn: {0}",

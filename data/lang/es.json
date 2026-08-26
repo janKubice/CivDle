@@ -1870,6 +1870,7 @@
     "tip.build.needsPower": "Necesita {0} de energía",
     "tip.build.needsWater": "Debe construirse junto al agua",
     "tip.build.power": "Suministra {0} de energía",
+    "tip.build.powerRange": "La corriente tiene alcance: debe llegar desde una central (E muestra la cobertura).",
     "tip.build.produces": "Produce: {0} ({1}/s)",
     "tip.build.services": "Atiende a {0} habitantes",
     "tip.build.storage": "Aumenta el almacén: {0}",

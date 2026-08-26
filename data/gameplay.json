@@ -191,5 +191,8 @@
   },
   "subsea": {
     "range": 16
+  },
+  "power": {
+    "range": 6
   }
 }
