@@ -486,6 +486,48 @@
       "paving": 0.1
     },
     {
+      "id": "grain_field",
+      "category": "production",
+      "mapColor": "#C8A54D",
+      "footprint": [
+        2,
+        2
+      ],
+      "workerSlots": 2,
+      "buildCost": {
+        "wood": 16,
+        "planks": 6
+      },
+      "recipe": {
+        "output": {
+          "grain": 4
+        },
+        "timeTicks": 55
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna"
+      ],
+      "adjacency": {
+        "biomes": [
+          "grassland",
+          "steppe",
+          "savanna"
+        ],
+        "radius": 2,
+        "perTile": 0.02,
+        "max": 0.3
+      },
+      "autoBuild": true,
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "paving": 0.1
+    },
+    {
       "id": "plantation",
       "category": "production",
       "mapColor": "#C79A34",
@@ -555,6 +597,9 @@
         "planks": 100,
         "stone": 120,
         "food": 120,
+        "grain": 140,
+        "flour": 100,
+        "bread": 90,
         "tools": 60,
         "copper_ore": 80,
         "bronze": 60,
@@ -621,6 +666,95 @@
         "loop": "mill",
         "radiusTiles": 13,
         "volume": 0.4
+      }
+    },
+    {
+      "id": "grist_mill",
+      "category": "production",
+      "mapColor": "#CBB98E",
+      "footprint": [
+        1,
+        1
+      ],
+      "workerSlots": 2,
+      "buildCost": {
+        "wood": 20,
+        "stone": 14
+      },
+      "recipe": {
+        "input": {
+          "grain": 3
+        },
+        "output": {
+          "flour": 2
+        },
+        "timeTicks": 45
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "forest",
+        "highlands"
+      ],
+      "autoBuild": true,
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "sound": {
+        "loop": "mill",
+        "radiusTiles": 11,
+        "volume": 0.35
+      }
+    },
+    {
+      "id": "bakery",
+      "category": "production",
+      "mapColor": "#C98A4B",
+      "footprint": [
+        1,
+        1
+      ],
+      "workerSlots": 3,
+      "buildCost": {
+        "planks": 24,
+        "stone": 20
+      },
+      "recipe": {
+        "input": {
+          "flour": 2,
+          "wood": 1
+        },
+        "output": {
+          "bread": 3
+        },
+        "timeTicks": 50
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "highlands"
+      ],
+      "serviceValue": 5,
+      "autoBuild": true,
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "sound": {
+        "loop": "forge",
+        "radiusTiles": 9,
+        "volume": 0.28
       }
     },
     {

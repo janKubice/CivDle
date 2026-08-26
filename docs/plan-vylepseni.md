@@ -206,6 +206,17 @@ Tři věci předem:
 **Hlubší řetězce** (mouka→chléb, chmel→pivo, ruda→ocel→stroje) jsou **čistě data**: `resources.json` + `buildings.json` + lokalizace do pěti jazyků + ikony. Kód nula.
 **1 den na řetězec**, dominantní náklad jsou ikony a překlady.
 
+> **Hotovo: obilí → mouka → chléb.** Přesně jak plán psal, kód nula — tři
+> suroviny, tři budovy (obilné pole, mlýn, pekárna), tři ikony a tři modely,
+> odemčení navěšené na technologie, které už ve stromu byly (`milling`,
+> `seed_selection`, `crop_rotation`).
+>
+> Cestou to chytil existující test: sklad musí zvedat kapacitu **každé**
+> suroviny, a nová surovina bez skladu je chyba dat. Přesně proto ten test je.
+>
+> Zbylé dva řetězce z plánu (chmel→pivo, ruda→ocel→stroje) jsou stejná práce
+> se stejným postupem; ruda→ocel→stroje navíc už z velké části ve hře je.
+
 **Železnice** je samostatná dopravní vrstva — vlastní graf, vlastní entity, vlastní vykreslování. **5+ dní**, nepatří do stejné položky jako pekárna. Odlož.
 
 ### 2.3 Fázové megastruktury

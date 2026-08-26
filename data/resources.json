@@ -26,6 +26,24 @@
       "baseStorage": 150
     },
     {
+      "id": "grain",
+      "mapColor": "#D8B45C",
+      "startAmount": 0,
+      "baseStorage": 400
+    },
+    {
+      "id": "flour",
+      "mapColor": "#E8DFC8",
+      "startAmount": 0,
+      "baseStorage": 300
+    },
+    {
+      "id": "bread",
+      "mapColor": "#B9793C",
+      "startAmount": 0,
+      "baseStorage": 250
+    },
+    {
       "id": "tools",
       "mapColor": "#B0BEC5",
       "startAmount": 0,

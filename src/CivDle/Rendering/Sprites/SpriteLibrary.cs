@@ -58,6 +58,9 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "icon.planks", IconSize, PlanksIcon);
         Add(device, "icon.stone", IconSize, StoneIcon);
         Add(device, "icon.food", IconSize, FoodIcon);
+        Add(device, "icon.grain", IconSize, GrainIcon);
+        Add(device, "icon.flour", IconSize, FlourIcon);
+        Add(device, "icon.bread", IconSize, BreadIcon);
         Add(device, "icon.tools", IconSize, ToolsIcon);
         Add(device, "icon.copper_ore", IconSize, canvas => OreIcon(canvas, new Color(196, 120, 66)));
         Add(device, "icon.iron_ore", IconSize, canvas => OreIcon(canvas, new Color(150, 140, 132)));
@@ -271,6 +274,9 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.statue_agronomist", SpriteSize, StatueAgronomist);
         Add(device, "building.statue_navigator", SpriteSize, StatueNavigator);
         Add(device, "building.carillon", SpriteSize, CarillonTower);
+        Add(device, "building.grain_field", SpriteSize, GrainField);
+        Add(device, "building.grist_mill", SpriteSize, GristMill);
+        Add(device, "building.bakery", SpriteSize, Bakery);
         Add(device, "building.log_flume", SpriteSize, LogFlume);
         Add(device, "building.log_boom", SpriteSize, LogBoom);
         Add(device, "fx.log", SpriteSize, FxLog);
@@ -1539,6 +1545,69 @@ public sealed class SpriteLibrary : IDisposable
         MemorialBase(c, new Color(132, 146, 156), new Color(168, 192, 206));
         c.FillRect(20, 8, 1, 14, new Color(120, 104, 84));   // stěžeň v ruce
         c.FillTriangle(21f, 8f, 21f, 17f, 27f, 13f, new Color(230, 232, 226)); // plachta
+    }
+
+    /// <summary>Ikona obilí: tři klasy.</summary>
+    private static void GrainIcon(PixelCanvas c)
+    {
+        var straw = new Color(214, 178, 92);
+        var ear = new Color(238, 206, 124);
+        for (int i = 0; i < 3; i++)
+        {
+            int x = 5 + (i * 7);
+            c.FillRect(x, 10, 2, 12, straw);
+            c.FillCircle(x + 1f, 7f, 2.4f, ear);
+        }
+    }
+
+    /// <summary>Ikona mouky: pytel s převázaným hrdlem.</summary>
+    private static void FlourIcon(PixelCanvas c)
+    {
+        var sack = new Color(230, 222, 200);
+        c.FillRect(6, 9, 12, 13, sack);
+        c.FillRect(8, 5, 8, 4, new Color(206, 196, 172));   // hrdlo
+        c.FillRect(7, 8, 10, 2, new Color(168, 150, 112));  // provázek
+    }
+
+    /// <summary>Ikona chleba: bochník se zářezy.</summary>
+    private static void BreadIcon(PixelCanvas c)
+    {
+        var crust = new Color(186, 122, 62);
+        c.FillCircle(12f, 14f, 8f, crust);
+        c.FillRect(4, 15, 16, 7, crust);
+        c.FillRect(7, 9, 10, 1, new Color(232, 190, 138)); // zářezy
+        c.FillRect(6, 12, 12, 1, new Color(232, 190, 138));
+    }
+
+    /// <summary>Obilné pole: řádky klasů v pruzích.</summary>
+    private static void GrainField(PixelCanvas c)
+    {
+        c.FillRect(0, 0, 32, 32, new Color(176, 146, 76));
+        for (int y = 3; y < 30; y += 6)
+        {
+            c.FillRect(2, y, 28, 3, new Color(214, 182, 100));
+            c.FillRect(2, y + 3, 28, 1, new Color(148, 122, 62));
+        }
+    }
+
+    /// <summary>Mlýn na mouku: nízká budova s vodním kolem.</summary>
+    private static void GristMill(PixelCanvas c)
+    {
+        c.FillRect(8, 12, 18, 18, new Color(186, 168, 130));
+        c.FillTriangle(6f, 12f, 28f, 12f, 17f, 4f, new Color(128, 92, 66)); // střecha
+        c.FillCircle(6f, 22f, 5.5f, new Color(140, 110, 70));               // kolo
+        c.FillCircle(6f, 22f, 2.2f, new Color(196, 168, 118));
+        c.FillRect(1, 21, 10, 2, new Color(110, 88, 58));                   // loukoť
+    }
+
+    /// <summary>Pekárna: dům s klenutou pecí a komínem.</summary>
+    private static void Bakery(PixelCanvas c)
+    {
+        c.FillRect(5, 12, 22, 18, new Color(206, 178, 138));
+        c.FillTriangle(3f, 12f, 29f, 12f, 16f, 3f, new Color(158, 96, 62)); // střecha
+        c.FillRect(20, 2, 4, 8, new Color(132, 110, 92));                   // komín
+        c.FillCircle(13f, 24f, 5f, new Color(96, 70, 52));                  // ústí pece
+        c.FillCircle(13f, 25f, 3f, new Color(240, 168, 84));                // oheň
     }
 
     /// <summary>Splav: nakloněný žlab, ze kterého kláda sjede do vody.</summary>
