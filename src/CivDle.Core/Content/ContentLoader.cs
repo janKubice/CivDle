@@ -97,7 +97,9 @@ public sealed class ContentLoader
         var carillon = LoadCarillon(Path.Combine(dataDirectory, "carillon.json"), buildings);
         var scenarios = LoadScenarios(
             Path.Combine(dataDirectory, "scenarios.json"), resources, buildings, techs, worldGen);
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit, figures, chronicle, scenarios);
+        var poi = LoadPointsOfInterest(Path.Combine(dataDirectory, "poi.json"), resources, biomes);
+        var doctrines = LoadDoctrines(Path.Combine(dataDirectory, "doctrines.json"));
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit, figures, chronicle, scenarios, poi, doctrines);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
@@ -111,7 +113,7 @@ public sealed class ContentLoader
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
             worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, faith, npcCities, vehicles, mods,
             grandWork, legacy, legacyUpgrades, aircraft, orbit, frontier, figures, chronicle, carillon,
-            scenarios);
+            scenarios, poi, doctrines);
     }
 
     // ----- cizí města -----
@@ -284,6 +286,265 @@ public sealed class ContentLoader
         }
 
         return new FigureCatalog(figures);
+    }
+
+    /// <summary>
+    /// Načte doktríny. Chybějící soubor není chyba — bez nich se hra chová
+    /// přesně jako dřív.
+    /// </summary>
+    private DoctrineCatalog LoadDoctrines(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return DoctrineCatalog.Empty;
+        }
+
+        var file = ReadFile<DoctrinesFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var doctrines = new List<DoctrineDef>();
+        foreach (var dto in file.Doctrines ?? new List<DoctrineDto>())
+        {
+            string id = dto.Id?.Trim() ?? string.Empty;
+            if (id.Length == 0)
+            {
+                throw new ContentLoadException(path, "Doktrína bez 'id'.");
+            }
+
+            if (!seen.Add(id))
+            {
+                throw new ContentLoadException(path, $"Doktrína '{id}' je v datech dvakrát.");
+            }
+
+            doctrines.Add(new DoctrineDef(id, LoadDoctrineNodes(path, id, dto.Nodes)));
+        }
+
+        return new DoctrineCatalog(doctrines);
+    }
+
+    private static IReadOnlyList<DoctrineNodeDef> LoadDoctrineNodes(
+        string path, string doctrineId, List<DoctrineNodeDto>? dtos)
+    {
+        var raw = dtos ?? new List<DoctrineNodeDto>();
+        if (raw.Count == 0)
+        {
+            throw new ContentLoadException(path, $"Doktrína '{doctrineId}' nemá žádné uzly.");
+        }
+
+        // Nejdřív jména, teprve pak prerekvizity: uzel smí odkazovat i na ten,
+        // který v souboru leží níž, a bez dvou průchodů by to byla chyba pořadí
+        // řádků, ne obsahu.
+        var order = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int i = 0; i < raw.Count; i++)
+        {
+            string nodeId = raw[i].Id?.Trim() ?? string.Empty;
+            if (nodeId.Length == 0)
+            {
+                throw new ContentLoadException(path, $"Doktrína '{doctrineId}': uzel bez 'id'.");
+            }
+
+            if (!order.TryAdd(nodeId, i))
+            {
+                throw new ContentLoadException(path, $"Doktrína '{doctrineId}': uzel '{nodeId}' je dvakrát.");
+            }
+        }
+
+        var nodes = new List<DoctrineNodeDef>(raw.Count);
+        for (int i = 0; i < raw.Count; i++)
+        {
+            var dto = raw[i];
+            string nodeId = dto.Id!.Trim();
+            string effect = dto.Effect?.Trim() ?? string.Empty;
+
+            // Tentýž slovník jako Vzestup — jedna soustava násobičů, ne dvě.
+            if (!KnownPrestigeEffects.Contains(effect))
+            {
+                throw new ContentLoadException(
+                    path,
+                    $"Doktrína '{doctrineId}', uzel '{nodeId}': neznámý efekt '{effect}' "
+                    + $"(známé: {string.Join(", ", KnownPrestigeEffects)}).");
+            }
+
+            if (dto.Magnitude <= 0)
+            {
+                throw new ContentLoadException(
+                    path, $"Doktrína '{doctrineId}', uzel '{nodeId}': 'magnitude' musí být kladná.");
+            }
+
+            if (dto.Cost <= 0)
+            {
+                throw new ContentLoadException(
+                    path, $"Doktrína '{doctrineId}', uzel '{nodeId}': 'cost' musí být kladná.");
+            }
+
+            var prerequisites = new List<int>();
+            foreach (string requires in dto.Requires ?? new List<string>())
+            {
+                if (!order.TryGetValue(requires.Trim(), out int index))
+                {
+                    throw new ContentLoadException(
+                        path,
+                        $"Doktrína '{doctrineId}', uzel '{nodeId}' vyžaduje neexistující uzel '{requires}'.");
+                }
+
+                // Uzel, který vyžaduje sám sebe, by se nedal koupit nikdy —
+                // a hráč by celou hru koukal na zamčenou ikonu bez důvodu.
+                if (index == i)
+                {
+                    throw new ContentLoadException(
+                        path, $"Doktrína '{doctrineId}', uzel '{nodeId}' vyžaduje sám sebe.");
+                }
+
+                prerequisites.Add(index);
+            }
+
+            nodes.Add(new DoctrineNodeDef(nodeId, effect, dto.Magnitude, dto.Cost, prerequisites));
+        }
+
+        return nodes;
+    }
+
+    /// <summary>
+    /// Načte anomálie a relikvie. Chybějící soubor není chyba — bez nich
+    /// v mapě prostě nic neleží.
+    /// </summary>
+    private PoiCatalog LoadPointsOfInterest(
+        string path, DefRegistry<Resource> resources, BiomeRegistry biomes)
+    {
+        if (!File.Exists(path))
+        {
+            return PoiCatalog.Empty;
+        }
+
+        var file = ReadFile<PoiFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        if (file.RegionTiles < 8)
+        {
+            throw new ContentLoadException(
+                path, $"'regionTiles' má být aspoň 8, je {file.RegionTiles} — jinak by byla mapa poseta anomáliemi.");
+        }
+
+        if (file.ChancePercent is < 0 or > 100)
+        {
+            throw new ContentLoadException(path, $"'chancePercent' má být 0–100, je {file.ChancePercent}.");
+        }
+
+        var relics = new List<PoiRelicDef>();
+        var relicIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var dto in file.Relics ?? new List<PoiRelicDto>())
+        {
+            string id = dto.Id?.Trim() ?? string.Empty;
+            if (id.Length == 0)
+            {
+                throw new ContentLoadException(path, "Relikvie bez 'id'.");
+            }
+
+            if (!relicIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Relikvie '{id}' je v datech dvakrát.");
+            }
+
+            string effect = dto.Effect?.Trim() ?? string.Empty;
+
+            // Tentýž slovník jako Vzestup: relikvie je trvalý bonus, ne vlastní
+            // soustava. Překlep by jinak tiše nedělal nic.
+            if (!KnownPrestigeEffects.Contains(effect))
+            {
+                throw new ContentLoadException(
+                    path, $"Relikvie '{id}': neznámý efekt '{effect}' (známé: {string.Join(", ", KnownPrestigeEffects)}).");
+            }
+
+            if (dto.Magnitude <= 0)
+            {
+                throw new ContentLoadException(path, $"Relikvie '{id}': 'magnitude' musí být kladná.");
+            }
+
+            relics.Add(new PoiRelicDef(id, effect, dto.Magnitude));
+        }
+
+        var kinds = new List<PoiDef>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var dto in file.Kinds ?? new List<PoiKindDto>())
+        {
+            string id = dto.Id?.Trim() ?? string.Empty;
+            if (id.Length == 0)
+            {
+                throw new ContentLoadException(path, "Anomálie bez 'id'.");
+            }
+
+            if (!seen.Add(id))
+            {
+                throw new ContentLoadException(path, $"Anomálie '{id}' je v datech dvakrát.");
+            }
+
+            var mask = new bool[biomes.Count];
+            foreach (string biomeId in dto.Biomes ?? new List<string>())
+            {
+                int index = biomes.IndexOf(biomeId.Trim());
+                if (index < 0)
+                {
+                    throw new ContentLoadException(
+                        path, $"Anomálie '{id}' odkazuje na neexistující biom '{biomeId}'.");
+                }
+
+                mask[index] = true;
+            }
+
+            // Anomálie bez biomu by se nikdy nikde neobjevila — a přišlo by se
+            // na to až tím, že ji nikdo za celou hru nepotká.
+            if (Array.IndexOf(mask, true) < 0)
+            {
+                throw new ContentLoadException(path, $"Anomálie '{id}' nemá žádný povolený biom.");
+            }
+
+            if (dto.DurationSeconds <= 0)
+            {
+                throw new ContentLoadException(path, $"Anomálie '{id}': 'durationSeconds' musí být kladné.");
+            }
+
+            var rewards = new List<PoiRewardDef>();
+            foreach (var reward in dto.Rewards ?? new List<PoiRewardDto>())
+            {
+                if (reward.Weight <= 0)
+                {
+                    throw new ContentLoadException(
+                        path, $"Anomálie '{id}': odměna s vahou {reward.Weight} by nikdy nepadla.");
+                }
+
+                int relicIndex = -1;
+                if (!string.IsNullOrWhiteSpace(reward.Relic))
+                {
+                    relicIndex = relics.FindIndex(r => string.Equals(r.Id, reward.Relic.Trim(), StringComparison.Ordinal));
+                    if (relicIndex < 0)
+                    {
+                        throw new ContentLoadException(
+                            path, $"Anomálie '{id}' slibuje neexistující relikvii '{reward.Relic}'.");
+                    }
+                }
+
+                rewards.Add(new PoiRewardDef(
+                    reward.Weight,
+                    ParseResourceAmounts(path, id, "rewards.resources", reward.Resources, resources),
+                    relicIndex));
+            }
+
+            if (rewards.Count == 0)
+            {
+                throw new ContentLoadException(path, $"Anomálie '{id}' nemá žádnou odměnu — nemá smysl tam chodit.");
+            }
+
+            kinds.Add(new PoiDef(
+                id,
+                mask,
+                dto.MinDistance,
+                ParseResourceAmounts(path, id, "cost", dto.Cost, resources),
+                (long)Math.Round(dto.DurationSeconds * Simulation.TicksPerSecond),
+                rewards));
+        }
+
+        return new PoiCatalog(kinds, relics, file.RegionTiles, file.ChancePercent);
     }
 
     /// <summary>
@@ -4509,7 +4770,9 @@ public sealed class ContentLoader
         OrbitCatalog orbit,
         FigureCatalog figures,
         ChronicleCatalog chronicle,
-        ScenarioCatalog scenarios)
+        ScenarioCatalog scenarios,
+        PoiCatalog poi,
+        DoctrineCatalog doctrines)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -4543,7 +4806,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit, figures, chronicle, scenarios);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit, figures, chronicle, scenarios, poi, doctrines);
         FillGapsFromBaseLanguage(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -4583,7 +4846,9 @@ public sealed class ContentLoader
         OrbitCatalog orbit,
         FigureCatalog figures,
         ChronicleCatalog chronicle,
-        ScenarioCatalog scenarios)
+        ScenarioCatalog scenarios,
+        PoiCatalog poi,
+        DoctrineCatalog doctrines)
     {
         var required = new List<string>();
         foreach (var satellite in orbit.Satellites)
@@ -4612,6 +4877,27 @@ public sealed class ContentLoader
         {
             required.Add(scenario.NameKey);
             required.Add(scenario.DescriptionKey);
+        }
+
+        foreach (var kind in poi.Kinds)
+        {
+            required.Add(kind.NameKey);
+            required.Add(kind.DescriptionKey);
+        }
+
+        foreach (var relic in poi.Relics)
+        {
+            required.Add(relic.NameKey);
+        }
+
+        foreach (var doctrine in doctrines.Doctrines)
+        {
+            required.Add(doctrine.NameKey);
+            required.Add(doctrine.DescriptionKey);
+            for (int i = 0; i < doctrine.Nodes.Count; i++)
+            {
+                required.Add(doctrine.NodeNameKey(i));
+            }
         }
 
         required.AddRange(biomes.All.Select(b => b.NameKey));

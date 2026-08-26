@@ -671,6 +671,39 @@ public sealed record FigureDto(
     string? Milestone,
     string? Statue);
 
+/// <summary>Obsah souboru <c>data/doctrines.json</c>.</summary>
+public sealed record DoctrinesFileDto(int SchemaVersion, List<DoctrineDto>? Doctrines);
+
+/// <summary>Jedna doktrína tak, jak leží v JSON.</summary>
+public sealed record DoctrineDto(string? Id, List<DoctrineNodeDto>? Nodes);
+
+/// <summary>Jeden uzel doktríny tak, jak leží v JSON.</summary>
+public sealed record DoctrineNodeDto(
+    string? Id, string? Effect, double Magnitude, int Cost, List<string>? Requires);
+
+/// <summary>Obsah souboru <c>data/poi.json</c>.</summary>
+public sealed record PoiFileDto(
+    int SchemaVersion,
+    int RegionTiles,
+    int ChancePercent,
+    List<PoiRelicDto>? Relics,
+    List<PoiKindDto>? Kinds);
+
+/// <summary>Relikvie z výpravy tak, jak leží v JSON.</summary>
+public sealed record PoiRelicDto(string? Id, string? Effect, double Magnitude);
+
+/// <summary>Druh anomálie tak, jak leží v JSON.</summary>
+public sealed record PoiKindDto(
+    string? Id,
+    List<string>? Biomes,
+    int MinDistance,
+    Dictionary<string, int>? Cost,
+    int DurationSeconds,
+    List<PoiRewardDto>? Rewards);
+
+/// <summary>Jedna možná odměna z výpravy tak, jak leží v JSON.</summary>
+public sealed record PoiRewardDto(int Weight, Dictionary<string, int>? Resources, string? Relic);
+
 /// <summary>Obsah souboru <c>data/scenarios.json</c>.</summary>
 public sealed record ScenariosFileDto(int SchemaVersion, List<ScenarioDto>? Scenarios);
 

@@ -159,6 +159,9 @@ public sealed class GameplayScreen : IScreen
 
     /// <summary>Výzdoba slavnosti — girlandy a stoupající lampiony.</summary>
     private readonly FestivalRenderer _festival;
+
+    /// <summary>Značky anomálií na mapě.</summary>
+    private readonly PoiRenderer _poiRenderer;
     private readonly BubbleSystem _bubbles;
     private readonly CaravanSystem _caravans;
     private readonly GoldenSpawnSystem _golden;
@@ -436,6 +439,7 @@ public sealed class GameplayScreen : IScreen
         _carillon = new Audio.CarillonPlayer(screens.Sounds, screens.Content.Carillon.NoteSeconds);
         _carillon.Resync(simulation); // načtená hra nemá uvítat melodií za dávnou slavnost
         _festival = new FestivalRenderer(screens.WhitePixel);
+        _poiRenderer = new PoiRenderer(screens.Sprites, screens.WhitePixel);
 
         var viewport = screens.GraphicsDevice.Viewport;
         _camera.SetViewport(viewport.Width, viewport.Height);
@@ -660,6 +664,7 @@ public sealed class GameplayScreen : IScreen
             UpdateCaravan(worldDt);
             _golden.Update(worldDt, _camera, _simulation);
             _discoveries.Update(worldDt);
+            _poiRenderer.Update(worldDt);
         }
 
         // Cheaty se udržují herním časem: v pauze se nic nedosypává a záběr,
@@ -724,6 +729,7 @@ public sealed class GameplayScreen : IScreen
         {
             _harvestables.Draw(spriteBatch, _camera, _simulation);
             _discoveries.Draw(spriteBatch, _camera, _simulation);
+            _poiRenderer.Draw(spriteBatch, _camera, _simulation);
             _roadRenderer.Draw(spriteBatch, _camera, _simulation);
             // Provoz patří NAD silnici a POD budovy — auto má zajet za dům, ne přes něj.
             _traffic.Draw(spriteBatch, _screens.WhitePixel, _camera, DayNightCycle.NightFactor(_simulation.TimeOfDay01));
@@ -1576,6 +1582,15 @@ public sealed class GameplayScreen : IScreen
         {
             var center = new Vector2((tileX + 0.5f) * TerrainRenderer.TileSize, (tileY + 0.5f) * TerrainRenderer.TileSize);
             CollectFeedback(discRes, discAmt, center);
+            return;
+        }
+
+        // Anomálie je před budovou i městem: leží mimo zástavbu, takže si
+        // s ničím nekonkuruje, a je to jediná věc na mapě, která na hráče
+        // čeká — nemá se schovat za nic jiného.
+        if (_simulation.PointsOfInterest.TryPick(tileX, tileY, out var anomaly))
+        {
+            _screens.Push(new ExpeditionScreen(_screens, _simulation, anomaly));
             return;
         }
 
@@ -2805,6 +2820,16 @@ public sealed class GameplayScreen : IScreen
             Place(grid, UiFactory.ToolButton(
                 Ico("ui.figures"), loc["figures.title"] + '\n' + loc["tip.figures"],
                 () => _screens.Push(new FiguresScreen(_screens, _simulation))), slot++, columns);
+        }
+
+        // Doktríny až s prvními body: dokud hráč nemá za co, je to obrazovka
+        // se třemi zamčenými cestami a jedním zklamáním.
+        if (_screens.Content.Doctrines.IsEnabled
+            && (_simulation.PrestigePoints > 0 || _simulation.Doctrine is not null))
+        {
+            Place(grid, UiFactory.ToolButton(
+                Ico("ui.doctrines"), loc["doctrines.title"] + '\n' + loc["tip.doctrines"],
+                () => _screens.Push(new DoctrinesScreen(_screens, _simulation))), slot++, columns);
         }
 
         // Odkaz se ukáže až po prvním Vzestupu — vrstva nad mechanikou, kterou

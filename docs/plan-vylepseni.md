@@ -135,6 +135,30 @@ Tři věci předem:
 *Testy:* tentýž seed dá tatáž místa; expedice přežije uložení a načtení; relikvie se projeví v násobiči.
 **2,5 dne.** Riziko: střední (nový stav v savu).
 
+> **Hotovo.** Čtyři druhy anomálií a pět relikvií v `data/poi.json`.
+>
+> Systém <b>nedrží žádný seznam</b>. Mapa je nekonečná: generovat anomálie
+> dopředu by znamenalo generovat dopředu i svět, a dogenerovávat je za běhu
+> by znamenalo je ukládat — save by pak rostl podle toho, kam hráč odjel
+> kamerou. Pozice se dopočítá z hashe seedu a souřadnic kusu mapy; do savu
+> jde jen to, co hráč opravdu udělal.
+>
+> Vzdálenost se měří <b>od počátku světa</b>, ne od těžiště města. Těžiště se
+> během hry hýbe a anomálie by se podle toho, kam hráč zrovna staví, objevovaly
+> a mizely.
+>
+> Odměna se losuje <b>z hashe místa</b>, ne z generátoru za běhu. Bez toho by
+> šlo uložit hru před výpravou a losovat, dokud nepadne relikvie — a test to
+> hlídá jmenovitě. Ze stejného důvodu se anomálie zapíše jako vybraná už při
+> vypravení, ne až při návratu.
+>
+> Jedna výprava naráz — ne kvůli výkonu, ale aby zůstala událost. Relikvie
+> jdou přes `RecomputeBonuses` jako sedmá kategorie, tedy tímtéž slovníkem
+> jako Vzestup, družice i osobnosti.
+>
+> Odměna se v okně <b>neukazuje předem</b>. Kdyby hráč viděl, co ho čeká,
+> nešlo by o výpravu, ale o nákup.
+
 **Tržní konjunktury** — NPC města už obchodují, tohle je časově omezená cena.
 *Postup:* pole `demandSpike` do `npc-cities.json` + hláška do notifikací. **0,5 dne.**
 
@@ -204,6 +228,33 @@ Největší položka celé sekce 2 a nejvíc mění hru.
 *Testy:* dvě doktríny se nesčítají; efekt se projeví hned po výběru; save/load; a hlavně **balanční test**, že žádná doktrína nedává víc než 2× oproti ostatním.
 
 **Odhad:** 4 dny. **Riziko:** vysoké — je to zásah do ekonomiky. Až po dema.
+
+> **Hotovo.** Tři cesty v `data/doctrines.json` — stavitelé, učenci, osadníci
+> — každá o pěti uzlech za body Vzestupu. Efekty jdou výhradně přes
+> `RecomputeBonuses` jako osmá kategorie; druhá cesta k násobičům by znamenala
+> dvě soustavy, které se dřív nebo později rozejdou.
+>
+> **Aktivní je vždycky jen jedna** a to není omezení implementace, to je celá
+> mechanika: kdyby se daly sbírat všechny, nebyla by to volba, ale další
+> seznam k odškrtání. Změnit cestu jde, dokud v ní nic není koupené.
+>
+> **Vzestup body za doktrínu vrací.** Bez toho by první volba platila napořád
+> a nebyla by to volba, ale osud — doktrína je tvar *téhle* civilizace, ta
+> příští může být jiná. Věta o vracení je vidět přímo na obrazovce, protože
+> jinak vypadá volba jako past a hráč si ji nechá „na potom", což znamená
+> napořád.
+>
+> Do savu jde doktrína i uzly **jménem, ne indexem** (pořadí v datech se mezi
+> verzemi změní) a cesta se zapisuje do bilance běhu — je to to jediné, čím
+> se dva jinak stejné běhy od sebe liší.
+>
+> Balanční test z plánu je v `DoctrineTests`: součet síly ani cena se mezi
+> cestami nesmí lišit víc než dvojnásobně. Není to přesné měřítko (efekty míří
+> na různá čísla), ale spolehlivě chytí cestu, která je o řád jinde.
+>
+> **Strom přes `TechGraphLayout` ne.** Pět uzlů ve dvou větvích je seznam,
+> ne hvězdice; rozhodit ho do prstenců by znamenalo obrazovku, kde se hráč
+> orientuje hůř než v řádcích pod sebou.
 
 ---
 
@@ -723,9 +774,9 @@ Poslední z jediného důvodu: je to jediná položka, která přidává novou e
 
 ### Velké věci — až bude prostor
 
-Hotovo: ~~sdílení šablon (7.3)~~, ~~osobnosti (6.1)~~, ~~kronika (6.3)~~, ~~zvonohra a vizuál slavnosti (6.7)~~, ~~hustotní mapa (1.3)~~, ~~scénáře (5.1)~~.
+Hotovo: ~~sdílení šablon (7.3)~~, ~~osobnosti (6.1)~~, ~~kronika (6.3)~~, ~~zvonohra a vizuál slavnosti (6.7)~~, ~~hustotní mapa (1.3)~~, ~~scénáře (5.1)~~, ~~anomálie a expedice (2.1b)~~, ~~doktríny (2.4)~~.
 
-Zbývá: anomálie a expedice (2.1b), doktríny (2.4), plavení dřeva (6.2), plán guvernéra na sídlo (4.4).
+Zbývá: plavení dřeva (6.2), plán guvernéra na sídlo (4.4).
 
 ### Nedělat teď
 

@@ -104,6 +104,8 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "ui.legacy", IconSize, UiLegacy);
         Add(device, "ui.figures", IconSize, UiFigures);
         Add(device, "ui.carillon", IconSize, UiCarillon);
+        Add(device, "fx.anomaly", SpriteSize, FxAnomaly);
+        Add(device, "ui.doctrines", IconSize, UiDoctrines);
         Add(device, "ui.stats", IconSize, UiStats);
         Add(device, "ui.trophy", IconSize, UiTrophy);
         Add(device, "ui.chronicle", IconSize, UiChronicle);
@@ -780,6 +782,33 @@ public sealed class SpriteLibrary : IDisposable
     /// Odkaz: věčný plamen na podstavci. Vrstva, která přežije i Vzestup, má
     /// vypadat jako něco, co se předává dál — ne jako další šipka nahoru.
     /// </summary>
+    /// <summary>Ikona doktrín: tři cesty z jednoho bodu, jedna zvýrazněná.</summary>
+    private static void UiDoctrines(PixelCanvas c)
+    {
+        var dim = new Color(120, 130, 150);
+        var lit = new Color(236, 208, 128);
+
+        c.FillCircle(12f, 20f, 2.6f, lit);                 // odkud se vychází
+        c.FillTriangle(11f, 19f, 13f, 19f, 4f, 5f, dim);   // vlevo
+        c.FillTriangle(11f, 19f, 13f, 19f, 20f, 5f, dim);  // vpravo
+        c.FillRect(11, 5, 2, 14, lit);                     // zvolená cesta
+        c.FillCircle(12f, 4f, 2.2f, lit);
+    }
+
+    /// <summary>
+    /// Značka anomálie: kosočtverec s jádrem. Tvar, jaký na mapě nic jiného
+    /// nemá — hráč ho pozná dřív, než přečte popisek.
+    /// </summary>
+    private static void FxAnomaly(PixelCanvas c)
+    {
+        var edge = new Color(198, 156, 255);
+        var core = new Color(246, 232, 255);
+
+        c.FillTriangle(16f, 3f, 28f, 16f, 4f, 16f, edge);
+        c.FillTriangle(16f, 29f, 28f, 16f, 4f, 16f, edge);
+        c.FillCircle(16f, 16f, 4.2f, core);
+    }
+
     /// <summary>Ikona zvonohry: zvon a nad ním závěs.</summary>
     private static void UiCarillon(PixelCanvas c)
     {

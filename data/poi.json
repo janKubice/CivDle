@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "regionTiles": 96,
+  "chancePercent": 34,
+  "relics": [
+    { "id": "sun_disc", "effect": "harvest_mult", "magnitude": 0.08 },
+    { "id": "star_chart", "effect": "research_speed", "magnitude": 0.1 },
+    { "id": "iron_seal", "effect": "production_mult", "magnitude": 0.07 },
+    { "id": "clay_ledger", "effect": "storage_mult", "magnitude": 0.12 },
+    { "id": "wind_bell", "effect": "festival_power", "magnitude": 0.15 }
+  ],
+  "kinds": [
+    {
+      "id": "buried_ruin",
+      "biomes": ["grassland", "steppe", "savanna", "forest", "badlands"],
+      "minDistance": 40,
+      "cost": { "tools": 8, "food": 60 },
+      "durationSeconds": 90,
+      "rewards": [
+        { "weight": 60, "resources": { "stone": 300, "planks": 120 } },
+        { "weight": 25, "resources": { "bronze": 60, "stone": 200 } },
+        { "weight": 15, "resources": { "science": 80 }, "relic": "iron_seal" }
+      ]
+    },
+    {
+      "id": "sky_stone",
+      "biomes": ["desert", "tundra", "badlands", "volcanic", "snow_peaks"],
+      "minDistance": 80,
+      "cost": { "tools": 20, "food": 120 },
+      "durationSeconds": 150,
+      "rewards": [
+        { "weight": 55, "resources": { "iron_ore": 240, "coal": 120 } },
+        { "weight": 30, "resources": { "science": 150 } },
+        { "weight": 15, "resources": { "science": 200 }, "relic": "star_chart" }
+      ]
+    },
+    {
+      "id": "sunken_hold",
+      "biomes": ["beach", "mangrove", "coral_reef", "shallow_water"],
+      "minDistance": 60,
+      "cost": { "planks": 60, "food": 100 },
+      "durationSeconds": 120,
+      "rewards": [
+        { "weight": 55, "resources": { "food": 500, "planks": 150 } },
+        { "weight": 30, "resources": { "bronze": 90, "faith": 60 } },
+        { "weight": 15, "resources": { "faith": 120 }, "relic": "sun_disc" }
+      ]
+    },
+    {
+      "id": "old_archive",
+      "biomes": ["highlands", "mountains", "taiga", "jungle", "swamp"],
+      "minDistance": 70,
+      "cost": { "tools": 14, "food": 90, "planks": 40 },
+      "durationSeconds": 140,
+      "rewards": [
+        { "weight": 50, "resources": { "science": 220, "faith": 80 } },
+        { "weight": 30, "resources": { "planks": 250, "stone": 250 } },
+        { "weight": 12, "resources": { "science": 120 }, "relic": "clay_ledger" },
+        { "weight": 8, "resources": { "faith": 150 }, "relic": "wind_bell" }
+      ]
+    }
+  ]
+}

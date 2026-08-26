@@ -81,6 +81,13 @@ public sealed class Simulation
     private readonly FrontierSystem _frontier;
     private readonly FigureSystem _figures;
     private readonly Carillon _carillon;
+    private readonly PointOfInterestSystem _poi;
+
+    /// <summary>Které uzly doktríny jsou koupené (jen ta zvolená, ostatní zůstávají false).</summary>
+    private bool[] _doctrineNodes = Array.Empty<bool>();
+
+    /// <summary>Relikvie, které hráč přivezl z výprav (indexy do katalogu).</summary>
+    private readonly List<int> _relics = new();
     private readonly LegacySystem _legacy; // druhá prestižní vrstva (Odkaz)
     private readonly AutoResearchSystem _autoResearch = new(); // odemyká se až v Odkazu
 
@@ -229,6 +236,8 @@ public sealed class Simulation
         _frontier = new FrontierSystem(content.Frontier);
         _figures = new FigureSystem(content.Figures);
         _carillon = new Carillon(content.Carillon);
+        _poi = new PointOfInterestSystem(content.PointsOfInterest, terrain, seed);
+        _doctrineNodes = new bool[MaxDoctrineNodes(content)];
         _legacy = new LegacySystem(content.Legacy, content.LegacyUpgrades.All);
         History = new CityHistory(content.Gameplay.History.MaxFrames);
         _constructionSystem = new ConstructionSystem(content);
@@ -3697,6 +3706,7 @@ public sealed class Simulation
         TickOrbit();
         TickFigures();
         TickScenario();
+        TickExpedition();
 
         // Obrana je volitelný režim: kdo si ho nezapnul, nezaplatí za něj ani
         // jednu podmínku navíc v tiku.
@@ -5472,6 +5482,298 @@ public sealed class Simulation
     /// „kde všude jsi stavěl" je sběratelský cíl, který přesahuje jednu hru.
     /// </summary>
     public bool HasSettledBiome(int biomeIndex) => _settledBiomes[biomeIndex];
+
+    // ----- civilizační doktríny -----
+
+    /// <summary>Kolik uzlů má největší doktrína — velikost pole koupených uzlů.</summary>
+    private static int MaxDoctrineNodes(GameContent content)
+    {
+        int max = 0;
+        for (int i = 0; i < content.Doctrines.Count; i++)
+        {
+            max = Math.Max(max, content.Doctrines[i].Nodes.Count);
+        }
+
+        return max;
+    }
+
+    /// <summary>Kterou cestou se tahle civilizace vydala; −1 = zatím žádnou.</summary>
+    public int DoctrineIndex { get; private set; } = -1;
+
+    /// <summary>Zvolená doktrína, nebo <c>null</c>.</summary>
+    public DoctrineDef? Doctrine =>
+        DoctrineIndex >= 0 && DoctrineIndex < _content.Doctrines.Count
+            ? _content.Doctrines[DoctrineIndex]
+            : null;
+
+    /// <summary>Je uzel doktríny koupený?</summary>
+    public bool IsDoctrineNodeOwned(int nodeIndex) =>
+        nodeIndex >= 0 && nodeIndex < _doctrineNodes.Length && _doctrineNodes[nodeIndex];
+
+    /// <summary>Kolik uzlů doktríny má hráč koupených.</summary>
+    public int DoctrineNodesOwned
+    {
+        get
+        {
+            int count = 0;
+            for (int i = 0; i < _doctrineNodes.Length; i++)
+            {
+                if (_doctrineNodes[i])
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
+    /// <summary>
+    /// Dá se teď doktrína (pře)volit?
+    ///
+    /// <para>Jen dokud v ní není nic koupeného. Volba je rozhodnutí, ne
+    /// přepínač — kdyby se dala měnit s plnou cestou, sbíral by hráč postupně
+    /// všechny a nic by to nevylučovalo.</para>
+    /// </summary>
+    public bool CanChooseDoctrine => _content.Doctrines.IsEnabled && DoctrineNodesOwned == 0;
+
+    /// <summary>Zvolí doktrínu. Vrací false, když už je v té dosavadní něco koupené.</summary>
+    public bool TryChooseDoctrine(int index)
+    {
+        if (!CanChooseDoctrine || index < 0 || index >= _content.Doctrines.Count)
+        {
+            return false;
+        }
+
+        DoctrineIndex = index;
+        RecomputeBonuses();
+        return true;
+    }
+
+    /// <summary>Dá se tenhle uzel koupit? (Zvolená doktrína, splněné prerekvizity, dost bodů.)</summary>
+    public bool CanBuyDoctrineNode(int nodeIndex)
+    {
+        if (Doctrine is not { } doctrine || nodeIndex < 0 || nodeIndex >= doctrine.Nodes.Count)
+        {
+            return false;
+        }
+
+        if (_doctrineNodes[nodeIndex])
+        {
+            return false;
+        }
+
+        var node = doctrine.Nodes[nodeIndex];
+        for (int i = 0; i < node.PrerequisiteIndices.Count; i++)
+        {
+            if (!_doctrineNodes[node.PrerequisiteIndices[i]])
+            {
+                return false;
+            }
+        }
+
+        return PrestigePoints >= node.Cost;
+    }
+
+    /// <summary>Koupí uzel doktríny za body Vzestupu.</summary>
+    public bool TryBuyDoctrineNode(int nodeIndex)
+    {
+        if (!CanBuyDoctrineNode(nodeIndex))
+        {
+            return false;
+        }
+
+        PrestigePoints -= Doctrine!.Nodes[nodeIndex].Cost;
+        _doctrineNodes[nodeIndex] = true;
+        RecomputeBonuses();
+        return true;
+    }
+
+    /// <summary>
+    /// Vrátí body za koupené uzly a uvolní volbu.
+    ///
+    /// <para>Volá Vzestup. Doktrína je tvar <b>téhle</b> civilizace; ta příští
+    /// může být jiná — a aby to byla skutečná volba, musí hráč dostat body
+    /// zpátky. Bez vrácení by první doktrína platila napořád a mechanika by se
+    /// zvrhla v „vyber si jednou a už nikdy".</para>
+    /// </summary>
+    private void RefundDoctrine()
+    {
+        if (Doctrine is { } doctrine)
+        {
+            for (int i = 0; i < _doctrineNodes.Length && i < doctrine.Nodes.Count; i++)
+            {
+                if (_doctrineNodes[i])
+                {
+                    PrestigePoints += doctrine.Nodes[i].Cost;
+                }
+            }
+        }
+
+        Array.Clear(_doctrineNodes);
+        DoctrineIndex = -1;
+    }
+
+    /// <summary>Obnoví doktrínu ze savu (bez placení a bez vracení bodů).</summary>
+    internal void RestoreDoctrine(int index, IEnumerable<int> ownedNodes)
+    {
+        if (index < 0 || index >= _content.Doctrines.Count)
+        {
+            return;
+        }
+
+        DoctrineIndex = index;
+        Array.Clear(_doctrineNodes);
+        foreach (int node in ownedNodes)
+        {
+            if (node >= 0 && node < _doctrineNodes.Length)
+            {
+                _doctrineNodes[node] = true;
+            }
+        }
+    }
+
+    // ----- anomálie a výpravy -----
+
+    /// <summary>Anomálie ve světě: kde leží a které už hráč vybral.</summary>
+    public PointOfInterestSystem PointsOfInterest => _poi;
+
+    /// <summary>Relikvie přivezené z výprav (indexy do katalogu).</summary>
+    public IReadOnlyList<int> Relics => _relics;
+
+    /// <summary>Kam právě míří výprava; platí jen když <see cref="ExpeditionRunning"/>.</summary>
+    public PointOfInterest ExpeditionTarget { get; private set; }
+
+    /// <summary>Kolik tiků zbývá do návratu výpravy; 0 = žádná neběží.</summary>
+    public long ExpeditionTicksLeft { get; private set; }
+
+    /// <summary>Je někdo na cestě?</summary>
+    public bool ExpeditionRunning => ExpeditionTicksLeft > 0;
+
+    /// <summary>Jak daleko je výprava (0–1). Pro UI.</summary>
+    public double ExpeditionProgress
+    {
+        get
+        {
+            if (!ExpeditionRunning)
+            {
+                return 0;
+            }
+
+            long total = Math.Max(1, _content.PointsOfInterest[ExpeditionTarget.KindIndex].DurationTicks);
+            return Math.Clamp(1.0 - (ExpeditionTicksLeft / (double)total), 0, 1);
+        }
+    }
+
+    /// <summary>Dá se sem vypravit výprava?</summary>
+    public PlacementResult CanSendExpedition(int x, int y)
+    {
+        if (!_content.PointsOfInterest.IsEnabled)
+        {
+            return PlacementResult.NotUnlocked;
+        }
+
+        // Jedna výprava naráz. Ne kvůli výkonu — aby zůstala událost: deset
+        // výprav ve frontě je nákupní seznam, ne rozhodnutí.
+        if (ExpeditionRunning)
+        {
+            return PlacementResult.NotUnlocked;
+        }
+
+        if (!_poi.TryPick(x, y, out var poi))
+        {
+            return PlacementResult.NotUnlocked;
+        }
+
+        return CanPay(_content.PointsOfInterest[poi.KindIndex].Cost)
+            ? PlacementResult.Ok
+            : PlacementResult.NotEnoughResources;
+    }
+
+    /// <summary>
+    /// Vypraví výpravu k anomálii. Zaplatí cenu a anomálii rovnou zapíše jako
+    /// vybranou — jinak by šlo vypravit dvě výpravy na totéž místo hned po
+    /// sobě a druhá by našla prázdno.
+    /// </summary>
+    public PlacementResult TrySendExpedition(int x, int y)
+    {
+        var check = CanSendExpedition(x, y);
+        if (check != PlacementResult.Ok)
+        {
+            return check;
+        }
+
+        _poi.TryPick(x, y, out var poi);
+        var def = _content.PointsOfInterest[poi.KindIndex];
+        Pay(def.Cost);
+
+        _poi.Claim(poi.X, poi.Y);
+        ExpeditionTarget = poi;
+        ExpeditionTicksLeft = Math.Max(1, def.DurationTicks);
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>Posune běžící výpravu a při návratu vyplatí odměnu.</summary>
+    private void TickExpedition()
+    {
+        if (!ExpeditionRunning)
+        {
+            return;
+        }
+
+        if (--ExpeditionTicksLeft > 0)
+        {
+            return;
+        }
+
+        var poi = ExpeditionTarget;
+        var def = _content.PointsOfInterest[poi.KindIndex];
+        int rewardIndex = _poi.RewardIndexFor(poi);
+        if (rewardIndex < 0)
+        {
+            return;
+        }
+
+        var reward = def.Rewards[rewardIndex];
+        for (int i = 0; i < reward.Resources.Count; i++)
+        {
+            AddResource(reward.Resources[i].ResourceIndex, reward.Resources[i].Amount);
+        }
+
+        if (reward.HasRelic && !_relics.Contains(reward.RelicIndex))
+        {
+            _relics.Add(reward.RelicIndex);
+            RecomputeBonuses();
+            EnqueueNotification(new GameNotification(
+                NotificationKind.Milestone, "toast.relic",
+                _content.PointsOfInterest.Relics[reward.RelicIndex].NameKey));
+            return;
+        }
+
+        EnqueueNotification(new GameNotification(
+            NotificationKind.WorldEvent, "toast.expedition", def.NameKey));
+    }
+
+    /// <summary>Obnoví výpravu a relikvie ze savu (bez odměn — ty už hráč dostal).</summary>
+    internal void RestoreExpedition(
+        IEnumerable<long> claimed, int poiX, int poiY, int kindIndex, long ticksLeft, IEnumerable<int> relics)
+    {
+        _poi.Restore(claimed);
+        _relics.Clear();
+        foreach (int relic in relics)
+        {
+            if (relic >= 0 && relic < _content.PointsOfInterest.Relics.Count && !_relics.Contains(relic))
+            {
+                _relics.Add(relic);
+            }
+        }
+
+        if (kindIndex >= 0 && kindIndex < _content.PointsOfInterest.Count && ticksLeft > 0)
+        {
+            ExpeditionTarget = new PointOfInterest(poiX, poiY, kindIndex);
+            ExpeditionTicksLeft = ticksLeft;
+        }
+    }
 
     // ----- významné osobnosti -----
 
@@ -7523,7 +7825,8 @@ public sealed class Simulation
             EvaluateMetric(MetricKind.WondersCompleted, -1),
             points,
             peak > previousBest,
-            previousBest);
+            previousBest,
+            DoctrineIndex); // bilance se sbírá PŘED vrácením doktríny, jinak by tam byla −1
 
         BestRunPopulation = Math.Max(previousBest, peak);
         PeakPopulation = 0; // vrchol patří k běhu, ne k hráči
@@ -7647,6 +7950,30 @@ public sealed class Simulation
             {
                 Scale(satellites[i].Effect, satellites[i].MultiplierAt(count), satellites[i].Magnitude * count);
             }
+        }
+
+        // Osmá kategorie: doktrína. Aktivní je vždycky jen jedna a započítají
+        // se jen její koupené uzly — kdyby se sčítaly všechny doktríny, nebyla
+        // by to volba, ale seznam k odškrtání.
+        if (Doctrine is { } activeDoctrine)
+        {
+            for (int i = 0; i < activeDoctrine.Nodes.Count && i < _doctrineNodes.Length; i++)
+            {
+                if (_doctrineNodes[i])
+                {
+                    var node = activeDoctrine.Nodes[i];
+                    Scale(node.Effect, 1.0 + node.Magnitude, node.Magnitude);
+                }
+            }
+        }
+
+        // Sedmá kategorie: relikvie z výprav. Tentýž slovník efektů jako
+        // všechno ostatní — relikvie je trvalý bonus, ne vlastní soustava.
+        var relicDefs = _content.PointsOfInterest.Relics;
+        for (int i = 0; i < _relics.Count; i++)
+        {
+            var relic = relicDefs[_relics[i]];
+            Scale(relic.Effect, 1.0 + relic.Magnitude, relic.Magnitude);
         }
 
         // Šestá kategorie: žijící osobnosti. Počítá se ze SEZNAMU, ne z uložené
@@ -7845,6 +8172,10 @@ public sealed class Simulation
         _orbit.Reset();     // družice patří ke světu, který právě skončil — kosmodrom taky
         _frontier.Reset();  // a útočníci taky: nový svět, nová fronta
         _figures.Reset();   // a osobnosti: nová civilizace má vlastní velikány
+        _poi.Reset();       // a anomálie: nový svět, nová nevybraná místa
+        RefundDoctrine();   // doktrína je tvar TÉHLE civilizace; příští si vybere znovu
+        _relics.Clear();
+        ExpeditionTicksLeft = 0;
         _buildingIndex.Clear();
         _powerGrid.Clear();
         _powerDirty = true;

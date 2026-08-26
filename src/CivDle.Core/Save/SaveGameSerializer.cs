@@ -128,6 +128,23 @@ public sealed class SaveGameSerializer
     /// </summary>
     private const string SectionScenario = "scenario";
 
+    /// <summary>
+    /// Anomálie: které už hráč vybral, co je na cestě a jaké relikvie přivezl.
+    ///
+    /// <para>Pozice anomálií se <b>neukládají</b> — dopočítají se ze seedu.
+    /// Ukládá se jen to, co hráč udělal, takže save neroste s tím, kam odjel
+    /// kamerou.</para>
+    /// </summary>
+    private const string SectionExpedition = "expedition";
+
+    /// <summary>
+    /// Zvolená doktrína a koupené uzly.
+    ///
+    /// <para>Doktrína jménem, uzly taky — pořadí v datech se mezi verzemi
+    /// změní a hráč by se probudil s jinou cestou, než jakou si vybral.</para>
+    /// </summary>
+    private const string SectionDoctrine = "doctrine";
+
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
     {
@@ -328,6 +345,52 @@ public sealed class SaveGameSerializer
                 w.Write(notes[i]);
             }
         });
+
+        WriteSection(writer, SectionExpedition, w =>
+        {
+            var claimed = simulation.PointsOfInterest.ClaimedKeys.ToList();
+            w.Write(claimed.Count);
+            for (int i = 0; i < claimed.Count; i++)
+            {
+                w.Write(claimed[i]);
+            }
+
+            var target = simulation.ExpeditionTarget;
+            w.Write(target.X);
+            w.Write(target.Y);
+            w.Write(simulation.ExpeditionRunning ? target.KindIndex : -1);
+            w.Write(simulation.ExpeditionTicksLeft);
+
+            var relics = simulation.Relics;
+            w.Write(relics.Count);
+            for (int i = 0; i < relics.Count; i++)
+            {
+                w.Write(relics[i]);
+            }
+        });
+
+        if (simulation.Doctrine is { } doctrine)
+        {
+            WriteSection(writer, SectionDoctrine, w =>
+            {
+                w.Write(doctrine.Id);
+
+                var owned = new List<string>();
+                for (int i = 0; i < doctrine.Nodes.Count; i++)
+                {
+                    if (simulation.IsDoctrineNodeOwned(i))
+                    {
+                        owned.Add(doctrine.Nodes[i].Id);
+                    }
+                }
+
+                w.Write(owned.Count);
+                for (int i = 0; i < owned.Count; i++)
+                {
+                    w.Write(owned[i]);
+                }
+            });
+        }
 
         if (simulation.InScenario)
         {
@@ -619,6 +682,60 @@ public sealed class SaveGameSerializer
         }
     }
 
+    /// <summary>Načte zvolenou doktrínu a koupené uzly (jménem, ne indexem).</summary>
+    private static void ReadDoctrine(BinaryReader section, GameContent content, Simulation simulation)
+    {
+        int doctrineIndex = content.Doctrines.IndexOf(section.ReadString());
+        int count = section.ReadInt32();
+
+        var owned = new List<int>();
+        for (int i = 0; i < count; i++)
+        {
+            string nodeId = section.ReadString();
+            if (doctrineIndex < 0)
+            {
+                continue; // doktrína z dat zmizela (mod) — uzly nemají kam patřit
+            }
+
+            var nodes = content.Doctrines[doctrineIndex].Nodes;
+            for (int n = 0; n < nodes.Count; n++)
+            {
+                if (string.Equals(nodes[n].Id, nodeId, StringComparison.Ordinal))
+                {
+                    owned.Add(n);
+                    break;
+                }
+            }
+        }
+
+        simulation.RestoreDoctrine(doctrineIndex, owned);
+    }
+
+    /// <summary>Načte vybrané anomálie, běžící výpravu a přivezené relikvie.</summary>
+    private static void ReadExpedition(BinaryReader section, Simulation simulation)
+    {
+        int claimedCount = section.ReadInt32();
+        var claimed = new long[Math.Max(0, claimedCount)];
+        for (int i = 0; i < claimed.Length; i++)
+        {
+            claimed[i] = section.ReadInt64();
+        }
+
+        int x = section.ReadInt32();
+        int y = section.ReadInt32();
+        int kind = section.ReadInt32();
+        long ticksLeft = section.ReadInt64();
+
+        int relicCount = section.ReadInt32();
+        var relics = new int[Math.Max(0, relicCount)];
+        for (int i = 0; i < relics.Length; i++)
+        {
+            relics[i] = section.ReadInt32();
+        }
+
+        simulation.RestoreExpedition(claimed, x, y, kind, ticksLeft, relics);
+    }
+
     /// <summary>Načte melodii zvonohry.</summary>
     private static void ReadCarillon(BinaryReader section, Simulation simulation)
     {
@@ -757,6 +874,12 @@ public sealed class SaveGameSerializer
                 break;
             case SectionCarillon:
                 ReadCarillon(section, simulation);
+                break;
+            case SectionDoctrine:
+                ReadDoctrine(section, content, simulation);
+                break;
+            case SectionExpedition:
+                ReadExpedition(section, simulation);
                 break;
             case SectionScenario:
                 int scenarioIndex = content.Scenarios.IndexOf(section.ReadString());

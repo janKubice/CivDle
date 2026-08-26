@@ -59,6 +59,10 @@ public readonly record struct AscensionPreview(
 /// <param name="PointsEarned">Kolik bodů Vzestupu běh vynesl.</param>
 /// <param name="IsBestPopulation">Byl to nejlidnatější běh dosud?</param>
 /// <param name="PreviousBestPopulation">S čím se poměřoval (0 = první běh).</param>
+/// <param name="DoctrineIndex">
+/// Kterou cestou se civilizace vydala; −1 = žádnou. Patří do bilance, protože
+/// to je to jediné, čím se dva jinak stejné běhy od sebe liší.
+/// </param>
 public readonly record struct RunSummary(
     int Level,
     long DurationTicks,
@@ -68,8 +72,12 @@ public readonly record struct RunSummary(
     long Wonders,
     long PointsEarned,
     bool IsBestPopulation,
-    long PreviousBestPopulation)
+    long PreviousBestPopulation,
+    int DoctrineIndex = -1)
 {
+    /// <summary>Vydala se civilizace nějakou cestou?</summary>
+    public bool HasDoctrine => DoctrineIndex >= 0;
+
     /// <summary>Jak dlouho běh trval v sekundách — UI z toho píše čas.</summary>
     public double DurationSeconds => DurationTicks / (double)Simulation.TicksPerSecond;
 
