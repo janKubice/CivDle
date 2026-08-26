@@ -64,6 +64,20 @@ Tři věci předem:
 
 **Odhad:** 0,5 dne měření + 1,5 dne oprav. **Riziko:** nízké, přínos přesně tak velký, jak ukáže měření.
 
+> **Hotovo — a měření řeklo „není co opravovat".** `--perf` teď vypisuje
+> bajty na snímek i vlastní tabulku pro tik. Čísla:
+>
+> * **tik: 426 B** při 900 budovách — a **neroste s městem** (malé i velké
+>   město alokují stejně, což je ta jediná věc, na které záleží).
+> * **`Numbers.Format`: 54 B na volání**, tedy 63 kB/s při dvaceti surovinách
+>   a šedesáti snímcích. Přepis na `ISpanFormattable` by ušetřil odpad, který
+>   GC ani nezaznamená.
+>
+> Takže žádné „opravy podle čísel" — plán počítal s 1,5 dnem práce, která by
+> nic nepřinesla. Zůstávají tři testy, které to hlídají do budoucna: strop
+> alokací na tik, „alokace neroste s městem" a strop pro HUD. Tohle je ten
+> zisk, ne mikrooptimalizace.
+
 ---
 
 ## 2. Herní obsah
@@ -436,7 +450,7 @@ Setřídil jsem to podle toho, **co udělá z hráče dema kupce**, ne podle vel
 
 | # | Co | Dny |
 |---|---|---|
-| 8 | Měření alokací + opravy podle čísel (1.4) | 2 |
+| 8 | ~~Měření alokací + opravy podle čísel (1.4)~~ **hotovo** | 2 |
 | 9 | Index budov pro render (1.1) | 1,5 |
 | 10 | Prostorová energetika (2.2a) | 2,5 |
 | 11 | Mikro-animace obyvatel (3.1) | 2,5 |
