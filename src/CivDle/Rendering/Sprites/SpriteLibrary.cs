@@ -322,6 +322,7 @@ public sealed class SpriteLibrary : IDisposable
         // Agenti (živý svět).
         Add(device, "agent.person", 12, Person);
         Add(device, "agent.cart", 18, Cart);
+        Add(device, "agent.fisherman", 12, Fisherman);
 
         // Efekty: měkký kontaktní stín pod objekty (ať „sedí" na terénu).
         Add(device, "fx.shadow", SpriteSize, Shadow);
@@ -2423,6 +2424,19 @@ public sealed class SpriteLibrary : IDisposable
         c.FillRect(11, 15, 3, 3, new Color(62, 52, 44));
         c.FillRect(1, 7, 4, 8, new Color(136, 128, 112));     // štít
         c.FillRect(2, 9, 2, 4, new Color(160, 152, 134));
+    }
+
+    /// <summary>Rybář: postava s prutem nataženým nad vodu.</summary>
+    private static void Fisherman(PixelCanvas c)
+    {
+        c.FillCircle(5f, 4f, 2.4f, new Color(216, 178, 148));   // hlava
+        c.FillRect(3, 6, 5, 6, new Color(94, 118, 84));         // tělo
+        c.FillRect(3, 12, 2, 2, new Color(70, 60, 50));         // nohy
+        c.FillRect(6, 12, 2, 2, new Color(70, 60, 50));
+
+        // Prut od ramene šikmo nahoru — z něj je poznat, o co jde.
+        c.FillTriangle(7f, 7f, 8f, 6f, 12f, 1f, new Color(150, 120, 80));
+        c.FillRect(11, 2, 1, 7, new Color(180, 190, 200) * 0.6f); // vlasec
     }
 
     // ----- fáze stavby -----

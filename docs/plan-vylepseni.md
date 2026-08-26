@@ -191,6 +191,18 @@ Největší položka celé sekce 2 a nejvíc mění hru.
 
 **Odhad:** 2,5 dne + sprity. **Riziko:** nízké. **Nejlepší poměr wow/práce v celé sekci 3.**
 
+> **Hotovo.** Přibyly dva druhy, které se nikam neženou: **postávající**
+> (sedí, kouká, přenáší se z nohy na nohu) a **rybář** u vody s prutem. To je
+> ten rozdíl mezi „město, kterým někdo prochází" a „město, ve kterém někdo
+> žije" — pár lidí musí zůstat stát.
+>
+> Klíčová věc není vzhled, ale pool: kdo postává, **musí za obzorem zmizet
+> stejně jako chodec**. Kdyby platilo despawn pravidlo jen pro chodce, stojící
+> by se nasčítali na strop a od té chvíle by se nikdo nový neobjevil — město
+> by po deseti minutách hraní ztuhlo. Hlídají to tři testy, které běží
+> **bez grafiky**: systém jde postavit i bez knihovny spritů, protože chování
+> agentů s kreslením nesouvisí a přes grafickou kartu by se netestovalo vůbec.
+
 ### 3.2 Sníh, listí, vítr
 
 **Stav:** roční období existují jako barevný nádech scény.
@@ -491,7 +503,7 @@ Setřídil jsem to podle toho, **co udělá z hráče dema kupce**, ne podle vel
 | 8 | ~~Měření alokací + opravy podle čísel (1.4)~~ **hotovo** | 2 |
 | 9 | ~~Index budov pro render (1.1)~~ **hotovo** | 1,5 |
 | 10 | ~~Prostorová energetika (2.2a)~~ **hotovo** | 2,5 |
-| 11 | Mikro-animace obyvatel (3.1) | 2,5 |
+| 11 | ~~Mikro-animace obyvatel (3.1)~~ **hotovo** | 2,5 |
 | 12 | ~~Fázové megastruktury (2.3)~~ **hotovo** | 1 |
 
 ### Steam — 2 dny
