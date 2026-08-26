@@ -188,8 +188,40 @@ public sealed record BuildingDef(
     double Paving = 1.0,
     bool Subsea = false,
     bool SubseaAnchor = false,
-    DefenseRule? DefenseOrNull = null)
+    DefenseRule? DefenseOrNull = null,
+    IReadOnlyList<BuildStage>? StagesOrNull = null)
 {
+    /// <summary>
+    /// Fáze stavby: jak budova vypadá v průběhu. Prázdné = kreslí se obecné
+    /// staveniště, jako dřív.
+    /// </summary>
+    public IReadOnlyList<BuildStage> Stages => StagesOrNull ?? Array.Empty<BuildStage>();
+
+    /// <summary>Roste tahle budova před očima po fázích?</summary>
+    public bool HasStages => StagesOrNull is { Count: > 0 };
+
+    /// <summary>
+    /// Sprite pro daný postup stavby (0–1), nebo <c>null</c>, když budova fáze
+    /// nemá.
+    ///
+    /// <para>Vybírá se poslední fáze, jejíž práh už postup překročil — takže
+    /// fáze v datech musí být vzestupné. Hlídá to načítání (fail-fast).</para>
+    /// </summary>
+    public string? StageSpriteAt(double progress)
+    {
+        var stages = Stages;
+        string? found = null;
+        for (int i = 0; i < stages.Count; i++)
+        {
+            if (progress >= stages[i].AtProgress)
+            {
+                found = stages[i].Sprite;
+            }
+        }
+
+        return found ?? (stages.Count > 0 ? stages[0].Sprite : null);
+    }
+
     /// <summary>
     /// Brání se budova, když přijde vlna? <c>null</c> = ne, což je drtivá
     /// většina — obrana je volitelný režim, ne vlastnost města.

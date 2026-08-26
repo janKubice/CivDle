@@ -2237,6 +2237,52 @@ public sealed class ContentLoader
 
         int terraformAction = ParseTerraformAction(path, id, dto, terraformIds);
 
+        // Fáze stavby: obsah, ne mechanika. Validují se přísně, protože chyba
+        // se jinak projeví až tím, že se div desítky minut kreslí špatně —
+        // a to nikdo nespojí s daty.
+        IReadOnlyList<BuildStage>? stages = null;
+        if (dto.Stages is { Count: > 0 })
+        {
+            if (dto.BuildTicks <= 0)
+            {
+                throw new ContentLoadException(path,
+                    $"Budova '{id}' má 'stages', ale staví se okamžitě ('buildTicks' je 0) — fáze by nikdo neviděl.");
+            }
+
+            var parsed = new List<BuildStage>(dto.Stages.Count);
+            double previous = double.NegativeInfinity;
+            foreach (var stage in dto.Stages)
+            {
+                if (stage.AtProgress is < 0 or > 1)
+                {
+                    throw new ContentLoadException(path,
+                        $"Budova '{id}': 'stages.atProgress' musí být 0–1, je {stage.AtProgress}.");
+                }
+
+                if (stage.AtProgress <= previous)
+                {
+                    throw new ContentLoadException(path,
+                        $"Budova '{id}': fáze stavby musí být vzestupné, {stage.AtProgress} přišlo po {previous}.");
+                }
+
+                if (string.IsNullOrWhiteSpace(stage.Sprite))
+                {
+                    throw new ContentLoadException(path, $"Budova '{id}': fáze stavby bez 'sprite'.");
+                }
+
+                previous = stage.AtProgress;
+                parsed.Add(new BuildStage(stage.AtProgress, stage.Sprite.Trim()));
+            }
+
+            if (parsed[0].AtProgress > 0)
+            {
+                throw new ContentLoadException(path,
+                    $"Budova '{id}': první fáze musí začínat na 0, jinak by se od položení nekreslilo nic.");
+            }
+
+            stages = parsed;
+        }
+
         DefenseRule? defense = null;
         if (dto.Defense is { } defenseDto)
         {
@@ -2276,7 +2322,8 @@ public sealed class ContentLoader
             Math.Clamp(dto.Paving ?? 1.0, 0.0, 1.0),
             subsea,
             dto.SubseaAnchor,
-            defense);
+            defense,
+            stages);
     }
 
     /// <summary>

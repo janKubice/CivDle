@@ -69,7 +69,11 @@ public sealed record BuildingDto(
     int TerraformRadius,
     double? Paving,
     bool SubseaAnchor = false,
-    DefenseDto? Defense = null);
+    DefenseDto? Defense = null,
+    List<BuildStageDto>? Stages = null);
+
+/// <summary>Jedna fáze stavby tak, jak leží v JSON.</summary>
+public sealed record BuildStageDto(double AtProgress, string Sprite);
 
 /// <summary>Podívaná megastruktury tak, jak leží v JSON.</summary>
 public sealed record BuildingSpectacleDto(string? Effect, double IntervalSeconds);

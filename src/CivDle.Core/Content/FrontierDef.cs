@@ -1,6 +1,18 @@
 namespace CivDle.Core.Content;
 
 /// <summary>
+/// Jedna fáze stavby: od jakého postupu se kreslí tenhle sprite.
+///
+/// <para>Existuje kvůli divům světa. Div se staví desítky minut a celou tu
+/// dobu vypadal stejně — jako obecné lešení. Fáze z toho dělají podívanou:
+/// základy, hrubá stavba, dokončování. Je to čistě obsah, ne mechanika;
+/// postup stavby už simulace zná.</para>
+/// </summary>
+/// <param name="AtProgress">Od jakého postupu (0–1) fáze platí.</param>
+/// <param name="Sprite">ID spritu pro tuhle fázi.</param>
+public readonly record struct BuildStage(double AtProgress, string Sprite);
+
+/// <summary>
 /// Co budova umí, když se blíží útok. Chybí-li v datech, budova se nebrání —
 /// drtivá většina jich takových je a nic navíc je to nestojí.
 /// </summary>

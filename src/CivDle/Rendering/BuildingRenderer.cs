@@ -421,6 +421,16 @@ public sealed class BuildingRenderer
         // Základy: obrys rozestavěné budovy, ať je vidět, kolik místa zabere.
         spriteBatch.Draw(_pixel, new Rectangle(x, y, width, height), new Color(60, 55, 45) * 0.45f);
 
+        // Budova s fázemi má na každou fázi vlastní sprite — kreslí se celý,
+        // ne vyříznutý zespodu. Div se tím staví jako div, ne jako dům, který
+        // se vysouvá ze země.
+        if (def.HasStages && _sprites.Get(def.StageSpriteAt(progress) ?? string.Empty) is { } staged)
+        {
+            spriteBatch.Draw(staged, bounds, Color.White);
+            DrawProgressBar(spriteBatch, bounds, progress);
+            return;
+        }
+
         int risen = Math.Max(1, (int)(height * progress));
         var sprite = _sprites.Get($"building.{def.Id}");
         var partial = new Rectangle(x, y + height - risen, width, risen);
@@ -442,12 +452,17 @@ public sealed class BuildingRenderer
         spriteBatch.Draw(_pixel, new Rectangle(x, y + height / 3, width, 1), scaffold);
         spriteBatch.Draw(_pixel, new Rectangle(x, y + 2 * height / 3, width, 1), scaffold);
 
-        // Pruh postupu nad staveništěm.
+        DrawProgressBar(spriteBatch, bounds, progress);
+    }
+
+    /// <summary>Pruh postupu nad staveništěm. Společný pro fázovanou i obecnou stavbu.</summary>
+    private void DrawProgressBar(SpriteBatch spriteBatch, Rectangle bounds, double progress)
+    {
         const int barHeight = 3;
-        int barY = y - barHeight - 2;
-        spriteBatch.Draw(_pixel, new Rectangle(x, barY, width, barHeight), Color.Black * 0.55f);
+        int barY = bounds.Y - barHeight - 2;
+        spriteBatch.Draw(_pixel, new Rectangle(bounds.X, barY, bounds.Width, barHeight), Color.Black * 0.55f);
         spriteBatch.Draw(_pixel,
-            new Rectangle(x, barY, Math.Max(1, (int)(width * progress)), barHeight),
+            new Rectangle(bounds.X, barY, Math.Max(1, (int)(bounds.Width * progress)), barHeight),
             new Color(240, 200, 90));
     }
 

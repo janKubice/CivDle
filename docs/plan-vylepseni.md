@@ -152,6 +152,17 @@ Tři věci předem:
 
 **Odhad:** 1 den kódu + kresba spritů (to je ta skutečná práce). **Riziko:** nízké.
 
+> **Hotovo — a ta „skutečná práce" odpadla.** Sprity jsou **obecné**:
+> `stage.foundation` (výkop, kolíky, hromada materiálu) a `stage.frame`
+> (nosníky, lešení, jeřáb). Div se od divu v základech neliší, takže kreslit
+> tři vlastní sprity ke každému z deseti by byla práce navíc bez rozdílu na
+> obrazovce. Poslední fáze je sprite hotové budovy — „stojí, dodělává se".
+>
+> Validace při načtení: fáze musí být vzestupné, první na nule (jinak by se
+> od položení nekreslilo nic) a budova s fázemi se nesmí stavět okamžitě.
+> A test v UI hlídá, že každá fáze odkazuje existující sprite — překlep by
+> jinak znamenal div, který se desítky minut kreslí jako prázdný obrys.
+
 ### 2.4 Civilizační doktríny
 
 Největší položka celé sekce 2 a nejvíc mění hru.
@@ -481,7 +492,7 @@ Setřídil jsem to podle toho, **co udělá z hráče dema kupce**, ne podle vel
 | 9 | ~~Index budov pro render (1.1)~~ **hotovo** | 1,5 |
 | 10 | ~~Prostorová energetika (2.2a)~~ **hotovo** | 2,5 |
 | 11 | Mikro-animace obyvatel (3.1) | 2,5 |
-| 12 | Fázové megastruktury (2.3) | 1 |
+| 12 | ~~Fázové megastruktury (2.3)~~ **hotovo** | 1 |
 
 ### Steam — 2 dny
 

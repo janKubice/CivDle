@@ -305,6 +305,12 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "attacker.brute", 18, canvas => Brute(canvas));
         Add(device, "attacker.skirmisher", 12, canvas => Raider(canvas, new Color(196, 138, 62)));
 
+        // Fáze stavby. Obecné schválně: div se od divu v základech neliší
+        // a kreslit tři vlastní sprity ke každému by byla práce navíc bez
+        // rozdílu na obrazovce.
+        Add(device, "stage.foundation", SpriteSize, Foundation);
+        Add(device, "stage.frame", SpriteSize, Framework);
+
         // Megastavby.
         Add(device, "building.megacity_spire", SpriteSize, MegacitySpire);
         Add(device, "building.grand_exchange", SpriteSize, GrandExchange);
@@ -2417,6 +2423,55 @@ public sealed class SpriteLibrary : IDisposable
         c.FillRect(11, 15, 3, 3, new Color(62, 52, 44));
         c.FillRect(1, 7, 4, 8, new Color(136, 128, 112));     // štít
         c.FillRect(2, 9, 2, 4, new Color(160, 152, 134));
+    }
+
+    // ----- fáze stavby -----
+
+    /// <summary>Základy: výkop, značky a hromádky materiálu.</summary>
+    private static void Foundation(PixelCanvas c)
+    {
+        c.FillRect(3, 20, 26, 10, new Color(92, 78, 62));        // výkop
+        c.FillRect(5, 22, 22, 6, new Color(74, 62, 50));
+        c.FillRect(4, 19, 24, 2, new Color(120, 104, 84));       // obruba
+
+        // Vytyčovací kolíky v rozích — z nich je poznat, co tu poroste.
+        foreach (int x in new[] { 3, 28 })
+        {
+            c.FillRect(x, 14, 1, 6, new Color(180, 160, 120));
+            c.FillRect(x - 1, 13, 3, 2, new Color(220, 190, 120));
+        }
+
+        c.FillRect(8, 15, 7, 4, new Color(140, 120, 96));        // hromada materiálu
+        c.FillRect(18, 16, 6, 3, new Color(126, 108, 88));
+    }
+
+    /// <summary>Hrubá stavba: lešení, nosníky a jeřáb.</summary>
+    private static void Framework(PixelCanvas c)
+    {
+        c.FillRect(3, 26, 26, 4, new Color(104, 92, 74));        // patka
+
+        // Nosníky.
+        var steel = new Color(136, 132, 128);
+        foreach (int x in new[] { 6, 12, 19, 25 })
+        {
+            c.FillRect(x, 10, 2, 16, steel);
+        }
+
+        foreach (int y in new[] { 12, 18, 24 })
+        {
+            c.FillRect(6, y, 21, 1, steel);
+        }
+
+        // Lešení: šikmé vzpěry, ať to nevypadá jako mříž.
+        var wood = new Color(190, 160, 104);
+        c.FillTriangle(6f, 26f, 13f, 26f, 6f, 18f, wood * 0.55f);
+        c.FillTriangle(19f, 26f, 26f, 26f, 26f, 18f, wood * 0.55f);
+
+        // Jeřáb — jediná věc, ze které je na první pohled poznat „staví se".
+        c.FillRect(27, 2, 2, 24, new Color(214, 150, 60));
+        c.FillRect(14, 3, 15, 2, new Color(214, 150, 60));
+        c.FillRect(15, 5, 1, 5, new Color(150, 146, 140));       // lano
+        c.FillRect(13, 10, 5, 3, new Color(160, 140, 110));      // břemeno
     }
 
     private static void OreIcon(PixelCanvas c, Color ore)
