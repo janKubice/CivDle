@@ -365,6 +365,28 @@ Vypadá to o chlup hůř než gaussovské rozostření a nikdo to nepozná. **1 
 
 *Hromadné vylepšení distriktu* je proti tomu snadné: `TryUpgradeBuilding` už existuje, jde jen o výběr podle distriktu, spočtení ceny a jedno potvrzení. **0,5 dne.**
 
+> **Undo hotové, v doporučeném rozsahu.** Dvacet posledních <b>hráčových</b>
+> akcí (stavba, bourání, silnice), každá se svou inverzí. Ctrl+Z.
+>
+> **Guvernérovy stavby se nevracejí.** Do zásobníku jde jen to, co hráč
+> opravdu udělal — vzít mu stavbu pod rukama by bylo horší než undo nemít.
+>
+> **Když se pod akcí svět změnil, vrácení se odmítne** a řekne to. Na tom celá
+> věc stojí: guvernér staví dál, zatímco hráč přemýšlí, a „vrátit" budovu,
+> která už není ta, kterou postavil, by znamenalo zbourat cizí. Odmítnutá akce
+> navíc <b>zůstane v zásobníku</b>, takže až hráč uklidí, co překáží, dá se to
+> zkusit znovu.
+>
+> Vrácení bourání bere zpátky přesně tolik, kolik bourání vrátilo — jinak by
+> z undo byl mlýnek na suroviny. A vrácení se samo do zásobníku nezapisuje;
+> jinak by další „zpět" jelo dokola.
+>
+> **Do savu to nepatří.** Je to pomůcka relace: po načtení hry se začíná
+> s prázdným zásobníkem, což je poctivější než slibovat vrácení akce, po které
+> se mezitím odehrály hodiny offline dohonu. Zóny zůstaly venku — jedna
+> „akce" u malování zóny nemá jasnou hranici a slibovat u ní undo by znamenalo
+> hádat, co hráč myslel.
+
 ### 4.3 Hledání a filtry
 
 **149 technologií a 94 budov, a ve `TechScreen` není hledání.** U hvězdicového stromu to není komfort, to je nutnost.

@@ -582,6 +582,13 @@ public sealed class GameplayScreen : IScreen
             _bottleneckLegend.Visible = _showBottlenecks;
         }
 
+        // Ctrl+Z: vrátit poslední akci. S modifikátorem schválně — samotné Z je
+        // moc blízko WASD a stavěl by se dům, který se hned zase zboural.
+        if (_input.WasPressed(Keys.Z) && (_input.IsDown(Keys.LeftControl) || _input.IsDown(Keys.RightControl)))
+        {
+            UndoLastAction();
+        }
+
         // E: pokrytí proudem. Sám se ukáže, když má hráč v ruce elektrárnu
         // nebo budovu, která proud potřebuje — tehdy je to jediná informace,
         // podle které se rozhoduje kam.
@@ -1009,6 +1016,34 @@ public sealed class GameplayScreen : IScreen
     /// Uloží sdílitelnou kartu a řekne hráči kam. Bez té hlášky by obrázek
     /// vznikl někde, kde ho nikdo nenajde.
     /// </summary>
+    /// <summary>
+    /// Vrátí poslední hráčovu akci a řekne, jak to dopadlo.
+    ///
+    /// <para>Odmítnutí se <b>hlásí</b>, ne mlčí. „Zmáčkl jsem zpět a nic se
+    /// nestalo" je horší než „nejde to, protože tam mezitím něco stojí" —
+    /// v prvním případě hráč mačká dál a myslí si, že je rozbitá hra.</para>
+    /// </summary>
+    private void UndoLastAction()
+    {
+        var loc = _screens.Loc;
+        switch (_simulation.TryUndo())
+        {
+            case UndoResult.Ok:
+                _toasts.Add(loc["undo.done"], UiPalette.TextBright);
+                RefreshBuildMenu();
+                break;
+            case UndoResult.Empty:
+                _toasts.Add(loc["undo.empty"], UiPalette.Text);
+                break;
+            case UndoResult.WorldChanged:
+                _toasts.Add(loc["undo.worldChanged"], UiPalette.Warn);
+                break;
+            case UndoResult.NotEnoughResources:
+                _toasts.Add(loc["undo.tooPoor"], UiPalette.Warn);
+                break;
+        }
+    }
+
     private void SaveShareCard(bool fullDetail = false)
     {
         var settings = _screens.Settings;

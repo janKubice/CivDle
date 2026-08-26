@@ -83,6 +83,7 @@ public sealed class Simulation
     private readonly Carillon _carillon;
     private readonly PointOfInterestSystem _poi;
     private readonly LogRaftSystem _rafts;
+    private readonly UndoStack _undo = new();
 
     /// <summary>Které uzly doktríny jsou koupené (jen ta zvolená, ostatní zůstávají false).</summary>
     private bool[] _doctrineNodes = Array.Empty<bool>();
@@ -3652,6 +3653,7 @@ public sealed class Simulation
         }
 
         AddRoadTile(x, y);
+        _undo.Push(new PlayerAction(PlayerActionKind.Road, -1, x, y, 0f));
         return PlacementResult.Ok;
     }
 
@@ -3676,6 +3678,7 @@ public sealed class Simulation
         }
 
         _roadLinksDirty = true;
+        _undo.Push(new PlayerAction(PlayerActionKind.RemoveRoad, -1, x, y, 0f));
         return true;
     }
 
@@ -4161,6 +4164,11 @@ public sealed class Simulation
         {
             ApplyBuildingBonuses(def); // staveniště nic nedává, dokud nestojí
         }
+
+        // Do zásobníku vrácení jen to, co udělal HRÁČ. Guvernérovy stavby se
+        // nevracejí — hráč je nedělal a vzít mu je zpátky pod rukama by bylo
+        // horší než nemít undo vůbec.
+        _undo.Push(new PlayerAction(PlayerActionKind.Build, defIndex, x, y, 0f));
 
         ReportVisual(VisualEventKind.BuildingPlaced, x, y);
         if (_batchPlacement)
@@ -5715,6 +5723,148 @@ public sealed class Simulation
     /// </summary>
     public bool HasSettledBiome(int biomeIndex) => _settledBiomes[biomeIndex];
 
+    // ----- vrácení poslední akce -----
+
+    /// <summary>Zásobník posledních hráčových akcí. Do savu nepatří — je to pomůcka relace.</summary>
+    public UndoStack Undo => _undo;
+
+    /// <summary>Co se vrátí, kdyby hráč zmáčkl zpět; <c>null</c> = nic.</summary>
+    public PlayerAction? UndoPreview => _undo.Peek;
+
+    /// <summary>
+    /// Vrátí poslední hráčovu akci.
+    ///
+    /// <para><b>Když se pod akcí svět změnil, vrácení se odmítne.</b> To je ta
+    /// podmínka, na které celá věc stojí: guvernér staví dál, zatímco hráč
+    /// přemýšlí, a „vrátit" budovu, která už není ta, kterou postavil, by
+    /// znamenalo zbourat cizí. Radši říct „nejde to" než tiše rozbít město.</para>
+    /// </summary>
+    public UndoResult TryUndo()
+    {
+        if (_undo.Peek is not { } action)
+        {
+            return UndoResult.Empty;
+        }
+
+        var result = action.Kind switch
+        {
+            PlayerActionKind.Build => UndoBuild(action),
+            PlayerActionKind.Demolish => UndoDemolish(action),
+            PlayerActionKind.Road => UndoRoad(action),
+            PlayerActionKind.RemoveRoad => UndoRemoveRoad(action),
+            _ => UndoResult.WorldChanged,
+        };
+
+        if (result == UndoResult.Ok)
+        {
+            // Odebrat AŽ po úspěchu: odmítnuté vrácení musí zůstat nahoře, ať
+            // to jde zkusit znovu, až hráč uklidí, co překáží.
+            _undo.TryPop(out _);
+        }
+
+        return result;
+    }
+
+    /// <summary>Vrácení stavby: zbourat, co hráč postavil — ale jen když to tam pořád stojí.</summary>
+    private UndoResult UndoBuild(in PlayerAction action)
+    {
+        if (!TryGetBuildingAt(action.X, action.Y, out int index)
+            || _buildings[index].DefIndex != action.DefIndex
+            || _buildings[index].X != action.X
+            || _buildings[index].Y != action.Y)
+        {
+            return UndoResult.WorldChanged;
+        }
+
+        // Přes obyčejnou demolici, ne zkratkou: jinak by se vrácení dřív nebo
+        // později rozešlo s tím, co dělá bourání (vrácená půlka ceny, bonusy,
+        // přepočet osad).
+        var demolished = TryDemolish(index);
+        if (demolished != PlacementResult.Ok)
+        {
+            return UndoResult.WorldChanged;
+        }
+
+        // Demolice se sama zapsala do zásobníku — ta se ale nestala, je to jen
+        // provedení vrácení.
+        _undo.TryPop(out _);
+        return UndoResult.Ok;
+    }
+
+    /// <summary>
+    /// Vrácení bourání: budova se vrátí i s rozestavěností a hráč vrátí půlku
+    /// ceny, kterou za zbourání dostal.
+    /// </summary>
+    private UndoResult UndoDemolish(in PlayerAction action)
+    {
+        var def = _content.Buildings[action.DefIndex];
+        if (!CanStandAt(def, action.X, action.Y))
+        {
+            return UndoResult.WorldChanged;
+        }
+
+        var refund = new List<ResourceAmount>(def.BuildCost.Count);
+        for (int i = 0; i < def.BuildCost.Count; i++)
+        {
+            // Přesně tolik, kolik bourání vrátilo — jinak by se undo dalo
+            // použít jako mlýnek na suroviny.
+            int amount = (int)Math.Floor(def.BuildCost[i].Amount * DemolishRefundFraction);
+            if (amount > 0)
+            {
+                refund.Add(new ResourceAmount(def.BuildCost[i].ResourceIndex, amount));
+            }
+        }
+
+        if (!CanPay(refund))
+        {
+            return UndoResult.NotEnoughResources;
+        }
+
+        Pay(refund);
+        AddBuilding(action.DefIndex, action.X, action.Y, action.Progress, asConstructionSite: false);
+        if (action.Progress >= 1f || !def.TakesTimeToBuild)
+        {
+            ApplyBuildingBonuses(def);
+        }
+
+        SettlementsDirty = true;
+        DistrictsDirty = true;
+        _roadLinksDirty = true;
+        return UndoResult.Ok;
+    }
+
+    private UndoResult UndoRoad(in PlayerAction action)
+    {
+        if (!IsRoad(action.X, action.Y))
+        {
+            return UndoResult.WorldChanged;
+        }
+
+        if (!TryRemoveRoad(action.X, action.Y))
+        {
+            return UndoResult.WorldChanged;
+        }
+
+        _undo.TryPop(out _); // strhnutí silnice se zapsalo samo
+        return UndoResult.Ok;
+    }
+
+    private UndoResult UndoRemoveRoad(in PlayerAction action)
+    {
+        if (IsRoad(action.X, action.Y))
+        {
+            return UndoResult.WorldChanged;
+        }
+
+        if (TryBuildRoad(action.X, action.Y) != PlacementResult.Ok)
+        {
+            return UndoResult.WorldChanged;
+        }
+
+        _undo.TryPop(out _); // postavení silnice se zapsalo samo
+        return UndoResult.Ok;
+    }
+
     // ----- plavení dřeva -----
 
     /// <summary>Klády na řekách: co plave a kam.</summary>
@@ -6906,6 +7056,9 @@ public sealed class Simulation
 
         var def = _content.Buildings[_buildings[buildingIndex].DefIndex];
         int x = _buildings[buildingIndex].X, y = _buildings[buildingIndex].Y;
+        _undo.Push(new PlayerAction(
+            PlayerActionKind.Demolish, _buildings[buildingIndex].DefIndex, x, y,
+            _buildings[buildingIndex].Progress));
 
         for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
         {
@@ -8510,6 +8663,7 @@ public sealed class Simulation
         _poi.Reset();       // a anomálie: nový svět, nová nevybraná místa
         RefundDoctrine();   // doktrína je tvar TÉHLE civilizace; příští si vybere znovu
         _rafts.Reset();     // a řeky: klády patřily světu, který skončil
+        _undo.Clear();      // vracet stavby předchozí civilizace nedává smysl
         _relics.Clear();
         ExpeditionTicksLeft = 0;
         _buildingIndex.Clear();
