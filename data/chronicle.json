@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "lines": [
+    { "id": "founded", "moment": "founded" },
+    { "id": "settlements", "moment": "settlements", "threshold": 3 },
+    { "id": "growth", "moment": "growth" },
+    { "id": "era", "moment": "eraChange" },
+    { "id": "hardship", "moment": "hardship", "threshold": 0.4 },
+    { "id": "pollution", "moment": "pollution", "threshold": 0.5 },
+    { "id": "peak", "moment": "peak" },
+    { "id": "today", "moment": "today" }
+  ]
+}

@@ -372,6 +372,24 @@ Skoro hotové: `CheatMode` (neomezené suroviny, guvernér na maximum) existuje.
 
 **Odhad:** 2,5 dne. **Riziko:** nízké. Skvělé před Vzestupem: hráč má co ukázat.
 
+> **Hotovo.** `data/chronicle.json` říká, **které** okamžiky se do kroniky
+> zapisují a s jakým prahem; jak se takový okamžik v časosběru pozná, ví kód.
+> Podmínka v JSON („když populace > X a zároveň…") by byla logika v datech,
+> a to se tu nedělá.
+>
+> Věty jsou v jazycích, ne v datech. Není to nedůslednost: „po dvou letech"
+> a „po pěti letech" se v češtině liší a jednou šablonou pro pět jazyků se to
+> nevyřeší — překladatel musí mít celou větu.
+>
+> Zlom v růstu je **přírůstek, ne největší číslo**. Nejvíc lidí je vždycky na
+> posledním snímku a o běhu to neřekne nic; zajímavá je ta chvíle, kdy se to
+> rozjelo. Test to hlídá jmenovitě.
+>
+> Stránka se skládá z půdorysu posledního snímku časosběru (oříznutého na to,
+> kde něco stojí — mřížka je 256×256 buněk a město bývá v rohu) a z vět pod
+> ním. Text na obrazovce i na obrázku jde přes tentýž `ChronicleText`, aby se
+> nerozešly.
+
 ### 6.4 Karavany přátel
 
 **Jde to a je to levné** — když zůstane u jmen a obrázků.
@@ -628,9 +646,9 @@ Poslední z jediného důvodu: je to jediná položka, která přidává novou e
 
 ### Velké věci — až bude prostor
 
-Hotovo: ~~sdílení šablon (7.3)~~, ~~osobnosti (6.1)~~.
+Hotovo: ~~sdílení šablon (7.3)~~, ~~osobnosti (6.1)~~, ~~kronika (6.3)~~.
 
-Zbývá: anomálie a expedice (2.1b), doktríny (2.4), kronika (6.3), scénáře (5.1), plavení dřeva (6.2), hustotní mapa (1.3), zvonohra (6.7), plán guvernéra na sídlo (4.4).
+Zbývá: anomálie a expedice (2.1b), doktríny (2.4), scénáře (5.1), plavení dřeva (6.2), hustotní mapa (1.3), zvonohra (6.7), plán guvernéra na sídlo (4.4).
 
 ### Nedělat teď
 

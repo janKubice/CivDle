@@ -1344,6 +1344,74 @@ public class ContentLoaderTests : IDisposable
     }
     """);
 
+    // ----- kronika -----
+
+    [Fact]
+    public void Chronicle_LoadsItsSentenceTemplates()
+    {
+        WriteWorldWithChronicle("""{ "id": "today", "moment": "today" }""");
+
+        var content = Load();
+
+        Assert.True(content.Chronicle.IsEnabled);
+        Assert.Equal(ChronicleMoment.Today, content.Chronicle[0].Moment);
+        Assert.Equal("chronicle.line.today", content.Chronicle[0].TextKey);
+    }
+
+    [Fact]
+    public void Chronicle_WithAnUnknownMoment_Throws()
+    {
+        // Okamžik pozná kód. Překlep by jinak znamenal větu, která se nikdy
+        // nenapíše — a prázdné místo na stránce nikoho nenapadne hlásit.
+        WriteWorldWithChronicle("""{ "id": "today", "moment": "kdysi_davno" }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("chronicle.json", ex.Message);
+        Assert.Contains("kdysi_davno", ex.Message);
+    }
+
+    [Fact]
+    public void Chronicle_WithAThresholdOutsideZeroToOne_Throws()
+    {
+        // Spokojenost je podíl. Práh 50 by znamenal větu, která se nespustí
+        // nikdy, a přišlo by se na to až po hodinách hraní.
+        WriteWorldWithChronicle("""{ "id": "today", "moment": "hardship", "threshold": 50 }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("threshold", ex.Message);
+    }
+
+    [Fact]
+    public void Chronicle_WithoutItsSentenceInTheLanguage_Throws()
+    {
+        WriteAllValid();
+        Write("chronicle.json", """
+        { "schemaVersion": 1, "lines": [ { "id": "today", "moment": "today" } ] }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("chronicle.line.today", ex.Message);
+    }
+
+    /// <summary>Minimální data + jedna věta kroniky (i s jejím textem v jazycích).</summary>
+    private void WriteWorldWithChronicle(string lineJson)
+    {
+        WriteAllValid();
+        Write(Path.Combine("lang", "cs.json"), LangJson("cs", "Čeština", extraKeys: ChronicleKeys));
+        Write(Path.Combine("lang", "en.json"), LangJson("en", "English", extraKeys: ChronicleKeys));
+        Write("chronicle.json", $$"""
+        {
+          "schemaVersion": 1,
+          "lines": [ {{lineJson}} ]
+        }
+        """);
+    }
+
+    private static readonly string[] ChronicleKeys = { "chronicle.line.today" };
+
     // ----- pomůcky -----
 
     private GameContent Load() => new ContentLoader().LoadFrom(_tempDir);

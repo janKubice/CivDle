@@ -2810,6 +2810,15 @@ public sealed class GameplayScreen : IScreen
                 () => _screens.Push(new StatsScreen(_screens, _simulation.History))), slot++, columns);
         }
 
+        // Kronika stojí vedle statistik schválně: obojí čte tentýž časosběr,
+        // jen jedno odpovídá na „kolik" a druhé na „co se stalo".
+        if (_simulation.HistoryEnabled && _screens.Content.Chronicle.IsEnabled)
+        {
+            Place(grid, UiFactory.ToolButton(
+                Ico("ui.chronicle"), loc["chronicle.page.title"] + '\n' + loc["tip.chroniclePage"],
+                () => _screens.Push(new ChroniclePageScreen(_screens, _simulation))), slot++, columns);
+        }
+
         // Achievementy a žebříčky v demu nejsou. Zůstávají v liště zamčené,
         // ne skryté: hráč má vidět, co v plné verzi je — a hlavně nemá hledat
         // ve hře cestu, jak je odemknout, když žádná není.

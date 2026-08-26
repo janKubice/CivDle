@@ -671,6 +671,12 @@ public sealed record FigureDto(
     string? Milestone,
     string? Statue);
 
+/// <summary>Obsah souboru <c>data/chronicle.json</c>.</summary>
+public sealed record ChronicleFileDto(int SchemaVersion, List<ChronicleTemplateDto>? Lines);
+
+/// <summary>Jedna věta kroniky tak, jak leží v JSON.</summary>
+public sealed record ChronicleTemplateDto(string Id, string Moment, double Threshold);
+
 /// <summary>Obsah souboru <c>data/frontier.json</c>.</summary>
 public sealed record FrontierFileDto(
     int SchemaVersion,

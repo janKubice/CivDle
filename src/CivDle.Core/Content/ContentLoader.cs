@@ -93,7 +93,8 @@ public sealed class ContentLoader
         var orbit = LoadOrbit(Path.Combine(dataDirectory, "orbit.json"), resources, buildings);
         var frontier = LoadFrontier(Path.Combine(dataDirectory, "frontier.json"));
         var figures = LoadFigures(Path.Combine(dataDirectory, "figures.json"), buildings, milestones);
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit, figures);
+        var chronicle = LoadChronicle(Path.Combine(dataDirectory, "chronicle.json"));
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit, figures, chronicle);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
@@ -106,7 +107,7 @@ public sealed class ContentLoader
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
             worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, faith, npcCities, vehicles, mods,
-            grandWork, legacy, legacyUpgrades, aircraft, orbit, frontier, figures);
+            grandWork, legacy, legacyUpgrades, aircraft, orbit, frontier, figures, chronicle);
     }
 
     // ----- cizí města -----
@@ -279,6 +280,60 @@ public sealed class ContentLoader
         }
 
         return new FigureCatalog(figures);
+    }
+
+    /// <summary>
+    /// Načte šablony vět kroniky. Chybějící soubor není chyba — kronika je
+    /// nadstavba nad časosběrem a hra bez ní běží dál.
+    /// </summary>
+    private ChronicleCatalog LoadChronicle(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return ChronicleCatalog.Empty;
+        }
+
+        var file = ReadFile<ChronicleFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var lines = new List<ChronicleTemplateDef>();
+        foreach (var dto in file.Lines ?? new List<ChronicleTemplateDto>())
+        {
+            string id = dto.Id?.Trim() ?? string.Empty;
+            if (id.Length == 0)
+            {
+                throw new ContentLoadException(path, "Věta kroniky bez 'id'.");
+            }
+
+            if (!seen.Add(id))
+            {
+                throw new ContentLoadException(path, $"Věta kroniky '{id}' je v datech dvakrát.");
+            }
+
+            // Okamžik pozná kód, ne data — překlep by jinak znamenal větu,
+            // která se nikdy nenapíše, a nic by to nenahlásilo.
+            if (!Enum.TryParse<ChronicleMoment>(dto.Moment?.Trim(), ignoreCase: true, out var moment))
+            {
+                throw new ContentLoadException(
+                    path,
+                    $"Věta kroniky '{id}': neznámý okamžik '{dto.Moment}' "
+                    + $"(známé: {string.Join(", ", Enum.GetNames<ChronicleMoment>())}).");
+            }
+
+            // Spokojenost i špína jsou podíly 0–1. Práh 50 by znamenal větu,
+            // která se nikdy nespustí — a to se pozná až po hodinách hraní.
+            if (moment is ChronicleMoment.Hardship or ChronicleMoment.Pollution
+                && dto.Threshold is < 0 or > 1)
+            {
+                throw new ContentLoadException(
+                    path, $"Věta kroniky '{id}': 'threshold' je podíl 0–1, je {dto.Threshold}.");
+            }
+
+            lines.Add(new ChronicleTemplateDef(id, moment, dto.Threshold));
+        }
+
+        return new ChronicleCatalog(lines);
     }
 
     /// <summary>
@@ -4234,7 +4289,8 @@ public sealed class ContentLoader
         IReadOnlyList<MilestoneDef> milestones,
         SeasonCalendar seasons,
         OrbitCatalog orbit,
-        FigureCatalog figures)
+        FigureCatalog figures,
+        ChronicleCatalog chronicle)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -4268,7 +4324,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit, figures);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit, figures, chronicle);
         FillGapsFromBaseLanguage(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -4306,7 +4362,8 @@ public sealed class ContentLoader
         IReadOnlyList<MilestoneDef> milestones,
         SeasonCalendar seasons,
         OrbitCatalog orbit,
-        FigureCatalog figures)
+        FigureCatalog figures,
+        ChronicleCatalog chronicle)
     {
         var required = new List<string>();
         foreach (var satellite in orbit.Satellites)
@@ -4322,6 +4379,13 @@ public sealed class ContentLoader
         {
             required.Add($"figure.{figure.Id}");
             required.Add($"figure.{figure.Id}.desc");
+        }
+
+        // Věta kroniky se skládá v jazyce, ne v kódu: „po dvou letech" a „po
+        // pěti letech" se v češtině liší a jednou šablonou se to nevyřeší.
+        foreach (var line in chronicle.Templates)
+        {
+            required.Add(line.TextKey);
         }
 
         required.AddRange(biomes.All.Select(b => b.NameKey));
