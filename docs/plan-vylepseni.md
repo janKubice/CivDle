@@ -333,6 +333,29 @@ Skoro hotové: `CheatMode` (neomezené suroviny, guvernér na maximum) existuje.
 
 **Odhad:** 2,5 dne. **Riziko:** nízké, přínos vysoký — dává městu příběh.
 
+> **Hotovo.** Čtyři osobnosti v `data/figures.json`: kameník, učenka,
+> agronomka a mořeplavec. Rodí se na milnících, které už ve hře byly, a sahají
+> na tentýž slovník efektů jako Vzestup a družice — žádná druhá soustava
+> násobičů.
+>
+> **Bonus se počítá ze seznamu žijících, ne z uložené sumy.** To není detail
+> implementace, to je celá ta chyba, kterou má mechanika: přičti bonus při
+> narození, zapomeň ho odečíst při úmrtí, a hráč má napořád dvojnásobný výzkum
+> po člověku, který zemřel před třemi érami. Ze seznamu mrtvý zmizí a s ním
+> i jeho vliv. Test to hlídá jmenovitě.
+>
+> Socha efekt **nahradí**, ne přidá — je to normální budova se `serviceValue`,
+> kterou postaví simulace zadarmo co nejblíž středu města. Když se do okruhu
+> 24 dlaždic nevejde, socha prostě nebude; zastavěné město až k obzoru je
+> legitimní stav a hra kvůli soše nikoho nebourá.
+>
+> V savu je i **seznam mrtvých**. Bez něj by se po každém načtení narodili
+> znovu na tomtéž milníku a hráč by měl jednoho člověka třikrát.
+>
+> Navíc proti plánu: obrazovka se zbývajícím životem. Je to jediný bonus ve
+> hře, který sám od sebe zmizí — bez místa, kde je vidět „zbývá 20 %", by
+> hráči jednou klesla výroba a neměl by kde zjistit proč.
+
 ### 6.2 Říční proudy a plavení dřeva
 
 *Postup:* (1) řeky mají směr už při generování — uložit ho na dlaždici (2 bity), ne dopočítávat. (2) Kláda je entita jako vozidlo, plave po směru. (3) Česle u pily je budova, která je vybírá.
@@ -605,7 +628,9 @@ Poslední z jediného důvodu: je to jediná položka, která přidává novou e
 
 ### Velké věci — až bude prostor
 
-Anomálie a expedice (2.1b), doktríny (2.4), kronika (6.3), osobnosti (6.1), scénáře (5.1), plavení dřeva (6.2), hustotní mapa (1.3), zvonohra (6.7), sdílení šablon (7.3), plán guvernéra na sídlo (4.4).
+Hotovo: ~~sdílení šablon (7.3)~~, ~~osobnosti (6.1)~~.
+
+Zbývá: anomálie a expedice (2.1b), doktríny (2.4), kronika (6.3), scénáře (5.1), plavení dřeva (6.2), hustotní mapa (1.3), zvonohra (6.7), plán guvernéra na sídlo (4.4).
 
 ### Nedělat teď
 
