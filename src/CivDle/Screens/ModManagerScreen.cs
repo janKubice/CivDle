@@ -35,6 +35,18 @@ public sealed class ModManagerScreen : IScreen
     /// <summary>Změnil hráč něco, co se projeví až po restartu?</summary>
     private bool _dirty;
 
+    /// <summary>
+    /// Běžící publikace do Workshopu, nebo <c>null</c>.
+    ///
+    /// <para>Drží ji obrazovka, protože jen ta ví, co hráč zrovna publikuje —
+    /// ale samotné nahrávání běží dál i mezi snímky, takže se tu jen sleduje.
+    /// </para>
+    /// </summary>
+    private Platform.WorkshopUpload? _upload;
+
+    /// <summary>Který mod se právě nahrává (kvůli hlášce u správného řádku).</summary>
+    private string _uploadingMod = string.Empty;
+
     public ModManagerScreen(ScreenManager screens)
     {
         _screens = screens;
@@ -49,6 +61,19 @@ public sealed class ModManagerScreen : IScreen
     public void Update(GameTime gameTime)
     {
         _input.Update();
+
+        // Nahrávání běží mimo snímek; tady se jen dočte, jak daleko je.
+        // Zamrznuté okno by bylo horší než pomalé nahrávání.
+        if (_upload is not null)
+        {
+            var before = _upload.Stage;
+            _upload.Update();
+            if (_upload.Stage != before)
+            {
+                BuildUi(); // změnila se fáze → přestav panel s hláškou
+            }
+        }
+
         if (_input.WasPressed(Keys.Escape))
         {
             _screens.Pop();
@@ -222,6 +247,76 @@ public sealed class ModManagerScreen : IScreen
                 }));
         }
 
+        AddWorkshopControls(row, mod);
         return row;
+    }
+
+    /// <summary>
+    /// Tlačítko „publikovat" a stav nahrávání.
+    ///
+    /// <para>Ukazuje se jen u modů z disku a jen když běží Steam. Mod stažený
+    /// z Workshopu se publikovat nemá (patří někomu jinému) a bez Steamu není
+    /// kam.</para>
+    /// </summary>
+    private void AddWorkshopControls(VerticalStackPanel row, ModInspection mod)
+    {
+        var loc = _screens.Loc;
+        if (mod.FromWorkshop || mod.Status == ModStatus.Broken || !_screens.Platform.IsAvailable)
+        {
+            return;
+        }
+
+        bool mine = string.Equals(_uploadingMod, mod.Id, StringComparison.Ordinal);
+        if (mine && _upload is not null)
+        {
+            row.Widgets.Add(new Label
+            {
+                Text = _upload.Stage switch
+                {
+                    Platform.UploadStage.Done => loc["workshop.done"],
+                    Platform.UploadStage.Failed => loc[_upload.Error],
+                    _ => loc.Format("workshop.uploading", (int)Math.Round(_upload.Progress * 100)),
+                },
+                TextColor = _upload.Stage switch
+                {
+                    Platform.UploadStage.Done => UiPalette.Good,
+                    Platform.UploadStage.Failed => UiPalette.Bad,
+                    _ => UiPalette.Accent,
+                },
+                Wrap = true,
+                Width = PanelWidth - 60,
+            });
+
+            // Pravidla Workshopu: dokud je autor neodsouhlasí v prohlížeči,
+            // mod nikdo neuvidí. Bez téhle věty by ho marně hledal.
+            if (_upload.NeedsLegalAgreement)
+            {
+                row.Widgets.Add(new Label
+                {
+                    Text = loc["workshop.legalAgreement"],
+                    TextColor = UiPalette.Warn,
+                    Wrap = true,
+                    Width = PanelWidth - 60,
+                });
+            }
+
+            if (_upload.IsRunning)
+            {
+                return; // během nahrávání se tlačítko neukazuje
+            }
+        }
+
+        row.Widgets.Add(UiFactory.SmallButton(loc["workshop.publish"], () =>
+        {
+            _upload?.Dispose();
+            _upload = new Platform.WorkshopUpload(Platform.SteamAppId.CivDle);
+            _uploadingMod = mod.Id;
+            _upload.Begin(
+                mod.Directory,
+                mod.Name,
+                loc.Format("mods.overrides", string.Join(", ", mod.DataFiles)),
+                Path.Combine(mod.Directory, "preview.png"));
+            BuildUi();
+        }));
     }
 }
