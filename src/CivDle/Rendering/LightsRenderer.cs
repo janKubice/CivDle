@@ -38,6 +38,9 @@ public sealed class LightsRenderer
     private readonly Texture2D _pixel;
     private readonly GameContent _content;
 
+    /// <summary>Indexy budov ve výřezu. Jeden seznam na celý život — žádná alokace za snímek.</summary>
+    private readonly List<int> _visible = new();
+
     /// <summary>Čas pro mihotání oken. Jediný stav rendereru.</summary>
     private float _time;
 
@@ -74,8 +77,23 @@ public sealed class LightsRenderer
 
         DrawStreetLamps(spriteBatch, camera, simulation, nightFactor, min, max);
 
-        for (int i = 0; i < buildings.Length; i++)
+        // Přes index: v noci se kreslí zář nad každou budovou ve výřezu, ale
+        // hledat je průchodem celého města stálo víc než samotné kreslení.
+        simulation.BuildingsIn(
+            (int)Math.Floor(min.X / tileSize) - 2,
+            (int)Math.Floor(min.Y / tileSize) - 2,
+            (int)Math.Ceiling(max.X / tileSize) + 2,
+            (int)Math.Ceiling(max.Y / tileSize) + 2,
+            _visible);
+
+        for (int slot = 0; slot < _visible.Count; slot++)
         {
+            int i = _visible[slot];
+            if (i >= buildings.Length)
+            {
+                continue;
+            }
+
             ref readonly var building = ref buildings[i];
             var def = _content.Buildings[building.DefIndex];
             int width = def.FootprintWidth * tileSize;

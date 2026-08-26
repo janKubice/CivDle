@@ -45,6 +45,13 @@ public sealed class BuildingRenderer
 
     private float _snow;
 
+    /// <summary>
+    /// Indexy budov ve výřezu. Jeden seznam na celý život rendereru: dotaz se
+    /// volá jednou za snímek a nová kolekce pokaždé by byla přesně ta alokace
+    /// za snímek, kterou CLAUDE.md zakazuje.
+    /// </summary>
+    private readonly List<int> _visible = new();
+
     public void Draw(SpriteBatch spriteBatch, Camera2D camera, Simulation simulation)
     {
         var (min, max) = camera.VisibleWorldBounds();
@@ -62,9 +69,26 @@ public sealed class BuildingRenderer
 
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
 
+        // Ptáme se indexu, ne celého města. Při deseti tisících budovách bylo
+        // projití pole od nuly do konce jediná věc, kterou bylo při oddálení
+        // znát — deset tisíc dotazů na to, aby se nakreslilo dvě stě.
+        const int tileSize = TerrainRenderer.TileSize;
+        simulation.BuildingsIn(
+            (int)Math.Floor(min.X / tileSize) - 1,
+            (int)Math.Floor(min.Y / tileSize) - 1,
+            (int)Math.Ceiling(max.X / tileSize) + 1,
+            (int)Math.Ceiling(max.Y / tileSize) + 1,
+            _visible);
+
         var buildings = simulation.Buildings;
-        for (int i = 0; i < buildings.Length; i++)
+        for (int slot = 0; slot < _visible.Count; slot++)
         {
+            int i = _visible[slot];
+            if (i >= buildings.Length)
+            {
+                continue; // index z novějšího stavu, než jaký renderer drží
+            }
+
             ref readonly var building = ref buildings[i];
             if (!IsVisible(building, min, max, out var def, out var bounds))
             {

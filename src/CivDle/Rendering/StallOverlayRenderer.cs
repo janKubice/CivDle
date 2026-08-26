@@ -47,6 +47,9 @@ public sealed class StallOverlayRenderer
     private readonly Texture2D _pixel;
     private readonly GameContent _content;
 
+    /// <summary>Indexy budov ve výřezu. Jeden seznam na celý život — žádná alokace za snímek.</summary>
+    private readonly List<int> _visible = new();
+
     public StallOverlayRenderer(Texture2D whitePixel, GameContent content)
     {
         _pixel = whitePixel;
@@ -59,10 +62,25 @@ public sealed class StallOverlayRenderer
         var (min, max) = camera.VisibleWorldBounds();
         var buildings = simulation.Buildings;
 
+        // Přes index, ne celé město: inspektor se zapíná právě tehdy, když má
+        // hráč velké město a chce vědět, co se v něm zaseklo.
+        simulation.BuildingsIn(
+            (int)Math.Floor(min.X / TileSize) - 1,
+            (int)Math.Floor(min.Y / TileSize) - 1,
+            (int)Math.Ceiling(max.X / TileSize) + 1,
+            (int)Math.Ceiling(max.Y / TileSize) + 1,
+            _visible);
+
         spriteBatch.Begin(transformMatrix: camera.Transform);
 
-        for (int i = 0; i < buildings.Length; i++)
+        for (int slot = 0; slot < _visible.Count; slot++)
         {
+            int i = _visible[slot];
+            if (i >= buildings.Length)
+            {
+                continue;
+            }
+
             ref readonly var building = ref buildings[i];
             var def = _content.Buildings[building.DefIndex];
 

@@ -29,6 +29,9 @@ public sealed class FrontierRenderer
     private readonly GameContent _content;
     private readonly Sprites.SpriteLibrary _sprites;
 
+    /// <summary>Indexy budov ve výřezu. Jeden seznam na celý život — žádná alokace za snímek.</summary>
+    private readonly List<int> _visible = new();
+
     public FrontierRenderer(Texture2D whitePixel, GameContent content, Sprites.SpriteLibrary sprites)
     {
         _pixel = whitePixel;
@@ -110,9 +113,20 @@ public sealed class FrontierRenderer
     private void DrawDamage(SpriteBatch spriteBatch, Simulation simulation, Vector2 min, Vector2 max)
     {
         var buildings = simulation.Buildings;
-        for (int i = 0; i < buildings.Length; i++)
+
+        // Přes index: poškozených je pár, ale hledat je průchodem celého města
+        // by stálo tolik co vykreslit celé město znovu.
+        simulation.BuildingsIn(
+            (int)Math.Floor(min.X / TileSize) - 1,
+            (int)Math.Floor(min.Y / TileSize) - 1,
+            (int)Math.Ceiling(max.X / TileSize) + 1,
+            (int)Math.Ceiling(max.Y / TileSize) + 1,
+            _visible);
+
+        for (int slot = 0; slot < _visible.Count; slot++)
         {
-            if (buildings[i].DisabledTicks <= 0)
+            int i = _visible[slot];
+            if (i >= buildings.Length || buildings[i].DisabledTicks <= 0)
             {
                 continue;
             }

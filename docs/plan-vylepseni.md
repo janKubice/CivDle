@@ -27,6 +27,19 @@ Tři věci předem:
 
 **Odhad:** 1,5 dne. **Riziko:** nízké. **Ale:** napřed pusť `--perf` a podívej se, jestli je render budov opravdu ta drahá část. Máš na to nástroj, není důvod hádat.
 
+> **Hotovo.** `BuildingIndex` (chunky 32×32) drží simulace a plní ho tři
+> místa, kudy prochází každá změna zástavby — stavba, odebrání a přesun.
+> Klíčové bylo čtvrté: **swap-remove z plochého pole přečísluje poslední
+> budovu**, a kdyby se to index nedozvěděl, ukazoval by na budovu, která tam
+> už není. To hlídá test, který po čtyřech stech náhodných úpravách porovnává
+> index s hrubým projitím pole.
+>
+> Čte z něj **čtvero kreslení**, ne jen budovy: `BuildingRenderer`,
+> `LightsRenderer` (noční zář), `StallOverlayRenderer` (inspektor) a
+> `FrontierRenderer` (poškození). Všechny čtyři projížděly celé město každý
+> snímek. `CityScaleRenderer` a minimapa zůstávají u celého pole schválně —
+> ty všechny budovy opravdu potřebují.
+
 ### 1.2 Vícevláknové úlohy na pozadí
 
 **Pozor — návrh v dokumentu rozbíjí determinismus.** Píše se tam „jakmile je výpočet hotov, v nejbližším tiku se výsledek přehodí". Jenže „nejbližší tik" závisí na rychlosti stroje, takže tentýž seed dá na dvou počítačích jiný svět. Tím padá reprodukovatelnost savů, časosběru i testů — a to je jedno z mála pravidel, na kterých ta hra stojí.
@@ -451,7 +464,7 @@ Setřídil jsem to podle toho, **co udělá z hráče dema kupce**, ne podle vel
 | # | Co | Dny |
 |---|---|---|
 | 8 | ~~Měření alokací + opravy podle čísel (1.4)~~ **hotovo** | 2 |
-| 9 | Index budov pro render (1.1) | 1,5 |
+| 9 | ~~Index budov pro render (1.1)~~ **hotovo** | 1,5 |
 | 10 | Prostorová energetika (2.2a) | 2,5 |
 | 11 | Mikro-animace obyvatel (3.1) | 2,5 |
 | 12 | Fázové megastruktury (2.3) | 1 |

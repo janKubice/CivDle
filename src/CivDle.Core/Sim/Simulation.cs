@@ -64,6 +64,12 @@ public sealed class Simulation
     private readonly GrandWorkSystem _grandWork; // bezedný odběr přebytků
     private readonly List<GrandWorkStage> _grandWorkDone = new(); // dokončené stupně (drží bonusy)
     private readonly OrbitSystem _orbit;
+
+    /// <summary>
+    /// Kde která budova stojí. Drží ho simulace, protože jediná ví o každé
+    /// změně zástavby; render z něj jen čte (viz <see cref="BuildingsIn"/>).
+    /// </summary>
+    private readonly BuildingIndex _buildingIndex = new();
     private readonly FrontierSystem _frontier;
     private readonly LegacySystem _legacy; // druhá prestižní vrstva (Odkaz)
     private readonly AutoResearchSystem _autoResearch = new(); // odemyká se až v Odkazu
@@ -1487,6 +1493,24 @@ public sealed class Simulation
 
     /// <summary>Je na dlaždici voda? (Render z toho hledá, kam vyplout.)</summary>
     public bool IsWaterAt(int x, int y) => _content.Biomes[BiomeAt(x, y)].IsWater;
+
+    /// <summary>
+    /// Nasype do <paramref name="results"/> indexy budov, které mohou zasahovat
+    /// do obdélníku dlaždic. Pro render — ten pak dokreslí jen to, co doopravdy
+    /// vidí.
+    ///
+    /// <para>Buffer je předaný, ne vrácený: volá se jednou za snímek a nová
+    /// kolekce pokaždé by byla alokace za snímek (CLAUDE.md).</para>
+    ///
+    /// <para>Vrací i budovy kousek mimo výřez — index pracuje po chuncích
+    /// 32×32 dlaždic. Přesné ořezání dělá volající, který jediný ví, jak velký
+    /// sprite kreslí a kolik z něj přesahuje nad půdorys.</para>
+    /// </summary>
+    public void BuildingsIn(int minX, int minY, int maxX, int maxY, List<int> results) =>
+        _buildingIndex.Query(minX, minY, maxX, maxY, results);
+
+    /// <summary>Kolik chunků indexu je obsazených. Pro testy a diagnostiku.</summary>
+    public int BuildingChunkCount => _buildingIndex.ChunkCount;
 
     /// <summary>
     /// Podmořská síť: kam až od přístavů sahá moře, ve kterém se dá stavět.
@@ -5943,6 +5967,11 @@ public sealed class Simulation
             _subseaDirty = true; // přesunutý přístav otevírá jiné moře než dřív
         }
 
+        // Index se musí dozvědět obojí: že na starém místě už nestojí a že
+        // stojí na novém. Půdorys může přesahovat do jiných chunků.
+        _buildingIndex.Remove(buildingIndex, building.X, building.Y, def.FootprintWidth, def.FootprintHeight);
+        _buildingIndex.Add(buildingIndex, x, y, def.FootprintWidth, def.FootprintHeight);
+
         building.X = x;
         building.Y = y;
         // Přesun mění biom pod budovou i její okolí → cachované násobiče jdou s ní.
@@ -5975,6 +6004,14 @@ public sealed class Simulation
     {
         var building = _buildings[buildingIndex];
         var def = _content.Buildings[building.DefIndex];
+
+        // Mazání z plochého pole přesune poslední budovu na uvolněné místo.
+        // Kdyby se to index nedozvěděl, ukazoval by na budovu, která tam už
+        // není — a renderer by kreslil cizí dům.
+        _buildingIndex.Rename(
+            _buildingCount - 1, buildingIndex,
+            building.X, building.Y, def.FootprintWidth, def.FootprintHeight);
+
         for (int tileY = building.Y; tileY < building.Y + def.FootprintHeight; tileY++)
         {
             for (int tileX = building.X; tileX < building.X + def.FootprintWidth; tileX++)
@@ -6381,6 +6418,7 @@ public sealed class Simulation
             MilestoneMult = (float)_milestoneBonuses.MultiplierOf(defIndex),
             BuildTicksRemaining = asConstructionSite ? def.BuildTicks : 0,
         };
+        _buildingIndex.Add(_buildingCount, x, y, def.FootprintWidth, def.FootprintHeight);
         _buildingCount++;
 
         // Přístav otevírá moře kolem sebe, podmořská budova síť prodlužuje.
@@ -6432,6 +6470,13 @@ public sealed class Simulation
     /// </summary>
     private void ForgetBuilding(int buildingIndex, BuildingDef def)
     {
+        _buildingIndex.Remove(
+            buildingIndex,
+            _buildings[buildingIndex].X,
+            _buildings[buildingIndex].Y,
+            def.FootprintWidth,
+            def.FootprintHeight);
+
         // Tudy prochází KAŽDÉ odebrání budovy — zboření i sloučení čtyř domů
         // v jeden. Kdyby si značku nastavovalo každé zvlášť, jedna cesta by
         // zůstala pozadu a moře by po zbořeném přístavu zůstalo otevřené.
@@ -7354,6 +7399,7 @@ public sealed class Simulation
         ContractsCompleted = 0; // a v novém měřítku začínají objednávky zas malé
         _orbit.Reset();     // družice patří ke světu, který právě skončil — kosmodrom taky
         _frontier.Reset();  // a útočníci taky: nový svět, nová fronta
+        _buildingIndex.Clear();
         _subseaDirty = true; // bez přístavů nezůstane otevřená ani dlaždice moře
         _buildingCount = 0;
 
