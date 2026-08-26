@@ -347,6 +347,33 @@ Vypadá to o chlup hůř než gaussovské rozostření a nikdo to nepozná. **1 
 
 **Odhad:** 1 den tabulka, +1,5 dne plán na sídlo. **Riziko:** střední (mění se save).
 
+> **Hotovo — obojí, ale plán na sídlo jinak, než plán čekal.**
+>
+> Tabulka: každé sídlo teď nese kapacitu bydlení, počet pracovních míst, služby
+> a hlavní výrobu. Čísla se počítají <b>jedním průchodem</b> zástavbou, ne
+> jedním na řádek — u říše o desítkách měst by to jinak bylo desetkrát celé
+> město.
+>
+> **Populace na sídlo se neukazuje, a je to schválně.** Populace je v téhle
+> hře agregát pro celou říši (viz CLAUDE.md); rozpočítat ji na města by
+> znamenalo předstírat přesnost, kterou simulace nemá. Místo ní je vidět, kolik
+> lidí by se tam vešlo.
+>
+> Plán na sídlo se dělí na dvě půlky a jen jedna dává smysl přenést. **Zákaz
+> kategorií je teď na sídle** — to je přesně to „město A těžba, město B
+> zemědělství". **Zaměření (růst versus kvalita) zůstalo říšské**, protože
+> to není pravidlo, ale <b>rozdělení rozpočtu</b>, a rozpočet je jeden pot;
+> per-město by to znamenalo přestavět auto-stavbu na tolik rozpočtů, kolik je
+> měst, za velmi malý užitek.
+>
+> Vlastní plán sídla **nahradí** říšský, nesčítá se s ním — jinak by se říšský
+> zákaz nedal v jednom městě povolit a celá věc by nefungovala. A začíná jako
+> kopie říšského: kdyby začínal prázdný, hráč by po jednom kliknutí zjistil, že
+> mu město staví to, co si všude jinde zakázal.
+>
+> Klíčem je **index jména, ne pořadí sídla**: sídla se přepočítávají ze
+> zástavby a jejich pořadí se mění pokaždé, když někde vyroste dům.
+
 ---
 
 ## 5. Herní režimy
@@ -774,9 +801,9 @@ Poslední z jediného důvodu: je to jediná položka, která přidává novou e
 
 ### Velké věci — až bude prostor
 
-Hotovo: ~~sdílení šablon (7.3)~~, ~~osobnosti (6.1)~~, ~~kronika (6.3)~~, ~~zvonohra a vizuál slavnosti (6.7)~~, ~~hustotní mapa (1.3)~~, ~~scénáře (5.1)~~, ~~anomálie a expedice (2.1b)~~, ~~doktríny (2.4)~~.
+Hotovo: ~~sdílení šablon (7.3)~~, ~~osobnosti (6.1)~~, ~~kronika (6.3)~~, ~~zvonohra a vizuál slavnosti (6.7)~~, ~~hustotní mapa (1.3)~~, ~~scénáře (5.1)~~, ~~anomálie a expedice (2.1b)~~, ~~doktríny (2.4)~~, ~~přehled impéria a plán na sídlo (4.4)~~.
 
-Zbývá: plavení dřeva (6.2), plán guvernéra na sídlo (4.4).
+Zbývá: plavení dřeva (6.2).
 
 ### Nedělat teď
 

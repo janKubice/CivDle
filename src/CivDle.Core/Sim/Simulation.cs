@@ -4967,6 +4967,178 @@ public sealed class Simulation
     /// </summary>
     public GovernorPlan Plan { get; } = new();
 
+    /// <summary>
+    /// Vlastní plány jednotlivých sídel, klíčované <b>indexem jména</b>.
+    ///
+    /// <para>Ne pořadím v seznamu: sídla se přepočítávají ze zástavby, takže
+    /// jejich index se změní pokaždé, když někde vyroste dům. Jméno je to
+    /// jediné, co sídlu zůstává — a je to zároveň to, co vidí hráč.</para>
+    /// </summary>
+    private readonly Dictionary<int, GovernorPlan> _settlementPlans = new();
+
+    /// <summary>Má tohle sídlo vlastní plán, nebo jede podle říšského?</summary>
+    public bool HasOwnPlan(int nameIndex) => _settlementPlans.ContainsKey(nameIndex);
+
+    /// <summary>Sídla s vlastním plánem — pro save a UI.</summary>
+    public IReadOnlyDictionary<int, GovernorPlan> SettlementPlans => _settlementPlans;
+
+    /// <summary>
+    /// Plán pro sídlo. Vlastní, když ho má; jinak říšský.
+    ///
+    /// <para>Vlastní plán <b>nahradí</b> říšský, nesčítá se s ním. Sčítání by
+    /// znamenalo, že se říšský zákaz nedá v jednom městě povolit — a přesně
+    /// o to tady jde: „město A těžba, město B zemědělství".</para>
+    /// </summary>
+    public GovernorPlan PlanForSettlement(int nameIndex) =>
+        _settlementPlans.TryGetValue(nameIndex, out var plan) ? plan : Plan;
+
+    /// <summary>
+    /// Dá sídlu vlastní plán (zkopírovaný z říšského, aby hráč nezačínal od
+    /// prázdna) a vrátí ho.
+    /// </summary>
+    public GovernorPlan GiveOwnPlan(int nameIndex)
+    {
+        if (_settlementPlans.TryGetValue(nameIndex, out var existing))
+        {
+            return existing;
+        }
+
+        var plan = new GovernorPlan();
+        plan.Restore(Plan.Focus, Plan.BlockedCategories);
+        _settlementPlans[nameIndex] = plan;
+        return plan;
+    }
+
+    /// <summary>Zruší vlastní plán sídla — od té chvíle jede podle říšského.</summary>
+    public void DropOwnPlan(int nameIndex) => _settlementPlans.Remove(nameIndex);
+
+    /// <summary>Obnoví vlastní plán sídla ze savu.</summary>
+    internal void RestoreSettlementPlan(int nameIndex, GovernorFocus focus, IEnumerable<string> blocked)
+    {
+        var plan = new GovernorPlan();
+        plan.Restore(focus, blocked);
+        _settlementPlans[nameIndex] = plan;
+    }
+
+    /// <summary>
+    /// Podle kterého plánu se staví na téhle dlaždici. Mimo dosah všech sídel
+    /// (nová kolonie v pustině) platí říšský.
+    /// </summary>
+    public GovernorPlan PlanAt(int x, int y)
+    {
+        int nameIndex = NearestSettlementNameIndex(x, y);
+        return nameIndex >= 0 ? PlanForSettlement(nameIndex) : Plan;
+    }
+
+    /// <summary>
+    /// Popíše sídla pro přehled říše: kolik se kam vejde lidí, kolik je práce
+    /// a co se tam hlavně vyrábí.
+    ///
+    /// <para>Jeden průchod zástavbou, ne jeden na sídlo. Volá se, když si hráč
+    /// otevře přehled — ne v tikové smyčce, a proto smí projít město celé.</para>
+    /// </summary>
+    /// <param name="results">Sem se výsledek zapíše (seznam se vyprázdní).</param>
+    public void DescribeSettlements(List<SettlementStat> results)
+    {
+        results.Clear();
+        if (_settlements.Count == 0)
+        {
+            return;
+        }
+
+        var buildings = new int[_settlements.Count];
+        var housing = new double[_settlements.Count];
+        var jobs = new int[_settlements.Count];
+        var services = new int[_settlements.Count];
+
+        // Počty výrobců na surovinu a sídlo. Malé město a pár surovin — ploché
+        // pole je tu levnější i čitelnější než slovník na každé sídlo.
+        var producers = new int[_settlements.Count * _content.Resources.Count];
+
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            int settlement = NearestSettlementSlot(_buildings[i].X, _buildings[i].Y);
+            if (settlement < 0)
+            {
+                continue; // budova mimo dosah všech sídel — samota, ne město
+            }
+
+            var def = _content.Buildings[_buildings[i].DefIndex];
+            buildings[settlement]++;
+            housing[settlement] += def.HousingCapacity;
+            jobs[settlement] += def.WorkerSlots;
+            services[settlement] += def.ServiceValue;
+
+            if (def.Recipe is { } recipe)
+            {
+                for (int r = 0; r < recipe.Outputs.Count; r++)
+                {
+                    producers[(settlement * _content.Resources.Count) + recipe.Outputs[r].ResourceIndex]++;
+                }
+            }
+        }
+
+        for (int i = 0; i < _settlements.Count; i++)
+        {
+            int top = -1;
+            int best = 0;
+            for (int r = 0; r < _content.Resources.Count; r++)
+            {
+                int count = producers[(i * _content.Resources.Count) + r];
+                if (count > best)
+                {
+                    best = count;
+                    top = r;
+                }
+            }
+
+            results.Add(new SettlementStat(
+                _settlements[i].NameIndex, buildings[i], housing[i] * _bonuses.HousingMult, jobs[i], services[i], top));
+        }
+    }
+
+    /// <summary>Pořadí nejbližšího sídla v dosahu, nebo −1. (Vnitřní — index se mění se zástavbou.)</summary>
+    private int NearestSettlementSlot(int x, int y)
+    {
+        int best = -1;
+        double bestDistance = double.MaxValue;
+        for (int i = 0; i < _settlements.Count; i++)
+        {
+            var settlement = _settlements[i];
+            double dx = settlement.CenterX - x;
+            double dy = settlement.CenterY - y;
+            double distance = (dx * dx) + (dy * dy);
+            if (distance < bestDistance && distance <= SettlementReach * SettlementReach)
+            {
+                bestDistance = distance;
+                best = i;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>Jméno nejbližšího sídla v dosahu, nebo −1.</summary>
+    public int NearestSettlementNameIndex(int x, int y)
+    {
+        int best = -1;
+        double bestDistance = double.MaxValue;
+        for (int i = 0; i < _settlements.Count; i++)
+        {
+            var settlement = _settlements[i];
+            double dx = settlement.CenterX - x;
+            double dy = settlement.CenterY - y;
+            double distance = (dx * dx) + (dy * dy);
+            if (distance < bestDistance && distance <= SettlementReach * SettlementReach)
+            {
+                bestDistance = distance;
+                best = settlement.NameIndex;
+            }
+        }
+
+        return best;
+    }
+
     /// <summary>Obnoví plán guvernéra ze savu.</summary>
     internal void RestorePlan(GovernorFocus focus, IEnumerable<string> blockedCategories) =>
         Plan.Restore(focus, blockedCategories);

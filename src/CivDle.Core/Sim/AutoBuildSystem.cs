@@ -345,17 +345,15 @@ internal sealed class AutoBuildSystem
     /// <summary>
     /// Smí guvernér tuhle budovu vůbec postavit?
     ///
-    /// <para>Kromě značky <c>autoBuild</c> a odemčení rozhoduje i plán hráče:
-    /// zakázané kategorie guvernér nestaví, i když by je město potřebovalo.
-    /// Je to jeho příkaz, ne chyba — kdo si vypne monumenty, nechce je vidět
-    /// vyrůstat, ani když má plné sklady.</para>
+    /// <para>Zakázané kategorie se tady <b>neřeší</b>. Zákaz může být jiný
+    /// v každém sídle („město A těžba, město B zemědělství") a tady se ještě
+    /// neví, kam se bude stavět — kontrola je až u konkrétní dlaždice
+    /// v <see cref="TryBuildNear"/>.</para>
     /// </summary>
     private bool IsAllowed(Simulation sim, int defIndex)
     {
         var def = _content.Buildings[defIndex];
-        return def.AutoBuild
-            && sim.IsBuildingUnlocked(defIndex)
-            && sim.Plan.AllowsCategory(def.Category);
+        return def.AutoBuild && sim.IsBuildingUnlocked(defIndex);
     }
 
     /// <summary>
@@ -534,6 +532,14 @@ internal sealed class AutoBuildSystem
             }
 
             if (result != PlacementResult.Ok || CityLayout.IsReservedForStreet(x, y))
+            {
+                continue;
+            }
+
+            // Zákaz kategorie platí podle toho, KDE se staví: plán sídla
+            // nahradí říšský. Kdo si v hornickém městě vypne bydlení, nechce
+            // ho tam vidět vyrůstat, i když ho jinde staví rád.
+            if (!sim.PlanAt(x, y).AllowsCategory(_content.Buildings[defIndex].Category))
             {
                 continue;
             }

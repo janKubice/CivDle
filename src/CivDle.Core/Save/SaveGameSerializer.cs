@@ -145,6 +145,16 @@ public sealed class SaveGameSerializer
     /// </summary>
     private const string SectionDoctrine = "doctrine";
 
+    /// <summary>
+    /// Vlastní plány jednotlivých sídel („město A těžba, město B zemědělství").
+    ///
+    /// <para>Vlastní sekce, ne dodatek k plánu guvernéra: sídel může být
+    /// desítky a starší save žádné nemá — načte se tedy tak, že všechna jedou
+    /// podle říšského plánu, což je přesně stav před tím, než plán na sídlo
+    /// existoval.</para>
+    /// </summary>
+    private const string SectionSettlementPlans = "settlementplans";
+
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
     {
@@ -368,6 +378,27 @@ public sealed class SaveGameSerializer
                 w.Write(relics[i]);
             }
         });
+
+        if (simulation.SettlementPlans.Count > 0)
+        {
+            WriteSection(writer, SectionSettlementPlans, w =>
+            {
+                w.Write(simulation.SettlementPlans.Count);
+                foreach (var (nameIndex, plan) in simulation.SettlementPlans)
+                {
+                    // Klíčem je index jména, ne pořadí sídla: sídla se
+                    // přepočítávají ze zástavby a jejich index se mění pokaždé,
+                    // když někde vyroste dům.
+                    w.Write(nameIndex);
+                    w.Write((int)plan.Focus);
+                    w.Write(plan.BlockedCategories.Count);
+                    foreach (string category in plan.BlockedCategories)
+                    {
+                        w.Write(category);
+                    }
+                }
+            });
+        }
 
         if (simulation.Doctrine is { } doctrine)
         {
@@ -682,6 +713,26 @@ public sealed class SaveGameSerializer
         }
     }
 
+    /// <summary>Načte vlastní plány sídel.</summary>
+    private static void ReadSettlementPlans(BinaryReader section, Simulation simulation)
+    {
+        int count = section.ReadInt32();
+        for (int i = 0; i < count; i++)
+        {
+            int nameIndex = section.ReadInt32();
+            var focus = (GovernorFocus)section.ReadInt32();
+
+            int blockedCount = section.ReadInt32();
+            var blocked = new string[Math.Max(0, blockedCount)];
+            for (int b = 0; b < blocked.Length; b++)
+            {
+                blocked[b] = section.ReadString();
+            }
+
+            simulation.RestoreSettlementPlan(nameIndex, focus, blocked);
+        }
+    }
+
     /// <summary>Načte zvolenou doktrínu a koupené uzly (jménem, ne indexem).</summary>
     private static void ReadDoctrine(BinaryReader section, GameContent content, Simulation simulation)
     {
@@ -874,6 +925,9 @@ public sealed class SaveGameSerializer
                 break;
             case SectionCarillon:
                 ReadCarillon(section, simulation);
+                break;
+            case SectionSettlementPlans:
+                ReadSettlementPlans(section, simulation);
                 break;
             case SectionDoctrine:
                 ReadDoctrine(section, content, simulation);
