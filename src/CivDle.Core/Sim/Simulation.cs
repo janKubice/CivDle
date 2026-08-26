@@ -5886,7 +5886,10 @@ public sealed class Simulation
 
         _rafts.Tick(CatchMultiplierAt, AddResource);
 
-        if (TickCount % RaftDropCheckTicks != 0)
+        // Hledat splavy častěji, než jak často vůbec můžou něco pustit, je
+        // průchod zástavbou za nic — a u velkoměsta je to průchod dlouhý.
+        int dropInterval = _content.RaftDropInterval;
+        if (dropInterval <= 0 || TickCount % dropInterval != 0)
         {
             return;
         }
@@ -5918,9 +5921,6 @@ public sealed class Simulation
             }
         }
     }
-
-    /// <summary>Jak často se ptáme splavů, jestli mají co pustit.</summary>
-    private const int RaftDropCheckTicks = 10;
 
     /// <summary>
     /// Pustí kládu do řeky, která se dotýká půdorysu splavu.

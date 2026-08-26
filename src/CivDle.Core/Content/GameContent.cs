@@ -91,10 +91,17 @@ public sealed class GameContent
 
         foreach (var building in buildings.All)
         {
-            if (building.Raft is not null)
+            if (building.Raft is not { } raft)
             {
-                HasRafting = true;
-                break;
+                continue;
+            }
+
+            HasRafting = true;
+            if (raft.Drops)
+            {
+                RaftDropInterval = RaftDropInterval == 0
+                    ? raft.IntervalTicks
+                    : Math.Min(RaftDropInterval, raft.IntervalTicks);
             }
         }
         Vehicles = vehicles ?? Array.Empty<VehicleDef>();
@@ -304,6 +311,16 @@ public sealed class GameContent
     /// v tiku se pak stačí zeptat na jeden bool místo procházení všech definic.
     /// </summary>
     public bool HasRafting { get; }
+
+    /// <summary>
+    /// Nejkratší interval mezi puštěnými kládami napříč daty; 0 = nikdo neplaví.
+    ///
+    /// <para>Existuje kvůli tikové smyčce: hledání splavů znamená projít
+    /// zástavbu, a to je u velkoměsta o desetitisících budov práce, kterou nemá
+    /// smysl dělat častěji, než jak často vůbec může nějaký splav něco pustit.
+    /// </para>
+    /// </summary>
+    public int RaftDropInterval { get; }
 
     /// <summary>
     /// Načtené mody, jejichž data se do obsahu vlila. Hra je ukazuje hráči —
