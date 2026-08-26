@@ -363,6 +363,14 @@ Skoro hotové: `CheatMode` (neomezené suroviny, guvernér na maximum) existuje.
 
 **Odhad:** 1 den (jména a avatary) + 1 den (žebříčkový trik). Předpokládá §7.0.
 
+> **Hotová první půlka — ta důležitá.** Karavana jede „od Petra", i s jeho
+> obličejem nad vozem, a při doprovodu se to řekne jménem. Řidič se vybírá
+> deterministicky z klíče města, takže jméno nad karavanou neblikne.
+>
+> Žebříčkový trik odpadá spolu se sdílenými žebříčky (viz §7.0). Bez Steamu
+> je seznam prázdný a karavany jezdí dál, jen bez jmen — to není chyba, to je
+> normální stav pro každého, kdo hru spustí napřímo.
+
 ### 6.5 Podmoří
 
 **Je to levnější, než jsem psal, a mýlil jsem se v tom hlavním.** Není to druhá mapa. Vodní biomy jsou v datech i s hloubkou (`coral_reef`, `shallow_water`, `ocean`, `deep_ocean`, `pack_ice`), generátor je umí — a `CanPlace` na vodu **vůbec nesahá**: kontroluje jen `allowedBiomes`. Budova, která má v datech povolené moře, se na moře dá postavit už dnes.
@@ -439,6 +447,22 @@ Workshop, karavany přátel, žebříčky, achievementy i haptika Decku sedí na
 
 **Odhad:** 2 dny. Odemyká 7.1, 7.2 i 6.4.
 
+> **Hotovo.** `Steamworks.NET` je jediná nová závislost, kterou celý plán
+> přidal. `SteamPlatformServices` je **obálka nad lokální implementací**, ne
+> náhrada: zapisuje se do obojího, takže hráč o postup nepřijde, když si hru
+> jednou spustí bez Steamu, a čte se z lokálních dat, která jsou po ruce hned.
+>
+> Podmínku „když Steam neběží, hra běží dál" hlídá test, ne pohled — běží
+> v prostředí bez Steamu, tedy přesně tou cestou, kterou projde každý, kdo si
+> hru spustí napřímo.
+>
+> **Co tudy zatím nejde: sdílené žebříčky.** Steam je umí jen asynchronně přes
+> callbacky a odladit se to dá pouze proti živému klientu s vydaným App ID.
+> Proto `HasOnlineLeaderboards` zůstává `false` a žebříčky jedou lokálně —
+> radši ať UI netvrdí připojení, které nemá. Tím padá i „žebříčkový trik"
+> z bodu 6.4; karavany vozí jména a obličeje, což je ta část, která dělá
+> devadesát procent pocitu.
+
 ### 7.1 Workshop
 
 *Postup:* `SteamUGC.CreateItem` → `StartItemUpdate` → nastavit složku, náhled, popis a značky → `SubmitItemUpdate`. Odběry se stahují samy do složky, kterou vrátí `GetItemInstallInfo` — tu jen přidej k dnešnímu prohledávání `mods/`.
@@ -447,11 +471,38 @@ Workshop, karavany přátel, žebříčky, achievementy i haptika Decku sedí na
 
 **Odhad:** 2,5 dne po §7.0. **Riziko:** střední — testovat se to dá až proti živému Steamu.
 
+> **Hotovo.** Publikace je vlastní třída, ne pár řádků v obrazovce: má tři
+> asynchronní kroky a držet ten stav v UI by znamenalo, že se rozpadne,
+> jakmile hráč obrazovku zavře. Nahrává se **bez zamrznutí okna** — obrazovka
+> se ptá na fázi a postup a mezitím normálně kreslí.
+>
+> Obě věci, na které plán upozorňoval, jsou ošetřené předem: **limit náhledu
+> 1 MB** se zjistí před nahráváním (ne po minutě) a **odsouhlasení pravidel
+> Workshopu** se hlásí větou, ne mlčením — bez ní by autor marně hledal mod,
+> který je skrytý.
+>
+> Steamovské výsledky se překládají na hlášky, se kterými se dá něco dělat;
+> test hlídá, že žádná z nich neskončí jako holý klíč.
+
 ### 7.2 Steam Deck
 
 Gamepad a `GamePadMap` existují. Zbývá: rozložení pro 1280×800 (Myra škáluje, ale písmo je potřeba zvětšit), **radiální menu** na levý trigger (kruh položek, výběr páčkou — jedna obrazovka, žádná nová logika) a haptika přes `ISteamInput`.
 
 **Odhad:** 2 dny. **Riziko:** nízké. Bez fyzického Decku to ale neodladíš do konce.
+
+> **Hotovo z dvou třetin.** **Radiální menu** na levou spoušť: podrž, nakloň
+> páčku, pusť. Položky dělají přesně to, co tlačítka v liště — je to jiná
+> cesta k témuž, ne druhá sada nástrojů. Výběr výseče je čistá funkce úhlu,
+> takže se dá otestovat bez ovladače; test hlídá i to, že se každá výseč dá
+> trefit a že žádný úhel nespadne mimo.
+>
+> **Rozložení**: zvětšení UI se počítá z výšky okna, ne jen z nastavení —
+> pod 900 pixelů se přidá o čtvrtinu. Hráčovo nastavení se tím násobí,
+> nepřebíjí.
+>
+> **Haptika zůstává nedodělaná**: `ISteamInput` se bez fyzického Decku nedá
+> ověřit ani naslepo a odhadovat sílu vibrace podle dokumentace by znamenalo
+> nechat to zapnuté a špatné.
 
 ### 7.3 Sdílení šablon přes schránku
 
@@ -510,7 +561,7 @@ Setřídil jsem to podle toho, **co udělá z hráče dema kupce**, ne podle vel
 
 | # | Co | Dny |
 |---|---|---|
-| 13 | Steamworks (7.0) | 2 |
+| 13 | ~~Steamworks (7.0)~~ **hotovo** | 2 |
 
 Stojí samostatně schválně: je to **hradlo**, ne položka. Dokud neběží, nedá se dělat 7.1, 7.2 ani 6.4 — a nesmí se to zdržet kvůli obsahu, protože vydání na něm visí.
 
@@ -527,9 +578,9 @@ Podmoří je napřed proto, že jeho síť je tatáž mřížka jako u energetik
 
 | # | Co | Dny |
 |---|---|---|
-| 16 | Workshop (7.1) | 2,5 |
-| 17 | Steam Deck (7.2) | 2 |
-| 18 | Karavany přátel (6.4) | 2 |
+| 16 | ~~Workshop (7.1)~~ **hotovo** | 2,5 |
+| 17 | ~~Steam Deck (7.2)~~ **hotovo** (bez haptiky) | 2 |
+| 18 | ~~Karavany přátel (6.4)~~ **hotovo** | 2 |
 
 ### Poslední — 6 dnů
 

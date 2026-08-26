@@ -103,4 +103,25 @@ public sealed record GameSettings
 
     /// <summary>Zvětšení UI oříznuté do povoleného rozsahu (ochrana proti ručně upravenému souboru).</summary>
     public float SafeUiScale => Math.Clamp(UiScale, MinUiScale, MaxUiScale);
+
+    /// <summary>
+    /// Zvětšení UI pro dané okno.
+    ///
+    /// <para>Na malé obrazovce se přidává samo. Steam Deck má 1280×800, tedy
+    /// méně pixelů než dnešní monitory, ale drží se sedm palců od očí —
+    /// rozhraní, které je na monitoru akorát, je na něm nečitelné. Myra sice
+    /// škáluje, ale podle okna, ne podle toho, jak daleko se hráč dívá.</para>
+    ///
+    /// <para>Hráčovo vlastní nastavení se tím <b>násobí</b>, ne přebíjí: kdo si
+    /// UI zmenšil, má ho menší i na Decku — jen ne tak, aby se do toho musel
+    /// trefovat.</para>
+    /// </summary>
+    /// <param name="windowHeight">Výška okna v pixelech.</param>
+    public float UiScaleFor(int windowHeight) => SafeUiScale * HandheldBoost(windowHeight);
+
+    /// <summary>
+    /// O kolik se přidá na malé obrazovce. Práh je 900 pixelů: nad ním jsou
+    /// monitory, pod ním handheldy.
+    /// </summary>
+    public static float HandheldBoost(int windowHeight) => windowHeight <= 900 ? 1.25f : 1f;
 }

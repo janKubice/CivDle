@@ -50,6 +50,12 @@ public sealed class GameplayScreen : IScreen
     private readonly SubseaRenderer _subseaRenderer;
     private readonly PowerOverlayRenderer _powerRenderer;
 
+    /// <summary>
+    /// Kruhová nabídka na levou spoušť. Na ovladači a Decku je to hlavní cesta
+    /// k nástrojům — myší se lišta proklikne, palcem ne.
+    /// </summary>
+    private readonly RadialMenu _radial = new();
+
     /// <summary>Jak moc je vidět pokrytí proudem (0–1). Rozsvěcí se plynule.</summary>
     private float _powerFade;
 
@@ -657,6 +663,7 @@ public sealed class GameplayScreen : IScreen
 
         UpdateSubseaOverlay(dt);
         UpdatePowerOverlay(dt);
+        _radial.Update(_input, Microsoft.Xna.Framework.Input.GamePad.GetState(PlayerIndex.One));
         CollectCapturedTemplate();
         _urbanGround.Update(worldDt, _simulation);
         _buildingRenderer.Update(worldDt); // balony nad kotvišti se houpou
@@ -945,6 +952,10 @@ public sealed class GameplayScreen : IScreen
         DrawSettlementLabels(spriteBatch);
         DrawTileTooltip(spriteBatch);
         _toasts.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, ToastListTop());
+
+        // Kruhová nabídka nad vším ostatním kromě oslav — když je otevřená,
+        // je to jediné, co hráč zrovna dělá.
+        _radial.Draw(spriteBatch, _screens.WhitePixel, _screens.GraphicsDevice.Viewport, _popupFont);
 
         // Oslava milníku úplně navrchu — je to ta nejdůležitější zpráva na obrazovce.
         spriteBatch.Begin();
@@ -2697,6 +2708,8 @@ public sealed class GameplayScreen : IScreen
         var grid = IconGrid(columns);
         int slot = 0;
 
+        BuildRadialMenu(loc);
+
         _speedBadge = UiFactory.ToolButtonWithBadge(Ico("ui.play"), loc["tip.speed"], () =>
         {
             _speed.Next();
@@ -4258,6 +4271,26 @@ public sealed class GameplayScreen : IScreen
         _screens.Push(screen);
         return screen;
     }
+
+    /// <summary>
+    /// Naplní kruhovou nabídku. Položky dělají přesně to, co tlačítka v liště —
+    /// je to jiná cesta k témuž, ne druhá sada nástrojů.
+    /// </summary>
+    private void BuildRadialMenu(Localization loc)
+    {
+        _radial.SetItems(new[]
+        {
+            new RadialItem(Ico("ui.build"), loc["hud.build"], ToggleBuildMenu),
+            new RadialItem(Ico("ui.road"), loc["hud.road"], () => _tools.ToggleRoad()),
+            new RadialItem(Ico("ui.merge"), loc["hud.merge"], () => _tools.ToggleMerge()),
+            new RadialItem(Ico("ui.plant"), loc["hud.plant"], () => _tools.TogglePlant()),
+            new RadialItem(Ico("ui.tech"), loc["hud.tech"], () => _screens.Push(new TechScreen(_screens, _simulation))),
+            new RadialItem(Ico("ui.quests"), loc["hud.quests"], () => _screens.Push(new QuestsScreen(_screens, _simulation))),
+        });
+    }
+
+    /// <summary>Kolik položek má kruhová nabídka. Pro smoke běh.</summary>
+    internal int RadialItemCountForSmoke => _radial.Count;
 
     internal void ActivateToolForSmoke(Capture.SmokeTool tool)
     {
