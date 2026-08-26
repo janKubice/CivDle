@@ -260,6 +260,74 @@
       }
     },
     {
+      "id": "log_flume",
+      "category": "production",
+      "mapColor": "#7A5C33",
+      "footprint": [
+        1,
+        1
+      ],
+      "workerSlots": 2,
+      "buildCost": {
+        "wood": 40,
+        "planks": 20
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "forest",
+        "taiga",
+        "jungle",
+        "highlands",
+        "mangrove"
+      ],
+      "upkeep": {
+        "planks": 1
+      },
+      "raft": {
+        "drops": true,
+        "resource": "wood",
+        "amount": 8,
+        "intervalTicks": 120
+      }
+    },
+    {
+      "id": "log_boom",
+      "category": "production",
+      "mapColor": "#9C7B45",
+      "footprint": [
+        1,
+        1
+      ],
+      "workerSlots": 3,
+      "buildCost": {
+        "planks": 40,
+        "stone": 20
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "forest",
+        "taiga",
+        "jungle",
+        "highlands",
+        "mangrove"
+      ],
+      "upkeep": {
+        "planks": 1
+      },
+      "raft": {
+        "catches": true,
+        "catchMultiplier": 1.6
+      }
+    },
+    {
       "id": "quarry",
       "category": "production",
       "mapColor": "#5E5E66",

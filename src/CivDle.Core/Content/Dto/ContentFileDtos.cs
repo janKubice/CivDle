@@ -70,7 +70,12 @@ public sealed record BuildingDto(
     double? Paving,
     bool SubseaAnchor = false,
     DefenseDto? Defense = null,
-    List<BuildStageDto>? Stages = null);
+    List<BuildStageDto>? Stages = null,
+    RaftDto? Raft = null);
+
+/// <summary>Plavení dřeva tak, jak leží v JSON.</summary>
+public sealed record RaftDto(
+    bool Drops, bool Catches, string? Resource, double Amount, int IntervalTicks, double CatchMultiplier);
 
 /// <summary>Jedna fáze stavby tak, jak leží v JSON.</summary>
 public sealed record BuildStageDto(double AtProgress, string Sprite);

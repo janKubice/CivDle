@@ -495,6 +495,30 @@ Skoro hotové: `CheatMode` (neomezené suroviny, guvernér na maximum) existuje.
 
 **Odhad:** 3 dny. **Riziko:** střední. Krásné, ale až po důležitějším.
 
+> **Hotovo — a v jednom bodě jinak, než plán psal.**
+>
+> **Směr se na dlaždici neukládá.** Plán počítal se dvěma bity na dlaždici,
+> jenže mapa je nekonečná a terén je čistá funkce souřadnic; uložit cokoli na
+> dlaždici by znamenalo generovat svět dopředu. Směr je proto taky funkce:
+> voda teče z kopce, takže stačí porovnat výšku sousedních kusů řeky. Vyjde to
+> nastejno a nestojí to ani bajt.
+>
+> **Riziko, které plán pojmenoval, je ošetřené dvakrát.** Kláda, která nemá kam
+> plout (konec toku, jezero, prohlubeň), se rozpadne <b>hned</b> — a navíc má
+> každá pevnou životnost jako pojistka pro proud, který by se stočil do kruhu.
+> Nad tím je ještě pevný strop 128 klád na vodě. Tři pravidla, protože právě
+> tohle je jediné místo, kde by mechanika mohla užírat paměť; testy hlídají
+> všechna tři.
+>
+> **Kláda nic nevyrábí.** Splav <b>vezme</b> dřevo ze skladu a pošle ho po
+> vodě, česle ho vytáhnou s bonusem 1,6× za to, že se nemuselo vozit. Kdyby
+> kláda vznikala z ničeho, byla by řeka nekonečný zdroj a nikdo by nic jiného
+> nestavěl. Násobič pod 1 loader odmítne — plavení, při kterém se dřevo ztrácí,
+> by byla past, ne mechanika.
+>
+> Budova, která zároveň pouští i chytá, taky neprojde načtením: bylo by to
+> kolečko na místě a bonus zadarmo.
+
 ### 6.3 Ilustrovaná kronika
 
 **Stav:** `HistorySystem` existuje a události sbírá — tohle je hlavně prezentace.
@@ -801,9 +825,8 @@ Poslední z jediného důvodu: je to jediná položka, která přidává novou e
 
 ### Velké věci — až bude prostor
 
-Hotovo: ~~sdílení šablon (7.3)~~, ~~osobnosti (6.1)~~, ~~kronika (6.3)~~, ~~zvonohra a vizuál slavnosti (6.7)~~, ~~hustotní mapa (1.3)~~, ~~scénáře (5.1)~~, ~~anomálie a expedice (2.1b)~~, ~~doktríny (2.4)~~, ~~přehled impéria a plán na sídlo (4.4)~~.
+**Hotovo všechno**: ~~sdílení šablon (7.3)~~, ~~osobnosti (6.1)~~, ~~kronika (6.3)~~, ~~zvonohra a vizuál slavnosti (6.7)~~, ~~hustotní mapa (1.3)~~, ~~scénáře (5.1)~~, ~~anomálie a expedice (2.1b)~~, ~~doktríny (2.4)~~, ~~přehled impéria a plán na sídlo (4.4)~~, ~~plavení dřeva (6.2)~~.
 
-Zbývá: plavení dřeva (6.2).
 
 ### Nedělat teď
 

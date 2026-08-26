@@ -2790,11 +2790,12 @@ public sealed class ContentLoader
 
         // Údržba musí mít protihodnotu, jinak je to jen daň za nic. Legitimní
         // důvody: budova obsluhuje lidi (serviceValue), čistí okolí (čističku taky
-        // nemá smysl postavit a zapomenout na ni), nebo hlídá obzor — pátrací
-        // stanice nic nevyrábí a přesto se vyplatí ji držet v provozu.
+        // nemá smysl postavit a zapomenout na ni), hlídá obzor — pátrací stanice
+        // nic nevyrábí a přesto se vyplatí ji držet v provozu — nebo plaví dřevo
+        // po řece, což taky nic nevyrábí a přesto to dopravu šetří.
         var upkeep = ParseResourceAmounts(path, id, "upkeep", dto.Upkeep, resources);
         if (upkeep.Count > 0 && dto.ServiceValue <= 0 && pollution?.IsCleaner != true
-            && dto.ScoutRadius <= 0)
+            && dto.ScoutRadius <= 0 && dto.Raft is null)
         {
             throw new ContentLoadException(path,
                 $"Budova '{id}' má 'upkeep', ale nulový 'serviceValue', nic nečistí a nic nehlídá — "
@@ -2948,7 +2949,70 @@ public sealed class ContentLoader
             subsea,
             dto.SubseaAnchor,
             defense,
-            stages);
+            stages,
+            ParseRaft(path, id, dto.Raft, resources));
+    }
+
+    /// <summary>
+    /// Plavení dřeva. <c>null</c> u drtivé většiny budov — dřevo po řece plaví
+    /// splav a vytahují ho česle, nic jiného.
+    /// </summary>
+    private static RaftRule? ParseRaft(
+        string path, string id, RaftDto? dto, DefRegistry<Resource> resources)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (!dto.Drops && !dto.Catches)
+        {
+            throw new ContentLoadException(
+                path, $"Budova '{id}': blok 'raft' nic nedělá — chybí 'drops' i 'catches'.");
+        }
+
+        // Jedna budova obojí ne: splav, který si vlastní klády hned vytáhne,
+        // by dělal kolečko na místě a hráč by z toho měl jen bonus zadarmo.
+        if (dto.Drops && dto.Catches)
+        {
+            throw new ContentLoadException(
+                path, $"Budova '{id}': 'raft' nesmí zároveň pouštět i chytat — bylo by to kolečko na místě.");
+        }
+
+        int resourceIndex = -1;
+        if (dto.Drops)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Resource)
+                || !resources.TryIndexOf(dto.Resource.Trim(), out resourceIndex))
+            {
+                throw new ContentLoadException(
+                    path, $"Budova '{id}': 'raft.resource' odkazuje na neexistující surovinu '{dto.Resource}'.");
+            }
+
+            if (dto.Amount <= 0)
+            {
+                throw new ContentLoadException(path, $"Budova '{id}': 'raft.amount' musí být kladné.");
+            }
+
+            if (dto.IntervalTicks <= 0)
+            {
+                throw new ContentLoadException(path, $"Budova '{id}': 'raft.intervalTicks' musí být kladné.");
+            }
+        }
+
+        // Násobič pod 1 by znamenal, že se plavením dřevo ztrácí — pak by řeku
+        // nikdo nepoužil a mechanika by ve hře byla jen jako past.
+        if (dto.Catches && dto.CatchMultiplier < 1.0)
+        {
+            throw new ContentLoadException(
+                path,
+                $"Budova '{id}': 'raft.catchMultiplier' musí být aspoň 1, je {dto.CatchMultiplier} "
+                + "— jinak se plavením dřevo ztrácí.");
+        }
+
+        return new RaftRule(
+            dto.Drops, dto.Catches, resourceIndex, dto.Amount, dto.IntervalTicks,
+            dto.Catches ? dto.CatchMultiplier : 0);
     }
 
     /// <summary>

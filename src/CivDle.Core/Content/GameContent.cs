@@ -88,6 +88,15 @@ public sealed class GameContent
         Scenarios = scenarios ?? ScenarioCatalog.Empty;
         PointsOfInterest = pointsOfInterest ?? PoiCatalog.Empty;
         Doctrines = doctrines ?? DoctrineCatalog.Empty;
+
+        foreach (var building in buildings.All)
+        {
+            if (building.Raft is not null)
+            {
+                HasRafting = true;
+                break;
+            }
+        }
         Vehicles = vehicles ?? Array.Empty<VehicleDef>();
         Aircraft = aircraft ?? Array.Empty<AircraftDef>();
         Mods = mods ?? Array.Empty<Mods.ModPackage>();
@@ -289,6 +298,12 @@ public sealed class GameContent
 
     /// <summary>Doktríny z <c>data/doctrines.json</c>. Prázdné = mechanika vypnutá.</summary>
     public DoctrineCatalog Doctrines { get; }
+
+    /// <summary>
+    /// Plaví se v téhle hře vůbec dřevo? Spočítá se jednou při načtení —
+    /// v tiku se pak stačí zeptat na jeden bool místo procházení všech definic.
+    /// </summary>
+    public bool HasRafting { get; }
 
     /// <summary>
     /// Načtené mody, jejichž data se do obsahu vlila. Hra je ukazuje hráči —

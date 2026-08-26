@@ -173,6 +173,51 @@ public sealed class ProceduralTerrain : ITerrain
         return ridge < _preset.RiverWidth;
     }
 
+    /// <summary>
+    /// Kudy tady řeka teče: k tomu ze čtyř sousedů, který je zároveň řeka
+    /// a leží nejníž.
+    ///
+    /// <para>Voda teče z kopce — tím je směr určený a nemusí se nikam ukládat.
+    /// Když žádný sousední kus řeky neleží níž, tok tady <b>končí</b>: je to
+    /// jezero nebo prohlubeň, a to je přesně to místo, kde má kláda skončit.
+    /// Bez toho pravidla by se klády hromadily donekonečna a s nimi paměť.</para>
+    /// </summary>
+    public bool TryRiverFlow(int x, int y, out int dx, out int dy)
+    {
+        dx = 0;
+        dy = 0;
+        if (!IsRiver(x, y))
+        {
+            return false;
+        }
+
+        float here = ElevationAt(x, y);
+        float lowest = here;
+
+        // Pevné pořadí sousedů: při shodě výšek musí vyjít vždycky týž směr,
+        // jinak by se tok mezi dvěma spuštěními hry lišil.
+        ReadOnlySpan<int> offsets = stackalloc int[] { 1, 0, 0, 1, -1, 0, 0, -1 };
+        for (int i = 0; i < offsets.Length; i += 2)
+        {
+            int nx = x + offsets[i];
+            int ny = y + offsets[i + 1];
+            if (!IsRiver(nx, ny))
+            {
+                continue;
+            }
+
+            float elevation = ElevationAt(nx, ny);
+            if (elevation < lowest)
+            {
+                lowest = elevation;
+                dx = offsets[i];
+                dy = offsets[i + 1];
+            }
+        }
+
+        return dx != 0 || dy != 0;
+    }
+
     public byte BiomeAt(int x, int y)
     {
         float elevation = ElevationAt(x, y);

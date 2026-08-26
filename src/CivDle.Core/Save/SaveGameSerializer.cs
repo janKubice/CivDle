@@ -155,6 +155,15 @@ public sealed class SaveGameSerializer
     /// </summary>
     private const string SectionSettlementPlans = "settlementplans";
 
+    /// <summary>
+    /// Klády na řekách.
+    ///
+    /// <para>Ukládají se, i když jsou to jen kulisy s užitkem: kláda nese
+    /// surovinu, kterou hráč <b>zaplatil</b> ze skladu. Kdyby se neuložila,
+    /// dalo by se uložením a načtením dřevo tiše ztrácet.</para>
+    /// </summary>
+    private const string SectionRafts = "rafts";
+
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
     {
@@ -378,6 +387,23 @@ public sealed class SaveGameSerializer
                 w.Write(relics[i]);
             }
         });
+
+        if (simulation.Rafts.Count > 0)
+        {
+            WriteSection(writer, SectionRafts, w =>
+            {
+                var logs = simulation.Rafts.Logs.ToList();
+                w.Write(logs.Count);
+                for (int i = 0; i < logs.Count; i++)
+                {
+                    w.Write(logs[i].X);
+                    w.Write(logs[i].Y);
+                    w.Write(logs[i].ResourceIndex);
+                    w.Write(logs[i].Amount);
+                    w.Write(logs[i].TicksLeft);
+                }
+            });
+        }
 
         if (simulation.SettlementPlans.Count > 0)
         {
@@ -713,6 +739,21 @@ public sealed class SaveGameSerializer
         }
     }
 
+    /// <summary>Načte klády plující po řekách.</summary>
+    private static void ReadRafts(BinaryReader section, Simulation simulation)
+    {
+        int count = section.ReadInt32();
+        var logs = new FloatingLog[Math.Max(0, count)];
+        for (int i = 0; i < logs.Length; i++)
+        {
+            logs[i] = new FloatingLog(
+                section.ReadInt32(), section.ReadInt32(), section.ReadInt32(),
+                section.ReadDouble(), section.ReadInt32());
+        }
+
+        simulation.RestoreRafts(logs);
+    }
+
     /// <summary>Načte vlastní plány sídel.</summary>
     private static void ReadSettlementPlans(BinaryReader section, Simulation simulation)
     {
@@ -925,6 +966,9 @@ public sealed class SaveGameSerializer
                 break;
             case SectionCarillon:
                 ReadCarillon(section, simulation);
+                break;
+            case SectionRafts:
+                ReadRafts(section, simulation);
                 break;
             case SectionSettlementPlans:
                 ReadSettlementPlans(section, simulation);

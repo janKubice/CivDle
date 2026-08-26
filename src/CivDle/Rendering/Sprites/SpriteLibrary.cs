@@ -271,6 +271,9 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.statue_agronomist", SpriteSize, StatueAgronomist);
         Add(device, "building.statue_navigator", SpriteSize, StatueNavigator);
         Add(device, "building.carillon", SpriteSize, CarillonTower);
+        Add(device, "building.log_flume", SpriteSize, LogFlume);
+        Add(device, "building.log_boom", SpriteSize, LogBoom);
+        Add(device, "fx.log", SpriteSize, FxLog);
         Add(device, "building.triumphal_arch", SpriteSize, TriumphalArch);
         Add(device, "building.clock_tower", SpriteSize, ClockTower);
         Add(device, "building.great_pit", SpriteSize, GreatPit);
@@ -1536,6 +1539,40 @@ public sealed class SpriteLibrary : IDisposable
         MemorialBase(c, new Color(132, 146, 156), new Color(168, 192, 206));
         c.FillRect(20, 8, 1, 14, new Color(120, 104, 84));   // stěžeň v ruce
         c.FillTriangle(21f, 8f, 21f, 17f, 27f, 13f, new Color(230, 232, 226)); // plachta
+    }
+
+    /// <summary>Splav: nakloněný žlab, ze kterého kláda sjede do vody.</summary>
+    private static void LogFlume(PixelCanvas c)
+    {
+        var timber = new Color(150, 116, 70);
+        c.FillTriangle(4f, 26f, 28f, 8f, 28f, 14f, timber);   // žlab
+        c.FillRect(6, 24, 3, 6, new Color(112, 88, 56));      // podpěry
+        c.FillRect(20, 14, 3, 8, new Color(112, 88, 56));
+        c.FillRect(24, 6, 6, 3, new Color(178, 142, 88));     // zásobník nahoře
+    }
+
+    /// <summary>Česle: řada kůlů napříč tokem a klády, které se o ně opřely.</summary>
+    private static void LogBoom(PixelCanvas c)
+    {
+        var water = new Color(70, 108, 132);
+        var timber = new Color(158, 124, 76);
+
+        c.FillRect(0, 12, 32, 8, water);                      // tok
+        for (int x = 3; x < 30; x += 6)
+        {
+            c.FillRect(x, 8, 2, 16, new Color(104, 82, 52));  // kůly
+        }
+
+        c.FillRect(2, 13, 26, 3, timber);                     // zachycené klády
+        c.FillRect(5, 17, 20, 3, new Color(136, 106, 64));
+    }
+
+    /// <summary>Kláda na vodě — krátký kmen se světlejším čelem.</summary>
+    private static void FxLog(PixelCanvas c)
+    {
+        c.FillRect(6, 14, 20, 5, new Color(146, 112, 68));
+        c.FillRect(6, 14, 3, 5, new Color(196, 162, 110)); // čelo
+        c.FillRect(10, 15, 12, 1, new Color(112, 86, 52)); // léta
     }
 
     /// <summary>Zvonice: věž s otevřeným patrem a zvonem v něm.</summary>

@@ -119,6 +119,32 @@ public enum SpectacleEffect
 public sealed record BuildingSpectacle(SpectacleEffect Effect, double IntervalSeconds);
 
 /// <summary>
+/// Plavení dřeva: kdo klády do řeky pouští a kdo je z ní tahá.
+///
+/// <para>Proč to ve hře stojí za to: dřevo se dá vozit po zemi vždycky
+/// a všude. Řeka je jediná cesta, která je <b>zadarmo, ale jen když ji máš</b>
+/// — a tím z kusu krajiny dělá důvod, proč stavět zrovna tam.</para>
+///
+/// <para>Klády nic nevyrábějí. Splav <b>vezme</b> surovinu ze skladu a pošle
+/// ji po vodě; česle ji vytáhnou zpátky, s bonusem za to, že se nemusela
+/// vozit. Kdyby kláda vznikala z ničeho, byla by řeka nekonečný zdroj a nikdo
+/// by nic jiného nestavěl.</para>
+/// </summary>
+/// <param name="Drops">Pouští klády po proudu?</param>
+/// <param name="Catches">Vytahuje je z vody?</param>
+/// <param name="ResourceIndex">Kterou surovinu kláda veze; −1 u česlí (berou, co připluje).</param>
+/// <param name="Amount">Kolik suroviny jedna kláda unese.</param>
+/// <param name="IntervalTicks">Jak často splav pouští další.</param>
+/// <param name="CatchMultiplier">Kolikrát víc se z klády vytáhne (odměna za cestu po vodě).</param>
+public sealed record RaftRule(
+    bool Drops,
+    bool Catches,
+    int ResourceIndex,
+    double Amount,
+    int IntervalTicks,
+    double CatchMultiplier);
+
+/// <summary>
 /// Zvalidovaná definice budovy z <c>data/buildings.json</c> (typ; instance jsou
 /// struktury v plochém poli simulace). Jméno je v jazykových souborech pod
 /// <c>building.&lt;Id&gt;</c>.
@@ -189,8 +215,21 @@ public sealed record BuildingDef(
     bool Subsea = false,
     bool SubseaAnchor = false,
     DefenseRule? DefenseOrNull = null,
-    IReadOnlyList<BuildStage>? StagesOrNull = null)
+    IReadOnlyList<BuildStage>? StagesOrNull = null,
+    RaftRule? RaftOrNull = null)
 {
+    /// <summary>
+    /// Plaví tahle budova dřevo po řece, nebo ho z ní vytahuje?
+    /// <c>null</c> = ani jedno, což je drtivá většina budov.
+    /// </summary>
+    public RaftRule? Raft => RaftOrNull;
+
+    /// <summary>Pouští klády do řeky?</summary>
+    public bool DropsLogs => RaftOrNull is { Drops: true };
+
+    /// <summary>Vytahuje klády z řeky?</summary>
+    public bool CatchesLogs => RaftOrNull is { Catches: true };
+
     /// <summary>
     /// Fáze stavby: jak budova vypadá v průběhu. Prázdné = kreslí se obecné
     /// staveniště, jako dřív.

@@ -82,6 +82,7 @@ public sealed class Simulation
     private readonly FigureSystem _figures;
     private readonly Carillon _carillon;
     private readonly PointOfInterestSystem _poi;
+    private readonly LogRaftSystem _rafts;
 
     /// <summary>Které uzly doktríny jsou koupené (jen ta zvolená, ostatní zůstávají false).</summary>
     private bool[] _doctrineNodes = Array.Empty<bool>();
@@ -237,6 +238,7 @@ public sealed class Simulation
         _figures = new FigureSystem(content.Figures);
         _carillon = new Carillon(content.Carillon);
         _poi = new PointOfInterestSystem(content.PointsOfInterest, terrain, seed);
+        _rafts = new LogRaftSystem(terrain);
         _doctrineNodes = new bool[MaxDoctrineNodes(content)];
         _legacy = new LegacySystem(content.Legacy, content.LegacyUpgrades.All);
         History = new CityHistory(content.Gameplay.History.MaxFrames);
@@ -3707,6 +3709,7 @@ public sealed class Simulation
         TickFigures();
         TickScenario();
         TickExpedition();
+        TickRafts();
 
         // Obrana je volitelný režim: kdo si ho nezapnul, nezaplatí za něj ani
         // jednu podmínku navíc v tiku.
@@ -5654,6 +5657,109 @@ public sealed class Simulation
     /// „kde všude jsi stavěl" je sběratelský cíl, který přesahuje jednu hru.
     /// </summary>
     public bool HasSettledBiome(int biomeIndex) => _settledBiomes[biomeIndex];
+
+    // ----- plavení dřeva -----
+
+    /// <summary>Klády na řekách: co plave a kam.</summary>
+    public LogRaftSystem Rafts => _rafts;
+
+    /// <summary>
+    /// Splavy pouštějí, proud nese, česle vytahují.
+    ///
+    /// <para>Pouštění běží na nízké frekvenci a jen když v datech vůbec něco
+    /// klády pouští — město bez pily u řeky za tuhle mechaniku nezaplatí ani
+    /// jednu podmínku navíc v tiku.</para>
+    /// </summary>
+    private void TickRafts()
+    {
+        if (!_content.HasRafting)
+        {
+            return;
+        }
+
+        _rafts.Tick(CatchMultiplierAt, AddResource);
+
+        if (TickCount % RaftDropCheckTicks != 0)
+        {
+            return;
+        }
+
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            var def = _content.Buildings[_buildings[i].DefIndex];
+            if (!def.DropsLogs || _buildings[i].Stall == BuildingStall.UnderConstruction)
+            {
+                continue;
+            }
+
+            var rule = def.Raft!;
+            if (TickCount % Math.Max(1, rule.IntervalTicks) != 0)
+            {
+                continue;
+            }
+
+            // Kláda nic nevyrábí — surovinu VEZME ze skladu a pošle po vodě.
+            // Kdyby vznikala z ničeho, byla by řeka nekonečný zdroj.
+            if (GetResource(rule.ResourceIndex) < rule.Amount)
+            {
+                continue;
+            }
+
+            if (TryDropLogNear(_buildings[i].X, _buildings[i].Y, def, rule))
+            {
+                AddResource(rule.ResourceIndex, -rule.Amount);
+            }
+        }
+    }
+
+    /// <summary>Jak často se ptáme splavů, jestli mají co pustit.</summary>
+    private const int RaftDropCheckTicks = 10;
+
+    /// <summary>
+    /// Pustí kládu do řeky, která se dotýká půdorysu splavu.
+    ///
+    /// <para>Hledá se kolem půdorysu, ne pod ním: splav stojí na břehu, řeka
+    /// teče vedle. Kdyby se hledalo jen pod budovou, nešel by postavit vůbec
+    /// nikam.</para>
+    /// </summary>
+    private bool TryDropLogNear(int x, int y, BuildingDef def, RaftRule rule)
+    {
+        for (int tileY = y - 1; tileY <= y + def.FootprintHeight; tileY++)
+        {
+            for (int tileX = x - 1; tileX <= x + def.FootprintWidth; tileX++)
+            {
+                if (_rafts.TryDrop(tileX, tileY, rule.ResourceIndex, rule.Amount))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Stojí na téhle dlaždici česle? Vrací násobič nákladu, nebo 0.
+    ///
+    /// <para>Násobič je odměna za to, že se dřevo nemuselo vozit — a je to
+    /// jediný důvod, proč by hráč řeku vůbec použil.</para>
+    /// </summary>
+    private double CatchMultiplierAt(int x, int y)
+    {
+        if (!_occupancy.TryGetValue(TileKey.Pack(x, y), out int buildingIndex)
+            || buildingIndex >= _buildingCount)
+        {
+            return 0;
+        }
+
+        var def = _content.Buildings[_buildings[buildingIndex].DefIndex];
+        return def.CatchesLogs && _buildings[buildingIndex].Stall != BuildingStall.UnderConstruction
+            ? def.Raft!.CatchMultiplier
+            : 0;
+    }
+
+    /// <summary>Obnoví klády ze savu.</summary>
+    internal void RestoreRafts(IEnumerable<FloatingLog> logs) => _rafts.Restore(logs);
 
     // ----- civilizační doktríny -----
 
@@ -8346,6 +8452,7 @@ public sealed class Simulation
         _figures.Reset();   // a osobnosti: nová civilizace má vlastní velikány
         _poi.Reset();       // a anomálie: nový svět, nová nevybraná místa
         RefundDoctrine();   // doktrína je tvar TÉHLE civilizace; příští si vybere znovu
+        _rafts.Reset();     // a řeky: klády patřily světu, který skončil
         _relics.Clear();
         ExpeditionTicksLeft = 0;
         _buildingIndex.Clear();

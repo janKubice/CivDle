@@ -162,6 +162,9 @@ public sealed class GameplayScreen : IScreen
 
     /// <summary>Značky anomálií na mapě.</summary>
     private readonly PoiRenderer _poiRenderer;
+
+    /// <summary>Klády plující po řekách.</summary>
+    private readonly RaftRenderer _raftRenderer;
     private readonly BubbleSystem _bubbles;
     private readonly CaravanSystem _caravans;
     private readonly GoldenSpawnSystem _golden;
@@ -440,6 +443,7 @@ public sealed class GameplayScreen : IScreen
         _carillon.Resync(simulation); // načtená hra nemá uvítat melodií za dávnou slavnost
         _festival = new FestivalRenderer(screens.WhitePixel);
         _poiRenderer = new PoiRenderer(screens.Sprites, screens.WhitePixel);
+        _raftRenderer = new RaftRenderer(screens.Sprites, screens.WhitePixel);
 
         var viewport = screens.GraphicsDevice.Viewport;
         _camera.SetViewport(viewport.Width, viewport.Height);
@@ -733,6 +737,7 @@ public sealed class GameplayScreen : IScreen
             _roadRenderer.Draw(spriteBatch, _camera, _simulation);
             // Provoz patří NAD silnici a POD budovy — auto má zajet za dům, ne přes něj.
             _traffic.Draw(spriteBatch, _screens.WhitePixel, _camera, DayNightCycle.NightFactor(_simulation.TimeOfDay01));
+            _raftRenderer.Draw(spriteBatch, _camera, _simulation);
             _buildingRenderer.Draw(spriteBatch, _camera, _simulation);
             // Kouř nad střechy, ptáci nad krajinu. Vydrží dál než chodci, takže
             // scéna nezmrzne hned, jak hráč trochu odjede kamerou.
