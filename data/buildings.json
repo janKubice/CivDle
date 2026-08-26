@@ -2830,6 +2830,110 @@
       ]
     },
     {
+      "id": "statue_mason",
+      "category": "monument",
+      "mapColor": "#B7A57A",
+      "footprint": [
+        1,
+        1
+      ],
+      "serviceValue": 12,
+      "buildCost": {
+        "stone": 60,
+        "bronze": 20
+      },
+      "buildable": false,
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ]
+    },
+    {
+      "id": "statue_scholar",
+      "category": "monument",
+      "mapColor": "#9FB6C4",
+      "footprint": [
+        1,
+        1
+      ],
+      "serviceValue": 12,
+      "buildCost": {
+        "stone": 60,
+        "bronze": 20
+      },
+      "buildable": false,
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ]
+    },
+    {
+      "id": "statue_agronomist",
+      "category": "monument",
+      "mapColor": "#A8B778",
+      "footprint": [
+        1,
+        1
+      ],
+      "serviceValue": 12,
+      "buildCost": {
+        "stone": 60,
+        "bronze": 20
+      },
+      "buildable": false,
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ]
+    },
+    {
+      "id": "statue_navigator",
+      "category": "monument",
+      "mapColor": "#8FA8B8",
+      "footprint": [
+        1,
+        1
+      ],
+      "serviceValue": 12,
+      "buildCost": {
+        "stone": 60,
+        "bronze": 20
+      },
+      "buildable": false,
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ]
+    },
+    {
       "id": "obelisk",
       "category": "monument",
       "mapColor": "#D8C48A",

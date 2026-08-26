@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "figures": [
+    {
+      "id": "mason",
+      "effect": "production_mult",
+      "magnitude": 0.15,
+      "lifeSeconds": 1800,
+      "milestone": "hundred_buildings",
+      "statue": "statue_mason"
+    },
+    {
+      "id": "scholar",
+      "effect": "research_speed",
+      "magnitude": 0.25,
+      "lifeSeconds": 1500,
+      "milestone": "thousand_souls",
+      "statue": "statue_scholar"
+    },
+    {
+      "id": "agronomist",
+      "effect": "harvest_mult",
+      "magnitude": 0.2,
+      "lifeSeconds": 1800,
+      "milestone": "ten_thousand",
+      "statue": "statue_agronomist"
+    },
+    {
+      "id": "navigator",
+      "effect": "discovery_luck",
+      "magnitude": 0.3,
+      "lifeSeconds": 1200,
+      "milestone": "first_ascension",
+      "statue": "statue_navigator"
+    }
+  ]
+}

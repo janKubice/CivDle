@@ -63,6 +63,16 @@ public enum NotificationKind
     /// seznamu, ne na celou obrazovku.</para>
     /// </summary>
     BuildingMerged,
+
+    /// <summary>Ve městě se narodila významná osobnost.</summary>
+    FigureBorn,
+
+    /// <summary>
+    /// Osobnost dožila. Vlastní druh, ne <see cref="Milestone"/>: není to
+    /// oslava, ale konec bonusu — hráč se to má dozvědět jinou barvou než to,
+    /// že něco získal.
+    /// </summary>
+    FigureDied,
 }
 
 /// <summary>

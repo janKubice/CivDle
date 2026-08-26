@@ -79,6 +79,7 @@ public sealed class Simulation
 
     private bool _powerDirty = true;
     private readonly FrontierSystem _frontier;
+    private readonly FigureSystem _figures;
     private readonly LegacySystem _legacy; // druhá prestižní vrstva (Odkaz)
     private readonly AutoResearchSystem _autoResearch = new(); // odemyká se až v Odkazu
 
@@ -225,6 +226,7 @@ public sealed class Simulation
         _grandWork = new GrandWorkSystem(content.GrandWork, content.Resources.Count);
         _orbit = new OrbitSystem(content.Orbit);
         _frontier = new FrontierSystem(content.Frontier);
+        _figures = new FigureSystem(content.Figures);
         _legacy = new LegacySystem(content.Legacy, content.LegacyUpgrades.All);
         History = new CityHistory(content.Gameplay.History.MaxFrames);
         _constructionSystem = new ConstructionSystem(content);
@@ -3494,6 +3496,7 @@ public sealed class Simulation
         // Uzávěrka toků až na konci: v tuhle chvíli už zapsaly všechny systémy,
         // které v tomhle tiku něco vyrobily nebo zaplatily.
         TickOrbit();
+        TickFigures();
 
         // Obrana je volitelný režim: kdo si ho nezapnul, nezaplatí za něj ani
         // jednu podmínku navíc v tiku.
@@ -3686,11 +3689,7 @@ public sealed class Simulation
         {
             for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
             {
-                long key = TileKey.Pack(tileX, tileY);
-                // Cizí město je na mapě stejně skutečné jako hráčova zástavba —
-                // stavět skrz cizí domy a ulice nejde.
-                if (_occupancy.ContainsKey(key) || _roads.Contains(key)
-                    || _npcTowns.Blocks(tileX, tileY))
+                if (!IsTileFree(tileX, tileY))
                 {
                     return PlacementResult.Occupied;
                 }
@@ -3717,6 +3716,20 @@ public sealed class Simulation
         }
 
         return CanPay(def.BuildCost) ? PlacementResult.Ok : PlacementResult.NotEnoughResources;
+    }
+
+    /// <summary>
+    /// Je dlaždice volná pro stavbu? Cizí město je na mapě stejně skutečné jako
+    /// hráčova zástavba — stavět skrz cizí domy a ulice nejde.
+    ///
+    /// <para>Jedno místo pro celé pravidlo: staví sem i simulace sama (socha po
+    /// osobnosti), a kdyby si nesla vlastní kontrolu, dřív nebo později by
+    /// postavila tam, kam hráč nesmí.</para>
+    /// </summary>
+    private bool IsTileFree(int x, int y)
+    {
+        long key = TileKey.Pack(x, y);
+        return !_occupancy.ContainsKey(key) && !_roads.Contains(key) && !_npcTowns.Blocks(x, y);
     }
 
     /// <summary>Dotýká se půdorys budovy aspoň jednou stranou vody (moře, jezera či řeky)?</summary>
@@ -5259,6 +5272,130 @@ public sealed class Simulation
     /// „kde všude jsi stavěl" je sběratelský cíl, který přesahuje jednu hru.
     /// </summary>
     public bool HasSettledBiome(int biomeIndex) => _settledBiomes[biomeIndex];
+
+    // ----- významné osobnosti -----
+
+    /// <summary>Kdo ve městě právě žije a kdo se za běh narodil.</summary>
+    public FigureSystem Figures => _figures;
+
+    /// <summary>
+    /// Milník je oslavený — může se u něj narodit osobnost.
+    ///
+    /// <para>Volá systém milníků hned po oznámení, aby se obě zprávy (milník
+    /// a narození) sešly v jednom tiku a hráč viděl souvislost.</para>
+    /// </summary>
+    internal void OnMilestoneReached(int milestoneIndex)
+    {
+        int born = _figures.OnMilestone(milestoneIndex, TickCount);
+        if (born < 0)
+        {
+            return;
+        }
+
+        RecomputeBonuses();
+        EnqueueNotification(new GameNotification(
+            NotificationKind.FigureBorn, "toast.figureBorn", $"figure.{_content.Figures[born].Id}"));
+    }
+
+    /// <summary>
+    /// Nechá osobnosti stárnout a uklidí po té, která dožila.
+    ///
+    /// <para>Pořadí je důležité: nejdřív stojí socha, teprve pak se přepočtou
+    /// bonusy. Obráceně by přepočet neviděl, co po zemřelém zbylo, a hráč by
+    /// jeden tik koukal na propad, který se sám vrátí.</para>
+    /// </summary>
+    private void TickFigures()
+    {
+        if (!_content.Figures.IsEnabled || !_figures.HasLiving)
+        {
+            return;
+        }
+
+        int died = _figures.Tick(TickCount);
+        if (died < 0)
+        {
+            return;
+        }
+
+        var def = _content.Figures[died];
+        if (def.LeavesStatue)
+        {
+            PlaceStatueNearCity(def.StatueBuildingIndex);
+        }
+
+        RecomputeBonuses();
+        EnqueueNotification(new GameNotification(
+            NotificationKind.FigureDied, "toast.figureDied", $"figure.{def.Id}"));
+    }
+
+    /// <summary>Jak daleko od těžiště města se hledá místo pro sochu.</summary>
+    private const int StatueSearchRadius = 24;
+
+    /// <summary>
+    /// Postaví sochu co nejblíž středu města — zadarmo a hotovou.
+    ///
+    /// <para>Zadarmo proto, že si ji hráč neobjednal: je to připomínka toho, co
+    /// se stalo, ne stavba. Kdyby stála suroviny, přišel by hráč o zdroje ve
+    /// chvíli, kdy zrovna přišel o bonus.</para>
+    ///
+    /// <para>Když se do okruhu nevejde, socha prostě nebude. Zastavěné město až
+    /// k obzoru je legitimní stav a hra kvůli soše nikoho nebude bourat.</para>
+    /// </summary>
+    private void PlaceStatueNearCity(int defIndex)
+    {
+        var def = _content.Buildings[defIndex];
+        for (int radius = 0; radius <= StatueSearchRadius; radius++)
+        {
+            for (int offsetY = -radius; offsetY <= radius; offsetY++)
+            {
+                for (int offsetX = -radius; offsetX <= radius; offsetX++)
+                {
+                    // Jen obvod čtverce — vnitřek se probral v menších poloměrech.
+                    if (radius > 0 && Math.Abs(offsetX) != radius && Math.Abs(offsetY) != radius)
+                    {
+                        continue;
+                    }
+
+                    int x = CityCenterX + offsetX;
+                    int y = CityCenterY + offsetY;
+                    if (!CanStandAt(def, x, y))
+                    {
+                        continue;
+                    }
+
+                    AddBuilding(defIndex, x, y, progress: 0f, asConstructionSite: false);
+                    ApplyBuildingBonuses(def);
+                    SettlementsDirty = true;
+                    DistrictsDirty = true;
+                    return;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Vejde se sem půdorys? Podmínky, které nezávisí na hráči — volno a biom.
+    /// Cena, odemčení ani stupeň sídla se neřeší: sochu staví simulace, ne hráč.
+    /// </summary>
+    private bool CanStandAt(BuildingDef def, int x, int y)
+    {
+        for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
+        {
+            for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
+            {
+                if (!IsTileFree(tileX, tileY) || !def.IsBiomeAllowed(Terrain.BiomeAt(tileX, tileY)))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Obnoví osobnosti ze savu (bez oznámení a bez stavění soch).</summary>
+    internal void RestoreFigures(IEnumerable<LivingFigure> living, IEnumerable<int> remembered)
+        => _figures.Restore(living, remembered);
 
     // ----- milníky -----
 
@@ -7234,6 +7371,20 @@ public sealed class Simulation
     /// <para>Jednotlivý upgrade navíc skládá <b>mocninou podle úrovně</b>: deset
     /// úrovní po +30 % je ×13,8, ne ×4.</para>
     /// </summary>
+    /// <summary>
+    /// Efekty, kterými osobnosti sahají na násobiče.
+    ///
+    /// <para>Vyjmenované schválně: procházet celý slovník efektů kvůli dvěma
+    /// žijícím lidem by znamenalo dvacet zbytečných dotazů při každém přepočtu.
+    /// Načítání hlídá, že data použijí jen efekty odsud.</para>
+    /// </summary>
+    private static readonly string[] KnownFigureEffects =
+    {
+        "production_mult", "harvest_mult", "growth_mult", "housing_mult",
+        "storage_mult", "research_speed", "autobuild_speed", "festival_power",
+        "discovery_luck", "combo_power", "offline_mult",
+    };
+
     private void RecomputeBonuses()
     {
         // Kategorie 1: trvalé upgrady Vzestupu (násobí se mezi sebou).
@@ -7285,6 +7436,20 @@ public sealed class Simulation
             if (count > 0)
             {
                 Scale(satellites[i].Effect, satellites[i].MultiplierAt(count), satellites[i].Magnitude * count);
+            }
+        }
+
+        // Šestá kategorie: žijící osobnosti. Počítá se ze SEZNAMU, ne z uložené
+        // sumy — jinak by bonus po mrtvém zůstal napořád.
+        if (_content.Figures.IsEnabled && _figures.HasLiving)
+        {
+            foreach (string effect in KnownFigureEffects)
+            {
+                double multiplier = _figures.MultiplierFor(effect);
+                if (multiplier > 1.0)
+                {
+                    Scale(effect, multiplier, multiplier - 1.0);
+                }
             }
         }
 
@@ -7469,6 +7634,7 @@ public sealed class Simulation
         ContractsCompleted = 0; // a v novém měřítku začínají objednávky zas malé
         _orbit.Reset();     // družice patří ke světu, který právě skončil — kosmodrom taky
         _frontier.Reset();  // a útočníci taky: nový svět, nová fronta
+        _figures.Reset();   // a osobnosti: nová civilizace má vlastní velikány
         _buildingIndex.Clear();
         _powerGrid.Clear();
         _powerDirty = true;

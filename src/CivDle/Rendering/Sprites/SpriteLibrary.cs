@@ -102,6 +102,7 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "ui.ascend", IconSize, UiAscend);
         Add(device, "ui.grandwork", IconSize, UiGrandWork);
         Add(device, "ui.legacy", IconSize, UiLegacy);
+        Add(device, "ui.figures", IconSize, UiFigures);
         Add(device, "ui.stats", IconSize, UiStats);
         Add(device, "ui.trophy", IconSize, UiTrophy);
         Add(device, "ui.chronicle", IconSize, UiChronicle);
@@ -262,6 +263,10 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.standing_stones", SpriteSize, StandingStones);
         Add(device, "building.obelisk", SpriteSize, Obelisk);
         Add(device, "building.great_statue", SpriteSize, GreatStatue);
+        Add(device, "building.statue_mason", SpriteSize, StatueMason);
+        Add(device, "building.statue_scholar", SpriteSize, StatueScholar);
+        Add(device, "building.statue_agronomist", SpriteSize, StatueAgronomist);
+        Add(device, "building.statue_navigator", SpriteSize, StatueNavigator);
         Add(device, "building.triumphal_arch", SpriteSize, TriumphalArch);
         Add(device, "building.clock_tower", SpriteSize, ClockTower);
         Add(device, "building.great_pit", SpriteSize, GreatPit);
@@ -773,6 +778,16 @@ public sealed class SpriteLibrary : IDisposable
     /// Odkaz: věčný plamen na podstavci. Vrstva, která přežije i Vzestup, má
     /// vypadat jako něco, co se předává dál — ne jako další šipka nahoru.
     /// </summary>
+    /// <summary>Ikona osobností: postava na soklu — totéž, co po ní zbude na mapě.</summary>
+    private static void UiFigures(PixelCanvas c)
+    {
+        c.FillRect(6, 19, 12, 4, new Color(150, 142, 120));   // sokl
+        c.FillRect(10, 9, 4, 10, new Color(206, 190, 150));   // trup
+        c.FillCircle(12f, 6f, 2.8f, new Color(226, 212, 172)); // hlava
+        c.FillRect(6, 10, 4, 2, new Color(206, 190, 150));    // rozpažené ruce
+        c.FillRect(14, 10, 4, 2, new Color(206, 190, 150));
+    }
+
     private static void UiLegacy(PixelCanvas c)
     {
         var pedestal = new Color(120, 128, 150);
@@ -1437,6 +1452,49 @@ public sealed class SpriteLibrary : IDisposable
         c.FillCircle(16f, 9f, 3.6f, new Color(214, 190, 124)); // hlava
         c.FillRect(8, 13, 6, 2, new Color(198, 172, 106));  // rozpažené ruce
         c.FillRect(18, 13, 6, 2, new Color(198, 172, 106));
+    }
+
+    /// <summary>
+    /// Sokl a postava — společný základ všech pamětních soch.
+    ///
+    /// <para>Sochy se od sebe liší jen tím, co drží v ruce. Kdyby si každá
+    /// kreslila i tělo, rozešly by se navzájem a přestalo by být na první
+    /// pohled poznat, že jde o tentýž druh připomínky.</para>
+    /// </summary>
+    private static void MemorialBase(PixelCanvas c, Color stone, Color figure)
+    {
+        c.FillRect(11, 24, 10, 6, stone);                 // sokl
+        c.FillRect(14, 13, 4, 11, figure);                // trup
+        c.FillCircle(16f, 10f, 3f, figure);               // hlava
+        c.FillRect(12, 27, 8, 1, new Color(stone.R * 82 / 100, stone.G * 82 / 100, stone.B * 82 / 100));
+    }
+
+    private static void StatueMason(PixelCanvas c)
+    {
+        MemorialBase(c, new Color(150, 142, 120), new Color(198, 178, 132));
+        c.FillRect(19, 14, 5, 2, new Color(122, 110, 96)); // napřažené kladivo
+        c.FillRect(23, 12, 3, 5, new Color(96, 88, 78));
+    }
+
+    private static void StatueScholar(PixelCanvas c)
+    {
+        MemorialBase(c, new Color(140, 148, 156), new Color(176, 194, 208));
+        c.FillRect(18, 15, 6, 5, new Color(236, 230, 210)); // otevřená kniha
+        c.FillRect(20, 15, 1, 5, new Color(150, 142, 126));
+    }
+
+    private static void StatueAgronomist(PixelCanvas c)
+    {
+        MemorialBase(c, new Color(146, 148, 118), new Color(186, 200, 148));
+        c.FillRect(20, 10, 2, 11, new Color(126, 106, 72));  // kosa
+        c.FillTriangle(21f, 10f, 27f, 12f, 21f, 14f, new Color(206, 206, 196));
+    }
+
+    private static void StatueNavigator(PixelCanvas c)
+    {
+        MemorialBase(c, new Color(132, 146, 156), new Color(168, 192, 206));
+        c.FillRect(20, 8, 1, 14, new Color(120, 104, 84));   // stěžeň v ruce
+        c.FillTriangle(21f, 8f, 21f, 17f, 27f, 13f, new Color(230, 232, 226)); // plachta
     }
 
     private static void TriumphalArch(PixelCanvas c)

@@ -104,6 +104,14 @@ public sealed class SaveGameSerializer
     /// </summary>
     private const string SectionFrontier = "frontier";
 
+    /// <summary>
+    /// Významné osobnosti: kdo žije (a od kdy) a na koho už město vzpomíná.
+    ///
+    /// <para>Ukládá se i seznam mrtvých — bez něj by se po načtení narodili
+    /// znovu na tomtéž milníku a hráč by měl jednoho člověka třikrát.</para>
+    /// </summary>
+    private const string SectionFigures = "figures";
+
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
     {
@@ -275,6 +283,24 @@ public sealed class SaveGameSerializer
 
             w.Write(simulation.Orbit.UnderConstruction);
             w.Write(simulation.Orbit.TicksLeft);
+        });
+
+        WriteSection(writer, SectionFigures, w =>
+        {
+            var living = simulation.Figures.Living;
+            w.Write(living.Count);
+            for (int i = 0; i < living.Count; i++)
+            {
+                w.Write(living[i].FigureIndex);
+                w.Write(living[i].BornTick);
+            }
+
+            var remembered = simulation.Figures.Remembered;
+            w.Write(remembered.Count);
+            for (int i = 0; i < remembered.Count; i++)
+            {
+                w.Write(remembered[i]);
+            }
         });
     }
 
@@ -556,6 +582,32 @@ public sealed class SaveGameSerializer
         }
     }
 
+    /// <summary>
+    /// Načte osobnosti: kdo žije a na koho město vzpomíná.
+    ///
+    /// <para>Sochy se znovu nestaví — ty už na mapě stojí jako běžné budovy
+    /// v sekci <c>buildings</c>. Kdyby je obnova stavěla znovu, přibyla by
+    /// s každým načtením jedna navíc.</para>
+    /// </summary>
+    private static void ReadFigures(BinaryReader section, Simulation simulation)
+    {
+        int livingCount = section.ReadInt32();
+        var living = new LivingFigure[Math.Max(0, livingCount)];
+        for (int i = 0; i < living.Length; i++)
+        {
+            living[i] = new LivingFigure(section.ReadInt32(), section.ReadInt64());
+        }
+
+        int rememberedCount = section.ReadInt32();
+        var remembered = new int[Math.Max(0, rememberedCount)];
+        for (int i = 0; i < remembered.Length; i++)
+        {
+            remembered[i] = section.ReadInt32();
+        }
+
+        simulation.RestoreFigures(living, remembered);
+    }
+
     /// <summary>Načte stav bitvy: vlnu, počty a útočníky na mapě.</summary>
     private static void ReadFrontier(BinaryReader section, Simulation simulation)
     {
@@ -649,6 +701,9 @@ public sealed class SaveGameSerializer
                 break;
             case SectionFrontier:
                 ReadFrontier(section, simulation);
+                break;
+            case SectionFigures:
+                ReadFigures(section, simulation);
                 break;
             case SectionRuns:
                 simulation.PeakPopulation = section.ReadInt64();  // pořadí musí sedět se zápisem

@@ -92,7 +92,8 @@ public sealed class ContentLoader
         // zbytkem obsahu, takže musí být na světě dřív, než se kontrolují klíče.
         var orbit = LoadOrbit(Path.Combine(dataDirectory, "orbit.json"), resources, buildings);
         var frontier = LoadFrontier(Path.Combine(dataDirectory, "frontier.json"));
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit);
+        var figures = LoadFigures(Path.Combine(dataDirectory, "figures.json"), buildings, milestones);
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit, figures);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
@@ -105,7 +106,7 @@ public sealed class ContentLoader
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
             worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, faith, npcCities, vehicles, mods,
-            grandWork, legacy, legacyUpgrades, aircraft, orbit, frontier);
+            grandWork, legacy, legacyUpgrades, aircraft, orbit, frontier, figures);
     }
 
     // ----- cizí města -----
@@ -190,6 +191,96 @@ public sealed class ContentLoader
     /// Načte Velké dílo. Chybějící soubor <b>není chyba</b> — je to volitelná
     /// mechanika a hra bez ní běží dál (stejně jako víra).
     /// </summary>
+    /// <summary>
+    /// Načte významné osobnosti. Chybějící soubor není chyba — mechanika je
+    /// volitelná a hra (i starší mody) musí naběhnout bez ní.
+    /// </summary>
+    private FigureCatalog LoadFigures(
+        string path, DefRegistry<BuildingDef> buildings, IReadOnlyList<MilestoneDef> milestones)
+    {
+        if (!File.Exists(path))
+        {
+            return FigureCatalog.Empty;
+        }
+
+        var file = ReadFile<FiguresFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var figures = new List<FigureDef>();
+        foreach (var dto in file.Figures ?? new List<FigureDto>())
+        {
+            string id = dto.Id?.Trim() ?? string.Empty;
+            if (id.Length == 0)
+            {
+                throw new ContentLoadException(path, "Osobnost bez 'id'.");
+            }
+
+            if (!seen.Add(id))
+            {
+                throw new ContentLoadException(path, $"Osobnost '{id}' je v datech dvakrát.");
+            }
+
+            string effect = dto.Effect?.Trim() ?? string.Empty;
+
+            // Tentýž slovník efektů jako Vzestup a družice — jedna soustava
+            // násobičů, ne tři. Překlep by jinak tiše nedělal nic.
+            if (!KnownPrestigeEffects.Contains(effect))
+            {
+                throw new ContentLoadException(
+                    path, $"Osobnost '{id}': neznámý efekt '{effect}' (známé: {string.Join(", ", KnownPrestigeEffects)}).");
+            }
+
+            if (dto.Magnitude <= 0)
+            {
+                throw new ContentLoadException(path, $"Osobnost '{id}': 'magnitude' musí být kladná.");
+            }
+
+            // Osobnost, která žije nula vteřin, se narodí a hned zemře —
+            // hráč by z ní viděl leda dva toasty za sebou.
+            if (dto.LifeSeconds <= 0)
+            {
+                throw new ContentLoadException(path, $"Osobnost '{id}': 'lifeSeconds' musí být kladné.");
+            }
+
+            int milestone = -1;
+            if (!string.IsNullOrWhiteSpace(dto.Milestone))
+            {
+                string wanted = dto.Milestone.Trim();
+                for (int i = 0; i < milestones.Count; i++)
+                {
+                    if (string.Equals(milestones[i].Id, wanted, StringComparison.Ordinal))
+                    {
+                        milestone = i;
+                        break;
+                    }
+                }
+
+                if (milestone < 0)
+                {
+                    throw new ContentLoadException(
+                        path, $"Osobnost '{id}' se váže na neexistující milník '{dto.Milestone}'.");
+                }
+            }
+
+            int statue = -1;
+            if (!string.IsNullOrWhiteSpace(dto.Statue) && !buildings.TryIndexOf(dto.Statue.Trim(), out statue))
+            {
+                throw new ContentLoadException(
+                    path, $"Osobnost '{id}' odkazuje na neexistující sochu '{dto.Statue}'.");
+            }
+
+            figures.Add(new FigureDef(
+                id, effect, dto.Magnitude,
+                // V datech vteřiny, v simulaci tiky: „žije dvacet minut" napíše
+                // autor obsahu správně, „žije 12000 tiků" dřív nebo později ne.
+                (long)Math.Round(dto.LifeSeconds * Simulation.TicksPerSecond),
+                milestone, statue));
+        }
+
+        return new FigureCatalog(figures);
+    }
+
     /// <summary>
     /// Načte pravidla obrany. Chybějící soubor není chyba — režim je volitelný
     /// a hra (i starší mody) musí naběhnout bez něj.
@@ -4142,7 +4233,8 @@ public sealed class ContentLoader
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
         SeasonCalendar seasons,
-        OrbitCatalog orbit)
+        OrbitCatalog orbit,
+        FigureCatalog figures)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -4176,7 +4268,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit, figures);
         FillGapsFromBaseLanguage(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -4213,13 +4305,23 @@ public sealed class ContentLoader
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
         SeasonCalendar seasons,
-        OrbitCatalog orbit)
+        OrbitCatalog orbit,
+        FigureCatalog figures)
     {
         var required = new List<string>();
         foreach (var satellite in orbit.Satellites)
         {
             required.Add($"satellite.{satellite.Id}");
             required.Add($"satellite.{satellite.Id}.desc");
+        }
+
+        // Osobnost bez jména by se v toastu ohlásila doslova jako
+        // „figure.mason" — a to je přesně ta chyba, kterou má fail-fast chytit
+        // při startu, ne hráč po dvou hodinách hraní.
+        foreach (var figure in figures.Figures)
+        {
+            required.Add($"figure.{figure.Id}");
+            required.Add($"figure.{figure.Id}.desc");
         }
 
         required.AddRange(biomes.All.Select(b => b.NameKey));

@@ -2785,6 +2785,15 @@ public sealed class GameplayScreen : IScreen
                 () => _screens.Push(new OrbitScreen(_screens, _simulation))), slot++, columns);
         }
 
+        // Osobnosti až od chvíle, kdy se první někdo narodil. Prázdný seznam
+        // v liště by jen sliboval mechaniku, na kterou hráč nemá jak dosáhnout.
+        if (_simulation.Figures.Remembered.Count > 0)
+        {
+            Place(grid, UiFactory.ToolButton(
+                Ico("ui.figures"), loc["figures.title"] + '\n' + loc["tip.figures"],
+                () => _screens.Push(new FiguresScreen(_screens, _simulation))), slot++, columns);
+        }
+
         // Odkaz se ukáže až po prvním Vzestupu — vrstva nad mechanikou, kterou
         // hráč ještě nezná, by byla jen matoucí tlačítko navíc.
         if (_simulation.LegacyAvailable)

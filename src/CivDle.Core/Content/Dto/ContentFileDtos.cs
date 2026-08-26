@@ -659,6 +659,18 @@ public sealed record DemoDto(
     long AscensionRequirement,
     double TechFraction);
 
+/// <summary>Obsah souboru <c>data/figures.json</c>.</summary>
+public sealed record FiguresFileDto(int SchemaVersion, List<FigureDto>? Figures);
+
+/// <summary>Jedna osobnost tak, jak leží v JSON.</summary>
+public sealed record FigureDto(
+    string Id,
+    string Effect,
+    double Magnitude,
+    int LifeSeconds,
+    string? Milestone,
+    string? Statue);
+
 /// <summary>Obsah souboru <c>data/frontier.json</c>.</summary>
 public sealed record FrontierFileDto(
     int SchemaVersion,

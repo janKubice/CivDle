@@ -72,10 +72,12 @@ public sealed class GameContent
         DefRegistry<PrestigeUpgradeDef>? legacyUpgrades = null,
         IReadOnlyList<AircraftDef>? aircraft = null,
         OrbitCatalog? orbit = null,
-        FrontierConfig? frontier = null)
+        FrontierConfig? frontier = null,
+        FigureCatalog? figures = null)
     {
         Orbit = orbit ?? OrbitCatalog.Empty;
         Frontier = frontier ?? FrontierConfig.Disabled;
+        Figures = figures ?? FigureCatalog.Empty;
         Vehicles = vehicles ?? Array.Empty<VehicleDef>();
         Aircraft = aircraft ?? Array.Empty<AircraftDef>();
         Mods = mods ?? Array.Empty<Mods.ModPackage>();
@@ -215,7 +217,7 @@ public sealed class GameContent
         Biomes, Resources, Buildings, Techs, Prestige, PrestigeUpgrades, Quests, QuestsDynamic,
         Achievements, Events, Eras, WorldGen, gameplay, Languages, SettlementNames, Decorations,
         Fauna, Devlog, ZoneTypes, Policies, AscensionTiers, Weather, Landmarks, Features, Ufo,
-        Ambience, Terraform, Tutorial, Challenges, Contracts, Districts, SettlementRanks, Citizens, Elections, Milestones, Seasons, Faith, NpcCities, Vehicles, Mods, GrandWork, Legacy, LegacyUpgrades, Aircraft, Orbit, Frontier);
+        Ambience, Terraform, Tutorial, Challenges, Contracts, Districts, SettlementRanks, Citizens, Elections, Milestones, Seasons, Faith, NpcCities, Vehicles, Mods, GrandWork, Legacy, LegacyUpgrades, Aircraft, Orbit, Frontier, Figures);
 
     /// <summary>Milníky postupu z <c>data/milestones.json</c> (smí být prázdné).</summary>
     public IReadOnlyList<MilestoneDef> Milestones { get; }
@@ -259,6 +261,9 @@ public sealed class GameContent
     /// Pravidla volitelného režimu obrany. Prázdné = režim se nedá ani zapnout.
     /// </summary>
     public FrontierConfig Frontier { get; }
+
+    /// <summary>Významné osobnosti. Prázdné = mechanika vypnutá.</summary>
+    public FigureCatalog Figures { get; }
 
     /// <summary>
     /// Načtené mody, jejichž data se do obsahu vlila. Hra je ukazuje hráči —

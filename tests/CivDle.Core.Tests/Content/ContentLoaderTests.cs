@@ -1,4 +1,5 @@
 using CivDle.Core.Content;
+using CivDle.Core.Sim;
 using CivDle.Core.Tests.Support;
 using Xunit;
 
@@ -1214,6 +1215,135 @@ public class ContentLoaderTests : IDisposable
         Assert.Contains("ui.helo", ex.Message);
     }
 
+    // ----- významné osobnosti -----
+
+    [Fact]
+    public void Figures_LoadWithTheirMilestoneAndStatue()
+    {
+        WriteWorldWithFigure("""
+        { "id": "hero", "effect": "production_mult", "magnitude": 0.5,
+          "lifeSeconds": 600, "milestone": "first", "statue": "house" }
+        """);
+
+        var content = Load();
+
+        Assert.True(content.Figures.IsEnabled);
+        var figure = content.Figures[0];
+        Assert.Equal("hero", figure.Id);
+        Assert.Equal(0, figure.MilestoneIndex);
+        Assert.Equal(content.Buildings.IndexOf("house"), figure.StatueBuildingIndex);
+
+        // Vteřiny z dat se převedly na tiky simulace — tohle je jediné místo,
+        // kde se ty dvě jednotky potkávají.
+        Assert.Equal(600 * Simulation.TicksPerSecond, figure.LifeTicks);
+    }
+
+    [Fact]
+    public void Figure_WithAnUnknownEffect_Throws()
+    {
+        // Překlep v efektu by jinak tiše nedělal vůbec nic: osobnost by se
+        // narodila, oslavila a nezvedla by ani jedno číslo.
+        WriteWorldWithFigure("""
+        { "id": "hero", "effect": "produkce_navic", "magnitude": 0.5,
+          "lifeSeconds": 600, "milestone": "first" }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("figures.json", ex.Message);
+        Assert.Contains("produkce_navic", ex.Message);
+    }
+
+    [Fact]
+    public void Figure_WithAnUnknownMilestone_Throws()
+    {
+        WriteWorldWithFigure("""
+        { "id": "hero", "effect": "production_mult", "magnitude": 0.5,
+          "lifeSeconds": 600, "milestone": "neexistuje" }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("neexistuje", ex.Message);
+    }
+
+    [Fact]
+    public void Figure_WithAnUnknownStatue_Throws()
+    {
+        WriteWorldWithFigure("""
+        { "id": "hero", "effect": "production_mult", "magnitude": 0.5,
+          "lifeSeconds": 600, "milestone": "first", "statue": "socha_ktera_neni" }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("socha_ktera_neni", ex.Message);
+    }
+
+    [Fact]
+    public void Figure_WithNoLifespan_Throws()
+    {
+        // Osobnost, která žije nula vteřin, by hráči jen dvakrát bliknula
+        // v rohu obrazovky.
+        WriteWorldWithFigure("""
+        { "id": "hero", "effect": "production_mult", "magnitude": 0.5,
+          "lifeSeconds": 0, "milestone": "first" }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("lifeSeconds", ex.Message);
+    }
+
+    [Fact]
+    public void Figure_WithoutAName_Throws()
+    {
+        // Bez jména by se v toastu ohlásila doslova jako „figure.hero".
+        WriteAllValid();
+        WriteMilestones();
+        Write(Path.Combine("lang", "cs.json"), LangJson("cs", "Čeština", extraKeys: MilestoneKeys));
+        Write(Path.Combine("lang", "en.json"), LangJson("en", "English", extraKeys: MilestoneKeys));
+        Write("figures.json", """
+        {
+          "schemaVersion": 1,
+          "figures": [
+            { "id": "hero", "effect": "production_mult", "magnitude": 0.5,
+              "lifeSeconds": 600, "milestone": "first" }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("figure.hero", ex.Message);
+    }
+
+    /// <summary>Minimální data + jeden milník + jedna osobnost (i s jejími jmény v jazycích).</summary>
+    private void WriteWorldWithFigure(string figureJson)
+    {
+        WriteAllValid();
+        WriteMilestones();
+        Write(Path.Combine("lang", "cs.json"), LangJson("cs", "Čeština", extraKeys: FigureKeys));
+        Write(Path.Combine("lang", "en.json"), LangJson("en", "English", extraKeys: FigureKeys));
+        Write("figures.json", $$"""
+        {
+          "schemaVersion": 1,
+          "figures": [ {{figureJson}} ]
+        }
+        """);
+    }
+
+    private static readonly string[] MilestoneKeys = { "milestone.first" };
+
+    private static readonly string[] FigureKeys = { "milestone.first", "figure.hero", "figure.hero.desc" };
+
+    private void WriteMilestones() => Write("milestones.json", """
+    {
+      "schemaVersion": 1,
+      "milestones": [ { "id": "first", "condition": { "metric": "buildings", "target": 1 } } ]
+    }
+    """);
+
     // ----- pomůcky -----
 
     private GameContent Load() => new ContentLoader().LoadFrom(_tempDir);
@@ -1350,7 +1480,9 @@ public class ContentLoaderTests : IDisposable
         """);
     }
 
-    private static string LangJson(string id, string nativeName, bool includeBuildingName = true, bool includeExtraKey = true)
+    private static string LangJson(
+        string id, string nativeName, bool includeBuildingName = true, bool includeExtraKey = true,
+        IEnumerable<string>? extraKeys = null)
     {
         var keys = new List<string>
         {
@@ -1370,6 +1502,11 @@ public class ContentLoaderTests : IDisposable
         if (includeExtraKey)
         {
             keys.Add("\"ui.hello\": \"-\"");
+        }
+
+        foreach (string key in extraKeys ?? Array.Empty<string>())
+        {
+            keys.Add($"\"{key}\": \"-\"");
         }
 
         return $$"""

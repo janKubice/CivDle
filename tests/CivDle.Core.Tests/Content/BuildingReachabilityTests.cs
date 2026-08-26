@@ -12,6 +12,9 @@ namespace CivDle.Core.Tests.Content;
 /// který ve hře nikdy nikdo neuvidí — a nic to nenahlásí. Přesně tak se osm
 /// budov (přístav, rybářství a šest megastruktur) dostalo do dat, měly svoje
 /// jméno, cenu, ikonu i achievement, a postavit se nedaly.</para>
+///
+/// <para>„Postavit" tu neznamená jen „hráč si to koupí": pomník po osobnosti
+/// staví simulace, a přesto je to budova, kterou hráč ve hře uvidí.</para>
 /// </summary>
 public class BuildingReachabilityTests
 {
@@ -31,6 +34,16 @@ public class BuildingReachabilityTests
             if (def.MergesToIndex >= 0)
             {
                 reachable.Add(content.Buildings[def.MergesToIndex].Id);
+            }
+        }
+
+        // Pomník po významné osobnosti postaví simulace sama — hráč ho postavit
+        // nemá, a přesto ve hře skutečně vznikne.
+        foreach (var figure in content.Figures.Figures)
+        {
+            if (figure.LeavesStatue)
+            {
+                reachable.Add(content.Buildings[figure.StatueBuildingIndex].Id);
             }
         }
 
