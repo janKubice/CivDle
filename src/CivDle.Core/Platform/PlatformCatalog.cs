@@ -67,6 +67,14 @@ public static class PlatformCatalog
     /// </summary>
     public static void PushStats(IPlatformServices platform, Simulation simulation)
     {
+        // Ze statistik platformy se počítají achievementy, takže pískoviště
+        // nesmí posílat ani je — jinak by se cesta kolem zavřených dveří
+        // otevřela oknem.
+        if (simulation.Sandbox)
+        {
+            return;
+        }
+
         platform.SetStat(StatPeakPopulation, Math.Max(simulation.PeakPopulation, (long)simulation.Population));
         platform.SetStat(StatTotalBuildings, simulation.Buildings.Length);
         platform.SetStat(StatAscensions, simulation.AscensionLevel);
@@ -87,7 +95,9 @@ public static class PlatformCatalog
     /// </summary>
     public static void PushScores(IPlatformServices platform, Simulation simulation)
     {
-        if (!platform.LeaderboardsAllowed)
+        // Pískoviště má suroviny zadarmo, takže by v žebříčku přebilo každou
+        // poctivě odehranou hru — a žebříček by tím skončil.
+        if (simulation.Sandbox || !platform.LeaderboardsAllowed)
         {
             return;
         }

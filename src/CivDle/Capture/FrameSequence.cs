@@ -15,17 +15,22 @@ namespace CivDle.Capture;
 /// kratším čísle by se po tisícovce snímků rozsypalo pořadí.</para>
 ///
 /// <para>Ukládá se přes pomocnou texturu, ne přímo z render targetu: ten je
-/// pořád svázaný se zařízením a <c>SaveAsPng</c> z něj během kreslení zlobí.</para>
+/// pořád svázaný se zařízením a <c>SaveAsPng</c> z něj během kreslení zlobí.
+/// Textura je <b>jedna na celou sekvenci</b>, ne nová na každý snímek — ve
+/// Full HD má osm megabajtů a ovladač ji nemusí uvolnit hned, takže se při
+/// dvoutisícovce snímků nasčítaly gigabajty a natáčení tiše skončilo v půlce
+/// posledního záběru.</para>
 /// </summary>
-public sealed class FrameSequence
+public sealed class FrameSequence : IDisposable
 {
-    private readonly GraphicsDevice _device;
     private readonly Color[] _buffer;
+    private readonly Texture2D _staging;
+    private bool _disposed;
 
     public FrameSequence(GraphicsDevice device, string directory, int width, int height)
     {
-        _device = device;
         _buffer = new Color[width * height];
+        _staging = new Texture2D(device, width, height);
         Directory = directory;
         Width = width;
         Height = height;
@@ -56,11 +61,19 @@ public sealed class FrameSequence
     public void SaveAs(RenderTarget2D target, int frameIndex)
     {
         target.GetData(_buffer);
+        _staging.SetData(_buffer);
 
         string path = Path.Combine(Directory, $"frame-{frameIndex:D6}.png");
         using var stream = File.Create(path);
-        using var texture = new Texture2D(_device, Width, Height);
-        texture.SetData(_buffer);
-        texture.SaveAsPng(stream, Width, Height);
+        _staging.SaveAsPng(stream, Width, Height);
+    }
+
+    public void Dispose()
+    {
+        if (!_disposed)
+        {
+            _disposed = true;
+            _staging.Dispose();
+        }
     }
 }

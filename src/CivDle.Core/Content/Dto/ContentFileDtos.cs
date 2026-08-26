@@ -67,7 +67,22 @@ public sealed record BuildingDto(
     int ScoutRadius,
     string? TerraformAction,
     int TerraformRadius,
-    double? Paving);
+    double? Paving,
+    bool SubseaAnchor = false,
+    DefenseDto? Defense = null,
+    List<BuildStageDto>? Stages = null,
+    RaftDto? Raft = null,
+    BuildingSoundDto? Sound = null);
+
+/// <summary>Zvuk okolí budovy tak, jak leží v JSON.</summary>
+public sealed record BuildingSoundDto(string? Loop, double RadiusTiles, double Volume);
+
+/// <summary>Plavení dřeva tak, jak leží v JSON.</summary>
+public sealed record RaftDto(
+    bool Drops, bool Catches, string? Resource, double Amount, int IntervalTicks, double CatchMultiplier);
+
+/// <summary>Jedna fáze stavby tak, jak leží v JSON.</summary>
+public sealed record BuildStageDto(double AtProgress, string Sprite);
 
 /// <summary>Podívaná megastruktury tak, jak leží v JSON.</summary>
 public sealed record BuildingSpectacleDto(string? Effect, double IntervalSeconds);
@@ -159,7 +174,12 @@ public sealed record NpcCitiesFileDto(
     int TradeRelation,
     double CaravanBonusAtFullRelation,
     List<NpcArchetypeDto>? Archetypes,
-    List<string>? Names);
+    List<string>? Names,
+    DemandSpikeDto? DemandSpike = null);
+
+/// <summary>Tržní konjunktura tak, jak leží v JSON.</summary>
+public sealed record DemandSpikeDto(
+    double IntervalSeconds, double DurationSeconds, int ChancePercent, double Multiplier);
 
 /// <summary>Jeden druh cizího města tak, jak leží v JSON.</summary>
 public sealed record NpcArchetypeDto(
@@ -209,7 +229,10 @@ public sealed record GameplayFileDto(
     LaserDto? Laser,
     HistoryDto? History,
     ResearchDto? Research,
-    DemoDto? Demo);
+    DemoDto? Demo,
+    GoldenDto? Golden,
+    SubseaDto? Subsea,
+    PowerDto? Power);
 
 /// <summary>Škálování cen výzkumu tak, jak leží v JSON.</summary>
 public sealed record ResearchDto(
@@ -268,7 +291,8 @@ public sealed record SeasonDto(
     double HarvestMult,
     double GrowthMult,
     double FuelPerPersonPerSecond,
-    double ColdGrowthMult);
+    double ColdGrowthMult,
+    double SnowCover = 0.0);
 
 /// <summary>Nastavení spokojenosti tak, jak leží v JSON.</summary>
 public sealed record HappinessDto(
@@ -648,3 +672,151 @@ public sealed record DemoDto(
     double PopulationCap,
     long AscensionRequirement,
     double TechFraction);
+
+/// <summary>Obsah souboru <c>data/figures.json</c>.</summary>
+public sealed record FiguresFileDto(int SchemaVersion, List<FigureDto>? Figures);
+
+/// <summary>Jedna osobnost tak, jak leží v JSON.</summary>
+public sealed record FigureDto(
+    string Id,
+    string Effect,
+    double Magnitude,
+    int LifeSeconds,
+    string? Milestone,
+    string? Statue);
+
+/// <summary>Obsah souboru <c>data/doctrines.json</c>.</summary>
+public sealed record DoctrinesFileDto(int SchemaVersion, List<DoctrineDto>? Doctrines);
+
+/// <summary>Jedna doktrína tak, jak leží v JSON.</summary>
+public sealed record DoctrineDto(string? Id, List<DoctrineNodeDto>? Nodes);
+
+/// <summary>Jeden uzel doktríny tak, jak leží v JSON.</summary>
+public sealed record DoctrineNodeDto(
+    string? Id, string? Effect, double Magnitude, int Cost, List<string>? Requires);
+
+/// <summary>Obsah souboru <c>data/poi.json</c>.</summary>
+public sealed record PoiFileDto(
+    int SchemaVersion,
+    int RegionTiles,
+    int ChancePercent,
+    List<PoiRelicDto>? Relics,
+    List<PoiKindDto>? Kinds);
+
+/// <summary>Relikvie z výpravy tak, jak leží v JSON.</summary>
+public sealed record PoiRelicDto(string? Id, string? Effect, double Magnitude);
+
+/// <summary>Druh anomálie tak, jak leží v JSON.</summary>
+public sealed record PoiKindDto(
+    string? Id,
+    List<string>? Biomes,
+    int MinDistance,
+    Dictionary<string, int>? Cost,
+    int DurationSeconds,
+    List<PoiRewardDto>? Rewards);
+
+/// <summary>Jedna možná odměna z výpravy tak, jak leží v JSON.</summary>
+public sealed record PoiRewardDto(int Weight, Dictionary<string, int>? Resources, string? Relic);
+
+/// <summary>Obsah souboru <c>data/scenarios.json</c>.</summary>
+public sealed record ScenariosFileDto(int SchemaVersion, List<ScenarioDto>? Scenarios);
+
+/// <summary>Jeden scénář tak, jak leží v JSON.</summary>
+public sealed record ScenarioDto(
+    string? Id,
+    long Seed,
+    string? Preset,
+    GameplayOverrideDto? Gameplay,
+    Dictionary<string, int>? StartingResources,
+    GoalConditionDto? Goal,
+    GoalConditionDto? FailBelow,
+    double TimeLimitSeconds,
+    List<string>? Rules);
+
+/// <summary>Přebití herních čísel scénářem. Co chybí, zůstane z gameplay.json.</summary>
+public sealed record GameplayOverrideDto(
+    double? StartingPopulation,
+    int? BaseHousingCapacity,
+    double? PopulationGrowthPerSecond,
+    double? FoodPerPersonPerSecond);
+
+/// <summary>Obsah souboru <c>data/carillon.json</c>.</summary>
+public sealed record CarillonFileDto(
+    int SchemaVersion,
+    string? Building,
+    List<int>? DefaultTune,
+    double BaseFrequency,
+    double NoteSeconds);
+
+/// <summary>Obsah souboru <c>data/chronicle.json</c>.</summary>
+public sealed record ChronicleFileDto(int SchemaVersion, List<ChronicleTemplateDto>? Lines);
+
+/// <summary>Jedna věta kroniky tak, jak leží v JSON.</summary>
+public sealed record ChronicleTemplateDto(string Id, string Moment, double Threshold);
+
+/// <summary>Obsah souboru <c>data/frontier.json</c>.</summary>
+public sealed record FrontierFileDto(
+    int SchemaVersion,
+    int FirstWaveTick,
+    int WaveIntervalTicks,
+    double StrengthGrowth,
+    int SpawnDistance,
+    int RepairTicks,
+    List<AttackerDto>? Attackers,
+    List<List<WaveEntryDto>>? Waves);
+
+/// <summary>Jeden druh útočníka tak, jak leží v JSON.</summary>
+public sealed record AttackerDto(
+    string Id,
+    string? Sprite,
+    int Health,
+    double Speed,
+    int Damage,
+    int AttackIntervalTicks);
+
+/// <summary>Položka vlny tak, jak leží v JSON.</summary>
+public sealed record WaveEntryDto(string Attacker, int Count);
+
+/// <summary>Obrana budovy tak, jak leží v JSON.</summary>
+public sealed record DefenseDto(int Range, int Damage, int IntervalTicks);
+
+/// <summary>Obsah souboru <c>data/orbit.json</c>.</summary>
+public sealed record OrbitFileDto(
+    int SchemaVersion,
+    string? LaunchBuilding,
+    List<SatelliteDto>? Satellites);
+
+/// <summary>Jeden druh družice tak, jak leží v JSON.</summary>
+public sealed record SatelliteDto(
+    string Id,
+    string? Sprite,
+    Dictionary<string, int>? Cost,
+    double CostGrowth,
+    int BuildTicks,
+    string Effect,
+    double Magnitude,
+    int MaxCount,
+    double Altitude,
+    double Speed);
+
+/// <summary>Rozvod proudu tak, jak leží v JSON.</summary>
+public sealed record PowerDto(int Range);
+
+/// <summary>Podmořská vrstva tak, jak leží v JSON.</summary>
+public sealed record SubseaDto(int Range);
+
+/// <summary>Zlaté úlovky tak, jak leží v JSON.</summary>
+public sealed record GoldenDto(
+    double MinGapSeconds,
+    double MaxGapSeconds,
+    IReadOnlyList<GoldenKindDto>? Kinds);
+
+/// <summary>Jeden druh zlatého úlovku.</summary>
+public sealed record GoldenKindDto(
+    string Id,
+    string Sprite,
+    double LifeSeconds,
+    double DriftTilesPerSecond,
+    double RewardFraction,
+    int MinReward,
+    bool GrantsFestival = false);

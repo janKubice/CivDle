@@ -38,7 +38,7 @@ public sealed class PerfRun
 
         Console.WriteLine();
         Console.WriteLine($"=== výkon vykreslování ({sim.Buildings.Length} budov) ===");
-        Console.WriteLine($"{"zoom",6} {"ms/snímek",12} {"FPS",8}");
+        Console.WriteLine($"{"zoom",6} {"ms/snímek",12} {"FPS",8} {"B/snímek",12}");
 
         foreach (float zoom in Zooms)
         {
@@ -50,6 +50,7 @@ public sealed class PerfRun
                 screen.Draw(time);
             }
 
+            long allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
             var watch = Stopwatch.StartNew();
             for (int i = 0; i < MeasuredFrames; i++)
             {
@@ -58,11 +59,51 @@ public sealed class PerfRun
             }
 
             watch.Stop();
+            long allocated = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
+
             double ms = watch.Elapsed.TotalMilliseconds / MeasuredFrames;
-            Console.WriteLine($"{zoom,6:0.00} {ms,12:0.00} {1000.0 / Math.Max(0.001, ms),8:0}");
+            Console.WriteLine(
+                $"{zoom,6:0.00} {ms,12:0.00} {1000.0 / Math.Max(0.001, ms),8:0} {allocated / MeasuredFrames,12:N0}");
         }
+
+        MeasureTick(sim);
 
         Console.WriteLine();
         Console.WriteLine("Cíl: pod 16 ms (60 FPS). Nad 33 ms je to znát jako sekání.");
+        Console.WriteLine("Alokace: každý bajt za snímek je práce pro GC, která se vrátí jako záškub.");
+    }
+
+    /// <summary>
+    /// Kolik stojí samotný tik simulace — v čase i v bajtech.
+    ///
+    /// <para>Měří se odděleně od kreslení schválně: tik běží desetkrát za
+    /// sekundu a snímek šedesátkrát, takže sečtená čísla by neřekla nic.
+    /// A hlavně — CLAUDE.md říká „žádné alokace v tikové smyčce". Dokud se to
+    /// neměří, je to zbožné přání.</para>
+    /// </summary>
+    private static void MeasureTick(Simulation sim)
+    {
+        const int Warmup = 200;
+        const int Measured = 1000;
+
+        for (int i = 0; i < Warmup; i++)
+        {
+            sim.Tick();
+        }
+
+        long allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+        var watch = Stopwatch.StartNew();
+        for (int i = 0; i < Measured; i++)
+        {
+            sim.Tick();
+        }
+
+        watch.Stop();
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
+
+        Console.WriteLine();
+        Console.WriteLine($"=== tik simulace ({sim.Buildings.Length} budov) ===");
+        Console.WriteLine($"ms/tik:    {watch.Elapsed.TotalMilliseconds / Measured,10:0.000}");
+        Console.WriteLine($"B/tik:     {allocated / (double)Measured,10:N0}");
     }
 }

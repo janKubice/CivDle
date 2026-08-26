@@ -155,5 +155,44 @@
     "populationCap": 10000,
     "ascensionRequirement": 10000,
     "techFraction": 0.2
+  },
+  "golden": {
+    "minGapSeconds": 65,
+    "maxGapSeconds": 120,
+    "kinds": [
+      {
+        "id": "golden_deer",
+        "sprite": "fx.golden",
+        "lifeSeconds": 9,
+        "driftTilesPerSecond": 1.1,
+        "rewardFraction": 0.1,
+        "minReward": 20,
+        "grantsFestival": false
+      },
+      {
+        "id": "crystal_fish",
+        "sprite": "fx.golden",
+        "lifeSeconds": 7,
+        "driftTilesPerSecond": 1.8,
+        "rewardFraction": 0.06,
+        "minReward": 15,
+        "grantsFestival": false
+      },
+      {
+        "id": "phoenix",
+        "sprite": "fx.golden",
+        "lifeSeconds": 6,
+        "driftTilesPerSecond": 2.4,
+        "rewardFraction": 0.0,
+        "minReward": 0,
+        "grantsFestival": true
+      }
+    ]
+  },
+  "subsea": {
+    "range": 16
+  },
+  "power": {
+    "range": 6
   }
 }

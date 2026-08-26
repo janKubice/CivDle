@@ -27,6 +27,10 @@ public sealed class TemplatesScreen : IScreen
     private readonly InputManager _input = new();
     private Desktop _desktop = null!;
 
+    /// <summary>Poslední hláška ke sdílení (zkopírováno / vloženo / nepovedlo se).</summary>
+    private string _shareNote = string.Empty;
+    private Color _shareColor = UiPalette.Text;
+
     /// <param name="screens">Správce obrazovek (profil, jazyk).</param>
     /// <param name="startCapture">Zapne na mapě snímání nové šablony.</param>
     /// <param name="pickTemplate">Vezme šablonu do ruky, aby ji šlo položit.</param>
@@ -68,6 +72,22 @@ public sealed class TemplatesScreen : IScreen
             _screens.Pop();
             _startCapture();
         }));
+
+        // Vložení kódu od kamaráda. Je to jediná cesta, jak se do hry dostane
+        // cizí rozvržení — a musí být vidět dřív než seznam vlastních šablon,
+        // jinak ji nikdo nenajde.
+        layout.Widgets.Add(UiFactory.SmallButton(loc["templates.paste"], PasteFromClipboard));
+
+        if (_shareNote.Length > 0)
+        {
+            layout.Widgets.Add(new Label
+            {
+                Text = _shareNote,
+                TextColor = _shareColor,
+                Wrap = true,
+                Width = PanelWidth - 20,
+            });
+        }
 
         var templates = _screens.Profile.Templates;
         if (templates.Count == 0)
@@ -130,6 +150,14 @@ public sealed class TemplatesScreen : IScreen
             _pickTemplate(template);
         }));
 
+        // Kopírovat je vedle Položit schválně: sdílení má být stejně po ruce
+        // jako použití, jinak se na něj přijde jen omylem.
+        row.Widgets.Add(UiFactory.SmallButton(loc["templates.copy"], () =>
+        {
+            bool copied = Platform.Clipboard.TrySet(TemplateCode.Write(template));
+            Note(copied ? "templates.copied" : "templates.clipboardFailed", copied);
+        }));
+
         row.Widgets.Add(UiFactory.SmallButton(loc["templates.delete"], () =>
         {
             _screens.Profile.Templates.RemoveAt(index);
@@ -138,6 +166,38 @@ public sealed class TemplatesScreen : IScreen
         }));
 
         return row;
+    }
+
+    /// <summary>
+    /// Vezme kód ze schránky a udělá z něj šablonu.
+    ///
+    /// <para>Nesmyslný obsah končí hláškou, ne pádem — do schránky se dostane
+    /// leccos a hráč tam vloží, co má zrovna zkopírované.</para>
+    /// </summary>
+    private void PasteFromClipboard()
+    {
+        if (!TemplateCode.TryRead(Platform.Clipboard.Get(), out var template) || template.IsEmpty)
+        {
+            Note("templates.pasteFailed", good: false);
+            return;
+        }
+
+        var saved = template.ToSaved();
+        if (string.IsNullOrWhiteSpace(saved.Name))
+        {
+            saved.Name = _screens.Loc["templates.pastedName"];
+        }
+
+        _screens.Profile.Templates.Add(saved);
+        _screens.SaveProfile();
+        Note("templates.pasted", good: true);
+    }
+
+    private void Note(string key, bool good)
+    {
+        _shareNote = _screens.Loc[key];
+        _shareColor = good ? UiPalette.Good : UiPalette.Warn;
+        BuildUi();
     }
 
     private void Finish(VerticalStackPanel layout)

@@ -15,7 +15,9 @@ namespace CivDle.Capture;
 /// <param name="Height">Výška včetně proužku, pokud se kreslí.</param>
 /// <param name="WithStrip">Kreslit dole proužek se jménem města a čísly?</param>
 /// <param name="FullDetail">Renderovat bez LOD, tedy se vším, co je při daném oddálení schované?</param>
-public readonly record struct ShareCardOptions(int Width, int Height, bool WithStrip, bool FullDetail)
+/// <param name="TiltShift">Rozostřit okraje, aby město vypadalo jako model na stole?</param>
+public readonly record struct ShareCardOptions(
+    int Width, int Height, bool WithStrip, bool FullDetail, bool TiltShift = false)
 {
     /// <summary>
     /// Výška, na kterou byl proužek nakreslený. Rozměry v něm se podle ní
@@ -35,10 +37,11 @@ public readonly record struct ShareCardOptions(int Width, int Height, bool WithS
     };
 
     /// <summary>Sestaví volby pro daný stupeň rozlišení.</summary>
-    public static ShareCardOptions For(CaptureResolution resolution, bool withStrip, bool fullDetail)
+    public static ShareCardOptions For(
+        CaptureResolution resolution, bool withStrip, bool fullDetail, bool tiltShift = false)
     {
         var (width, height) = SizeOf(resolution);
-        return new ShareCardOptions(width, height, withStrip, fullDetail);
+        return new ShareCardOptions(width, height, withStrip, fullDetail, tiltShift);
     }
 
     /// <summary>Jak vysoký je proužek při tomhle rozlišení (0, když se nekreslí).</summary>

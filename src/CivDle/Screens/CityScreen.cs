@@ -225,6 +225,19 @@ public sealed class CityScreen : IScreen
             TextColor = Color.LightGray,
         });
 
+        // Konjunktura musí být vidět právě teď: trvá minuty a je to jediný
+        // důvod, proč se na souseda podívat zrovna dnes.
+        if (_simulation.IsCityInDemandSpike(_city.Key))
+        {
+            stack.Widgets.Add(new Label
+            {
+                Text = loc["npc.spike"],
+                TextColor = UiPalette.Good,
+                Wrap = true,
+                Width = PanelWidth - 40,
+            });
+        }
+
         stack.Widgets.Add(new Label
         {
             Text = state.RoadLinked ? loc["npc.linked"] : loc["npc.noLink"],

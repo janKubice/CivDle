@@ -1,4 +1,5 @@
 using CivDle.Core.Content;
+using CivDle.Core.Sim;
 using CivDle.Core.Tests.Support;
 using Xunit;
 
@@ -265,7 +266,29 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
-    public void LoadFrom_BuildingOnWaterBiome_Throws()
+    public void LoadFrom_BuildingOnWaterAndLand_Throws()
+    {
+        // Na vodě se stavět SMÍ — od podmořské vrstvy. Co nesmí, je budova,
+        // která by stála na louce i na dně: podmořská se pozná právě tím, že
+        // jinam nesmí, takže dvojaká maska by tu vlastnost tiše zrušila.
+        WriteAllValid();
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "house", "mapColor": "#B5651D", "footprint": [1, 1],
+              "buildCost": { "wood": 5 }, "allowedBiomes": ["grass", "water"] }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("vodní i pevninské", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_BuildingOnWaterOnly_IsSubsea()
     {
         WriteAllValid();
         Write("buildings.json", """
@@ -278,9 +301,28 @@ public class ContentLoaderTests : IDisposable
         }
         """);
 
+        var content = Load();
+
+        Assert.True(content.Buildings[content.Buildings.IndexOf("house")].IsSubsea);
+    }
+
+    [Fact]
+    public void LoadFrom_SubseaAnchorThatIsItselfSubsea_Throws()
+    {
+        WriteAllValid();
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "house", "mapColor": "#B5651D", "footprint": [1, 1],
+              "buildCost": { "wood": 5 }, "allowedBiomes": ["water"], "subseaAnchor": true }
+          ]
+        }
+        """);
+
         var ex = Assert.Throws<ContentLoadException>(Load);
 
-        Assert.Contains("vodní", ex.Message);
+        Assert.Contains("kotva", ex.Message);
     }
 
     [Fact]
@@ -1173,6 +1215,376 @@ public class ContentLoaderTests : IDisposable
         Assert.Contains("ui.helo", ex.Message);
     }
 
+    // ----- významné osobnosti -----
+
+    [Fact]
+    public void Figures_LoadWithTheirMilestoneAndStatue()
+    {
+        WriteWorldWithFigure("""
+        { "id": "hero", "effect": "production_mult", "magnitude": 0.5,
+          "lifeSeconds": 600, "milestone": "first", "statue": "house" }
+        """);
+
+        var content = Load();
+
+        Assert.True(content.Figures.IsEnabled);
+        var figure = content.Figures[0];
+        Assert.Equal("hero", figure.Id);
+        Assert.Equal(0, figure.MilestoneIndex);
+        Assert.Equal(content.Buildings.IndexOf("house"), figure.StatueBuildingIndex);
+
+        // Vteřiny z dat se převedly na tiky simulace — tohle je jediné místo,
+        // kde se ty dvě jednotky potkávají.
+        Assert.Equal(600 * Simulation.TicksPerSecond, figure.LifeTicks);
+    }
+
+    [Fact]
+    public void Figure_WithAnUnknownEffect_Throws()
+    {
+        // Překlep v efektu by jinak tiše nedělal vůbec nic: osobnost by se
+        // narodila, oslavila a nezvedla by ani jedno číslo.
+        WriteWorldWithFigure("""
+        { "id": "hero", "effect": "produkce_navic", "magnitude": 0.5,
+          "lifeSeconds": 600, "milestone": "first" }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("figures.json", ex.Message);
+        Assert.Contains("produkce_navic", ex.Message);
+    }
+
+    [Fact]
+    public void Figure_WithAnUnknownMilestone_Throws()
+    {
+        WriteWorldWithFigure("""
+        { "id": "hero", "effect": "production_mult", "magnitude": 0.5,
+          "lifeSeconds": 600, "milestone": "neexistuje" }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("neexistuje", ex.Message);
+    }
+
+    [Fact]
+    public void Figure_WithAnUnknownStatue_Throws()
+    {
+        WriteWorldWithFigure("""
+        { "id": "hero", "effect": "production_mult", "magnitude": 0.5,
+          "lifeSeconds": 600, "milestone": "first", "statue": "socha_ktera_neni" }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("socha_ktera_neni", ex.Message);
+    }
+
+    [Fact]
+    public void Figure_WithNoLifespan_Throws()
+    {
+        // Osobnost, která žije nula vteřin, by hráči jen dvakrát bliknula
+        // v rohu obrazovky.
+        WriteWorldWithFigure("""
+        { "id": "hero", "effect": "production_mult", "magnitude": 0.5,
+          "lifeSeconds": 0, "milestone": "first" }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("lifeSeconds", ex.Message);
+    }
+
+    [Fact]
+    public void Figure_WithoutAName_Throws()
+    {
+        // Bez jména by se v toastu ohlásila doslova jako „figure.hero".
+        WriteAllValid();
+        WriteMilestones();
+        Write(Path.Combine("lang", "cs.json"), LangJson("cs", "Čeština", extraKeys: MilestoneKeys));
+        Write(Path.Combine("lang", "en.json"), LangJson("en", "English", extraKeys: MilestoneKeys));
+        Write("figures.json", """
+        {
+          "schemaVersion": 1,
+          "figures": [
+            { "id": "hero", "effect": "production_mult", "magnitude": 0.5,
+              "lifeSeconds": 600, "milestone": "first" }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("figure.hero", ex.Message);
+    }
+
+    /// <summary>Minimální data + jeden milník + jedna osobnost (i s jejími jmény v jazycích).</summary>
+    private void WriteWorldWithFigure(string figureJson)
+    {
+        WriteAllValid();
+        WriteMilestones();
+        Write(Path.Combine("lang", "cs.json"), LangJson("cs", "Čeština", extraKeys: FigureKeys));
+        Write(Path.Combine("lang", "en.json"), LangJson("en", "English", extraKeys: FigureKeys));
+        Write("figures.json", $$"""
+        {
+          "schemaVersion": 1,
+          "figures": [ {{figureJson}} ]
+        }
+        """);
+    }
+
+    private static readonly string[] MilestoneKeys = { "milestone.first" };
+
+    private static readonly string[] FigureKeys = { "milestone.first", "figure.hero", "figure.hero.desc" };
+
+    private void WriteMilestones() => Write("milestones.json", """
+    {
+      "schemaVersion": 1,
+      "milestones": [ { "id": "first", "condition": { "metric": "buildings", "target": 1 } } ]
+    }
+    """);
+
+    // ----- kronika -----
+
+    [Fact]
+    public void Chronicle_LoadsItsSentenceTemplates()
+    {
+        WriteWorldWithChronicle("""{ "id": "today", "moment": "today" }""");
+
+        var content = Load();
+
+        Assert.True(content.Chronicle.IsEnabled);
+        Assert.Equal(ChronicleMoment.Today, content.Chronicle[0].Moment);
+        Assert.Equal("chronicle.line.today", content.Chronicle[0].TextKey);
+    }
+
+    [Fact]
+    public void Chronicle_WithAnUnknownMoment_Throws()
+    {
+        // Okamžik pozná kód. Překlep by jinak znamenal větu, která se nikdy
+        // nenapíše — a prázdné místo na stránce nikoho nenapadne hlásit.
+        WriteWorldWithChronicle("""{ "id": "today", "moment": "kdysi_davno" }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("chronicle.json", ex.Message);
+        Assert.Contains("kdysi_davno", ex.Message);
+    }
+
+    [Fact]
+    public void Chronicle_WithAThresholdOutsideZeroToOne_Throws()
+    {
+        // Spokojenost je podíl. Práh 50 by znamenal větu, která se nespustí
+        // nikdy, a přišlo by se na to až po hodinách hraní.
+        WriteWorldWithChronicle("""{ "id": "today", "moment": "hardship", "threshold": 50 }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("threshold", ex.Message);
+    }
+
+    [Fact]
+    public void Chronicle_WithoutItsSentenceInTheLanguage_Throws()
+    {
+        WriteAllValid();
+        Write("chronicle.json", """
+        { "schemaVersion": 1, "lines": [ { "id": "today", "moment": "today" } ] }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("chronicle.line.today", ex.Message);
+    }
+
+    /// <summary>Minimální data + jedna věta kroniky (i s jejím textem v jazycích).</summary>
+    private void WriteWorldWithChronicle(string lineJson)
+    {
+        WriteAllValid();
+        Write(Path.Combine("lang", "cs.json"), LangJson("cs", "Čeština", extraKeys: ChronicleKeys));
+        Write(Path.Combine("lang", "en.json"), LangJson("en", "English", extraKeys: ChronicleKeys));
+        Write("chronicle.json", $$"""
+        {
+          "schemaVersion": 1,
+          "lines": [ {{lineJson}} ]
+        }
+        """);
+    }
+
+    private static readonly string[] ChronicleKeys = { "chronicle.line.today" };
+
+    // ----- zvonohra -----
+
+    [Fact]
+    public void Carillon_LoadsItsBuildingAndDefaultTune()
+    {
+        WriteAllValid();
+        Write("carillon.json", """
+        {
+          "schemaVersion": 1, "building": "house",
+          "defaultTune": [0, 2, 4, -1], "baseFrequency": 523.25, "noteSeconds": 0.45
+        }
+        """);
+
+        var content = Load();
+
+        Assert.True(content.Carillon.IsEnabled);
+        Assert.Equal(content.Buildings.IndexOf("house"), content.Carillon.BuildingIndex);
+        Assert.Equal(new[] { 0, 2, 4, -1 }, content.Carillon.DefaultTune);
+    }
+
+    [Fact]
+    public void Carillon_WithAnUnknownBuilding_Throws()
+    {
+        WriteAllValid();
+        Write("carillon.json", """
+        { "schemaVersion": 1, "building": "zvonice_ktera_neni", "baseFrequency": 523.25, "noteSeconds": 0.45 }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("zvonice_ktera_neni", ex.Message);
+    }
+
+    [Fact]
+    public void Carillon_WithANoteOutsideTheScale_Throws()
+    {
+        // Tón mimo stupnici by se tiše přehrál jako pauza a hráč by měl
+        // v melodii díru, kterou nezpůsobil.
+        WriteAllValid();
+        Write("carillon.json", """
+        {
+          "schemaVersion": 1, "building": "house",
+          "defaultTune": [0, 99], "baseFrequency": 523.25, "noteSeconds": 0.45
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("carillon.json", ex.Message);
+        Assert.Contains("99", ex.Message);
+    }
+
+    [Fact]
+    public void Carillon_WithAnImpossibleFrequency_Throws()
+    {
+        WriteAllValid();
+        Write("carillon.json", """
+        { "schemaVersion": 1, "building": "house", "baseFrequency": 0, "noteSeconds": 0.45 }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("baseFrequency", ex.Message);
+    }
+
+    // ----- scénáře -----
+
+    [Fact]
+    public void Scenario_LoadsItsGoalRulesAndOverrides()
+    {
+        WriteWorldWithScenario("""
+        {
+          "id": "test", "seed": 42, "preset": "p",
+          "gameplay": { "startingPopulation": 3 },
+          "startingResources": { "wood": 25 },
+          "goal": { "metric": "population", "target": 100 },
+          "failBelow": { "metric": "population", "target": 0 },
+          "timeLimitSeconds": 600,
+          "rules": ["noAscension"]
+        }
+        """);
+
+        var content = Load();
+        var scenario = content.Scenarios[0];
+
+        Assert.Equal(42, scenario.Seed);
+        Assert.Equal(3, scenario.Gameplay.StartingPopulation);
+        Assert.Equal(100, scenario.Goal.Target);
+        Assert.True(scenario.Has(ScenarioRule.NoAscension));
+        Assert.True(scenario.HasTimeLimit);
+
+        // Prohra „lidí klesne na nulu" musí projít — běžný cíl s prahem 0 by
+        // neprošel a tohle je přesně ta výjimka.
+        Assert.Equal(0, scenario.FailBelow!.Value.Target);
+    }
+
+    [Fact]
+    public void Scenario_WithoutAGoal_Throws()
+    {
+        // Bez cíle to není scénář, ale jinak nastavená volná hra — a hráč by
+        // čekal konec, který nikdy nepřijde.
+        WriteWorldWithScenario("""{ "id": "test", "seed": 1 }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("goal", ex.Message);
+    }
+
+    [Fact]
+    public void Scenario_WithAnUnknownRule_Throws()
+    {
+        WriteWorldWithScenario("""
+        {
+          "id": "test", "seed": 1,
+          "goal": { "metric": "population", "target": 10 },
+          "rules": ["zakazano_vsechno"]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("zakazano_vsechno", ex.Message);
+    }
+
+    [Fact]
+    public void Scenario_WithAnUnknownPreset_Throws()
+    {
+        WriteWorldWithScenario("""
+        {
+          "id": "test", "seed": 1, "preset": "svet_ktery_neni",
+          "goal": { "metric": "population", "target": 10 }
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("svet_ktery_neni", ex.Message);
+    }
+
+    [Fact]
+    public void Scenario_WithoutItsNameInTheLanguage_Throws()
+    {
+        WriteAllValid();
+        Write("scenarios.json", """
+        {
+          "schemaVersion": 1,
+          "scenarios": [
+            { "id": "test", "seed": 1, "goal": { "metric": "population", "target": 10 } }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("scenario.test", ex.Message);
+    }
+
+    /// <summary>Minimální data + jeden scénář (i s jeho jménem a popisem v jazycích).</summary>
+    private void WriteWorldWithScenario(string scenarioJson)
+    {
+        WriteAllValid();
+        Write(Path.Combine("lang", "cs.json"), LangJson("cs", "Čeština", extraKeys: ScenarioKeys));
+        Write(Path.Combine("lang", "en.json"), LangJson("en", "English", extraKeys: ScenarioKeys));
+        Write("scenarios.json", $$"""
+        {
+          "schemaVersion": 1,
+          "scenarios": [ {{scenarioJson}} ]
+        }
+        """);
+    }
+
+    private static readonly string[] ScenarioKeys = { "scenario.test", "scenario.test.desc" };
+
     // ----- pomůcky -----
 
     private GameContent Load() => new ContentLoader().LoadFrom(_tempDir);
@@ -1309,7 +1721,9 @@ public class ContentLoaderTests : IDisposable
         """);
     }
 
-    private static string LangJson(string id, string nativeName, bool includeBuildingName = true, bool includeExtraKey = true)
+    private static string LangJson(
+        string id, string nativeName, bool includeBuildingName = true, bool includeExtraKey = true,
+        IEnumerable<string>? extraKeys = null)
     {
         var keys = new List<string>
         {
@@ -1329,6 +1743,11 @@ public class ContentLoaderTests : IDisposable
         if (includeExtraKey)
         {
             keys.Add("\"ui.hello\": \"-\"");
+        }
+
+        foreach (string key in extraKeys ?? Array.Empty<string>())
+        {
+            keys.Add($"\"{key}\": \"-\"");
         }
 
         return $$"""

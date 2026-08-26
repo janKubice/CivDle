@@ -30,6 +30,23 @@ public sealed record NpcCityArchetype(
 /// nebo „kolik budov kolem znamená, že ho město pohltilo" jsou balanc, ne
 /// mechanika. Bez souboru je mechanika vypnutá a hra běží jako dřív.</para>
 /// </summary>
+/// <summary>
+/// Tržní konjunktura: časově omezené období, kdy cizí město platí líp.
+///
+/// <para>Proč to ve hře je: obchod s cizími městy je jinak <b>rovná čára</b> —
+/// dodávka za dodávkou, pořád stejná. Konjunktura je jediný důvod, proč se na
+/// souseda podívat zrovna teď, a jediná chvíle, kdy má smysl mu postavit
+/// cestu, kterou by hráč jinak odkládal.</para>
+///
+/// <para>Kdy nastane, se <b>nikam neukládá</b>: plyne z hashe seedu, města
+/// a pořadí okna. Tentýž svět má tytéž konjunktury, a save neroste.</para>
+/// </summary>
+/// <param name="IntervalTicks">Jak dlouhé je jedno okno (v každém se losuje znovu).</param>
+/// <param name="DurationTicks">Jak dlouho konjunktura vydrží.</param>
+/// <param name="ChancePercent">S jakou pravděpodobností v okně nastane.</param>
+/// <param name="Multiplier">Kolikrát víc dodávka veze.</param>
+public sealed record DemandSpike(int IntervalTicks, int DurationTicks, int ChancePercent, double Multiplier);
+
 public sealed class NpcCityCatalog
 {
     public NpcCityCatalog(
@@ -44,8 +61,10 @@ public sealed class NpcCityCatalog
         int tradeRelation,
         double caravanBonusAtFullRelation,
         DefRegistry<NpcCityArchetype> archetypes,
-        IReadOnlyList<string> names)
+        IReadOnlyList<string> names,
+        DemandSpike? spike = null)
     {
+        Spike = spike;
         TradeRelation = tradeRelation;
         CaravanBonusAtFullRelation = caravanBonusAtFullRelation;
         GiftCost = giftCost;
@@ -98,6 +117,14 @@ public sealed class NpcCityCatalog
 
     /// <summary>Jména měst.</summary>
     public IReadOnlyList<string> Names { get; }
+
+    /// <summary>
+    /// Konjunktura: čas od času město platí líp. <c>null</c> = ceny se nehýbou.
+    /// </summary>
+    public DemandSpike? Spike { get; }
+
+    /// <summary>Hýbou se v téhle hře ceny?</summary>
+    public bool HasSpikes => Spike is { Multiplier: > 1.0 };
 
     /// <summary>Je mechanika v datech zapnutá?</summary>
     public bool IsEnabled => Archetypes.Count > 0 && Names.Count > 0;

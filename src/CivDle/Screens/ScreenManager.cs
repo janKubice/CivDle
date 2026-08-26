@@ -43,6 +43,14 @@ public sealed class ScreenManager
     /// <summary>Úložiště uložené hry (jeden slot, MVP).</summary>
     public SaveStore Saves { get; }
 
+    /// <summary>
+    /// Kamarádi ze Steamu — jména a obličeje pro karavany.
+    ///
+    /// <para>Vždycky existuje; bez Steamu je prázdný. Obrazovky se tak nemusí
+    /// ptát „mám Steam?" a karavany jezdí dál, jen bez jmen.</para>
+    /// </summary>
+    public Platform.FriendRoster Friends { get; } = new();
+
     /// <summary>Herní aplikace (kvůli ukončení a přístupu ke grafice).</summary>
     public CivDleGame Game { get; }
 
@@ -69,7 +77,9 @@ public sealed class ScreenManager
     /// </summary>
     public Myra.Graphics2D.UI.Desktop NewDesktop(Myra.Graphics2D.UI.Widget root)
     {
-        float scale = Settings.SafeUiScale;
+        // Zvětšení se počítá z výšky okna, ne jen z nastavení: na Decku
+        // (1280×800) je rozhraní laděné pro monitor nečitelné.
+        float scale = Settings.UiScaleFor(GraphicsDevice.Viewport.Height);
         root.Scale = new Vector2(scale, scale);
         return new Myra.Graphics2D.UI.Desktop { Root = root };
     }

@@ -38,6 +38,17 @@ public sealed class Simulation
     private readonly List<Settlement> _settlements = new();
     private readonly ProductionSystem _production;
     private readonly HaulSystem _haulSystem;
+    private readonly SubseaNetwork _subsea;
+
+    /// <summary>
+    /// Přepočítat dosah podmořské sítě? Líně: zástavba se mění často, ale na
+    /// dotaz „smím sem stavět" se čeká jen když má hráč v ruce podmořskou
+    /// budovu. Počítat záplavu při každém domku by byla práce pro nikoho.
+    /// </summary>
+    private bool _subseaDirty = true;
+
+    /// <summary>Kotvy sítě — plní se při přepočtu, aby se pole nealokovalo pokaždé znovu.</summary>
+    private readonly List<SubseaNetwork.Anchor> _subseaAnchors = new();
     private readonly SeasonSystem _seasonSystem;
     private readonly ToolsSystem _toolsSystem;
     private readonly PollutionSystem _pollutionSystem;
@@ -52,6 +63,33 @@ public sealed class Simulation
     private readonly NpcTownSystem _npcTowns; // postavená cizí města (skutečné budovy a silnice)
     private readonly GrandWorkSystem _grandWork; // bezedný odběr přebytků
     private readonly List<GrandWorkStage> _grandWorkDone = new(); // dokončené stupně (drží bonusy)
+    private readonly OrbitSystem _orbit;
+
+    /// <summary>
+    /// Kde která budova stojí. Drží ho simulace, protože jediná ví o každé
+    /// změně zástavby; render z něj jen čte (viz <see cref="BuildingsIn"/>).
+    /// </summary>
+    private readonly BuildingIndex _buildingIndex = new();
+
+    /// <summary>
+    /// Rozvod proudu po hrubé mřížce. Přepočítává se líně — až když se zeptá
+    /// výroba poté, co se změnila zástavba.
+    /// </summary>
+    private readonly PowerGridSystem _powerGrid = new();
+
+    private bool _powerDirty = true;
+    private readonly FrontierSystem _frontier;
+    private readonly FigureSystem _figures;
+    private readonly Carillon _carillon;
+    private readonly PointOfInterestSystem _poi;
+    private readonly LogRaftSystem _rafts;
+    private readonly UndoStack _undo = new();
+
+    /// <summary>Které uzly doktríny jsou koupené (jen ta zvolená, ostatní zůstávají false).</summary>
+    private bool[] _doctrineNodes = Array.Empty<bool>();
+
+    /// <summary>Relikvie, které hráč přivezl z výprav (indexy do katalogu).</summary>
+    private readonly List<int> _relics = new();
     private readonly LegacySystem _legacy; // druhá prestižní vrstva (Odkaz)
     private readonly AutoResearchSystem _autoResearch = new(); // odemyká se až v Odkazu
 
@@ -75,6 +113,7 @@ public sealed class Simulation
     private readonly ConstructionSystem _constructionSystem;
     private readonly PopulationSystem _populationSystem;
     private readonly AutoBuildSystem _autoBuild;
+    private readonly ResourceLedger _ledger;
     private readonly ZoneFillSystem _zoneFill;
     private readonly ColonySystem _colonySystem;
     private readonly WeatherSystem _weatherSystem;
@@ -179,6 +218,7 @@ public sealed class Simulation
 
         _production = new ProductionSystem(content);
         _haulSystem = new HaulSystem(content);
+        _subsea = new SubseaNetwork(content.Gameplay.Subsea.Range, IsWaterAt);
         _seasonSystem = new SeasonSystem(content);
         _toolsSystem = new ToolsSystem(content);
         _pollutionSystem = new PollutionSystem(content);
@@ -194,12 +234,20 @@ public sealed class Simulation
         _streetPaver = new StreetGridPaver(content);
         _npcTowns = new NpcTownSystem(content);
         _grandWork = new GrandWorkSystem(content.GrandWork, content.Resources.Count);
+        _orbit = new OrbitSystem(content.Orbit);
+        _frontier = new FrontierSystem(content.Frontier);
+        _figures = new FigureSystem(content.Figures);
+        _carillon = new Carillon(content.Carillon);
+        _poi = new PointOfInterestSystem(content.PointsOfInterest, terrain, seed);
+        _rafts = new LogRaftSystem(terrain);
+        _doctrineNodes = new bool[MaxDoctrineNodes(content)];
         _legacy = new LegacySystem(content.Legacy, content.LegacyUpgrades.All);
         History = new CityHistory(content.Gameplay.History.MaxFrames);
         _constructionSystem = new ConstructionSystem(content);
         ResetContractBoard();
         _populationSystem = new PopulationSystem(content.Gameplay);
         _autoBuild = new AutoBuildSystem(content, seed);
+        _ledger = new ResourceLedger(content.Resources.Count);
         _zoneFill = new ZoneFillSystem(content, seed);
         _colonySystem = new ColonySystem(content, seed);
         _weatherSystem = new WeatherSystem(content, seed);
@@ -872,14 +920,71 @@ public sealed class Simulation
             }
 
             var trade = catalog.Archetypes[city.ArchetypeIndex].Trade;
+            double multiplier = IsCityInDemandSpike(city.Key) ? catalog.Spike!.Multiplier : 1.0;
             for (int i = 0; i < trade.Count; i++)
             {
-                AddResource(trade[i].ResourceIndex, trade[i].Amount);
+                AddResource(trade[i].ResourceIndex, trade[i].Amount * multiplier);
+            }
+
+            // Hláška jen na první dodávce okna: konjunktura trvá minuty a
+            // opakovaný toast na každou dodávku by z novinky udělal otravu.
+            if (multiplier > 1.0 && IsFirstTradeOfSpike())
+            {
+                EnqueueNotification(new GameNotification(
+                    NotificationKind.ContractOffered, "toast.demandSpike",
+                    catalog.Archetypes[city.ArchetypeIndex].NameKey));
             }
 
             state.Trades++;
             state.Relation = Math.Min(100, state.Relation + 1); // obchod sbližuje
             _npcStates[city.Key] = state;
+        }
+    }
+
+    /// <summary>
+    /// Platí tohle město právě líp?
+    ///
+    /// <para>Čistá funkce seedu, města a času — nikam se to neukládá.
+    /// Konjunktura, která by se ukládala, by znamenala stav navíc v savu za
+    /// něco, co jde spočítat.</para>
+    /// </summary>
+    public bool IsCityInDemandSpike(long cityKey)
+    {
+        if (_content.NpcCities.Spike is not { } spike || !_content.NpcCities.HasSpikes)
+        {
+            return false;
+        }
+
+        long window = TickCount / Math.Max(1, spike.IntervalTicks);
+        long into = TickCount - (window * spike.IntervalTicks);
+        if (into >= spike.DurationTicks)
+        {
+            return false;
+        }
+
+        return SpikeRoll(cityKey, window) < spike.ChancePercent;
+    }
+
+    /// <summary>Je tohle první dodávka uvnitř okna konjunktury?</summary>
+    private bool IsFirstTradeOfSpike()
+    {
+        var spike = _content.NpcCities.Spike!;
+        long into = TickCount % Math.Max(1, spike.IntervalTicks);
+        return into < _content.NpcCities.TradeIntervalTicks;
+    }
+
+    /// <summary>Kostka pro konjunkturu — deterministicky ze seedu, města a okna.</summary>
+    private int SpikeRoll(long cityKey, long window)
+    {
+        unchecked
+        {
+            ulong h = (ulong)Seed * 0x9E3779B97F4A7C15UL;
+            h ^= (ulong)cityKey * 0xBF58476D1CE4E5B9UL;
+            h ^= (ulong)window * 0x94D049BB133111EBUL;
+            h ^= h >> 30;
+            h *= 0xBF58476D1CE4E5B9UL;
+            h ^= h >> 27;
+            return (int)((h ^ (h >> 31)) % 100);
         }
     }
 
@@ -932,8 +1037,160 @@ public sealed class Simulation
         return count;
     }
 
+    /// <summary>
+    /// Hraje se v pískovišti? Pak je všechno zadarmo — a hra se nikam nepočítá.
+    ///
+    /// <para>Příznak je <b>stav rozehrané hry</b>, ne přepínač relace: ukládá se
+    /// do savu a po načtení platí dál. To je celá pointa. Kdyby se dal zapnout
+    /// a zase vypnout, stačilo by si v pískovišti postavit město, přepnout zpět
+    /// a sebrat za něj achievementy — a tím by achievementy přestaly znamenat
+    /// cokoli pro všechny ostatní.</para>
+    ///
+    /// <para>Volí se při zakládání světa a od té chvíle je neměnný.</para>
+    /// </summary>
+    public bool Sandbox { get; private set; }
+
+    /// <summary>
+    /// Zapne pískoviště. Jen při zakládání světa a při načtení savu —
+    /// zpátky cesta nevede, viz <see cref="Sandbox"/>.
+    /// </summary>
+    public void MarkAsSandbox() => Sandbox = true;
+
+    // ----- scénáře -----
+
+    /// <summary>
+    /// Který scénář se hraje; −1 = volná hra.
+    ///
+    /// <para>Stav rozehrané hry, ne přepínač relace — stejně jako pískoviště.
+    /// Volí se při zakládání světa a od té chvíle je neměnný: přepnout scénář
+    /// uprostřed by znamenalo splnit zadání v jiném světě, než ve kterém bylo
+    /// zadané.</para>
+    /// </summary>
+    public int ScenarioIndex { get; private set; } = -1;
+
+    /// <summary>Hraje se scénář?</summary>
+    public bool InScenario => ScenarioIndex >= 0;
+
+    /// <summary>Jak scénář dopadl (dokud běží, <see cref="ScenarioOutcome.Running"/>).</summary>
+    public ScenarioOutcome ScenarioResult { get; private set; } = ScenarioOutcome.Running;
+
+    /// <summary>Definice běžícího scénáře, nebo <c>null</c>.</summary>
+    public ScenarioDef? Scenario =>
+        InScenario && ScenarioIndex < _content.Scenarios.Count ? _content.Scenarios[ScenarioIndex] : null;
+
+    /// <summary>Platí v téhle hře zvláštní pravidlo scénáře?</summary>
+    public bool ScenarioRuleActive(ScenarioRule rule) => Scenario?.Has(rule) == true;
+
+    /// <summary>
+    /// Kolik sekund do konce; <see cref="double.PositiveInfinity"/> = bez limitu.
+    /// </summary>
+    public double ScenarioSecondsLeft
+    {
+        get
+        {
+            var scenario = Scenario;
+            if (scenario is null || !scenario.HasTimeLimit)
+            {
+                return double.PositiveInfinity;
+            }
+
+            return Math.Max(0, scenario.TimeLimitSeconds - (TickCount / (double)TicksPerSecond));
+        }
+    }
+
+    /// <summary>
+    /// Začne scénář: nasype startovní zásoby a zapamatuje si zadání.
+    /// Jen při zakládání světa; obnova ze savu jde přes <see cref="RestoreScenario"/>.
+    /// </summary>
+    public void StartScenario(int index)
+    {
+        if (index < 0 || index >= _content.Scenarios.Count)
+        {
+            return;
+        }
+
+        ScenarioIndex = index;
+        ScenarioResult = ScenarioOutcome.Running;
+
+        var starting = _content.Scenarios[index].StartingResources;
+        for (int i = 0; i < starting.Count; i++)
+        {
+            AddResource(starting[i].ResourceIndex, starting[i].Amount);
+        }
+    }
+
+    /// <summary>Obnoví scénář ze savu — bez startovních zásob, ty už hráč dostal.</summary>
+    internal void RestoreScenario(int index, ScenarioOutcome outcome)
+    {
+        if (index >= 0 && index < _content.Scenarios.Count)
+        {
+            ScenarioIndex = index;
+            ScenarioResult = outcome;
+        }
+    }
+
+    /// <summary>
+    /// Rozhodne, jestli scénář právě skončil.
+    ///
+    /// <para>Běží na nízké frekvenci jako milníky: zadání jsou prahy metrik
+    /// a ty se za desetinu sekundy nezmění o nic, co by stálo za dotaz.</para>
+    ///
+    /// <para><b>Výhra má přednost před prohrou.</b> Když v tomtéž tiku vyprší
+    /// čas a zároveň se splní cíl, hráč vyhrál — dohnat zadání na poslední
+    /// chvíli je ta nejlepší část scénáře a nemá ji sebrat pořadí <c>if</c>ů.
+    /// </para>
+    /// </summary>
+    private void TickScenario()
+    {
+        if (ScenarioResult != ScenarioOutcome.Running || TickCount % ScenarioCheckTicks != 0)
+        {
+            return;
+        }
+
+        var scenario = Scenario;
+        if (scenario is null)
+        {
+            return;
+        }
+
+        if (EvaluateMetric(scenario.Goal.Kind, scenario.Goal.Param) >= scenario.Goal.Target)
+        {
+            ScenarioResult = ScenarioOutcome.Won;
+            EnqueueNotification(new GameNotification(
+                NotificationKind.Milestone, "toast.scenarioWon", scenario.NameKey));
+            return;
+        }
+
+        bool timeUp = scenario.HasTimeLimit && ScenarioSecondsLeft <= 0;
+        bool collapsed = scenario.FailBelow is { } fail
+            && EvaluateMetric(fail.Kind, fail.Param) <= fail.Target;
+
+        if (timeUp || collapsed)
+        {
+            ScenarioResult = ScenarioOutcome.Lost;
+            EnqueueNotification(new GameNotification(
+                NotificationKind.WorldEvent, "toast.scenarioLost", scenario.NameKey));
+        }
+    }
+
+    /// <summary>Jak často se ptáme, jestli scénář skončil (~1× za sekundu).</summary>
+    private const int ScenarioCheckTicks = 10;
+
+    /// <summary>
+    /// Má hráč na cenu? V pískovišti vždycky.
+    ///
+    /// <para>Jediné místo, kudy procházejí VŠECHNY kontroly ceny (stavba,
+    /// vylepšení, sloučení, terén, sázení, živnost). Kdyby si každá počítala
+    /// sama — jako to bylo dřív — musela by se každá zvlášť dozvědět
+    /// i o pískovišti, a na jednu by se vždycky zapomnělo.</para>
+    /// </summary>
     private bool CanPay(IReadOnlyList<ResourceAmount> cost)
     {
+        if (Sandbox)
+        {
+            return true;
+        }
+
         for (int i = 0; i < cost.Count; i++)
         {
             if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
@@ -945,11 +1202,45 @@ public sealed class Simulation
         return true;
     }
 
+    /// <summary>
+    /// Totéž pro výzkum. Vlastní metoda schválně: cena technologie se škáluje
+    /// podle už vyzkoumaného, a vyrobit si kvůli kontrole škálovaný seznam by
+    /// znamenalo alokaci — a strom si o kontrolu říká pro každý uzel při každém
+    /// překreslení.
+    /// </summary>
+    private bool CanPayResearch(TechDef tech, int level)
+    {
+        if (Sandbox)
+        {
+            return true;
+        }
+
+        for (int i = 0; i < tech.Cost.Count; i++)
+        {
+            if (_resources[tech.Cost[i].ResourceIndex] < ResearchCost(tech.Cost[i].Amount, level))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private void Pay(IReadOnlyList<ResourceAmount> cost)
     {
+        if (Sandbox)
+        {
+            return;
+        }
+
         for (int i = 0; i < cost.Count; i++)
         {
             _resources[cost[i].ResourceIndex] -= cost[i].Amount;
+
+            // Jediné místo, kudy procházejí VŠECHNY útraty (stavba, vylepšení,
+            // sloučení, výzkum, silnice). Proto se spotřeba účtuje tady, ne
+            // v devíti voláních — jinak by se na jedno vždycky zapomnělo.
+            _ledger.RecordConsumed(cost[i].ResourceIndex, cost[i].Amount);
         }
     }
 
@@ -1404,6 +1695,73 @@ public sealed class Simulation
     /// <summary>Je na dlaždici voda? (Render z toho hledá, kam vyplout.)</summary>
     public bool IsWaterAt(int x, int y) => _content.Biomes[BiomeAt(x, y)].IsWater;
 
+    /// <summary>
+    /// Nasype do <paramref name="results"/> indexy budov, které mohou zasahovat
+    /// do obdélníku dlaždic. Pro render — ten pak dokreslí jen to, co doopravdy
+    /// vidí.
+    ///
+    /// <para>Buffer je předaný, ne vrácený: volá se jednou za snímek a nová
+    /// kolekce pokaždé by byla alokace za snímek (CLAUDE.md).</para>
+    ///
+    /// <para>Vrací i budovy kousek mimo výřez — index pracuje po chuncích
+    /// 32×32 dlaždic. Přesné ořezání dělá volající, který jediný ví, jak velký
+    /// sprite kreslí a kolik z něj přesahuje nad půdorys.</para>
+    /// </summary>
+    public void BuildingsIn(int minX, int minY, int maxX, int maxY, List<int> results) =>
+        _buildingIndex.Query(minX, minY, maxX, maxY, results);
+
+    /// <summary>Kolik chunků indexu je obsazených. Pro testy a diagnostiku.</summary>
+    public int BuildingChunkCount => _buildingIndex.ChunkCount;
+
+    /// <summary>
+    /// Kolikátá je tohle podoba zástavby. Zvedne se s každou přidanou i
+    /// odebranou budovou.
+    ///
+    /// <para>Existuje kvůli renderu, který si zástavbu <b>peče do textur</b>:
+    /// podle počtu budov to poznat nejde, protože zbourat jednu a postavit
+    /// jinou nechá počet stejný — a upečená mapa by pak ukazovala město, které
+    /// už nestojí.</para>
+    /// </summary>
+    public long BuildingRevision { get; private set; }
+
+    /// <summary>
+    /// Podmořská síť: kam až od přístavů sahá moře, ve kterém se dá stavět.
+    ///
+    /// <para>Přepočítává se líně — teprve když se na ni někdo zeptá poté, co se
+    /// změnila zástavba. Render z ní jen čte (kreslí dosah pod hladinou), takže
+    /// je veřejná; zapisovat do ní zvenčí nejde.</para>
+    /// </summary>
+    public SubseaNetwork Subsea
+    {
+        get
+        {
+            RefreshSubseaIfNeeded();
+            return _subsea;
+        }
+    }
+
+    private void RefreshSubseaIfNeeded()
+    {
+        if (!_subseaDirty)
+        {
+            return;
+        }
+
+        _subseaDirty = false;
+        _subseaAnchors.Clear();
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            var def = _content.Buildings[_buildings[i].DefIndex];
+            if (def.IsSubseaAnchor || def.IsSubsea)
+            {
+                _subseaAnchors.Add(new SubseaNetwork.Anchor(
+                    _buildings[i].X, _buildings[i].Y, def.FootprintWidth, def.FootprintHeight));
+            }
+        }
+
+        _subsea.Rebuild(_subseaAnchors);
+    }
+
     /// <summary>Sousedí dlaždice s vodou? (Povodeň bere jen to, co stojí u ní.)</summary>
     private bool IsWaterNextTo(int x, int y) =>
         _content.Biomes[Terrain.BiomeAt(x + 1, y)].IsWater
@@ -1675,15 +2033,7 @@ public sealed class Simulation
             return false;
         }
 
-        for (int i = 0; i < def.Cost.Count; i++)
-        {
-            if (_resources[def.Cost[i].ResourceIndex] < def.Cost[i].Amount)
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return CanPay(def.Cost);
     }
 
     /// <summary>
@@ -2151,6 +2501,39 @@ public sealed class Simulation
         return true;
     }
 
+    /// <summary>
+    /// Ladicí: dostaví všechno rozestavěné.
+    ///
+    /// <para>Existuje kvůli nástrojům (snímky do obchodu, smoke běh). Kosmodrom
+    /// se staví sedm minut herního času a protikat je jen proto, aby na snímku
+    /// stál, znamenalo deset minut čekání na každý běh.</para>
+    /// </summary>
+    public void DebugCompleteConstruction()
+    {
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            if (_buildings[i].BuildTicksRemaining > 0)
+            {
+                // Přes tutéž cestu, kterou jde normální dostavba — jinak by se
+                // ladicí zkratka časem rozešla s tím, co dělá hra.
+                _buildings[i].BuildTicksRemaining = 0;
+                CompleteConstruction(i, _content.Buildings[_buildings[i].DefIndex]);
+            }
+        }
+    }
+
+    /// <summary>Ladicí: dokončí rozestavěný start družice okamžitě.</summary>
+    public void DebugFinishLaunch()
+    {
+        while (_orbit.UnderConstruction >= 0)
+        {
+            if (_orbit.Tick() >= 0)
+            {
+                RecomputeBonuses();
+            }
+        }
+    }
+
     /// <summary>Ladicí: naplní všechny sklady na maximum.</summary>
     public void DebugFillStorages()
     {
@@ -2234,6 +2617,7 @@ public sealed class Simulation
 
         _boostTicksRemaining = (int)(_content.Gameplay.Boost.DurationSeconds * TicksPerSecond);
         _boostCooldownRemaining = (int)(_content.Gameplay.Boost.CooldownSeconds * TicksPerSecond);
+        RingCarillon();
         return true;
     }
 
@@ -2241,11 +2625,80 @@ public sealed class Simulation
     /// Vyhlásí slavnost bez ohledu na ochlazení. Používá jen modlitba: hráč za
     /// ni zaplatil vírou a riskoval, že nebude vyslyšena — to je ta cena.
     /// </summary>
+    /// <summary>
+    /// Vyhlásí slavnost za zlatý úlovek — bez ohledu na ochlazení.
+    ///
+    /// <para>Fénix je vzácný sám o sobě (objeví se jednou za pár minut a musí
+    /// se stihnout kliknout), takže druhá závora navíc by z odměny udělala
+    /// zklamání: „našel jsi ho, ale zrovna teď ti není k ničemu".</para>
+    /// </summary>
+    public void GrantGoldenFestival() => ForceBoost();
+
     internal void ForceBoost()
     {
         _boostTicksRemaining = (int)(_content.Gameplay.Boost.DurationSeconds * TicksPerSecond);
         _boostCooldownRemaining = (int)(_content.Gameplay.Boost.CooldownSeconds * TicksPerSecond);
+        RingCarillon();
     }
+
+    // ----- zvonohra -----
+
+    /// <summary>Melodie, kterou zvonohra hraje. Mění ji hráč, drží ji sav.</summary>
+    public Carillon Carillon => _carillon;
+
+    /// <summary>
+    /// Kolikrát už zvonohra zvonila.
+    ///
+    /// <para>Číslo, ne událost: audio vrstva si pamatuje, na čem stálo posledně,
+    /// a když se hodnota změnila, zahraje. Simulace tím pádem o zvuku neví
+    /// vůbec nic a nemá do čeho zapisovat mimo sebe — což je přesně to
+    /// oddělení vrstev z CLAUDE.md.</para>
+    /// </summary>
+    public long CarillonRings { get; private set; }
+
+    /// <summary>
+    /// Stojí ve městě hotová zvonohra? Prochází zástavbu, takže se to nemá
+    /// volat z tikové smyčky — slavnost začíná jednou za pár minut.
+    /// </summary>
+    public bool HasCarillon
+    {
+        get
+        {
+            if (!_content.Carillon.IsEnabled)
+            {
+                return false;
+            }
+
+            int wanted = _content.Carillon.BuildingIndex;
+            for (int i = 0; i < _buildingCount; i++)
+            {
+                if (_buildings[i].DefIndex == wanted && _buildings[i].Stall != BuildingStall.UnderConstruction)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Slavnost začala — jestli je čím, zvonohra zazvoní.
+    ///
+    /// <para>Váže se na slavnost schválně: zvonění každou herní hodinu by po
+    /// třech hodinách hraní byl hluk, ze kterého si hráč vypne zvuk. Takhle
+    /// zvoní přesně tehdy, když se ve městě něco slaví.</para>
+    /// </summary>
+    private void RingCarillon()
+    {
+        if (!_carillon.IsSilent && HasCarillon)
+        {
+            CarillonRings++;
+        }
+    }
+
+    /// <summary>Obnoví melodii ze savu (bez zvonění).</summary>
+    internal void RestoreCarillon(IReadOnlyList<int> notes) => _carillon.Restore(notes);
 
     /// <summary>
     /// Kolik lidí se vejde (základní tábor + domy).
@@ -2275,6 +2728,45 @@ public sealed class Simulation
 
     /// <summary>Pokrytí elektrické sítě (0–1): škáluje výrobu budov závislých na proudu.</summary>
     public double PowerFactor => TotalPowerDemand == 0 ? 1.0 : Math.Min(1.0, (double)TotalPowerSupply / TotalPowerDemand);
+
+    /// <summary>
+    /// Jak dobře je místo zásobené proudem: 1 = plný výkon, 0 = tma.
+    ///
+    /// <para>Bez bloku <c>power</c> v datech vrací globální
+    /// <see cref="PowerFactor"/> — starší obsah i mody se chovají jako dřív.</para>
+    ///
+    /// <para>Mřížka se přepočítává líně: až když se někdo zeptá poté, co se
+    /// změnila zástavba. Výroba se ptá jednou za tik na budovu, takže se
+    /// přepočet ve skutečnosti stane jednou za změnu, ne pořád.</para>
+    /// </summary>
+    public double PowerAt(int x, int y)
+    {
+        if (!_content.Gameplay.Power.IsEnabled)
+        {
+            return PowerFactor;
+        }
+
+        RefreshPowerIfNeeded();
+        return _powerGrid.CoverageAt(x, y);
+    }
+
+    /// <summary>Kolik výkonu do místa doteče (pro UI a testy).</summary>
+    public double PowerSupplyAt(int x, int y)
+    {
+        RefreshPowerIfNeeded();
+        return _powerGrid.SupplyAt(x, y);
+    }
+
+    private void RefreshPowerIfNeeded()
+    {
+        if (!_powerDirty)
+        {
+            return;
+        }
+
+        _powerDirty = false;
+        _powerGrid.Rebuild(BuildingsMutable, _content);
+    }
 
     /// <summary>Postavené budovy (jen ke čtení; render z nich kreslí).</summary>
     public ReadOnlySpan<BuildingInstance> Buildings => _buildings.AsSpan(0, _buildingCount);
@@ -2347,15 +2839,7 @@ public sealed class Simulation
             return PlacementResult.Occupied; // pod budovou ani cestou se nekope
         }
 
-        for (int i = 0; i < action.Cost.Count; i++)
-        {
-            if (_resources[action.Cost[i].ResourceIndex] < action.Cost[i].Amount)
-            {
-                return PlacementResult.NotEnoughResources;
-            }
-        }
-
-        return PlacementResult.Ok;
+        return CanPay(action.Cost) ? PlacementResult.Ok : PlacementResult.NotEnoughResources;
     }
 
     /// <summary>Příkaz hráče: přetvoř dlaždici (zaplatí cenu a přepíše biom).</summary>
@@ -2439,7 +2923,12 @@ public sealed class Simulation
     public bool IsBuildingUnlocked(int defIndex) => _buildingUnlocked[defIndex];
 
     /// <summary>Smí hráč budovu přímo postavit (odemčená a nemarkovaná jako jen-upgrade)?</summary>
-    public bool IsBuildingBuildable(int defIndex) => _buildingUnlocked[defIndex] && _content.Buildings[defIndex].Buildable;
+    public bool IsBuildingBuildable(int defIndex) =>
+        _buildingUnlocked[defIndex]
+        && _content.Buildings[defIndex].Buildable
+        // Věž ve hře bez útoků je past: hráč ji postaví, zaplatí za ni dělníky
+        // a nikdy se nedozví, proč nic nedělá.
+        && (!_content.Buildings[defIndex].IsArmed || FrontierDefense);
 
     // ----- měřítko (stupně Vzestupu) -----
 
@@ -2572,19 +3061,7 @@ public sealed class Simulation
     /// </summary>
     public bool CanAfford(IReadOnlyList<ResourceAmount> cost) => CanPay(cost);
 
-    public bool CanAfford(int defIndex)
-    {
-        var cost = _content.Buildings[defIndex].BuildCost;
-        for (int i = 0; i < cost.Count; i++)
-        {
-            if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
+    public bool CanAfford(int defIndex) => CanPay(_content.Buildings[defIndex].BuildCost);
 
     /// <summary>
     /// Zná už hráč tuhle surovinu (někdy ji získal)? HUD neznámé suroviny NEUKAZUJE
@@ -2684,6 +3161,13 @@ public sealed class Simulation
     /// <summary>Počet druhů surovin.</summary>
     public int ResourceCount => _resources.Length;
 
+    /// <summary>
+    /// Kolik se čeho vyrábí, spotřebovává a propadá. HUD z toho staví bilanci —
+    /// ze samotné zásoby se „nevyrábí se" od „vyrábí se a hned spotřebuje"
+    /// rozeznat nedá.
+    /// </summary>
+    public ResourceLedger Ledger => _ledger;
+
     /// <summary>Aktuální zásoba suroviny.</summary>
     public double GetResource(int resourceIndex) => _resources[resourceIndex];
 
@@ -2753,6 +3237,14 @@ public sealed class Simulation
     internal void CompleteConstruction(int buildingIndex, BuildingDef def)
     {
         BuildingsUnderConstruction = Math.Max(0, BuildingsUnderConstruction - 1);
+
+        // Rozestavěná elektrárna nedodává; dostavěná ano. Bez tohohle by se
+        // proud objevil až při příští změně zástavby, tedy nikdy.
+        if (def.PowerSupply > 0 || def.PowerDemand > 0)
+        {
+            _powerDirty = true;
+        }
+
         ApplyBuildingBonuses(def);
         WondersCompleted++;
         SettlementsDirty = true;
@@ -3161,6 +3653,7 @@ public sealed class Simulation
         }
 
         AddRoadTile(x, y);
+        _undo.Push(new PlayerAction(PlayerActionKind.Road, -1, x, y, 0f));
         return PlacementResult.Ok;
     }
 
@@ -3185,6 +3678,7 @@ public sealed class Simulation
         }
 
         _roadLinksDirty = true;
+        _undo.Push(new PlayerAction(PlayerActionKind.RemoveRoad, -1, x, y, 0f));
         return true;
     }
 
@@ -3227,7 +3721,12 @@ public sealed class Simulation
         _pollutionSystem.Tick(this); // taky po výrobě: dýmá to, co dnes běželo
         _haulSystem.Tick(this);
         _populationSystem.Tick(this);
-        _autoBuild.Tick(this);
+        // Scénář smí guvernérovi zakázat stavět. Kontrola je tady, ne uvnitř
+        // auto-stavby: je to pravidlo běhu, ne vlastnost systému.
+        if (!ScenarioRuleActive(ScenarioRule.NoAutoBuild))
+        {
+            _autoBuild.Tick(this);
+        }
 
         // Až po auto-stavbě: nová technologie často odemkne budovu, a je
         // přirozenější postavit ji hned příští tik než ji držet interval navíc.
@@ -3263,6 +3762,173 @@ public sealed class Simulation
         }
 
         UpdateUfo();
+
+        // Uzávěrka toků až na konci: v tuhle chvíli už zapsaly všechny systémy,
+        // které v tomhle tiku něco vyrobily nebo zaplatily.
+        TickOrbit();
+        TickFigures();
+        TickScenario();
+        TickExpedition();
+        TickRafts();
+
+        // Obrana je volitelný režim: kdo si ho nezapnul, nezaplatí za něj ani
+        // jednu podmínku navíc v tiku.
+        if (FrontierDefense)
+        {
+            _frontier.Tick(this);
+        }
+
+        _ledger.EndTick(TicksPerSecond);
+    }
+
+    // ----- obrana (volitelný režim) -----
+
+    /// <summary>
+    /// Hraje se s obranou? Jako u pískoviště je to <b>stav rozehrané hry</b>:
+    /// volí se při zakládání světa, ukládá se a zpátky cesta nevede. Kdyby se
+    /// dal režim zapínat a vypínat, dal by se vypnout vždycky těsně před vlnou.
+    /// </summary>
+    public bool FrontierDefense { get; private set; }
+
+    /// <summary>Zapne režim obrany. Jen při zakládání světa a při načtení savu.</summary>
+    public void EnableFrontierDefense()
+    {
+        if (!_content.Frontier.IsAvailable)
+        {
+            return;
+        }
+
+        FrontierDefense = true;
+
+        // Rozvrh začíná TEĎ, ne od nuly. Zapnout režim v rozehrané hře jinak
+        // znamená, že se během pár vteřin vysypou všechny zmeškané vlny naráz.
+        _frontier.SkipToTick(TickCount);
+    }
+
+    /// <summary>Stav bitvy — render z něj čte útočníky, UI počty a čas do vlny.</summary>
+    public FrontierSystem Frontier => _frontier;
+
+
+    /// <summary>
+    /// Poškodí budovu: na <paramref name="ticks"/> tiků vypadne z výroby a pak
+    /// se sama opraví.
+    ///
+    /// <para>Žádné bourání. Trvalá ztráta postupu je v idle hře trest za to, že
+    /// šel hráč spát — a režim obrany je zábava navíc, ne past.</para>
+    /// </summary>
+    public void DamageBuilding(int buildingIndex, int ticks)
+    {
+        if (buildingIndex < 0 || buildingIndex >= _buildingCount || ticks <= 0)
+        {
+            return;
+        }
+
+        // Zásahy se nesčítají donekonečna: strop je jedna oprava navíc, jinak
+        // by hejno útočníků vyřadilo budovu na hodiny reálného času.
+        int cap = _content.Frontier.RepairTicks * 2;
+        _buildings[buildingIndex].DisabledTicks = Math.Min(cap, _buildings[buildingIndex].DisabledTicks + ticks);
+    }
+
+    // ----- orbita -----
+
+    /// <summary>
+    /// Co má hráč na oběžné dráze. Render z toho čte polohu družic, UI nabídku
+    /// ke startu; zapisovat se dá jen přes <see cref="TryLaunchSatellite"/>
+    /// a <see cref="TryDismantleSatellite"/>.
+    /// </summary>
+    public OrbitSystem Orbit => _orbit;
+
+    /// <summary>
+    /// Stojí někde hotový kosmodrom? Bez něj se nedá vypustit nic — družice
+    /// má být odměna za dostavěné město, ne položka v menu.
+    /// </summary>
+    public bool HasLaunchSite
+    {
+        get
+        {
+            if (!_content.Orbit.NeedsLaunchSite)
+            {
+                return true;
+            }
+
+            int wanted = _content.Orbit.LaunchBuildingIndex;
+            for (int i = 0; i < _buildingCount; i++)
+            {
+                if (_buildings[i].DefIndex == wanted && _buildings[i].IsComplete)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>Lze vypustit družici daného druhu?</summary>
+    public PlacementResult CanLaunchSatellite(int satelliteIndex)
+    {
+        if (!_content.Orbit.IsEnabled || satelliteIndex < 0 || satelliteIndex >= _content.Orbit.Count)
+        {
+            return PlacementResult.NotUnlocked;
+        }
+
+        if (!HasLaunchSite || _orbit.IsFull(satelliteIndex))
+        {
+            return PlacementResult.NotUnlocked;
+        }
+
+        // Jeden start naráz. Ne kvůli výkonu — kvůli tomu, aby vypuštění bylo
+        // událost. Deset družic ve frontě je nákupní seznam, ne meta.
+        if (_orbit.UnderConstruction >= 0)
+        {
+            return PlacementResult.Occupied;
+        }
+
+        return CanPay(_orbit.NextCost(satelliteIndex))
+            ? PlacementResult.Ok
+            : PlacementResult.NotEnoughResources;
+    }
+
+    /// <summary>Příkaz hráče: zaplať a začni stavět družici.</summary>
+    public PlacementResult TryLaunchSatellite(int satelliteIndex)
+    {
+        var result = CanLaunchSatellite(satelliteIndex);
+        if (result != PlacementResult.Ok)
+        {
+            return result;
+        }
+
+        Pay(_orbit.NextCost(satelliteIndex));
+        _orbit.BeginLaunch(satelliteIndex);
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>
+    /// Příkaz hráče: sundej družici z dráhy. Bez náhrady — vrátit ji na zem
+    /// v celku nejde a hráč to dělá jen proto, aby uvolnil místo pro jinou.
+    /// </summary>
+    public bool TryDismantleSatellite(int satelliteIndex)
+    {
+        if (satelliteIndex < 0 || satelliteIndex >= _content.Orbit.Count || !_orbit.Dismantle(satelliteIndex))
+        {
+            return false;
+        }
+
+        RecomputeBonuses();
+        return true;
+    }
+
+    private void TickOrbit()
+    {
+        int launched = _orbit.Tick();
+        if (launched < 0)
+        {
+            return;
+        }
+
+        RecomputeBonuses();
+        EnqueueNotification(new GameNotification(
+            NotificationKind.Milestone, "toast.satellite", $"satellite.{_content.Orbit[launched].Id}"));
     }
 
     /// <summary>Jak často se přepočítá těžiště města (tiky) — pomalý systém, ne každý tik.</summary>
@@ -3282,7 +3948,9 @@ public sealed class Simulation
 
         if (!IsBuildingBuildable(defIndex))
         {
-            return PlacementResult.NotUnlocked;
+            return def.IsArmed && !FrontierDefense
+                ? PlacementResult.NeedsDefenceMode
+                : PlacementResult.NotUnlocked;
         }
 
         if (def.NeedsSettlementRank && NearestSettlementRank(x, y) < def.MinSettlementRank)
@@ -3294,11 +3962,7 @@ public sealed class Simulation
         {
             for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
             {
-                long key = TileKey.Pack(tileX, tileY);
-                // Cizí město je na mapě stejně skutečné jako hráčova zástavba —
-                // stavět skrz cizí domy a ulice nejde.
-                if (_occupancy.ContainsKey(key) || _roads.Contains(key)
-                    || _npcTowns.Blocks(tileX, tileY))
+                if (!IsTileFree(tileX, tileY))
                 {
                     return PlacementResult.Occupied;
                 }
@@ -3316,16 +3980,29 @@ public sealed class Simulation
             return PlacementResult.NeedsWaterAccess;
         }
 
-        var cost = def.BuildCost;
-        for (int i = 0; i < cost.Count; i++)
+        // Na dně se staví jen v dosahu přístavu. Biom je v pořádku (moře je
+        // moře), chybí zásobování — proto vlastní výsledek a ne „špatný biom":
+        // hráč se má dozvědět, že řešením je přístav blíž, ne jiné místo.
+        if (def.IsSubsea && !Subsea.CoversFootprint(x, y, def.FootprintWidth, def.FootprintHeight))
         {
-            if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
-            {
-                return PlacementResult.NotEnoughResources;
-            }
+            return PlacementResult.NoSubseaLink;
         }
 
-        return PlacementResult.Ok;
+        return CanPay(def.BuildCost) ? PlacementResult.Ok : PlacementResult.NotEnoughResources;
+    }
+
+    /// <summary>
+    /// Je dlaždice volná pro stavbu? Cizí město je na mapě stejně skutečné jako
+    /// hráčova zástavba — stavět skrz cizí domy a ulice nejde.
+    ///
+    /// <para>Jedno místo pro celé pravidlo: staví sem i simulace sama (socha po
+    /// osobnosti), a kdyby si nesla vlastní kontrolu, dřív nebo později by
+    /// postavila tam, kam hráč nesmí.</para>
+    /// </summary>
+    private bool IsTileFree(int x, int y)
+    {
+        long key = TileKey.Pack(x, y);
+        return !_occupancy.ContainsKey(key) && !_roads.Contains(key) && !_npcTowns.Blocks(x, y);
     }
 
     /// <summary>Dotýká se půdorys budovy aspoň jednou stranou vody (moře, jezera či řeky)?</summary>
@@ -3480,16 +4157,18 @@ public sealed class Simulation
 
         var def = _content.Buildings[defIndex];
         var cost = def.BuildCost;
-        for (int i = 0; i < cost.Count; i++)
-        {
-            _resources[cost[i].ResourceIndex] -= cost[i].Amount;
-        }
+        Pay(cost);
 
         AddBuilding(defIndex, x, y, progress: 0f);
         if (!def.TakesTimeToBuild)
         {
             ApplyBuildingBonuses(def); // staveniště nic nedává, dokud nestojí
         }
+
+        // Do zásobníku vrácení jen to, co udělal HRÁČ. Guvernérovy stavby se
+        // nevracejí — hráč je nedělal a vzít mu je zpátky pod rukama by bylo
+        // horší než nemít undo vůbec.
+        _undo.Push(new PlayerAction(PlayerActionKind.Build, defIndex, x, y, 0f));
 
         ReportVisual(VisualEventKind.BuildingPlaced, x, y);
         if (_batchPlacement)
@@ -3673,15 +4352,7 @@ public sealed class Simulation
             return PlacementResult.NotUnlocked;
         }
 
-        for (int i = 0; i < species.Cost.Count; i++)
-        {
-            if (_resources[species.Cost[i].ResourceIndex] < species.Cost[i].Amount)
-            {
-                return PlacementResult.NotEnoughResources;
-            }
-        }
-
-        return PlacementResult.Ok;
+        return CanPay(species.Cost) ? PlacementResult.Ok : PlacementResult.NotEnoughResources;
     }
 
     /// <summary>
@@ -4364,6 +5035,178 @@ public sealed class Simulation
     /// </summary>
     public GovernorPlan Plan { get; } = new();
 
+    /// <summary>
+    /// Vlastní plány jednotlivých sídel, klíčované <b>indexem jména</b>.
+    ///
+    /// <para>Ne pořadím v seznamu: sídla se přepočítávají ze zástavby, takže
+    /// jejich index se změní pokaždé, když někde vyroste dům. Jméno je to
+    /// jediné, co sídlu zůstává — a je to zároveň to, co vidí hráč.</para>
+    /// </summary>
+    private readonly Dictionary<int, GovernorPlan> _settlementPlans = new();
+
+    /// <summary>Má tohle sídlo vlastní plán, nebo jede podle říšského?</summary>
+    public bool HasOwnPlan(int nameIndex) => _settlementPlans.ContainsKey(nameIndex);
+
+    /// <summary>Sídla s vlastním plánem — pro save a UI.</summary>
+    public IReadOnlyDictionary<int, GovernorPlan> SettlementPlans => _settlementPlans;
+
+    /// <summary>
+    /// Plán pro sídlo. Vlastní, když ho má; jinak říšský.
+    ///
+    /// <para>Vlastní plán <b>nahradí</b> říšský, nesčítá se s ním. Sčítání by
+    /// znamenalo, že se říšský zákaz nedá v jednom městě povolit — a přesně
+    /// o to tady jde: „město A těžba, město B zemědělství".</para>
+    /// </summary>
+    public GovernorPlan PlanForSettlement(int nameIndex) =>
+        _settlementPlans.TryGetValue(nameIndex, out var plan) ? plan : Plan;
+
+    /// <summary>
+    /// Dá sídlu vlastní plán (zkopírovaný z říšského, aby hráč nezačínal od
+    /// prázdna) a vrátí ho.
+    /// </summary>
+    public GovernorPlan GiveOwnPlan(int nameIndex)
+    {
+        if (_settlementPlans.TryGetValue(nameIndex, out var existing))
+        {
+            return existing;
+        }
+
+        var plan = new GovernorPlan();
+        plan.Restore(Plan.Focus, Plan.BlockedCategories);
+        _settlementPlans[nameIndex] = plan;
+        return plan;
+    }
+
+    /// <summary>Zruší vlastní plán sídla — od té chvíle jede podle říšského.</summary>
+    public void DropOwnPlan(int nameIndex) => _settlementPlans.Remove(nameIndex);
+
+    /// <summary>Obnoví vlastní plán sídla ze savu.</summary>
+    internal void RestoreSettlementPlan(int nameIndex, GovernorFocus focus, IEnumerable<string> blocked)
+    {
+        var plan = new GovernorPlan();
+        plan.Restore(focus, blocked);
+        _settlementPlans[nameIndex] = plan;
+    }
+
+    /// <summary>
+    /// Podle kterého plánu se staví na téhle dlaždici. Mimo dosah všech sídel
+    /// (nová kolonie v pustině) platí říšský.
+    /// </summary>
+    public GovernorPlan PlanAt(int x, int y)
+    {
+        int nameIndex = NearestSettlementNameIndex(x, y);
+        return nameIndex >= 0 ? PlanForSettlement(nameIndex) : Plan;
+    }
+
+    /// <summary>
+    /// Popíše sídla pro přehled říše: kolik se kam vejde lidí, kolik je práce
+    /// a co se tam hlavně vyrábí.
+    ///
+    /// <para>Jeden průchod zástavbou, ne jeden na sídlo. Volá se, když si hráč
+    /// otevře přehled — ne v tikové smyčce, a proto smí projít město celé.</para>
+    /// </summary>
+    /// <param name="results">Sem se výsledek zapíše (seznam se vyprázdní).</param>
+    public void DescribeSettlements(List<SettlementStat> results)
+    {
+        results.Clear();
+        if (_settlements.Count == 0)
+        {
+            return;
+        }
+
+        var buildings = new int[_settlements.Count];
+        var housing = new double[_settlements.Count];
+        var jobs = new int[_settlements.Count];
+        var services = new int[_settlements.Count];
+
+        // Počty výrobců na surovinu a sídlo. Malé město a pár surovin — ploché
+        // pole je tu levnější i čitelnější než slovník na každé sídlo.
+        var producers = new int[_settlements.Count * _content.Resources.Count];
+
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            int settlement = NearestSettlementSlot(_buildings[i].X, _buildings[i].Y);
+            if (settlement < 0)
+            {
+                continue; // budova mimo dosah všech sídel — samota, ne město
+            }
+
+            var def = _content.Buildings[_buildings[i].DefIndex];
+            buildings[settlement]++;
+            housing[settlement] += def.HousingCapacity;
+            jobs[settlement] += def.WorkerSlots;
+            services[settlement] += def.ServiceValue;
+
+            if (def.Recipe is { } recipe)
+            {
+                for (int r = 0; r < recipe.Outputs.Count; r++)
+                {
+                    producers[(settlement * _content.Resources.Count) + recipe.Outputs[r].ResourceIndex]++;
+                }
+            }
+        }
+
+        for (int i = 0; i < _settlements.Count; i++)
+        {
+            int top = -1;
+            int best = 0;
+            for (int r = 0; r < _content.Resources.Count; r++)
+            {
+                int count = producers[(i * _content.Resources.Count) + r];
+                if (count > best)
+                {
+                    best = count;
+                    top = r;
+                }
+            }
+
+            results.Add(new SettlementStat(
+                _settlements[i].NameIndex, buildings[i], housing[i] * _bonuses.HousingMult, jobs[i], services[i], top));
+        }
+    }
+
+    /// <summary>Pořadí nejbližšího sídla v dosahu, nebo −1. (Vnitřní — index se mění se zástavbou.)</summary>
+    private int NearestSettlementSlot(int x, int y)
+    {
+        int best = -1;
+        double bestDistance = double.MaxValue;
+        for (int i = 0; i < _settlements.Count; i++)
+        {
+            var settlement = _settlements[i];
+            double dx = settlement.CenterX - x;
+            double dy = settlement.CenterY - y;
+            double distance = (dx * dx) + (dy * dy);
+            if (distance < bestDistance && distance <= SettlementReach * SettlementReach)
+            {
+                bestDistance = distance;
+                best = i;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>Jméno nejbližšího sídla v dosahu, nebo −1.</summary>
+    public int NearestSettlementNameIndex(int x, int y)
+    {
+        int best = -1;
+        double bestDistance = double.MaxValue;
+        for (int i = 0; i < _settlements.Count; i++)
+        {
+            var settlement = _settlements[i];
+            double dx = settlement.CenterX - x;
+            double dy = settlement.CenterY - y;
+            double distance = (dx * dx) + (dy * dy);
+            if (distance < bestDistance && distance <= SettlementReach * SettlementReach)
+            {
+                bestDistance = distance;
+                best = settlement.NameIndex;
+            }
+        }
+
+        return best;
+    }
+
     /// <summary>Obnoví plán guvernéra ze savu.</summary>
     internal void RestorePlan(GovernorFocus focus, IEnumerable<string> blockedCategories) =>
         Plan.Restore(focus, blockedCategories);
@@ -4880,6 +5723,667 @@ public sealed class Simulation
     /// </summary>
     public bool HasSettledBiome(int biomeIndex) => _settledBiomes[biomeIndex];
 
+    // ----- vrácení poslední akce -----
+
+    /// <summary>Zásobník posledních hráčových akcí. Do savu nepatří — je to pomůcka relace.</summary>
+    public UndoStack Undo => _undo;
+
+    /// <summary>Co se vrátí, kdyby hráč zmáčkl zpět; <c>null</c> = nic.</summary>
+    public PlayerAction? UndoPreview => _undo.Peek;
+
+    /// <summary>
+    /// Vrátí poslední hráčovu akci.
+    ///
+    /// <para><b>Když se pod akcí svět změnil, vrácení se odmítne.</b> To je ta
+    /// podmínka, na které celá věc stojí: guvernér staví dál, zatímco hráč
+    /// přemýšlí, a „vrátit" budovu, která už není ta, kterou postavil, by
+    /// znamenalo zbourat cizí. Radši říct „nejde to" než tiše rozbít město.</para>
+    /// </summary>
+    public UndoResult TryUndo()
+    {
+        if (_undo.Peek is not { } action)
+        {
+            return UndoResult.Empty;
+        }
+
+        var result = action.Kind switch
+        {
+            PlayerActionKind.Build => UndoBuild(action),
+            PlayerActionKind.Demolish => UndoDemolish(action),
+            PlayerActionKind.Road => UndoRoad(action),
+            PlayerActionKind.RemoveRoad => UndoRemoveRoad(action),
+            _ => UndoResult.WorldChanged,
+        };
+
+        if (result == UndoResult.Ok)
+        {
+            // Odebrat AŽ po úspěchu: odmítnuté vrácení musí zůstat nahoře, ať
+            // to jde zkusit znovu, až hráč uklidí, co překáží.
+            _undo.TryPop(out _);
+        }
+
+        return result;
+    }
+
+    /// <summary>Vrácení stavby: zbourat, co hráč postavil — ale jen když to tam pořád stojí.</summary>
+    private UndoResult UndoBuild(in PlayerAction action)
+    {
+        if (!TryGetBuildingAt(action.X, action.Y, out int index)
+            || _buildings[index].DefIndex != action.DefIndex
+            || _buildings[index].X != action.X
+            || _buildings[index].Y != action.Y)
+        {
+            return UndoResult.WorldChanged;
+        }
+
+        // Přes obyčejnou demolici, ne zkratkou: jinak by se vrácení dřív nebo
+        // později rozešlo s tím, co dělá bourání (vrácená půlka ceny, bonusy,
+        // přepočet osad).
+        var demolished = TryDemolish(index);
+        if (demolished != PlacementResult.Ok)
+        {
+            return UndoResult.WorldChanged;
+        }
+
+        // Demolice se sama zapsala do zásobníku — ta se ale nestala, je to jen
+        // provedení vrácení.
+        _undo.TryPop(out _);
+        return UndoResult.Ok;
+    }
+
+    /// <summary>
+    /// Vrácení bourání: budova se vrátí i s rozestavěností a hráč vrátí půlku
+    /// ceny, kterou za zbourání dostal.
+    /// </summary>
+    private UndoResult UndoDemolish(in PlayerAction action)
+    {
+        var def = _content.Buildings[action.DefIndex];
+        if (!CanStandAt(def, action.X, action.Y))
+        {
+            return UndoResult.WorldChanged;
+        }
+
+        var refund = new List<ResourceAmount>(def.BuildCost.Count);
+        for (int i = 0; i < def.BuildCost.Count; i++)
+        {
+            // Přesně tolik, kolik bourání vrátilo — jinak by se undo dalo
+            // použít jako mlýnek na suroviny.
+            int amount = (int)Math.Floor(def.BuildCost[i].Amount * DemolishRefundFraction);
+            if (amount > 0)
+            {
+                refund.Add(new ResourceAmount(def.BuildCost[i].ResourceIndex, amount));
+            }
+        }
+
+        if (!CanPay(refund))
+        {
+            return UndoResult.NotEnoughResources;
+        }
+
+        Pay(refund);
+        AddBuilding(action.DefIndex, action.X, action.Y, action.Progress, asConstructionSite: false);
+        if (action.Progress >= 1f || !def.TakesTimeToBuild)
+        {
+            ApplyBuildingBonuses(def);
+        }
+
+        SettlementsDirty = true;
+        DistrictsDirty = true;
+        _roadLinksDirty = true;
+        return UndoResult.Ok;
+    }
+
+    private UndoResult UndoRoad(in PlayerAction action)
+    {
+        if (!IsRoad(action.X, action.Y))
+        {
+            return UndoResult.WorldChanged;
+        }
+
+        if (!TryRemoveRoad(action.X, action.Y))
+        {
+            return UndoResult.WorldChanged;
+        }
+
+        _undo.TryPop(out _); // strhnutí silnice se zapsalo samo
+        return UndoResult.Ok;
+    }
+
+    private UndoResult UndoRemoveRoad(in PlayerAction action)
+    {
+        if (IsRoad(action.X, action.Y))
+        {
+            return UndoResult.WorldChanged;
+        }
+
+        if (TryBuildRoad(action.X, action.Y) != PlacementResult.Ok)
+        {
+            return UndoResult.WorldChanged;
+        }
+
+        _undo.TryPop(out _); // postavení silnice se zapsalo samo
+        return UndoResult.Ok;
+    }
+
+    // ----- plavení dřeva -----
+
+    /// <summary>Klády na řekách: co plave a kam.</summary>
+    public LogRaftSystem Rafts => _rafts;
+
+    /// <summary>
+    /// Splavy pouštějí, proud nese, česle vytahují.
+    ///
+    /// <para>Pouštění běží na nízké frekvenci a jen když v datech vůbec něco
+    /// klády pouští — město bez pily u řeky za tuhle mechaniku nezaplatí ani
+    /// jednu podmínku navíc v tiku.</para>
+    /// </summary>
+    private void TickRafts()
+    {
+        if (!_content.HasRafting)
+        {
+            return;
+        }
+
+        _rafts.Tick(CatchMultiplierAt, AddResource);
+
+        if (TickCount % RaftDropCheckTicks != 0)
+        {
+            return;
+        }
+
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            var def = _content.Buildings[_buildings[i].DefIndex];
+            if (!def.DropsLogs || _buildings[i].Stall == BuildingStall.UnderConstruction)
+            {
+                continue;
+            }
+
+            var rule = def.Raft!;
+            if (TickCount % Math.Max(1, rule.IntervalTicks) != 0)
+            {
+                continue;
+            }
+
+            // Kláda nic nevyrábí — surovinu VEZME ze skladu a pošle po vodě.
+            // Kdyby vznikala z ničeho, byla by řeka nekonečný zdroj.
+            if (GetResource(rule.ResourceIndex) < rule.Amount)
+            {
+                continue;
+            }
+
+            if (TryDropLogNear(_buildings[i].X, _buildings[i].Y, def, rule))
+            {
+                AddResource(rule.ResourceIndex, -rule.Amount);
+            }
+        }
+    }
+
+    /// <summary>Jak často se ptáme splavů, jestli mají co pustit.</summary>
+    private const int RaftDropCheckTicks = 10;
+
+    /// <summary>
+    /// Pustí kládu do řeky, která se dotýká půdorysu splavu.
+    ///
+    /// <para>Hledá se kolem půdorysu, ne pod ním: splav stojí na břehu, řeka
+    /// teče vedle. Kdyby se hledalo jen pod budovou, nešel by postavit vůbec
+    /// nikam.</para>
+    /// </summary>
+    private bool TryDropLogNear(int x, int y, BuildingDef def, RaftRule rule)
+    {
+        for (int tileY = y - 1; tileY <= y + def.FootprintHeight; tileY++)
+        {
+            for (int tileX = x - 1; tileX <= x + def.FootprintWidth; tileX++)
+            {
+                if (_rafts.TryDrop(tileX, tileY, rule.ResourceIndex, rule.Amount))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Stojí na téhle dlaždici česle? Vrací násobič nákladu, nebo 0.
+    ///
+    /// <para>Násobič je odměna za to, že se dřevo nemuselo vozit — a je to
+    /// jediný důvod, proč by hráč řeku vůbec použil.</para>
+    /// </summary>
+    private double CatchMultiplierAt(int x, int y)
+    {
+        if (!_occupancy.TryGetValue(TileKey.Pack(x, y), out int buildingIndex)
+            || buildingIndex >= _buildingCount)
+        {
+            return 0;
+        }
+
+        var def = _content.Buildings[_buildings[buildingIndex].DefIndex];
+        return def.CatchesLogs && _buildings[buildingIndex].Stall != BuildingStall.UnderConstruction
+            ? def.Raft!.CatchMultiplier
+            : 0;
+    }
+
+    /// <summary>Obnoví klády ze savu.</summary>
+    internal void RestoreRafts(IEnumerable<FloatingLog> logs) => _rafts.Restore(logs);
+
+    // ----- civilizační doktríny -----
+
+    /// <summary>Kolik uzlů má největší doktrína — velikost pole koupených uzlů.</summary>
+    private static int MaxDoctrineNodes(GameContent content)
+    {
+        int max = 0;
+        for (int i = 0; i < content.Doctrines.Count; i++)
+        {
+            max = Math.Max(max, content.Doctrines[i].Nodes.Count);
+        }
+
+        return max;
+    }
+
+    /// <summary>Kterou cestou se tahle civilizace vydala; −1 = zatím žádnou.</summary>
+    public int DoctrineIndex { get; private set; } = -1;
+
+    /// <summary>Zvolená doktrína, nebo <c>null</c>.</summary>
+    public DoctrineDef? Doctrine =>
+        DoctrineIndex >= 0 && DoctrineIndex < _content.Doctrines.Count
+            ? _content.Doctrines[DoctrineIndex]
+            : null;
+
+    /// <summary>Je uzel doktríny koupený?</summary>
+    public bool IsDoctrineNodeOwned(int nodeIndex) =>
+        nodeIndex >= 0 && nodeIndex < _doctrineNodes.Length && _doctrineNodes[nodeIndex];
+
+    /// <summary>Kolik uzlů doktríny má hráč koupených.</summary>
+    public int DoctrineNodesOwned
+    {
+        get
+        {
+            int count = 0;
+            for (int i = 0; i < _doctrineNodes.Length; i++)
+            {
+                if (_doctrineNodes[i])
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
+    /// <summary>
+    /// Dá se teď doktrína (pře)volit?
+    ///
+    /// <para>Jen dokud v ní není nic koupeného. Volba je rozhodnutí, ne
+    /// přepínač — kdyby se dala měnit s plnou cestou, sbíral by hráč postupně
+    /// všechny a nic by to nevylučovalo.</para>
+    /// </summary>
+    public bool CanChooseDoctrine => _content.Doctrines.IsEnabled && DoctrineNodesOwned == 0;
+
+    /// <summary>Zvolí doktrínu. Vrací false, když už je v té dosavadní něco koupené.</summary>
+    public bool TryChooseDoctrine(int index)
+    {
+        if (!CanChooseDoctrine || index < 0 || index >= _content.Doctrines.Count)
+        {
+            return false;
+        }
+
+        DoctrineIndex = index;
+        RecomputeBonuses();
+        return true;
+    }
+
+    /// <summary>Dá se tenhle uzel koupit? (Zvolená doktrína, splněné prerekvizity, dost bodů.)</summary>
+    public bool CanBuyDoctrineNode(int nodeIndex)
+    {
+        if (Doctrine is not { } doctrine || nodeIndex < 0 || nodeIndex >= doctrine.Nodes.Count)
+        {
+            return false;
+        }
+
+        if (_doctrineNodes[nodeIndex])
+        {
+            return false;
+        }
+
+        var node = doctrine.Nodes[nodeIndex];
+        for (int i = 0; i < node.PrerequisiteIndices.Count; i++)
+        {
+            if (!_doctrineNodes[node.PrerequisiteIndices[i]])
+            {
+                return false;
+            }
+        }
+
+        return PrestigePoints >= node.Cost;
+    }
+
+    /// <summary>Koupí uzel doktríny za body Vzestupu.</summary>
+    public bool TryBuyDoctrineNode(int nodeIndex)
+    {
+        if (!CanBuyDoctrineNode(nodeIndex))
+        {
+            return false;
+        }
+
+        PrestigePoints -= Doctrine!.Nodes[nodeIndex].Cost;
+        _doctrineNodes[nodeIndex] = true;
+        RecomputeBonuses();
+        return true;
+    }
+
+    /// <summary>
+    /// Vrátí body za koupené uzly a uvolní volbu.
+    ///
+    /// <para>Volá Vzestup. Doktrína je tvar <b>téhle</b> civilizace; ta příští
+    /// může být jiná — a aby to byla skutečná volba, musí hráč dostat body
+    /// zpátky. Bez vrácení by první doktrína platila napořád a mechanika by se
+    /// zvrhla v „vyber si jednou a už nikdy".</para>
+    /// </summary>
+    private void RefundDoctrine()
+    {
+        if (Doctrine is { } doctrine)
+        {
+            for (int i = 0; i < _doctrineNodes.Length && i < doctrine.Nodes.Count; i++)
+            {
+                if (_doctrineNodes[i])
+                {
+                    PrestigePoints += doctrine.Nodes[i].Cost;
+                }
+            }
+        }
+
+        Array.Clear(_doctrineNodes);
+        DoctrineIndex = -1;
+    }
+
+    /// <summary>Obnoví doktrínu ze savu (bez placení a bez vracení bodů).</summary>
+    internal void RestoreDoctrine(int index, IEnumerable<int> ownedNodes)
+    {
+        if (index < 0 || index >= _content.Doctrines.Count)
+        {
+            return;
+        }
+
+        DoctrineIndex = index;
+        Array.Clear(_doctrineNodes);
+        foreach (int node in ownedNodes)
+        {
+            if (node >= 0 && node < _doctrineNodes.Length)
+            {
+                _doctrineNodes[node] = true;
+            }
+        }
+    }
+
+    // ----- anomálie a výpravy -----
+
+    /// <summary>Anomálie ve světě: kde leží a které už hráč vybral.</summary>
+    public PointOfInterestSystem PointsOfInterest => _poi;
+
+    /// <summary>Relikvie přivezené z výprav (indexy do katalogu).</summary>
+    public IReadOnlyList<int> Relics => _relics;
+
+    /// <summary>Kam právě míří výprava; platí jen když <see cref="ExpeditionRunning"/>.</summary>
+    public PointOfInterest ExpeditionTarget { get; private set; }
+
+    /// <summary>Kolik tiků zbývá do návratu výpravy; 0 = žádná neběží.</summary>
+    public long ExpeditionTicksLeft { get; private set; }
+
+    /// <summary>Je někdo na cestě?</summary>
+    public bool ExpeditionRunning => ExpeditionTicksLeft > 0;
+
+    /// <summary>Jak daleko je výprava (0–1). Pro UI.</summary>
+    public double ExpeditionProgress
+    {
+        get
+        {
+            if (!ExpeditionRunning)
+            {
+                return 0;
+            }
+
+            long total = Math.Max(1, _content.PointsOfInterest[ExpeditionTarget.KindIndex].DurationTicks);
+            return Math.Clamp(1.0 - (ExpeditionTicksLeft / (double)total), 0, 1);
+        }
+    }
+
+    /// <summary>Dá se sem vypravit výprava?</summary>
+    public PlacementResult CanSendExpedition(int x, int y)
+    {
+        if (!_content.PointsOfInterest.IsEnabled)
+        {
+            return PlacementResult.NotUnlocked;
+        }
+
+        // Jedna výprava naráz. Ne kvůli výkonu — aby zůstala událost: deset
+        // výprav ve frontě je nákupní seznam, ne rozhodnutí.
+        if (ExpeditionRunning)
+        {
+            return PlacementResult.NotUnlocked;
+        }
+
+        if (!_poi.TryPick(x, y, out var poi))
+        {
+            return PlacementResult.NotUnlocked;
+        }
+
+        return CanPay(_content.PointsOfInterest[poi.KindIndex].Cost)
+            ? PlacementResult.Ok
+            : PlacementResult.NotEnoughResources;
+    }
+
+    /// <summary>
+    /// Vypraví výpravu k anomálii. Zaplatí cenu a anomálii rovnou zapíše jako
+    /// vybranou — jinak by šlo vypravit dvě výpravy na totéž místo hned po
+    /// sobě a druhá by našla prázdno.
+    /// </summary>
+    public PlacementResult TrySendExpedition(int x, int y)
+    {
+        var check = CanSendExpedition(x, y);
+        if (check != PlacementResult.Ok)
+        {
+            return check;
+        }
+
+        _poi.TryPick(x, y, out var poi);
+        var def = _content.PointsOfInterest[poi.KindIndex];
+        Pay(def.Cost);
+
+        _poi.Claim(poi.X, poi.Y);
+        ExpeditionTarget = poi;
+        ExpeditionTicksLeft = Math.Max(1, def.DurationTicks);
+        return PlacementResult.Ok;
+    }
+
+    /// <summary>Posune běžící výpravu a při návratu vyplatí odměnu.</summary>
+    private void TickExpedition()
+    {
+        if (!ExpeditionRunning)
+        {
+            return;
+        }
+
+        if (--ExpeditionTicksLeft > 0)
+        {
+            return;
+        }
+
+        var poi = ExpeditionTarget;
+        var def = _content.PointsOfInterest[poi.KindIndex];
+        int rewardIndex = _poi.RewardIndexFor(poi);
+        if (rewardIndex < 0)
+        {
+            return;
+        }
+
+        var reward = def.Rewards[rewardIndex];
+        for (int i = 0; i < reward.Resources.Count; i++)
+        {
+            AddResource(reward.Resources[i].ResourceIndex, reward.Resources[i].Amount);
+        }
+
+        if (reward.HasRelic && !_relics.Contains(reward.RelicIndex))
+        {
+            _relics.Add(reward.RelicIndex);
+            RecomputeBonuses();
+            EnqueueNotification(new GameNotification(
+                NotificationKind.Milestone, "toast.relic",
+                _content.PointsOfInterest.Relics[reward.RelicIndex].NameKey));
+            return;
+        }
+
+        EnqueueNotification(new GameNotification(
+            NotificationKind.WorldEvent, "toast.expedition", def.NameKey));
+    }
+
+    /// <summary>Obnoví výpravu a relikvie ze savu (bez odměn — ty už hráč dostal).</summary>
+    internal void RestoreExpedition(
+        IEnumerable<long> claimed, int poiX, int poiY, int kindIndex, long ticksLeft, IEnumerable<int> relics)
+    {
+        _poi.Restore(claimed);
+        _relics.Clear();
+        foreach (int relic in relics)
+        {
+            if (relic >= 0 && relic < _content.PointsOfInterest.Relics.Count && !_relics.Contains(relic))
+            {
+                _relics.Add(relic);
+            }
+        }
+
+        if (kindIndex >= 0 && kindIndex < _content.PointsOfInterest.Count && ticksLeft > 0)
+        {
+            ExpeditionTarget = new PointOfInterest(poiX, poiY, kindIndex);
+            ExpeditionTicksLeft = ticksLeft;
+        }
+    }
+
+    // ----- významné osobnosti -----
+
+    /// <summary>Kdo ve městě právě žije a kdo se za běh narodil.</summary>
+    public FigureSystem Figures => _figures;
+
+    /// <summary>
+    /// Milník je oslavený — může se u něj narodit osobnost.
+    ///
+    /// <para>Volá systém milníků hned po oznámení, aby se obě zprávy (milník
+    /// a narození) sešly v jednom tiku a hráč viděl souvislost.</para>
+    /// </summary>
+    internal void OnMilestoneReached(int milestoneIndex)
+    {
+        int born = _figures.OnMilestone(milestoneIndex, TickCount);
+        if (born < 0)
+        {
+            return;
+        }
+
+        RecomputeBonuses();
+        EnqueueNotification(new GameNotification(
+            NotificationKind.FigureBorn, "toast.figureBorn", $"figure.{_content.Figures[born].Id}"));
+    }
+
+    /// <summary>
+    /// Nechá osobnosti stárnout a uklidí po té, která dožila.
+    ///
+    /// <para>Pořadí je důležité: nejdřív stojí socha, teprve pak se přepočtou
+    /// bonusy. Obráceně by přepočet neviděl, co po zemřelém zbylo, a hráč by
+    /// jeden tik koukal na propad, který se sám vrátí.</para>
+    /// </summary>
+    private void TickFigures()
+    {
+        if (!_content.Figures.IsEnabled || !_figures.HasLiving)
+        {
+            return;
+        }
+
+        int died = _figures.Tick(TickCount);
+        if (died < 0)
+        {
+            return;
+        }
+
+        var def = _content.Figures[died];
+        if (def.LeavesStatue)
+        {
+            PlaceStatueNearCity(def.StatueBuildingIndex);
+        }
+
+        RecomputeBonuses();
+        EnqueueNotification(new GameNotification(
+            NotificationKind.FigureDied, "toast.figureDied", $"figure.{def.Id}"));
+    }
+
+    /// <summary>Jak daleko od těžiště města se hledá místo pro sochu.</summary>
+    private const int StatueSearchRadius = 24;
+
+    /// <summary>
+    /// Postaví sochu co nejblíž středu města — zadarmo a hotovou.
+    ///
+    /// <para>Zadarmo proto, že si ji hráč neobjednal: je to připomínka toho, co
+    /// se stalo, ne stavba. Kdyby stála suroviny, přišel by hráč o zdroje ve
+    /// chvíli, kdy zrovna přišel o bonus.</para>
+    ///
+    /// <para>Když se do okruhu nevejde, socha prostě nebude. Zastavěné město až
+    /// k obzoru je legitimní stav a hra kvůli soše nikoho nebude bourat.</para>
+    /// </summary>
+    private void PlaceStatueNearCity(int defIndex)
+    {
+        var def = _content.Buildings[defIndex];
+        for (int radius = 0; radius <= StatueSearchRadius; radius++)
+        {
+            for (int offsetY = -radius; offsetY <= radius; offsetY++)
+            {
+                for (int offsetX = -radius; offsetX <= radius; offsetX++)
+                {
+                    // Jen obvod čtverce — vnitřek se probral v menších poloměrech.
+                    if (radius > 0 && Math.Abs(offsetX) != radius && Math.Abs(offsetY) != radius)
+                    {
+                        continue;
+                    }
+
+                    int x = CityCenterX + offsetX;
+                    int y = CityCenterY + offsetY;
+                    if (!CanStandAt(def, x, y))
+                    {
+                        continue;
+                    }
+
+                    AddBuilding(defIndex, x, y, progress: 0f, asConstructionSite: false);
+                    ApplyBuildingBonuses(def);
+                    SettlementsDirty = true;
+                    DistrictsDirty = true;
+                    return;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Vejde se sem půdorys? Podmínky, které nezávisí na hráči — volno a biom.
+    /// Cena, odemčení ani stupeň sídla se neřeší: sochu staví simulace, ne hráč.
+    /// </summary>
+    private bool CanStandAt(BuildingDef def, int x, int y)
+    {
+        for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
+        {
+            for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
+            {
+                if (!IsTileFree(tileX, tileY) || !def.IsBiomeAllowed(Terrain.BiomeAt(tileX, tileY)))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Obnoví osobnosti ze savu (bez oznámení a bez stavění soch).</summary>
+    internal void RestoreFigures(IEnumerable<LivingFigure> living, IEnumerable<int> remembered)
+        => _figures.Restore(living, remembered);
+
     // ----- milníky -----
 
     /// <summary>Byl milník už oslaven? (Každý se spustí jen jednou za hru.)</summary>
@@ -5248,16 +6752,7 @@ public sealed class Simulation
             }
         }
 
-        var cost = def.MergeCost;
-        for (int i = 0; i < cost.Count; i++)
-        {
-            if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
-            {
-                return PlacementResult.NotEnoughResources;
-            }
-        }
-
-        return PlacementResult.Ok;
+        return CanPay(def.MergeCost) ? PlacementResult.Ok : PlacementResult.NotEnoughResources;
     }
 
     /// <summary>
@@ -5284,10 +6779,7 @@ public sealed class Simulation
 
         var def = _content.Buildings[group.DefIndex];
         var cost = def.MergeCost;
-        for (int i = 0; i < cost.Count; i++)
-        {
-            _resources[cost[i].ResourceIndex] -= cost[i].Amount;
-        }
+        Pay(cost);
 
         // Od nejvyššího indexu: odebrání přesouvá poslední budovu na uvolněné
         // místo, takže při mazání odspodu by se zbylé indexy posunuly pod rukama.
@@ -5360,13 +6852,9 @@ public sealed class Simulation
             return PlacementResult.NotUnlocked;
         }
 
-        var cost = def.UpgradeCost;
-        for (int i = 0; i < cost.Count; i++)
+        if (!CanPay(def.UpgradeCost))
         {
-            if (_resources[cost[i].ResourceIndex] < cost[i].Amount)
-            {
-                return PlacementResult.NotEnoughResources;
-            }
+            return PlacementResult.NotEnoughResources;
         }
 
         return HasRoomToGrow(buildingIndex, _content.Buildings[def.UpgradesToIndex])
@@ -5421,6 +6909,103 @@ public sealed class Simulation
     /// Příkaz hráče: vylepší budovu na další úroveň (mění se na místě — stejný půdorys).
     /// Odečte cenu vylepšení a přepočítá globální bonusy (bydlení, práce, sklady).
     /// </summary>
+    /// <summary>
+    /// Kolik budov téhož druhu ve stejné čtvrti jde vylepšit — a co to dá
+    /// dohromady. Slouží tlačítku „vylepšit všechny": hráč musí předem vidět
+    /// počet i cenu, ne kliknout a zjistit to potom.
+    /// </summary>
+    /// <param name="buildingIndex">Budova, od které se odpichujeme (její druh a čtvrť).</param>
+    public (int Count, IReadOnlyList<ResourceAmount> Cost) PreviewUpgradeAll(int buildingIndex)
+    {
+        if (buildingIndex < 0 || buildingIndex >= _buildingCount)
+        {
+            return (0, Array.Empty<ResourceAmount>());
+        }
+
+        int count = CountUpgradableSiblings(buildingIndex);
+        if (count == 0)
+        {
+            return (0, Array.Empty<ResourceAmount>());
+        }
+
+        var unit = _content.Buildings[_buildings[buildingIndex].DefIndex].UpgradeCost;
+        var total = new ResourceAmount[unit.Count];
+        for (int i = 0; i < unit.Count; i++)
+        {
+            total[i] = new ResourceAmount(unit[i].ResourceIndex, unit[i].Amount * count);
+        }
+
+        return (count, total);
+    }
+
+    /// <summary>
+    /// Vylepší všechny budovy téhož druhu ve stejné čtvrti a vrátí, kolik jich
+    /// bylo.
+    ///
+    /// <para>Bez tohohle musel hráč u čtyřiceti domků kliknout čtyřicetkrát —
+    /// nejotravnější klikání ve hře, protože je zcela bezmyšlenkovité.</para>
+    ///
+    /// <para>Jde odzadu: vylepšení mění pole budov (přepisuje definici na
+    /// místě), a při průchodu odpředu by se posunuly indexy pod rukama.
+    /// Vylepšuje se, dokud stačí suroviny — částečný výsledek je lepší než
+    /// odmítnutí, protože hráč vidí, že se něco stalo, a doplní zbytek.</para>
+    /// </summary>
+    public int TryUpgradeAllLike(int buildingIndex)
+    {
+        if (buildingIndex < 0 || buildingIndex >= _buildingCount)
+        {
+            return 0;
+        }
+
+        int defIndex = _buildings[buildingIndex].DefIndex;
+        int district = _buildings[buildingIndex].DistrictIndex;
+
+        int upgraded = 0;
+        for (int i = _buildingCount - 1; i >= 0; i--)
+        {
+            if (_buildings[i].DefIndex != defIndex || _buildings[i].DistrictIndex != district)
+            {
+                continue;
+            }
+
+            if (TryUpgradeBuilding(i) == PlacementResult.Ok)
+            {
+                upgraded++;
+            }
+        }
+
+        return upgraded;
+    }
+
+    private int CountUpgradableSiblings(int buildingIndex)
+    {
+        int defIndex = _buildings[buildingIndex].DefIndex;
+        int district = _buildings[buildingIndex].DistrictIndex;
+
+        int count = 0;
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            // Cena se nekontroluje: náhled má ukázat, KOLIK to je celkem,
+            // i když na to hráč zrovna nemá. Jinak by tlačítko nabízelo
+            // pokaždé jiné číslo podle stavu skladu.
+            if (_buildings[i].DefIndex == defIndex
+                && _buildings[i].DistrictIndex == district
+                && CanUpgradeIgnoringCost(i))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    /// <summary>Jde budovu vylepšit, kdyby na to byly suroviny?</summary>
+    private bool CanUpgradeIgnoringCost(int buildingIndex)
+    {
+        var result = CanUpgrade(buildingIndex);
+        return result is PlacementResult.Ok or PlacementResult.NotEnoughResources;
+    }
+
     public PlacementResult TryUpgradeBuilding(int buildingIndex)
     {
         var result = CanUpgrade(buildingIndex);
@@ -5433,10 +7018,7 @@ public sealed class Simulation
         var oldDef = _content.Buildings[instance.DefIndex];
 
         var cost = oldDef.UpgradeCost;
-        for (int i = 0; i < cost.Count; i++)
-        {
-            _resources[cost[i].ResourceIndex] -= cost[i].Amount;
-        }
+        Pay(cost);
 
         RemoveBuildingBonuses(oldDef);
         instance.DefIndex = oldDef.UpgradesToIndex;
@@ -5474,6 +7056,9 @@ public sealed class Simulation
 
         var def = _content.Buildings[_buildings[buildingIndex].DefIndex];
         int x = _buildings[buildingIndex].X, y = _buildings[buildingIndex].Y;
+        _undo.Push(new PlayerAction(
+            PlayerActionKind.Demolish, _buildings[buildingIndex].DefIndex, x, y,
+            _buildings[buildingIndex].Progress));
 
         for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
         {
@@ -5559,6 +7144,21 @@ public sealed class Simulation
             }
         }
 
+        if (def.IsSubseaAnchor || def.IsSubsea)
+        {
+            _subseaDirty = true; // přesunutý přístav otevírá jiné moře než dřív
+        }
+
+        // Index se musí dozvědět obojí: že na starém místě už nestojí a že
+        // stojí na novém. Půdorys může přesahovat do jiných chunků.
+        _buildingIndex.Remove(buildingIndex, building.X, building.Y, def.FootprintWidth, def.FootprintHeight);
+        _buildingIndex.Add(buildingIndex, x, y, def.FootprintWidth, def.FootprintHeight);
+
+        if (def.PowerSupply > 0 || def.PowerDemand > 0)
+        {
+            _powerDirty = true; // přesunutá elektrárna svítí jinam
+        }
+
         building.X = x;
         building.Y = y;
         // Přesun mění biom pod budovou i její okolí → cachované násobiče jdou s ní.
@@ -5591,6 +7191,14 @@ public sealed class Simulation
     {
         var building = _buildings[buildingIndex];
         var def = _content.Buildings[building.DefIndex];
+
+        // Mazání z plochého pole přesune poslední budovu na uvolněné místo.
+        // Kdyby se to index nedozvěděl, ukazoval by na budovu, která tam už
+        // není — a renderer by kreslil cizí dům.
+        _buildingIndex.Rename(
+            _buildingCount - 1, buildingIndex,
+            building.X, building.Y, def.FootprintWidth, def.FootprintHeight);
+
         for (int tileY = building.Y; tileY < building.Y + def.FootprintHeight; tileY++)
         {
             for (int tileX = building.X; tileX < building.X + def.FootprintWidth; tileX++)
@@ -5670,16 +7278,7 @@ public sealed class Simulation
             }
         }
 
-        var cost = tech.Cost;
-        for (int i = 0; i < cost.Count; i++)
-        {
-            if (_resources[cost[i].ResourceIndex] < ResearchCost(cost[i].Amount, level))
-            {
-                return PlacementResult.NotEnoughResources;
-            }
-        }
-
-        return PlacementResult.Ok;
+        return CanPayResearch(tech, level) ? PlacementResult.Ok : PlacementResult.NotEnoughResources;
     }
 
     /// <summary>Nejvyšší podíl surovin, který jde přes Vzestup přenést.</summary>
@@ -5838,12 +7437,9 @@ public sealed class Simulation
             return result;
         }
 
-        var tech = _content.Techs[techIndex];
-        int level = _techLevel[techIndex];
-        for (int i = 0; i < tech.Cost.Count; i++)
-        {
-            _resources[tech.Cost[i].ResourceIndex] -= ResearchCost(tech.Cost[i].Amount, level);
-        }
+        // Přes Pay, ne odečtem na místě: jinak by se výzkum neobjevil v účtování
+        // toků a hráč by v bilanci viděl, jak mu suroviny mizí „samy od sebe".
+        Pay(ScaledResearchCost(techIndex));
 
         UnlockTech(techIndex);
         return PlacementResult.Ok;
@@ -5968,6 +7564,8 @@ public sealed class Simulation
             Array.Resize(ref _buildings, _buildings.Length * 2);
         }
 
+        BuildingRevision++; // render si zástavbu peče do textur a musí poznat změnu
+
         // Kronika: biom, na kterém město stavělo. Zaznamenává se tady, protože
         // tudy prochází i obnova ze savu — jinak by se po načtení zapomněl.
         _settledBiomes[Terrain.BiomeAt(x, y)] = true;
@@ -6009,7 +7607,21 @@ public sealed class Simulation
             MilestoneMult = (float)_milestoneBonuses.MultiplierOf(defIndex),
             BuildTicksRemaining = asConstructionSite ? def.BuildTicks : 0,
         };
+        _buildingIndex.Add(_buildingCount, x, y, def.FootprintWidth, def.FootprintHeight);
         _buildingCount++;
+
+        if (def.PowerSupply > 0 || def.PowerDemand > 0)
+        {
+            _powerDirty = true;
+        }
+
+        // Přístav otevírá moře kolem sebe, podmořská budova síť prodlužuje.
+        // Tudy prochází i obnova ze savu, takže se síť po načtení spočítá sama.
+        if (def.IsSubseaAnchor || def.IsSubsea)
+        {
+            _subseaDirty = true;
+        }
+
         if (asConstructionSite && def.TakesTimeToBuild)
         {
             BuildingsUnderConstruction++;
@@ -6052,6 +7664,27 @@ public sealed class Simulation
     /// </summary>
     private void ForgetBuilding(int buildingIndex, BuildingDef def)
     {
+        BuildingRevision++;
+        _buildingIndex.Remove(
+            buildingIndex,
+            _buildings[buildingIndex].X,
+            _buildings[buildingIndex].Y,
+            def.FootprintWidth,
+            def.FootprintHeight);
+
+        if (def.PowerSupply > 0 || def.PowerDemand > 0)
+        {
+            _powerDirty = true;
+        }
+
+        // Tudy prochází KAŽDÉ odebrání budovy — zboření i sloučení čtyř domů
+        // v jeden. Kdyby si značku nastavovalo každé zvlášť, jedna cesta by
+        // zůstala pozadu a moře by po zbořeném přístavu zůstalo otevřené.
+        if (def.IsSubseaAnchor || def.IsSubsea)
+        {
+            _subseaDirty = true;
+        }
+
         if (_buildings[buildingIndex].IsComplete)
         {
             RemoveBuildingBonuses(def);
@@ -6641,6 +8274,13 @@ public sealed class Simulation
     /// </summary>
     public PlacementResult TryAscend()
     {
+        // Scénář je jeden běh se zadáním. Vzestup by ho vyresetoval doprostřed
+        // a hráč by přišel o to, co měl dokončit.
+        if (ScenarioRuleActive(ScenarioRule.NoAscension))
+        {
+            return PlacementResult.NotUnlocked;
+        }
+
         if (!CanAscend())
         {
             return PlacementResult.NotEnoughResources;
@@ -6673,7 +8313,8 @@ public sealed class Simulation
             EvaluateMetric(MetricKind.WondersCompleted, -1),
             points,
             peak > previousBest,
-            previousBest);
+            previousBest,
+            DoctrineIndex); // bilance se sbírá PŘED vrácením doktríny, jinak by tam byla −1
 
         BestRunPopulation = Math.Max(previousBest, peak);
         PeakPopulation = 0; // vrchol patří k běhu, ne k hráči
@@ -6731,6 +8372,20 @@ public sealed class Simulation
     /// <para>Jednotlivý upgrade navíc skládá <b>mocninou podle úrovně</b>: deset
     /// úrovní po +30 % je ×13,8, ne ×4.</para>
     /// </summary>
+    /// <summary>
+    /// Efekty, kterými osobnosti sahají na násobiče.
+    ///
+    /// <para>Vyjmenované schválně: procházet celý slovník efektů kvůli dvěma
+    /// žijícím lidem by znamenalo dvacet zbytečných dotazů při každém přepočtu.
+    /// Načítání hlídá, že data použijí jen efekty odsud.</para>
+    /// </summary>
+    private static readonly string[] KnownFigureEffects =
+    {
+        "production_mult", "harvest_mult", "growth_mult", "housing_mult",
+        "storage_mult", "research_speed", "autobuild_speed", "festival_power",
+        "discovery_luck", "combo_power", "offline_mult",
+    };
+
     private void RecomputeBonuses()
     {
         // Kategorie 1: trvalé upgrady Vzestupu (násobí se mezi sebou).
@@ -6769,6 +8424,57 @@ public sealed class Simulation
             if (level > 0)
             {
                 Scale(legacyUpgrades[i].Effect, legacyUpgrades[i].MultiplierAtLevel(level), legacyUpgrades[i].Magnitude * level);
+            }
+        }
+
+        // Pátá kategorie: družice. Sahají na tytéž násobiče jako Vzestup —
+        // to je celá pointa. Kdyby měla orbita vlastní cestu k bonusům, byly by
+        // ve hře dvě soustavy násobičů a dřív nebo později by se rozešly.
+        var satellites = _content.Orbit.Satellites;
+        for (int i = 0; i < satellites.Count; i++)
+        {
+            int count = _orbit.CountOf(i);
+            if (count > 0)
+            {
+                Scale(satellites[i].Effect, satellites[i].MultiplierAt(count), satellites[i].Magnitude * count);
+            }
+        }
+
+        // Osmá kategorie: doktrína. Aktivní je vždycky jen jedna a započítají
+        // se jen její koupené uzly — kdyby se sčítaly všechny doktríny, nebyla
+        // by to volba, ale seznam k odškrtání.
+        if (Doctrine is { } activeDoctrine)
+        {
+            for (int i = 0; i < activeDoctrine.Nodes.Count && i < _doctrineNodes.Length; i++)
+            {
+                if (_doctrineNodes[i])
+                {
+                    var node = activeDoctrine.Nodes[i];
+                    Scale(node.Effect, 1.0 + node.Magnitude, node.Magnitude);
+                }
+            }
+        }
+
+        // Sedmá kategorie: relikvie z výprav. Tentýž slovník efektů jako
+        // všechno ostatní — relikvie je trvalý bonus, ne vlastní soustava.
+        var relicDefs = _content.PointsOfInterest.Relics;
+        for (int i = 0; i < _relics.Count; i++)
+        {
+            var relic = relicDefs[_relics[i]];
+            Scale(relic.Effect, 1.0 + relic.Magnitude, relic.Magnitude);
+        }
+
+        // Šestá kategorie: žijící osobnosti. Počítá se ze SEZNAMU, ne z uložené
+        // sumy — jinak by bonus po mrtvém zůstal napořád.
+        if (_content.Figures.IsEnabled && _figures.HasLiving)
+        {
+            foreach (string effect in KnownFigureEffects)
+            {
+                double multiplier = _figures.MultiplierFor(effect);
+                if (multiplier > 1.0)
+                {
+                    Scale(effect, multiplier, multiplier - 1.0);
+                }
             }
         }
 
@@ -6951,6 +8657,19 @@ public sealed class Simulation
         CitizenCooldownTicks = 0;
         ResetContractBoard(); // zákazníci z minulého měřítka na novou nástěnku nepatří
         ContractsCompleted = 0; // a v novém měřítku začínají objednávky zas malé
+        _orbit.Reset();     // družice patří ke světu, který právě skončil — kosmodrom taky
+        _frontier.Reset();  // a útočníci taky: nový svět, nová fronta
+        _figures.Reset();   // a osobnosti: nová civilizace má vlastní velikány
+        _poi.Reset();       // a anomálie: nový svět, nová nevybraná místa
+        RefundDoctrine();   // doktrína je tvar TÉHLE civilizace; příští si vybere znovu
+        _rafts.Reset();     // a řeky: klády patřily světu, který skončil
+        _undo.Clear();      // vracet stavby předchozí civilizace nedává smysl
+        _relics.Clear();
+        ExpeditionTicksLeft = 0;
+        _buildingIndex.Clear();
+        _powerGrid.Clear();
+        _powerDirty = true;
+        _subseaDirty = true; // bez přístavů nezůstane otevřená ani dlaždice moře
         _buildingCount = 0;
 
         Array.Clear(_techLevel);
@@ -6977,6 +8696,44 @@ public sealed class Simulation
         SettlementsDirty = true;
         DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
+    }
+
+    /// <summary>
+    /// Obnova bitvy ze savu. Útočníci s neplatným druhem se zahodí — save
+    /// z jiného obsahu (nebo z modu, který útočníka ubral) nemá shodit hru.
+    /// </summary>
+    internal void RestoreFrontier(
+        int nextWave, int killed, int reachedCity,
+        Attacker[] attackers, (int Index, int Ticks)[] damage)
+    {
+        int kinds = _content.Frontier.Attackers.Count;
+        int kept = 0;
+        for (int i = 0; i < attackers.Length; i++)
+        {
+            if (attackers[i].TypeIndex >= 0 && attackers[i].TypeIndex < kinds && attackers[i].Health > 0)
+            {
+                attackers[kept++] = attackers[i];
+            }
+        }
+
+        _frontier.Restore(nextWave, killed, reachedCity, attackers.AsSpan(0, kept));
+
+        for (int i = 0; i < damage.Length; i++)
+        {
+            var (index, ticks) = damage[i];
+            if (index >= 0 && index < _buildingCount && ticks > 0)
+            {
+                _buildings[index].DisabledTicks = ticks;
+            }
+        }
+    }
+
+    /// <summary>Obnova oběžné dráhy ze savu.</summary>
+    internal void RestoreOrbit(IReadOnlyList<int> counts, int buildingIndex, int ticksLeft)
+    {
+        _orbit.Restore(counts, buildingIndex, ticksLeft);
+        RecomputeBonuses();
+        RecomputeDerivedState();
     }
 
     /// <summary>Indexy vyzkoumaných technologií (pro serializaci savu).</summary>

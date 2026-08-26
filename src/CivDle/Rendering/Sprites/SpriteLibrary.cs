@@ -25,15 +25,42 @@ public sealed class SpriteLibrary : IDisposable
     /// <summary>Velikost znaku hry v hlavním menu.</summary>
     public const int LogoSize = 96;
 
+    /// <summary>
+    /// Planeta v orbitálním pohledu. Větší než ostatní sprity schválně: kreslí
+    /// se přes půl obrazovky a při zvětšení menší předlohy by z ní byly kostky.
+    /// </summary>
+    public const int PlanetSize = 128;
+
     private readonly Dictionary<string, Texture2D> _sprites = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Bílé siluety spritů, počítané až na vyžádání.
+    ///
+    /// <para>K čemu: obarvit sprite bíle přes tint nejde — tint <b>násobí</b>,
+    /// takže tmavě hnědá střecha krát bílá je pořád tmavě hnědá střecha.
+    /// Aditivní míchání ji zesvětlí jen o zlomek, protože přičítá tutéž
+    /// tmavou barvu. Silueta má bílé RGB a průhlednost původního spritu, takže
+    /// se dá kreslit v jakékoli barvě a přesně kopíruje tvar.</para>
+    ///
+    /// <para>Počítá se líně: masku potřebuje sníh na střechách, tedy zlomek
+    /// spritů a jen v zimě. Vyrábět je pro všechno při startu by byla dvojnásobná
+    /// paměť za něco, co se většinou nepoužije.</para>
+    /// </summary>
+    private readonly Dictionary<string, Texture2D> _masks = new(StringComparer.Ordinal);
+
+    private readonly GraphicsDevice _device;
 
     public SpriteLibrary(GraphicsDevice device)
     {
+        _device = device;
         // Suroviny (ikony do HUD).
         Add(device, "icon.wood", IconSize, WoodIcon);
         Add(device, "icon.planks", IconSize, PlanksIcon);
         Add(device, "icon.stone", IconSize, StoneIcon);
         Add(device, "icon.food", IconSize, FoodIcon);
+        Add(device, "icon.grain", IconSize, GrainIcon);
+        Add(device, "icon.flour", IconSize, FlourIcon);
+        Add(device, "icon.bread", IconSize, BreadIcon);
         Add(device, "icon.tools", IconSize, ToolsIcon);
         Add(device, "icon.copper_ore", IconSize, canvas => OreIcon(canvas, new Color(196, 120, 66)));
         Add(device, "icon.iron_ore", IconSize, canvas => OreIcon(canvas, new Color(150, 140, 132)));
@@ -50,6 +77,8 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "icon.computer", IconSize, ComputerIcon);
         Add(device, "icon.robot", IconSize, RobotIcon);
         Add(device, "icon.uranium", IconSize, UraniumIcon);
+        Add(device, "icon.kelp", IconSize, KelpIcon);
+        Add(device, "icon.nodules", IconSize, NodulesIcon);
 
         // Ikony do HUD. Lišta plná slov je v akční hře nečitelná: hráč hledá
         // tvar, ne text. Popis nese bublina, ikona nese poznání.
@@ -76,6 +105,10 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "ui.ascend", IconSize, UiAscend);
         Add(device, "ui.grandwork", IconSize, UiGrandWork);
         Add(device, "ui.legacy", IconSize, UiLegacy);
+        Add(device, "ui.figures", IconSize, UiFigures);
+        Add(device, "ui.carillon", IconSize, UiCarillon);
+        Add(device, "fx.anomaly", SpriteSize, FxAnomaly);
+        Add(device, "ui.doctrines", IconSize, UiDoctrines);
         Add(device, "ui.stats", IconSize, UiStats);
         Add(device, "ui.trophy", IconSize, UiTrophy);
         Add(device, "ui.chronicle", IconSize, UiChronicle);
@@ -236,6 +269,17 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.standing_stones", SpriteSize, StandingStones);
         Add(device, "building.obelisk", SpriteSize, Obelisk);
         Add(device, "building.great_statue", SpriteSize, GreatStatue);
+        Add(device, "building.statue_mason", SpriteSize, StatueMason);
+        Add(device, "building.statue_scholar", SpriteSize, StatueScholar);
+        Add(device, "building.statue_agronomist", SpriteSize, StatueAgronomist);
+        Add(device, "building.statue_navigator", SpriteSize, StatueNavigator);
+        Add(device, "building.carillon", SpriteSize, CarillonTower);
+        Add(device, "building.grain_field", SpriteSize, GrainField);
+        Add(device, "building.grist_mill", SpriteSize, GristMill);
+        Add(device, "building.bakery", SpriteSize, Bakery);
+        Add(device, "building.log_flume", SpriteSize, LogFlume);
+        Add(device, "building.log_boom", SpriteSize, LogBoom);
+        Add(device, "fx.log", SpriteSize, FxLog);
         Add(device, "building.triumphal_arch", SpriteSize, TriumphalArch);
         Add(device, "building.clock_tower", SpriteSize, ClockTower);
         Add(device, "building.great_pit", SpriteSize, GreatPit);
@@ -251,6 +295,40 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.airport", SpriteSize, canvas => Airfield(canvas, big: true));
         Add(device, "building.spaceport", SpriteSize, Spaceport);
 
+        // Podmoří. Všechny stojí na dně, takže mají společný rys: nekreslí se
+        // jim střecha proti nebi, ale silueta proti vodě — světlejší obrys
+        // a nahoře bublina, aby bylo na první pohled poznat, že je to pod
+        // hladinou, a ne dům, co se topí.
+        Add(device, "building.kelp_farm", SpriteSize, KelpFarm);
+        Add(device, "building.fish_pen", SpriteSize, FishPen);
+        Add(device, "building.nodule_harvester", SpriteSize, NoduleHarvester);
+        Add(device, "building.vent_generator", SpriteSize, VentGenerator);
+        Add(device, "building.deep_smelter", SpriteSize, DeepSmelter);
+        Add(device, "building.sea_dome", SpriteSize, SeaDome);
+
+        // Orbita. Planeta je větší (kreslí se přes půl obrazovky), družice
+        // naopak drobné — na dráze jsou to tečky s panely.
+        Add(device, "orbit.planet", PlanetSize, Planet);
+        Add(device, "orbit.solar_mirror", SpriteSize, SolarMirror);
+        Add(device, "orbit.weather_watch", SpriteSize, WeatherWatch);
+        Add(device, "orbit.comm_array", SpriteSize, CommArray);
+        Add(device, "orbit.survey_eye", SpriteSize, SurveyEye);
+        Add(device, "orbit.orbital_depot", SpriteSize, OrbitalDepot);
+
+        // Obrana (volitelný režim). Věže jsou budovy, útočníci agenti — proto
+        // jsou menší a kreslí se v měřítku chodců, ne domů.
+        Add(device, "building.watchtower", SpriteSize, canvas => Tower(canvas, tall: false));
+        Add(device, "building.bastion", SpriteSize, canvas => Tower(canvas, tall: true));
+        Add(device, "attacker.raider", 14, canvas => Raider(canvas, new Color(168, 74, 62)));
+        Add(device, "attacker.brute", 18, canvas => Brute(canvas));
+        Add(device, "attacker.skirmisher", 12, canvas => Raider(canvas, new Color(196, 138, 62)));
+
+        // Fáze stavby. Obecné schválně: div se od divu v základech neliší
+        // a kreslit tři vlastní sprity ke každému by byla práce navíc bez
+        // rozdílu na obrazovce.
+        Add(device, "stage.foundation", SpriteSize, Foundation);
+        Add(device, "stage.frame", SpriteSize, Framework);
+
         // Megastavby.
         Add(device, "building.megacity_spire", SpriteSize, MegacitySpire);
         Add(device, "building.grand_exchange", SpriteSize, GrandExchange);
@@ -262,6 +340,7 @@ public sealed class SpriteLibrary : IDisposable
         // Agenti (živý svět).
         Add(device, "agent.person", 12, Person);
         Add(device, "agent.cart", 18, Cart);
+        Add(device, "agent.fisherman", 12, Fisherman);
 
         // Efekty: měkký kontaktní stín pod objekty (ať „sedí" na terénu).
         Add(device, "fx.shadow", SpriteSize, Shadow);
@@ -272,8 +351,49 @@ public sealed class SpriteLibrary : IDisposable
     /// <summary>Sprite podle ID, nebo <c>null</c>, když neexistuje.</summary>
     public Texture2D? Get(string id) => _sprites.GetValueOrDefault(id);
 
+    /// <summary>
+    /// Bílá silueta spritu — tentýž tvar, ale v barvě, kterou si volající
+    /// určí tintem. Vrací <c>null</c>, když sprite neexistuje.
+    /// </summary>
+    public Texture2D? Mask(string id)
+    {
+        if (_masks.TryGetValue(id, out var cached))
+        {
+            return cached;
+        }
+
+        var source = Get(id);
+        if (source is null)
+        {
+            return null;
+        }
+
+        var pixels = new Color[source.Width * source.Height];
+        source.GetData(pixels);
+        for (int i = 0; i < pixels.Length; i++)
+        {
+            // Bílá s původní průhledností. Sprity jsou přednásobené alfou,
+            // takže i bílá musí být předem ztlumená na svou alfu — jinak by
+            // okraje svítily přes svůj vlastní tvar.
+            byte alpha = pixels[i].A;
+            pixels[i] = new Color(alpha, alpha, alpha, alpha);
+        }
+
+        var mask = new Texture2D(_device, source.Width, source.Height);
+        mask.SetData(pixels);
+        _masks[id] = mask;
+        return mask;
+    }
+
     public void Dispose()
     {
+        foreach (var mask in _masks.Values)
+        {
+            mask.Dispose();
+        }
+
+        _masks.Clear();
+
         foreach (var texture in _sprites.Values)
         {
             texture.Dispose();
@@ -671,6 +791,53 @@ public sealed class SpriteLibrary : IDisposable
     /// Odkaz: věčný plamen na podstavci. Vrstva, která přežije i Vzestup, má
     /// vypadat jako něco, co se předává dál — ne jako další šipka nahoru.
     /// </summary>
+    /// <summary>Ikona doktrín: tři cesty z jednoho bodu, jedna zvýrazněná.</summary>
+    private static void UiDoctrines(PixelCanvas c)
+    {
+        var dim = new Color(120, 130, 150);
+        var lit = new Color(236, 208, 128);
+
+        c.FillCircle(12f, 20f, 2.6f, lit);                 // odkud se vychází
+        c.FillTriangle(11f, 19f, 13f, 19f, 4f, 5f, dim);   // vlevo
+        c.FillTriangle(11f, 19f, 13f, 19f, 20f, 5f, dim);  // vpravo
+        c.FillRect(11, 5, 2, 14, lit);                     // zvolená cesta
+        c.FillCircle(12f, 4f, 2.2f, lit);
+    }
+
+    /// <summary>
+    /// Značka anomálie: kosočtverec s jádrem. Tvar, jaký na mapě nic jiného
+    /// nemá — hráč ho pozná dřív, než přečte popisek.
+    /// </summary>
+    private static void FxAnomaly(PixelCanvas c)
+    {
+        var edge = new Color(198, 156, 255);
+        var core = new Color(246, 232, 255);
+
+        c.FillTriangle(16f, 3f, 28f, 16f, 4f, 16f, edge);
+        c.FillTriangle(16f, 29f, 28f, 16f, 4f, 16f, edge);
+        c.FillCircle(16f, 16f, 4.2f, core);
+    }
+
+    /// <summary>Ikona zvonohry: zvon a nad ním závěs.</summary>
+    private static void UiCarillon(PixelCanvas c)
+    {
+        var bronze = new Color(198, 166, 92);
+        c.FillRect(4, 4, 16, 2, new Color(140, 128, 104));   // závěs
+        c.FillTriangle(6f, 18f, 18f, 18f, 12f, 6f, bronze);  // plášť zvonu
+        c.FillRect(5, 18, 14, 2, new Color(226, 200, 130));  // věnec
+        c.FillCircle(12f, 21f, 1.6f, new Color(120, 104, 76)); // srdce
+    }
+
+    /// <summary>Ikona osobností: postava na soklu — totéž, co po ní zbude na mapě.</summary>
+    private static void UiFigures(PixelCanvas c)
+    {
+        c.FillRect(6, 19, 12, 4, new Color(150, 142, 120));   // sokl
+        c.FillRect(10, 9, 4, 10, new Color(206, 190, 150));   // trup
+        c.FillCircle(12f, 6f, 2.8f, new Color(226, 212, 172)); // hlava
+        c.FillRect(6, 10, 4, 2, new Color(206, 190, 150));    // rozpažené ruce
+        c.FillRect(14, 10, 4, 2, new Color(206, 190, 150));
+    }
+
     private static void UiLegacy(PixelCanvas c)
     {
         var pedestal = new Color(120, 128, 150);
@@ -1335,6 +1502,157 @@ public sealed class SpriteLibrary : IDisposable
         c.FillCircle(16f, 9f, 3.6f, new Color(214, 190, 124)); // hlava
         c.FillRect(8, 13, 6, 2, new Color(198, 172, 106));  // rozpažené ruce
         c.FillRect(18, 13, 6, 2, new Color(198, 172, 106));
+    }
+
+    /// <summary>
+    /// Sokl a postava — společný základ všech pamětních soch.
+    ///
+    /// <para>Sochy se od sebe liší jen tím, co drží v ruce. Kdyby si každá
+    /// kreslila i tělo, rozešly by se navzájem a přestalo by být na první
+    /// pohled poznat, že jde o tentýž druh připomínky.</para>
+    /// </summary>
+    private static void MemorialBase(PixelCanvas c, Color stone, Color figure)
+    {
+        c.FillRect(11, 24, 10, 6, stone);                 // sokl
+        c.FillRect(14, 13, 4, 11, figure);                // trup
+        c.FillCircle(16f, 10f, 3f, figure);               // hlava
+        c.FillRect(12, 27, 8, 1, new Color(stone.R * 82 / 100, stone.G * 82 / 100, stone.B * 82 / 100));
+    }
+
+    private static void StatueMason(PixelCanvas c)
+    {
+        MemorialBase(c, new Color(150, 142, 120), new Color(198, 178, 132));
+        c.FillRect(19, 14, 5, 2, new Color(122, 110, 96)); // napřažené kladivo
+        c.FillRect(23, 12, 3, 5, new Color(96, 88, 78));
+    }
+
+    private static void StatueScholar(PixelCanvas c)
+    {
+        MemorialBase(c, new Color(140, 148, 156), new Color(176, 194, 208));
+        c.FillRect(18, 15, 6, 5, new Color(236, 230, 210)); // otevřená kniha
+        c.FillRect(20, 15, 1, 5, new Color(150, 142, 126));
+    }
+
+    private static void StatueAgronomist(PixelCanvas c)
+    {
+        MemorialBase(c, new Color(146, 148, 118), new Color(186, 200, 148));
+        c.FillRect(20, 10, 2, 11, new Color(126, 106, 72));  // kosa
+        c.FillTriangle(21f, 10f, 27f, 12f, 21f, 14f, new Color(206, 206, 196));
+    }
+
+    private static void StatueNavigator(PixelCanvas c)
+    {
+        MemorialBase(c, new Color(132, 146, 156), new Color(168, 192, 206));
+        c.FillRect(20, 8, 1, 14, new Color(120, 104, 84));   // stěžeň v ruce
+        c.FillTriangle(21f, 8f, 21f, 17f, 27f, 13f, new Color(230, 232, 226)); // plachta
+    }
+
+    /// <summary>Ikona obilí: tři klasy.</summary>
+    private static void GrainIcon(PixelCanvas c)
+    {
+        var straw = new Color(214, 178, 92);
+        var ear = new Color(238, 206, 124);
+        for (int i = 0; i < 3; i++)
+        {
+            int x = 5 + (i * 7);
+            c.FillRect(x, 10, 2, 12, straw);
+            c.FillCircle(x + 1f, 7f, 2.4f, ear);
+        }
+    }
+
+    /// <summary>Ikona mouky: pytel s převázaným hrdlem.</summary>
+    private static void FlourIcon(PixelCanvas c)
+    {
+        var sack = new Color(230, 222, 200);
+        c.FillRect(6, 9, 12, 13, sack);
+        c.FillRect(8, 5, 8, 4, new Color(206, 196, 172));   // hrdlo
+        c.FillRect(7, 8, 10, 2, new Color(168, 150, 112));  // provázek
+    }
+
+    /// <summary>Ikona chleba: bochník se zářezy.</summary>
+    private static void BreadIcon(PixelCanvas c)
+    {
+        var crust = new Color(186, 122, 62);
+        c.FillCircle(12f, 14f, 8f, crust);
+        c.FillRect(4, 15, 16, 7, crust);
+        c.FillRect(7, 9, 10, 1, new Color(232, 190, 138)); // zářezy
+        c.FillRect(6, 12, 12, 1, new Color(232, 190, 138));
+    }
+
+    /// <summary>Obilné pole: řádky klasů v pruzích.</summary>
+    private static void GrainField(PixelCanvas c)
+    {
+        c.FillRect(0, 0, 32, 32, new Color(176, 146, 76));
+        for (int y = 3; y < 30; y += 6)
+        {
+            c.FillRect(2, y, 28, 3, new Color(214, 182, 100));
+            c.FillRect(2, y + 3, 28, 1, new Color(148, 122, 62));
+        }
+    }
+
+    /// <summary>Mlýn na mouku: nízká budova s vodním kolem.</summary>
+    private static void GristMill(PixelCanvas c)
+    {
+        c.FillRect(8, 12, 18, 18, new Color(186, 168, 130));
+        c.FillTriangle(6f, 12f, 28f, 12f, 17f, 4f, new Color(128, 92, 66)); // střecha
+        c.FillCircle(6f, 22f, 5.5f, new Color(140, 110, 70));               // kolo
+        c.FillCircle(6f, 22f, 2.2f, new Color(196, 168, 118));
+        c.FillRect(1, 21, 10, 2, new Color(110, 88, 58));                   // loukoť
+    }
+
+    /// <summary>Pekárna: dům s klenutou pecí a komínem.</summary>
+    private static void Bakery(PixelCanvas c)
+    {
+        c.FillRect(5, 12, 22, 18, new Color(206, 178, 138));
+        c.FillTriangle(3f, 12f, 29f, 12f, 16f, 3f, new Color(158, 96, 62)); // střecha
+        c.FillRect(20, 2, 4, 8, new Color(132, 110, 92));                   // komín
+        c.FillCircle(13f, 24f, 5f, new Color(96, 70, 52));                  // ústí pece
+        c.FillCircle(13f, 25f, 3f, new Color(240, 168, 84));                // oheň
+    }
+
+    /// <summary>Splav: nakloněný žlab, ze kterého kláda sjede do vody.</summary>
+    private static void LogFlume(PixelCanvas c)
+    {
+        var timber = new Color(150, 116, 70);
+        c.FillTriangle(4f, 26f, 28f, 8f, 28f, 14f, timber);   // žlab
+        c.FillRect(6, 24, 3, 6, new Color(112, 88, 56));      // podpěry
+        c.FillRect(20, 14, 3, 8, new Color(112, 88, 56));
+        c.FillRect(24, 6, 6, 3, new Color(178, 142, 88));     // zásobník nahoře
+    }
+
+    /// <summary>Česle: řada kůlů napříč tokem a klády, které se o ně opřely.</summary>
+    private static void LogBoom(PixelCanvas c)
+    {
+        var water = new Color(70, 108, 132);
+        var timber = new Color(158, 124, 76);
+
+        c.FillRect(0, 12, 32, 8, water);                      // tok
+        for (int x = 3; x < 30; x += 6)
+        {
+            c.FillRect(x, 8, 2, 16, new Color(104, 82, 52));  // kůly
+        }
+
+        c.FillRect(2, 13, 26, 3, timber);                     // zachycené klády
+        c.FillRect(5, 17, 20, 3, new Color(136, 106, 64));
+    }
+
+    /// <summary>Kláda na vodě — krátký kmen se světlejším čelem.</summary>
+    private static void FxLog(PixelCanvas c)
+    {
+        c.FillRect(6, 14, 20, 5, new Color(146, 112, 68));
+        c.FillRect(6, 14, 3, 5, new Color(196, 162, 110)); // čelo
+        c.FillRect(10, 15, 12, 1, new Color(112, 86, 52)); // léta
+    }
+
+    /// <summary>Zvonice: věž s otevřeným patrem a zvonem v něm.</summary>
+    private static void CarillonTower(PixelCanvas c)
+    {
+        var stone = new Color(176, 162, 130);
+        c.FillRect(10, 12, 12, 18, stone);                    // věž
+        c.FillRect(11, 6, 10, 7, new Color(148, 136, 110));    // otevřené patro
+        c.FillTriangle(8f, 6f, 24f, 6f, 16f, 0f, new Color(128, 92, 72)); // stříška
+        c.FillTriangle(13f, 12f, 19f, 12f, 16f, 7f, new Color(198, 166, 92)); // zvon
+        c.FillRect(12, 20, 8, 2, new Color(148, 136, 110));    // římsa
     }
 
     private static void TriumphalArch(PixelCanvas c)
@@ -2041,6 +2359,351 @@ public sealed class SpriteLibrary : IDisposable
     // ----- ikony pozdějších surovin -----
 
     /// <summary>Ruda: hrubé kusy kamene s barevnou žílou.</summary>
+    // ----- podmoří -----
+
+    /// <summary>Barva obrysu podmořských staveb — světlá, ať je vidět proti tmavé vodě.</summary>
+    private static readonly Color SubseaTrim = new(150, 214, 226);
+
+    /// <summary>Stoupající bublinky. Společná značka „tohle je pod hladinou".</summary>
+    private static void Bubbles(PixelCanvas c, float x)
+    {
+        c.FillCircle(x, 6f, 1.6f, new Color(200, 236, 244) * 0.85f);
+        c.FillCircle(x + 3f, 3f, 1.1f, new Color(200, 236, 244) * 0.7f);
+        c.FillCircle(x - 2f, 2f, 0.8f, new Color(200, 236, 244) * 0.55f);
+    }
+
+    /// <summary>Řasová farma: lana ode dna vzhůru, na nich pásy chaluh.</summary>
+    private static void KelpFarm(PixelCanvas c)
+    {
+        c.FillRect(4, 27, 24, 3, new Color(96, 92, 82)); // kotevní rám na dně
+        for (int i = 0; i < 4; i++)
+        {
+            int x = 6 + i * 6;
+            c.FillRect(x, 10, 1, 17, new Color(120, 116, 104)); // lano
+            c.FillCircle(x + 0.5f, 13f, 2.6f, new Color(63, 122, 74));
+            c.FillCircle(x + 0.5f, 18f, 3f, new Color(74, 138, 82));
+            c.FillCircle(x + 0.5f, 23f, 2.4f, new Color(56, 106, 66));
+        }
+
+        Bubbles(c, 16f);
+    }
+
+    /// <summary>Sádky: kruhová klec s rybami a lávkou po obvodu.</summary>
+    private static void FishPen(PixelCanvas c)
+    {
+        c.FillCircle(16f, 19f, 11f, new Color(46, 96, 112) * 0.8f);
+        c.FillCircle(16f, 19f, 9f, new Color(38, 82, 98) * 0.7f);
+
+        // Obruč klece.
+        for (int angle = 0; angle < 360; angle += 30)
+        {
+            double radians = angle * Math.PI / 180.0;
+            c.FillCircle(16f + (float)(Math.Cos(radians) * 10.5), 19f + (float)(Math.Sin(radians) * 10.5), 1.1f, SubseaTrim);
+        }
+
+        // Ryby uvnitř.
+        c.FillCircle(13f, 17f, 2f, new Color(196, 208, 216));
+        c.FillTriangle(10f, 15.5f, 10f, 18.5f, 12f, 17f, new Color(196, 208, 216));
+        c.FillCircle(19f, 22f, 1.7f, new Color(170, 186, 198));
+        c.FillTriangle(22f, 20.8f, 22f, 23.2f, 20f, 22f, new Color(170, 186, 198));
+
+        Bubbles(c, 22f);
+    }
+
+    /// <summary>Sběrač konkrecí: pásový podvozek a sací hlava těsně nad dnem.</summary>
+    private static void NoduleHarvester(PixelCanvas c)
+    {
+        c.FillRect(3, 28, 26, 2, new Color(78, 70, 60)); // rozrytá stopa ve dně
+        c.FillRect(6, 20, 20, 7, new Color(122, 108, 92)); // pásy
+        for (int i = 0; i < 5; i++)
+        {
+            c.FillRect(7 + i * 4, 21, 2, 5, new Color(88, 78, 68));
+        }
+
+        c.FillRect(9, 12, 14, 8, new Color(158, 142, 118)); // tělo
+        c.FillRect(9, 12, 14, 2, SubseaTrim * 0.8f);
+        c.FillRect(22, 22, 7, 3, new Color(140, 126, 106)); // sací hubice
+        c.FillCircle(28f, 25f, 2f, new Color(96, 84, 70));
+
+        // Vysbírané konkrece na hromádce.
+        c.FillCircle(5f, 25f, 1.6f, new Color(91, 75, 58));
+        c.FillCircle(8f, 26f, 1.2f, new Color(108, 90, 70));
+
+        Bubbles(c, 12f);
+    }
+
+    /// <summary>Elektrárna u průduchu: černý komín, oblak a turbína nad ním.</summary>
+    private static void VentGenerator(PixelCanvas c)
+    {
+        c.FillRect(2, 27, 28, 3, new Color(70, 62, 58)); // čedičové dno
+        c.FillTriangle(10f, 27f, 20f, 27f, 15f, 14f, new Color(58, 50, 48)); // komín
+        c.FillCircle(15f, 13f, 3.4f, new Color(72, 46, 42));
+
+        // Horký oblak — proto tu ta elektrárna stojí.
+        c.FillCircle(15f, 8f, 4.2f, new Color(196, 118, 88) * 0.75f);
+        c.FillCircle(19f, 5f, 3f, new Color(214, 140, 104) * 0.6f);
+        c.FillCircle(11f, 4f, 2.4f, new Color(214, 140, 104) * 0.45f);
+
+        // Turbína na patce vedle komína.
+        c.FillRect(22, 18, 7, 9, new Color(148, 152, 158));
+        c.FillRect(22, 18, 7, 2, SubseaTrim);
+        c.FillCircle(25.5f, 22.5f, 2.2f, new Color(96, 102, 110));
+    }
+
+    /// <summary>Hlubinná huť: tlakový trup s rozžhaveným okem pece.</summary>
+    private static void DeepSmelter(PixelCanvas c)
+    {
+        c.FillRect(2, 27, 28, 3, new Color(84, 76, 66));
+        c.FillRect(5, 11, 22, 16, new Color(122, 112, 100)); // trup
+        c.FillRect(5, 11, 22, 2, SubseaTrim * 0.85f);
+        c.FillRect(5, 25, 22, 2, new Color(88, 80, 72));
+
+        // Otvor pece — jediné teplé místo obrázku, aby bylo poznat, že se taví.
+        c.FillRect(11, 16, 10, 7, new Color(60, 46, 40));
+        c.FillRect(12, 17, 8, 5, new Color(228, 132, 62));
+        c.FillRect(13, 18, 6, 3, new Color(250, 196, 120));
+
+        c.FillRect(8, 5, 3, 6, new Color(104, 96, 88));  // výfuk
+        c.FillRect(21, 5, 3, 6, new Color(104, 96, 88));
+        Bubbles(c, 9.5f);
+        Bubbles(c, 22.5f);
+    }
+
+    /// <summary>Obytný dóm: prosklená kupole s okny a spojovacím tunelem.</summary>
+    private static void SeaDome(PixelCanvas c)
+    {
+        c.FillRect(2, 27, 28, 3, new Color(88, 84, 76)); // dno
+        c.FillRect(4, 23, 24, 4, new Color(126, 124, 120)); // patka
+
+        c.FillCircle(16f, 22f, 12f, SubseaTrim * 0.45f);   // sklo
+        c.FillCircle(16f, 22f, 10f, new Color(96, 146, 164) * 0.6f);
+
+        // Žebra kupole.
+        c.FillRect(15, 10, 2, 13, SubseaTrim * 0.8f);
+        c.FillTriangle(6f, 22f, 26f, 22f, 16f, 10f, SubseaTrim * 0.18f);
+
+        // Rozsvícená okna — tady někdo bydlí.
+        c.FillRect(10, 18, 3, 3, new Color(246, 216, 150));
+        c.FillRect(19, 18, 3, 3, new Color(246, 216, 150));
+        c.FillRect(14, 14, 4, 3, new Color(246, 226, 176));
+
+        c.FillRect(0, 24, 5, 3, new Color(118, 116, 112)); // tunel k dalšímu dómu
+        Bubbles(c, 27f);
+    }
+
+    /// <summary>Řasy: tři listy chaluhy s bublinkami vzduchového měchýře.</summary>
+    private static void KelpIcon(PixelCanvas c)
+    {
+        c.FillRect(11, 6, 2, 14, new Color(52, 96, 60));
+        c.FillCircle(8f, 10f, 3.2f, new Color(74, 138, 82));
+        c.FillCircle(16f, 13f, 3.6f, new Color(63, 122, 74));
+        c.FillCircle(9f, 16f, 3f, new Color(84, 152, 90));
+        c.FillCircle(15f, 8f, 1.4f, new Color(196, 224, 172)); // měchýř
+    }
+
+    /// <summary>Konkrece: tmavé hrudky s kovovým leskem.</summary>
+    private static void NodulesIcon(PixelCanvas c)
+    {
+        c.FillCircle(9f, 15f, 5.5f, new Color(72, 60, 48));
+        c.FillCircle(16f, 12f, 4.5f, new Color(88, 74, 58));
+        c.FillCircle(13f, 18f, 3.5f, new Color(64, 54, 44));
+        c.FillCircle(7.5f, 13f, 1.6f, new Color(134, 118, 92)); // lesk
+        c.FillCircle(15f, 10.5f, 1.3f, new Color(148, 130, 100));
+    }
+
+    // ----- orbita -----
+
+    /// <summary>Panel družice — společný tvar, ať je poznat, že patří k sobě.</summary>
+    private static void Panels(PixelCanvas c, int y, Color color)
+    {
+        c.FillRect(2, y, 8, 5, color);
+        c.FillRect(22, y, 8, 5, color);
+        c.FillRect(3, y + 1, 6, 3, color * 1.35f);
+        c.FillRect(23, y + 1, 6, 3, color * 1.35f);
+    }
+
+    /// <summary>
+    /// Planeta pod dráhou. Nekreslí se z mapy: v orbitálním pohledu jde
+    /// o měřítko, ne o to, kde přesně hráč staví.
+    /// </summary>
+    private static void Planet(PixelCanvas c)
+    {
+        float r = 54f;
+        c.FillCircle(64f, 64f, r + 4f, new Color(84, 150, 200) * 0.22f);   // atmosféra
+        c.FillCircle(64f, 64f, r, new Color(34, 78, 124));                 // oceán
+        c.FillCircle(56f, 54f, r * 0.5f, new Color(44, 96, 146) * 0.7f);   // světlejší polokoule
+
+        // Pevniny. Pár skvrn stačí — jde o siluetu, ne o zeměpis.
+        c.FillCircle(48f, 46f, 15f, new Color(72, 126, 74));
+        c.FillCircle(60f, 38f, 9f, new Color(84, 140, 82));
+        c.FillCircle(84f, 60f, 13f, new Color(66, 118, 70));
+        c.FillCircle(70f, 88f, 16f, new Color(78, 132, 78));
+        c.FillCircle(40f, 78f, 8f, new Color(70, 122, 72));
+
+        // Polární čepičky a odlesk na okraji.
+        c.FillCircle(64f, 16f, 11f, new Color(226, 236, 242) * 0.8f);
+        c.FillCircle(64f, 112f, 9f, new Color(226, 236, 242) * 0.7f);
+        c.FillCircle(46f, 44f, 6f, new Color(255, 255, 255) * 0.16f);
+    }
+
+    /// <summary>Solární zrcadlo: velká odrazná plocha na krátkém trupu.</summary>
+    private static void SolarMirror(PixelCanvas c)
+    {
+        c.FillRect(12, 12, 8, 8, new Color(148, 152, 160));
+        c.FillCircle(16f, 16f, 3f, new Color(250, 236, 178));
+        Panels(c, 13, new Color(236, 214, 140));
+    }
+
+    /// <summary>Meteorologická: kapkovité tělo a talíř dolů k planetě.</summary>
+    private static void WeatherWatch(PixelCanvas c)
+    {
+        c.FillRect(12, 10, 8, 9, new Color(158, 162, 170));
+        c.FillTriangle(11f, 19f, 21f, 19f, 16f, 25f, new Color(120, 176, 208)); // talíř k Zemi
+        Panels(c, 12, new Color(96, 150, 200));
+    }
+
+    /// <summary>Komunikační: dvě antény do stran a blikající maják.</summary>
+    private static void CommArray(PixelCanvas c)
+    {
+        c.FillRect(13, 12, 6, 10, new Color(150, 154, 162));
+        c.FillCircle(16f, 9f, 2.4f, new Color(240, 160, 140)); // maják
+        c.FillRect(15, 6, 2, 4, new Color(120, 124, 132));
+        Panels(c, 14, new Color(120, 132, 200));
+    }
+
+    /// <summary>Průzkumné oko: dlouhý tubus objektivu namířený dolů.</summary>
+    private static void SurveyEye(PixelCanvas c)
+    {
+        c.FillRect(13, 8, 6, 12, new Color(142, 146, 154));
+        c.FillRect(14, 20, 4, 5, new Color(96, 100, 108));  // tubus
+        c.FillCircle(16f, 25f, 2.6f, new Color(150, 220, 240)); // čočka
+        Panels(c, 11, new Color(110, 170, 180));
+    }
+
+    /// <summary>Orbitální sklad: hranatý modul s doky.</summary>
+    private static void OrbitalDepot(PixelCanvas c)
+    {
+        c.FillRect(10, 11, 12, 11, new Color(168, 164, 152));
+        c.FillRect(10, 11, 12, 3, new Color(198, 194, 182));
+        c.FillRect(7, 14, 3, 5, new Color(132, 128, 118));   // dok
+        c.FillRect(22, 14, 3, 5, new Color(132, 128, 118));
+        c.FillRect(13, 16, 6, 4, new Color(96, 94, 88));     // vrata
+        Panels(c, 24, new Color(150, 160, 176));
+    }
+
+    // ----- obrana -----
+
+    /// <summary>Strážní věž a bašta: týž tvar, jiná výška a mohutnost.</summary>
+    private static void Tower(PixelCanvas c, bool tall)
+    {
+        int top = tall ? 4 : 10;
+        int width = tall ? 16 : 12;
+        int left = 16 - (width / 2);
+
+        c.FillRect(left - 2, 27, width + 4, 4, new Color(122, 114, 98));      // patka
+        c.FillRect(left, top, width, 27 - top, new Color(158, 150, 132));     // trup
+        c.FillRect(left, top, width, 3, new Color(178, 170, 152));
+
+        // Cimbuří — z něj je na první pohled poznat, že to není komín.
+        for (int i = 0; i < width; i += 4)
+        {
+            c.FillRect(left + i, top - 3, 2, 3, new Color(140, 132, 116));
+        }
+
+        c.FillRect(16 - 2, top + 6, 4, 5, new Color(64, 58, 50));             // střílna
+        if (tall)
+        {
+            c.FillRect(left - 3, 14, 3, 13, new Color(140, 132, 116));        // opěráky
+            c.FillRect(left + width, 14, 3, 13, new Color(140, 132, 116));
+        }
+    }
+
+    /// <summary>
+    /// Útočník. Kreslí se v měřítku chodce, ne domu — je to agent na mapě,
+    /// a kdyby byl velký jako budova, vypadal by jako obléhací stroj.
+    /// </summary>
+    private static void Raider(PixelCanvas c, Color cloth)
+    {
+        c.FillCircle(7f, 4f, 2.6f, new Color(216, 178, 148)); // hlava
+        c.FillRect(5, 6, 5, 6, cloth);                        // tělo
+        c.FillRect(4, 12, 2, 2, new Color(72, 60, 50));       // nohy
+        c.FillRect(8, 12, 2, 2, new Color(72, 60, 50));
+        c.FillRect(10, 3, 1, 9, new Color(150, 150, 156));    // zbraň
+    }
+
+    /// <summary>Obr: širší, tmavší a se štítem — má vydržet, ne doběhnout.</summary>
+    private static void Brute(PixelCanvas c)
+    {
+        c.FillCircle(9f, 5f, 3.2f, new Color(198, 162, 134));
+        c.FillRect(5, 8, 9, 7, new Color(104, 82, 72));
+        c.FillRect(4, 15, 3, 3, new Color(62, 52, 44));
+        c.FillRect(11, 15, 3, 3, new Color(62, 52, 44));
+        c.FillRect(1, 7, 4, 8, new Color(136, 128, 112));     // štít
+        c.FillRect(2, 9, 2, 4, new Color(160, 152, 134));
+    }
+
+    /// <summary>Rybář: postava s prutem nataženým nad vodu.</summary>
+    private static void Fisherman(PixelCanvas c)
+    {
+        c.FillCircle(5f, 4f, 2.4f, new Color(216, 178, 148));   // hlava
+        c.FillRect(3, 6, 5, 6, new Color(94, 118, 84));         // tělo
+        c.FillRect(3, 12, 2, 2, new Color(70, 60, 50));         // nohy
+        c.FillRect(6, 12, 2, 2, new Color(70, 60, 50));
+
+        // Prut od ramene šikmo nahoru — z něj je poznat, o co jde.
+        c.FillTriangle(7f, 7f, 8f, 6f, 12f, 1f, new Color(150, 120, 80));
+        c.FillRect(11, 2, 1, 7, new Color(180, 190, 200) * 0.6f); // vlasec
+    }
+
+    // ----- fáze stavby -----
+
+    /// <summary>Základy: výkop, značky a hromádky materiálu.</summary>
+    private static void Foundation(PixelCanvas c)
+    {
+        c.FillRect(3, 20, 26, 10, new Color(92, 78, 62));        // výkop
+        c.FillRect(5, 22, 22, 6, new Color(74, 62, 50));
+        c.FillRect(4, 19, 24, 2, new Color(120, 104, 84));       // obruba
+
+        // Vytyčovací kolíky v rozích — z nich je poznat, co tu poroste.
+        foreach (int x in new[] { 3, 28 })
+        {
+            c.FillRect(x, 14, 1, 6, new Color(180, 160, 120));
+            c.FillRect(x - 1, 13, 3, 2, new Color(220, 190, 120));
+        }
+
+        c.FillRect(8, 15, 7, 4, new Color(140, 120, 96));        // hromada materiálu
+        c.FillRect(18, 16, 6, 3, new Color(126, 108, 88));
+    }
+
+    /// <summary>Hrubá stavba: lešení, nosníky a jeřáb.</summary>
+    private static void Framework(PixelCanvas c)
+    {
+        c.FillRect(3, 26, 26, 4, new Color(104, 92, 74));        // patka
+
+        // Nosníky.
+        var steel = new Color(136, 132, 128);
+        foreach (int x in new[] { 6, 12, 19, 25 })
+        {
+            c.FillRect(x, 10, 2, 16, steel);
+        }
+
+        foreach (int y in new[] { 12, 18, 24 })
+        {
+            c.FillRect(6, y, 21, 1, steel);
+        }
+
+        // Lešení: šikmé vzpěry, ať to nevypadá jako mříž.
+        var wood = new Color(190, 160, 104);
+        c.FillTriangle(6f, 26f, 13f, 26f, 6f, 18f, wood * 0.55f);
+        c.FillTriangle(19f, 26f, 26f, 26f, 26f, 18f, wood * 0.55f);
+
+        // Jeřáb — jediná věc, ze které je na první pohled poznat „staví se".
+        c.FillRect(27, 2, 2, 24, new Color(214, 150, 60));
+        c.FillRect(14, 3, 15, 2, new Color(214, 150, 60));
+        c.FillRect(15, 5, 1, 5, new Color(150, 146, 140));       // lano
+        c.FillRect(13, 10, 5, 3, new Color(160, 140, 110));      // břemeno
+    }
+
     private static void OreIcon(PixelCanvas c, Color ore)
     {
         c.FillCircle(9f, 15f, 6f, new Color(112, 106, 100));

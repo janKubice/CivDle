@@ -47,7 +47,42 @@ public sealed class GameplayScreen : IScreen
     private readonly HarvestableRenderer _harvestables;
     private readonly RoadRenderer _roadRenderer;
     private readonly ZoneRenderer _zoneRenderer;
+    private readonly SubseaRenderer _subseaRenderer;
+    private readonly PowerOverlayRenderer _powerRenderer;
+
+    /// <summary>
+    /// Kruhová nabídka na levou spoušť. Na ovladači a Decku je to hlavní cesta
+    /// k nástrojům — myší se lišta proklikne, palcem ne.
+    /// </summary>
+    private readonly RadialMenu _radial = new();
+
+    /// <summary>Jak moc je vidět pokrytí proudem (0–1). Rozsvěcí se plynule.</summary>
+    private float _powerFade;
+
+    /// <summary>Drží hráč pohled na rozvod proudu zapnutý ručně?</summary>
+    private bool _showPower;
+    private readonly FrontierRenderer _frontierRenderer;
+
+    /// <summary>
+    /// Jak moc je vidět dosah podmořské sítě (0–1). Rozsvěcí se samo, když má
+    /// hráč v ruce podmořskou budovu, a dá se zapnout natrvalo klávesou.
+    /// Plynule, ne skokem: skok při každém výběru budovy trhá celou obrazovkou.
+    /// </summary>
+    private float _subseaFade;
+
+    /// <summary>Drží hráč dosah zapnutý ručně?</summary>
+    private bool _showSubsea;
     private readonly PollutionRenderer _pollutionRenderer;
+    private readonly StallOverlayRenderer _stallOverlay;
+
+    /// <summary>
+    /// Běží inspektor úzkých hrdel? Je to pohled, ne nástroj — nic nemění,
+    /// takže nepatří mezi nástroje a nemá vlastní kurzor.
+    /// </summary>
+    private bool _showBottlenecks;
+
+    /// <summary>Legenda inspektoru; ukazuje se jen se zapnutým pohledem.</summary>
+    private Widget _bottleneckLegend = null!;
     private readonly DistrictRenderer _districtRenderer;
     private readonly LandmarkRenderer _landmarkRenderer;
     private readonly UfoRenderer _ufoRenderer;
@@ -118,6 +153,21 @@ public sealed class GameplayScreen : IScreen
     /// <summary>Závoj přes neprozkoumaný svět — kreslí se až nad mapou a budovami.</summary>
     private readonly FogRenderer _fogRenderer;
     private readonly NpcCityRenderer _npcCityRenderer;
+
+    /// <summary>Přehrávač melodie zvonohry — zvoní, když simulace ohlásí slavnost.</summary>
+    private readonly Audio.CarillonPlayer _carillon;
+
+    /// <summary>Výzdoba slavnosti — girlandy a stoupající lampiony.</summary>
+    private readonly FestivalRenderer _festival;
+
+    /// <summary>Značky anomálií na mapě.</summary>
+    private readonly PoiRenderer _poiRenderer;
+
+    /// <summary>Klády plující po řekách.</summary>
+    private readonly RaftRenderer _raftRenderer;
+
+    /// <summary>Zvuk města podle toho, kam se hráč dívá.</summary>
+    private readonly Audio.SpatialSoundscape _cityAudio;
     private readonly BubbleSystem _bubbles;
     private readonly CaravanSystem _caravans;
     private readonly GoldenSpawnSystem _golden;
@@ -202,6 +252,9 @@ public sealed class GameplayScreen : IScreen
     private Label _powerLabel = null!;
     private Label _weatherLabel = null!;
     private Label _seasonLabel = null!;
+
+    /// <summary>Stav bitvy v HUDu; <c>null</c> mimo režim obrany.</summary>
+    private Label? _frontierLabel;
     private Label _toolsLabel = null!;
     private Label _pollutionLabel = null!;
 
@@ -246,6 +299,10 @@ public sealed class GameplayScreen : IScreen
     private const int BuildMenuMaxWidth = 1180;
 
     private Widget _buildMenuPanel = null!;
+
+    /// <summary>Hledání ve stavebním katalogu — devadesát budov se očima neprojde.</summary>
+    private SearchIndex _buildSearch = new(Array.Empty<string>());
+    private TextBox _buildSearchBox = null!;
     private Widget _statusPanel = null!;
     private HorizontalStackPanel _roadModePanel = null!;
     private Button _roadAddButton = null!;
@@ -346,7 +403,11 @@ public sealed class GameplayScreen : IScreen
         _harvestables = new HarvestableRenderer(screens.Sprites, screens.Content);
         _roadRenderer = new RoadRenderer(screens.WhitePixel, screens.Content);
         _zoneRenderer = new ZoneRenderer(screens.WhitePixel, screens.Content);
+        _subseaRenderer = new SubseaRenderer(screens.WhitePixel);
+        _powerRenderer = new PowerOverlayRenderer(screens.WhitePixel);
+        _frontierRenderer = new FrontierRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
         _pollutionRenderer = new PollutionRenderer(screens.WhitePixel, screens.Content);
+        _stallOverlay = new StallOverlayRenderer(screens.WhitePixel, screens.Content);
         _landmarkRenderer = new LandmarkRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
         _ufoRenderer = new UfoRenderer(screens.WhitePixel);
         _sounds = screens.Sounds;
@@ -370,6 +431,7 @@ public sealed class GameplayScreen : IScreen
         _fogRenderer = new FogRenderer(screens.WhitePixel);
         _bubbles = new BubbleSystem(screens.Sprites, screens.Content);
         _caravans = new CaravanSystem(screens.Sprites, screens.Content);
+        _caravans.UseFriends(screens.Friends);
         _golden = new GoldenSpawnSystem(screens.Sprites, screens.Content);
         _discoveries = new DiscoveryRenderer(screens.Sprites);
         // Pozor na pořadí: všechno pod tímhle řádkem si font drží, takže se to
@@ -377,9 +439,15 @@ public sealed class GameplayScreen : IScreen
         _popupFont = Stylesheet.Current.LabelStyle.Font;
         _might = new MightBanner(screens.WhitePixel, _popupFont, screens.Loc);
         _toasts = new ToastRenderer(screens.WhitePixel, _popupFont);
-        _cityScale = new CityScaleRenderer(screens.WhitePixel, _popupFont);
+        _cityScale = new CityScaleRenderer(screens.WhitePixel, _popupFont, screens.GraphicsDevice);
         _districtRenderer = new DistrictRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont);
         _npcCityRenderer = new NpcCityRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont);
+        _carillon = new Audio.CarillonPlayer(screens.Sounds, screens.Content.Carillon.NoteSeconds);
+        _carillon.Resync(simulation); // načtená hra nemá uvítat melodií za dávnou slavnost
+        _festival = new FestivalRenderer(screens.WhitePixel);
+        _poiRenderer = new PoiRenderer(screens.Sprites, screens.WhitePixel);
+        _raftRenderer = new RaftRenderer(screens.Sprites, screens.WhitePixel);
+        _cityAudio = new Audio.SpatialSoundscape(screens.Content);
 
         var viewport = screens.GraphicsDevice.Viewport;
         _camera.SetViewport(viewport.Width, viewport.Height);
@@ -430,6 +498,8 @@ public sealed class GameplayScreen : IScreen
 
         // Kulisa podle biomu a počasí — atmosféra stála skoro jen na obraze.
         _soundscape.Update(dt, _simulation);
+        _carillon.Update(dt, _simulation);
+        _cityAudio.Update(dt, _camera, _simulation);
         _hoverSeconds += dt;
         _unsavedPlaySeconds += dt;
 
@@ -504,6 +574,36 @@ public sealed class GameplayScreen : IScreen
             return;
         }
 
+        // B: inspektor úzkých hrdel. Samotné písmeno schválně — je to pohled,
+        // do kterého hráč skáče a zase z něj vyskakuje, ne obscurní nástroj.
+        if (_input.WasPressed(Keys.B))
+        {
+            _showBottlenecks = !_showBottlenecks;
+            _bottleneckLegend.Visible = _showBottlenecks;
+        }
+
+        // Ctrl+Z: vrátit poslední akci. S modifikátorem schválně — samotné Z je
+        // moc blízko WASD a stavěl by se dům, který se hned zase zboural.
+        if (_input.WasPressed(Keys.Z) && (_input.IsDown(Keys.LeftControl) || _input.IsDown(Keys.RightControl)))
+        {
+            UndoLastAction();
+        }
+
+        // E: pokrytí proudem. Sám se ukáže, když má hráč v ruce elektrárnu
+        // nebo budovu, která proud potřebuje — tehdy je to jediná informace,
+        // podle které se rozhoduje kam.
+        if (_input.WasPressed(Keys.E) && _screens.Content.Gameplay.Power.IsEnabled)
+        {
+            _showPower = !_showPower;
+        }
+
+        // M: dosah podmořské sítě. Sám se ukáže, když má hráč v ruce budovu na
+        // dno — tohle je pro chvíli, kdy se teprve rozmýšlí, kam s přístavem.
+        if (_input.WasPressed(Keys.M) && _simulation.Subsea.IsEnabled)
+        {
+            _showSubsea = !_showSubsea;
+        }
+
         // Start otevře pauzu, Y stavební menu — bez nich by ovladač uměl jen
         // chodit po mapě.
         if (_input.WasPadPressed(GamePadMap.Pause))
@@ -576,9 +676,11 @@ public sealed class GameplayScreen : IScreen
             _agents.Update(worldDt, _camera, _simulation);
             _airTraffic.Update(worldDt, _camera, _simulation);
             _bubbles.Update(worldDt, _simulation);
+            _festival.Update(worldDt, _camera, _simulation);
             UpdateCaravan(worldDt);
             _golden.Update(worldDt, _camera, _simulation);
             _discoveries.Update(worldDt);
+            _poiRenderer.Update(worldDt);
         }
 
         // Cheaty se udržují herním časem: v pauze se nic nedosypává a záběr,
@@ -591,6 +693,9 @@ public sealed class GameplayScreen : IScreen
             _take.Record(_takeTime, _camera.Position, _camera.Zoom);
         }
 
+        UpdateSubseaOverlay(dt);
+        UpdatePowerOverlay(dt);
+        _radial.Update(_input, Microsoft.Xna.Framework.Input.GamePad.GetState(PlayerIndex.One));
         CollectCapturedTemplate();
         _urbanGround.Update(worldDt, _simulation);
         _buildingRenderer.Update(worldDt); // balony nad kotvišti se houpou
@@ -616,6 +721,11 @@ public sealed class GameplayScreen : IScreen
         _decorationRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
         _urbanGround.Draw(spriteBatch, _camera); // zpevněná zem, aby zeleň zbyla jen v parcích
         _zoneRenderer.Draw(spriteBatch, _camera, _simulation); // tint zón na zemi, pod budovami
+        // Dosah podmořské sítě patří nad vodu, ale pod všechno ostatní —
+        // je to informace o ploše, ne o tom, co na ní stojí.
+        _subseaRenderer.Draw(spriteBatch, _camera, _simulation, _subseaFade);
+        // Rozvod proudu taky na zem, pod budovy — je to informace o ploše.
+        _powerRenderer.Draw(spriteBatch, _camera, _simulation, _powerFade);
         _districtRenderer.Draw(spriteBatch, _camera, _simulation); // tvář čtvrtí, taky na zemi
         // Landmarky jen zblízka (LOD): z výšky jsou stejně pod rozlišením a dotaz
         // na desítky tisíc dlaždic by zbytečně žral snímky.
@@ -635,14 +745,19 @@ public sealed class GameplayScreen : IScreen
         {
             _harvestables.Draw(spriteBatch, _camera, _simulation);
             _discoveries.Draw(spriteBatch, _camera, _simulation);
+            _poiRenderer.Draw(spriteBatch, _camera, _simulation);
             _roadRenderer.Draw(spriteBatch, _camera, _simulation);
             // Provoz patří NAD silnici a POD budovy — auto má zajet za dům, ne přes něj.
             _traffic.Draw(spriteBatch, _screens.WhitePixel, _camera, DayNightCycle.NightFactor(_simulation.TimeOfDay01));
+            _raftRenderer.Draw(spriteBatch, _camera, _simulation);
             _buildingRenderer.Draw(spriteBatch, _camera, _simulation);
             // Kouř nad střechy, ptáci nad krajinu. Vydrží dál než chodci, takže
             // scéna nezmrzne hned, jak hráč trochu odjede kamerou.
             _ambientLife.Draw(spriteBatch, _camera, _simulation);
             _agents.Draw(spriteBatch, _camera);
+            // Útočníci mezi chodce a faunu: chodí po zemi jako oni. Mimo režim
+            // obrany je to prázdné volání, které se vrátí na prvním řádku.
+            _frontierRenderer.Draw(spriteBatch, _camera, _simulation);
             _fauna.Draw(spriteBatch, _screens.WhitePixel, _camera);
             // Letouny až za pozemní kulisou — mají letět NAD vším, co stojí na zemi.
             _airTraffic.Draw(spriteBatch, _camera);
@@ -650,6 +765,7 @@ public sealed class GameplayScreen : IScreen
             _caravans.Draw(spriteBatch, _camera);
             _golden.Draw(spriteBatch, _camera);
             _spectacles.Draw(spriteBatch, _screens.WhitePixel, _camera, _simulation);
+            _festival.Draw(spriteBatch, _camera, _simulation);
             _fireworks.Draw(spriteBatch, _screens.WhitePixel, _camera);
             _laser.Draw(spriteBatch, _screens.WhitePixel, _camera);
         }
@@ -665,6 +781,13 @@ public sealed class GameplayScreen : IScreen
         // Závoj zamoření nad městem, ale pod událostmi a efekty: špína leží
         // na krajině, nemá zakrývat, co se zrovna děje.
         _pollutionRenderer.Draw(spriteBatch, _camera, _simulation);
+
+        // Inspektor až nad zamořením: je to odpověď na otázku „co stojí",
+        // a ta má překrýt všechno ostatní, dokud si ji hráč nevypne.
+        if (_showBottlenecks)
+        {
+            _stallOverlay.Draw(spriteBatch, _camera, _simulation);
+        }
 
         // Cedule čtvrtí až nad zástavbu — jméno místa má být čitelné i tam,
         // kde je pod ním nejhustěji postaveno.
@@ -865,6 +988,10 @@ public sealed class GameplayScreen : IScreen
         DrawTileTooltip(spriteBatch);
         _toasts.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, ToastListTop());
 
+        // Kruhová nabídka nad vším ostatním kromě oslav — když je otevřená,
+        // je to jediné, co hráč zrovna dělá.
+        _radial.Draw(spriteBatch, _screens.WhitePixel, _screens.GraphicsDevice.Viewport, _popupFont);
+
         // Oslava milníku úplně navrchu — je to ta nejdůležitější zpráva na obrazovce.
         spriteBatch.Begin();
         _celebration.Draw(spriteBatch, _screens.WhitePixel, _popupFont, _screens.GraphicsDevice.Viewport);
@@ -889,11 +1016,39 @@ public sealed class GameplayScreen : IScreen
     /// Uloží sdílitelnou kartu a řekne hráči kam. Bez té hlášky by obrázek
     /// vznikl někde, kde ho nikdo nenajde.
     /// </summary>
+    /// <summary>
+    /// Vrátí poslední hráčovu akci a řekne, jak to dopadlo.
+    ///
+    /// <para>Odmítnutí se <b>hlásí</b>, ne mlčí. „Zmáčkl jsem zpět a nic se
+    /// nestalo" je horší než „nejde to, protože tam mezitím něco stojí" —
+    /// v prvním případě hráč mačká dál a myslí si, že je rozbitá hra.</para>
+    /// </summary>
+    private void UndoLastAction()
+    {
+        var loc = _screens.Loc;
+        switch (_simulation.TryUndo())
+        {
+            case UndoResult.Ok:
+                _toasts.Add(loc["undo.done"], UiPalette.TextBright);
+                RefreshBuildMenu();
+                break;
+            case UndoResult.Empty:
+                _toasts.Add(loc["undo.empty"], UiPalette.Text);
+                break;
+            case UndoResult.WorldChanged:
+                _toasts.Add(loc["undo.worldChanged"], UiPalette.Warn);
+                break;
+            case UndoResult.NotEnoughResources:
+                _toasts.Add(loc["undo.tooPoor"], UiPalette.Warn);
+                break;
+        }
+    }
+
     private void SaveShareCard(bool fullDetail = false)
     {
         var settings = _screens.Settings;
         var options = Capture.ShareCardOptions.For(
-            settings.CaptureResolution, settings.CaptureStrip, fullDetail);
+            settings.CaptureResolution, settings.CaptureStrip, fullDetail, settings.CaptureTiltShift);
 
         try
         {
@@ -945,7 +1100,8 @@ public sealed class GameplayScreen : IScreen
         {
             var settings = _screens.Settings;
             var options = Capture.ShareCardOptions.For(
-                settings.CaptureResolution, withStrip: false, fullDetail: true);
+                settings.CaptureResolution, withStrip: false, fullDetail: true,
+                tiltShift: settings.CaptureTiltShift);
 
             string directory = Path.Combine(
                 _screens.Saves.ShareDirectory, $"video-{DateTime.Now:yyyyMMdd-HHmmss}");
@@ -1174,14 +1330,60 @@ public sealed class GameplayScreen : IScreen
         _screens.Loc.LanguageChanged -= BuildUi;
         _screens.UiSettingsChanged -= BuildUi;
         _terrainRenderer.Dispose();
+        _cityScale.Dispose(); // upečené textury hustoty
         _minimap.Dispose();
         _vignette.Dispose();
         _ambient.Dispose();
         _soundscape.Stop();
         _soundscape.Dispose();
+        _cityAudio.Stop();
+        _cityAudio.Dispose();
     }
 
     // ----- vstup -----
+
+    /// <summary>
+    /// Rozsvítí a zhasne dosah podmořské sítě.
+    ///
+    /// <para>Sám se ukáže, jakmile má hráč v ruce budovu na dno — v tu chvíli
+    /// je to jediná informace, kterou potřebuje. Klávesou se dá zapnout
+    /// natrvalo, když si teprve vybírá místo pro přístav.</para>
+    ///
+    /// <para>Běží reálným časem, ne herním: je to prvek rozhraní, a v pauze
+    /// nemá zamrznout napůl rozsvícený.</para>
+    /// </summary>
+    private void UpdateSubseaOverlay(float dt)
+    {
+        const float FadeSpeed = 5f;
+
+        bool wanted = _showSubsea
+            || (_tools.SelectedBuilding >= 0
+                && _screens.Content.Buildings[_tools.SelectedBuilding].IsSubsea);
+
+        float target = wanted ? 1f : 0f;
+        _subseaFade = MathHelper.Clamp(
+            _subseaFade + Math.Sign(target - _subseaFade) * FadeSpeed * dt, 0f, 1f);
+    }
+
+    /// <summary>
+    /// Rozsvítí a zhasne pohled na rozvod proudu. Stejně jako u podmoří:
+    /// sám při budově, které se to týká, klávesou natrvalo.
+    /// </summary>
+    private void UpdatePowerOverlay(float dt)
+    {
+        const float FadeSpeed = 5f;
+
+        bool wanted = _showPower;
+        if (!wanted && _tools.SelectedBuilding >= 0)
+        {
+            var def = _screens.Content.Buildings[_tools.SelectedBuilding];
+            wanted = def.PowerSupply > 0 || def.PowerDemand > 0;
+        }
+
+        float target = wanted && _screens.Content.Gameplay.Power.IsEnabled ? 1f : 0f;
+        _powerFade = MathHelper.Clamp(
+            _powerFade + Math.Sign(target - _powerFade) * FadeSpeed * dt, 0f, 1f);
+    }
 
     private void UpdateCamera(float dt, bool mouseOverUi)
     {
@@ -1398,8 +1600,14 @@ public sealed class GameplayScreen : IScreen
         // na ni klika, a hráč po ní klika záměrně.
         if (_caravans.TryEscort(world, out var caravanPos))
         {
+            // Když karavanu veze kamarád, řekne se to jménem. Je to jediné
+            // místo, kde se ve hře objeví jiný člověk — nemá zapadnout.
+            string escort = _caravans.Driver is { } driver
+                ? _screens.Loc.Format("hud.escortFriend", driver.Name)
+                : _screens.Loc["hud.escort"];
+
             _floatingText.Add(caravanPos - new Vector2(0f, TerrainRenderer.TileSize * 0.5f),
-                _screens.Loc["hud.escort"], UiPalette.TextBright);
+                escort, UiPalette.TextBright);
             _particles.SpawnBurst(caravanPos, UiPalette.TextBright, 8, 40f, 130f);
             return;
         }
@@ -1421,6 +1629,15 @@ public sealed class GameplayScreen : IScreen
         {
             var center = new Vector2((tileX + 0.5f) * TerrainRenderer.TileSize, (tileY + 0.5f) * TerrainRenderer.TileSize);
             CollectFeedback(discRes, discAmt, center);
+            return;
+        }
+
+        // Anomálie je před budovou i městem: leží mimo zástavbu, takže si
+        // s ničím nekonkuruje, a je to jediná věc na mapě, která na hráče
+        // čeká — nemá se schovat za nic jiného.
+        if (_simulation.PointsOfInterest.TryPick(tileX, tileY, out var anomaly))
+        {
+            _screens.Push(new ExpeditionScreen(_screens, _simulation, anomaly));
             return;
         }
 
@@ -1511,10 +1728,18 @@ public sealed class GameplayScreen : IScreen
     }
 
     /// <summary>Zpětná vazba na posbíranou bublinu / zlatý spawn: zlatý popup, jiskry, cinknutí.</summary>
+    /// <param name="resourceIndex">
+    /// Záporný index znamená, že odměnou nebyly suroviny, ale slavnost —
+    /// zlatý fénix. Bez téhle větve by se hra pokusila sáhnout do registru
+    /// surovin mimo rozsah a spadla by přesně ve chvíli odměny.
+    /// </param>
     private void CollectFeedback(int resourceIndex, int amount, Vector2 worldPos)
     {
         var color = UiPalette.TextBright;
-        _floatingText.Add(worldPos, $"+{amount} {_screens.Loc[_screens.Content.Resources[resourceIndex].NameKey]}", color);
+        string text = resourceIndex < 0
+            ? _screens.Loc["golden.festival"]
+            : $"+{amount} {_screens.Loc[_screens.Content.Resources[resourceIndex].NameKey]}";
+        _floatingText.Add(worldPos, text, color);
         _particles.SpawnBurst(worldPos, color, 16, 55f, 190f);
         _sounds.PlayChime();
     }
@@ -1563,6 +1788,31 @@ public sealed class GameplayScreen : IScreen
         }
 
         return Vector2.Zero;
+    }
+
+    /// <summary>
+    /// Stav bitvy v HUD: buď kolik nepřátel je na mapě, nebo za jak dlouho
+    /// přijde další vlna. To druhé je důležitější — je to čas, který má hráč
+    /// na to postavit další věž.
+    /// </summary>
+    private void UpdateFrontierLabel(Localization loc)
+    {
+        if (_frontierLabel is null)
+        {
+            return;
+        }
+
+        var frontier = _simulation.Frontier;
+        if (frontier.Count > 0)
+        {
+            _frontierLabel.Text = loc.Format("frontier.enemies", frontier.Count);
+            _frontierLabel.TextColor = UiPalette.Bad;
+            return;
+        }
+
+        double seconds = Math.Max(0, frontier.NextWaveTick - _simulation.TickCount) / Simulation.TicksPerSecond;
+        _frontierLabel.Text = loc.Format("frontier.calm", DurationFormat.Human(seconds));
+        _frontierLabel.TextColor = UiPalette.TextDim;
     }
 
     /// <summary>
@@ -1818,6 +2068,12 @@ public sealed class GameplayScreen : IScreen
         }
 
         _rateTimer = 0f;
+        RefreshResourceTooltips();
+        if (_showBottlenecks)
+        {
+            RefreshBottleneckCounts();
+        }
+
         WarnAboutFullStorage(dt);
     }
 
@@ -2062,6 +2318,8 @@ public sealed class GameplayScreen : IScreen
                 MinWidth = RateLabelWidth,
             };
             chip.Widgets.Add(_resourceRateLabels[i]);
+            // Bublina se přepisuje průběžně (viz RefreshResourceTooltips) —
+            // bilance je živé číslo, ne popis budovy.
             chip.Tooltip = ResourceTooltip(i);
             // Neznámá surovina se v pruhu vůbec neukáže — hra nesmí prozrazovat
             // obsah, ke kterému se hráč ještě nedostal (odhalí se získáním).
@@ -2138,6 +2396,35 @@ public sealed class GameplayScreen : IScreen
         _dayLabel = new Label { TextColor = UiFactory.Accent, Tooltip = loc["tip.day"] };
         _cursorLabel = new Label { TextColor = Color.LightGray };
         var worldInfoStack = new VerticalStackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Right };
+
+        // Cedulka pískoviště je první a je vidět pořád. Hráč musí mít po ruce
+        // odpověď na „proč se mi neodemykají achievementy" dřív, než se na to
+        // stihne zeptat — a po načtení savu po týdnu si sám nevzpomene, jakou
+        // hru to tehdy zakládal.
+        if (_simulation.Sandbox)
+        {
+            worldInfoStack.Widgets.Add(new Label
+            {
+                Text = loc["hud.sandbox"],
+                TextColor = UiPalette.Warn,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Tooltip = loc["tip.sandbox"],
+            });
+        }
+
+        // Stav obrany je v HUDu jen v zapnutém režimu — jinde by to byl řádek
+        // o mechanice, kterou hráč nemá.
+        if (_simulation.FrontierDefense)
+        {
+            _frontierLabel = new Label
+            {
+                TextColor = UiPalette.Warn,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Tooltip = loc["tip.frontier"],
+            };
+            worldInfoStack.Widgets.Add(_frontierLabel);
+        }
+
         worldInfoStack.Widgets.Add(_eraLabel);
         worldInfoStack.Widgets.Add(_eraNextLabel);
         worldInfoStack.Widgets.Add(_tierLabel);
@@ -2175,6 +2462,25 @@ public sealed class GameplayScreen : IScreen
         _buildItemsPanel = new HorizontalStackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
 
         var buildStack = new VerticalStackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
+
+        // Hledání nad záložkami: při zapsaném dotazu se kategorie přeskočí
+        // a hledá se napříč celým katalogem. Kdo hledá "pila", nechce napřed
+        // uhodnout, jestli patří pod výrobu nebo pod sklady.
+        var searchRow = new HorizontalStackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
+        searchRow.Widgets.Add(new Label
+        {
+            Text = loc["search.label"],
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        _buildSearchBox = new TextBox { Width = 220 };
+        _buildSearchBox.TextChanged += (_, _) =>
+        {
+            _buildSearch.Search(_buildSearchBox.Text);
+            PopulateBuildItems();
+        };
+        searchRow.Widgets.Add(_buildSearchBox);
+        buildStack.Widgets.Add(searchRow);
+
         buildStack.Widgets.Add(_buildCategoryPanel);
 
         // S hodně odemčenými budovami se řada nevešla na obrazovku a ty za
@@ -2261,6 +2567,11 @@ public sealed class GameplayScreen : IScreen
         bottomBar.Widgets.Add(BuildToolButtons());
 
         var root = new Panel();
+        // Legenda inspektoru: bez ní je barevná mapa hádanka. Skrytá, dokud
+        // si hráč pohled nezapne.
+        _bottleneckLegend = BuildBottleneckLegend();
+        root.Widgets.Add(_bottleneckLegend);
+
         root.Widgets.Add(topLeft);
         root.Widgets.Add(topRight);
 
@@ -2472,6 +2783,8 @@ public sealed class GameplayScreen : IScreen
         var grid = IconGrid(columns);
         int slot = 0;
 
+        BuildRadialMenu(loc);
+
         _speedBadge = UiFactory.ToolButtonWithBadge(Ico("ui.play"), loc["tip.speed"], () =>
         {
             _speed.Next();
@@ -2537,6 +2850,35 @@ public sealed class GameplayScreen : IScreen
                 () => _screens.Push(new GrandWorkScreen(_screens, _simulation))), slot++, columns);
         }
 
+        // Orbita se v liště objeví, teprve až stojí kosmodrom. Dřív by to byl
+        // odkaz na obrazovku, ze které se nedá nic udělat — a koncová meta se
+        // nemá ohlašovat dvě éry předem.
+        if (_simulation.HasLaunchSite)
+        {
+            Place(grid, UiFactory.ToolButton(
+                Ico("orbit.planet"), loc["hud.orbit"] + '\n' + loc["tip.orbit"],
+                () => _screens.Push(new OrbitScreen(_screens, _simulation))), slot++, columns);
+        }
+
+        // Osobnosti až od chvíle, kdy se první někdo narodil. Prázdný seznam
+        // v liště by jen sliboval mechaniku, na kterou hráč nemá jak dosáhnout.
+        if (_simulation.Figures.Remembered.Count > 0)
+        {
+            Place(grid, UiFactory.ToolButton(
+                Ico("ui.figures"), loc["figures.title"] + '\n' + loc["tip.figures"],
+                () => _screens.Push(new FiguresScreen(_screens, _simulation))), slot++, columns);
+        }
+
+        // Doktríny až s prvními body: dokud hráč nemá za co, je to obrazovka
+        // se třemi zamčenými cestami a jedním zklamáním.
+        if (_screens.Content.Doctrines.IsEnabled
+            && (_simulation.PrestigePoints > 0 || _simulation.Doctrine is not null))
+        {
+            Place(grid, UiFactory.ToolButton(
+                Ico("ui.doctrines"), loc["doctrines.title"] + '\n' + loc["tip.doctrines"],
+                () => _screens.Push(new DoctrinesScreen(_screens, _simulation))), slot++, columns);
+        }
+
         // Odkaz se ukáže až po prvním Vzestupu — vrstva nad mechanikou, kterou
         // hráč ještě nezná, by byla jen matoucí tlačítko navíc.
         if (_simulation.LegacyAvailable)
@@ -2551,6 +2893,24 @@ public sealed class GameplayScreen : IScreen
             Place(grid, UiFactory.ToolButton(
                 Ico("ui.stats"), loc["hud.stats"] + '\n' + loc["tip.stats"],
                 () => _screens.Push(new StatsScreen(_screens, _simulation.History))), slot++, columns);
+        }
+
+        // Zvonohra se v liště ukáže, teprve až nějaká stojí — do prázdna se
+        // melodie skládá blbě.
+        if (_simulation.HasCarillon)
+        {
+            Place(grid, UiFactory.ToolButton(
+                Ico("ui.carillon"), loc["carillon.title"] + '\n' + loc["tip.carillon"],
+                () => _screens.Push(new CarillonScreen(_screens, _simulation, _carillon))), slot++, columns);
+        }
+
+        // Kronika stojí vedle statistik schválně: obojí čte tentýž časosběr,
+        // jen jedno odpovídá na „kolik" a druhé na „co se stalo".
+        if (_simulation.HistoryEnabled && _screens.Content.Chronicle.IsEnabled)
+        {
+            Place(grid, UiFactory.ToolButton(
+                Ico("ui.chronicle"), loc["chronicle.page.title"] + '\n' + loc["tip.chroniclePage"],
+                () => _screens.Push(new ChroniclePageScreen(_screens, _simulation))), slot++, columns);
         }
 
         // Achievementy a žebříčky v demu nejsou. Zůstávají v liště zamčené,
@@ -2904,6 +3264,110 @@ public sealed class GameplayScreen : IScreen
     /// Popisek suroviny u kurzoru: kdo ji vyrábí a kdo ji spotřebovává. Skládá se
     /// z definic budov, takže nová surovina v JSON dostane vysvětlení sama.
     /// </summary>
+    /// <summary>
+    /// Legenda inspektoru úzkých hrdel: barva, co znamená a kolik budov v tom
+    /// stavu právě je.
+    ///
+    /// <para>Počty jsou tam schválně. Barevná mapa řekne „kde", ale ne „čeho
+    /// je nejvíc" — a hráč se rozhoduje podle toho, co se vyplatí řešit jako
+    /// první, ne podle nejbližší červené skvrny.</para>
+    /// </summary>
+    private Widget BuildBottleneckLegend()
+    {
+        var loc = _screens.Loc;
+        var rows = new VerticalStackPanel { Spacing = 4 };
+        rows.Widgets.Add(new Label { Text = loc["inspector.title"], TextColor = UiPalette.TextBright });
+
+        _legendCounts = new Label[StallOverlayRenderer.Legend.Count];
+        for (int i = 0; i < StallOverlayRenderer.Legend.Count; i++)
+        {
+            var (key, color) = StallOverlayRenderer.Legend[i];
+            var row = new HorizontalStackPanel { Spacing = 8 };
+            row.Widgets.Add(new Panel
+            {
+                Width = 14,
+                Height = 14,
+                VerticalAlignment = VerticalAlignment.Center,
+                Background = new SolidBrush(color),
+            });
+            row.Widgets.Add(new Label { Text = loc[key], VerticalAlignment = VerticalAlignment.Center });
+            _legendCounts[i] = new Label
+            {
+                TextColor = UiPalette.TextDim,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            row.Widgets.Add(_legendCounts[i]);
+            rows.Widgets.Add(row);
+        }
+
+        rows.Widgets.Add(new Label { Text = loc["inspector.hint"], TextColor = UiPalette.TextFaint });
+
+        var panel = UiFactory.DarkPanel(rows);
+
+        // Vlevo dole, ne uprostřed: střed levé strany drží sledovač úkolů
+        // a legenda se pod něj schovala. Spodní okraj je jediné místo, kde
+        // v této hře nic trvale nesedí — dolní lišta je vystředěná.
+        panel.HorizontalAlignment = HorizontalAlignment.Left;
+        panel.VerticalAlignment = VerticalAlignment.Bottom;
+        panel.Margin = new Myra.Graphics2D.Thickness(0, 0, 0, 96);
+        panel.Visible = false;
+        return panel;
+    }
+
+    private Label[] _legendCounts = Array.Empty<Label>();
+
+    /// <summary>
+    /// Přepočítá, kolik budov je v kterém stavu. Běží jen se zapnutým
+    /// inspektorem a na nízké frekvenci — je to průchod všemi budovami.
+    /// </summary>
+    private void RefreshBottleneckCounts()
+    {
+        Span<int> counts = stackalloc int[StallOverlayRenderer.Legend.Count];
+        var buildings = _simulation.Buildings;
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            int slot = StallOverlayRenderer.LegendSlot(
+                _simulation, buildings[i], _screens.Content.Buildings[buildings[i].DefIndex]);
+            counts[slot]++;
+        }
+
+        for (int i = 0; i < _legendCounts.Length; i++)
+        {
+            _legendCounts[i].Text = counts[i].ToString();
+        }
+    }
+
+    /// <summary>
+    /// Tok se znaménkem. Nula se píše jako nula, ne jako „+0" — jinak by
+    /// vyrovnaná bilance vypadala jako drobný zisk.
+    /// </summary>
+    internal static string Flow(double perSecond)
+    {
+        string number = CivDle.Core.Numbers.Format(Math.Abs(perSecond));
+        return perSecond > 0.005 ? "+" + number
+            : perSecond < -0.005 ? "-" + number
+            : number;
+    }
+
+    /// <summary>
+    /// Přepíše bubliny surovin aktuální bilancí.
+    ///
+    /// <para>Volá se na nízké frekvenci, ne každý snímek: skládá se z ní text
+    /// se seznamy budov a dělat to šedesátkrát za vteřinu pro každou surovinu
+    /// by byla čirá práce navíc — bublinu stejně vidí jen ta jedna, nad kterou
+    /// je kurzor.</para>
+    /// </summary>
+    private void RefreshResourceTooltips()
+    {
+        for (int i = 0; i < _resourceChips.Length; i++)
+        {
+            if (_resourceChips[i].Visible)
+            {
+                _resourceChips[i].Tooltip = ResourceTooltip(i);
+            }
+        }
+    }
+
     private string ResourceTooltip(int resourceIndex)
     {
         var loc = _screens.Loc;
@@ -2923,6 +3387,27 @@ public sealed class GameplayScreen : IScreen
         }
 
         var text = new System.Text.StringBuilder(loc[content.Resources[resourceIndex].NameKey]);
+
+        // Bilance nahoře, seznamy budov až pod ní. Hráč se dívá kvůli otázce
+        // „proč mi to nepřibývá" — odpověď musí být první řádek, ne poslední.
+        var ledger = _simulation.Ledger;
+        double made = ledger.ProducedPerSecond(resourceIndex);
+        double used = ledger.ConsumedPerSecond(resourceIndex);
+        double lost = ledger.WastedPerSecond(resourceIndex);
+        if (made > 0.005 || used > 0.005)
+        {
+            text.Append('\n').Append(loc.Format("tip.resource.production", Flow(made)));
+            text.Append('\n').Append(loc.Format("tip.resource.consumption", Flow(used)));
+            text.Append('\n').Append(loc.Format("tip.resource.net", Flow(made - used)));
+        }
+
+        // Propad se hlásí, jen když se doopravdy děje — je to výzva postavit
+        // sklad, ne trvalý řádek do inventáře.
+        if (lost > 0.005)
+        {
+            text.Append('\n').Append(loc.Format("tip.resource.wasted", Flow(lost)));
+        }
+
         if (producers.Count > 0)
         {
             text.Append('\n').Append(loc.Format("tip.resource.producedBy", string.Join(", ", producers.Take(6))));
@@ -2961,6 +3446,7 @@ public sealed class GameplayScreen : IScreen
             _selectedCategory = categories[0];
         }
 
+        RebuildBuildSearchIndex();
         PopulateCategoryTabs(categories);
         PopulateBuildItems();
     }
@@ -3024,13 +3510,73 @@ public sealed class GameplayScreen : IScreen
         _buildButtons.Clear();
         for (int i = 0; i < content.Buildings.Count; i++)
         {
-            if (_simulation.IsBuildingBuildable(i) && content.Buildings[i].Category == _selectedCategory)
+            if (!_simulation.IsBuildingBuildable(i))
+            {
+                continue;
+            }
+
+            // Při hledání kategorie nerozhoduje: dotaz je silnější filtr než
+            // záložka a nutit hráče trefit obojí by hledání zabilo.
+            bool passes = _buildSearch.IsFiltering
+                ? _buildSearch.IsMatch(i)
+                : content.Buildings[i].Category == _selectedCategory;
+
+            if (passes)
             {
                 _buildItemsPanel.Widgets.Add(BuildingButton(i));
             }
         }
 
         RefreshBuildAffordability();
+    }
+
+    /// <summary>
+    /// Postaví rejstřík stavebního katalogu.
+    ///
+    /// <para>Kromě jména se hledá i v <b>surovinách, které budova vyrábí nebo
+    /// spotřebuje</b>. Hráč obvykle neřeší budovu, ale surovinu: „potřebuju
+    /// prkna" má najít pilu, i když si nevzpomene, jak se jmenuje.</para>
+    ///
+    /// <para>Nestavitelné budovy dostanou prázdný text, takže se nedají najít —
+    /// katalog nesmí prozrazovat obsah, ke kterému se hráč nedostal.</para>
+    /// </summary>
+    private void RebuildBuildSearchIndex()
+    {
+        var loc = _screens.Loc;
+        var content = _screens.Content;
+        var entries = new string[content.Buildings.Count];
+
+        for (int i = 0; i < content.Buildings.Count; i++)
+        {
+            if (!_simulation.IsBuildingBuildable(i))
+            {
+                entries[i] = string.Empty;
+                continue;
+            }
+
+            var def = content.Buildings[i];
+            var text = new System.Text.StringBuilder();
+            text.Append(loc[def.NameKey]).Append(' ').Append(def.Id);
+            text.Append(' ').Append(loc[$"category.{def.Category}"]);
+
+            if (def.Recipe is { } recipe)
+            {
+                foreach (var output in recipe.Outputs)
+                {
+                    text.Append(' ').Append(loc[content.Resources[output.ResourceIndex].NameKey]);
+                }
+
+                foreach (var input in recipe.Inputs)
+                {
+                    text.Append(' ').Append(loc[content.Resources[input.ResourceIndex].NameKey]);
+                }
+            }
+
+            entries[i] = text.ToString();
+        }
+
+        _buildSearch = new SearchIndex(entries);
+        _buildSearch.Search(_buildSearchBox?.Text);
     }
 
     /// <summary>
@@ -3536,6 +4082,7 @@ public sealed class GameplayScreen : IScreen
         }
 
         UpdateSeasonLabel(loc);
+        UpdateFrontierLabel(loc);
         UpdateToolsLabel(loc);
         UpdatePollutionLabel(loc);
         UpdateContractsButton(loc);
@@ -3813,6 +4360,50 @@ public sealed class GameplayScreen : IScreen
     /// <summary>Otevře správu šablon — pro smoke test, který na tlačítko nedosáhne.</summary>
     internal void OpenTemplatesForSmoke() => OpenTemplates();
 
+    /// <summary>Napíše dotaz do hledání ve stavebním katalogu — smoke nemá klávesnici.</summary>
+    internal int SearchBuildMenuForSmoke(string query)
+    {
+        _buildSearchBox.Text = query;
+        _buildSearch.Search(query);
+        PopulateBuildItems();
+        return _buildItemsPanel.Widgets.Count;
+    }
+
+    internal void ShowBottlenecksForSmoke()
+    {
+        _showBottlenecks = true;
+        _bottleneckLegend.Visible = true;
+        RefreshBottleneckCounts();
+    }
+
+    /// <summary>Otevře strom výzkumu a vrátí ho — smoke si v něm zkouší hledání.</summary>
+    internal TechScreen OpenTechForSmoke()
+    {
+        var screen = new TechScreen(_screens, _simulation);
+        _screens.Push(screen);
+        return screen;
+    }
+
+    /// <summary>
+    /// Naplní kruhovou nabídku. Položky dělají přesně to, co tlačítka v liště —
+    /// je to jiná cesta k témuž, ne druhá sada nástrojů.
+    /// </summary>
+    private void BuildRadialMenu(Localization loc)
+    {
+        _radial.SetItems(new[]
+        {
+            new RadialItem(Ico("ui.build"), loc["hud.build"], ToggleBuildMenu),
+            new RadialItem(Ico("ui.road"), loc["hud.road"], () => _tools.ToggleRoad()),
+            new RadialItem(Ico("ui.merge"), loc["hud.merge"], () => _tools.ToggleMerge()),
+            new RadialItem(Ico("ui.plant"), loc["hud.plant"], () => _tools.TogglePlant()),
+            new RadialItem(Ico("ui.tech"), loc["hud.tech"], () => _screens.Push(new TechScreen(_screens, _simulation))),
+            new RadialItem(Ico("ui.quests"), loc["hud.quests"], () => _screens.Push(new QuestsScreen(_screens, _simulation))),
+        });
+    }
+
+    /// <summary>Kolik položek má kruhová nabídka. Pro smoke běh.</summary>
+    internal int RadialItemCountForSmoke => _radial.Count;
+
     internal void ActivateToolForSmoke(Capture.SmokeTool tool)
     {
         _tools.Clear();
@@ -3905,6 +4496,8 @@ public sealed class GameplayScreen : IScreen
         PlacementResult.WrongBiome => "build.error.wrongBiome",
         PlacementResult.NotEnoughResources => "build.error.resources",
         PlacementResult.NeedsWaterAccess => "build.error.waterAccess",
+        PlacementResult.NoSubseaLink => "build.error.subsea",
+        PlacementResult.NeedsDefenceMode => "build.error.frontierOff",
         PlacementResult.SettlementTooSmall => "build.error.settlementTooSmall",
         _ => "build.title",
     };

@@ -106,7 +106,7 @@ internal sealed class TrailerDirector
     private void Render(ITrailerShot shot, GraphicsDevice device, TrailerCanvas canvas)
     {
         string directory = Path.Combine(_outputDirectory, shot.Name);
-        var frames = new FrameSequence(device, directory, _preset.Width, _preset.Height);
+        using var frames = new FrameSequence(device, directory, _preset.Width, _preset.Height);
 
         using var target = new RenderTarget2D(device, _preset.Width, _preset.Height);
         for (int frame = 0; frame < shot.FrameCount; frame++)

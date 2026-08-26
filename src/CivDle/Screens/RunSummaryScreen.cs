@@ -90,6 +90,14 @@ public sealed class RunSummaryScreen : IScreen
         layout.Widgets.Add(Line(loc.Format("run.peak", CivDle.Core.Numbers.Format(_summary.PeakPopulation))));
         layout.Widgets.Add(Line(loc.Format("run.buildings", _summary.Buildings)));
 
+        // Cesta patří do bilance: dva běhy se stejnými čísly se od sebe liší
+        // právě jen tímhle.
+        if (_summary.HasDoctrine && _summary.DoctrineIndex < _screens.Content.Doctrines.Count)
+        {
+            layout.Widgets.Add(Line(loc.Format(
+                "run.doctrine", loc[_screens.Content.Doctrines[_summary.DoctrineIndex].NameKey])));
+        }
+
         // Řádky, které by byly nuly, se vynechávají — „0 divů světa" není
         // informace, jen šum v okamžiku, který má být slavnostní.
         if (_summary.Techs > 0)

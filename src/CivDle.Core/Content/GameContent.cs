@@ -70,8 +70,33 @@ public sealed class GameContent
         GrandWorkConfig? grandWork = null,
         LegacyConfig? legacy = null,
         DefRegistry<PrestigeUpgradeDef>? legacyUpgrades = null,
-        IReadOnlyList<AircraftDef>? aircraft = null)
+        IReadOnlyList<AircraftDef>? aircraft = null,
+        OrbitCatalog? orbit = null,
+        FrontierConfig? frontier = null,
+        FigureCatalog? figures = null,
+        ChronicleCatalog? chronicle = null,
+        CarillonConfig? carillon = null,
+        ScenarioCatalog? scenarios = null,
+        PoiCatalog? pointsOfInterest = null,
+        DoctrineCatalog? doctrines = null)
     {
+        Orbit = orbit ?? OrbitCatalog.Empty;
+        Frontier = frontier ?? FrontierConfig.Disabled;
+        Figures = figures ?? FigureCatalog.Empty;
+        Chronicle = chronicle ?? ChronicleCatalog.Empty;
+        Carillon = carillon ?? CarillonConfig.Disabled;
+        Scenarios = scenarios ?? ScenarioCatalog.Empty;
+        PointsOfInterest = pointsOfInterest ?? PoiCatalog.Empty;
+        Doctrines = doctrines ?? DoctrineCatalog.Empty;
+
+        foreach (var building in buildings.All)
+        {
+            if (building.Raft is not null)
+            {
+                HasRafting = true;
+                break;
+            }
+        }
         Vehicles = vehicles ?? Array.Empty<VehicleDef>();
         Aircraft = aircraft ?? Array.Empty<AircraftDef>();
         Mods = mods ?? Array.Empty<Mods.ModPackage>();
@@ -211,7 +236,7 @@ public sealed class GameContent
         Biomes, Resources, Buildings, Techs, Prestige, PrestigeUpgrades, Quests, QuestsDynamic,
         Achievements, Events, Eras, WorldGen, gameplay, Languages, SettlementNames, Decorations,
         Fauna, Devlog, ZoneTypes, Policies, AscensionTiers, Weather, Landmarks, Features, Ufo,
-        Ambience, Terraform, Tutorial, Challenges, Contracts, Districts, SettlementRanks, Citizens, Elections, Milestones, Seasons, Faith, NpcCities, Vehicles, Mods, GrandWork, Legacy, LegacyUpgrades, Aircraft);
+        Ambience, Terraform, Tutorial, Challenges, Contracts, Districts, SettlementRanks, Citizens, Elections, Milestones, Seasons, Faith, NpcCities, Vehicles, Mods, GrandWork, Legacy, LegacyUpgrades, Aircraft, Orbit, Frontier, Figures, Chronicle, Carillon, Scenarios, PointsOfInterest, Doctrines);
 
     /// <summary>Milníky postupu z <c>data/milestones.json</c> (smí být prázdné).</summary>
     public IReadOnlyList<MilestoneDef> Milestones { get; }
@@ -245,6 +270,40 @@ public sealed class GameContent
 
     /// <summary>Létající kulisa z <c>data/vehicles.json</c> (smí být prázdná).</summary>
     public IReadOnlyList<AircraftDef> Aircraft { get; }
+
+    /// <summary>
+    /// Družice na oběžné dráze. Prázdné = hra orbitu nemá (starší data, mody).
+    /// </summary>
+    public OrbitCatalog Orbit { get; }
+
+    /// <summary>
+    /// Pravidla volitelného režimu obrany. Prázdné = režim se nedá ani zapnout.
+    /// </summary>
+    public FrontierConfig Frontier { get; }
+
+    /// <summary>Významné osobnosti. Prázdné = mechanika vypnutá.</summary>
+    public FigureCatalog Figures { get; }
+
+    /// <summary>Šablony vět kroniky. Prázdné = kronika se nepíše.</summary>
+    public ChronicleCatalog Chronicle { get; }
+
+    /// <summary>Nastavení zvonohry. Vypnuté = zvonohra se nedá postavit.</summary>
+    public CarillonConfig Carillon { get; }
+
+    /// <summary>Scénáře z <c>data/scenarios.json</c>. Prázdné = režim se nenabízí.</summary>
+    public ScenarioCatalog Scenarios { get; }
+
+    /// <summary>Anomálie z <c>data/poi.json</c>. Prázdné = ve světě nic neleží.</summary>
+    public PoiCatalog PointsOfInterest { get; }
+
+    /// <summary>Doktríny z <c>data/doctrines.json</c>. Prázdné = mechanika vypnutá.</summary>
+    public DoctrineCatalog Doctrines { get; }
+
+    /// <summary>
+    /// Plaví se v téhle hře vůbec dřevo? Spočítá se jednou při načtení —
+    /// v tiku se pak stačí zeptat na jeden bool místo procházení všech definic.
+    /// </summary>
+    public bool HasRafting { get; }
 
     /// <summary>
     /// Načtené mody, jejichž data se do obsahu vlila. Hra je ukazuje hráči —

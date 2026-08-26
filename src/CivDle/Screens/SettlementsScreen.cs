@@ -23,6 +23,10 @@ public sealed class SettlementsScreen : IScreen
     private readonly Simulation _simulation;
     private readonly Camera2D _camera;
     private readonly InputManager _input = new();
+
+    /// <summary>Čísla k sídlům. Jeden seznam na celou obrazovku, přepisuje se při přestavbě.</summary>
+    private readonly List<SettlementStat> _stats = new();
+
     private Desktop _desktop = null!;
 
     public SettlementsScreen(ScreenManager screens, Simulation simulation, Camera2D camera)
@@ -37,7 +41,11 @@ public sealed class SettlementsScreen : IScreen
 
     public bool IsOverlay => true;
 
-    public void OnActivated() => _input.Resync();
+    public void OnActivated()
+    {
+        _input.Resync();
+        BuildUi(); // návrat od guvernéra: sídlo mohlo dostat vlastní plán
+    }
 
     public void Update(GameTime gameTime)
     {
@@ -82,9 +90,14 @@ public sealed class SettlementsScreen : IScreen
         }
         else
         {
+            // Čísla k sídlům se spočítají jedním průchodem zástavbou, ne jedním
+            // na řádek — u říše o desítkách měst by to jinak bylo desetkrát
+            // celé město.
+            _simulation.DescribeSettlements(_stats);
+
             for (int i = 0; i < settlements.Count; i++)
             {
-                list.Widgets.Add(SettlementRow(settlements[i], names));
+                list.Widgets.Add(SettlementRow(settlements[i], names, StatFor(settlements[i].NameIndex)));
             }
         }
 
@@ -240,7 +253,7 @@ public sealed class SettlementsScreen : IScreen
         return panel;
     }
 
-    private Button SettlementRow(Settlement settlement, IReadOnlyList<string> names)
+    private Widget SettlementRow(Settlement settlement, IReadOnlyList<string> names, SettlementStat stat)
     {
         var loc = _screens.Loc;
         var caption = new VerticalStackPanel { Spacing = 2 };
@@ -260,15 +273,75 @@ public sealed class SettlementsScreen : IScreen
             TextColor = Color.Gray,
         });
 
+        // Řádek čísel: kolik se vejde lidí, kolik je práce, co se tam vyrábí.
+        // Populaci na sídlo hra nezná (je to agregát pro celou říši), takže se
+        // ukazuje kapacita — předstírat přesnost, kterou simulace nemá, by bylo
+        // horší než ji neukázat.
+        caption.Widgets.Add(new Label
+        {
+            Text = loc.Format(
+                "panel.settlements.stats",
+                CivDle.Core.Numbers.Format(stat.Housing),
+                stat.Jobs,
+                stat.Services),
+            TextColor = UiPalette.Text,
+        });
+
+        if (stat.TopResourceIndex >= 0)
+        {
+            caption.Widgets.Add(new Label
+            {
+                Text = loc.Format(
+                    "panel.settlements.makes",
+                    loc[_screens.Content.Resources[stat.TopResourceIndex].NameKey]),
+                TextColor = UiPalette.TextDim,
+            });
+        }
+
         var button = new Button
         {
             Content = caption,
-            Width = 600,
+            Width = 440,
             Padding = new Thickness(12, 8),
             Background = new SolidBrush(UiPalette.Panel),
         };
         button.Click += (_, _) => JumpTo(settlement);
-        return button;
+
+        var row = new HorizontalStackPanel { Spacing = 8 };
+        row.Widgets.Add(button);
+        row.Widgets.Add(GovernorButton(settlement.NameIndex));
+        return row;
+    }
+
+    /// <summary>
+    /// Tlačítko „guvernér tohohle města".
+    ///
+    /// <para>Píše se do něj, jestli sídlo jede podle vlastního plánu, nebo podle
+    /// říšského. Bez toho by hráč po nastavení jednoho města nepoznal, které
+    /// z desítky ostatních má taky vlastní pravidla.</para>
+    /// </summary>
+    private Widget GovernorButton(int nameIndex)
+    {
+        var loc = _screens.Loc;
+        bool own = _simulation.HasOwnPlan(nameIndex);
+
+        return UiFactory.SmallButton(
+            loc[own ? "panel.settlements.ownPlan" : "panel.settlements.empirePlan"],
+            () => _screens.Push(new SettlementPlanScreen(_screens, _simulation, nameIndex)),
+            loc["tip.settlementPlan"]);
+    }
+
+    private SettlementStat StatFor(int nameIndex)
+    {
+        for (int i = 0; i < _stats.Count; i++)
+        {
+            if (_stats[i].NameIndex == nameIndex)
+            {
+                return _stats[i];
+            }
+        }
+
+        return new SettlementStat(nameIndex, 0, 0, 0, 0, -1);
     }
 
     private void JumpTo(Settlement settlement)

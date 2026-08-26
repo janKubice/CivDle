@@ -88,7 +88,18 @@ public sealed class ContentLoader
         var worldGen = LoadWorldGen(Path.Combine(dataDirectory, "worldgen.json"), biomes);
         var gameplay = LoadGameplay(Path.Combine(dataDirectory, "gameplay.json"), resources, buildings, techs);
         var devlog = LoadDevlog(Path.Combine(dataDirectory, "devlog.json"));
-        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons);
+        // Orbita se načítá PŘED jazyky: jména družic se validují spolu se
+        // zbytkem obsahu, takže musí být na světě dřív, než se kontrolují klíče.
+        var orbit = LoadOrbit(Path.Combine(dataDirectory, "orbit.json"), resources, buildings);
+        var frontier = LoadFrontier(Path.Combine(dataDirectory, "frontier.json"));
+        var figures = LoadFigures(Path.Combine(dataDirectory, "figures.json"), buildings, milestones);
+        var chronicle = LoadChronicle(Path.Combine(dataDirectory, "chronicle.json"));
+        var carillon = LoadCarillon(Path.Combine(dataDirectory, "carillon.json"), buildings);
+        var scenarios = LoadScenarios(
+            Path.Combine(dataDirectory, "scenarios.json"), resources, buildings, techs, worldGen);
+        var poi = LoadPointsOfInterest(Path.Combine(dataDirectory, "poi.json"), resources, biomes);
+        var doctrines = LoadDoctrines(Path.Combine(dataDirectory, "doctrines.json"));
+        var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit, figures, chronicle, scenarios, poi, doctrines);
         var settlementNames = LoadSettlementNames(Path.Combine(dataDirectory, "settlement-names.json"));
         var decorations = LoadDecorations(Path.Combine(dataDirectory, "decorations.json"), biomes);
         var fauna = LoadFauna(Path.Combine(dataDirectory, "fauna.json"), biomes);
@@ -101,7 +112,8 @@ public sealed class ContentLoader
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
             worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, faith, npcCities, vehicles, mods,
-            grandWork, legacy, legacyUpgrades, aircraft);
+            grandWork, legacy, legacyUpgrades, aircraft, orbit, frontier, figures, chronicle, carillon,
+            scenarios, poi, doctrines);
     }
 
     // ----- cizí města -----
@@ -173,7 +185,52 @@ public sealed class ContentLoader
             Math.Max(0, file.TradeRelation),
             Math.Max(0.0, file.CaravanBonusAtFullRelation),
             new DefRegistry<NpcCityArchetype>(archetypes, a => a.Id, "cizí město", allowEmpty: true),
-            names);
+            names,
+            ParseDemandSpike(path, file.DemandSpike));
+    }
+
+    /// <summary>
+    /// Tržní konjunktura. Chybějící blok není chyba — bez něj se ceny nehýbou
+    /// a obchod se chová jako dřív.
+    /// </summary>
+    private static DemandSpike? ParseDemandSpike(string path, DemandSpikeDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (dto.IntervalSeconds <= 0)
+        {
+            throw new ContentLoadException(path, "'demandSpike.intervalSeconds' musí být kladné.");
+        }
+
+        // Konjunktura delší než okno by nikdy neskončila — a „pořád lepší cena"
+        // není konjunktura, jen jiná cena.
+        if (dto.DurationSeconds <= 0 || dto.DurationSeconds >= dto.IntervalSeconds)
+        {
+            throw new ContentLoadException(
+                path,
+                $"'demandSpike.durationSeconds' musí být mezi 0 a 'intervalSeconds' ({dto.IntervalSeconds}), "
+                + $"je {dto.DurationSeconds}.");
+        }
+
+        if (dto.ChancePercent is < 0 or > 100)
+        {
+            throw new ContentLoadException(path, $"'demandSpike.chancePercent' má být 0–100, je {dto.ChancePercent}.");
+        }
+
+        if (dto.Multiplier <= 1.0)
+        {
+            throw new ContentLoadException(
+                path, $"'demandSpike.multiplier' musí být větší než 1, je {dto.Multiplier} — jinak není co slavit.");
+        }
+
+        return new DemandSpike(
+            (int)Math.Round(dto.IntervalSeconds * Simulation.TicksPerSecond),
+            (int)Math.Round(dto.DurationSeconds * Simulation.TicksPerSecond),
+            dto.ChancePercent,
+            dto.Multiplier);
     }
 
     // ----- víra -----
@@ -186,6 +243,819 @@ public sealed class ContentLoader
     /// Načte Velké dílo. Chybějící soubor <b>není chyba</b> — je to volitelná
     /// mechanika a hra bez ní běží dál (stejně jako víra).
     /// </summary>
+    /// <summary>
+    /// Načte významné osobnosti. Chybějící soubor není chyba — mechanika je
+    /// volitelná a hra (i starší mody) musí naběhnout bez ní.
+    /// </summary>
+    private FigureCatalog LoadFigures(
+        string path, DefRegistry<BuildingDef> buildings, IReadOnlyList<MilestoneDef> milestones)
+    {
+        if (!File.Exists(path))
+        {
+            return FigureCatalog.Empty;
+        }
+
+        var file = ReadFile<FiguresFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var figures = new List<FigureDef>();
+        foreach (var dto in file.Figures ?? new List<FigureDto>())
+        {
+            string id = dto.Id?.Trim() ?? string.Empty;
+            if (id.Length == 0)
+            {
+                throw new ContentLoadException(path, "Osobnost bez 'id'.");
+            }
+
+            if (!seen.Add(id))
+            {
+                throw new ContentLoadException(path, $"Osobnost '{id}' je v datech dvakrát.");
+            }
+
+            string effect = dto.Effect?.Trim() ?? string.Empty;
+
+            // Tentýž slovník efektů jako Vzestup a družice — jedna soustava
+            // násobičů, ne tři. Překlep by jinak tiše nedělal nic.
+            if (!KnownPrestigeEffects.Contains(effect))
+            {
+                throw new ContentLoadException(
+                    path, $"Osobnost '{id}': neznámý efekt '{effect}' (známé: {string.Join(", ", KnownPrestigeEffects)}).");
+            }
+
+            if (dto.Magnitude <= 0)
+            {
+                throw new ContentLoadException(path, $"Osobnost '{id}': 'magnitude' musí být kladná.");
+            }
+
+            // Osobnost, která žije nula vteřin, se narodí a hned zemře —
+            // hráč by z ní viděl leda dva toasty za sebou.
+            if (dto.LifeSeconds <= 0)
+            {
+                throw new ContentLoadException(path, $"Osobnost '{id}': 'lifeSeconds' musí být kladné.");
+            }
+
+            int milestone = -1;
+            if (!string.IsNullOrWhiteSpace(dto.Milestone))
+            {
+                string wanted = dto.Milestone.Trim();
+                for (int i = 0; i < milestones.Count; i++)
+                {
+                    if (string.Equals(milestones[i].Id, wanted, StringComparison.Ordinal))
+                    {
+                        milestone = i;
+                        break;
+                    }
+                }
+
+                if (milestone < 0)
+                {
+                    throw new ContentLoadException(
+                        path, $"Osobnost '{id}' se váže na neexistující milník '{dto.Milestone}'.");
+                }
+            }
+
+            int statue = -1;
+            if (!string.IsNullOrWhiteSpace(dto.Statue) && !buildings.TryIndexOf(dto.Statue.Trim(), out statue))
+            {
+                throw new ContentLoadException(
+                    path, $"Osobnost '{id}' odkazuje na neexistující sochu '{dto.Statue}'.");
+            }
+
+            figures.Add(new FigureDef(
+                id, effect, dto.Magnitude,
+                // V datech vteřiny, v simulaci tiky: „žije dvacet minut" napíše
+                // autor obsahu správně, „žije 12000 tiků" dřív nebo později ne.
+                (long)Math.Round(dto.LifeSeconds * Simulation.TicksPerSecond),
+                milestone, statue));
+        }
+
+        return new FigureCatalog(figures);
+    }
+
+    /// <summary>
+    /// Načte doktríny. Chybějící soubor není chyba — bez nich se hra chová
+    /// přesně jako dřív.
+    /// </summary>
+    private DoctrineCatalog LoadDoctrines(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return DoctrineCatalog.Empty;
+        }
+
+        var file = ReadFile<DoctrinesFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var doctrines = new List<DoctrineDef>();
+        foreach (var dto in file.Doctrines ?? new List<DoctrineDto>())
+        {
+            string id = dto.Id?.Trim() ?? string.Empty;
+            if (id.Length == 0)
+            {
+                throw new ContentLoadException(path, "Doktrína bez 'id'.");
+            }
+
+            if (!seen.Add(id))
+            {
+                throw new ContentLoadException(path, $"Doktrína '{id}' je v datech dvakrát.");
+            }
+
+            doctrines.Add(new DoctrineDef(id, LoadDoctrineNodes(path, id, dto.Nodes)));
+        }
+
+        return new DoctrineCatalog(doctrines);
+    }
+
+    private static IReadOnlyList<DoctrineNodeDef> LoadDoctrineNodes(
+        string path, string doctrineId, List<DoctrineNodeDto>? dtos)
+    {
+        var raw = dtos ?? new List<DoctrineNodeDto>();
+        if (raw.Count == 0)
+        {
+            throw new ContentLoadException(path, $"Doktrína '{doctrineId}' nemá žádné uzly.");
+        }
+
+        // Nejdřív jména, teprve pak prerekvizity: uzel smí odkazovat i na ten,
+        // který v souboru leží níž, a bez dvou průchodů by to byla chyba pořadí
+        // řádků, ne obsahu.
+        var order = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int i = 0; i < raw.Count; i++)
+        {
+            string nodeId = raw[i].Id?.Trim() ?? string.Empty;
+            if (nodeId.Length == 0)
+            {
+                throw new ContentLoadException(path, $"Doktrína '{doctrineId}': uzel bez 'id'.");
+            }
+
+            if (!order.TryAdd(nodeId, i))
+            {
+                throw new ContentLoadException(path, $"Doktrína '{doctrineId}': uzel '{nodeId}' je dvakrát.");
+            }
+        }
+
+        var nodes = new List<DoctrineNodeDef>(raw.Count);
+        for (int i = 0; i < raw.Count; i++)
+        {
+            var dto = raw[i];
+            string nodeId = dto.Id!.Trim();
+            string effect = dto.Effect?.Trim() ?? string.Empty;
+
+            // Tentýž slovník jako Vzestup — jedna soustava násobičů, ne dvě.
+            if (!KnownPrestigeEffects.Contains(effect))
+            {
+                throw new ContentLoadException(
+                    path,
+                    $"Doktrína '{doctrineId}', uzel '{nodeId}': neznámý efekt '{effect}' "
+                    + $"(známé: {string.Join(", ", KnownPrestigeEffects)}).");
+            }
+
+            if (dto.Magnitude <= 0)
+            {
+                throw new ContentLoadException(
+                    path, $"Doktrína '{doctrineId}', uzel '{nodeId}': 'magnitude' musí být kladná.");
+            }
+
+            if (dto.Cost <= 0)
+            {
+                throw new ContentLoadException(
+                    path, $"Doktrína '{doctrineId}', uzel '{nodeId}': 'cost' musí být kladná.");
+            }
+
+            var prerequisites = new List<int>();
+            foreach (string requires in dto.Requires ?? new List<string>())
+            {
+                if (!order.TryGetValue(requires.Trim(), out int index))
+                {
+                    throw new ContentLoadException(
+                        path,
+                        $"Doktrína '{doctrineId}', uzel '{nodeId}' vyžaduje neexistující uzel '{requires}'.");
+                }
+
+                // Uzel, který vyžaduje sám sebe, by se nedal koupit nikdy —
+                // a hráč by celou hru koukal na zamčenou ikonu bez důvodu.
+                if (index == i)
+                {
+                    throw new ContentLoadException(
+                        path, $"Doktrína '{doctrineId}', uzel '{nodeId}' vyžaduje sám sebe.");
+                }
+
+                prerequisites.Add(index);
+            }
+
+            nodes.Add(new DoctrineNodeDef(nodeId, effect, dto.Magnitude, dto.Cost, prerequisites));
+        }
+
+        return nodes;
+    }
+
+    /// <summary>
+    /// Načte anomálie a relikvie. Chybějící soubor není chyba — bez nich
+    /// v mapě prostě nic neleží.
+    /// </summary>
+    private PoiCatalog LoadPointsOfInterest(
+        string path, DefRegistry<Resource> resources, BiomeRegistry biomes)
+    {
+        if (!File.Exists(path))
+        {
+            return PoiCatalog.Empty;
+        }
+
+        var file = ReadFile<PoiFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        if (file.RegionTiles < 8)
+        {
+            throw new ContentLoadException(
+                path, $"'regionTiles' má být aspoň 8, je {file.RegionTiles} — jinak by byla mapa poseta anomáliemi.");
+        }
+
+        if (file.ChancePercent is < 0 or > 100)
+        {
+            throw new ContentLoadException(path, $"'chancePercent' má být 0–100, je {file.ChancePercent}.");
+        }
+
+        var relics = new List<PoiRelicDef>();
+        var relicIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var dto in file.Relics ?? new List<PoiRelicDto>())
+        {
+            string id = dto.Id?.Trim() ?? string.Empty;
+            if (id.Length == 0)
+            {
+                throw new ContentLoadException(path, "Relikvie bez 'id'.");
+            }
+
+            if (!relicIds.Add(id))
+            {
+                throw new ContentLoadException(path, $"Relikvie '{id}' je v datech dvakrát.");
+            }
+
+            string effect = dto.Effect?.Trim() ?? string.Empty;
+
+            // Tentýž slovník jako Vzestup: relikvie je trvalý bonus, ne vlastní
+            // soustava. Překlep by jinak tiše nedělal nic.
+            if (!KnownPrestigeEffects.Contains(effect))
+            {
+                throw new ContentLoadException(
+                    path, $"Relikvie '{id}': neznámý efekt '{effect}' (známé: {string.Join(", ", KnownPrestigeEffects)}).");
+            }
+
+            if (dto.Magnitude <= 0)
+            {
+                throw new ContentLoadException(path, $"Relikvie '{id}': 'magnitude' musí být kladná.");
+            }
+
+            relics.Add(new PoiRelicDef(id, effect, dto.Magnitude));
+        }
+
+        var kinds = new List<PoiDef>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var dto in file.Kinds ?? new List<PoiKindDto>())
+        {
+            string id = dto.Id?.Trim() ?? string.Empty;
+            if (id.Length == 0)
+            {
+                throw new ContentLoadException(path, "Anomálie bez 'id'.");
+            }
+
+            if (!seen.Add(id))
+            {
+                throw new ContentLoadException(path, $"Anomálie '{id}' je v datech dvakrát.");
+            }
+
+            var mask = new bool[biomes.Count];
+            foreach (string biomeId in dto.Biomes ?? new List<string>())
+            {
+                int index = biomes.IndexOf(biomeId.Trim());
+                if (index < 0)
+                {
+                    throw new ContentLoadException(
+                        path, $"Anomálie '{id}' odkazuje na neexistující biom '{biomeId}'.");
+                }
+
+                mask[index] = true;
+            }
+
+            // Anomálie bez biomu by se nikdy nikde neobjevila — a přišlo by se
+            // na to až tím, že ji nikdo za celou hru nepotká.
+            if (Array.IndexOf(mask, true) < 0)
+            {
+                throw new ContentLoadException(path, $"Anomálie '{id}' nemá žádný povolený biom.");
+            }
+
+            if (dto.DurationSeconds <= 0)
+            {
+                throw new ContentLoadException(path, $"Anomálie '{id}': 'durationSeconds' musí být kladné.");
+            }
+
+            var rewards = new List<PoiRewardDef>();
+            foreach (var reward in dto.Rewards ?? new List<PoiRewardDto>())
+            {
+                if (reward.Weight <= 0)
+                {
+                    throw new ContentLoadException(
+                        path, $"Anomálie '{id}': odměna s vahou {reward.Weight} by nikdy nepadla.");
+                }
+
+                int relicIndex = -1;
+                if (!string.IsNullOrWhiteSpace(reward.Relic))
+                {
+                    relicIndex = relics.FindIndex(r => string.Equals(r.Id, reward.Relic.Trim(), StringComparison.Ordinal));
+                    if (relicIndex < 0)
+                    {
+                        throw new ContentLoadException(
+                            path, $"Anomálie '{id}' slibuje neexistující relikvii '{reward.Relic}'.");
+                    }
+                }
+
+                rewards.Add(new PoiRewardDef(
+                    reward.Weight,
+                    ParseResourceAmounts(path, id, "rewards.resources", reward.Resources, resources),
+                    relicIndex));
+            }
+
+            if (rewards.Count == 0)
+            {
+                throw new ContentLoadException(path, $"Anomálie '{id}' nemá žádnou odměnu — nemá smysl tam chodit.");
+            }
+
+            kinds.Add(new PoiDef(
+                id,
+                mask,
+                dto.MinDistance,
+                ParseResourceAmounts(path, id, "cost", dto.Cost, resources),
+                (long)Math.Round(dto.DurationSeconds * Simulation.TicksPerSecond),
+                rewards));
+        }
+
+        return new PoiCatalog(kinds, relics, file.RegionTiles, file.ChancePercent);
+    }
+
+    /// <summary>
+    /// Načte scénáře. Chybějící soubor není chyba — bez nich se jen nenabídne
+    /// režim, volná hra běží dál.
+    /// </summary>
+    private ScenarioCatalog LoadScenarios(
+        string path,
+        DefRegistry<Resource> resources,
+        DefRegistry<BuildingDef> buildings,
+        DefRegistry<TechDef> techs,
+        WorldGenCatalog worldGen)
+    {
+        if (!File.Exists(path))
+        {
+            return ScenarioCatalog.Empty;
+        }
+
+        var file = ReadFile<ScenariosFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var scenarios = new List<ScenarioDef>();
+        foreach (var dto in file.Scenarios ?? new List<ScenarioDto>())
+        {
+            string id = dto.Id?.Trim() ?? string.Empty;
+            if (id.Length == 0)
+            {
+                throw new ContentLoadException(path, "Scénář bez 'id'.");
+            }
+
+            if (!seen.Add(id))
+            {
+                throw new ContentLoadException(path, $"Scénář '{id}' je v datech dvakrát.");
+            }
+
+            // Bez cíle to není scénář, ale jen jinak nastavená volná hra —
+            // a hráč by čekal konec, který nikdy nepřijde.
+            if (dto.Goal is null)
+            {
+                throw new ContentLoadException(path, $"Scénář '{id}' nemá cíl ('goal').");
+            }
+
+            int preset = -1;
+            if (!string.IsNullOrWhiteSpace(dto.Preset))
+            {
+                preset = IndexOfPreset(worldGen, dto.Preset.Trim());
+                if (preset < 0)
+                {
+                    throw new ContentLoadException(
+                        path, $"Scénář '{id}' odkazuje na neexistující preset '{dto.Preset}'.");
+                }
+            }
+
+            if (dto.TimeLimitSeconds < 0)
+            {
+                throw new ContentLoadException(
+                    path, $"Scénář '{id}': 'timeLimitSeconds' nesmí být záporné.");
+            }
+
+            var rules = new List<ScenarioRule>();
+            foreach (string name in dto.Rules ?? new List<string>())
+            {
+                if (!Enum.TryParse<ScenarioRule>(name?.Trim(), ignoreCase: true, out var rule))
+                {
+                    throw new ContentLoadException(
+                        path,
+                        $"Scénář '{id}': neznámé pravidlo '{name}' "
+                        + $"(známá: {string.Join(", ", Enum.GetNames<ScenarioRule>())}).");
+                }
+
+                rules.Add(rule);
+            }
+
+            scenarios.Add(new ScenarioDef(
+                id,
+                dto.Seed,
+                preset,
+                ParseGameplayOverride(path, id, dto.Gameplay),
+                ParseResourceAmounts(path, id, "startingResources", dto.StartingResources, resources),
+                ParseCondition(path, $"scénář '{id}' (goal)", dto.Goal, resources, buildings, techs),
+                ParseFailCondition(path, id, dto.FailBelow, resources, buildings, techs),
+                dto.TimeLimitSeconds,
+                rules));
+        }
+
+        return new ScenarioCatalog(scenarios);
+    }
+
+    /// <summary>
+    /// Podmínka prohry. Vlastní parser, protože se čte obráceně („metrika ≤
+    /// práh") a smí mít práh nula — „lidí klesne na nulu" je ta nejběžnější
+    /// prohra a <see cref="ParseCondition"/> by ji odmítl.
+    /// </summary>
+    private static GoalCondition? ParseFailCondition(
+        string path, string id, GoalConditionDto? dto,
+        DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        var (kind, param) = ParseMetric(
+            path, $"scénář '{id}' (failBelow)", dto.Metric, dto.Resource, dto.Building, dto.Tech,
+            resources, buildings, techs);
+
+        if (dto.Target < 0)
+        {
+            throw new ContentLoadException(
+                path, $"Scénář '{id}': 'failBelow.target' nesmí být záporný, je {dto.Target}.");
+        }
+
+        return new GoalCondition(kind, param, dto.Target);
+    }
+
+    private static GameplayOverride ParseGameplayOverride(string path, string id, GameplayOverrideDto? dto)
+    {
+        if (dto is null)
+        {
+            return GameplayOverride.None;
+        }
+
+        if (dto.StartingPopulation is < 0)
+        {
+            throw new ContentLoadException(path, $"Scénář '{id}': 'startingPopulation' nesmí být záporná.");
+        }
+
+        if (dto.BaseHousingCapacity is < 0)
+        {
+            throw new ContentLoadException(path, $"Scénář '{id}': 'baseHousingCapacity' nesmí být záporná.");
+        }
+
+        // Záporný růst by znamenal město, které se samo vylidňuje bez ohledu
+        // na jídlo — a to už je jiná mechanika, ne jiné číslo.
+        if (dto.PopulationGrowthPerSecond is < 0)
+        {
+            throw new ContentLoadException(path, $"Scénář '{id}': 'populationGrowthPerSecond' nesmí být záporný.");
+        }
+
+        if (dto.FoodPerPersonPerSecond is < 0)
+        {
+            throw new ContentLoadException(path, $"Scénář '{id}': 'foodPerPersonPerSecond' nesmí být záporná.");
+        }
+
+        return new GameplayOverride(
+            dto.StartingPopulation, dto.BaseHousingCapacity,
+            dto.PopulationGrowthPerSecond, dto.FoodPerPersonPerSecond);
+    }
+
+    private static int IndexOfPreset(WorldGenCatalog worldGen, string id)
+    {
+        for (int i = 0; i < worldGen.Presets.Count; i++)
+        {
+            if (string.Equals(worldGen.Presets[i].Id, id, StringComparison.Ordinal))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// Načte nastavení zvonohry. Chybějící soubor není chyba — je to ozdoba,
+    /// ne mechanika, na které by hra stála.
+    /// </summary>
+    private CarillonConfig LoadCarillon(string path, DefRegistry<BuildingDef> buildings)
+    {
+        if (!File.Exists(path))
+        {
+            return CarillonConfig.Disabled;
+        }
+
+        var file = ReadFile<CarillonFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        if (string.IsNullOrWhiteSpace(file.Building))
+        {
+            throw new ContentLoadException(path, "Zvonohra nemá vyplněnou budovu ('building').");
+        }
+
+        if (!buildings.TryIndexOf(file.Building.Trim(), out int buildingIndex))
+        {
+            throw new ContentLoadException(path, $"Zvonohra odkazuje na neexistující budovu '{file.Building}'.");
+        }
+
+        if (file.BaseFrequency is < 20 or > 8000)
+        {
+            throw new ContentLoadException(
+                path, $"Zvonohra: 'baseFrequency' má být 20–8000 Hz, je {file.BaseFrequency}.");
+        }
+
+        if (file.NoteSeconds is <= 0 or > 5)
+        {
+            throw new ContentLoadException(
+                path, $"Zvonohra: 'noteSeconds' má být 0–5 s, je {file.NoteSeconds}.");
+        }
+
+        // Výchozí melodie je obsah, ne kód: kdyby seděla v kódu, nešla by
+        // změnit modem a zvonohra by ve všech hrách začínala stejně.
+        var tune = file.DefaultTune ?? new List<int>();
+        foreach (int note in tune)
+        {
+            if (note < Carillon.Rest || note >= Carillon.Degrees)
+            {
+                throw new ContentLoadException(
+                    path,
+                    $"Zvonohra: tón {note} je mimo stupnici "
+                    + $"({Carillon.Rest} = pauza, jinak 0–{Carillon.Degrees - 1}).");
+            }
+        }
+
+        return new CarillonConfig(buildingIndex, tune, file.BaseFrequency, file.NoteSeconds);
+    }
+
+    /// <summary>
+    /// Načte šablony vět kroniky. Chybějící soubor není chyba — kronika je
+    /// nadstavba nad časosběrem a hra bez ní běží dál.
+    /// </summary>
+    private ChronicleCatalog LoadChronicle(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return ChronicleCatalog.Empty;
+        }
+
+        var file = ReadFile<ChronicleFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var lines = new List<ChronicleTemplateDef>();
+        foreach (var dto in file.Lines ?? new List<ChronicleTemplateDto>())
+        {
+            string id = dto.Id?.Trim() ?? string.Empty;
+            if (id.Length == 0)
+            {
+                throw new ContentLoadException(path, "Věta kroniky bez 'id'.");
+            }
+
+            if (!seen.Add(id))
+            {
+                throw new ContentLoadException(path, $"Věta kroniky '{id}' je v datech dvakrát.");
+            }
+
+            // Okamžik pozná kód, ne data — překlep by jinak znamenal větu,
+            // která se nikdy nenapíše, a nic by to nenahlásilo.
+            if (!Enum.TryParse<ChronicleMoment>(dto.Moment?.Trim(), ignoreCase: true, out var moment))
+            {
+                throw new ContentLoadException(
+                    path,
+                    $"Věta kroniky '{id}': neznámý okamžik '{dto.Moment}' "
+                    + $"(známé: {string.Join(", ", Enum.GetNames<ChronicleMoment>())}).");
+            }
+
+            // Spokojenost i špína jsou podíly 0–1. Práh 50 by znamenal větu,
+            // která se nikdy nespustí — a to se pozná až po hodinách hraní.
+            if (moment is ChronicleMoment.Hardship or ChronicleMoment.Pollution
+                && dto.Threshold is < 0 or > 1)
+            {
+                throw new ContentLoadException(
+                    path, $"Věta kroniky '{id}': 'threshold' je podíl 0–1, je {dto.Threshold}.");
+            }
+
+            lines.Add(new ChronicleTemplateDef(id, moment, dto.Threshold));
+        }
+
+        return new ChronicleCatalog(lines);
+    }
+
+    /// <summary>
+    /// Načte pravidla obrany. Chybějící soubor není chyba — režim je volitelný
+    /// a hra (i starší mody) musí naběhnout bez něj.
+    /// </summary>
+    private FrontierConfig LoadFrontier(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return FrontierConfig.Disabled;
+        }
+
+        var file = ReadFile<FrontierFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var attackers = new List<AttackerDef>();
+        foreach (var dto in file.Attackers ?? new List<AttackerDto>())
+        {
+            string id = dto.Id?.Trim() ?? string.Empty;
+            if (id.Length == 0)
+            {
+                throw new ContentLoadException(path, "Útočník bez 'id'.");
+            }
+
+            if (!seen.Add(id))
+            {
+                throw new ContentLoadException(path, $"Útočník '{id}' je v datech dvakrát.");
+            }
+
+            if (dto.Health <= 0)
+            {
+                throw new ContentLoadException(path, $"Útočník '{id}': 'health' musí být kladné.");
+            }
+
+            // Nulová rychlost = útočník, který se nikdy nikam nedostane. Vlna by
+            // pak nikdy neskončila a tikala by donekonečna.
+            if (dto.Speed <= 0)
+            {
+                throw new ContentLoadException(path, $"Útočník '{id}': 'speed' musí být kladná, jinak se nikdy nedojde k městu.");
+            }
+
+            attackers.Add(new AttackerDef(
+                id,
+                string.IsNullOrWhiteSpace(dto.Sprite) ? $"attacker.{id}" : dto.Sprite.Trim(),
+                dto.Health,
+                dto.Speed,
+                Math.Max(0, dto.Damage),
+                Math.Max(1, dto.AttackIntervalTicks)));
+        }
+
+        var waves = new List<IReadOnlyList<WaveEntry>>();
+        foreach (var wave in file.Waves ?? new List<List<WaveEntryDto>>())
+        {
+            var entries = new List<WaveEntry>();
+            foreach (var entry in wave)
+            {
+                int index = attackers.FindIndex(a => string.Equals(a.Id, entry.Attacker?.Trim(), StringComparison.Ordinal));
+                if (index < 0)
+                {
+                    throw new ContentLoadException(path, $"Vlna odkazuje na neexistujícího útočníka '{entry.Attacker}'.");
+                }
+
+                if (entry.Count <= 0)
+                {
+                    throw new ContentLoadException(path, $"Vlna s '{entry.Attacker}': 'count' musí být kladný.");
+                }
+
+                entries.Add(new WaveEntry(index, entry.Count));
+            }
+
+            if (entries.Count == 0)
+            {
+                throw new ContentLoadException(path, "Prázdná vlna — nikdo by nepřišel a rozvrh by se tiše posunul.");
+            }
+
+            waves.Add(entries);
+        }
+
+        if (attackers.Count > 0 && waves.Count == 0)
+        {
+            throw new ContentLoadException(path, "Jsou definovaní útočníci, ale žádná vlna je nepošle.");
+        }
+
+        double growth = file.StrengthGrowth <= 0 ? 1.0 : file.StrengthGrowth;
+        if (growth is < 1.0 or > 5.0)
+        {
+            throw new ContentLoadException(path, $"'strengthGrowth' musí být 1–5, je {growth}.");
+        }
+
+        if (waves.Count > 0 && file.WaveIntervalTicks <= 0)
+        {
+            throw new ContentLoadException(path, "'waveIntervalTicks' musí být kladný, jinak přijdou všechny vlny naráz.");
+        }
+
+        return new FrontierConfig(
+            Math.Max(0, file.FirstWaveTick),
+            file.WaveIntervalTicks,
+            growth,
+            Math.Max(8, file.SpawnDistance),
+            Math.Max(1, file.RepairTicks),
+            attackers,
+            waves);
+    }
+
+    /// <summary>
+    /// Načte oběžnou dráhu. Chybějící soubor není chyba — vrstva je volitelná
+    /// a hra (i starší mody) musí naběhnout bez ní.
+    /// </summary>
+    private OrbitCatalog LoadOrbit(
+        string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings)
+    {
+        if (!File.Exists(path))
+        {
+            return OrbitCatalog.Empty;
+        }
+
+        var file = ReadFile<OrbitFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var satellites = new List<SatelliteDef>();
+        foreach (var dto in file.Satellites ?? new List<SatelliteDto>())
+        {
+            string id = dto.Id?.Trim() ?? string.Empty;
+            if (id.Length == 0)
+            {
+                throw new ContentLoadException(path, "Družice bez 'id'.");
+            }
+
+            if (!seen.Add(id))
+            {
+                throw new ContentLoadException(path, $"Družice '{id}' je v datech dvakrát.");
+            }
+
+            string effect = dto.Effect?.Trim() ?? string.Empty;
+
+            // Družice sahají na tytéž násobiče jako Vzestup a Velké dílo, takže
+            // i slovník je společný — jinak by překlep tiše nedělal nic a hráč
+            // by platil miliardy za družici bez efektu.
+            if (!KnownPrestigeEffects.Contains(effect))
+            {
+                throw new ContentLoadException(
+                    path, $"Družice '{id}': neznámý efekt '{effect}' (známé: {string.Join(", ", KnownPrestigeEffects)}).");
+            }
+
+            if (dto.Magnitude <= 0)
+            {
+                throw new ContentLoadException(path, $"Družice '{id}': 'magnitude' musí být kladná.");
+            }
+
+            var cost = ParseResourceAmounts(path, id, "cost", dto.Cost, resources);
+            if (cost.Count == 0)
+            {
+                throw new ContentLoadException(path, $"Družice '{id}' nic nestojí — koncová meta zadarmo není meta.");
+            }
+
+            if (dto.MaxCount <= 0)
+            {
+                throw new ContentLoadException(path, $"Družice '{id}': 'maxCount' musí být aspoň 1.");
+            }
+
+            if (dto.BuildTicks <= 0)
+            {
+                throw new ContentLoadException(path, $"Družice '{id}': 'buildTicks' musí být kladné — start má trvat.");
+            }
+
+            double growth = dto.CostGrowth <= 0 ? 1.0 : dto.CostGrowth;
+            if (growth is < 1.0 or > 10.0)
+            {
+                throw new ContentLoadException(path, $"Družice '{id}': 'costGrowth' musí být 1–10, je {growth}.");
+            }
+
+            satellites.Add(new SatelliteDef(
+                id,
+                string.IsNullOrWhiteSpace(dto.Sprite) ? $"orbit.{id}" : dto.Sprite.Trim(),
+                cost,
+                growth,
+                dto.BuildTicks,
+                effect,
+                dto.Magnitude,
+                dto.MaxCount,
+                Math.Clamp(dto.Altitude, 0.1, 1.0),
+                dto.Speed));
+        }
+
+        int launchSite = -1;
+        if (!string.IsNullOrWhiteSpace(file.LaunchBuilding)
+            && !buildings.TryIndexOf(file.LaunchBuilding.Trim(), out launchSite))
+        {
+            throw new ContentLoadException(
+                path, $"Orbita odkazuje na neexistující kosmodrom '{file.LaunchBuilding}'.");
+        }
+
+        return new OrbitCatalog(satellites, launchSite);
+    }
+
     private GrandWorkConfig LoadGrandWork(
         string path,
         DefRegistry<Resource> resources,
@@ -379,7 +1249,8 @@ public sealed class ContentLoader
             seasons.Add(new SeasonDef(
                 id, tint, dto.TintAlpha,
                 dto.FoodProductionMult, dto.HarvestMult, dto.GrowthMult,
-                dto.FuelPerPersonPerSecond, dto.ColdGrowthMult));
+                dto.FuelPerPersonPerSecond, dto.ColdGrowthMult,
+                Math.Clamp(dto.SnowCover, 0, 1)));
         }
 
         return new SeasonCalendar(seasons, file.DaysPerSeason, fuelIndex);
@@ -1895,7 +2766,13 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"Budova '{id}' nemá vyplněné 'allowedBiomes'.");
         }
 
+        // Voda a souš se v jedné budově nemíchají. Vodní biomy jsou od té doby,
+        // co existuje podmořská vrstva, legitimní stavební plocha — ale budova,
+        // která smí „na louku i na dno", by nedávala smysl ani ve hře, ani
+        // v kódu: podmořská se pozná právě tím, že jinam nesmí (BuildingDef).
         var mask = new bool[biomes.Count];
+        bool sawWater = false;
+        bool sawLand = false;
         foreach (var biomeId in dto.AllowedBiomes)
         {
             if (biomeId is null || !biomes.TryIndexOf(biomeId.Trim(), out int biomeIndex))
@@ -1905,7 +2782,17 @@ public sealed class ContentLoader
 
             if (biomes[biomeIndex].IsWater)
             {
-                throw new ContentLoadException(path, $"Budova '{id}': biom '{biomeId}' v 'allowedBiomes' je vodní — na vodě se zatím stavět nedá.");
+                sawWater = true;
+            }
+            else
+            {
+                sawLand = true;
+            }
+
+            if (sawWater && sawLand)
+            {
+                throw new ContentLoadException(path,
+                    $"Budova '{id}' má v 'allowedBiomes' vodní i pevninské biomy. Buď stojí na souši, nebo na dně — obojí naráz ne.");
             }
 
             mask[biomeIndex] = true;
@@ -1948,11 +2835,12 @@ public sealed class ContentLoader
 
         // Údržba musí mít protihodnotu, jinak je to jen daň za nic. Legitimní
         // důvody: budova obsluhuje lidi (serviceValue), čistí okolí (čističku taky
-        // nemá smysl postavit a zapomenout na ni), nebo hlídá obzor — pátrací
-        // stanice nic nevyrábí a přesto se vyplatí ji držet v provozu.
+        // nemá smysl postavit a zapomenout na ni), hlídá obzor — pátrací stanice
+        // nic nevyrábí a přesto se vyplatí ji držet v provozu — nebo plaví dřevo
+        // po řece, což taky nic nevyrábí a přesto to dopravu šetří.
         var upkeep = ParseResourceAmounts(path, id, "upkeep", dto.Upkeep, resources);
         if (upkeep.Count > 0 && dto.ServiceValue <= 0 && pollution?.IsCleaner != true
-            && dto.ScoutRadius <= 0)
+            && dto.ScoutRadius <= 0 && dto.Raft is null)
         {
             throw new ContentLoadException(path,
                 $"Budova '{id}' má 'upkeep', ale nulový 'serviceValue', nic nečistí a nic nehlídá — "
@@ -2020,6 +2908,75 @@ public sealed class ContentLoader
 
         int terraformAction = ParseTerraformAction(path, id, dto, terraformIds);
 
+        // Fáze stavby: obsah, ne mechanika. Validují se přísně, protože chyba
+        // se jinak projeví až tím, že se div desítky minut kreslí špatně —
+        // a to nikdo nespojí s daty.
+        IReadOnlyList<BuildStage>? stages = null;
+        if (dto.Stages is { Count: > 0 })
+        {
+            if (dto.BuildTicks <= 0)
+            {
+                throw new ContentLoadException(path,
+                    $"Budova '{id}' má 'stages', ale staví se okamžitě ('buildTicks' je 0) — fáze by nikdo neviděl.");
+            }
+
+            var parsed = new List<BuildStage>(dto.Stages.Count);
+            double previous = double.NegativeInfinity;
+            foreach (var stage in dto.Stages)
+            {
+                if (stage.AtProgress is < 0 or > 1)
+                {
+                    throw new ContentLoadException(path,
+                        $"Budova '{id}': 'stages.atProgress' musí být 0–1, je {stage.AtProgress}.");
+                }
+
+                if (stage.AtProgress <= previous)
+                {
+                    throw new ContentLoadException(path,
+                        $"Budova '{id}': fáze stavby musí být vzestupné, {stage.AtProgress} přišlo po {previous}.");
+                }
+
+                if (string.IsNullOrWhiteSpace(stage.Sprite))
+                {
+                    throw new ContentLoadException(path, $"Budova '{id}': fáze stavby bez 'sprite'.");
+                }
+
+                previous = stage.AtProgress;
+                parsed.Add(new BuildStage(stage.AtProgress, stage.Sprite.Trim()));
+            }
+
+            if (parsed[0].AtProgress > 0)
+            {
+                throw new ContentLoadException(path,
+                    $"Budova '{id}': první fáze musí začínat na 0, jinak by se od položení nekreslilo nic.");
+            }
+
+            stages = parsed;
+        }
+
+        DefenseRule? defense = null;
+        if (dto.Defense is { } defenseDto)
+        {
+            // Věž bez dostřelu nebo bez poškození vypadá v datech jako obrana
+            // a nikdy nic neudělá — přesně ten druh tiché chyby, kterou
+            // fail-fast existuje chytat.
+            if (defenseDto.Range <= 0 || defenseDto.Damage <= 0)
+            {
+                throw new ContentLoadException(path,
+                    $"Budova '{id}': 'defense' musí mít kladný 'range' i 'damage', jinak se nebrání.");
+            }
+
+            defense = new DefenseRule(defenseDto.Range, defenseDto.Damage, Math.Max(1, defenseDto.IntervalTicks));
+        }
+
+        // Podmořská = smí stát jen na vodě. Odvozuje se, nezadává (viz BuildingDef).
+        bool subsea = IsWaterOnly(mask, biomes);
+        if (subsea && dto.SubseaAnchor)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}' je podmořská a zároveň 'subseaAnchor' — kotva musí stát na břehu, jinak nemá co otevírat.");
+        }
+
         return new BuildingDef(
             id, category, color, dto.Footprint[0], dto.Footprint[1],
             dto.WorkerSlots, dto.HousingCapacity, buildCost, recipe, mask,
@@ -2033,7 +2990,136 @@ public sealed class ContentLoader
             dto.ScoutRadius,
             terraformAction,
             dto.TerraformRadius,
-            Math.Clamp(dto.Paving ?? 1.0, 0.0, 1.0));
+            Math.Clamp(dto.Paving ?? 1.0, 0.0, 1.0),
+            subsea,
+            dto.SubseaAnchor,
+            defense,
+            stages,
+            ParseRaft(path, id, dto.Raft, resources),
+            ParseBuildingSound(path, id, dto.Sound));
+    }
+
+    /// <summary>
+    /// Zvuk okolí budovy. <c>null</c> u většiny — město, ve kterém zní všechno,
+    /// zní jako kaše.
+    /// </summary>
+    private static BuildingSound? ParseBuildingSound(string path, string id, BuildingSoundDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        // Druh zná kód, ne data: zvuky se syntetizují, takže „cesta k souboru"
+        // by ukazovala na nic. Překlep by znamenal budovu, která tiše mlčí.
+        if (!Enum.TryParse<SoundLoop>(dto.Loop?.Trim(), ignoreCase: true, out var loop))
+        {
+            throw new ContentLoadException(
+                path,
+                $"Budova '{id}': neznámý zvuk '{dto.Loop}' "
+                + $"(známé: {string.Join(", ", Enum.GetNames<SoundLoop>())}).");
+        }
+
+        // Nulový dosah nebo hlasitost = budova, která se tváří, že zní, a mlčí.
+        if (dto.RadiusTiles <= 0)
+        {
+            throw new ContentLoadException(path, $"Budova '{id}': 'sound.radiusTiles' musí být kladné.");
+        }
+
+        if (dto.Volume is <= 0 or > 1)
+        {
+            throw new ContentLoadException(
+                path, $"Budova '{id}': 'sound.volume' má být 0–1, je {dto.Volume}.");
+        }
+
+        return new BuildingSound(loop, dto.RadiusTiles, dto.Volume);
+    }
+
+    /// <summary>
+    /// Plavení dřeva. <c>null</c> u drtivé většiny budov — dřevo po řece plaví
+    /// splav a vytahují ho česle, nic jiného.
+    /// </summary>
+    private static RaftRule? ParseRaft(
+        string path, string id, RaftDto? dto, DefRegistry<Resource> resources)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (!dto.Drops && !dto.Catches)
+        {
+            throw new ContentLoadException(
+                path, $"Budova '{id}': blok 'raft' nic nedělá — chybí 'drops' i 'catches'.");
+        }
+
+        // Jedna budova obojí ne: splav, který si vlastní klády hned vytáhne,
+        // by dělal kolečko na místě a hráč by z toho měl jen bonus zadarmo.
+        if (dto.Drops && dto.Catches)
+        {
+            throw new ContentLoadException(
+                path, $"Budova '{id}': 'raft' nesmí zároveň pouštět i chytat — bylo by to kolečko na místě.");
+        }
+
+        int resourceIndex = -1;
+        if (dto.Drops)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Resource)
+                || !resources.TryIndexOf(dto.Resource.Trim(), out resourceIndex))
+            {
+                throw new ContentLoadException(
+                    path, $"Budova '{id}': 'raft.resource' odkazuje na neexistující surovinu '{dto.Resource}'.");
+            }
+
+            if (dto.Amount <= 0)
+            {
+                throw new ContentLoadException(path, $"Budova '{id}': 'raft.amount' musí být kladné.");
+            }
+
+            if (dto.IntervalTicks <= 0)
+            {
+                throw new ContentLoadException(path, $"Budova '{id}': 'raft.intervalTicks' musí být kladné.");
+            }
+        }
+
+        // Násobič pod 1 by znamenal, že se plavením dřevo ztrácí — pak by řeku
+        // nikdo nepoužil a mechanika by ve hře byla jen jako past.
+        if (dto.Catches && dto.CatchMultiplier < 1.0)
+        {
+            throw new ContentLoadException(
+                path,
+                $"Budova '{id}': 'raft.catchMultiplier' musí být aspoň 1, je {dto.CatchMultiplier} "
+                + "— jinak se plavením dřevo ztrácí.");
+        }
+
+        return new RaftRule(
+            dto.Drops, dto.Catches, resourceIndex, dto.Amount, dto.IntervalTicks,
+            dto.Catches ? dto.CatchMultiplier : 0);
+    }
+
+    /// <summary>
+    /// Smí budova stát <b>jen</b> na vodě? Prázdná maska (budova bez omezení)
+    /// se za podmořskou nepovažuje — ta smí všude, což je něco jiného.
+    /// </summary>
+    private static bool IsWaterOnly(bool[] mask, BiomeRegistry biomes)
+    {
+        bool any = false;
+        for (int i = 0; i < mask.Length && i < biomes.Count; i++)
+        {
+            if (!mask[i])
+            {
+                continue;
+            }
+
+            if (!biomes[i].IsWater)
+            {
+                return false;
+            }
+
+            any = true;
+        }
+
+        return any;
     }
 
     /// <summary>
@@ -2951,6 +4037,12 @@ public sealed class ContentLoader
             ? DemoConfig.Default
             : new DemoConfig(file.Demo.PopulationCap, file.Demo.AscensionRequirement, file.Demo.TechFraction);
 
+        // Zlaté úlovky: bez bloku zůstane jeden bezejmenný třpyt jako dřív,
+        // takže starý gameplay.json (i z modu) načte beze změny.
+        var golden = ReadGolden(file.Golden, path);
+        var subsea = ReadSubsea(file.Subsea, path);
+        var power = ReadPower(file.Power, path);
+
         return new GameplayConfig(
             file.StartingPopulation,
             startingBuildings,
@@ -2982,7 +4074,54 @@ public sealed class ContentLoader
             ParseLaser(path, file.Laser),
             ParseHistory(path, file.History),
             ParseResearch(path, file.Research),
-            demo);
+            demo,
+            golden,
+            subsea,
+            power);
+    }
+
+    /// <summary>
+    /// Rozvod proudu. Chybí-li blok, platí jedno globální číslo jako dřív —
+    /// starší data i mody tím dostanou přesně tu hru, jakou měly.
+    /// </summary>
+    private static PowerConfig ReadPower(PowerDto? dto, string path)
+    {
+        if (dto is null)
+        {
+            return PowerConfig.Global;
+        }
+
+        // Strop proti překlepu: dosah ve stovkách buněk je záplava přes půl
+        // světa při každé postavené elektrárně.
+        if (dto.Range is < 0 or > 64)
+        {
+            throw new ContentLoadException(path, $"'power.range' musí být 0–64, je {dto.Range}.");
+        }
+
+        return new PowerConfig(dto.Range);
+    }
+
+    /// <summary>
+    /// Podmořská vrstva. Chybí-li blok, je vypnutá — starší data i mody tím
+    /// dostanou přesně tu hru, jakou měly.
+    /// </summary>
+    private static SubseaConfig ReadSubsea(SubseaDto? dto, string path)
+    {
+        if (dto is null)
+        {
+            return SubseaConfig.Disabled;
+        }
+
+        // Strop je tu proti překlepu: dosah v tisících dlaždic by při každém
+        // postaveném přístavu rozlil zaplavování přes půl oceánu a hra by se
+        // sekla na místě, kde by to nikdo nehledal.
+        if (dto.Range is < 0 or > 64)
+        {
+            throw new ContentLoadException(path,
+                $"'subsea.range' musí být 0–64, je {dto.Range}.");
+        }
+
+        return new SubseaConfig(dto.Range);
     }
 
     /// <summary>
@@ -2993,6 +4132,56 @@ public sealed class ContentLoader
     /// Škálování cen výzkumu. Chybí-li blok, platí ceny přesně tak, jak jsou
     /// v tech.json — starší data a mody tím nic neztratí.
     /// </summary>
+    /// <summary>
+    /// Načte zlaté úlovky a ověří je při načtení (fail-fast).
+    ///
+    /// <para>Chybný záznam by se jinak projevil až tím, že po dvou minutách
+    /// hraní vyskočí neviditelný tvor bez odměny — a to nikdo nespojí s daty.</para>
+    /// </summary>
+    private static GoldenConfig ReadGolden(GoldenDto? dto, string path)
+    {
+        if (dto?.Kinds is null || dto.Kinds.Count == 0)
+        {
+            return GoldenConfig.Default;
+        }
+
+        if (dto.MinGapSeconds <= 0 || dto.MaxGapSeconds < dto.MinGapSeconds)
+        {
+            throw new ContentLoadException(
+                path,
+                $"golden má nesmyslné rozestupy ({dto.MinGapSeconds} až {dto.MaxGapSeconds} s).");
+        }
+
+        var kinds = new GoldenKindDef[dto.Kinds.Count];
+        for (int i = 0; i < dto.Kinds.Count; i++)
+        {
+            var kind = dto.Kinds[i];
+            if (string.IsNullOrWhiteSpace(kind.Id) || string.IsNullOrWhiteSpace(kind.Sprite))
+            {
+                throw new ContentLoadException(path, $"zlatý úlovek #{i} nemá id nebo sprite.");
+            }
+
+            if (kind.LifeSeconds <= 0)
+            {
+                throw new ContentLoadException(
+                    path,
+                    $"zlatý úlovek '{kind.Id}' by zmizel dřív, než se objeví "
+                    + $"(lifeSeconds = {kind.LifeSeconds}).");
+            }
+
+            kinds[i] = new GoldenKindDef(
+                kind.Id.Trim(),
+                kind.Sprite.Trim(),
+                kind.LifeSeconds,
+                Math.Max(0, kind.DriftTilesPerSecond),
+                Math.Max(0, kind.RewardFraction),
+                Math.Max(0, kind.MinReward),
+                kind.GrantsFestival);
+        }
+
+        return new GoldenConfig(dto.MinGapSeconds, dto.MaxGapSeconds, kinds);
+    }
+
     private static ResearchConfig? ParseResearch(string path, ResearchDto? dto)
     {
         if (dto is null)
@@ -3723,7 +4912,13 @@ public sealed class ContentLoader
         CitizenCatalog citizens,
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
-        SeasonCalendar seasons)
+        SeasonCalendar seasons,
+        OrbitCatalog orbit,
+        FigureCatalog figures,
+        ChronicleCatalog chronicle,
+        ScenarioCatalog scenarios,
+        PoiCatalog poi,
+        DoctrineCatalog doctrines)
     {
         if (!Directory.Exists(langDirectory))
         {
@@ -3757,7 +4952,7 @@ public sealed class ContentLoader
             languages.Add(new LanguageDef(id, dto.NativeName.Trim(), dto.Strings));
         }
 
-        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons);
+        ValidateContentKeys(langDirectory, languages[0], biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit, figures, chronicle, scenarios, poi, doctrines);
         FillGapsFromBaseLanguage(langDirectory, languages);
         return new DefRegistry<LanguageDef>(languages, l => l.Id, "jazyk");
     }
@@ -3793,9 +4988,64 @@ public sealed class ContentLoader
         CitizenCatalog citizens,
         ElectionConfig elections,
         IReadOnlyList<MilestoneDef> milestones,
-        SeasonCalendar seasons)
+        SeasonCalendar seasons,
+        OrbitCatalog orbit,
+        FigureCatalog figures,
+        ChronicleCatalog chronicle,
+        ScenarioCatalog scenarios,
+        PoiCatalog poi,
+        DoctrineCatalog doctrines)
     {
         var required = new List<string>();
+        foreach (var satellite in orbit.Satellites)
+        {
+            required.Add($"satellite.{satellite.Id}");
+            required.Add($"satellite.{satellite.Id}.desc");
+        }
+
+        // Osobnost bez jména by se v toastu ohlásila doslova jako
+        // „figure.mason" — a to je přesně ta chyba, kterou má fail-fast chytit
+        // při startu, ne hráč po dvou hodinách hraní.
+        foreach (var figure in figures.Figures)
+        {
+            required.Add($"figure.{figure.Id}");
+            required.Add($"figure.{figure.Id}.desc");
+        }
+
+        // Věta kroniky se skládá v jazyce, ne v kódu: „po dvou letech" a „po
+        // pěti letech" se v češtině liší a jednou šablonou se to nevyřeší.
+        foreach (var line in chronicle.Templates)
+        {
+            required.Add(line.TextKey);
+        }
+
+        foreach (var scenario in scenarios.Scenarios)
+        {
+            required.Add(scenario.NameKey);
+            required.Add(scenario.DescriptionKey);
+        }
+
+        foreach (var kind in poi.Kinds)
+        {
+            required.Add(kind.NameKey);
+            required.Add(kind.DescriptionKey);
+        }
+
+        foreach (var relic in poi.Relics)
+        {
+            required.Add(relic.NameKey);
+        }
+
+        foreach (var doctrine in doctrines.Doctrines)
+        {
+            required.Add(doctrine.NameKey);
+            required.Add(doctrine.DescriptionKey);
+            for (int i = 0; i < doctrine.Nodes.Count; i++)
+            {
+                required.Add(doctrine.NodeNameKey(i));
+            }
+        }
+
         required.AddRange(biomes.All.Select(b => b.NameKey));
         required.AddRange(resources.All.Select(r => r.NameKey));
         required.AddRange(buildings.All.Select(b => b.NameKey));

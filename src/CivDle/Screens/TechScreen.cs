@@ -55,6 +55,16 @@ public sealed class TechScreen : IScreen
 
     private Desktop _desktop = null!;
 
+    /// <summary>
+    /// Vyhledávání ve stromu. Staví se znovu při změně jazyka — hledá se
+    /// v tom, co hráč doopravdy vidí, ne v anglických ID.
+    /// </summary>
+    private SearchIndex _search = new(Array.Empty<string>());
+
+    /// <summary>Políčko s dotazem; drží se kvůli hlášce o počtu nálezů.</summary>
+    private TextBox _searchBox = null!;
+    private Label _searchResult = null!;
+
     /// <summary>Vyrovnávací seznam bodů spojnice — kreslí se každý snímek, alokovat ho pokaždé by bylo zbytečné.</summary>
     private readonly List<Vector2> _edgePoints = new();
     private Vector2 _pan;
@@ -94,8 +104,17 @@ public sealed class TechScreen : IScreen
     public void Update(GameTime gameTime)
     {
         _input.Update();
+
+        // Escape napřed zruší hledání a teprve podruhé zavře obrazovku. Kdo
+        // právě hledal, chce zpátky celý strom — ne ven z okna.
         if (_input.WasPressed(Keys.Escape))
         {
+            if (_search.IsFiltering)
+            {
+                ClearSearch();
+                return;
+            }
+
             _screens.Pop();
             return;
         }
@@ -107,11 +126,17 @@ public sealed class TechScreen : IScreen
             _flashNode = -1;
         }
 
-        const float keyboardPanSpeed = 600f;
-        if (_input.IsDown(Keys.A) || _input.IsDown(Keys.Left)) _pan.X += keyboardPanSpeed * dt;
-        if (_input.IsDown(Keys.D) || _input.IsDown(Keys.Right)) _pan.X -= keyboardPanSpeed * dt;
-        if (_input.IsDown(Keys.W) || _input.IsDown(Keys.Up)) _pan.Y += keyboardPanSpeed * dt;
-        if (_input.IsDown(Keys.S) || _input.IsDown(Keys.Down)) _pan.Y -= keyboardPanSpeed * dt;
+        // Když hráč píše do vyhledávacího políčka, klávesy patří jemu, ne kameře.
+        // Bez tohohle by napsání „drevo" odplachtilo souhvězdí pryč.
+        bool typing = _desktop.FocusedKeyboardWidget == _searchBox;
+        if (!typing)
+        {
+            const float keyboardPanSpeed = 600f;
+            if (_input.IsDown(Keys.A) || _input.IsDown(Keys.Left)) _pan.X += keyboardPanSpeed * dt;
+            if (_input.IsDown(Keys.D) || _input.IsDown(Keys.Right)) _pan.X -= keyboardPanSpeed * dt;
+            if (_input.IsDown(Keys.W) || _input.IsDown(Keys.Up)) _pan.Y += keyboardPanSpeed * dt;
+            if (_input.IsDown(Keys.S) || _input.IsDown(Keys.Down)) _pan.Y -= keyboardPanSpeed * dt;
+        }
 
         bool overUi = _desktop.IsMouseOverGUI;
         var mouse = _input.MousePosition;
@@ -155,6 +180,11 @@ public sealed class TechScreen : IScreen
                     _screens.Sounds.PlayChime();
                     _flashNode = hit;
                     _flashAge = 0f;
+
+                    // Vyzkoumáním se odhalí navazující uzly, takže rejstřík
+                    // zestárl — bez přestavby by je hledání nenašlo.
+                    RebuildSearchIndex();
+                    _search.Search(_searchBox.Text);
                 }
             }
         }
@@ -208,6 +238,15 @@ public sealed class TechScreen : IScreen
                 || center.Y < -margin || center.Y > viewport.Height + margin)
             {
                 continue; // culling — u velkého souhvězdí se vyplatí
+            }
+
+            // Hledání uzel neschovává, jen ho ztlumí. Skrýt ho nejde: spojnice
+            // by vedly odnikud nikam a hráč by ztratil, KDE ten nález ve stromu
+            // vlastně je — a to je půlka odpovědi, kterou hledal.
+            if (_search.IsFiltering && !_search.IsMatch(i))
+            {
+                DrawDiamond(spriteBatch, pixel, center, star * 0.5f, UnknownColor * 0.6f);
+                continue;
             }
 
             // Dál než krok dopředu se strom nečte — neznámý uzel je jen tečka
@@ -269,7 +308,11 @@ public sealed class TechScreen : IScreen
             // Jméno pod hvězdou; zbytek (popis, cena, chybějící prerekvizity) nese
             // bublina u kurzoru — tabulka u každé hvězdy by souhvězdí zaplevelila.
             // Při silném oddálení se jména vypustí, aby zbyl čitelný obrazec hvězd.
-            if (_zoom < LabelZoom && !hovered)
+            // Při hledání se jméno nálezu ukáže i v oddáleném pohledu — jinak
+            // by hráč viděl svítící hvězdu a musel k ní najet, aby zjistil,
+            // co našel.
+            bool found = _search.IsFiltering && _search.IsMatch(i);
+            if (_zoom < LabelZoom && !hovered && !found)
             {
                 continue;
             }
@@ -516,6 +559,87 @@ public sealed class TechScreen : IScreen
         CenterOn(new Vector2(_layout.Width / 2f, _layout.Height / 2f), viewport);
     }
 
+    /// <summary>
+    /// Postaví rejstřík z toho, co hráč na obrazovce vidí.
+    ///
+    /// <para>Do textu jde <b>i to, co technologie odemyká</b>. Hráč zpravidla
+    /// neví, jak se jmenuje uzel — ví, že chce postavit pilu. Bez odemykaných
+    /// budov by musel uhodnout název technologie, což je přesně ta bariéra,
+    /// kterou má hledání odstranit.</para>
+    /// </summary>
+    private void RebuildSearchIndex()
+    {
+        var loc = _screens.Loc;
+        var techs = _screens.Content.Techs;
+        var buildings = _screens.Content.Buildings;
+
+        var entries = new string[techs.Count];
+        for (int i = 0; i < techs.Count; i++)
+        {
+            // Neodhalený uzel se nesmí dát najít. Strom se odkrývá postupně
+            // a hledání by ten závoj obešlo: hráč napíše „uran" a dozví se,
+            // že uran ve hře je, dřív než se k němu dopracoval. Prázdný text
+            // nevyhoví žádnému dotazu.
+            if (!_simulation.IsTechKnown(i))
+            {
+                entries[i] = string.Empty;
+                continue;
+            }
+
+            var text = new System.Text.StringBuilder();
+            text.Append(loc[techs[i].NameKey]).Append(' ');
+            text.Append(loc[techs[i].DescriptionKey]).Append(' ');
+            text.Append(techs[i].Id);
+
+            foreach (int building in techs[i].UnlockedBuildingIndices)
+            {
+                text.Append(' ').Append(loc[buildings[building].NameKey]);
+                text.Append(' ').Append(buildings[building].Id);
+            }
+
+            entries[i] = text.ToString();
+        }
+
+        _search = new SearchIndex(entries);
+    }
+
+    /// <summary>Dotaz se změnil: přepočítat shody, ohlásit počet a skočit na první nález.</summary>
+    private void ApplySearch(string? query)
+    {
+        _search.Search(query);
+        _searchResult.Text = _search.IsFiltering
+            ? _screens.Loc.Format("search.results", _search.MatchCount)
+            : string.Empty;
+
+        // Skok na nález je půlka užitku: u sto padesáti uzlů nemá cenu vědět,
+        // že něco existuje, když to hráč pak musí hledat očima po plátně.
+        int first = _search.FirstMatch();
+        if (_search.IsFiltering && first >= 0)
+        {
+            CenterOn(_layout.Center(first), _screens.GraphicsDevice.Viewport);
+        }
+    }
+
+    /// <summary>Zruší hledání a vrátí celý strom.</summary>
+    private void ClearSearch()
+    {
+        _searchBox.Text = string.Empty;
+        ApplySearch(null);
+    }
+
+    /// <summary>
+    /// Napíše dotaz do políčka — jen pro smoke test, který nemá klávesnici.
+    /// Kdyby tohle nešlo zvenku, projela by se obrazovka, ale ne hledání.
+    /// </summary>
+    internal void SearchForSmoke(string query)
+    {
+        _searchBox.Text = query;
+        ApplySearch(query);
+    }
+
+    /// <summary>Kolik uzlů dotazu vyhovuje (smoke test si to ověřuje).</summary>
+    internal int SearchMatchCountForSmoke => _search.MatchCount;
+
     private void CenterOn(Vector2 canvasPoint, Viewport viewport)
     {
         _pan = new Vector2(viewport.Width / 2f, viewport.Height / 2f) - canvasPoint * _zoom;
@@ -568,6 +692,27 @@ public sealed class TechScreen : IScreen
                 TextColor = UiPalette.Good,
             });
         }
+
+        // Hledání: sto padesát uzlů se očima neprojde. Políčko je v hlavičce,
+        // aby ho hráč našel dřív, než ho strom odradí.
+        RebuildSearchIndex();
+        _searchBox = new TextBox { Width = 260 };
+        _searchResult = new Label { TextColor = UiPalette.TextDim, VerticalAlignment = VerticalAlignment.Center };
+        _searchBox.TextChanged += (_, _) => ApplySearch(_searchBox.Text);
+
+        var searchRow = new HorizontalStackPanel
+        {
+            Spacing = 8,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        searchRow.Widgets.Add(new Label
+        {
+            Text = loc["search.label"],
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        searchRow.Widgets.Add(_searchBox);
+        searchRow.Widgets.Add(_searchResult);
+        header.Widgets.Add(searchRow);
 
         var headerPanel = UiFactory.DarkPanel(header);
         headerPanel.HorizontalAlignment = HorizontalAlignment.Center;

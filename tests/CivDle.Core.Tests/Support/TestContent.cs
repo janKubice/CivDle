@@ -61,7 +61,13 @@ internal static class TestContent
         CitizenCatalog? citizens = null,
         GrandWorkConfig? grandWork = null,
         LegacyConfig? legacy = null,
-        IReadOnlyList<PrestigeUpgradeDef>? legacyUpgrades = null)
+        IReadOnlyList<PrestigeUpgradeDef>? legacyUpgrades = null,
+        OrbitCatalog? orbit = null,
+        FigureCatalog? figures = null,
+        CarillonConfig? carillon = null,
+        ScenarioCatalog? scenarios = null,
+        PoiCatalog? pointsOfInterest = null,
+        DoctrineCatalog? doctrines = null)
     {
         biomes ??= new[] { WaterBiome(), LandBiome("grass") };
         resources ??= new[] { new Resource("wood", new RgbColor(140, 90, 40), StartAmount: 10, BaseStorage: 1000) };
@@ -132,7 +138,15 @@ internal static class TestContent
             grandWork: grandWork, // null = Velké dílo v testech vypnuté
             legacy: legacy, // null = Odkaz v testech vypnutý
             legacyUpgrades: new DefRegistry<PrestigeUpgradeDef>(
-                legacyUpgrades ?? Array.Empty<PrestigeUpgradeDef>(), u => u.Id, "upgrade Odkazu", allowEmpty: true));
+                legacyUpgrades ?? Array.Empty<PrestigeUpgradeDef>(), u => u.Id, "upgrade Odkazu", allowEmpty: true),
+            aircraft: null,
+            orbit: orbit, // null = orbita v testech vypnutá
+            figures: figures, // null = osobnosti v testech vypnuté
+            chronicle: null, // kronika v testech vypnutá
+            carillon: carillon, // null = zvonohra v testech vypnutá
+            scenarios: scenarios, // null = scénáře v testech vypnuté
+            pointsOfInterest: pointsOfInterest, // null = anomálie v testech vypnuté
+            doctrines: doctrines); // null = doktríny v testech vypnuté
     }
 
     /// <summary>Výchozí prestige config testů (Vzestup od 50 obyvatel, body = populace ÷ 15).</summary>

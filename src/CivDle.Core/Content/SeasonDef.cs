@@ -27,8 +27,19 @@ public sealed record SeasonDef(
     double HarvestMult,
     double GrowthMult,
     double FuelPerPersonPerSecond,
-    double ColdGrowthMult)
+    double ColdGrowthMult,
+    double SnowCover = 0.0)
 {
+    /// <summary>
+    /// Leží na střechách sníh? 0 = vůbec, 1 = celá střecha bílá.
+    ///
+    /// <para>Barevný nádech přes scénu řekne „je zima" jen tomu, kdo si toho
+    /// všimne. Bílé střechy to řeknou i tomu, kdo se zrovna dívá na jeden dům.
+    /// Je to <b>hodnota v datech</b>, protože kolik sněhu je „akorát" je
+    /// rozhodnutí o vzhledu, ne o algoritmu.</para>
+    /// </summary>
+    public bool HasSnow => SnowCover > 0.001;
+
     /// <summary>Lokalizační klíč jména období.</summary>
     public string NameKey => $"season.{Id}";
 

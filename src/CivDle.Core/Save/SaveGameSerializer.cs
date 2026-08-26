@@ -84,6 +84,86 @@ public sealed class SaveGameSerializer
     /// </summary>
     private const string SectionTechLevels = "techlevels";
 
+    /// <summary>
+    /// Režim hry (zatím jen pískoviště). Vlastní sekce, ne bit v „core":
+    /// starší savy ji prostě nemají a načtou se jako normální hra, což je
+    /// přesně to, co chceme — žádná migrace, žádná verze navíc.
+    /// </summary>
+    private const string SectionMode = "mode";
+
+    /// <summary>
+    /// Družice na oběžné dráze. Vlastní sekce: starší save ji nemá a načte se
+    /// s prázdnou dráhou, což je přesně stav před tím, než orbita existovala.
+    /// </summary>
+    private const string SectionOrbit = "orbit";
+
+    /// <summary>
+    /// Stav volitelné obrany: která vlna je na řadě a kdo je zrovna na mapě.
+    /// Útočníci se ukládají schválně — dopočítat je z rozvrhu by znamenalo, že
+    /// se uložením a načtením dá rozběhnutá vlna zrušit.
+    /// </summary>
+    private const string SectionFrontier = "frontier";
+
+    /// <summary>
+    /// Významné osobnosti: kdo žije (a od kdy) a na koho už město vzpomíná.
+    ///
+    /// <para>Ukládá se i seznam mrtvých — bez něj by se po načtení narodili
+    /// znovu na tomtéž milníku a hráč by měl jednoho člověka třikrát.</para>
+    /// </summary>
+    private const string SectionFigures = "figures";
+
+    /// <summary>
+    /// Melodie zvonohry — osm čísel. Vlastní sekce, protože je to jediná věc
+    /// v savu, kterou hráč složil sám: starší sav ji nemá a načte se s výchozí
+    /// melodií z dat, ne s tichem.
+    /// </summary>
+    private const string SectionCarillon = "carillon";
+
+    /// <summary>
+    /// Běžící scénář: který a jak dopadl.
+    ///
+    /// <para>Ukládá se i výsledek. Bez něj by se po načtení dohrané hry
+    /// scénář rozběhl znovu a hráč by mohl prohru „vyzkoušet znovu" prostým
+    /// načtením — přesně to, co dělá zadání bezcenným.</para>
+    /// </summary>
+    private const string SectionScenario = "scenario";
+
+    /// <summary>
+    /// Anomálie: které už hráč vybral, co je na cestě a jaké relikvie přivezl.
+    ///
+    /// <para>Pozice anomálií se <b>neukládají</b> — dopočítají se ze seedu.
+    /// Ukládá se jen to, co hráč udělal, takže save neroste s tím, kam odjel
+    /// kamerou.</para>
+    /// </summary>
+    private const string SectionExpedition = "expedition";
+
+    /// <summary>
+    /// Zvolená doktrína a koupené uzly.
+    ///
+    /// <para>Doktrína jménem, uzly taky — pořadí v datech se mezi verzemi
+    /// změní a hráč by se probudil s jinou cestou, než jakou si vybral.</para>
+    /// </summary>
+    private const string SectionDoctrine = "doctrine";
+
+    /// <summary>
+    /// Vlastní plány jednotlivých sídel („město A těžba, město B zemědělství").
+    ///
+    /// <para>Vlastní sekce, ne dodatek k plánu guvernéra: sídel může být
+    /// desítky a starší save žádné nemá — načte se tedy tak, že všechna jedou
+    /// podle říšského plánu, což je přesně stav před tím, než plán na sídlo
+    /// existoval.</para>
+    /// </summary>
+    private const string SectionSettlementPlans = "settlementplans";
+
+    /// <summary>
+    /// Klády na řekách.
+    ///
+    /// <para>Ukládají se, i když jsou to jen kulisy s užitkem: kláda nese
+    /// surovinu, kterou hráč <b>zaplatil</b> ze skladu. Kdyby se neuložila,
+    /// dalo by se uložením a načtením dřevo tiše ztrácet.</para>
+    /// </summary>
+    private const string SectionRafts = "rafts";
+
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
     {
@@ -195,6 +275,190 @@ public sealed class SaveGameSerializer
         WriteSection(writer, SectionHistory, w => WriteHistory(w, simulation));
 
         WriteSection(writer, SectionTechLevels, w => WriteTechLevels(w, simulation));
+        WriteSection(writer, SectionMode, w =>
+        {
+            w.Write(simulation.Sandbox);
+            w.Write(simulation.FrontierDefense); // připojeno na konec: starší save to prostě nemá
+        });
+        WriteSection(writer, SectionFrontier, w =>
+        {
+            var frontier = simulation.Frontier;
+            w.Write(frontier.NextWave);
+            w.Write(frontier.Killed);
+            w.Write(frontier.ReachedCity);
+
+            var attackers = frontier.Attackers;
+            w.Write(attackers.Length);
+            for (int i = 0; i < attackers.Length; i++)
+            {
+                w.Write(attackers[i].X);
+                w.Write(attackers[i].Y);
+                w.Write(attackers[i].Health);
+                w.Write(attackers[i].TypeIndex);
+                w.Write(attackers[i].AttackCooldown);
+            }
+
+            // Poškození drží budovy, ale sekce budov je stará a měnit ji kvůli
+            // volitelnému režimu by znamenalo nový formát pro všechny. Tady je
+            // to pár čísel a starší save je prostě nemá.
+            var buildings = simulation.Buildings;
+            int damaged = 0;
+            for (int i = 0; i < buildings.Length; i++)
+            {
+                if (buildings[i].DisabledTicks > 0)
+                {
+                    damaged++;
+                }
+            }
+
+            w.Write(damaged);
+            for (int i = 0; i < buildings.Length; i++)
+            {
+                if (buildings[i].DisabledTicks > 0)
+                {
+                    w.Write(i);
+                    w.Write(buildings[i].DisabledTicks);
+                }
+            }
+        });
+        WriteSection(writer, SectionOrbit, w =>
+        {
+            // Ukládá se JEN kolik čeho je nahoře a co se staví. Poloha družice
+            // na dráze je funkce tiku, takže ji není co ukládat a nemá se jak
+            // rozejít s obrázkem.
+            var counts = simulation.Orbit.CountsForSave();
+            w.Write(counts.Count);
+            for (int i = 0; i < counts.Count; i++)
+            {
+                w.Write(counts[i]);
+            }
+
+            w.Write(simulation.Orbit.UnderConstruction);
+            w.Write(simulation.Orbit.TicksLeft);
+        });
+
+        WriteSection(writer, SectionFigures, w =>
+        {
+            var living = simulation.Figures.Living;
+            w.Write(living.Count);
+            for (int i = 0; i < living.Count; i++)
+            {
+                w.Write(living[i].FigureIndex);
+                w.Write(living[i].BornTick);
+            }
+
+            var remembered = simulation.Figures.Remembered;
+            w.Write(remembered.Count);
+            for (int i = 0; i < remembered.Count; i++)
+            {
+                w.Write(remembered[i]);
+            }
+        });
+
+        WriteSection(writer, SectionCarillon, w =>
+        {
+            var notes = simulation.Carillon.Notes;
+            w.Write(notes.Count);
+            for (int i = 0; i < notes.Count; i++)
+            {
+                w.Write(notes[i]);
+            }
+        });
+
+        WriteSection(writer, SectionExpedition, w =>
+        {
+            var claimed = simulation.PointsOfInterest.ClaimedKeys.ToList();
+            w.Write(claimed.Count);
+            for (int i = 0; i < claimed.Count; i++)
+            {
+                w.Write(claimed[i]);
+            }
+
+            var target = simulation.ExpeditionTarget;
+            w.Write(target.X);
+            w.Write(target.Y);
+            w.Write(simulation.ExpeditionRunning ? target.KindIndex : -1);
+            w.Write(simulation.ExpeditionTicksLeft);
+
+            var relics = simulation.Relics;
+            w.Write(relics.Count);
+            for (int i = 0; i < relics.Count; i++)
+            {
+                w.Write(relics[i]);
+            }
+        });
+
+        if (simulation.Rafts.Count > 0)
+        {
+            WriteSection(writer, SectionRafts, w =>
+            {
+                var logs = simulation.Rafts.Logs.ToList();
+                w.Write(logs.Count);
+                for (int i = 0; i < logs.Count; i++)
+                {
+                    w.Write(logs[i].X);
+                    w.Write(logs[i].Y);
+                    w.Write(logs[i].ResourceIndex);
+                    w.Write(logs[i].Amount);
+                    w.Write(logs[i].TicksLeft);
+                }
+            });
+        }
+
+        if (simulation.SettlementPlans.Count > 0)
+        {
+            WriteSection(writer, SectionSettlementPlans, w =>
+            {
+                w.Write(simulation.SettlementPlans.Count);
+                foreach (var (nameIndex, plan) in simulation.SettlementPlans)
+                {
+                    // Klíčem je index jména, ne pořadí sídla: sídla se
+                    // přepočítávají ze zástavby a jejich index se mění pokaždé,
+                    // když někde vyroste dům.
+                    w.Write(nameIndex);
+                    w.Write((int)plan.Focus);
+                    w.Write(plan.BlockedCategories.Count);
+                    foreach (string category in plan.BlockedCategories)
+                    {
+                        w.Write(category);
+                    }
+                }
+            });
+        }
+
+        if (simulation.Doctrine is { } doctrine)
+        {
+            WriteSection(writer, SectionDoctrine, w =>
+            {
+                w.Write(doctrine.Id);
+
+                var owned = new List<string>();
+                for (int i = 0; i < doctrine.Nodes.Count; i++)
+                {
+                    if (simulation.IsDoctrineNodeOwned(i))
+                    {
+                        owned.Add(doctrine.Nodes[i].Id);
+                    }
+                }
+
+                w.Write(owned.Count);
+                for (int i = 0; i < owned.Count; i++)
+                {
+                    w.Write(owned[i]);
+                }
+            });
+        }
+
+        if (simulation.InScenario)
+        {
+            WriteSection(writer, SectionScenario, w =>
+            {
+                // Jménem, ne indexem: pořadí v datech se mezi verzemi změní
+                // a hráč by se probudil v jiném scénáři, než ve kterém usnul.
+                w.Write(simulation.Scenario!.Id);
+                w.Write((int)simulation.ScenarioResult);
+            });
+        }
     }
 
     /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
@@ -475,6 +739,162 @@ public sealed class SaveGameSerializer
         }
     }
 
+    /// <summary>Načte klády plující po řekách.</summary>
+    private static void ReadRafts(BinaryReader section, Simulation simulation)
+    {
+        int count = section.ReadInt32();
+        var logs = new FloatingLog[Math.Max(0, count)];
+        for (int i = 0; i < logs.Length; i++)
+        {
+            logs[i] = new FloatingLog(
+                section.ReadInt32(), section.ReadInt32(), section.ReadInt32(),
+                section.ReadDouble(), section.ReadInt32());
+        }
+
+        simulation.RestoreRafts(logs);
+    }
+
+    /// <summary>Načte vlastní plány sídel.</summary>
+    private static void ReadSettlementPlans(BinaryReader section, Simulation simulation)
+    {
+        int count = section.ReadInt32();
+        for (int i = 0; i < count; i++)
+        {
+            int nameIndex = section.ReadInt32();
+            var focus = (GovernorFocus)section.ReadInt32();
+
+            int blockedCount = section.ReadInt32();
+            var blocked = new string[Math.Max(0, blockedCount)];
+            for (int b = 0; b < blocked.Length; b++)
+            {
+                blocked[b] = section.ReadString();
+            }
+
+            simulation.RestoreSettlementPlan(nameIndex, focus, blocked);
+        }
+    }
+
+    /// <summary>Načte zvolenou doktrínu a koupené uzly (jménem, ne indexem).</summary>
+    private static void ReadDoctrine(BinaryReader section, GameContent content, Simulation simulation)
+    {
+        int doctrineIndex = content.Doctrines.IndexOf(section.ReadString());
+        int count = section.ReadInt32();
+
+        var owned = new List<int>();
+        for (int i = 0; i < count; i++)
+        {
+            string nodeId = section.ReadString();
+            if (doctrineIndex < 0)
+            {
+                continue; // doktrína z dat zmizela (mod) — uzly nemají kam patřit
+            }
+
+            var nodes = content.Doctrines[doctrineIndex].Nodes;
+            for (int n = 0; n < nodes.Count; n++)
+            {
+                if (string.Equals(nodes[n].Id, nodeId, StringComparison.Ordinal))
+                {
+                    owned.Add(n);
+                    break;
+                }
+            }
+        }
+
+        simulation.RestoreDoctrine(doctrineIndex, owned);
+    }
+
+    /// <summary>Načte vybrané anomálie, běžící výpravu a přivezené relikvie.</summary>
+    private static void ReadExpedition(BinaryReader section, Simulation simulation)
+    {
+        int claimedCount = section.ReadInt32();
+        var claimed = new long[Math.Max(0, claimedCount)];
+        for (int i = 0; i < claimed.Length; i++)
+        {
+            claimed[i] = section.ReadInt64();
+        }
+
+        int x = section.ReadInt32();
+        int y = section.ReadInt32();
+        int kind = section.ReadInt32();
+        long ticksLeft = section.ReadInt64();
+
+        int relicCount = section.ReadInt32();
+        var relics = new int[Math.Max(0, relicCount)];
+        for (int i = 0; i < relics.Length; i++)
+        {
+            relics[i] = section.ReadInt32();
+        }
+
+        simulation.RestoreExpedition(claimed, x, y, kind, ticksLeft, relics);
+    }
+
+    /// <summary>Načte melodii zvonohry.</summary>
+    private static void ReadCarillon(BinaryReader section, Simulation simulation)
+    {
+        int count = section.ReadInt32();
+        var notes = new int[Math.Max(0, count)];
+        for (int i = 0; i < notes.Length; i++)
+        {
+            notes[i] = section.ReadInt32();
+        }
+
+        simulation.RestoreCarillon(notes);
+    }
+
+    /// <summary>
+    /// Načte osobnosti: kdo žije a na koho město vzpomíná.
+    ///
+    /// <para>Sochy se znovu nestaví — ty už na mapě stojí jako běžné budovy
+    /// v sekci <c>buildings</c>. Kdyby je obnova stavěla znovu, přibyla by
+    /// s každým načtením jedna navíc.</para>
+    /// </summary>
+    private static void ReadFigures(BinaryReader section, Simulation simulation)
+    {
+        int livingCount = section.ReadInt32();
+        var living = new LivingFigure[Math.Max(0, livingCount)];
+        for (int i = 0; i < living.Length; i++)
+        {
+            living[i] = new LivingFigure(section.ReadInt32(), section.ReadInt64());
+        }
+
+        int rememberedCount = section.ReadInt32();
+        var remembered = new int[Math.Max(0, rememberedCount)];
+        for (int i = 0; i < remembered.Length; i++)
+        {
+            remembered[i] = section.ReadInt32();
+        }
+
+        simulation.RestoreFigures(living, remembered);
+    }
+
+    /// <summary>Načte stav bitvy: vlnu, počty a útočníky na mapě.</summary>
+    private static void ReadFrontier(BinaryReader section, Simulation simulation)
+    {
+        int nextWave = section.ReadInt32();
+        int killed = section.ReadInt32();
+        int reached = section.ReadInt32();
+
+        int count = section.ReadInt32();
+        var attackers = new Attacker[Math.Max(0, count)];
+        for (int i = 0; i < attackers.Length; i++)
+        {
+            attackers[i].X = section.ReadSingle();
+            attackers[i].Y = section.ReadSingle();
+            attackers[i].Health = section.ReadInt32();
+            attackers[i].TypeIndex = section.ReadInt32();
+            attackers[i].AttackCooldown = section.ReadInt32();
+        }
+
+        int damaged = section.ReadInt32();
+        var damage = new (int Index, int Ticks)[Math.Max(0, damaged)];
+        for (int i = 0; i < damage.Length; i++)
+        {
+            damage[i] = (section.ReadInt32(), section.ReadInt32());
+        }
+
+        simulation.RestoreFrontier(nextWave, killed, reached, attackers, damage);
+    }
+
     private static void ApplySection(string name, BinaryReader section, GameContent content, Simulation simulation)
     {
         switch (name)
@@ -512,6 +932,57 @@ public sealed class SaveGameSerializer
             case SectionMilestones: ReadMilestones(section, content, simulation); break;
             case SectionHistory: ReadHistory(section, simulation); break;
             case SectionTechLevels: ReadTechLevels(section, content, simulation); break;
+            case SectionOrbit:
+                int satelliteKinds = section.ReadInt32();
+                var launched = new int[satelliteKinds];
+                for (int i = 0; i < satelliteKinds; i++)
+                {
+                    launched[i] = section.ReadInt32();
+                }
+
+                simulation.RestoreOrbit(launched, section.ReadInt32(), section.ReadInt32());
+                break;
+            case SectionMode:
+                // Jednosměrka: z pískoviště se do normální hry vrátit nedá, takže
+                // se jen zapíná. Kdyby se dalo i vypnout, dala by se hra „vyprat".
+                if (section.ReadBoolean())
+                {
+                    simulation.MarkAsSandbox();
+                }
+
+                // Obrana je připojená za pískovištěm; save z doby před ní tady
+                // prostě končí a přečte se jako „režim vypnutý".
+                if (section.BaseStream.Position < section.BaseStream.Length && section.ReadBoolean())
+                {
+                    simulation.EnableFrontierDefense();
+                }
+
+                break;
+            case SectionFrontier:
+                ReadFrontier(section, simulation);
+                break;
+            case SectionFigures:
+                ReadFigures(section, simulation);
+                break;
+            case SectionCarillon:
+                ReadCarillon(section, simulation);
+                break;
+            case SectionRafts:
+                ReadRafts(section, simulation);
+                break;
+            case SectionSettlementPlans:
+                ReadSettlementPlans(section, simulation);
+                break;
+            case SectionDoctrine:
+                ReadDoctrine(section, content, simulation);
+                break;
+            case SectionExpedition:
+                ReadExpedition(section, simulation);
+                break;
+            case SectionScenario:
+                int scenarioIndex = content.Scenarios.IndexOf(section.ReadString());
+                simulation.RestoreScenario(scenarioIndex, (ScenarioOutcome)section.ReadInt32());
+                break;
             case SectionRuns:
                 simulation.PeakPopulation = section.ReadInt64();  // pořadí musí sedět se zápisem
                 simulation.BestRunPopulation = section.ReadInt64();

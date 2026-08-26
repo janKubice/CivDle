@@ -159,7 +159,12 @@
         "perTile": 0.025,
         "max": 0.35
       },
-      "terrainHarvestRadius": 5
+      "terrainHarvestRadius": 5,
+      "sound": {
+        "loop": "mill",
+        "radiusTiles": 12,
+        "volume": 0.4
+      }
     },
     {
       "id": "tree_nursery",
@@ -257,6 +262,84 @@
         "every": 5,
         "bonusPerStep": 0.1,
         "maxSteps": 10
+      },
+      "sound": {
+        "loop": "mill",
+        "radiusTiles": 12,
+        "volume": 0.45
+      }
+    },
+    {
+      "id": "log_flume",
+      "category": "production",
+      "mapColor": "#7A5C33",
+      "footprint": [
+        1,
+        1
+      ],
+      "workerSlots": 2,
+      "buildCost": {
+        "wood": 40,
+        "planks": 20
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "forest",
+        "taiga",
+        "jungle",
+        "highlands",
+        "mangrove"
+      ],
+      "upkeep": {
+        "planks": 1
+      },
+      "raft": {
+        "drops": true,
+        "resource": "wood",
+        "amount": 8,
+        "intervalTicks": 120
+      }
+    },
+    {
+      "id": "log_boom",
+      "category": "production",
+      "mapColor": "#9C7B45",
+      "footprint": [
+        1,
+        1
+      ],
+      "workerSlots": 3,
+      "buildCost": {
+        "planks": 40,
+        "stone": 20
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "forest",
+        "taiga",
+        "jungle",
+        "highlands",
+        "mangrove"
+      ],
+      "upkeep": {
+        "planks": 1
+      },
+      "raft": {
+        "catches": true,
+        "catchMultiplier": 1.6
+      },
+      "sound": {
+        "loop": "water",
+        "radiusTiles": 12,
+        "volume": 0.4
       }
     },
     {
@@ -403,6 +486,48 @@
       "paving": 0.1
     },
     {
+      "id": "grain_field",
+      "category": "production",
+      "mapColor": "#C8A54D",
+      "footprint": [
+        2,
+        2
+      ],
+      "workerSlots": 2,
+      "buildCost": {
+        "wood": 16,
+        "planks": 6
+      },
+      "recipe": {
+        "output": {
+          "grain": 4
+        },
+        "timeTicks": 55
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna"
+      ],
+      "adjacency": {
+        "biomes": [
+          "grassland",
+          "steppe",
+          "savanna"
+        ],
+        "radius": 2,
+        "perTile": 0.02,
+        "max": 0.3
+      },
+      "autoBuild": true,
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "paving": 0.1
+    },
+    {
       "id": "plantation",
       "category": "production",
       "mapColor": "#C79A34",
@@ -472,6 +597,9 @@
         "planks": 100,
         "stone": 120,
         "food": 120,
+        "grain": 140,
+        "flour": 100,
+        "bread": 90,
         "tools": 60,
         "copper_ore": 80,
         "bronze": 60,
@@ -487,7 +615,9 @@
         "robot": 30,
         "science": 75,
         "faith": 60,
-        "uranium": 40
+        "uranium": 40,
+        "kelp": 120,
+        "nodules": 80
       }
     },
     {
@@ -531,6 +661,100 @@
         "every": 5,
         "bonusPerStep": 0.1,
         "maxSteps": 10
+      },
+      "sound": {
+        "loop": "mill",
+        "radiusTiles": 13,
+        "volume": 0.4
+      }
+    },
+    {
+      "id": "grist_mill",
+      "category": "production",
+      "mapColor": "#CBB98E",
+      "footprint": [
+        1,
+        1
+      ],
+      "workerSlots": 2,
+      "buildCost": {
+        "wood": 20,
+        "stone": 14
+      },
+      "recipe": {
+        "input": {
+          "grain": 3
+        },
+        "output": {
+          "flour": 2
+        },
+        "timeTicks": 45
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "forest",
+        "highlands"
+      ],
+      "autoBuild": true,
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "sound": {
+        "loop": "mill",
+        "radiusTiles": 11,
+        "volume": 0.35
+      }
+    },
+    {
+      "id": "bakery",
+      "category": "production",
+      "mapColor": "#C98A4B",
+      "footprint": [
+        1,
+        1
+      ],
+      "workerSlots": 3,
+      "buildCost": {
+        "planks": 24,
+        "stone": 20
+      },
+      "recipe": {
+        "input": {
+          "flour": 2,
+          "wood": 1
+        },
+        "output": {
+          "bread": 3
+        },
+        "timeTicks": 50
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "highlands"
+      ],
+      "serviceValue": 5,
+      "autoBuild": true,
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "sound": {
+        "loop": "forge",
+        "radiusTiles": 9,
+        "volume": 0.28
       }
     },
     {
@@ -563,7 +787,12 @@
       "upkeep": {
         "food": 1
       },
-      "autoBuild": true
+      "autoBuild": true,
+      "sound": {
+        "loop": "market",
+        "radiusTiles": 12,
+        "volume": 0.4
+      }
     },
     {
       "id": "toolmaker",
@@ -600,6 +829,11 @@
         "every": 8,
         "bonusPerStep": 0.12,
         "maxSteps": 8
+      },
+      "sound": {
+        "loop": "forge",
+        "radiusTiles": 10,
+        "volume": 0.35
       }
     },
     {
@@ -814,6 +1048,11 @@
         "every": 8,
         "bonusPerStep": 0.12,
         "maxSteps": 8
+      },
+      "sound": {
+        "loop": "forge",
+        "radiusTiles": 14,
+        "volume": 0.55
       }
     },
     {
@@ -1130,6 +1369,11 @@
         "every": 10,
         "bonusPerStep": 0.15,
         "maxSteps": 6
+      },
+      "sound": {
+        "loop": "machinery",
+        "radiusTiles": 13,
+        "volume": 0.5
       }
     },
     {
@@ -1695,6 +1939,11 @@
         "every": 8,
         "bonusPerStep": 0.12,
         "maxSteps": 8
+      },
+      "sound": {
+        "loop": "machinery",
+        "radiusTiles": 12,
+        "volume": 0.45
       }
     },
     {
@@ -1786,11 +2035,17 @@
         "tundra",
         "desert"
       ],
-      "buildable": false,
+      "buildable": true,
       "upgradesTo": "deep_sea_port",
       "upgradeCost": {
         "steel": 45,
         "machine_parts": 20
+      },
+      "subseaAnchor": true,
+      "sound": {
+        "loop": "water",
+        "radiusTiles": 14,
+        "volume": 0.45
       }
     },
     {
@@ -1821,7 +2076,7 @@
         "tundra",
         "desert"
       ],
-      "buildable": false,
+      "buildable": true,
       "adjacency": {
         "biomes": [
           "shallow_water",
@@ -1837,7 +2092,12 @@
         "bonusPerStep": 0.15,
         "maxSteps": 6
       },
-      "paving": 0.0
+      "paving": 0.0,
+      "sound": {
+        "loop": "water",
+        "radiusTiles": 12,
+        "volume": 0.35
+      }
     },
     {
       "id": "deep_sea_port",
@@ -1873,7 +2133,8 @@
       "pollution": {
         "water": 0.5
       },
-      "minSettlementRank": "town"
+      "minSettlementRank": "town",
+      "subseaAnchor": true
     },
     {
       "id": "airfield",
@@ -1985,7 +2246,21 @@
       "spectacle": {
         "effect": "rocket_launch",
         "intervalSeconds": 45
-      }
+      },
+      "stages": [
+        {
+          "atProgress": 0.0,
+          "sprite": "stage.foundation"
+        },
+        {
+          "atProgress": 0.35,
+          "sprite": "stage.frame"
+        },
+        {
+          "atProgress": 0.78,
+          "sprite": "building.spaceport"
+        }
+      ]
     },
     {
       "id": "megacity_spire",
@@ -2014,13 +2289,27 @@
       "upkeep": {
         "electronics": 1
       },
-      "buildable": false,
+      "buildable": true,
       "buildTicks": 2400,
       "minSettlementRank": "large_city",
       "spectacle": {
         "effect": "spire_beacon",
         "intervalSeconds": 6
-      }
+      },
+      "stages": [
+        {
+          "atProgress": 0.0,
+          "sprite": "stage.foundation"
+        },
+        {
+          "atProgress": 0.35,
+          "sprite": "stage.frame"
+        },
+        {
+          "atProgress": 0.78,
+          "sprite": "building.megacity_spire"
+        }
+      ]
     },
     {
       "id": "grand_exchange",
@@ -2064,9 +2353,28 @@
       "upkeep": {
         "steel": 2
       },
-      "buildable": false,
+      "buildable": true,
       "buildTicks": 1800,
-      "minSettlementRank": "city"
+      "minSettlementRank": "city",
+      "stages": [
+        {
+          "atProgress": 0.0,
+          "sprite": "stage.foundation"
+        },
+        {
+          "atProgress": 0.35,
+          "sprite": "stage.frame"
+        },
+        {
+          "atProgress": 0.78,
+          "sprite": "building.grand_exchange"
+        }
+      ],
+      "sound": {
+        "loop": "market",
+        "radiusTiles": 18,
+        "volume": 0.55
+      }
     },
     {
       "id": "orbital_ring",
@@ -2090,13 +2398,27 @@
         "tundra",
         "desert"
       ],
-      "buildable": false,
+      "buildable": true,
       "buildTicks": 6000,
       "minSettlementRank": "metropolis",
       "spectacle": {
         "effect": "ring_pulse",
         "intervalSeconds": 20
-      }
+      },
+      "stages": [
+        {
+          "atProgress": 0.0,
+          "sprite": "stage.foundation"
+        },
+        {
+          "atProgress": 0.35,
+          "sprite": "stage.frame"
+        },
+        {
+          "atProgress": 0.78,
+          "sprite": "building.orbital_ring"
+        }
+      ]
     },
     {
       "id": "world_forge",
@@ -2132,7 +2454,7 @@
         "tundra",
         "desert"
       ],
-      "buildable": false,
+      "buildable": true,
       "buildTicks": 3600,
       "pollution": {
         "air": 2.0,
@@ -2142,7 +2464,21 @@
       "spectacle": {
         "effect": "forge_flare",
         "intervalSeconds": 12
-      }
+      },
+      "stages": [
+        {
+          "atProgress": 0.0,
+          "sprite": "stage.foundation"
+        },
+        {
+          "atProgress": 0.35,
+          "sprite": "stage.frame"
+        },
+        {
+          "atProgress": 0.78,
+          "sprite": "building.world_forge"
+        }
+      ]
     },
     {
       "id": "particle_accelerator",
@@ -2177,13 +2513,27 @@
         "tundra",
         "desert"
       ],
-      "buildable": false,
+      "buildable": true,
       "buildTicks": 4800,
       "minSettlementRank": "metropolis",
       "spectacle": {
         "effect": "particle_beam",
         "intervalSeconds": 9
-      }
+      },
+      "stages": [
+        {
+          "atProgress": 0.0,
+          "sprite": "stage.foundation"
+        },
+        {
+          "atProgress": 0.35,
+          "sprite": "stage.frame"
+        },
+        {
+          "atProgress": 0.78,
+          "sprite": "building.particle_accelerator"
+        }
+      ]
     },
     {
       "id": "fusion_beacon",
@@ -2211,13 +2561,27 @@
       "upkeep": {
         "nanomaterial": 1
       },
-      "buildable": false,
+      "buildable": true,
       "buildTicks": 5400,
       "minSettlementRank": "metropolis",
       "spectacle": {
         "effect": "spire_beacon",
         "intervalSeconds": 4
-      }
+      },
+      "stages": [
+        {
+          "atProgress": 0.0,
+          "sprite": "stage.foundation"
+        },
+        {
+          "atProgress": 0.35,
+          "sprite": "stage.frame"
+        },
+        {
+          "atProgress": 0.78,
+          "sprite": "building.fusion_beacon"
+        }
+      ]
     },
     {
       "id": "manor",
@@ -2368,6 +2732,11 @@
         "every": 10,
         "bonusPerStep": 0.15,
         "maxSteps": 6
+      },
+      "sound": {
+        "loop": "mill",
+        "radiusTiles": 14,
+        "volume": 0.5
       }
     },
     {
@@ -2728,6 +3097,110 @@
       ]
     },
     {
+      "id": "statue_mason",
+      "category": "monument",
+      "mapColor": "#B7A57A",
+      "footprint": [
+        1,
+        1
+      ],
+      "serviceValue": 12,
+      "buildCost": {
+        "stone": 60,
+        "bronze": 20
+      },
+      "buildable": false,
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ]
+    },
+    {
+      "id": "statue_scholar",
+      "category": "monument",
+      "mapColor": "#9FB6C4",
+      "footprint": [
+        1,
+        1
+      ],
+      "serviceValue": 12,
+      "buildCost": {
+        "stone": 60,
+        "bronze": 20
+      },
+      "buildable": false,
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ]
+    },
+    {
+      "id": "statue_agronomist",
+      "category": "monument",
+      "mapColor": "#A8B778",
+      "footprint": [
+        1,
+        1
+      ],
+      "serviceValue": 12,
+      "buildCost": {
+        "stone": 60,
+        "bronze": 20
+      },
+      "buildable": false,
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ]
+    },
+    {
+      "id": "statue_navigator",
+      "category": "monument",
+      "mapColor": "#8FA8B8",
+      "footprint": [
+        1,
+        1
+      ],
+      "serviceValue": 12,
+      "buildCost": {
+        "stone": 60,
+        "bronze": 20
+      },
+      "buildable": false,
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ]
+    },
+    {
       "id": "obelisk",
       "category": "monument",
       "mapColor": "#D8C48A",
@@ -2859,6 +3332,35 @@
       "buildCost": {
         "stone": 110,
         "iron": 40
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ]
+    },
+    {
+      "id": "carillon",
+      "category": "monument",
+      "mapColor": "#C7B06A",
+      "footprint": [
+        1,
+        1
+      ],
+      "serviceValue": 16,
+      "buildCost": {
+        "stone": 140,
+        "bronze": 60,
+        "planks": 40
+      },
+      "upkeep": {
+        "planks": 1
       },
       "allowedBiomes": [
         "grassland",
@@ -3349,7 +3851,21 @@
         "soil": 1.2,
         "air": 0.8
       },
-      "buildable": true
+      "buildable": true,
+      "stages": [
+        {
+          "atProgress": 0.0,
+          "sprite": "stage.foundation"
+        },
+        {
+          "atProgress": 0.35,
+          "sprite": "stage.frame"
+        },
+        {
+          "atProgress": 0.78,
+          "sprite": "building.great_pit"
+        }
+      ]
     },
     {
       "id": "irrigation_works",
@@ -3447,6 +3963,275 @@
       "requiresAdjacentWater": true,
       "terraformAction": "reclaim",
       "terraformRadius": 5
+    },
+    {
+      "id": "kelp_farm",
+      "category": "production",
+      "mapColor": "#3F7A4A",
+      "footprint": [
+        2,
+        2
+      ],
+      "workerSlots": 3,
+      "buildCost": {
+        "planks": 18,
+        "tools": 4
+      },
+      "recipe": {
+        "output": {
+          "kelp": 4
+        },
+        "timeTicks": 50
+      },
+      "allowedBiomes": [
+        "shallow_water",
+        "coral_reef"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 8
+      },
+      "paving": 0.0
+    },
+    {
+      "id": "fish_pen",
+      "category": "production",
+      "mapColor": "#2E8B9E",
+      "footprint": [
+        2,
+        2
+      ],
+      "workerSlots": 4,
+      "buildCost": {
+        "planks": 24,
+        "tools": 6
+      },
+      "recipe": {
+        "input": {
+          "kelp": 2
+        },
+        "output": {
+          "food": 10
+        },
+        "timeTicks": 45
+      },
+      "allowedBiomes": [
+        "shallow_water",
+        "coral_reef"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 8
+      },
+      "paving": 0.0
+    },
+    {
+      "id": "nodule_harvester",
+      "category": "production",
+      "mapColor": "#5B4B3A",
+      "footprint": [
+        2,
+        2
+      ],
+      "workerSlots": 6,
+      "buildCost": {
+        "steel": 40,
+        "machine_parts": 14
+      },
+      "recipe": {
+        "output": {
+          "nodules": 3
+        },
+        "timeTicks": 60
+      },
+      "powerDemand": 25,
+      "allowedBiomes": [
+        "ocean",
+        "deep_ocean"
+      ],
+      "paving": 0.0
+    },
+    {
+      "id": "vent_generator",
+      "category": "industry",
+      "mapColor": "#C2603A",
+      "footprint": [
+        2,
+        2
+      ],
+      "workerSlots": 5,
+      "buildCost": {
+        "steel": 55,
+        "machine_parts": 22
+      },
+      "powerSupply": 180,
+      "allowedBiomes": [
+        "deep_ocean"
+      ],
+      "spectacle": {
+        "effect": "forge_flare",
+        "intervalSeconds": 26
+      },
+      "paving": 0.0
+    },
+    {
+      "id": "deep_smelter",
+      "category": "industry",
+      "mapColor": "#7A5C3E",
+      "footprint": [
+        3,
+        3
+      ],
+      "workerSlots": 14,
+      "buildCost": {
+        "steel": 80,
+        "machine_parts": 35
+      },
+      "recipe": {
+        "input": {
+          "nodules": 3
+        },
+        "output": {
+          "steel": 5,
+          "copper_ore": 3
+        },
+        "timeTicks": 55
+      },
+      "powerDemand": 90,
+      "allowedBiomes": [
+        "ocean",
+        "deep_ocean"
+      ],
+      "buildTicks": 900,
+      "paving": 0.0,
+      "stages": [
+        {
+          "atProgress": 0.0,
+          "sprite": "stage.foundation"
+        },
+        {
+          "atProgress": 0.35,
+          "sprite": "stage.frame"
+        },
+        {
+          "atProgress": 0.78,
+          "sprite": "building.deep_smelter"
+        }
+      ]
+    },
+    {
+      "id": "sea_dome",
+      "category": "housing",
+      "mapColor": "#6FBFD6",
+      "footprint": [
+        3,
+        3
+      ],
+      "housingCapacity": 90,
+      "buildCost": {
+        "steel": 70,
+        "machine_parts": 30,
+        "electronics": 15
+      },
+      "powerDemand": 60,
+      "storage": {
+        "food": 400,
+        "kelp": 300
+      },
+      "allowedBiomes": [
+        "shallow_water",
+        "coral_reef",
+        "ocean",
+        "deep_ocean"
+      ],
+      "buildTicks": 1200,
+      "minSettlementRank": "town",
+      "paving": 0.0,
+      "stages": [
+        {
+          "atProgress": 0.0,
+          "sprite": "stage.foundation"
+        },
+        {
+          "atProgress": 0.35,
+          "sprite": "stage.frame"
+        },
+        {
+          "atProgress": 0.78,
+          "sprite": "building.sea_dome"
+        }
+      ]
+    },
+    {
+      "id": "watchtower",
+      "category": "civic",
+      "mapColor": "#8A7B5F",
+      "footprint": [
+        1,
+        1
+      ],
+      "workerSlots": 2,
+      "buildCost": {
+        "wood": 25,
+        "stone": 15
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "jungle"
+      ],
+      "defense": {
+        "range": 7,
+        "damage": 3,
+        "intervalTicks": 12
+      },
+      "upgradesTo": "bastion",
+      "upgradeCost": {
+        "stone": 60,
+        "iron": 25
+      },
+      "paving": 0.0
+    },
+    {
+      "id": "bastion",
+      "category": "civic",
+      "mapColor": "#6E6350",
+      "footprint": [
+        2,
+        2
+      ],
+      "workerSlots": 6,
+      "buildCost": {
+        "stone": 60,
+        "iron": 25
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "jungle"
+      ],
+      "defense": {
+        "range": 11,
+        "damage": 8,
+        "intervalTicks": 10
+      },
+      "buildable": false,
+      "buildTicks": 400,
+      "paving": 0.0
     }
   ]
 }

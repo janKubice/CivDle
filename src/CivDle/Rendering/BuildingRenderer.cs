@@ -36,9 +36,27 @@ public sealed class BuildingRenderer
     public void Update(float dt) => _time += dt;
 
     /// <summary>Vykreslí všechny viditelné budovy.</summary>
+    /// <summary>
+    /// Kolik sněhu leží na střechách (0 = nic). Bere se z právě běžícího
+    /// období; render si nic nepamatuje, jen si to na začátku snímku přečte.
+    /// </summary>
+    /// <summary>Barva sněhu — nádech do modra, ne čistě bílá; čistá bílá vypadá jako díra.</summary>
+    private static readonly Color SnowColor = new(232, 240, 250);
+
+    private float _snow;
+
+    /// <summary>
+    /// Indexy budov ve výřezu. Jeden seznam na celý život rendereru: dotaz se
+    /// volá jednou za snímek a nová kolekce pokaždé by byla přesně ta alokace
+    /// za snímek, kterou CLAUDE.md zakazuje.
+    /// </summary>
+    private readonly List<int> _visible = new();
+
     public void Draw(SpriteBatch spriteBatch, Camera2D camera, Simulation simulation)
     {
         var (min, max) = camera.VisibleWorldBounds();
+        _snow = (float)(simulation.CurrentSeason?.SnowCover ?? 0.0);
+        _snowCaps.Clear();
 
         // Zjednodušený režim: při oddálení jsou budovy pár pixelů velké, takže
         // sprite, stín ani odznaky nejsou k rozeznání — a přitom stojí tři kresby
@@ -51,9 +69,26 @@ public sealed class BuildingRenderer
 
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
 
+        // Ptáme se indexu, ne celého města. Při deseti tisících budovách bylo
+        // projití pole od nuly do konce jediná věc, kterou bylo při oddálení
+        // znát — deset tisíc dotazů na to, aby se nakreslilo dvě stě.
+        const int tileSize = TerrainRenderer.TileSize;
+        simulation.BuildingsIn(
+            (int)Math.Floor(min.X / tileSize) - 1,
+            (int)Math.Floor(min.Y / tileSize) - 1,
+            (int)Math.Ceiling(max.X / tileSize) + 1,
+            (int)Math.Ceiling(max.Y / tileSize) + 1,
+            _visible);
+
         var buildings = simulation.Buildings;
-        for (int i = 0; i < buildings.Length; i++)
+        for (int slot = 0; slot < _visible.Count; slot++)
         {
+            int i = _visible[slot];
+            if (i >= buildings.Length)
+            {
+                continue; // index z novějšího stavu, než jaký renderer drží
+            }
+
             ref readonly var building = ref buildings[i];
             if (!IsVisible(building, min, max, out var def, out var bounds))
             {
@@ -92,6 +127,7 @@ public sealed class BuildingRenderer
         }
 
         spriteBatch.End();
+        DrawSnowPass(spriteBatch, camera);
     }
 
     /// <summary>Je budova ve výřezu? Vrací i její definici a obdélník ve světě.</summary>
@@ -141,9 +177,12 @@ public sealed class BuildingRenderer
         var sprite = _sprites.Get($"building.{def.Id}");
         if (sprite is not null)
         {
-            spriteBatch.Draw(
-                sprite, body, null, tint, 0f, Vector2.Zero,
-                look.Mirrored ? SpriteEffects.FlipHorizontally : SpriteEffects.None, 0f);
+            var flip = look.Mirrored ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
+            spriteBatch.Draw(sprite, body, null, tint, 0f, Vector2.Zero, flip, 0f);
+            if (_snow > 0.001f)
+            {
+                _snowCaps.Add(($"building.{def.Id}", body, flip));
+            }
         }
         else
         {
@@ -173,6 +212,66 @@ public sealed class BuildingRenderer
         // červený roh pro všechno znamenal, že hráč viděl „něco je špatně"
         // a musel hádat; barva teď důvod rozliší a bublina ho pojmenuje.
         DrawStallBadge(spriteBatch, building.Stall, bounds);
+    }
+
+    /// <summary>Střechy k zasněžení, posbírané při hlavním průchodu.</summary>
+    private readonly List<(string SpriteId, Rectangle Body, SpriteEffects Flip)> _snowCaps = new();
+
+    /// <summary>
+    /// Sníh na střechách — druhý průchod bílou siluetou.
+    ///
+    /// <para>Dvě slepé uličky, než tohle sedlo. Prostý bílý pruh přes horní
+    /// okraj obdélníku visel ve vzduchu nad domem jako police: sprity
+    /// nevyplňují celý obdélník. A obarvit sprite bíle v běžném míchání
+    /// nefunguje vůbec — tint <b>násobí</b>, takže tmavě hnědá střecha krát
+    /// bílá je pořád tmavě hnědá střecha.</para>
+    ///
+    /// <para>Ani aditivní míchání nestačilo: přičítá tutéž tmavou barvu, takže
+    /// hnědá střecha jen mírně zesvětlá. Řešením je <b>bílá silueta</b> spritu
+    /// (<see cref="Sprites.SpriteLibrary.Mask"/>) — má tvar střechy, ale bílé
+    /// RGB, takže se dá kreslit jako sníh. Cenou je jeden batch navíc za
+    /// snímek, a jen v zimě.</para>
+    ///
+    /// <para>Proč ne druhá, zimní sada spritů: devadesát čtyři budov krát dvě
+    /// roční verze je sto osmdesát obrázků k překreslení při každé změně —
+    /// a modům by zimní varianty stejně chyběly.</para>
+    /// </summary>
+    private void DrawSnowPass(SpriteBatch spriteBatch, Camera2D camera)
+    {
+        if (_snowCaps.Count == 0)
+        {
+            return;
+        }
+
+        // Necelá třetina výšky: sníh drží na střeše, ne na stěnách.
+        const float capFraction = 0.34f;
+
+        spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
+
+        foreach (var (spriteId, body, flip) in _snowCaps)
+        {
+            var sprite = _sprites.Mask(spriteId);
+            if (sprite is null)
+            {
+                continue;
+            }
+
+            int sourceHeight = Math.Max(1, (int)MathF.Round(sprite.Height * capFraction));
+            int destHeight = Math.Max(1, (int)MathF.Round(body.Height * capFraction));
+
+            spriteBatch.Draw(
+                sprite,
+                new Rectangle(body.X, body.Y, body.Width, destHeight),
+                new Rectangle(0, 0, sprite.Width, sourceHeight),
+                SnowColor * _snow,
+                0f,
+                Vector2.Zero,
+                flip,
+                0f);
+        }
+
+        spriteBatch.End();
+        _snowCaps.Clear();
     }
 
     /// <summary>
@@ -322,6 +421,16 @@ public sealed class BuildingRenderer
         // Základy: obrys rozestavěné budovy, ať je vidět, kolik místa zabere.
         spriteBatch.Draw(_pixel, new Rectangle(x, y, width, height), new Color(60, 55, 45) * 0.45f);
 
+        // Budova s fázemi má na každou fázi vlastní sprite — kreslí se celý,
+        // ne vyříznutý zespodu. Div se tím staví jako div, ne jako dům, který
+        // se vysouvá ze země.
+        if (def.HasStages && _sprites.Get(def.StageSpriteAt(progress) ?? string.Empty) is { } staged)
+        {
+            spriteBatch.Draw(staged, bounds, Color.White);
+            DrawProgressBar(spriteBatch, bounds, progress);
+            return;
+        }
+
         int risen = Math.Max(1, (int)(height * progress));
         var sprite = _sprites.Get($"building.{def.Id}");
         var partial = new Rectangle(x, y + height - risen, width, risen);
@@ -343,12 +452,17 @@ public sealed class BuildingRenderer
         spriteBatch.Draw(_pixel, new Rectangle(x, y + height / 3, width, 1), scaffold);
         spriteBatch.Draw(_pixel, new Rectangle(x, y + 2 * height / 3, width, 1), scaffold);
 
-        // Pruh postupu nad staveništěm.
+        DrawProgressBar(spriteBatch, bounds, progress);
+    }
+
+    /// <summary>Pruh postupu nad staveništěm. Společný pro fázovanou i obecnou stavbu.</summary>
+    private void DrawProgressBar(SpriteBatch spriteBatch, Rectangle bounds, double progress)
+    {
         const int barHeight = 3;
-        int barY = y - barHeight - 2;
-        spriteBatch.Draw(_pixel, new Rectangle(x, barY, width, barHeight), Color.Black * 0.55f);
+        int barY = bounds.Y - barHeight - 2;
+        spriteBatch.Draw(_pixel, new Rectangle(bounds.X, barY, bounds.Width, barHeight), Color.Black * 0.55f);
         spriteBatch.Draw(_pixel,
-            new Rectangle(x, barY, Math.Max(1, (int)(width * progress)), barHeight),
+            new Rectangle(bounds.X, barY, Math.Max(1, (int)(bounds.Width * progress)), barHeight),
             new Color(240, 200, 90));
     }
 

@@ -41,7 +41,8 @@
       "harvestMult": 0.8,
       "growthMult": 0.75,
       "fuelPerPersonPerSecond": 0.012,
-      "coldGrowthMult": 0.25
+      "coldGrowthMult": 0.25,
+      "snowCover": 0.8
     }
   ]
 }

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "doctrines": [
+    {
+      "id": "builders",
+      "nodes": [
+        { "id": "quarry_lore", "effect": "harvest_mult", "magnitude": 0.15, "cost": 3 },
+        { "id": "guild_halls", "effect": "production_mult", "magnitude": 0.2, "cost": 6, "requires": ["quarry_lore"] },
+        { "id": "deep_cellars", "effect": "storage_mult", "magnitude": 0.35, "cost": 6, "requires": ["quarry_lore"] },
+        { "id": "master_masons", "effect": "autobuild_speed", "magnitude": 0.3, "cost": 12, "requires": ["guild_halls"] },
+        { "id": "great_works", "effect": "production_mult", "magnitude": 0.4, "cost": 24, "requires": ["master_masons", "deep_cellars"] }
+      ]
+    },
+    {
+      "id": "scholars",
+      "nodes": [
+        { "id": "clay_tablets", "effect": "research_speed", "magnitude": 0.2, "cost": 3 },
+        { "id": "open_academy", "effect": "research_discount", "magnitude": 0.15, "cost": 6, "requires": ["clay_tablets"] },
+        { "id": "field_surveys", "effect": "discovery_luck", "magnitude": 0.3, "cost": 6, "requires": ["clay_tablets"] },
+        { "id": "printing", "effect": "research_speed", "magnitude": 0.35, "cost": 12, "requires": ["open_academy"] },
+        { "id": "great_library", "effect": "research_speed", "magnitude": 0.4, "cost": 24, "requires": ["printing", "field_surveys"] }
+      ]
+    },
+    {
+      "id": "settlers",
+      "nodes": [
+        { "id": "long_houses", "effect": "housing_mult", "magnitude": 0.2, "cost": 3 },
+        { "id": "harvest_feasts", "effect": "growth_mult", "magnitude": 0.2, "cost": 6, "requires": ["long_houses"] },
+        { "id": "market_days", "effect": "festival_power", "magnitude": 0.3, "cost": 6, "requires": ["long_houses"] },
+        { "id": "wide_streets", "effect": "housing_mult", "magnitude": 0.35, "cost": 12, "requires": ["harvest_feasts"] },
+        { "id": "great_migration", "effect": "growth_mult", "magnitude": 0.4, "cost": 24, "requires": ["wide_streets", "market_days"] }
+      ]
+    }
+  ]
+}

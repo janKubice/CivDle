@@ -13,6 +13,19 @@ namespace CivDle.Rendering.Effects;
 /// o nich neví (render do ní nezapisuje). Počet škáluje s počtem viditelných
 /// budov, ať rušné město opravdu žije.
 /// </summary>
+/// <summary>
+/// Meze systému chodců. Vytažené ven, aby si na ně mohl sáhnout test — strop
+/// poolu je věc, kterou má smysl ověřovat, ne opisovat.
+/// </summary>
+public static class AgentSystemLimits
+{
+    /// <summary>
+    /// Strop počtu agentů na scéně. Zvednutý proti původním 48: velkoměsto
+    /// vypadalo stejně živě jako vesnice o dvanácti domech.
+    /// </summary>
+    public const int MaxAgents = 96;
+}
+
 public sealed class AgentSystem
 {
     /// <summary>
@@ -20,7 +33,7 @@ public sealed class AgentSystem
     /// živě jako vesnice o dvanácti domech, protože počet vycházel jen z budov
     /// a strop se vyčerpal hned. Kreslí se pár desítek spritů — to hru nestojí nic.
     /// </summary>
-    private const int MaxAgents = 96;
+    private const int MaxAgents = AgentSystemLimits.MaxAgents;
 
     /// <summary>Kolik obyvatel přidá jednoho chodce navíc (nad počet z budov).</summary>
     private const double PeoplePerAgent = 25.0;
@@ -35,6 +48,12 @@ public sealed class AgentSystem
         Person,
         Cart,
         Boat,
+
+        /// <summary>Někdo, kdo se nikam nežene — postává, sedí, kouká.</summary>
+        Idler,
+
+        /// <summary>Rybář u vody s prutem. Nehýbe se, jen pokyvuje.</summary>
+        Fisherman,
     }
 
     /// <summary>Kategorie budov, od kterých vyplouvají lodě (rybolov, přístavy).</summary>
@@ -69,10 +88,25 @@ public sealed class AgentSystem
         public float Speed;
         public float Phase;
         public bool FaceLeft;
+
+        /// <summary>
+        /// Kolik sekund tu ještě postojí. Dokud je kladné, agent se nehýbe.
+        ///
+        /// <para>Tohle je celý rozdíl mezi „město, kterým někdo prochází"
+        /// a „město, ve kterém někdo žije": pár lidí musí zůstat stát.</para>
+        /// </summary>
+        public float LingerSeconds;
     }
 
+    /// <summary>Jak často se místo chodce objeví někdo, kdo jen postává.</summary>
+    private const float IdlerChance = 0.22f;
+
+    /// <summary>Jak dlouho postává, než se zase vydá dál.</summary>
+    private const float MinLingerSeconds = 4f;
+    private const float MaxLingerSeconds = 12f;
+
     private readonly GameContent _content;
-    private readonly SpriteLibrary _sprites;
+    private readonly SpriteLibrary? _sprites;
     private readonly Agent[] _agents = new Agent[MaxAgents];
     private int _count;
     private float _spawnTimer;
@@ -82,6 +116,23 @@ public sealed class AgentSystem
         _content = content;
         _sprites = sprites;
     }
+
+    /// <summary>
+    /// Systém bez knihovny spritů: dá se aktualizovat, ale ne kreslit.
+    ///
+    /// <para>Existuje kvůli testům. Chování agentů — hlavně to, že se vracejí
+    /// do poolu a nepřestanou se objevovat — je logika, která s kreslením
+    /// nesouvisí, a testovat ji přes grafickou kartu by znamenalo netestovat
+    /// ji vůbec.</para>
+    /// </summary>
+    internal AgentSystem(GameContent content)
+    {
+        _content = content;
+        _sprites = null;
+    }
+
+    /// <summary>Kolik agentů je právě na scéně. Pro testy poolu.</summary>
+    internal int CountForTests => _count;
 
     public void Update(float dt, Camera2D camera, Simulation simulation)
     {
@@ -117,7 +168,7 @@ public sealed class AgentSystem
 
     public void Draw(SpriteBatch spriteBatch, Camera2D camera)
     {
-        if (_count == 0)
+        if (_count == 0 || _sprites is null)
         {
             return;
         }
@@ -128,7 +179,8 @@ public sealed class AgentSystem
             ref readonly var agent = ref _agents[i];
             var sprite = _sprites.Get(agent.Kind switch
             {
-                Kind.Person => "agent.person",
+                Kind.Person or Kind.Idler => "agent.person",
+                Kind.Fisherman => "agent.fisherman",
                 Kind.Boat => "agent.boat",
                 _ => "agent.cart",
             });
@@ -141,6 +193,10 @@ public sealed class AgentSystem
             float bob = agent.Kind switch
             {
                 Kind.Person => MathF.Abs(MathF.Sin(agent.Phase * 8f)) * 1.5f,
+                // Kdo stojí, ten se jen mírně přenáší z nohy na nohu; rybář
+                // pokyvuje s prutem. Bez pohybu by z nich byly cedule.
+                Kind.Idler => MathF.Sin(agent.Phase * 1.6f) * 0.7f,
+                Kind.Fisherman => MathF.Sin(agent.Phase * 1.1f) * 0.5f,
                 Kind.Boat => MathF.Sin(agent.Phase * 2.2f) * 1.6f,
                 _ => MathF.Sin(agent.Phase * 14f) * 0.6f,
             };
@@ -160,6 +216,27 @@ public sealed class AgentSystem
         {
             ref var agent = ref _agents[i];
             agent.Phase += dt;
+
+            // Kdo postává, ten se nehýbe — jen mu ubývá čas. Když dojde,
+            // vydá se dál jako každý jiný chodec; z rybáře se stane kolemjdoucí
+            // a místo u vody se uvolní pro dalšího.
+            if (agent.LingerSeconds > 0f)
+            {
+                agent.LingerSeconds -= dt;
+                if (agent.LingerSeconds <= 0f)
+                {
+                    agent.Kind = Kind.Person;
+                    agent.Speed = PersonSpeed;
+                    agent.Target = PickTarget(simulation, agent.Position, agent.FollowsRoads, Vector2.Zero);
+                }
+
+                if (IsOutOfSight(agent.Position, min, max))
+                {
+                    _agents[i] = _agents[--_count]; // i ten, kdo stojí, musí zmizet za obzorem
+                }
+
+                continue;
+            }
 
             var toTarget = agent.Target - agent.Position;
             float distance = toTarget.Length();
@@ -346,15 +423,51 @@ public sealed class AgentSystem
         // ale ne jako mravenčí kolona po jedné lince.
         bool followsRoads = cart || (anyRoads && Random.Shared.NextSingle() < PedestrianRoadShare);
 
+        // Část lidí se nikam nežene: postává u domu, sedí, kouká. Kdo bydlí
+        // u vody a je zrovna u rybářské budovy, chytá ryby. Bez pár stojících
+        // postav vypadá i velkoměsto jako průchoďák.
+        var kind = cart ? Kind.Cart : Kind.Person;
+        float linger = 0f;
+        if (!cart && Random.Shared.NextSingle() < IdlerChance)
+        {
+            kind = IsNextToWater(simulation, pos) ? Kind.Fisherman : Kind.Idler;
+            linger = MinLingerSeconds
+                + (Random.Shared.NextSingle() * (MaxLingerSeconds - MinLingerSeconds));
+        }
+
         _agents[_count++] = new Agent
         {
             Position = pos,
             Target = PickTarget(simulation, pos, followsRoads, Vector2.Zero),
-            Kind = cart ? Kind.Cart : Kind.Person,
+            Kind = kind,
             FollowsRoads = followsRoads,
-            Speed = cart ? CartSpeed : PersonSpeed,
+            Speed = kind == Kind.Cart ? CartSpeed : PersonSpeed,
             Phase = Random.Shared.NextSingle() * 10f,
+            LingerSeconds = linger,
+            FaceLeft = Random.Shared.Next(2) == 0,
         };
+    }
+
+    /// <summary>
+    /// Je agent za obzorem? Společné pravidlo pro chodce i pro ty, kdo stojí —
+    /// kdyby platilo jen pro chodce, postávající by se v poolu nasčítali
+    /// a nové by nebylo kam dát.
+    /// </summary>
+    private static bool IsOutOfSight(Vector2 position, Vector2 min, Vector2 max) =>
+        position.X < min.X - DespawnMargin || position.X > max.X + DespawnMargin
+        || position.Y < min.Y - DespawnMargin || position.Y > max.Y + DespawnMargin;
+
+    /// <summary>Stojí to místo u vody? Rybář jinam nepatří.</summary>
+    private static bool IsNextToWater(Simulation simulation, Vector2 position)
+    {
+        const int tileSize = TerrainRenderer.TileSize;
+        int tileX = (int)MathF.Floor(position.X / tileSize);
+        int tileY = (int)MathF.Floor(position.Y / tileSize);
+
+        return simulation.IsWaterAt(tileX + 1, tileY)
+            || simulation.IsWaterAt(tileX - 1, tileY)
+            || simulation.IsWaterAt(tileX, tileY + 1)
+            || simulation.IsWaterAt(tileX, tileY - 1);
     }
 
     /// <summary>

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "scenarios": [
+    {
+      "id": "first_thousand",
+      "seed": 20260826,
+      "preset": "continents",
+      "startingResources": { "wood": 120, "planks": 60, "stone": 80, "food": 200 },
+      "goal": { "metric": "population", "target": 1000 },
+      "timeLimitSeconds": 2700,
+      "rules": ["noAscension"]
+    },
+    {
+      "id": "hard_winter",
+      "seed": 19470131,
+      "preset": "islands",
+      "gameplay": {
+        "populationGrowthPerSecond": 0.05,
+        "foodPerPersonPerSecond": 0.09
+      },
+      "startingResources": { "wood": 200, "food": 400 },
+      "goal": { "metric": "population", "target": 300 },
+      "failBelow": { "metric": "population", "target": 0 },
+      "timeLimitSeconds": 1800,
+      "rules": ["noAscension"]
+    },
+    {
+      "id": "by_hand",
+      "seed": 1848,
+      "preset": "pangaea",
+      "gameplay": { "startingPopulation": 12 },
+      "startingResources": { "wood": 300, "planks": 200, "stone": 200, "food": 300 },
+      "goal": { "metric": "buildings", "target": 120 },
+      "timeLimitSeconds": 2400,
+      "rules": ["noAutoBuild", "noAscension"]
+    }
+  ]
+}

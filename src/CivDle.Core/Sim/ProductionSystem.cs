@@ -53,6 +53,9 @@ internal sealed class ProductionSystem
 
         var resources = sim.Resources;
         var storageCaps = sim.StorageCaps;
+        // Prostorový rozvod: proud se ptá u budovy, ne u říše. Globální číslo
+        // se použije jen tehdy, když obsah dosah nedefinuje.
+        bool spatialPower = _content.Gameplay.Power.IsEnabled;
         float powerFactor = (float)sim.PowerFactor;
 
         // Počasí i bonusy jsou pro celý tik konstantní — spočítej jednou, ne u každé
@@ -68,6 +71,17 @@ internal sealed class ProductionSystem
         for (int i = 0; i < buildings.Length; i++)
         {
             ref var building = ref buildings[i];
+
+            // Poškození se hlásí PŘED receptem: vyřazený je i dům a sklad,
+            // které nic nevyrábějí, a inspektor to má ukázat u obojího.
+            // Mimo režim obrany je ten údaj navždy nula, takže běžnou hru
+            // to nestojí nic.
+            if (building.DisabledTicks > 0)
+            {
+                building.Stall = BuildingStall.Damaged;
+                continue;
+            }
+
             var def = _defs[building.DefIndex];
             var recipe = def.Recipe;
             if (recipe is null)
@@ -94,11 +108,20 @@ internal sealed class ProductionSystem
 
             // Budovy závislé na proudu zpomalí při nedostatečném pokrytí sítě
             // (spotřebují vstupy pomaleji — žádný tvrdý trest, jen míň výkonu).
-            float pace = def.NeedsPower ? staffing * powerFactor : staffing;
+            float pace = staffing;
+            if (def.NeedsPower)
+            {
+                pace *= spatialPower ? (float)sim.PowerAt(building.X, building.Y) : powerFactor;
+            }
 
             // Bez napojení na silnici se zboží odváží hůř. Silnice tím přestávají
             // být dekorací a auto-stavba sítě dostává smysl.
-            if (disconnectedMult < 1.0 && !sim.IsBuildingConnected(i))
+            //
+            // Podmořské budovy z toho ven: k dómu na dně žádná silnice nevede
+            // a nikdy nepovede — zásobuje ho přístav loděmi. Bez téhle výjimky
+            // by celá vrstva jela natrvalo na šedesát procent za něco, s čím
+            // hráč nemůže nic udělat.
+            if (disconnectedMult < 1.0 && !def.IsSubsea && !sim.IsBuildingConnected(i))
             {
                 pace *= (float)disconnectedMult;
             }
@@ -134,6 +157,7 @@ internal sealed class ProductionSystem
             for (int j = 0; j < recipe.Inputs.Count; j++)
             {
                 resources[recipe.Inputs[j].ResourceIndex] -= recipe.Inputs[j].Amount;
+                sim.Ledger.RecordConsumed(recipe.Inputs[j].ResourceIndex, recipe.Inputs[j].Amount);
             }
 
             for (int j = 0; j < recipe.Outputs.Count; j++)
@@ -154,7 +178,14 @@ internal sealed class ProductionSystem
                 // kterými je strom plný, se musí projevit i ve výrobě.
                 yield *= sim.ResourceProductionMult(index);
 
-                resources[index] = Math.Min(resources[index] + yield, storageCaps[index]);
+                // Účtuje se zvlášť, co se do skladu VEŠLO a co propadlo. Plný
+                // sklad výrobu nezastaví, přebytek mizí — je to záměr, ale bez
+                // téhle dvojice čísel hráč nemá jak zjistit, že o něj přichází.
+                double before = resources[index];
+                resources[index] = Math.Min(before + yield, storageCaps[index]);
+                double stored = resources[index] - before;
+                sim.Ledger.RecordProduced(index, stored);
+                sim.Ledger.RecordWasted(index, yield - stored);
             }
 
             // Ohlas dokončený cyklus renderu — bez tohohle je město opticky mrtvé,

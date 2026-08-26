@@ -26,6 +26,9 @@ namespace CivDle.Capture;
 /// </summary>
 public sealed class VideoRender : IDisposable
 {
+    /// <summary>Barva pod scénou — obloha, než se něco nakreslí.</summary>
+    private static readonly Color Background = new(16, 22, 28);
+
     private readonly ScreenManager _screens;
     private readonly Simulation _simulation;
     private readonly CameraTake _take;
@@ -34,6 +37,8 @@ public sealed class VideoRender : IDisposable
     private readonly Camera2D _camera = new();
     private readonly IDisposable _fullDetail;
     private readonly RenderTarget2D _target;
+    private readonly RenderTarget2D? _sceneTarget;
+    private readonly TiltShift? _tiltShift;
     private readonly FrameSequence _frames;
 
     private bool _disposed;
@@ -58,6 +63,15 @@ public sealed class VideoRender : IDisposable
 
         _target = new RenderTarget2D(screens.GraphicsDevice, options.Width, options.Height);
         _frames = new FrameSequence(screens.GraphicsDevice, directory, options.Width, options.Height);
+
+        // Textury efektu vznikají jednou na celé video, ne na snímek: při tisícovce
+        // snímků by je ovladač neuvolňoval dost rychle a natáčení by tiše skončilo
+        // v půlce — přesně to, co se už jednou stalo u ukládání snímků.
+        if (options.TiltShift)
+        {
+            _sceneTarget = new RenderTarget2D(screens.GraphicsDevice, options.Width, options.Height);
+            _tiltShift = new TiltShift(screens.GraphicsDevice, screens.SpriteBatch);
+        }
 
         _camera.SetViewport(options.Width, options.Height);
     }
@@ -111,9 +125,21 @@ public sealed class VideoRender : IDisposable
         _camera.SetCaptureZoom(_options.ZoomFor(key.Zoom, _screens.GraphicsDevice.Viewport.Height));
 
         var device = _screens.GraphicsDevice;
-        device.SetRenderTarget(_target);
-        device.Clear(new Color(16, 22, 28));
-        _scene.Draw(_camera, _simulation, new Viewport(0, 0, _options.Width, _options.Height));
+        var frame = new Viewport(0, 0, _options.Width, _options.Height);
+
+        // Ve videu se rozostřuje mírněji než na fotce: kamera se hýbe a silné
+        // rozostření okrajů při pohybu tahá oko pryč od toho, na co se má dívat.
+        device.SetRenderTarget(_tiltShift is null ? _target : _sceneTarget);
+        device.Clear(Background);
+        _scene.Draw(_camera, _simulation, frame);
+
+        if (_tiltShift is not null)
+        {
+            _tiltShift.Render(
+                _sceneTarget!, _target, new Rectangle(0, 0, _options.Width, _options.Height),
+                Background, TiltShiftOptions.Gentle);
+        }
+
         device.SetRenderTarget(null);
 
         _frames.SaveAs(_target, DoneFrames);
@@ -129,6 +155,9 @@ public sealed class VideoRender : IDisposable
         }
 
         _disposed = true;
+        _frames.Dispose();
+        _tiltShift?.Dispose();
+        _sceneTarget?.Dispose();
         _target.Dispose();
         _scene.Dispose();
         _fullDetail.Dispose();

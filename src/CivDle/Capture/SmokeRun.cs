@@ -54,9 +54,65 @@ public sealed class SmokeRun
         Check("šablony: zavřít", () => screens.Pop());
         Frames(screen, time);
 
+        // Strom výzkumu: sto padesát uzlů a hledání nad nimi. Obrazovka sem
+        // dřív vůbec nechodila, takže pád v ní by se projevil až u hráče.
+        TechScreen? tech = null;
+        // Stavební katalog má devadesát budov; hledání v něm musí projít
+        // i tehdy, když dotaz nesedí na nic.
+        Check("katalog: hledat", () =>
+        {
+            int hits = screen.SearchBuildMenuForSmoke("pil");
+            int none = screen.SearchBuildMenuForSmoke("qwertzuiop");
+            screen.SearchBuildMenuForSmoke(string.Empty);
+            if (none != 0)
+            {
+                throw new InvalidOperationException($"nesmyslný dotaz vrátil {none} budov");
+            }
+        });
+        Frames(screen, time);
+
+        // Inspektor úzkých hrdel: projde všechny budovy a přebarví je, takže
+        // pád v něm by přišel právě ve chvíli, kdy má hráč velké město.
+        Check("inspektor: zapnout", screen.ShowBottlenecksForSmoke);
+        Frames(screen, time);
+
+        Check("výzkum: obrazovka", () => tech = screen.OpenTechForSmoke());
+        Frames(screen, time);
+        Check("výzkum: hledat", () => tech!.SearchForSmoke("dre"));
+        Frames(screen, time);
+        Check("výzkum: hledat nesmysl", () => tech!.SearchForSmoke("qwertzuiop"));
+        Frames(screen, time);
+        Check("výzkum: zrušit hledání", () =>
+        {
+            tech!.SearchForSmoke(string.Empty);
+            if (tech.SearchMatchCountForSmoke != screens.Content.Techs.Count)
+            {
+                throw new InvalidOperationException(
+                    "po smazání dotazu se nevrátil celý strom "
+                    + $"({tech.SearchMatchCountForSmoke} z {screens.Content.Techs.Count})");
+            }
+        });
+        Check("výzkum: zavřít", () => screens.Pop());
+        Frames(screen, time);
+
         Check("šablony: snímat", () => screen.ActivateToolForSmoke(SmokeTool.TemplateCapture));
         Frames(screen, time);
         Check("šablony: sejmout a položit", () => CaptureAndPlaceTemplate(screens, sim));
+
+        // Podmoří: přístav otevře moře a na dně vyroste farma. Bez tohohle
+        // kroku by se celá vrstva poprvé nakreslila až u hráče — a kreslí se
+        // jinak než zástavba na souši (voda pod budovou, vlastní sprity).
+        Check("podmoří: přístav a farma na dně", () => SubseaRound(screens, sim));
+        Frames(screen, time);
+
+        Check("orbita: vypustit a nakreslit", () => OrbitRound(screens, sim, time));
+        Frames(screen, time);
+
+        // Obrana: vlna útočníků na mapě. Kreslí se jinak než cokoli jiného
+        // (agenti se zlomkovou polohou, proužky zdraví, šrafování na budovách)
+        // a v běžné hře se ten kód nikdy nespustí.
+        Check("obrana: vlna a věže", () => FrontierRound(screens, sim, screen, time));
+        Frames(screen, time);
 
         Check("nástroje: vypnout", () => screen.ActivateToolForSmoke(SmokeTool.None));
         Frames(screen, time);
@@ -125,7 +181,17 @@ public sealed class SmokeRun
         screens.Pop();
     }
 
-    /// <summary>Uloží fotku v jiném rozlišení a bez proužku — cesta, kterou hráč jede na store snímky.</summary>
+    /// <summary>
+    /// Uloží fotku v jiném rozlišení a bez proužku — cesta, kterou hráč jede na
+    /// store snímky. Fotí se dvakrát: bez tilt-shiftu i s ním.
+    ///
+    /// <para>Ta druhá fotka tu je proto, že efekt jde přes vlastní render
+    /// targety a přepínání cíle uprostřed kreslení. To je přesně ten druh věci,
+    /// která projde překladačem a spadne až na cizí grafice — a jedině tady se
+    /// to dá chytit dřív než u hráče. Obě fotky jdou do jiné složky: liší se
+    /// jen jménem se sekundou a při dvou uloženích v téže sekundě by si
+    /// přepsaly soubor.</para>
+    /// </summary>
     private static void PhotoRound(ScreenManager screens, Simulation sim)
     {
         var camera = new Rendering.Camera2D();
@@ -134,11 +200,18 @@ public sealed class SmokeRun
             new Vector2(sim.CityCenterX * Rendering.TerrainRenderer.TileSize,
                         sim.CityCenterY * Rendering.TerrainRenderer.TileSize), 2f);
 
-        string directory = Path.Combine(Path.GetTempPath(), "civdle-smoke-photo");
-        var options = ShareCardOptions.For(
-            CivDle.Core.Config.CaptureResolution.Hd1080, withStrip: false, fullDetail: true);
+        var card = new ShareCard(screens);
 
-        new ShareCard(screens).Save(sim, camera, directory, options);
+        card.Save(
+            sim, camera, Path.Combine(Path.GetTempPath(), "civdle-smoke-photo"),
+            ShareCardOptions.For(
+                CivDle.Core.Config.CaptureResolution.Hd1080, withStrip: false, fullDetail: true));
+
+        card.Save(
+            sim, camera, Path.Combine(Path.GetTempPath(), "civdle-smoke-photo-tiltshift"),
+            ShareCardOptions.For(
+                CivDle.Core.Config.CaptureResolution.Hd1080, withStrip: true, fullDetail: true,
+                tiltShift: true));
     }
 
     /// <summary>
@@ -162,6 +235,193 @@ public sealed class SmokeRun
         while (render.RenderNextFrame())
         {
         }
+    }
+
+    /// <summary>
+    /// Postaví u břehu přístav a hned za ním podmořskou farmu.
+    ///
+    /// <para>Když se u seedu smoke světa žádný břeh nenajde, krok se tiše
+    /// přeskočí — smoke má hlídat pády, ne tvar generované mapy.</para>
+    /// </summary>
+    private static void SubseaRound(ScreenManager screens, Simulation sim)
+    {
+        var content = screens.Content;
+        for (int i = 0; i < content.Techs.Count; i++)
+        {
+            sim.DebugGrantTech(i);
+        }
+
+        sim.DebugFillStorages();
+
+        if (!CityFixture.TryFindShore(sim, out int shoreX, out int shoreY))
+        {
+            return;
+        }
+
+        int harbour = content.Buildings.IndexOf("harbor");
+        int farm = content.Buildings.IndexOf("kelp_farm");
+
+        // Přístav chce suchou dlaždici u vody, farma vodní v jeho dosahu —
+        // obojí se hledá v okolí břehu, protože přesné souřadnice závisí na seedu.
+        if (!TryPlaceNear(sim, harbour, shoreX, shoreY, wantWater: false))
+        {
+            Console.WriteLine($"podmoří: u břehu {shoreX},{shoreY} není místo pro přístav, přeskakuji");
+            return;
+        }
+
+        int harbourX = sim.Buildings[^1].X, harbourY = sim.Buildings[^1].Y;
+
+        // Farma se hledá od PŘÍSTAVU, ne od břehu: přístav mohl skončit dvacet
+        // dlaždic vedle a dosah sítě se počítá od něj.
+        if (!TryPlaceNear(sim, farm, harbourX, harbourY, wantWater: true))
+        {
+            Console.WriteLine($"podmoří: přístav na {harbourX},{harbourY}, ale farma se nikam nevešla");
+            return;
+        }
+
+        Console.WriteLine(
+            $"podmoří: přístav {harbourX},{harbourY}, síť pokrývá {sim.Subsea.CoveredTiles} dlaždic");
+
+        // Fotka od přístavu, ne od centra města. Je to jediné místo, kde se
+        // podmořské sprity a dosah sítě opravdu nakreslí — bez ní by se render
+        // téhle vrstvy poprvé ukázal až u hráče.
+        PhotoAt(screens, sim, harbourX, harbourY, "civdle-smoke-subsea");
+    }
+
+    /// <summary>
+    /// Zapne obranu, postaví věnec věží a nechá přijít vlnu.
+    ///
+    /// <para>Režim se tu zapíná ladicí cestou schválně: ve hře se volí při
+    /// zakládání světa a smoke běh staví nad hotovým městem.</para>
+    /// </summary>
+    private static void FrontierRound(
+        ScreenManager screens, Simulation sim, GameplayScreen screen, GameTime time)
+    {
+        var content = screens.Content;
+        if (!content.Frontier.IsAvailable)
+        {
+            return;
+        }
+
+        sim.EnableFrontierDefense();
+
+        int tower = content.Buildings.IndexOf("watchtower");
+        for (int i = 0; i < 16; i++)
+        {
+            double angle = Math.Tau * i / 16;
+            // Na okraji města, ne uvnitř: uprostřed je všechno zastavěné
+            // a věž by se nikam nevešla. Okruh hledání je malý schválně —
+            // šestnáct prohledávání celé krajiny by se sečetlo do minut.
+            TryPlaceNear(
+                sim, tower,
+                sim.CityCenterX + (int)Math.Round(Math.Cos(angle) * 30),
+                sim.CityCenterY + (int)Math.Round(Math.Sin(angle) * 30),
+                wantWater: false,
+                radius: 10);
+        }
+
+        // Vlnu pošleme hned. Dotikat k ní poctivě je až dva a půl tisíce tiků
+        // nad pětisetbudovým městem — minuty čekání na něco, co se stejně má
+        // jen nakreslit.
+        sim.Frontier.DebugForceWave(sim);
+
+        // A pak dost dlouho, aby vlna došla k věžím: útočník ujde dvacetinu
+        // dlaždice za tik, takže pár set tiků je pořád „na obzoru".
+        for (int i = 0; i < 900; i++)
+        {
+            sim.Tick();
+        }
+
+        Console.WriteLine(
+            $"obrana: na mapě {sim.Frontier.Count}, sestřeleno {sim.Frontier.Killed}, "
+            + $"prošlo {sim.Frontier.ReachedCity}");
+
+        // Kamera na město, ať útočníci opravdu projdou kreslením.
+        screen.FocusForCapture(
+            new Vector2(
+                sim.CityCenterX * Rendering.TerrainRenderer.TileSize,
+                sim.CityCenterY * Rendering.TerrainRenderer.TileSize),
+            zoom: 2f);
+        Frames(screen, time);
+    }
+
+    /// <summary>
+    /// Vypustí družice a nechá orbitální obrazovku pár snímků žít — i s tím,
+    /// co je na dráze, ne jen s prázdným kotoučem.
+    ///
+    /// <para>Obrazovka kreslí planetu a družice mimo mapu, takže se na ni
+    /// žádný jiný krok nedostane.</para>
+    /// </summary>
+    private static void OrbitRound(ScreenManager screens, Simulation sim, GameTime time)
+    {
+        var content = screens.Content;
+        if (!content.Orbit.IsEnabled)
+        {
+            return;
+        }
+
+        CityFixture.FillTheOrbit(sim, content);
+
+        var orbitScreen = new OrbitScreen(screens, sim);
+        screens.Push(orbitScreen);
+        Frames(orbitScreen, time);
+        Console.WriteLine($"orbita: kosmodrom = {sim.HasLaunchSite}, na dráze {sim.Orbit.TotalLaunched}");
+        screens.Pop();
+    }
+
+    /// <summary>Uloží fotku vycentrovanou na konkrétní dlaždici.</summary>
+    private static void PhotoAt(ScreenManager screens, Simulation sim, int tileX, int tileY, string folder)
+    {
+        var camera = new Rendering.Camera2D();
+        camera.SetViewport(1920, 1080);
+        camera.CenterOn(
+            new Vector2(tileX * Rendering.TerrainRenderer.TileSize, tileY * Rendering.TerrainRenderer.TileSize),
+            3f);
+
+        new ShareCard(screens).Save(
+            sim, camera, Path.Combine(Path.GetTempPath(), folder),
+            ShareCardOptions.For(
+                CivDle.Core.Config.CaptureResolution.Hd1080, withStrip: false, fullDetail: true));
+    }
+
+    /// <summary>
+    /// Zkusí položit budovu na nejbližší vhodnou dlaždici v okolí bodu.
+    ///
+    /// <para>Okolí je široké schválně: <c>TryFindShore</c> hledá břeh, kde je
+    /// zároveň zástavba (aby na snímku bylo vidět město u vody), takže těsně
+    /// kolem něj je všechno zabrané. Nejbližší volné místo bylo v testu skoro
+    /// dvacet dlaždic daleko — s užším okruhem se krok tiše přeskakoval.</para>
+    /// </summary>
+    private static bool TryPlaceNear(
+        Simulation sim, int defIndex, int centerX, int centerY, bool wantWater, int radius = 60)
+    {
+        int Radius = radius;
+
+        int bestDistance = int.MaxValue;
+        int bestX = 0, bestY = 0;
+
+        for (int dy = -Radius; dy <= Radius; dy++)
+        {
+            for (int dx = -Radius; dx <= Radius; dx++)
+            {
+                int x = centerX + dx, y = centerY + dy;
+                if (sim.IsWaterAt(x, y) != wantWater || sim.CanPlace(defIndex, x, y) != PlacementResult.Ok)
+                {
+                    continue;
+                }
+
+                int distance = Math.Max(Math.Abs(dx), Math.Abs(dy));
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    bestX = x;
+                    bestY = y;
+                }
+            }
+        }
+
+        return bestDistance != int.MaxValue
+            && sim.TryPlaceBuildingFree(defIndex, bestX, bestY) == PlacementResult.Ok;
     }
 
     private static void BuildRoadsAround(Simulation sim)

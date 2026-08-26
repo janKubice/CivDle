@@ -31,6 +31,58 @@ public sealed class SpriteCoverageTests
     }
 
     [Fact]
+    public void EverySatellite_HasASprite()
+    {
+        // Družice bez spritu by na orbitální obrazovce prostě nebyla vidět —
+        // a hráč by za ni přitom zaplatil pozdní ekonomiku.
+        var registered = RegisteredIds("orbit");
+        var content = LoadContent();
+
+        var missing = content.Orbit.Satellites
+            .Where(s => !registered.Contains(s.Id))
+            .Select(s => s.Id)
+            .ToList();
+
+        Assert.True(missing.Count == 0,
+            $"Družice bez spritu (na dráze by nebyly vidět): {string.Join(", ", missing)}");
+    }
+
+    [Fact]
+    public void EveryBuildStage_HasASprite()
+    {
+        // Fáze odkazuje sprite jménem. Překlep by znamenal div, který se
+        // desítky minut kreslí jako prázdný obrys — a to nikdo nespojí s daty.
+        var content = LoadContent();
+        var registered = AllRegisteredIds();
+
+        var missing = content.Buildings.All
+            .SelectMany(b => b.Stages.Select(stage => (Building: b.Id, stage.Sprite)))
+            .Where(pair => !registered.Contains(pair.Sprite))
+            .Select(pair => $"{pair.Building} → {pair.Sprite}")
+            .ToList();
+
+        Assert.True(missing.Count == 0,
+            $"Fáze stavby odkazují neexistující sprity: {string.Join(", ", missing)}");
+    }
+
+    [Fact]
+    public void EveryAttacker_HasASprite()
+    {
+        // Neviditelný útočník je nefér: hráč by viděl, jak mu ubývají budovy,
+        // a neměl by na co střílet.
+        var registered = RegisteredIds("attacker");
+        var content = LoadContent();
+
+        var missing = content.Frontier.Attackers
+            .Where(a => !registered.Contains(a.Id))
+            .Select(a => a.Id)
+            .ToList();
+
+        Assert.True(missing.Count == 0,
+            $"Útočníci bez spritu (nebylo by je vidět): {string.Join(", ", missing)}");
+    }
+
+    [Fact]
     public void EveryResource_HasAnIcon()
     {
         var registered = RegisteredIds("icon");
@@ -46,6 +98,15 @@ public sealed class SpriteCoverageTests
     }
 
     /// <summary>ID spritů zaregistrovaných v knihovně pro daný prefix.</summary>
+    /// <summary>Všechna registrovaná ID i s předponou — fáze se odkazují celým jménem.</summary>
+    private static HashSet<string> AllRegisteredIds()
+    {
+        string source = File.ReadAllText(SpriteLibrarySource());
+        return Regex.Matches(source, "\"([a-z]+\\.[a-z_0-9]+)\"")
+            .Select(m => m.Groups[1].Value)
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
     private static HashSet<string> RegisteredIds(string prefix)
     {
         string source = File.ReadAllText(SpriteLibrarySource());

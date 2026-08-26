@@ -446,6 +446,53 @@ public sealed class BuildingInfoScreen : IScreen
                 }
             });
         section.Widgets.Add(button);
+
+        // Hromadné vylepšení hned pod jednotlivým: hráč je tu právě proto, že
+        // chce budovu povýšit, takže nabídka „a rovnou všechny stejné ve čtvrti"
+        // patří sem, ne do zvláštní obrazovky, kterou by nikdo nehledal.
+        section.Widgets.Add(UpgradeAllButton(defIndex));
         return section;
+    }
+
+    /// <summary>
+    /// Tlačítko „vylepšit všechny stejné ve čtvrti".
+    ///
+    /// <para>Ukazuje počet i celkovou cenu dopředu — hromadná akce, u které
+    /// hráč netuší, co ho bude stát, je horší než klikat po jedné.</para>
+    ///
+    /// <para>Když je taková budova jediná, tlačítko se vůbec nezobrazí: bylo
+    /// by jen zdvojením toho nad ním.</para>
+    /// </summary>
+    private Widget UpgradeAllButton(int defIndex)
+    {
+        var loc = _screens.Loc;
+        var content = _screens.Content;
+        var stack = new VerticalStackPanel { Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center };
+
+        var (count, cost) = _simulation.PreviewUpgradeAll(_buildingIndex);
+        if (count <= 1)
+        {
+            return stack;
+        }
+
+        stack.Widgets.Add(new Label
+        {
+            Text = loc.Format("panel.cost", CostFormat.Line(content, loc, cost)),
+            TextColor = Color.Gray,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        });
+
+        stack.Widgets.Add(UiFactory.IconButton(
+            _screens.Sprites.Get("icon.upgrade"),
+            loc.Format("building.upgradeAll", count),
+            () =>
+            {
+                if (_simulation.TryUpgradeAllLike(_buildingIndex) > 0)
+                {
+                    BuildUi();
+                }
+            }));
+
+        return stack;
     }
 }

@@ -62,6 +62,7 @@ public sealed class CaptureDirector
         new StoreShot("07-night-scale", ShotSubject.NightScale, Minutes: 16, Zoom: 0.35f, Seed: 20260728),
         new StoreShot("08-tech-tree", ShotSubject.Tech, Minutes: 10, Zoom: 3.0f, Seed: 991),
         new StoreShot("09-achievements", ShotSubject.Achievements, Minutes: 12, Zoom: 3.2f, Seed: 20260728),
+        new StoreShot("10-orbit", ShotSubject.Orbit, Minutes: 12, Zoom: 3.2f, Seed: 20260728),
     };
 
     /// <summary>Připraví scénu dalšího snímku a vrátí obrazovku, kterou má hra ukázat.</summary>
@@ -109,6 +110,12 @@ public sealed class CaptureDirector
             case ShotSubject.GoldenHour:
                 CityFixture.TickUntilTimeOfDay(sim, from: 0.76, to: 0.82);
                 break;
+
+            case ShotSubject.Orbit:
+                // Prázdná dráha není záběr. Do obchodu patří obrázek, na kterém
+                // něco lítá — takže se družice na scénu opravdu vypustí.
+                CityFixture.FillTheOrbit(sim, screens.Content);
+                break;
         }
 
         var gameplay = new GameplayScreen(screens, sim, new WorldInfo(shot.Seed, "medium", "continents"));
@@ -119,6 +126,7 @@ public sealed class CaptureDirector
         {
             ShotSubject.Tech => new TechScreen(screens, sim),
             ShotSubject.Achievements => new AchievementsScreen(screens, sim),
+            ShotSubject.Orbit => new OrbitScreen(screens, sim),
             _ => gameplay,
         };
     }

@@ -44,6 +44,10 @@ internal sealed class MilestoneSystem
             sim.MarkMilestoneReached(i);
             sim.EnqueueNotification(new GameNotification(
                 NotificationKind.Milestone, "toast.milestone", milestones[i].NameKey));
+
+            // Na milníku se může narodit významná osobnost. Řeší to simulace,
+            // ne tenhle systém — bonusy a sochy nejsou věc milníků.
+            sim.OnMilestoneReached(i);
         }
     }
 }

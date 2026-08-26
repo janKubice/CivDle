@@ -119,6 +119,69 @@ public enum SpectacleEffect
 public sealed record BuildingSpectacle(SpectacleEffect Effect, double IntervalSeconds);
 
 /// <summary>
+/// Plavení dřeva: kdo klády do řeky pouští a kdo je z ní tahá.
+///
+/// <para>Proč to ve hře stojí za to: dřevo se dá vozit po zemi vždycky
+/// a všude. Řeka je jediná cesta, která je <b>zadarmo, ale jen když ji máš</b>
+/// — a tím z kusu krajiny dělá důvod, proč stavět zrovna tam.</para>
+///
+/// <para>Klády nic nevyrábějí. Splav <b>vezme</b> surovinu ze skladu a pošle
+/// ji po vodě; česle ji vytáhnou zpátky, s bonusem za to, že se nemusela
+/// vozit. Kdyby kláda vznikala z ničeho, byla by řeka nekonečný zdroj a nikdo
+/// by nic jiného nestavěl.</para>
+/// </summary>
+/// <param name="Drops">Pouští klády po proudu?</param>
+/// <param name="Catches">Vytahuje je z vody?</param>
+/// <param name="ResourceIndex">Kterou surovinu kláda veze; −1 u česlí (berou, co připluje).</param>
+/// <param name="Amount">Kolik suroviny jedna kláda unese.</param>
+/// <param name="IntervalTicks">Jak často splav pouští další.</param>
+/// <param name="CatchMultiplier">Kolikrát víc se z klády vytáhne (odměna za cestu po vodě).</param>
+/// <summary>
+/// Jak zní okolí budovy. Behavior-ID: data řeknou <b>který</b> zvuk a jak
+/// daleko je slyšet, kód ví, <b>jak</b> ho vyrobit.
+///
+/// <para>Zvuk se syntetizuje, nevozí se soubory („no balast") — a proto je
+/// druh výčet v kódu, ne cesta k souboru v datech.</para>
+/// </summary>
+public enum SoundLoop
+{
+    /// <summary>Mlýn, pila: pomalé vrzání a rytmické bouchání.</summary>
+    Mill,
+
+    /// <summary>Výheň, huť: hluboké dunění a syčení.</summary>
+    Forge,
+
+    /// <summary>Voda: přístav, jez, mola.</summary>
+    Water,
+
+    /// <summary>Trh, náměstí: šum hlasů.</summary>
+    Market,
+
+    /// <summary>Stroje: pravidelný tep továrny.</summary>
+    Machinery,
+}
+
+/// <summary>
+/// Zvuk okolí budovy.
+///
+/// <para>Proč to ve hře je: relaxační jádro stálo skoro jen na obraze. Zvuk,
+/// který se mění podle toho, kam hráč zamíří kamerou, je ta věc, díky které
+/// město působí obydleně i když se na něm zrovna nic nehýbe.</para>
+/// </summary>
+/// <param name="Loop">Který zvuk.</param>
+/// <param name="RadiusTiles">Do jaké vzdálenosti je slyšet.</param>
+/// <param name="Volume">Jak nahlas přímo u ní (0–1).</param>
+public sealed record BuildingSound(SoundLoop Loop, double RadiusTiles, double Volume);
+
+public sealed record RaftRule(
+    bool Drops,
+    bool Catches,
+    int ResourceIndex,
+    double Amount,
+    int IntervalTicks,
+    double CatchMultiplier);
+
+/// <summary>
 /// Zvalidovaná definice budovy z <c>data/buildings.json</c> (typ; instance jsou
 /// struktury v plochém poli simulace). Jméno je v jazykových souborech pod
 /// <c>building.&lt;Id&gt;</c>.
@@ -185,8 +248,88 @@ public sealed record BuildingDef(
     int ScoutRadius = 0,
     int TerraformActionIndex = -1,
     int TerraformRadius = 0,
-    double Paving = 1.0)
+    double Paving = 1.0,
+    bool Subsea = false,
+    bool SubseaAnchor = false,
+    DefenseRule? DefenseOrNull = null,
+    IReadOnlyList<BuildStage>? StagesOrNull = null,
+    RaftRule? RaftOrNull = null,
+    BuildingSound? SoundOrNull = null)
 {
+    /// <summary>Zní tahle budova, když je hráč blízko? <c>null</c> = mlčí.</summary>
+    public BuildingSound? Sound => SoundOrNull;
+
+    /// <summary>
+    /// Plaví tahle budova dřevo po řece, nebo ho z ní vytahuje?
+    /// <c>null</c> = ani jedno, což je drtivá většina budov.
+    /// </summary>
+    public RaftRule? Raft => RaftOrNull;
+
+    /// <summary>Pouští klády do řeky?</summary>
+    public bool DropsLogs => RaftOrNull is { Drops: true };
+
+    /// <summary>Vytahuje klády z řeky?</summary>
+    public bool CatchesLogs => RaftOrNull is { Catches: true };
+
+    /// <summary>
+    /// Fáze stavby: jak budova vypadá v průběhu. Prázdné = kreslí se obecné
+    /// staveniště, jako dřív.
+    /// </summary>
+    public IReadOnlyList<BuildStage> Stages => StagesOrNull ?? Array.Empty<BuildStage>();
+
+    /// <summary>Roste tahle budova před očima po fázích?</summary>
+    public bool HasStages => StagesOrNull is { Count: > 0 };
+
+    /// <summary>
+    /// Sprite pro daný postup stavby (0–1), nebo <c>null</c>, když budova fáze
+    /// nemá.
+    ///
+    /// <para>Vybírá se poslední fáze, jejíž práh už postup překročil — takže
+    /// fáze v datech musí být vzestupné. Hlídá to načítání (fail-fast).</para>
+    /// </summary>
+    public string? StageSpriteAt(double progress)
+    {
+        var stages = Stages;
+        string? found = null;
+        for (int i = 0; i < stages.Count; i++)
+        {
+            if (progress >= stages[i].AtProgress)
+            {
+                found = stages[i].Sprite;
+            }
+        }
+
+        return found ?? (stages.Count > 0 ? stages[0].Sprite : null);
+    }
+
+    /// <summary>
+    /// Brání se budova, když přijde vlna? <c>null</c> = ne, což je drtivá
+    /// většina — obrana je volitelný režim, ne vlastnost města.
+    /// </summary>
+    public DefenseRule? Defense => DefenseOrNull;
+
+    /// <summary>Umí tahle budova střílet?</summary>
+    public bool IsArmed => DefenseOrNull is { IsArmed: true };
+
+    /// <summary>
+    /// Stojí tahle budova na mořském dně?
+    ///
+    /// <para>Neplyne z vlastního pole v JSON, ale z <c>allowedBiomes</c>: budova,
+    /// která smí stát <b>jenom</b> na vodě, je podmořská a nic jiného to
+    /// znamenat nemůže. Vlastní příznak by šel nastavit v rozporu s biomy
+    /// a dvě pravdy o téže budově se dřív nebo později rozejdou.</para>
+    /// </summary>
+    public bool IsSubsea => Subsea;
+
+    /// <summary>
+    /// Otevírá tahle budova moře kolem sebe pro podmořskou stavbu? (Přístavy.)
+    ///
+    /// <para>Tohle naopak <b>vlastní příznak v datech je</b>: z biomů se odvodit
+    /// nedá — přístav stojí na břehu úplně stejně jako maják, a jestli má
+    /// zásobovat dno, je rozhodnutí obsahu, ne důsledek terénu.</para>
+    /// </summary>
+    public bool IsSubseaAnchor => SubseaAnchor;
+
     /// <summary>
     /// Podívaná, kterou budova pravidelně předvádí; <c>null</c> = jen stojí.
     /// </summary>

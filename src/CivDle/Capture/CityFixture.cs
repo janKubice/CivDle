@@ -171,6 +171,79 @@ internal static class CityFixture
         }
     }
 
+    /// <summary>
+    /// Postaví kosmodrom, sklady a vypustí od každého druhu družice jednu.
+    ///
+    /// <para>Pro záběr do obchodu a pro smoke běh. Ladicí páky se tu používají
+    /// bez omluvy: dostat se ke koncové metě normálním hraním trvá hodiny
+    /// a nástroj má ukázat, jak to vypadá, ne odehrát celou hru.</para>
+    /// </summary>
+    public static void FillTheOrbit(Simulation sim, GameContent content)
+    {
+        if (!content.Orbit.IsEnabled)
+        {
+            return;
+        }
+
+        for (int i = 0; i < content.Techs.Count; i++)
+        {
+            sim.DebugGrantTech(i);
+        }
+
+        sim.DebugGrantAscensionLevels(4); // megastruktury chtějí měřítko
+
+        // Sklady: družice stojí stovky oceli, základní kapacita jsou desítky.
+        // Bez nich by se na start nedalo našetřit ani s plnými sklady.
+        int warehouse = content.Buildings.IndexOf("warehouse");
+        for (int i = 0; i < 24; i++)
+        {
+            TryPlaceFreeNear(sim, warehouse, sim.CityCenterX + 30 + (i % 8) * 3, sim.CityCenterY + 30 + (i / 8) * 3, radius: 6);
+        }
+
+        int port = content.Buildings.IndexOf("spaceport");
+        if (!TryPlaceFreeNear(sim, port, sim.CityCenterX + 20, sim.CityCenterY - 20, radius: 25))
+        {
+            return;
+        }
+
+        // Kosmodrom i starty se dokončí rovnou. Protikat je znamená čtrnáct
+        // tisíc tiků nad rozrostlým městem — deset minut čekání na každý běh
+        // nástroje, a na výsledku by nebyl vidět rozdíl.
+        sim.DebugCompleteConstruction();
+
+        for (int kind = 0; kind < content.Orbit.Count; kind++)
+        {
+            sim.DebugFillStorages();
+            if (sim.TryLaunchSatellite(kind) == PlacementResult.Ok)
+            {
+                sim.DebugFinishLaunch();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Položí budovu na první volné místo v okolí bodu (bez placení).
+    ///
+    /// <para>Okruh je parametr, protože na něm záleží víc, než by člověk čekal:
+    /// hledání je kvadratické v poloměru a nad rozrostlým městem se z dvaceti
+    /// takových hledání stanou minuty.</para>
+    /// </summary>
+    private static bool TryPlaceFreeNear(Simulation sim, int defIndex, int centerX, int centerY, int radius = 40)
+    {
+        for (int dy = -radius; dy <= radius; dy++)
+        {
+            for (int dx = -radius; dx <= radius; dx++)
+            {
+                if (sim.TryPlaceBuildingFree(defIndex, centerX + dx, centerY + dy) == PlacementResult.Ok)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Odtiká, dokud nenastane období daného ID.</summary>
     public static void TickUntilSeason(Simulation sim, string seasonId)
     {

@@ -105,5 +105,11 @@
       ]
     }
   ],
-  "_comment_names": "Jmena cizich mest se berou ze settlement-names.json, tedy ze STEJNE mnoziny jako hracova sidla."
+  "_comment_names": "Jmena cizich mest se berou ze settlement-names.json, tedy ze STEJNE mnoziny jako hracova sidla.",
+  "demandSpike": {
+    "intervalSeconds": 420,
+    "durationSeconds": 90,
+    "chancePercent": 35,
+    "multiplier": 2.0
+  }
 }

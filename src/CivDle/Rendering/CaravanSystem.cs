@@ -36,6 +36,16 @@ public sealed class CaravanSystem
     private readonly SpriteLibrary _sprites;
     private readonly Random _rng = new();
 
+    /// <summary>
+    /// Kamarádi ze Steamu, jestli nějací jsou. Karavana pak jede „od Petra",
+    /// ne od bezejmenného města — a je to ta nejlevnější věc, která do hry
+    /// dostane ostatní lidi.
+    /// </summary>
+    private Platform.FriendRoster? _friends;
+
+    /// <summary>Kdo veze tuhle jízdu; <c>null</c> = obyčejná karavana z cizího města.</summary>
+    private Platform.FriendFace? _driver;
+
     private CaravanRun? _run;
 
     /// <summary>Které cizí město tuhle karavanu poslalo (klíč do stavu měst).</summary>
@@ -49,6 +59,16 @@ public sealed class CaravanSystem
         _sprites = sprites;
         _ = content; // obsah zatím netřeba; parametr drží tvar ostatních systémů
     }
+
+    /// <summary>
+    /// Dá systému seznam kamarádů. Volitelné: bez něj jezdí karavany dál,
+    /// jen bez jmen — přesně tak, jak to má být pro každého, kdo hru spustí
+    /// bez Steamu.
+    /// </summary>
+    public void UseFriends(Platform.FriendRoster friends) => _friends = friends;
+
+    /// <summary>Kdo právě veze karavanu, nebo <c>null</c>.</summary>
+    public Platform.FriendFace? Driver => _driver;
 
     /// <summary>Je karavana zrovna na cestě?</summary>
     public bool IsActive => _run is not null;
@@ -151,6 +171,10 @@ public sealed class CaravanSystem
         _run = new CaravanRun(best.X, best.Y);
         _age = 0f;
         _stepTimer = 0f;
+
+        // Řidič se vybere jednou při vypravení a drží se celou cestu —
+        // deterministicky z klíče města, aby jméno nad karavanou neblikalo.
+        _driver = _friends?.Pick(_cityKey);
     }
 
     private void Advance(float dt, Simulation simulation)
@@ -181,6 +205,10 @@ public sealed class CaravanSystem
         }
     }
 
+    /// <summary>Obdélník o kus větší na všechny strany — podklad pod obličejem.</summary>
+    private static Rectangle Inflate(Rectangle rect, int by) =>
+        new(rect.X - by, rect.Y - by, rect.Width + (by * 2), rect.Height + (by * 2));
+
     public void Draw(SpriteBatch spriteBatch, Camera2D camera)
     {
         if (_run is null)
@@ -202,6 +230,20 @@ public sealed class CaravanSystem
         var origin = new Vector2(sprite.Width * 0.5f, sprite.Height);
         var effect = _run.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
         spriteBatch.Draw(sprite, _run.Position, null, tint, 0f, origin, 1f, effect, 0f);
+
+        // Obličej kamaráda nad vozem. Jméno kreslí HUD (má písmo); tady je
+        // jen obrázek, protože ten patří ke karavaně, ne na obrazovku.
+        if (_driver?.Avatar is { } avatar)
+        {
+            const int size = 20;
+            var at = new Rectangle(
+                (int)(_run.Position.X - size / 2f),
+                (int)(_run.Position.Y - sprite.Height - size - 4),
+                size, size);
+
+            spriteBatch.Draw(_sprites.Get("fx.shadow") ?? avatar, Inflate(at, 3), Color.Black * 0.35f);
+            spriteBatch.Draw(avatar, at, Color.White);
+        }
 
         spriteBatch.End();
     }

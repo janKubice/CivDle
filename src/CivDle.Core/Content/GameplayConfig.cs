@@ -482,10 +482,22 @@ public sealed record GameplayConfig(
     LaserConfig? LaserOrNull = null,
     HistoryConfig? HistoryOrNull = null,
     ResearchConfig? ResearchOrNull = null,
-    DemoConfig? DemoOrNull = null)
+    DemoConfig? DemoOrNull = null,
+    GoldenConfig? GoldenOrNull = null,
+    SubseaConfig? SubseaOrNull = null,
+    PowerConfig? PowerOrNull = null)
 {
     /// <summary>Meze demoverze; chybí-li v datech, platí výchozí.</summary>
     public DemoConfig Demo => DemoOrNull ?? DemoConfig.Default;
+
+    /// <summary>Zlaté úlovky; bez bloku v datech zůstane jeden bezejmenný třpyt.</summary>
+    public GoldenConfig Golden => GoldenOrNull ?? GoldenConfig.Default;
+
+    /// <summary>Podmořská síť; bez bloku v datech je vrstva vypnutá.</summary>
+    public SubseaConfig Subsea => SubseaOrNull ?? SubseaConfig.Disabled;
+
+    /// <summary>Rozvod proudu; bez bloku v datech platí jedno globální číslo jako dřív.</summary>
+    public PowerConfig Power => PowerOrNull ?? PowerConfig.Global;
 
     /// <summary>Nastavení časosběru; chybí-li v datech, se nic nezaznamenává.</summary>
     public HistoryConfig History => HistoryOrNull ?? HistoryConfig.Disabled;
@@ -555,6 +567,90 @@ public sealed record StaffingConfig(double ScarcityThreshold)
 /// osahal celou; druhý je cíl, na kterém demo končí.
 /// </param>
 /// <param name="TechFraction">Jaký díl stromu výzkumu je v ukázce dostupný (0–1).</param>
+/// <summary>
+/// Jeden druh zlatého úlovku — vzácný tvor, na kterého se dá kliknout.
+///
+/// <para>Data, ne kód: přidat fénixe nebo křišťálovou rybku má být záznam
+/// v JSON, ne nová třída. Odměna je buď balík suroviny, nebo slavnost —
+/// dvě čísla a jeden přepínač, žádná logika v datech.</para>
+/// </summary>
+/// <param name="Sprite">ID spritu ve knihovně (např. <c>fx.golden</c>).</param>
+/// <param name="LifeSeconds">Jak dlouho je k mání, než zmizí.</param>
+/// <param name="DriftTilesPerSecond">Jak rychle se posouvá; 0 = stojí.</param>
+/// <param name="RewardFraction">Podíl kapacity skladu, který padne.</param>
+/// <param name="MinReward">Spodní mez odměny, ať se malý sklad vyplatí taky.</param>
+/// <param name="GrantsFestival">Místo surovin vyhlásí slavnost.</param>
+public sealed record GoldenKindDef(
+    string Id,
+    string Sprite,
+    double LifeSeconds,
+    double DriftTilesPerSecond,
+    double RewardFraction,
+    int MinReward,
+    bool GrantsFestival);
+
+/// <summary>
+/// Zlaté úlovky: jak často se objevují a co všechno se může objevit.
+///
+/// <para>Vzácnost je celý smysl — příliš krátký rozestup a přestane to být
+/// událost. Proto je rozestup v datech, ne v kódu.</para>
+/// </summary>
+public sealed record GoldenConfig(
+    double MinGapSeconds,
+    double MaxGapSeconds,
+    IReadOnlyList<GoldenKindDef> Kinds)
+{
+    /// <summary>Záloha, když blok v datech chybí — jeden bezejmenný třpyt jako dřív.</summary>
+    public static GoldenConfig Default { get; } = new(
+        65, 120,
+        new[] { new GoldenKindDef("golden", "fx.golden", 7, 0, 0.08, 15, false) });
+
+    /// <summary>Je vůbec co losovat?</summary>
+    public bool IsEnabled => Kinds.Count > 0;
+}
+
+/// <summary>
+/// Rozvod proudu.
+///
+/// <para>Dokud tenhle blok v datech nebyl, byla energie <b>jedno globální
+/// číslo</b>: součet výroby děleno součet spotřeby, stejný pro celou říši.
+/// Elektrárna postavená kdekoli zásobovala všechno, takže „kam s ní" nebyla
+/// otázka. S dosahem se z ní stává rozhodnutí o místě.</para>
+///
+/// <para>Bez bloku v datech zůstane globální chování — starší data i mody
+/// dostanou přesně tu hru, jakou měly.</para>
+/// </summary>
+/// <param name="Range">Kolik buněk 8×8 od elektrárny proud dosáhne. 0 = globální rozvod jako dřív.</param>
+public sealed record PowerConfig(int Range)
+{
+    /// <summary>Jedno číslo pro celou říši (chování před prostorovým rozvodem).</summary>
+    public static PowerConfig Global { get; } = new(0);
+
+    /// <summary>Má proud dosah, nebo teče všude?</summary>
+    public bool IsEnabled => Range > 0;
+}
+
+/// <summary>
+/// Podmořská vrstva: jak daleko od přístavu se dá stavět na dně.
+///
+/// <para>Proč vůbec dosah: bez něj by šel dóm postavit uprostřed oceánu na
+/// druhé polokouli. Podmořská stavba není nezávislá osada — visí na přístavu,
+/// který ji zásobuje. Dosah tedy není jen omezení, je to <b>ta mechanika</b>:
+/// hráč nejdřív rozhodne kam přístav, a moře kolem něj tím teprve otevře.</para>
+///
+/// <para>Šíří se to jen po vodě (viz <c>SubseaNetwork</c>), takže poloostrov je
+/// hráz — dvě zátoky vedle sebe nejsou totéž co jedna.</para>
+/// </summary>
+/// <param name="Range">Kolik vodních dlaždic od kotvy síť dosáhne. 0 = vrstva vypnutá.</param>
+public sealed record SubseaConfig(int Range)
+{
+    /// <summary>Bez bloku v datech se pod hladinou nestaví vůbec.</summary>
+    public static SubseaConfig Disabled { get; } = new(0);
+
+    /// <summary>Dá se na dně vůbec stavět?</summary>
+    public bool IsEnabled => Range > 0;
+}
+
 public sealed record DemoConfig(
     double PopulationCap,
     long AscensionRequirement,

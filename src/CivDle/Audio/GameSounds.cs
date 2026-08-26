@@ -1,3 +1,5 @@
+using CivDle.Core.Content;
+using CivDle.Core.Sim;
 using Microsoft.Xna.Framework.Audio;
 
 namespace CivDle.Audio;
@@ -17,6 +19,15 @@ public sealed class GameSounds : IDisposable
     private readonly SoundEffect? _place;
     private readonly SoundEffect? _chime;
 
+    /// <summary>
+    /// Tóny zvonohry, jeden na stupeň stupnice.
+    ///
+    /// <para>Vyrobí se jednou při startu, ne při každém zvonění: melodie hraje
+    /// osm tónů za sebou a generovat kvůli tomu osm bufferů by znamenalo
+    /// alokovat půl megabajtu uprostřed slavnosti.</para>
+    /// </summary>
+    private readonly SoundEffect?[] _bells = new SoundEffect?[Carillon.Degrees];
+
     public GameSounds()
     {
         try
@@ -34,6 +45,48 @@ public sealed class GameSounds : IDisposable
         }
     }
 
+    /// <summary>
+    /// Naladí zvonohru podle dat. Volá se po načtení obsahu — základní
+    /// frekvence i délka tónu jsou obsah, ne konstanta v kódu.
+    /// </summary>
+    public void TuneCarillon(CarillonConfig config)
+    {
+        if (!config.IsEnabled)
+        {
+            return;
+        }
+
+        try
+        {
+            for (int degree = 0; degree < _bells.Length; degree++)
+            {
+                _bells[degree]?.Dispose();
+                _bells[degree] = CreateBell(
+                    (float)(config.BaseFrequency * Math.Pow(2, MajorScale[degree] / 12.0)),
+                    (float)config.NoteSeconds);
+            }
+        }
+        catch (Exception)
+        {
+            // Bez zvukového zařízení zvonohra jen mlčí — hra běží dál.
+            Array.Clear(_bells);
+        }
+    }
+
+    /// <summary>Zahraje jeden tón zvonohry (stupeň stupnice). Mimo rozsah = ticho.</summary>
+    public void PlayBell(int degree)
+    {
+        if (degree >= 0 && degree < _bells.Length)
+        {
+            // Bez náhodného kolísání výšky: melodie musí být pokaždé stejná,
+            // jinak by z osmi tónů byla osmkrát jiná písnička.
+            _bells[degree]?.Play(0.35f, 0f, 0f);
+        }
+    }
+
+    /// <summary>Půltóny durové stupnice — osm stupňů včetně horní oktávy.</summary>
+    private static readonly int[] MajorScale = { 0, 2, 4, 5, 7, 9, 11, 12 };
+
     /// <summary>Seknutí při ruční těžbě.</summary>
     public void PlayChop() => Play(_chop, volume: 0.35f);
 
@@ -48,6 +101,10 @@ public sealed class GameSounds : IDisposable
         _chop?.Dispose();
         _place?.Dispose();
         _chime?.Dispose();
+        for (int i = 0; i < _bells.Length; i++)
+        {
+            _bells[i]?.Dispose();
+        }
     }
 
     private static void Play(SoundEffect? sound, float volume)
@@ -121,6 +178,29 @@ public sealed class GameSounds : IDisposable
             }
 
             data[i] = value / freqs.Length;
+        }
+
+        return ToSoundEffect(data);
+    }
+
+    /// <summary>
+    /// Zvon: základní tón plus nepřesná vyšší harmonická, obojí s dlouhým
+    /// dozvukem.
+    ///
+    /// <para>Ta „nepřesnost" (2,76× místo 3×) je celý rozdíl mezi zvonem a
+    /// pípnutím — skutečné zvony mají harmonické mimo celé násobky a právě
+    /// z toho pochází ten kovový svit.</para>
+    /// </summary>
+    private static SoundEffect CreateBell(float frequency, float seconds)
+    {
+        int samples = (int)(SampleRate * seconds);
+        var data = new float[samples];
+        for (int i = 0; i < samples; i++)
+        {
+            float t = (float)i / SampleRate;
+            float body = MathF.Sin(MathF.Tau * frequency * t) * MathF.Exp(-t * 5.5f);
+            float shine = MathF.Sin(MathF.Tau * frequency * 2.76f * t) * MathF.Exp(-t * 11f) * 0.4f;
+            data[i] = (body + shine) * 0.7f;
         }
 
         return ToSoundEffect(data);
