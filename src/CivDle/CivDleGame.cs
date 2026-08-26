@@ -44,6 +44,13 @@ public sealed class CivDleGame : Game
     private Simulation? _smokeSimulation;
     private ScreenManager? _screens;
 
+    /// <summary>
+    /// Steam, pokud běží. Drží ho hra, protože ho musí každý snímek nechat
+    /// zpracovat, co mu přišlo — a to rozhraní <c>IPlatformServices</c>
+    /// schválně neumí, aby o Steamu nemuselo vědět jádro.
+    /// </summary>
+    private Platform.SteamPlatformServices? _steam;
+
     /// <param name="captureDirectory">
     /// Není-li null, hra se místo menu spustí v režimu focení do obchodu: sama si
     /// vypěstuje město, uloží sadu snímků do téhle složky a skončí.
@@ -186,13 +193,30 @@ public sealed class CivDleGame : Game
         // Platforma: bez Steamu lokální soubor vedle savu. Achievementy a
         // rekordy tak fungují i mimo Steam — hráč o postup nepřijde jen proto,
         // že hru spustil napřímo. Steam se přidá jako druhá implementace.
-        var platform = new LocalPlatformServices(
+        var local = new LocalPlatformServices(
             Path.Combine(GetProfileDirectory(), "saves", "platform.json"))
         {
             PlayerName = Environment.UserName,
         };
 
+        // Steam jako obálka nad lokální implementací. Zapisuje se do obojího,
+        // takže hráč o postup nepřijde, když si hru jednou spustí bez Steamu —
+        // a když Steam neběží vůbec, zůstane všechno jak bylo.
+        //
+        // V režimech pro nástroje (snímky, trailer, smoke) se Steam nezapíná:
+        // je to práce navíc a při natáčení by mohl vyskočit jeho overlay.
+        _steam = storeMode ? null : Platform.SteamPlatformServices.TryCreate(local);
+        IPlatformServices platform = (IPlatformServices?)_steam ?? local;
+
         var screens = new ScreenManager(this, content, localization, saves, platform);
+
+        // Kamarádi se načtou jednou při startu, ne při každé karavaně. Bez
+        // Steamu se nenačte nikdo a karavany jezdí dál — jen bez jmen.
+        if (_steam is not null)
+        {
+            screens.Friends.LoadOnce(new Platform.SteamFriendsSource(platform), GraphicsDevice);
+        }
+
         if (_capsuleDirectory is not null)
         {
             var scene = CityFixture.Grow(content, seed: 20260728, minutes: 14);
@@ -246,11 +270,17 @@ public sealed class CivDleGame : Game
         WhitePixel.Dispose();
         Sprites.Dispose();
         Sounds.Dispose();
+        _screens?.Friends.Dispose();
+        _steam?.Dispose(); // Steamu se sluší říct, že končíme
         base.UnloadContent();
     }
 
     protected override void Update(GameTime gameTime)
     {
+        // Steam musí dostat slovo každý snímek, jinak se nedoručí žádná
+        // odpověď a po chvíli se tváří, že hra zamrzla.
+        _steam?.Pump();
+
         if (_perfRun is not null)
         {
             var perfRun = _perfRun;

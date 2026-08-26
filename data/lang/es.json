@@ -826,6 +826,7 @@
     "hud.era": "Era: {0}",
     "hud.eraNext": "Siguiente: {0} · investigación {1}",
     "hud.escort": "¡Escolta!",
+    "hud.escortFriend": "¡Escolta para {0}!",
     "hud.faith": "Fe",
     "hud.festival": "Fiesta",
     "hud.festivalActive": "Fiesta {0}s",

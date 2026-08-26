@@ -66,6 +66,7 @@
     <PackageReference Include="MonoGame.Framework.WindowsDX" Version="3.8.5" Condition="'$(UseDirectX)' == 'true'" />
     <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5" Condition="'$(UseDirectX)' != 'true'" />
     <PackageReference Include="Myra" Version="1.5.11" />
+    <PackageReference Include="Steamworks.NET" Version="2024.8.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -91,5 +92,18 @@
   <PropertyGroup Condition="'$(GameEdition)' == 'Demo'">
     <DefineConstants>$(DefineConstants);DEMO</DefineConstants>
   </PropertyGroup>
+
+
+  <!--
+    App ID pro vývoj. Steamworks ho hledá vedle binárky, když hra NEBĚŽÍ přes
+    Steam — bez něj by se `SteamAPI.Init()` nikdy nechytil a lokálně by se
+    Steam nedal vyzkoušet vůbec.
+
+    Kopíruje se JEN v Debug: v distribuci ho Steam nepotřebuje (App ID zná
+    z toho, jak hru spustil) a přibalený soubor by šel přepsat na cizí ID.
+  -->
+  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <None Include="steam_appid.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 
 </Project>

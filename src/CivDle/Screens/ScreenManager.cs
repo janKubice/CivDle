@@ -43,6 +43,14 @@ public sealed class ScreenManager
     /// <summary>Úložiště uložené hry (jeden slot, MVP).</summary>
     public SaveStore Saves { get; }
 
+    /// <summary>
+    /// Kamarádi ze Steamu — jména a obličeje pro karavany.
+    ///
+    /// <para>Vždycky existuje; bez Steamu je prázdný. Obrazovky se tak nemusí
+    /// ptát „mám Steam?" a karavany jezdí dál, jen bez jmen.</para>
+    /// </summary>
+    public Platform.FriendRoster Friends { get; } = new();
+
     /// <summary>Herní aplikace (kvůli ukončení a přístupu ke grafice).</summary>
     public CivDleGame Game { get; }
 

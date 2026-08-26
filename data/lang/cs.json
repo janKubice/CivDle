@@ -826,6 +826,7 @@
     "hud.era": "Éra: {0}",
     "hud.eraNext": "Dál: {0} · vyzkoumej {1}",
     "hud.escort": "Doprovod!",
+    "hud.escortFriend": "Doprovod pro {0}!",
     "hud.faith": "Víra",
     "hud.festival": "Slavnost",
     "hud.festivalActive": "Slavnost {0} s",

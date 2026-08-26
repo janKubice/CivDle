@@ -410,6 +410,7 @@ public sealed class GameplayScreen : IScreen
         _fogRenderer = new FogRenderer(screens.WhitePixel);
         _bubbles = new BubbleSystem(screens.Sprites, screens.Content);
         _caravans = new CaravanSystem(screens.Sprites, screens.Content);
+        _caravans.UseFriends(screens.Friends);
         _golden = new GoldenSpawnSystem(screens.Sprites, screens.Content);
         _discoveries = new DiscoveryRenderer(screens.Sprites);
         // Pozor na pořadí: všechno pod tímhle řádkem si font drží, takže se to
@@ -1522,8 +1523,14 @@ public sealed class GameplayScreen : IScreen
         // na ni klika, a hráč po ní klika záměrně.
         if (_caravans.TryEscort(world, out var caravanPos))
         {
+            // Když karavanu veze kamarád, řekne se to jménem. Je to jediné
+            // místo, kde se ve hře objeví jiný člověk — nemá zapadnout.
+            string escort = _caravans.Driver is { } driver
+                ? _screens.Loc.Format("hud.escortFriend", driver.Name)
+                : _screens.Loc["hud.escort"];
+
             _floatingText.Add(caravanPos - new Vector2(0f, TerrainRenderer.TileSize * 0.5f),
-                _screens.Loc["hud.escort"], UiPalette.TextBright);
+                escort, UiPalette.TextBright);
             _particles.SpawnBurst(caravanPos, UiPalette.TextBright, 8, 40f, 130f);
             return;
         }
