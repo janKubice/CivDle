@@ -76,6 +76,12 @@ public sealed class SmokeRun
         Check("inspektor: zapnout", screen.ShowBottlenecksForSmoke);
         Frames(screen, time);
 
+        // Rozvod proudu se stejným zdůvodněním: legenda prochází všechny
+        // budovy a obě legendy teď stojí v jednom stohu, takže se tu chytí
+        // i rozbité rozvržení.
+        Check("proud: zapnout", screen.ShowPowerForSmoke);
+        Frames(screen, time);
+
         Check("výzkum: obrazovka", () => tech = screen.OpenTechForSmoke());
         Frames(screen, time);
         Check("výzkum: hledat", () => tech!.SearchForSmoke("dre"));

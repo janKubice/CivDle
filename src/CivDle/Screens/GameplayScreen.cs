@@ -92,6 +92,9 @@ public sealed class GameplayScreen : IScreen
 
     /// <summary>Legenda inspektoru; ukazuje se jen se zapnutým pohledem.</summary>
     private Widget _bottleneckLegend = null!;
+
+    /// <summary>Legenda rozvodu proudu; ukazuje se jen se zapnutým pohledem.</summary>
+    private Widget _powerLegend = null!;
     private readonly DistrictRenderer _districtRenderer;
     private readonly LandmarkRenderer _landmarkRenderer;
     private readonly UfoRenderer _ufoRenderer;
@@ -2090,6 +2093,11 @@ public sealed class GameplayScreen : IScreen
             RefreshBottleneckCounts();
         }
 
+        if (_showPower)
+        {
+            RefreshPowerCounts();
+        }
+
         WarnAboutFullStorage(dt);
     }
 
@@ -2583,10 +2591,22 @@ public sealed class GameplayScreen : IScreen
         bottomBar.Widgets.Add(BuildToolButtons());
 
         var root = new Panel();
-        // Legenda inspektoru: bez ní je barevná mapa hádanka. Skrytá, dokud
-        // si hráč pohled nezapne.
+
+        // Legendy: bez nich je barevná mapa hádanka. Obě jdou zapnout naráz,
+        // takže stojí ve stohu nad sebou — samostatně ukotvené by si lehly
+        // jedna přes druhou.
         _bottleneckLegend = BuildBottleneckLegend();
-        root.Widgets.Add(_bottleneckLegend);
+        _powerLegend = BuildPowerLegend();
+        var legends = new VerticalStackPanel
+        {
+            Spacing = 6,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(0, 0, 0, 96),
+        };
+        legends.Widgets.Add(_powerLegend);
+        legends.Widgets.Add(_bottleneckLegend);
+        root.Widgets.Add(legends);
 
         root.Widgets.Add(topLeft);
         root.Widgets.Add(topRight);
@@ -3361,16 +3381,91 @@ public sealed class GameplayScreen : IScreen
         var panel = UiFactory.DarkPanel(rows);
 
         // Vlevo dole, ne uprostřed: střed levé strany drží sledovač úkolů
-        // a legenda se pod něj schovala. Spodní okraj je jediné místo, kde
-        // v této hře nic trvale nesedí — dolní lišta je vystředěná.
+        // a legenda se pod něj schovala. Ukotvení má na starosti stoh legend —
+        // obě se dají zapnout naráz a samostatně by si lehly jedna přes druhou.
         panel.HorizontalAlignment = HorizontalAlignment.Left;
-        panel.VerticalAlignment = VerticalAlignment.Bottom;
-        panel.Margin = new Myra.Graphics2D.Thickness(0, 0, 0, 96);
         panel.Visible = false;
         return panel;
     }
 
     private Label[] _legendCounts = Array.Empty<Label>();
+
+    private Label[] _powerCounts = Array.Empty<Label>();
+
+    /// <summary>
+    /// Legenda rozvodu proudu: co která barva na mapě znamená a kolik budov
+    /// v tom stavu právě je.
+    ///
+    /// <para>Bez ní je pohled na proud jen barevná mřížka. Zelená a červená se
+    /// snad uhodnou, ale žlutá a oranžová jsou dva různé druhy „nedostatku"
+    /// a hráč podle nich řeší dvě různé věci: přidat elektrárnu, nebo ji
+    /// posunout blíž.</para>
+    ///
+    /// <para>Počty jsou tam ze stejného důvodu jako u inspektoru: mapa řekne
+    /// „kde", ale ne „kolik toho je" — a podle toho se hráč rozhoduje, jestli
+    /// se tím vůbec vyplatí zabývat.</para>
+    /// </summary>
+    private Widget BuildPowerLegend()
+    {
+        var loc = _screens.Loc;
+        var rows = new VerticalStackPanel { Spacing = 4 };
+        rows.Widgets.Add(new Label { Text = loc["hud.powerOverlay"], TextColor = UiPalette.TextBright });
+
+        _powerCounts = new Label[PowerOverlayRenderer.Legend.Count];
+        for (int i = 0; i < PowerOverlayRenderer.Legend.Count; i++)
+        {
+            var (key, color) = PowerOverlayRenderer.Legend[i];
+            var row = new HorizontalStackPanel { Spacing = 8 };
+            row.Widgets.Add(new Panel
+            {
+                Width = 14,
+                Height = 14,
+                VerticalAlignment = VerticalAlignment.Center,
+                Background = new SolidBrush(color),
+            });
+            row.Widgets.Add(new Label { Text = loc[key], VerticalAlignment = VerticalAlignment.Center });
+            _powerCounts[i] = new Label
+            {
+                TextColor = UiPalette.TextDim,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            row.Widgets.Add(_powerCounts[i]);
+            rows.Widgets.Add(row);
+        }
+
+        rows.Widgets.Add(new Label { Text = loc["power.legend.hint"], TextColor = UiPalette.TextFaint });
+
+        var panel = UiFactory.DarkPanel(rows);
+        panel.HorizontalAlignment = HorizontalAlignment.Left;
+        panel.Visible = false;
+        return panel;
+    }
+
+    /// <summary>
+    /// Přepočítá, kolik budov je na jakém proudu. Počítají se jen ty, které
+    /// proud chtějí — u chalupy je „bez proudu" normální stav a v počtech by
+    /// jen dělala šum. Běží na nízké frekvenci a jen se zapnutým pohledem.
+    /// </summary>
+    private void RefreshPowerCounts()
+    {
+        Span<int> counts = stackalloc int[PowerOverlayRenderer.Legend.Count];
+        var buildings = _simulation.Buildings;
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            var def = _screens.Content.Buildings[buildings[i].DefIndex];
+            if (def.PowerDemand <= 0)
+            {
+                continue;
+            }
+
+            counts[PowerOverlayRenderer.LegendSlot(_simulation.PowerAt(buildings[i].X, buildings[i].Y))]++;
+        }
+
+        for (int i = 0; i < _powerCounts.Length; i++)
+        {
+            _powerCounts[i].Text = counts[i].ToString();
+        }
+    }
 
     /// <summary>
     /// Přepočítá, kolik budov je v kterém stavu. Běží jen se zapnutým
@@ -3989,6 +4084,7 @@ public sealed class GameplayScreen : IScreen
     private void TogglePower()
     {
         _showPower = !_showPower;
+        _powerLegend.Visible = _showPower;
         RefreshOverlayButtons();
     }
 
@@ -4466,6 +4562,14 @@ public sealed class GameplayScreen : IScreen
         _showBottlenecks = true;
         _bottleneckLegend.Visible = true;
         RefreshBottleneckCounts();
+    }
+
+    /// <summary>Zapne pohled na proud i s legendou — smoke nemá klávesnici.</summary>
+    internal void ShowPowerForSmoke()
+    {
+        _showPower = true;
+        _powerLegend.Visible = true;
+        RefreshPowerCounts();
     }
 
     /// <summary>Otevře strom výzkumu a vrátí ho — smoke si v něm zkouší hledání.</summary>
