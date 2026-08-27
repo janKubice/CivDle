@@ -2090,6 +2090,7 @@
     "tip.build.cost": "Kosten: {0}",
     "tip.build.haul": "Produziert weniger, wenn das Lager weit weg ist — bau eins näher dran",
     "tip.build.housing": "Beherbergt {0} Menschen",
+    "tip.build.madeGround": "Diesen Boden gibt es in der Natur nicht — du musst ihn erst schaffen (Meteorkrater, geflutete Küste).",
     "tip.build.needsPower": "Braucht {0} Strom",
     "tip.build.needsWater": "Muss ans Wasser gebaut werden",
     "tip.build.power": "Liefert {0} Strom",

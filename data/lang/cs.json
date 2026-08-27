@@ -2090,6 +2090,7 @@
     "tip.build.cost": "Cena: {0}",
     "tip.build.haul": "Daleko od skladu vyrábí míň — postav sklad blíž",
     "tip.build.housing": "Bydlení pro {0} obyvatel",
+    "tip.build.madeGround": "Tenhle terén v přírodě není — musíš si ho vyrobit (kráter po meteoritu, zaplavené pobřeží).",
     "tip.build.needsPower": "Potřebuje {0} elektřiny",
     "tip.build.needsWater": "Musí stát u vody",
     "tip.build.power": "Dodává {0} elektřiny",

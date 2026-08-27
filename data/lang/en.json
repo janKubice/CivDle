@@ -2090,6 +2090,7 @@
     "tip.build.cost": "Cost: {0}",
     "tip.build.haul": "Produces less far from storage — build one closer",
     "tip.build.housing": "Houses {0} people",
+    "tip.build.madeGround": "This ground does not occur naturally — you have to make it (a meteor crater, a flooded shore).",
     "tip.build.needsPower": "Needs {0} power",
     "tip.build.needsWater": "Must be built next to water",
     "tip.build.power": "Supplies {0} power",

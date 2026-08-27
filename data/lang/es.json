@@ -2090,6 +2090,7 @@
     "tip.build.cost": "Coste: {0}",
     "tip.build.haul": "Produce menos lejos del almacén: construye uno más cerca",
     "tip.build.housing": "Aloja a {0} personas",
+    "tip.build.madeGround": "Este terreno no existe en la naturaleza: tienes que crearlo (un cráter de meteorito, una costa inundada).",
     "tip.build.needsPower": "Necesita {0} de energía",
     "tip.build.needsWater": "Debe construirse junto al agua",
     "tip.build.power": "Suministra {0} de energía",

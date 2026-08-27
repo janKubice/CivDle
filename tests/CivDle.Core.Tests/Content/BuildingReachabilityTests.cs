@@ -62,6 +62,50 @@ public class BuildingReachabilityTests
     }
 
     [Fact]
+    public void ABuildingOnGroundThatDoesNotExistNaturallyMustBeReachableSomehow()
+    {
+        // Uranový důl stojí jedině na zamoření po meteoritu. To je legitimní
+        // návrh — ale jen dokud si to zamoření hráč umí sám udělat. Kdyby
+        // takový terén neuměl vyrobit nic, byla by to budova, kterou nikdo
+        // nikdy nepostaví, a nic by to nenahlásilo.
+        var content = TestData.LoadRealContent();
+
+        // Terén, který si hráč umí vyrobit: cíl nějaké modlitby nebo
+        // terraformace. „Zamoření" dělá meteorit.
+        var makeable = new HashSet<string>(StringComparer.Ordinal) { "fallout", "badlands", "shallow_water" };
+
+        foreach (var def in content.Buildings.All)
+        {
+            bool anyNatural = false;
+            var needed = new List<string>();
+            for (int i = 0; i < content.Biomes.Count; i++)
+            {
+                if (!def.IsBiomeAllowed(i))
+                {
+                    continue;
+                }
+
+                if (content.Biomes[i].IsNaturallyGenerated)
+                {
+                    anyNatural = true;
+                    break;
+                }
+
+                needed.Add(content.Biomes[i].Id);
+            }
+
+            if (anyNatural || needed.Count == 0)
+            {
+                continue;
+            }
+
+            Assert.True(
+                needed.Any(makeable.Contains),
+                $"'{def.Id}' smí stát jen na {string.Join(", ", needed)} — a ten terén nikdo neumí vyrobit.");
+        }
+    }
+
+    [Fact]
     public void TierGatedBuildingsAreBuildableOnceTheTierIsReached()
     {
         // Stupeň měřítka budovu jen odemyká; když má zároveň 'buildable: false',
