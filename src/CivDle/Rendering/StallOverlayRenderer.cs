@@ -16,8 +16,9 @@ namespace CivDle.Rendering;
 ///
 /// <para>Barvy nesou příčinu, ne závažnost, a jsou vybrané tak, aby šly od
 /// sebe i při oddálení: červená = chybí vstup, modrá = chybí lidi, oranžová =
-/// došlo, co těžit, žlutá = plný sklad (vyrábí naprázdno), zelená = jede.
-/// Rozestavěné budovy jsou šedé — ty nestojí, ty se staví.</para>
+/// došlo, co těžit, žlutá = plný sklad (vyrábí naprázdno), fialová = málo
+/// proudu, zelená = jede. Rozestavěné budovy jsou šedé — ty nestojí, ty se
+/// staví.</para>
 ///
 /// <para><b>Plný sklad není stav budovy</b>, ale výsledek: výroba se kvůli
 /// němu nezastaví, přebytek propadá. Dopočítává se proto tady z výstupů
@@ -33,6 +34,9 @@ public sealed class StallOverlayRenderer
     /// <summary>Nad tímhle zaplněním skladu se výstup považuje za ucpaný.</summary>
     private const double FullStorageThreshold = 0.999;
 
+    /// <summary>Pod tímhle pokrytím proudem se budova považuje za podvyživenou.</summary>
+    private const double LowPowerThreshold = 0.95;
+
     /// <summary>Síla závoje. Pod ním musí být pořád poznat, co za budovu to je.</summary>
     private const float Alpha = 0.55f;
 
@@ -43,6 +47,7 @@ public sealed class StallOverlayRenderer
     private static readonly Color StorageFull = new(230, 208, 88);
     private static readonly Color Building = new(130, 134, 146);
     private static readonly Color Damaged = new(198, 66, 120);
+    private static readonly Color NoPower = new(150, 110, 214);
 
     private readonly Texture2D _pixel;
     private readonly GameContent _content;
@@ -128,7 +133,32 @@ public sealed class StallOverlayRenderer
                 return Damaged;
         }
 
+        // Nedostatek proudu budovu nezastaví, jen ji zpomalí — proto to není
+        // stav budovy (BuildingStall), ale dopočet odsud. Bez něj se továrna
+        // na třetinovém výkonu tvářila zeleně a hráč neměl jak zjistit, že
+        // není v dosahu elektrárny.
+        if (IsStarvedOfPower(simulation, building, def))
+        {
+            return NoPower;
+        }
+
         return HasNowhereToPut(simulation, def) ? StorageFull : Working;
+    }
+
+    /// <summary>
+    /// Jede budova na míň, než by mohla, kvůli proudu?
+    ///
+    /// <para>Ptá se jen u těch, které proud opravdu potřebují — u parku by
+    /// „chybí proud" byla nesmyslná výtka.</para>
+    /// </summary>
+    private static bool IsStarvedOfPower(Simulation simulation, in BuildingInstance building, BuildingDef def)
+    {
+        if (def.PowerDemand <= 0 || def.Recipe is null)
+        {
+            return false;
+        }
+
+        return simulation.PowerAt(building.X, building.Y) < LowPowerThreshold;
     }
 
     /// <summary>
@@ -187,5 +217,6 @@ public sealed class StallOverlayRenderer
         ("inspector.storageFull", StorageFull),
         ("inspector.building", Building),
         ("inspector.damaged", Damaged),
+        ("inspector.noPower", NoPower),
     };
 }

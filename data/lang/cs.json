@@ -1030,6 +1030,7 @@
     "inspector.damaged": "Poškozená",
     "inspector.hint": "B – zapnout/vypnout",
     "inspector.missingInput": "chybí surovina",
+    "inspector.noPower": "málo proudu — jede na část výkonu",
     "inspector.noTerrain": "došlo, co těžit",
     "inspector.noWorkers": "chybí lidi",
     "inspector.storageFull": "plný sklad – výroba propadá",

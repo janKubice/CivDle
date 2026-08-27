@@ -115,6 +115,73 @@ public class StallOverlayTests
             StallOverlayRenderer.Legend[slot].Color);
     }
 
+    [Fact]
+    public void AFactoryOutOfTheGridIsNotGreen()
+    {
+        // Nedostatek proudu budovu nezastaví, jen ji zpomalí — takže se
+        // netváří jako zastavená a inspektor ji dřív barvil zeleně. Továrna
+        // na třetinovém výkonu ale JE úzké hrdlo a hráč nemá jak zjistit, že
+        // stojí mimo dosah elektrárny.
+        var (sim, content) = World();
+        var powered = Powered(content);
+
+        // Budovu je potřeba opravdu postavit: síť se ptá na dlaždici, a dokud
+        // tam nic nestojí, není tam ani poptávka po proudu.
+        Assert.True(content.Buildings.TryIndexOf(powered.Id, out int index));
+        sim.SkipTutorial();
+        for (int i = 0; i < content.Techs.Count; i++)
+        {
+            sim.DebugGrantTech(i); // budovy na proud jsou za technologiemi
+        }
+
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuildingFree(index, 0, 0));
+
+        var color = StallOverlayRenderer.ColorFor(sim, sim.Buildings[0], powered);
+
+        Assert.NotEqual(StallOverlayRenderer.Legend[0].Color, color);
+    }
+
+    [Fact]
+    public void ABuildingThatNeedsNoPowerIsNeverBlamedForIt()
+    {
+        // U parku by „chybí proud" byla nesmyslná výtka.
+        var (sim, content) = World();
+        var park = Def(content, "park");
+        Assert.Equal(0, park.PowerDemand);
+
+        var color = StallOverlayRenderer.ColorFor(sim, Instance(content, "park", BuildingStall.None), park);
+
+        Assert.Equal(StallOverlayRenderer.Legend[0].Color, color);
+    }
+
+    [Fact]
+    public void ARealStallStillBeatsMissingPower()
+    {
+        // Budova, která nemá z čeho vyrábět, není „bez proudu" — příčina
+        // hlášená simulací má přednost před dopočtem.
+        var (sim, content) = World();
+        var powered = Powered(content);
+        var building = Instance(content, powered.Id, BuildingStall.MissingInput);
+
+        var color = StallOverlayRenderer.ColorFor(sim, building, powered);
+
+        Assert.Equal(StallOverlayRenderer.Legend[1].Color, color);
+    }
+
+    /// <summary>Libovolná budova, která opravdu potřebuje proud a něco vyrábí.</summary>
+    private static BuildingDef Powered(GameContent content)
+    {
+        foreach (var def in content.Buildings.All)
+        {
+            if (def.PowerDemand > 0 && def.Recipe is not null)
+            {
+                return def;
+            }
+        }
+
+        throw new InvalidOperationException("v datech není budova na proud s receptem");
+    }
+
     private static (Simulation Sim, GameContent Content) World()
     {
         var content = new ContentLoader().LoadFrom(Path.Combine(AppContext.BaseDirectory, "data"));

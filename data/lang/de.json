@@ -1030,6 +1030,7 @@
     "inspector.damaged": "Beschädigt",
     "inspector.hint": "B – ein/aus",
     "inspector.missingInput": "Rohstoff fehlt",
+    "inspector.noPower": "zu wenig Strom — läuft mit Teilleistung",
     "inspector.noTerrain": "nichts mehr abzubauen",
     "inspector.noWorkers": "keine Arbeiter",
     "inspector.storageFull": "Lager voll – Ertrag geht verloren",

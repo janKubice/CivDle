@@ -1030,6 +1030,7 @@
     "inspector.damaged": "Dañado",
     "inspector.hint": "B – activar/desactivar",
     "inspector.missingInput": "falta recurso",
+    "inspector.noPower": "falta corriente: funciona a media potencia",
     "inspector.noTerrain": "no queda nada que extraer",
     "inspector.noWorkers": "faltan trabajadores",
     "inspector.storageFull": "almacén lleno – la producción se pierde",

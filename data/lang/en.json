@@ -1030,6 +1030,7 @@
     "inspector.damaged": "Damaged",
     "inspector.hint": "B – toggle",
     "inspector.missingInput": "missing input",
+    "inspector.noPower": "short of power — running at part output",
     "inspector.noTerrain": "nothing left to harvest",
     "inspector.noWorkers": "no workers",
     "inspector.storageFull": "storage full – output is lost",

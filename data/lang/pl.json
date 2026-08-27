@@ -1030,6 +1030,7 @@
     "inspector.damaged": "Uszkodzony",
     "inspector.hint": "B – włącz/wyłącz",
     "inspector.missingInput": "brak surowca",
+    "inspector.noPower": "za mało prądu — pracuje na części mocy",
     "inspector.noTerrain": "nie ma czego wydobywać",
     "inspector.noWorkers": "brak ludzi",
     "inspector.storageFull": "magazyn pełny – produkcja przepada",
