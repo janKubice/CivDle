@@ -944,3 +944,42 @@ bude prostor". Nedodělané zůstávají jen tři věci, a všechny tři vědom�
 nevěděl: osm budov, které nešlo postavit vůbec; nová surovina bez skladu;
 budova s údržbou bez protihodnoty. Všechny tři chytila kontrola, která existuje
 právě pro tenhle případ.
+
+---
+
+## Kolo navíc: objevitelnost
+
+Zpětná vazba po dohrání zněla, že hra působí nedodělaně — hrdla, proud, podmoří,
+ovládání, obrana ani řetězce prý nejsou nikde vidět. Systémy přitom existovaly
+všechny. Chyběla cesta k nim.
+
+**Co přibylo:** tlačítka pro tři překryvy v liště (dřív jen klávesa, o které se
+hráč nikde nedozvěděl), obrazovka ovládání s přemapováním kláves, přehled
+výrobních řetězců, stav online funkcí, legenda k rozvodu proudu, značky
+anomálií na minimapě.
+
+**Dvě skutečné chyby, které se přitom našly** — obě téhož druhu jako česle
+u plavení dřeva, tedy „systém funguje, jen se s ním hráč nemá jak potkat":
+
+* **Lišta se přestavovala jen podle počtu odemčených funkcí z `features.json`.**
+  Orbita, zvonohra a doktríny na ten seznam nekoukají — objeví se, až stojí
+  kosmodrom, až nějaká zvonohra zazvoní, až padne první bod Vzestupu. Všechny
+  tři přijdou v době, kdy je ze seznamu odemčené už všechno a počítadlo se nemá
+  jak hnout. Tlačítko se tedy neobjevilo nikdy. Nově hlídá tvar lišty
+  `HudLayout` a porovnává rovnou ty podmínky, na kterých lišta stojí.
+* **`BuildingRevision` se nezvyšovalo při dostavění**, jen při postavení
+  a zbourání. Cokoli, co si pamatuje „co kde stojí", se tedy o hotové budově
+  dozvědělo až u příští stavby — a u té poslední nikdy.
+
+**Co se naopak potvrdilo jako v pořádku:** na skutečně generovaném světě je
+v dosahu minimapy vždycky nějaká anomálie (6–15 kusů do 200 dlaždic napříč
+semínky), orbita je od kosmodromu po bonus zapojená celá, a žádná budova není
+nepostavitelná omylem — všechna odmítnutí, která zbyla, mají svůj důvod
+(stupeň sídla, dosah přístavu, terén, který si hráč musí sám vyrobit). Hláška
+u kurzoru teď u dvou nejčastějších říká i to, **kam** ta budova tedy patří.
+
+**Co z toho zůstalo v testech:** `FeatureReachabilityTests` (dá se na každou
+vrstvu vůbec dostat?), `HudLayoutTests`, `AnomalyReachTests`,
+`PlacementMessageTests`, `PowerLegendTests`. Všechny testují dosažitelnost,
+ne chování — selžou přesně ve chvíli, kdy někdo z dat vyndá blok, na kterém
+stojí kus rozhraní.
