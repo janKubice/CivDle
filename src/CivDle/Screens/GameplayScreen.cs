@@ -4380,7 +4380,7 @@ public sealed class GameplayScreen : IScreen
 
         if (_tools.GhostVisible && _tools.GhostResult != PlacementResult.Ok)
         {
-            _statusLabel.Text = loc[ErrorKey(_tools.GhostResult)];
+            _statusLabel.Text = PlacementMessage.Describe(_screens.Content, loc, def, _tools.GhostResult);
             _statusLabel.TextColor = UiPalette.Bad;
         }
         else
@@ -4581,16 +4581,4 @@ public sealed class GameplayScreen : IScreen
 
         return hints.ToString();
     }
-
-    private static string ErrorKey(PlacementResult result) => result switch
-    {
-        PlacementResult.Occupied => "build.error.occupied",
-        PlacementResult.WrongBiome => "build.error.wrongBiome",
-        PlacementResult.NotEnoughResources => "build.error.resources",
-        PlacementResult.NeedsWaterAccess => "build.error.waterAccess",
-        PlacementResult.NoSubseaLink => "build.error.subsea",
-        PlacementResult.NeedsDefenceMode => "build.error.frontierOff",
-        PlacementResult.SettlementTooSmall => "build.error.settlementTooSmall",
-        _ => "build.title",
-    };
 }

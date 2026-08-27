@@ -164,8 +164,11 @@ internal static class BuildingSummary
     /// <summary>
     /// Seznam biomů, kde budova smí stát — vypíše se, jen když je omezená.
     /// Když může všude, mlčení je informativnější než dlouhý výčet.
+    ///
+    /// <para>Veřejné proto, že tentýž výčet potřebuje i hláška „sem to nejde":
+    /// hráč se musí dozvědět, kam to tedy jde, ne jen že tady ne.</para>
     /// </summary>
-    private static string AllowedBiomes(GameContent content, Localization loc, BuildingDef def)
+    public static string AllowedBiomes(GameContent content, Localization loc, BuildingDef def)
     {
         var allowed = new List<string>();
         for (int i = 0; i < content.Biomes.Count; i++)
