@@ -93,6 +93,12 @@ public sealed class PauseScreen : IScreen
         layout.Widgets.Add(UiFactory.MenuButton(
             loc["menu.controls"], () => _screens.Push(new ControlsScreen(_screens))));
 
+        // Stav online funkcí i odsud, nejen z hlavního menu. Hráč se na něj
+        // ptá právě ve chvíli, kdy mu něco nechodí — a to je uprostřed hry,
+        // ne před jejím spuštěním.
+        layout.Widgets.Add(UiFactory.MenuButton(
+            loc["menu.online"], () => _screens.Push(new OnlineStatusScreen(_screens))));
+
         // Časosběr se nabízí, jen když už je co ukazovat — prázdné tlačítko
         // v pauze by bylo jen slib, který hra hned nesplní. Grafy („Moje čísla")
         // se přestěhovaly do herní lišty; pauza je na řízení hry, ne na odměny.
