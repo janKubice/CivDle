@@ -119,4 +119,27 @@ public class KeyMapTests
         Assert.Equal(Keys.W, map.KeyFor(GameAction.CameraUp));  // nesmysl se ignoroval
         Assert.Equal(Keys.N, map.KeyFor(GameAction.Bottlenecks)); // platná změna prošla
     }
+
+    [Fact]
+    public void EveryActionHasAName_InEveryLanguage()
+    {
+        // Obrazovka ovládání prochází celý výčet akcí, takže na novou akci
+        // nemůže zapomenout. Zapomenout se dá na její JMÉNO — a pak v seznamu
+        // svítí holý klíč. Tohle je jediné místo, kde se to pozná dřív než
+        // ve hře.
+        var content = new CivDle.Core.Content.ContentLoader()
+            .LoadFrom(Path.Combine(AppContext.BaseDirectory, "data"));
+
+        for (int language = 0; language < content.Languages.Count; language++)
+        {
+            var loc = new CivDle.Core.Content.Localization(content.Languages, content.Languages[language].Id);
+            foreach (var action in Enum.GetValues<GameAction>())
+            {
+                string name = action.ToString();
+                string key = $"controls.action.{char.ToLowerInvariant(name[0])}{name[1..]}";
+
+                Assert.DoesNotContain("~", loc[key]);
+            }
+        }
+    }
 }
