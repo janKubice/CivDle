@@ -5645,7 +5645,8 @@ public sealed class Simulation
         _ => 0,
     };
 
-    private long CountBuildingsOfType(int defIndex)
+    /// <summary>Kolik budov daného typu ve městě stojí. Veřejné kvůli přehledům v UI.</summary>
+    public long CountBuildingsOfType(int defIndex)
     {
         long count = 0;
         for (int i = 0; i < _buildingCount; i++)

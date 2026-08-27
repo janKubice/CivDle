@@ -113,6 +113,7 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "ui.power", IconSize, UiPower);
         Add(device, "ui.subsea", IconSize, UiSubsea);
         Add(device, "ui.chains", IconSize, UiChains);
+        Add(device, "ui.frontier", IconSize, UiFrontier);
         Add(device, "ui.stats", IconSize, UiStats);
         Add(device, "ui.trophy", IconSize, UiTrophy);
         Add(device, "ui.chronicle", IconSize, UiChronicle);
@@ -828,6 +829,16 @@ public sealed class SpriteLibrary : IDisposable
 
         c.FillTriangle(13f, 1f, 7f, 12f, 13f, 12f, new Color(255, 214, 110));
         c.FillTriangle(11f, 21f, 17f, 10f, 11f, 10f, new Color(255, 232, 160));
+    }
+
+    /// <summary>Ikona obrany: štít s věží.</summary>
+    private static void UiFrontier(PixelCanvas c)
+    {
+        var shield = new Color(168, 178, 196);
+        c.FillRect(4, 3, 16, 10, shield);
+        c.FillTriangle(4f, 13f, 20f, 13f, 12f, 22f, shield);
+        c.FillRect(10, 6, 4, 9, new Color(214, 92, 84)); // věž uprostřed
+        c.FillRect(9, 5, 6, 2, new Color(236, 140, 120)); // cimbuří
     }
 
     /// <summary>Ikona řetězců: tři články za sebou, prostřední světlejší.</summary>

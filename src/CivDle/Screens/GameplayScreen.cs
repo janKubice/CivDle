@@ -2883,6 +2883,16 @@ public sealed class GameplayScreen : IScreen
                 () => _screens.Push(new GrandWorkScreen(_screens, _simulation))), slot++, columns);
         }
 
+        // Obrana má vlastní panel, ne jen řádek v rohu: hráč se z něj musí
+        // dozvědět, co přijde, kdy a čím to zastavit. Bez toho vypadá režim,
+        // jako by tam nebyl.
+        if (_simulation.FrontierDefense)
+        {
+            Place(grid, UiFactory.ToolButton(
+                Ico("ui.frontier"), loc["hud.frontier"] + '\n' + loc["tip.frontierPanel"],
+                () => _screens.Push(new FrontierScreen(_screens, _simulation))), slot++, columns);
+        }
+
         // Orbita se v liště objeví, teprve až stojí kosmodrom. Dřív by to byl
         // odkaz na obrazovku, ze které se nedá nic udělat — a koncová meta se
         // nemá ohlašovat dvě éry předem.
