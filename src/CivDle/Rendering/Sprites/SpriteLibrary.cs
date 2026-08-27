@@ -112,6 +112,7 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "ui.inspector", IconSize, UiInspector);
         Add(device, "ui.power", IconSize, UiPower);
         Add(device, "ui.subsea", IconSize, UiSubsea);
+        Add(device, "ui.chains", IconSize, UiChains);
         Add(device, "ui.stats", IconSize, UiStats);
         Add(device, "ui.trophy", IconSize, UiTrophy);
         Add(device, "ui.chronicle", IconSize, UiChronicle);
@@ -827,6 +828,20 @@ public sealed class SpriteLibrary : IDisposable
 
         c.FillTriangle(13f, 1f, 7f, 12f, 13f, 12f, new Color(255, 214, 110));
         c.FillTriangle(11f, 21f, 17f, 10f, 11f, 10f, new Color(255, 232, 160));
+    }
+
+    /// <summary>Ikona řetězců: tři články za sebou, prostřední světlejší.</summary>
+    private static void UiChains(PixelCanvas c)
+    {
+        var link = new Color(150, 164, 186);
+        var lit = new Color(226, 206, 148);
+
+        c.FillCircle(5f, 12f, 4f, link);
+        c.FillCircle(5f, 12f, 2f, new Color(28, 32, 40));
+        c.FillCircle(12f, 12f, 4f, lit);
+        c.FillCircle(12f, 12f, 2f, new Color(28, 32, 40));
+        c.FillCircle(19f, 12f, 4f, link);
+        c.FillCircle(19f, 12f, 2f, new Color(28, 32, 40));
     }
 
     /// <summary>Ikona podmoří: hladina a pod ní dosah od přístavu.</summary>

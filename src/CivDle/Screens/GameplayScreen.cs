@@ -2937,6 +2937,12 @@ public sealed class GameplayScreen : IScreen
                 () => _screens.Push(new CarillonScreen(_screens, _simulation, _carillon))), slot++, columns);
         }
 
+        // Řetězce jsou vedle stavění schválně: hráč je otevírá právě ve chvíli,
+        // kdy neví, co postavit.
+        Place(grid, UiFactory.ToolButton(
+            Ico("ui.chains"), loc["menu.chains"] + '\n' + loc["tip.chains"],
+            () => _screens.Push(new ChainsScreen(_screens, _simulation))), slot++, columns);
+
         // Kronika stojí vedle statistik schválně: obojí čte tentýž časosběr,
         // jen jedno odpovídá na „kolik" a druhé na „co se stalo".
         if (_simulation.HistoryEnabled && _screens.Content.Chronicle.IsEnabled)
