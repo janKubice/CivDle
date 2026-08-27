@@ -108,6 +108,7 @@ public sealed class MainMenuScreen : IScreen
         }
 
         buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.howto"], () => _screens.Push(new HowToPlayScreen(_screens, dimBackground: false))));
+        buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.controls"], () => _screens.Push(new ControlsScreen(_screens))));
         buttons.Widgets.Add(Edition.IsDemo
             ? UiFactory.DemoLockedButton(loc["hud.mods"], loc["demo.locked"])
             : UiFactory.MenuButton(loc["hud.mods"], () => _screens.Push(new ModManagerScreen(_screens))));

@@ -10,6 +10,20 @@ public sealed class PlayerProfile
     /// <summary>ID odemčených achievementů (stabilní stringy).</summary>
     public List<string> UnlockedAchievements { get; set; } = new();
 
+    /// <summary>
+    /// Přenastavené klávesy: id akce → jméno klávesy. Co tu není, jede podle
+    /// výchozího rozložení.
+    ///
+    /// <para><b>Řetězce, ne typ kláves.</b> Jádro záměrně nezná MonoGame (viz
+    /// tech-stack.md), takže by se sem typ <c>Keys</c> ani nedal napsat — a je
+    /// to tak lepší i pro soubor, který zůstane čitelný.</para>
+    ///
+    /// <para>Patří to sem, a ne do <c>GameSettings</c>: nastavení je záznam
+    /// porovnávaný <b>podle hodnoty</b> a měnitelný slovník v něm by tu shodu
+    /// tiše rozbil — dva stejné záznamy by si přestaly být rovné.</para>
+    /// </summary>
+    public Dictionary<string, string> KeyBindings { get; set; } = new();
+
     /// <summary>Datum posledního vyzvednutí denní odměny (UTC, formát <c>yyyy-MM-dd</c>); prázdné = nikdy.</summary>
     public string LastDailyRewardDate { get; set; } = string.Empty;
 

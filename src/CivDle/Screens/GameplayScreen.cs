@@ -541,13 +541,13 @@ public sealed class GameplayScreen : IScreen
 
         // F11 schová HUD, F12 uloží sdílitelnou kartu. Obojí je „ukaž to
         // ostatním", proto vedle sebe.
-        if (_input.WasPressed(Keys.F11))
+        if (_screens.Keys.WasPressed(_input, GameAction.HideHud))
         {
             _photoMode = !_photoMode;
             _tools.Clear(); // s nástrojem v ruce by ve fotce zůstal duch budovy
         }
 
-        if (_input.WasPressed(Keys.F12))
+        if (_screens.Keys.WasPressed(_input, GameAction.ShareCard))
         {
             // Samotné F12 vyfotí to, co je na obrazovce; se Shiftem se scéna
             // překreslí bez LOD, tedy se vším, co je při daném oddálení schované.
@@ -585,14 +585,15 @@ public sealed class GameplayScreen : IScreen
 
         // B: inspektor úzkých hrdel. Samotné písmeno schválně — je to pohled,
         // do kterého hráč skáče a zase z něj vyskakuje, ne obscurní nástroj.
-        if (_input.WasPressed(Keys.B))
+        if (_screens.Keys.WasPressed(_input, GameAction.Bottlenecks))
         {
             ToggleBottlenecks();
         }
 
         // Ctrl+Z: vrátit poslední akci. S modifikátorem schválně — samotné Z je
         // moc blízko WASD a stavěl by se dům, který se hned zase zboural.
-        if (_input.WasPressed(Keys.Z) && (_input.IsDown(Keys.LeftControl) || _input.IsDown(Keys.RightControl)))
+        if (_screens.Keys.WasPressed(_input, GameAction.Undo)
+            && (_input.IsDown(Keys.LeftControl) || _input.IsDown(Keys.RightControl)))
         {
             UndoLastAction();
         }
@@ -600,14 +601,14 @@ public sealed class GameplayScreen : IScreen
         // E: pokrytí proudem. Sám se ukáže, když má hráč v ruce elektrárnu
         // nebo budovu, která proud potřebuje — tehdy je to jediná informace,
         // podle které se rozhoduje kam.
-        if (_input.WasPressed(Keys.E) && _screens.Content.Gameplay.Power.IsEnabled)
+        if (_screens.Keys.WasPressed(_input, GameAction.PowerOverlay) && _screens.Content.Gameplay.Power.IsEnabled)
         {
             TogglePower();
         }
 
         // M: dosah podmořské sítě. Sám se ukáže, když má hráč v ruce budovu na
         // dno — tohle je pro chvíli, kdy se teprve rozmýšlí, kam s přístavem.
-        if (_input.WasPressed(Keys.M) && _simulation.Subsea.IsEnabled)
+        if (_screens.Keys.WasPressed(_input, GameAction.SubseaOverlay) && _simulation.Subsea.IsEnabled)
         {
             ToggleSubsea();
         }
@@ -627,7 +628,7 @@ public sealed class GameplayScreen : IScreen
 
         // Tab přepíná násobič hromadné stavby — ruka zůstává u WASD a nemusí
         // pro ×25 přes celou obrazovku na tlačítko.
-        if (_input.WasPressed(Keys.Tab) && _tools.SelectedBuilding >= 0)
+        if (_screens.Keys.WasPressed(_input, GameAction.CycleBatch) && _tools.SelectedBuilding >= 0)
         {
             _tools.CycleBatchSize();
         }
@@ -1396,10 +1397,10 @@ public sealed class GameplayScreen : IScreen
     private void UpdateCamera(float dt, bool mouseOverUi)
     {
         var move = Vector2.Zero;
-        if (_input.IsDown(Keys.W) || _input.IsDown(Keys.Up)) move.Y -= 1f;
-        if (_input.IsDown(Keys.S) || _input.IsDown(Keys.Down)) move.Y += 1f;
-        if (_input.IsDown(Keys.A) || _input.IsDown(Keys.Left)) move.X -= 1f;
-        if (_input.IsDown(Keys.D) || _input.IsDown(Keys.Right)) move.X += 1f;
+        if (_screens.Keys.IsDown(_input, GameAction.CameraUp)) move.Y -= 1f;
+        if (_screens.Keys.IsDown(_input, GameAction.CameraDown)) move.Y += 1f;
+        if (_screens.Keys.IsDown(_input, GameAction.CameraLeft)) move.X -= 1f;
+        if (_screens.Keys.IsDown(_input, GameAction.CameraRight)) move.X += 1f;
         if (move != Vector2.Zero)
         {
             move.Normalize();
