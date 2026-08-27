@@ -5953,6 +5953,28 @@ public sealed class Simulation
     /// </summary>
     private double CatchMultiplierAt(int x, int y)
     {
+        // Hledá se i kolem dlaždice, ne jen na ní. Česle stojí na BŘEHU —
+        // řeka je vodní biom a budova na souš. Když se hledalo jen pod kládou,
+        // nemohly se ty dvě nikdy potkat a plavení dřevo tiše ničilo: splav
+        // ho vzal ze skladu a na konci toku se ztratilo.
+        for (int offsetY = -1; offsetY <= 1; offsetY++)
+        {
+            for (int offsetX = -1; offsetX <= 1; offsetX++)
+            {
+                double multiplier = CatchMultiplierOn(x + offsetX, y + offsetY);
+                if (multiplier > 0)
+                {
+                    return multiplier;
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    /// <summary>Stojí přesně na téhle dlaždici hotové česle?</summary>
+    private double CatchMultiplierOn(int x, int y)
+    {
         if (!_occupancy.TryGetValue(TileKey.Pack(x, y), out int buildingIndex)
             || buildingIndex >= _buildingCount)
         {
