@@ -109,6 +109,9 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "ui.carillon", IconSize, UiCarillon);
         Add(device, "fx.anomaly", SpriteSize, FxAnomaly);
         Add(device, "ui.doctrines", IconSize, UiDoctrines);
+        Add(device, "ui.inspector", IconSize, UiInspector);
+        Add(device, "ui.power", IconSize, UiPower);
+        Add(device, "ui.subsea", IconSize, UiSubsea);
         Add(device, "ui.stats", IconSize, UiStats);
         Add(device, "ui.trophy", IconSize, UiTrophy);
         Add(device, "ui.chronicle", IconSize, UiChronicle);
@@ -791,6 +794,53 @@ public sealed class SpriteLibrary : IDisposable
     /// Odkaz: věčný plamen na podstavci. Vrstva, která přežije i Vzestup, má
     /// vypadat jako něco, co se předává dál — ne jako další šipka nahoru.
     /// </summary>
+    /// <summary>
+    /// Ikona inspektoru hrdel: čtyři domky, jeden červený.
+    ///
+    /// <para>Barvy jsou tytéž jako v překryvu — ikona má napovědět, co se po
+    /// zapnutí stane, ne být obecný symbol „informace".</para>
+    /// </summary>
+    private static void UiInspector(PixelCanvas c)
+    {
+        var ok = new Color(120, 210, 130);
+        var stuck = new Color(214, 82, 74);
+
+        c.FillRect(3, 3, 8, 8, ok);
+        c.FillRect(13, 3, 8, 8, ok);
+        c.FillRect(3, 13, 8, 8, ok);
+        c.FillRect(13, 13, 8, 8, stuck); // ten jeden, kvůli kterému se to zapíná
+    }
+
+    /// <summary>Ikona pokrytí proudem: blesk nad mřížkou dosahu.</summary>
+    private static void UiPower(PixelCanvas c)
+    {
+        var grid = new Color(96, 122, 150);
+        for (int y = 14; y < 23; y += 4)
+        {
+            c.FillRect(2, y, 20, 1, grid);
+        }
+
+        for (int x = 2; x < 23; x += 5)
+        {
+            c.FillRect(x, 14, 1, 8, grid);
+        }
+
+        c.FillTriangle(13f, 1f, 7f, 12f, 13f, 12f, new Color(255, 214, 110));
+        c.FillTriangle(11f, 21f, 17f, 10f, 11f, 10f, new Color(255, 232, 160));
+    }
+
+    /// <summary>Ikona podmoří: hladina a pod ní dosah od přístavu.</summary>
+    private static void UiSubsea(PixelCanvas c)
+    {
+        var deep = new Color(46, 92, 126);
+        var reach = new Color(96, 178, 214);
+
+        c.FillRect(0, 8, 24, 15, deep);
+        c.FillRect(0, 6, 24, 2, new Color(150, 200, 226)); // hladina
+        c.FillCircle(12f, 15f, 6.5f, reach);               // dosah sítě
+        c.FillRect(10, 2, 4, 5, new Color(178, 150, 108)); // molo nad hladinou
+    }
+
     /// <summary>Ikona doktrín: tři cesty z jednoho bodu, jedna zvýrazněná.</summary>
     private static void UiDoctrines(PixelCanvas c)
     {

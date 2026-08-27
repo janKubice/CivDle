@@ -81,6 +81,15 @@ public sealed class GameplayScreen : IScreen
     /// </summary>
     private bool _showBottlenecks;
 
+    /// <summary>
+    /// Tlačítka překryvů (hrdla, proud, podmoří). Drží se, aby na nich šlo
+    /// ukázat, co je zapnuté — překryv, u kterého není poznat stav, se dá
+    /// omylem nechat svítit a hráč pak nechápe, proč mu město mění barvy.
+    /// </summary>
+    private Button? _bottleneckButton;
+    private Button? _powerButton;
+    private Button? _subseaButton;
+
     /// <summary>Legenda inspektoru; ukazuje se jen se zapnutým pohledem.</summary>
     private Widget _bottleneckLegend = null!;
     private readonly DistrictRenderer _districtRenderer;
@@ -578,8 +587,7 @@ public sealed class GameplayScreen : IScreen
         // do kterého hráč skáče a zase z něj vyskakuje, ne obscurní nástroj.
         if (_input.WasPressed(Keys.B))
         {
-            _showBottlenecks = !_showBottlenecks;
-            _bottleneckLegend.Visible = _showBottlenecks;
+            ToggleBottlenecks();
         }
 
         // Ctrl+Z: vrátit poslední akci. S modifikátorem schválně — samotné Z je
@@ -594,14 +602,14 @@ public sealed class GameplayScreen : IScreen
         // podle které se rozhoduje kam.
         if (_input.WasPressed(Keys.E) && _screens.Content.Gameplay.Power.IsEnabled)
         {
-            _showPower = !_showPower;
+            TogglePower();
         }
 
         // M: dosah podmořské sítě. Sám se ukáže, když má hráč v ruce budovu na
         // dno — tohle je pro chvíli, kdy se teprve rozmýšlí, kam s přístavem.
         if (_input.WasPressed(Keys.M) && _simulation.Subsea.IsEnabled)
         {
-            _showSubsea = !_showSubsea;
+            ToggleSubsea();
         }
 
         // Start otevře pauzu, Y stavební menu — bez nich by ovladač uměl jen
@@ -2796,6 +2804,30 @@ public sealed class GameplayScreen : IScreen
         Place(grid, UiFactory.ToolButton(
             Ico("ui.home"), loc["hud.backToCity"] + '\n' + loc["tip.backToCity"], RecenterOnCity), slot++, columns);
 
+        // Překryvy měly doteď jen klávesu. Klávesa, o které se hráč nikde
+        // nedozví, není ovládání — je to tajemství. Tlačítko ji navíc v bublině
+        // ukáže, takže se zkratku naučí sám.
+        _bottleneckButton = UiFactory.ToolButton(
+            Ico("ui.inspector"), loc["hud.bottlenecks"] + '\n' + loc["tip.bottlenecks"],
+            ToggleBottlenecks);
+        Place(grid, _bottleneckButton, slot++, columns);
+
+        if (_screens.Content.Gameplay.Power.IsEnabled)
+        {
+            _powerButton = UiFactory.ToolButton(
+                Ico("ui.power"), loc["hud.powerOverlay"] + '\n' + loc["tip.powerOverlay"],
+                TogglePower);
+            Place(grid, _powerButton, slot++, columns);
+        }
+
+        if (_simulation.Subsea.IsEnabled)
+        {
+            _subseaButton = UiFactory.ToolButton(
+                Ico("ui.subsea"), loc["hud.subseaOverlay"] + '\n' + loc["tip.subseaOverlay"],
+                ToggleSubsea);
+            Place(grid, _subseaButton, slot++, columns);
+        }
+
         if (_simulation.IsFeatureUnlocked("settlements"))
         {
             Place(grid, UiFactory.ToolButton(
@@ -3919,10 +3951,51 @@ public sealed class GameplayScreen : IScreen
         return available;
     }
 
+    /// <summary>
+    /// Přepínače překryvů. Vlastní metody, protože je spouští klávesa i
+    /// tlačítko — kdyby si každé dělalo své, rozešel by se stav se vzhledem.
+    /// </summary>
+    private void ToggleBottlenecks()
+    {
+        _showBottlenecks = !_showBottlenecks;
+        _bottleneckLegend.Visible = _showBottlenecks;
+        RefreshOverlayButtons();
+    }
+
+    private void TogglePower()
+    {
+        _showPower = !_showPower;
+        RefreshOverlayButtons();
+    }
+
+    private void ToggleSubsea()
+    {
+        _showSubsea = !_showSubsea;
+        RefreshOverlayButtons();
+    }
+
+    /// <summary>Obarví tlačítka překryvů podle toho, co je zapnuté.</summary>
+    private void RefreshOverlayButtons()
+    {
+        Paint(_bottleneckButton, _showBottlenecks);
+        Paint(_powerButton, _showPower);
+        Paint(_subseaButton, _showSubsea);
+
+        static void Paint(Button? button, bool active)
+        {
+            if (button is not null)
+            {
+                button.Background = new SolidBrush(active ? UiPalette.PanelAccent : UiPalette.Panel);
+            }
+        }
+    }
+
     private void RefreshHudTexts()
     {
         var loc = _screens.Loc;
         RefreshBadges();
+
+        RefreshOverlayButtons();
 
         // Tlačítko „Stavět" drží stav otevřeného menu, ať je vidět, co je zapnuté.
         _buildMenuButton.Background = new SolidBrush(_buildMenuOpen
