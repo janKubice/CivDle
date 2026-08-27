@@ -4564,6 +4564,20 @@ public sealed class GameplayScreen : IScreen
         RefreshBottleneckCounts();
     }
 
+    /// <summary>
+    /// Otevře pauzu — smoke nemá Escape.
+    ///
+    /// <para>Pauza je jediná obrazovka, přes kterou se ve hře ukládá, a smoke
+    /// jí dlouho vůbec neprocházel. Rozbité rozvržení v ní by se projevilo až
+    /// tím, že hráč nemá kde uložit.</para>
+    /// </summary>
+    internal PauseScreen OpenPauseForSmoke()
+    {
+        var screen = new PauseScreen(_screens, _simulation, _info);
+        _screens.Push(screen);
+        return screen;
+    }
+
     /// <summary>Zapne pohled na proud i s legendou — smoke nemá klávesnici.</summary>
     internal void ShowPowerForSmoke()
     {
