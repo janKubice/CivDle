@@ -321,7 +321,13 @@ public sealed class GameplayScreen : IScreen
     private HorizontalStackPanel _batchPanel = null!;
     private Button[] _batchButtons = Array.Empty<Button>();
     private bool _buildMenuOpen;
-    private int _unlockedFeatureCount = -1;
+
+    /// <summary>
+    /// Hlídač tvaru lišty — pozná, že do ní má přibýt (nebo z ní zmizet)
+    /// tlačítko. Vytvoří se až po prvním <see cref="BuildUi"/>, aby si
+    /// zapamatoval stav, ve kterém lišta právě vznikla.
+    /// </summary>
+    private HudLayout? _hudLayout;
 
     /// <summary>Podmenu nástrojů, které se otvírá nad lištou (jako katalog budov).</summary>
     private enum ToolMenu
@@ -472,6 +478,7 @@ public sealed class GameplayScreen : IScreen
         }
 
         BuildUi();
+        _hudLayout = new HudLayout(screens.Content, _simulation);
         _screens.Loc.LanguageChanged += BuildUi;
         _screens.UiSettingsChanged += BuildUi;
         _ambient.Play(); // klidná smyčka pro relaxační jádro
@@ -4048,17 +4055,12 @@ public sealed class GameplayScreen : IScreen
         }
 
         // Odemčená funkce musí být vidět hned, ne až po restartu. Přestavba je drahá,
-        // ale nastane jen ve chvíli odemčení (pár × za hru), ne každý snímek.
-        int unlocked = _simulation.UnlockedFeatureCount;
-        if (unlocked != _unlockedFeatureCount)
+        // ale nastane jen ve chvíli, kdy do lišty opravdu něco přibude nebo z ní
+        // zmizí (pár × za hru), ne každý snímek.
+        if (_hudLayout is { } layout && layout.HasChanged(_simulation))
         {
-            bool first = _unlockedFeatureCount < 0;
-            _unlockedFeatureCount = unlocked;
-            if (!first)
-            {
-                BuildUi();
-                return; // UI se právě přestavělo — popisky doplní příští snímek
-            }
+            BuildUi();
+            return; // UI se právě přestavělo — popisky doplní příští snímek
         }
 
         // Nově získaná surovina se v pruhu odhalí (a jen tehdy se sahá na Visible).

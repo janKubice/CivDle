@@ -3238,6 +3238,13 @@ public sealed class Simulation
     {
         BuildingsUnderConstruction = Math.Max(0, BuildingsUnderConstruction - 1);
 
+        // Dostavění je změna zástavby stejně jako postavení: budova přestane být
+        // lešením a začne se počítat. Kdo si „co kde stojí" pamatuje (render si
+        // hustotu peče do textur, lišta se ptá, jestli už stojí kosmodrom),
+        // to musí poznat — jinak se dostavěná věc projeví až u příští stavby,
+        // a u té poslední tedy nikdy.
+        BuildingRevision++;
+
         // Rozestavěná elektrárna nedodává; dostavěná ano. Bez tohohle by se
         // proud objevil až při příští změně zástavby, tedy nikdy.
         if (def.PowerSupply > 0 || def.PowerDemand > 0)
