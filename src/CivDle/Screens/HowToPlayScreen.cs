@@ -18,6 +18,9 @@ namespace CivDle.Screens;
 /// </summary>
 public sealed class HowToPlayScreen : IScreen
 {
+    /// <summary>Kolik vrstev nad jádrem se vypisuje (klíče <c>howto.more.1</c>…).</summary>
+    private const int ExtraCount = 7;
+
     /// <summary>Kolik číslovaných bodů má text (klíče <c>howto.1</c>…).</summary>
     private const int StepCount = 6;
 
@@ -96,8 +99,25 @@ public sealed class HowToPlayScreen : IScreen
             layout.Widgets.Add(new Label { Text = loc[$"howto.{i}"] });
         }
 
+        // Vrstvy nad jádrem: hráč se o nich jinak nedozví. Obrana a pískoviště
+        // se zapínají při zakládání světa, takže kdo o nich neví, nemá je jak
+        // najít — a mechanika, na kterou se nedá přijít, ve hře není.
         layout.Widgets.Add(new Label { Text = " " });
-        layout.Widgets.Add(UiFactory.MenuButton(loc["settings.back"], _screens.Pop));
+        layout.Widgets.Add(new Label { Text = loc["howto.more.title"], TextColor = UiFactory.Accent });
+        for (int i = 1; i <= ExtraCount; i++)
+        {
+            layout.Widgets.Add(new Label { Text = loc[$"howto.more.{i}"] });
+        }
+
+        layout.Widgets.Add(new Label { Text = " " });
+        layout.Widgets.Add(new Label { Text = loc["howto.modes"], TextColor = UiPalette.Warn });
+
+        layout.Widgets.Add(new Label { Text = " " });
+        var buttons = new HorizontalStackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
+        buttons.Widgets.Add(UiFactory.MenuButton(
+            loc["menu.controls"], () => _screens.Push(new ControlsScreen(_screens))));
+        buttons.Widgets.Add(UiFactory.MenuButton(loc["settings.back"], _screens.Pop));
+        layout.Widgets.Add(buttons);
 
         _desktop = _screens.NewDesktop(UiFactory.MenuBackdrop(layout));
     }

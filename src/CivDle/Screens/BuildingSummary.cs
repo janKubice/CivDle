@@ -123,14 +123,52 @@ internal static class BuildingSummary
             text.Append('\n').Append(loc.Format("tip.build.biomes", biomes));
         }
 
+        // Biom, který se v přírodě nevyskytuje, je slepá ulička, dokud hráč
+        // neví, že si ho musí vyrobit. Uranový důl umí stát jedině na zamoření
+        // po meteoritu — bez téhle věty vypadá jako budova, která nejde
+        // postavit nikde.
+        if (NeedsMadeGround(content, def))
+        {
+            text.Append('\n').Append(loc["tip.build.madeGround"]);
+        }
+
         return text.ToString();
+    }
+
+    /// <summary>
+    /// Stojí tahle budova <b>jen</b> na terénu, který v přírodě nevzniká?
+    ///
+    /// <para>Takový terén si hráč musí sám vyrobit (kráter po meteoritu,
+    /// zaplavené pobřeží). Dokud to neví, vypadá budova jako rozbitá.</para>
+    /// </summary>
+    private static bool NeedsMadeGround(GameContent content, BuildingDef def)
+    {
+        bool anyAllowed = false;
+        for (int i = 0; i < content.Biomes.Count; i++)
+        {
+            if (!def.IsBiomeAllowed(i))
+            {
+                continue;
+            }
+
+            anyAllowed = true;
+            if (content.Biomes[i].IsNaturallyGenerated)
+            {
+                return false; // aspoň jeden běžný biom → normální budova
+            }
+        }
+
+        return anyAllowed;
     }
 
     /// <summary>
     /// Seznam biomů, kde budova smí stát — vypíše se, jen když je omezená.
     /// Když může všude, mlčení je informativnější než dlouhý výčet.
+    ///
+    /// <para>Veřejné proto, že tentýž výčet potřebuje i hláška „sem to nejde":
+    /// hráč se musí dozvědět, kam to tedy jde, ne jen že tady ne.</para>
     /// </summary>
-    private static string AllowedBiomes(GameContent content, Localization loc, BuildingDef def)
+    public static string AllowedBiomes(GameContent content, Localization loc, BuildingDef def)
     {
         var allowed = new List<string>();
         for (int i = 0; i < content.Biomes.Count; i++)

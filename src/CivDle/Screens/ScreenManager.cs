@@ -112,6 +112,21 @@ public sealed class ScreenManager
         _menuBackground = null;
     }
 
+    /// <summary>
+    /// Které klávesy patří ke kterým akcím. Jedna mapa na celou hru — kdyby si
+    /// každá obrazovka držela svou, změna v nastavení by se nikam nepropsala.
+    /// </summary>
+    public Input.KeyMap Keys => _keys ??= new Input.KeyMap(Profile);
+
+    private Input.KeyMap? _keys;
+
+    /// <summary>Uloží přemapované klávesy do profilu.</summary>
+    public void SaveKeyBindings()
+    {
+        Profile.KeyBindings = Keys.ToSettings();
+        SaveProfile();
+    }
+
     /// <summary>Uloží a aplikuje nastavení (grafiku hned; jazyk přes <see cref="Loc"/>).</summary>
     public void ApplySettings(GameSettings settings)
     {

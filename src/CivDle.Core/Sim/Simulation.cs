@@ -3238,6 +3238,13 @@ public sealed class Simulation
     {
         BuildingsUnderConstruction = Math.Max(0, BuildingsUnderConstruction - 1);
 
+        // Dostavění je změna zástavby stejně jako postavení: budova přestane být
+        // lešením a začne se počítat. Kdo si „co kde stojí" pamatuje (render si
+        // hustotu peče do textur, lišta se ptá, jestli už stojí kosmodrom),
+        // to musí poznat — jinak se dostavěná věc projeví až u příští stavby,
+        // a u té poslední tedy nikdy.
+        BuildingRevision++;
+
         // Rozestavěná elektrárna nedodává; dostavěná ano. Bez tohohle by se
         // proud objevil až při příští změně zástavby, tedy nikdy.
         if (def.PowerSupply > 0 || def.PowerDemand > 0)
@@ -5645,7 +5652,8 @@ public sealed class Simulation
         _ => 0,
     };
 
-    private long CountBuildingsOfType(int defIndex)
+    /// <summary>Kolik budov daného typu ve městě stojí. Veřejné kvůli přehledům v UI.</summary>
+    public long CountBuildingsOfType(int defIndex)
     {
         long count = 0;
         for (int i = 0; i < _buildingCount; i++)
@@ -5886,7 +5894,10 @@ public sealed class Simulation
 
         _rafts.Tick(CatchMultiplierAt, AddResource);
 
-        if (TickCount % RaftDropCheckTicks != 0)
+        // Hledat splavy častěji, než jak často vůbec můžou něco pustit, je
+        // průchod zástavbou za nic — a u velkoměsta je to průchod dlouhý.
+        int dropInterval = _content.RaftDropInterval;
+        if (dropInterval <= 0 || TickCount % dropInterval != 0)
         {
             return;
         }
@@ -5919,9 +5930,6 @@ public sealed class Simulation
         }
     }
 
-    /// <summary>Jak často se ptáme splavů, jestli mají co pustit.</summary>
-    private const int RaftDropCheckTicks = 10;
-
     /// <summary>
     /// Pustí kládu do řeky, která se dotýká půdorysu splavu.
     ///
@@ -5952,6 +5960,28 @@ public sealed class Simulation
     /// jediný důvod, proč by hráč řeku vůbec použil.</para>
     /// </summary>
     private double CatchMultiplierAt(int x, int y)
+    {
+        // Hledá se i kolem dlaždice, ne jen na ní. Česle stojí na BŘEHU —
+        // řeka je vodní biom a budova na souš. Když se hledalo jen pod kládou,
+        // nemohly se ty dvě nikdy potkat a plavení dřevo tiše ničilo: splav
+        // ho vzal ze skladu a na konci toku se ztratilo.
+        for (int offsetY = -1; offsetY <= 1; offsetY++)
+        {
+            for (int offsetX = -1; offsetX <= 1; offsetX++)
+            {
+                double multiplier = CatchMultiplierOn(x + offsetX, y + offsetY);
+                if (multiplier > 0)
+                {
+                    return multiplier;
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    /// <summary>Stojí přesně na téhle dlaždici hotové česle?</summary>
+    private double CatchMultiplierOn(int x, int y)
     {
         if (!_occupancy.TryGetValue(TileKey.Pack(x, y), out int buildingIndex)
             || buildingIndex >= _buildingCount)

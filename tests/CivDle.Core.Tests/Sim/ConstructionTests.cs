@@ -237,6 +237,23 @@ public class ConstructionTests
         Assert.True(timed >= 5, $"divů světa má být víc, je jich {timed}");
     }
 
+    [Fact]
+    public void FinishingAWonderCountsAsAChangeInTheTownscape()
+    {
+        // Dostavění se dlouho nikde nehlásilo: zapsalo se jen postavení
+        // a zbourání. Kdo si „co kde stojí" pamatuje — render peče hustotu do
+        // textur, lišta se ptá, jestli už stojí kosmodrom — se to tedy dozvěděl
+        // až u příští stavby. U té poslední, a u kosmodromu obvykle právě té
+        // poslední, se to nedozvěděl nikdy.
+        var sim = NewSim();
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(0, 0, 0));
+
+        long revision = sim.BuildingRevision;
+        RunUntilBuilt(sim);
+
+        Assert.NotEqual(revision, sim.BuildingRevision);
+    }
+
     private static void RunUntilBuilt(Simulation sim)
     {
         for (int i = 0; i < BuildTicks + Simulation.ConstructionIntervalTicks * 2; i++)

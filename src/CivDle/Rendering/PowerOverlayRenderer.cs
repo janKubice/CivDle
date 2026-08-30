@@ -52,6 +52,38 @@ public sealed class PowerOverlayRenderer
             : new Color(214, 78, 70);        // tma
     }
 
+    /// <summary>
+    /// Barvy a jejich význam pro legendu. UI je nesmí opisovat — kdyby si
+    /// vlastní paletu drželo taky, dřív nebo později by se rozešly a legenda
+    /// by vysvětlovala něco jiného, než co je na mapě.
+    /// </summary>
+    public static IReadOnlyList<(string LocKey, Color Color)> Legend { get; } = new[]
+    {
+        ("power.legend.full", ColorFor(1.0)),
+        ("power.legend.short", ColorFor(0.8)),
+        ("power.legend.scarce", ColorFor(0.3)),
+        ("power.legend.dark", ColorFor(0.0)),
+    };
+
+    /// <summary>
+    /// Do které položky legendy patří tohle pokrytí. Legenda i mapa musí
+    /// odpovídat témuž pravidlu, proto se ptá <see cref="ColorFor"/> a ne
+    /// vlastních prahů.
+    /// </summary>
+    public static int LegendSlot(double coverage)
+    {
+        var color = ColorFor(coverage);
+        for (int i = 0; i < Legend.Count; i++)
+        {
+            if (Legend[i].Color == color)
+            {
+                return i;
+            }
+        }
+
+        return Legend.Count - 1;
+    }
+
     /// <summary>Vykreslí pokrytí přes buňky ve výřezu.</summary>
     /// <param name="fade">Průhlednost 0–1; vrstva se rozsvěcí plynule.</param>
     public void Draw(SpriteBatch spriteBatch, Camera2D camera, Simulation simulation, float fade)

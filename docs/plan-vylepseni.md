@@ -909,3 +909,77 @@ Celý dokument je zhruba **37 dnů do Frontier Defense včetně** a dalších ~2
 Nic z toho seznamu není škrtnuté. Tři věci, které jsem původně psal ven z hry — podmoří, orbita a Frontier Defense — jsou uvnitř a mají svoje kroky, testy i odhady. U dvou z nich se ukázalo, že je hra unese líp, než jsem čekal: podmoří proto, že vodní biomy i hloubka už v datech jsou a `CanPlace` na vodu nesahá, orbita proto, že to není mapa, ale pohled a pár modifikátorů.
 
 První den práce z toho seznamu — hledání ve stromu — bude znát víc než celý §6.
+
+---
+
+## Stav na konci: hotovo celé
+
+Odhady výše zůstávají tak, jak byly napsané — jsou to záznam toho, co se
+čekalo, ne toho, co vyšlo. Co vyšlo:
+
+**Všechny položky z §8 jsou hotové**, včetně celého seznamu „velké věci — až
+bude prostor". Nedodělané zůstávají jen tři věci, a všechny tři vědomě:
+
+* **Železnice (2.2c)** a **vlákna na pozadí (1.2)** — dokument je sám řadí do
+  „Nedělat teď" a nic se od té doby nezměnilo.
+* **Atlas spritů (druhá půlka 1.3)** — plán ho sám řadí až za hustotní mapu
+  s tím, že přínos bude menší, a měření z bodu 1.4 mezitím ukázalo, že tik ani
+  snímek nestojí na přepínání textur. Dělat mechanickou práci bez čísla, které
+  by ji zdůvodnilo, je přesně to, co si tenhle dokument u bodu 1.4 zakázal.
+* **Haptika Steam Decku** — `ISteamInput` se bez fyzického Decku nedá ověřit
+  a odhadovat sílu vibrace podle dokumentace by znamenalo nechat to zapnuté
+  a špatné.
+
+**Kde jsem se od plánu odchýlil** (podrobně u jednotlivých bodů):
+
+| Bod | Plán říkal | Vyšlo jinak, protože |
+|---|---|---|
+| 6.2 | směr řeky uložit na dlaždici (2 bity) | mapa je nekonečná a terén je čistá funkce souřadnic — voda teče z kopce, takže směr je taky funkce |
+| 3.4 | strop osm nejbližších zdrojů | osm pil vedle sebe je pořád osm pil; zní jeden hlas na **druh** |
+| 2.4 | strom přes `TechGraphLayout` | pět uzlů ve dvou větvích je seznam, ne hvězdice |
+| 4.4 | plán guvernéra celý na sídlo | zaměření je **rozdělení rozpočtu** a rozpočet je jeden pot; na sídlo šel jen zákaz kategorií |
+| 5.2 | spádové pole na hrubé mřížce | nebylo potřeba |
+
+**Co našly testy cestou** — tři chyby, které v datech ležely a nikdo o nich
+nevěděl: osm budov, které nešlo postavit vůbec; nová surovina bez skladu;
+budova s údržbou bez protihodnoty. Všechny tři chytila kontrola, která existuje
+právě pro tenhle případ.
+
+---
+
+## Kolo navíc: objevitelnost
+
+Zpětná vazba po dohrání zněla, že hra působí nedodělaně — hrdla, proud, podmoří,
+ovládání, obrana ani řetězce prý nejsou nikde vidět. Systémy přitom existovaly
+všechny. Chyběla cesta k nim.
+
+**Co přibylo:** tlačítka pro tři překryvy v liště (dřív jen klávesa, o které se
+hráč nikde nedozvěděl), obrazovka ovládání s přemapováním kláves, přehled
+výrobních řetězců, stav online funkcí, legenda k rozvodu proudu, značky
+anomálií na minimapě.
+
+**Dvě skutečné chyby, které se přitom našly** — obě téhož druhu jako česle
+u plavení dřeva, tedy „systém funguje, jen se s ním hráč nemá jak potkat":
+
+* **Lišta se přestavovala jen podle počtu odemčených funkcí z `features.json`.**
+  Orbita, zvonohra a doktríny na ten seznam nekoukají — objeví se, až stojí
+  kosmodrom, až nějaká zvonohra zazvoní, až padne první bod Vzestupu. Všechny
+  tři přijdou v době, kdy je ze seznamu odemčené už všechno a počítadlo se nemá
+  jak hnout. Tlačítko se tedy neobjevilo nikdy. Nově hlídá tvar lišty
+  `HudLayout` a porovnává rovnou ty podmínky, na kterých lišta stojí.
+* **`BuildingRevision` se nezvyšovalo při dostavění**, jen při postavení
+  a zbourání. Cokoli, co si pamatuje „co kde stojí", se tedy o hotové budově
+  dozvědělo až u příští stavby — a u té poslední nikdy.
+
+**Co se naopak potvrdilo jako v pořádku:** na skutečně generovaném světě je
+v dosahu minimapy vždycky nějaká anomálie (6–15 kusů do 200 dlaždic napříč
+semínky), orbita je od kosmodromu po bonus zapojená celá, a žádná budova není
+nepostavitelná omylem — všechna odmítnutí, která zbyla, mají svůj důvod
+(stupeň sídla, dosah přístavu, terén, který si hráč musí sám vyrobit). Hláška
+u kurzoru teď u dvou nejčastějších říká i to, **kam** ta budova tedy patří.
+
+**Co z toho zůstalo v testech:** `FeatureReachabilityTests` (dá se na každou
+vrstvu vůbec dostat?), `HudLayoutTests`, `AnomalyReachTests`,
+`PlacementMessageTests`, `PowerLegendTests`. Všechny testují dosažitelnost,
+ne chování — selžou přesně ve chvíli, kdy někdo z dat vyndá blok, na kterém
+stojí kus rozhraní.

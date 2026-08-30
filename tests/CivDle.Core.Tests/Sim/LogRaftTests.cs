@@ -148,6 +148,36 @@ public class LogRaftTests
         Assert.Equal(saved, loaded.Logs.ToList());
     }
 
+    [Fact]
+    public void TheBoomOnTheBankCatchesLogsFloatingPast()
+    {
+        // Test, který tady chyběl a měl chybu chytit: ostatní testovaly
+        // LogRaftSystem se smyšleným chytačem, takže nikdy neověřily to
+        // podstatné — že se česle a kláda vůbec můžou potkat. Česle stojí na
+        // BŘEHU, řeka je vodní biom; pod kládou tedy nikdy nestojí.
+        var rafts = new LogRaftSystem(new SlopingRiver());
+        Assert.True(rafts.TryDrop(0, 0, resourceIndex: 0, amount: 5));
+
+        // Řeka teče po řádku y = 0, česle stojí vedle na y = 1.
+        var content = TestData.LoadRealContent();
+        double multiplier = content.Buildings[content.Buildings.IndexOf("log_boom")].Raft!.CatchMultiplier;
+
+        double delivered = 0;
+        for (int i = 0; i < 60 && rafts.Count > 0; i++)
+        {
+            rafts.Tick(
+                (x, y) => x == 5 && y == 0 ? NearbyBoom(x, y, boomX: 5, boomY: 1, multiplier) : 0,
+                (_, amount) => delivered += amount);
+        }
+
+        Assert.Equal(0, rafts.Count);
+        Assert.Equal(5 * multiplier, delivered, 6);
+    }
+
+    /// <summary>Napodobí dosah česlí ze simulace: hledá se i o dlaždici vedle.</summary>
+    private static double NearbyBoom(int x, int y, int boomX, int boomY, double multiplier) =>
+        Math.Abs(x - boomX) <= 1 && Math.Abs(y - boomY) <= 1 ? multiplier : 0;
+
     private static void TickRafts(LogRaftSystem rafts, int ticks, out double delivered)
     {
         double total = 0;
