@@ -458,6 +458,16 @@ public sealed record BuildingDef(
     /// <summary>Lokalizační klíč jména budovy.</summary>
     public string NameKey => $"building.{Id}";
 
+    /// <summary>
+    /// Lokalizační klíč věty „k čemu ta budova je".
+    ///
+    /// <para>Čísla v popisku (cena, recept, dosah) se skládají z dat, ale roli
+    /// budovy z nich nevyčteš: u česlí je z receptu vidět, že nic nespotřebují
+    /// ani nevyrábějí, a hráč z toho nemá jak poznat, že vytahují dřevo, které
+    /// splav pustil po řece. Tuhle jednu větu musí napsat člověk.</para>
+    /// </summary>
+    public string DescriptionKey => $"building.{Id}.desc";
+
     /// <summary>Smí budova stát na dlaždici s daným biomem?</summary>
     public bool IsBiomeAllowed(int biomeIndex) => AllowedBiomes[biomeIndex];
 

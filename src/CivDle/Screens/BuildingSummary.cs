@@ -18,6 +18,10 @@ internal static class BuildingSummary
     public static string Describe(GameContent content, Localization loc, BuildingDef def)
     {
         var text = new StringBuilder();
+
+        // Nejdřív věta, pak čísla. Hráč, který budovu vidí poprvé, potřebuje
+        // vědět, K ČEMU je — cena a recept mu to neřeknou.
+        text.Append(TipLine.Tag(TipKind.Plain, loc[def.DescriptionKey])).Append('\n');
         text.Append(TipLine.Tag(TipKind.Cost, loc.Format("tip.build.cost", CostFormat.Line(content, loc, def.BuildCost))));
 
         if (def.Recipe is { } recipe)

@@ -5056,6 +5056,11 @@ public sealed class ContentLoader
         required.AddRange(resources.All.Select(r => r.NameKey));
         required.AddRange(buildings.All.Select(b => b.NameKey));
 
+        // Věta „k čemu ta budova je" je povinná stejně jako jméno. Bez ní se
+        // z popisku dají vyčíst jen čísla — a hráč, který nikdy neviděl česle,
+        // z receptu nepozná, co dělají.
+        required.AddRange(buildings.All.Select(b => b.DescriptionKey));
+
         // Kategorie se v datech zavádí tím, že ji někdo napíše k budově — žádný
         // seznam kategorií neexistuje. Bez téhle kontroly se nová kategorie
         // pozná až tím, že v záložkách stavebního menu svítí holý klíč; přesně

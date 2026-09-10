@@ -1743,6 +1743,10 @@ public class ContentLoaderTests : IDisposable
         if (includeBuildingName)
         {
             keys.Add("\"building.house\": \"-\"");
+
+            // Věta „k čemu ta budova je" je povinná stejně jako jméno —
+            // fixture musí splnit tentýž kontrakt jako skutečná data.
+            keys.Add("\"building.house.desc\": \"-\"");
         }
 
         if (includeExtraKey)
