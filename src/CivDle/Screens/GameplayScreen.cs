@@ -95,6 +95,12 @@ public sealed class GameplayScreen : IScreen
 
     /// <summary>Legenda rozvodu proudu; ukazuje se jen se zapnutým pohledem.</summary>
     private Widget _powerLegend = null!;
+
+    /// <summary>Vysvětlivka k podmoří; ukazuje se jen se zapnutým pohledem.</summary>
+    private Widget _subseaLegend = null!;
+
+    /// <summary>Řádek, který u podmoří říká, co je vidět — nebo proč nic.</summary>
+    private Label _subseaStatus = null!;
     private readonly DistrictRenderer _districtRenderer;
     private readonly LandmarkRenderer _landmarkRenderer;
     private readonly UfoRenderer _ufoRenderer;
@@ -2103,6 +2109,11 @@ public sealed class GameplayScreen : IScreen
             RefreshPowerCounts();
         }
 
+        if (_showSubsea)
+        {
+            RefreshSubseaStatus(); // přístav mohl mezitím přibýt
+        }
+
         WarnAboutFullStorage(dt);
     }
 
@@ -2602,6 +2613,7 @@ public sealed class GameplayScreen : IScreen
         // jedna přes druhou.
         _bottleneckLegend = BuildBottleneckLegend();
         _powerLegend = BuildPowerLegend();
+        _subseaLegend = BuildSubseaLegend();
         var legends = new VerticalStackPanel
         {
             Spacing = 6,
@@ -2609,6 +2621,7 @@ public sealed class GameplayScreen : IScreen
             VerticalAlignment = VerticalAlignment.Bottom,
             Margin = new Thickness(0, 0, 0, 96),
         };
+        legends.Widgets.Add(_subseaLegend);
         legends.Widgets.Add(_powerLegend);
         legends.Widgets.Add(_bottleneckLegend);
         root.Widgets.Add(legends);
@@ -3447,6 +3460,54 @@ public sealed class GameplayScreen : IScreen
     }
 
     /// <summary>
+    /// Vysvětlivka k podmoří — a hlavně věta pro případ, kdy není vidět NIC.
+    ///
+    /// <para>Tohle hlásil hráč: zapnul „dosah pod hladinou" a nestalo se nic.
+    /// Nebyla to chyba — bez přístavu žádné moře otevřené není, takže se
+    /// opravdu nemá co nakreslit. Jenže překryv, který nekreslí nic, vypadá
+    /// úplně stejně jako rozbitá funkce. Teď místo ticha řekne, co chybí.</para>
+    /// </summary>
+    private Widget BuildSubseaLegend()
+    {
+        var loc = _screens.Loc;
+        var rows = new VerticalStackPanel { Spacing = 4 };
+        rows.Widgets.Add(new Label { Text = loc["hud.subseaOverlay"], TextColor = UiPalette.TextBright });
+
+        _subseaStatus = new Label { TextColor = UiPalette.Text };
+        rows.Widgets.Add(_subseaStatus);
+
+        var panel = UiFactory.DarkPanel(rows);
+        panel.HorizontalAlignment = HorizontalAlignment.Left;
+        panel.Visible = false;
+        return panel;
+    }
+
+    /// <summary>
+    /// Napíše, co je v podmoří vidět. Buď kolik dlaždic dna je otevřených,
+    /// nebo — a to je ten důležitý případ — že zatím žádné a čím to změnit.
+    /// </summary>
+    private void RefreshSubseaStatus()
+    {
+        var loc = _screens.Loc;
+        int covered = _simulation.Subsea.CoveredTiles;
+        if (covered > 0)
+        {
+            _subseaStatus.Text = loc.Format("subsea.legend.covered", covered);
+            _subseaStatus.TextColor = UiPalette.Text;
+            return;
+        }
+
+        // Jmenuje se konkrétní budova, ne „nějaký přístav": hráč ji má najít
+        // ve stavebním menu, a k tomu potřebuje její jméno.
+        string harbour = _screens.Content.Buildings.TryIndexOf("harbor", out int index)
+            ? loc[_screens.Content.Buildings[index].NameKey]
+            : loc["hud.build"];
+
+        _subseaStatus.Text = loc.Format("subsea.legend.none", harbour);
+        _subseaStatus.TextColor = UiPalette.TextBright;
+    }
+
+    /// <summary>
     /// Přepočítá, kolik budov je na jakém proudu. Počítají se jen ty, které
     /// proud chtějí — u chalupy je „bez proudu" normální stav a v počtech by
     /// jen dělala šum. Běží na nízké frekvenci a jen se zapnutým pohledem.
@@ -4096,6 +4157,8 @@ public sealed class GameplayScreen : IScreen
     private void ToggleSubsea()
     {
         _showSubsea = !_showSubsea;
+        _subseaLegend.Visible = _showSubsea;
+        RefreshSubseaStatus();
         RefreshOverlayButtons();
     }
 

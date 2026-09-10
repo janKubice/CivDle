@@ -834,7 +834,10 @@
         "fusion"
       ],
       "effect": "housing_mult",
-      "magnitude": 1.0
+      "magnitude": 1.0,
+      "unlocks": [
+        "megacity_spire"
+      ]
     },
     {
       "id": "orbital_survey",
@@ -858,7 +861,10 @@
         "fusion"
       ],
       "effect": "harvest_mult",
-      "magnitude": 2.0
+      "magnitude": 2.0,
+      "unlocks": [
+        "world_forge"
+      ]
     },
     {
       "id": "longevity",
@@ -1982,6 +1988,75 @@
       ],
       "unlocks": [
         "watchtower"
+      ]
+    },
+    {
+      "id": "merchant_charters",
+      "cost": {
+        "bronze": 120,
+        "science": 700
+      },
+      "prerequisites": [
+        "trade"
+      ],
+      "unlocks": [
+        "grand_exchange"
+      ]
+    },
+    {
+      "id": "high_energy_physics",
+      "cost": {
+        "computer": 60,
+        "electronics": 80,
+        "science": 2400
+      },
+      "prerequisites": [
+        "fusion"
+      ],
+      "unlocks": [
+        "particle_accelerator"
+      ]
+    },
+    {
+      "id": "rocketry",
+      "cost": {
+        "robot": 40,
+        "computer": 90,
+        "science": 2600
+      },
+      "prerequisites": [
+        "orbital_survey"
+      ],
+      "unlocks": [
+        "spaceport"
+      ]
+    },
+    {
+      "id": "orbital_construction",
+      "cost": {
+        "nanomaterial": 120,
+        "robot": 80,
+        "science": 3200
+      },
+      "prerequisites": [
+        "rocketry"
+      ],
+      "unlocks": [
+        "orbital_ring"
+      ]
+    },
+    {
+      "id": "stellar_engineering",
+      "cost": {
+        "nanomaterial": 180,
+        "computer": 140,
+        "science": 3800
+      },
+      "prerequisites": [
+        "orbital_construction"
+      ],
+      "unlocks": [
+        "fusion_beacon"
       ]
     }
   ]

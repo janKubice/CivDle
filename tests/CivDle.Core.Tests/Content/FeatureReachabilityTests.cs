@@ -126,4 +126,46 @@ public class FeatureReachabilityTests
             Assert.True(reachable, $"anomálie '{kind.Id}' smí ležet jen na biomech, které se negenerují");
         }
     }
+
+    [Fact]
+    public void EveryMegastructureIsSomewhereInTheResearchTree()
+    {
+        // Megastruktury dlouho neodemykal žádný výzkum — stačila hodnost sídla.
+        // Ve stromu se tedy neobjevily a hráč se o nich nemohl dozvědět jinak
+        // než tím, že mu jednou samy naskočí v katalogu. Nejhůř na tom byl
+        // kosmodrom: celá vesmírná část hry za ním visela a nic k ní
+        // neukazovalo.
+        var content = TestData.LoadRealContent();
+
+        var unlocked = content.Techs.All
+            .SelectMany(tech => tech.UnlockedBuildingIndices)
+            .ToHashSet();
+
+        foreach (var def in content.Buildings.All)
+        {
+            if (def.Category != "megastructure")
+            {
+                continue;
+            }
+
+            Assert.True(
+                unlocked.Contains(content.Buildings.IndexOf(def.Id)),
+                $"megastrukturu '{def.Id}' neodemyká žádná technologie — ve stromu výzkumu není vidět");
+        }
+    }
+
+    [Fact]
+    public void TheWayToOrbitLeadsThroughTheTree()
+    {
+        // Konkrétně tahle cesta musí existovat celá: bez kosmodromu se nedá
+        // vypustit nic a bez výzkumu se nedá postavit kosmodrom.
+        var content = TestData.LoadRealContent();
+
+        int spaceport = content.Orbit.LaunchBuildingIndex;
+        Assert.True(spaceport >= 0, "orbita nemá odkud startovat");
+
+        Assert.Contains(
+            content.Techs.All,
+            tech => tech.UnlockedBuildingIndices.Contains(spaceport));
+    }
 }
