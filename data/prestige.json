@@ -16,44 +16,44 @@
     {
       "id": "industrious",
       "effect": "production_mult",
-      "magnitude": 0.3,
+      "magnitude": 0.06,
       "cost": 1,
-      "maxLevel": 100,
+      "maxLevel": 60,
       "costGrowth": 1.18
     },
     {
       "id": "sharp_tools",
       "effect": "harvest_mult",
-      "magnitude": 0.5,
+      "magnitude": 0.07,
       "cost": 1,
-      "maxLevel": 100,
+      "maxLevel": 60,
       "costGrowth": 1.18
     },
     {
       "id": "fertile",
       "effect": "growth_mult",
-      "magnitude": 0.35,
+      "magnitude": 0.05,
       "cost": 1,
-      "maxLevel": 100,
+      "maxLevel": 50,
       "costGrowth": 1.18
     },
     {
       "id": "granaries",
       "effect": "storage_mult",
-      "magnitude": 0.5,
+      "magnitude": 0.08,
       "cost": 2,
-      "maxLevel": 80,
+      "maxLevel": 50,
       "costGrowth": 1.2
     },
     {
       "id": "spacious",
       "effect": "housing_mult",
-      "magnitude": 0.4,
+      "magnitude": 0.05,
       "cost": 2,
       "prerequisites": [
         "fertile"
       ],
-      "maxLevel": 80,
+      "maxLevel": 50,
       "costGrowth": 1.2
     },
     {
@@ -224,15 +224,15 @@
     {
       "id": "master_builders",
       "effect": "autobuild_speed",
-      "magnitude": 0.25,
+      "magnitude": 0.05,
       "cost": 2,
-      "maxLevel": 60,
+      "maxLevel": 40,
       "costGrowth": 1.22
     },
     {
       "id": "scaffolding",
       "effect": "autobuild_speed",
-      "magnitude": 0.7,
+      "magnitude": 0.06,
       "cost": 6,
       "prerequisites": [
         "master_builders"
