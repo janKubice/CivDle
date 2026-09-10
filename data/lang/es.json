@@ -1458,6 +1458,7 @@
     "prestige.leviathan": "Leviatán",
     "prestige.leviathan.desc": "El hallazgo de tu vida ocurre mucho más a menudo.",
     "prestige.locked": "Bloqueado",
+    "prestige.lockedBy": "Bloqueado: antes hace falta {0}",
     "prestige.lucky_hands": "Manos con suerte",
     "prestige.lucky_hands.desc": "Más probabilidad de cosecha crítica: cualquier clic puede pagar varias veces.",
     "prestige.manufactories": "Manufacturas",

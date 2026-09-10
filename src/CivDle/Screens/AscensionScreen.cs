@@ -159,9 +159,12 @@ public sealed class AscensionScreen : IScreen
         _desktop = _screens.NewDesktop(root);
 
         // Vrátit scroll až nad hotovým rozvržením — dřív scroller ještě nezná
-        // svou výšku a pozici by uřízl na nulu.
+        // svou výšku a pozici by uřízl na nulu. Rozvržení se proto vynutí hned,
+        // ne až při prvním vykreslení: mezitím by hráč viděl jeden snímek
+        // seznamu odrolovaného nahoru a to je právě to škubnutí.
         if (_list is not null)
         {
+            _desktop.UpdateLayout();
             _list.ScrollPosition = _scroll;
         }
     }
@@ -548,9 +551,24 @@ public sealed class AscensionScreen : IScreen
             Width = RowWidth - 34,
         });
 
-        row.Widgets.Add(UpgradeAction(upgradeIndex));
+        // Akce v pevně vysokém pouzdře. Bez něj měl řádek jinou výšku podle
+        // toho, jestli v něm zrovna je tlačítko, nebo jen štítek „Zamčeno" —
+        // a po každé koupi se proto celý seznam pod ním posunul. To je ten
+        // pocit, že menu poskakuje.
+        row.Widgets.Add(new Panel
+        {
+            Height = ActionRowHeight,
+            Width = RowWidth - 34,
+            Widgets = { UpgradeAction(upgradeIndex) },
+        });
         return row;
     }
+
+    /// <summary>
+    /// Výška pouzdra pro akci řádku. Tlačítko „Koupit" je nejvyšší z toho, co
+    /// se do něj střídá; štítek je nižší, ale místo si drží stejné.
+    /// </summary>
+    private const int ActionRowHeight = 34;
 
     private Widget UpgradeAction(int upgradeIndex)
     {
@@ -572,7 +590,10 @@ public sealed class AscensionScreen : IScreen
         var status = _simulation.CanBuyUpgrade(upgradeIndex);
         if (status == PlacementResult.NotUnlocked)
         {
-            return new Label { Text = loc["prestige.locked"], TextColor = UiPalette.TextDim };
+            // Samotné „Zamčeno" je slepá ulička: hráč vidí, že nemůže, a neví
+            // proč ani co s tím. Chybějící podmínka se jmenuje — je to jediná
+            // informace, kterou v té chvíli potřebuje.
+            return new Label { Text = MissingPrerequisites(upgradeIndex, loc), TextColor = UiPalette.TextDim };
         }
 
         // Cena další úrovně, ne základní z dat — u opakovatelných roste. Při
@@ -598,6 +619,30 @@ public sealed class AscensionScreen : IScreen
         };
         button.Click += (_, _) => BuyBatch(upgradeIndex);
         return button;
+    }
+
+    /// <summary>
+    /// Které vylepšení tomuhle ještě chybí — jmenovitě.
+    ///
+    /// <para>Uzly Vzestupu na sebe navazují, ale strom to nijak nekreslí:
+    /// zamčený uzel vypadal úplně stejně jako nedostupný a hráč neměl jak
+    /// zjistit, že mu stačí koupit jeden konkrétní uzel o kus výš.</para>
+    /// </summary>
+    private string MissingPrerequisites(int upgradeIndex, CivDle.Core.Content.Localization loc)
+    {
+        var upgrade = _screens.Content.PrestigeUpgrades[upgradeIndex];
+        var missing = new List<string>();
+        foreach (int prereq in upgrade.PrerequisiteIndices)
+        {
+            if (_simulation.UpgradeLevel(prereq) <= 0)
+            {
+                missing.Add(loc[_screens.Content.PrestigeUpgrades[prereq].NameKey]);
+            }
+        }
+
+        return missing.Count == 0
+            ? loc["prestige.locked"]
+            : loc.Format("prestige.lockedBy", string.Join(", ", missing));
     }
 
     /// <summary>

@@ -1458,6 +1458,7 @@
     "prestige.leviathan": "Leviatan",
     "prestige.leviathan.desc": "Úlovky života přicházejí mnohem častěji.",
     "prestige.locked": "Zamčeno",
+    "prestige.lockedBy": "Zamčeno — nejdřív: {0}",
     "prestige.lucky_hands": "Šikovné ruce",
     "prestige.lucky_hands.desc": "Vyšší šance na kritický sběr — každé kliknutí může padnout několikanásobně.",
     "prestige.manufactories": "Manufaktury",

@@ -1458,6 +1458,7 @@
     "prestige.leviathan": "Lewiatan",
     "prestige.leviathan.desc": "Łup życia trafia się dużo częściej.",
     "prestige.locked": "Zablokowane",
+    "prestige.lockedBy": "Zablokowane — najpierw: {0}",
     "prestige.lucky_hands": "Szczęśliwe ręce",
     "prestige.lucky_hands.desc": "Większa szansa na trafiony zbiór — każde kliknięcie może się kilkakrotnie zwrócić.",
     "prestige.manufactories": "Manufaktury",

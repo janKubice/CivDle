@@ -1458,6 +1458,7 @@
     "prestige.leviathan": "Leviathan",
     "prestige.leviathan.desc": "Catches of a lifetime come far more often.",
     "prestige.locked": "Locked",
+    "prestige.lockedBy": "Locked — first take: {0}",
     "prestige.lucky_hands": "Lucky hands",
     "prestige.lucky_hands.desc": "Higher chance of a critical harvest — any click can pay out several times over.",
     "prestige.manufactories": "Manufactories",

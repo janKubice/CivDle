@@ -1458,6 +1458,7 @@
     "prestige.leviathan": "Leviathan",
     "prestige.leviathan.desc": "Der Fang des Lebens kommt viel öfter vor.",
     "prestige.locked": "Gesperrt",
+    "prestige.lockedBy": "Gesperrt — zuerst: {0}",
     "prestige.lucky_hands": "Glückliche Hände",
     "prestige.lucky_hands.desc": "Höhere Chance auf einen Volltreffer — jeder Klick kann sich mehrfach auszahlen.",
     "prestige.manufactories": "Manufakturen",
