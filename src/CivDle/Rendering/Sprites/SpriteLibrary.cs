@@ -234,7 +234,7 @@ public sealed class SpriteLibrary : IDisposable
         // Bydlení pozdních ér.
         Add(device, "building.apartment", SpriteSize, canvas => Tower(canvas, new Color(170, 156, 142), floors: 4));
         Add(device, "building.high_rise", SpriteSize, canvas => Tower(canvas, new Color(140, 152, 168), floors: 6));
-        Add(device, "building.arcology", SpriteSize, Arcology);
+        Add(device, "building.arcology", BigSpriteSize, Arcology);
 
         // Sloučené bloky (2×2 z bloku čtyř stejných budov) — vyšší a širší silueta,
         // aby se na mapě daly rozeznat od jednotlivých domů na první pohled.
@@ -270,7 +270,7 @@ public sealed class SpriteLibrary : IDisposable
 
         // Po meteoritu: co se z kráteru dá vytěžit a co se z toho dá postavit.
         Add(device, "building.uranium_mine", SpriteSize, UraniumMine);
-        Add(device, "building.nuclear_plant", SpriteSize, NuclearPlant);
+        Add(device, "building.nuclear_plant", BigSpriteSize, NuclearPlant);
 
         // Monumenty — každý má být poznat podle obrysu, ne podle barvy.
         Add(device, "building.standing_stones", SpriteSize, StandingStones);
@@ -289,17 +289,17 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "fx.log", SpriteSize, FxLog);
         Add(device, "building.triumphal_arch", SpriteSize, TriumphalArch);
         Add(device, "building.clock_tower", SpriteSize, ClockTower);
-        Add(device, "building.great_pit", SpriteSize, GreatPit);
+        Add(device, "building.great_pit", BigSpriteSize, GreatPit);
         Add(device, "building.grand_library", SpriteSize, GrandLibrary);
-        Add(device, "building.cathedral", SpriteSize, Cathedral);
+        Add(device, "building.cathedral", BigSpriteSize, Cathedral);
         Add(device, "building.observatory", SpriteSize, Observatory);
 
         // Voda a doprava.
         Add(device, "building.harbor", SpriteSize, Harbor);
         Add(device, "building.fishery", SpriteSize, Fishery);
         Add(device, "building.deep_sea_port", SpriteSize, DeepSeaPort);
-        Add(device, "building.airfield", SpriteSize, canvas => Airfield(canvas, big: false));
-        Add(device, "building.airport", SpriteSize, canvas => Airfield(canvas, big: true));
+        Add(device, "building.airfield", BigSpriteSize, canvas => Airfield(canvas, big: false));
+        Add(device, "building.airport", BigSpriteSize, canvas => Airfield(canvas, big: true));
         Add(device, "building.spaceport", MegaSpriteSize, Spaceport);
 
         // Podmoří. Všechny stojí na dně, takže mají společný rys: nekreslí se
@@ -1474,20 +1474,42 @@ public sealed class SpriteLibrary : IDisposable
     }
 
     /// <summary>Jaderná elektrárna: chladicí věž s párou a reaktorová kopule.</summary>
+    /// <summary>
+    /// Jaderná elektrárna: dvě chladicí věže s párou a kopule reaktoru.
+    ///
+    /// <para>Kreslí se na velké plátno — stojí na devíti dlaždicích a na
+    /// dvaatřicítce z ní byla rozmazaná šmouha.</para>
+    /// </summary>
     private static void NuclearPlant(PixelCanvas c)
     {
-        c.FillRect(2, 24, 28, 6, new Color(120, 124, 118));    // areál
+        c.FillRect(2, 48, 60, 14, new Color(120, 124, 118));  // areál
+        c.FillRect(2, 48, 60, 3, new Color(142, 146, 140));
 
-        // Chladicí věž — nezaměnitelný obrys, poznat i v oddálení.
-        c.FillTriangle(5f, 24f, 11f, 24f, 7f, 12f, new Color(198, 202, 200));
-        c.FillTriangle(11f, 24f, 15f, 12f, 7f, 12f, new Color(212, 216, 214));
-        c.FillRect(7, 10, 8, 3, new Color(182, 186, 184));
-        c.FillCircle(11f, 7f, 3.4f, new Color(226, 232, 230));  // pára
-        c.FillCircle(14f, 5f, 2.2f, new Color(238, 242, 240));
+        // Dvě chladicí věže: nezaměnitelný obrys, poznat i v oddálení.
+        for (int i = 0; i < 2; i++)
+        {
+            float cx = 14f + i * 20f;
+            c.FillTriangle(cx - 9f, 48f, cx + 9f, 48f, cx + 5f, 20f, new Color(198, 202, 200));
+            c.FillTriangle(cx - 9f, 48f, cx + 5f, 20f, cx - 5f, 20f, new Color(212, 216, 214));
+            c.FillRect((int)cx - 6, 17, 12, 4, new Color(182, 186, 184));
 
-        c.FillCircle(23f, 22f, 6f, new Color(150, 172, 168));   // kopule reaktoru
-        c.FillCircle(23f, 22f, 3f, new Color(120, 196, 178));
-        c.FillRect(17, 22, 12, 3, new Color(136, 150, 148));
+            // Pára stoupá a rozšiřuje se.
+            c.FillCircle(cx, 12f, 6f, new Color(226, 232, 230));
+            c.FillCircle(cx + 4f, 6f, 4.5f, new Color(238, 242, 240));
+            c.FillCircle(cx - 3f, 4f, 3f, new Color(246, 250, 248));
+        }
+
+        // Kopule reaktoru vpravo — zelenkavý přísvit zpod pláště.
+        c.FillCircle(50f, 44f, 13f, new Color(150, 172, 168));
+        c.FillCircle(50f, 44f, 9f, new Color(168, 190, 186));
+        c.FillCircle(50f, 44f, 4.5f, new Color(120, 196, 178));
+        c.FillRect(36, 44, 28, 6, new Color(136, 150, 148));
+
+        // Transformátorové pole u paty — odsud vede proud pryč.
+        for (int i = 0; i < 3; i++)
+        {
+            c.FillRect(6 + i * 8, 52, 5, 7, new Color(96, 100, 104));
+        }
     }
 
     /// <summary>Dekontaminační stanice: sprchová brána a nádrž na svlečenou hlínu.</summary>
@@ -1526,34 +1548,38 @@ public sealed class SpriteLibrary : IDisposable
     /// haldou vytěžené hlíny. Musí být poznat na první pohled, že to je díra
     /// do země, ne další budova.
     /// </summary>
+    /// <summary>Velký lom: etážový kráter se serpentinou a jeřáby na okraji.</summary>
     private static void GreatPit(PixelCanvas c)
     {
-        c.FillRect(0, 4, 32, 26, new Color(96, 84, 66));       // rozrytý okolní terén
-        c.FillCircle(16f, 18f, 15f, new Color(120, 102, 78));  // vnější val
+        c.FillRect(0, 8, 64, 54, new Color(96, 84, 66));        // rozrytý okolní terén
+        c.FillCircle(32f, 36f, 30f, new Color(120, 102, 78));   // vnější val
 
         // Etáže: každý prstenec tmavší — z toho je vidět hloubka.
-        c.FillCircle(16f, 18f, 13f, new Color(104, 88, 66));
-        c.FillCircle(16f, 18f, 10.5f, new Color(86, 72, 54));
-        c.FillCircle(16f, 18f, 8f, new Color(66, 55, 42));
-        c.FillCircle(16f, 18f, 5.5f, new Color(46, 38, 30));
-        c.FillCircle(16f, 18f, 3f, new Color(24, 20, 17));     // dno se ztrácí ve tmě
+        c.FillCircle(32f, 36f, 26f, new Color(104, 88, 66));
+        c.FillCircle(32f, 36f, 21f, new Color(86, 72, 54));
+        c.FillCircle(32f, 36f, 16f, new Color(66, 55, 42));
+        c.FillCircle(32f, 36f, 11f, new Color(46, 38, 30));
+        c.FillCircle(32f, 36f, 6f, new Color(24, 20, 17));      // dno se ztrácí ve tmě
 
         // Serpentina po stěně — po ní jezdí náklaďáky dolů.
-        c.FillRect(16, 6, 8, 1, new Color(140, 122, 96));
-        c.FillRect(21, 12, 6, 1, new Color(132, 114, 90));
-        c.FillRect(9, 22, 7, 1, new Color(124, 106, 84));
+        c.FillRect(32, 12, 18, 2, new Color(140, 122, 96));
+        c.FillRect(44, 24, 13, 2, new Color(132, 114, 90));
+        c.FillRect(38, 36, 12, 2, new Color(120, 104, 82));
+        c.FillRect(18, 44, 15, 2, new Color(124, 106, 84));
+        c.FillRect(10, 30, 12, 2, new Color(132, 114, 90));
 
         // Jeřáby na okraji: bez nich by to byl jen kráter, ne stavba.
-        c.FillRect(3, 3, 1, 12, new Color(200, 170, 60));
-        c.FillRect(3, 3, 8, 1, new Color(214, 184, 70));
-        c.FillRect(10, 4, 1, 4, new Color(160, 140, 60));
+        c.FillRect(6, 6, 3, 24, new Color(200, 170, 60));
+        c.FillRect(6, 6, 17, 3, new Color(214, 184, 70));
+        c.FillRect(20, 9, 2, 8, new Color(160, 140, 60));
 
-        c.FillRect(28, 5, 1, 11, new Color(200, 170, 60));
-        c.FillRect(22, 5, 7, 1, new Color(214, 184, 70));
-        c.FillRect(22, 6, 1, 4, new Color(160, 140, 60));
+        c.FillRect(55, 10, 3, 22, new Color(200, 170, 60));
+        c.FillRect(43, 10, 15, 3, new Color(214, 184, 70));
+        c.FillRect(45, 13, 2, 8, new Color(160, 140, 60));
 
-        // Halda vytěžené hlíny.
-        c.FillTriangle(24f, 30f, 32f, 30f, 28f, 24f, new Color(112, 96, 72));
+        // Halda vytěženého kamene.
+        c.FillCircle(8f, 56f, 7f, new Color(112, 98, 76));
+        c.FillCircle(14f, 59f, 5f, new Color(126, 110, 84));
     }
 
     private static void StandingStones(PixelCanvas c)
@@ -1804,16 +1830,36 @@ public sealed class SpriteLibrary : IDisposable
         c.FillRect(3, 28, 26, 2, new Color(140, 116, 82)); // schodiště
     }
 
+    /// <summary>Katedrála: hlavní loď, dvě věže, rozeta a portál.</summary>
     private static void Cathedral(PixelCanvas c)
     {
-        c.FillRect(6, 12, 20, 18, new Color(196, 182, 156)); // hlavní loď
-        c.FillTriangle(4f, 12f, 28f, 12f, 16f, 4f, new Color(150, 134, 112));
-        c.FillRect(2, 6, 5, 24, new Color(184, 170, 144));   // věž vlevo
-        c.FillTriangle(1f, 6f, 8f, 6f, 4.5f, 0f, new Color(120, 104, 88));
-        c.FillRect(25, 6, 5, 24, new Color(184, 170, 144));  // věž vpravo
-        c.FillTriangle(24f, 6f, 31f, 6f, 27.5f, 0f, new Color(120, 104, 88));
-        c.FillCircle(16f, 18f, 3.6f, new Color(120, 168, 200)); // rozeta
-        c.FillRect(14, 24, 5, 6, new Color(96, 78, 62));        // portál
+        c.FillRect(12, 24, 40, 38, new Color(196, 182, 156));  // hlavní loď
+        c.FillTriangle(8f, 24f, 56f, 24f, 32f, 8f, new Color(150, 134, 112));
+        c.FillTriangle(14f, 22f, 50f, 22f, 32f, 12f, new Color(206, 192, 166));
+
+        // Věže s helmicemi.
+        for (int i = 0; i < 2; i++)
+        {
+            int x = i == 0 ? 2 : 52;
+            c.FillRect(x, 12, 10, 50, new Color(184, 170, 144));
+            c.FillRect(x, 12, 10, 3, new Color(206, 192, 166));
+            c.FillTriangle(x - 1f, 12f, x + 11f, 12f, x + 5f, 0f, new Color(120, 104, 88));
+
+            // Zvonová okna.
+            c.FillRect(x + 3, 20, 4, 8, new Color(96, 86, 74));
+            c.FillRect(x + 3, 32, 4, 8, new Color(96, 86, 74));
+        }
+
+        // Rozeta a lomená okna po stranách portálu.
+        c.FillCircle(32f, 34f, 8f, new Color(150, 138, 118));
+        c.FillCircle(32f, 34f, 6f, new Color(120, 168, 200));
+        c.FillCircle(32f, 34f, 2.4f, new Color(226, 238, 246));
+        c.FillRect(18, 44, 5, 12, new Color(120, 168, 200));
+        c.FillRect(41, 44, 5, 12, new Color(120, 168, 200));
+
+        c.FillRect(28, 48, 9, 14, new Color(96, 78, 62)); // portál
+        c.FillRect(28, 48, 9, 2, new Color(150, 134, 112));
+        c.FillRect(6, 62, 52, 2, new Color(168, 156, 134)); // schodiště
     }
 
     private static void Observatory(PixelCanvas c)
@@ -2238,14 +2284,37 @@ public sealed class SpriteLibrary : IDisposable
         c.FillRect(12, 24, 8, 6, new Color(70, 68, 66));
     }
 
+    /// <summary>
+    /// Solární pole: řady nakloněných panelů na stojanech.
+    ///
+    /// <para>Dřív to byly tři ploché trojúhelníky, ze kterých nešlo poznat, co
+    /// to je. Panel má rám, odlesk a stojan — tím teprve vypadá jako panel.</para>
+    /// </summary>
     private static void SolarArray(PixelCanvas c)
     {
-        c.FillRect(4, 24, 24, 4, new Color(120, 118, 116)); // rám
-        for (int i = 0; i < 3; i++)
+        c.FillRect(1, 27, 30, 4, new Color(104, 106, 102)); // štěrkové lože
+
+        for (int row = 0; row < 2; row++)
         {
-            // Nakloněné panely.
-            c.FillTriangle(5f + i * 8, 24f, 12f + i * 8, 24f, 12f + i * 8, 13f, new Color(58, 92, 150));
-            c.FillTriangle(5f + i * 8, 24f, 12f + i * 8, 13f, 6f + i * 8, 15f, new Color(80, 130, 200));
+            int baseY = 20 + row * 7;
+            for (int i = 0; i < 3; i++)
+            {
+                int x = 3 + i * 10;
+
+                // Stojan pod panelem.
+                c.FillRect(x + 2, baseY, 2, 5, new Color(88, 90, 94));
+                c.FillRect(x + 6, baseY, 2, 5, new Color(88, 90, 94));
+
+                // Naklonění panelu: tmavší spodek, světlejší horní hrana.
+                c.FillTriangle(x, baseY + 1f, x + 9f, baseY + 1f, x + 9f, baseY - 6f,
+                    new Color(46, 74, 122));
+                c.FillTriangle(x, baseY + 1f, x + 9f, baseY - 6f, x + 1f, baseY - 4f,
+                    new Color(72, 118, 184));
+
+                // Odlesk na skle — bez něj je panel jen modrý klín.
+                c.FillTriangle(x + 4f, baseY - 1f, x + 8f, baseY - 5f, x + 8f, baseY - 2f,
+                    new Color(140, 190, 240));
+            }
         }
     }
 
@@ -2312,18 +2381,24 @@ public sealed class SpriteLibrary : IDisposable
         c.FillRect(14, 26, 4, 4, new Color(88, 84, 80)); // vchod
     }
 
+    /// <summary>Arkologie: stupňovitá pyramida se zelenými terasami.</summary>
     private static void Arcology(PixelCanvas c)
     {
-        // Stupňovitá pyramida se zelení — soběstačné město v jedné budově.
-        c.FillTriangle(2f, 30f, 30f, 30f, 16f, 4f, new Color(150, 158, 168));
-        for (int i = 0; i < 4; i++)
+        c.FillTriangle(2f, 62f, 62f, 62f, 32f, 4f, new Color(150, 158, 168));
+        c.FillTriangle(10f, 62f, 54f, 62f, 32f, 12f, new Color(168, 176, 186));
+
+        // Terasy se zelení a pásem oken pod každou — soběstačné město v domě.
+        for (int i = 0; i < 7; i++)
         {
-            int y = 26 - i * 5;
-            int half = 11 - i * 2;
-            c.FillRect(16 - half, y, half * 2, 2, new Color(90, 170, 110)); // terasy se zelení
+            int y = 56 - i * 7;
+            int half = 26 - i * 3;
+            c.FillRect(32 - half, y, half * 2, 3, new Color(90, 170, 110));
+            c.FillRect(32 - half + 2, y + 3, half * 2 - 4, 2, new Color(196, 216, 236));
         }
 
-        c.FillCircle(16f, 6f, 2.6f, new Color(180, 230, 255));
+        c.FillCircle(32f, 8f, 5f, new Color(180, 230, 255));
+        c.FillCircle(32f, 8f, 2.4f, new Color(240, 250, 255));
+        c.FillRect(2, 60, 60, 3, new Color(112, 118, 128)); // podnož
     }
 
     // ----- voda a doprava -----
@@ -2366,23 +2441,40 @@ public sealed class SpriteLibrary : IDisposable
         c.FillRect(2, 19, 6, 4, new Color(180, 90, 70));
     }
 
+    /// <summary>Letiště: dráha, letadlo a u toho velkého i terminál s věží.</summary>
     private static void Airfield(PixelCanvas c, bool big)
     {
-        c.FillRect(2, 20, 28, 8, new Color(96, 98, 104)); // dráha
-        for (int i = 0; i < 5; i++)
+        c.FillRect(2, 38, 60, 18, new Color(96, 98, 104)); // dráha
+        c.FillRect(2, 38, 60, 2, new Color(112, 114, 120));
+        for (int i = 0; i < 7; i++)
         {
-            c.FillRect(4 + i * 6, 23, 3, 2, new Color(220, 220, 210)); // středová čára
+            c.FillRect(6 + i * 8, 46, 5, 3, new Color(220, 220, 210)); // středová čára
         }
 
         var body = big ? new Color(230, 232, 236) : new Color(200, 200, 190);
-        c.FillRect(11, 12, 12, 4, body);                   // trup
-        c.FillTriangle(23f, 12f, 23f, 16f, 29f, 14f, body); // příď
-        c.FillTriangle(13f, 12f, 19f, 12f, 16f, 6f, body);  // křídlo
-        c.FillTriangle(13f, 16f, 19f, 16f, 16f, 21f, body);
+        var trim = big ? new Color(80, 120, 170) : new Color(120, 122, 116);
+
+        // Letadlo shora: trup, křídla, ocasní plochy.
+        c.FillRect(20, 20, 26, 8, body);
+        c.FillTriangle(46f, 20f, 46f, 28f, 60f, 24f, body);        // příď
+        c.FillTriangle(24f, 20f, 38f, 20f, 30f, 6f, body);         // levé křídlo
+        c.FillTriangle(24f, 28f, 38f, 28f, 30f, 42f, body);        // pravé křídlo
+        c.FillTriangle(20f, 20f, 26f, 20f, 22f, 12f, trim);        // ocas
+        c.FillTriangle(20f, 28f, 26f, 28f, 22f, 36f, trim);
+        c.FillRect(42, 22, 5, 4, new Color(120, 170, 210));        // kabina
+
         if (big)
         {
-            c.FillRect(3, 8, 6, 10, new Color(150, 154, 162)); // terminál
-            c.FillRect(4, 4, 2, 5, new Color(120, 124, 132));  // věž
+            c.FillRect(2, 8, 14, 28, new Color(150, 154, 162));    // terminál
+            c.FillRect(2, 8, 14, 3, new Color(178, 182, 190));
+            for (int i = 0; i < 4; i++)
+            {
+                c.FillRect(4, 14 + i * 6, 10, 3, new Color(196, 214, 232));
+            }
+
+            c.FillRect(6, 0, 5, 10, new Color(120, 124, 132));     // řídicí věž
+            c.FillRect(4, 0, 9, 4, new Color(150, 154, 162));
+            c.FillCircle(8.5f, 2f, 1.6f, new Color(230, 200, 120));
         }
     }
 
@@ -2398,6 +2490,16 @@ public sealed class SpriteLibrary : IDisposable
     /// začátek, ne hůř.</para>
     /// </summary>
     public const int MegaSpriteSize = 96;
+
+    /// <summary>
+    /// Plátno pro budovy o třech až pěti dlaždicích.
+    ///
+    /// <para>Mezi chalupou a megastrukturou je celá řada staveb, které se
+    /// kreslily na týchž 32×32 jako bouda a roztáhly se na dvojnásobek až
+    /// trojnásobek. Katedrála, letiště ani jaderná elektrárna pak nevypadaly
+    /// jako velké budovy, ale jako rozmazané malé.</para>
+    /// </summary>
+    public const int BigSpriteSize = 64;
 
     /// <summary>Městská věž: štíhlý jehlan s pásy oken a majákem na špici.</summary>
     private static void MegacitySpire(PixelCanvas c)
