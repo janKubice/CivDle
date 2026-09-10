@@ -2209,23 +2209,23 @@
       "category": "megastructure",
       "mapColor": "#B0C4DE",
       "footprint": [
-        4,
-        4
+        6,
+        6
       ],
-      "workerSlots": 50,
+      "workerSlots": 150,
       "buildCost": {
-        "nanomaterial": 120,
-        "robot": 60,
-        "computer": 90
+        "nanomaterial": 600,
+        "robot": 300,
+        "computer": 450
       },
       "recipe": {
         "input": {
-          "nanomaterial": 2,
-          "robot": 1
+          "nanomaterial": 8,
+          "robot": 4
         },
         "output": {
-          "computer": 8,
-          "electronics": 8
+          "computer": 32,
+          "electronics": 32
         },
         "timeTicks": 50
       },
@@ -2267,14 +2267,14 @@
       "category": "megastructure",
       "mapColor": "#9C6ADE",
       "footprint": [
-        3,
-        3
+        5,
+        5
       ],
-      "housingCapacity": 5000,
+      "housingCapacity": 24000,
       "buildCost": {
-        "steel": 120,
-        "computer": 60,
-        "machine_parts": 80
+        "steel": 600,
+        "computer": 300,
+        "machine_parts": 400
       },
       "powerDemand": 60,
       "allowedBiomes": [
@@ -2285,7 +2285,7 @@
         "tundra",
         "desert"
       ],
-      "serviceValue": 40,
+      "serviceValue": 110,
       "upkeep": {
         "electronics": 1
       },
@@ -2316,14 +2316,14 @@
       "category": "megastructure",
       "mapColor": "#D4A54A",
       "footprint": [
-        3,
-        3
+        5,
+        5
       ],
-      "workerSlots": 40,
+      "workerSlots": 110,
       "buildCost": {
-        "steel": 100,
-        "electronics": 50,
-        "machine_parts": 60
+        "steel": 500,
+        "electronics": 250,
+        "machine_parts": 300
       },
       "storage": {
         "wood": 5000,
@@ -2349,7 +2349,7 @@
         "tundra",
         "desert"
       ],
-      "serviceValue": 60,
+      "serviceValue": 160,
       "upkeep": {
         "steel": 2
       },
@@ -2381,15 +2381,15 @@
       "category": "megastructure",
       "mapColor": "#5FD6E8",
       "footprint": [
-        3,
-        3
+        7,
+        7
       ],
       "buildCost": {
-        "nanomaterial": 150,
-        "robot": 60,
-        "computer": 100
+        "nanomaterial": 750,
+        "robot": 300,
+        "computer": 500
       },
-      "powerSupply": 2000,
+      "powerSupply": 9000,
       "allowedBiomes": [
         "grassland",
         "steppe",
@@ -2425,23 +2425,23 @@
       "category": "megastructure",
       "mapColor": "#E8763A",
       "footprint": [
-        3,
-        3
+        6,
+        6
       ],
-      "workerSlots": 60,
+      "workerSlots": 180,
       "buildCost": {
-        "nanomaterial": 200,
-        "robot": 100,
-        "steel": 200
+        "nanomaterial": 1000,
+        "robot": 500,
+        "steel": 1000
       },
       "recipe": {
         "input": {
-          "silicon": 4,
-          "iron": 4
+          "silicon": 16,
+          "iron": 16
         },
         "output": {
-          "nanomaterial": 6,
-          "steel": 6
+          "nanomaterial": 24,
+          "steel": 24
         },
         "timeTicks": 40
       },
@@ -2485,22 +2485,22 @@
       "category": "megastructure",
       "mapColor": "#7FE3C4",
       "footprint": [
-        4,
-        4
+        7,
+        7
       ],
-      "workerSlots": 45,
+      "workerSlots": 140,
       "buildCost": {
-        "steel": 180,
-        "computer": 120,
-        "nanomaterial": 90
+        "steel": 900,
+        "computer": 600,
+        "nanomaterial": 450
       },
       "recipe": {
         "input": {
-          "silicon": 3,
-          "computer": 2
+          "silicon": 12,
+          "computer": 8
         },
         "output": {
-          "nanomaterial": 9
+          "nanomaterial": 36
         },
         "timeTicks": 45
       },
@@ -2540,15 +2540,15 @@
       "category": "megastructure",
       "mapColor": "#FFD98A",
       "footprint": [
-        3,
-        3
+        6,
+        6
       ],
       "buildCost": {
-        "nanomaterial": 140,
-        "steel": 160,
-        "robot": 50
+        "nanomaterial": 700,
+        "steel": 800,
+        "robot": 250
       },
-      "powerSupply": 3000,
+      "powerSupply": 14000,
       "allowedBiomes": [
         "grassland",
         "steppe",
@@ -2557,7 +2557,7 @@
         "tundra",
         "desert"
       ],
-      "serviceValue": 50,
+      "serviceValue": 140,
       "upkeep": {
         "nanomaterial": 1
       },

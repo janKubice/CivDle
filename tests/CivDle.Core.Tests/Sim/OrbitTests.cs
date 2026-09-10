@@ -331,18 +331,19 @@ public class OrbitTests
 
     /// <summary>
     /// Postaví shluk, ze kterého se stane velkoměsto. Uprostřed nechá díru
-    /// 5×5 na kosmodrom (má půdorys 4×4).
+    /// na kosmodrom — ten je megastruktura a zabírá 6×6 dlaždic, takže se
+    /// mezi domky nevejde do žádné mezery, která by vznikla sama.
     /// </summary>
     private static void GrowMetropolis(Simulation sim, GameContent content)
     {
         int house = content.Buildings.IndexOf("house");
-        for (int y = 0; y < 20; y++)
+        for (int y = 0; y < 22; y++)
         {
-            for (int x = 0; x < 20; x++)
+            for (int x = 0; x < 22; x++)
             {
-                if (x is >= 8 and <= 12 && y is >= 8 and <= 12)
+                if (x is >= 8 and <= 15 && y is >= 8 and <= 15)
                 {
-                    continue; // místo pro kosmodrom
+                    continue; // místo pro kosmodrom (6×6 s rezervou)
                 }
 
                 sim.TryPlaceBuildingFree(house, x, y);

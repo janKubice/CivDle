@@ -2727,14 +2727,20 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"Budova '{id}': 'footprint' musí být [šířka, výška] v rozsahu 1–8.");
         }
 
-        if (dto.WorkerSlots is < 0 or > 100)
+        // Strop je pojistka proti překlepu (přidaná nula), ne návrhové pravidlo.
+        // Sto stačilo, dokud největší stavbou byla huť; megastruktura o sedmi
+        // dlaždicích na stranu zaměstná víc lidí než celá vesnice.
+        if (dto.WorkerSlots is < 0 or > 500)
         {
-            throw new ContentLoadException(path, $"Budova '{id}': 'workerSlots' musí být 0–100, je {dto.WorkerSlots}.");
+            throw new ContentLoadException(path, $"Budova '{id}': 'workerSlots' musí být 0–500, je {dto.WorkerSlots}.");
         }
 
-        if (dto.HousingCapacity is < 0 or > 10_000)
+        // Strop je pojistka proti překlepu (přidaná nula), ne návrhové pravidlo.
+        // Městská věž ubytuje víc lidí, než měla celá hra v době, kdy tenhle
+        // limit vznikl.
+        if (dto.HousingCapacity is < 0 or > 100_000)
         {
-            throw new ContentLoadException(path, $"Budova '{id}': 'housingCapacity' musí být 0–10000, je {dto.HousingCapacity}.");
+            throw new ContentLoadException(path, $"Budova '{id}': 'housingCapacity' musí být 0–100000, je {dto.HousingCapacity}.");
         }
 
         var buildCost = ParseResourceAmounts(path, id, "buildCost", dto.BuildCost, resources);

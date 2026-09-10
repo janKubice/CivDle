@@ -298,7 +298,7 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.deep_sea_port", SpriteSize, DeepSeaPort);
         Add(device, "building.airfield", SpriteSize, canvas => Airfield(canvas, big: false));
         Add(device, "building.airport", SpriteSize, canvas => Airfield(canvas, big: true));
-        Add(device, "building.spaceport", SpriteSize, Spaceport);
+        Add(device, "building.spaceport", MegaSpriteSize, Spaceport);
 
         // Podmoří. Všechny stojí na dně, takže mají společný rys: nekreslí se
         // jim střecha proti nebi, ale silueta proti vodě — světlejší obrys
@@ -335,12 +335,12 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "stage.frame", SpriteSize, Framework);
 
         // Megastavby.
-        Add(device, "building.megacity_spire", SpriteSize, MegacitySpire);
-        Add(device, "building.grand_exchange", SpriteSize, GrandExchange);
-        Add(device, "building.orbital_ring", SpriteSize, OrbitalRing);
-        Add(device, "building.world_forge", SpriteSize, WorldForge);
-        Add(device, "building.particle_accelerator", SpriteSize, ParticleAccelerator);
-        Add(device, "building.fusion_beacon", SpriteSize, FusionBeacon);
+        Add(device, "building.megacity_spire", MegaSpriteSize, MegacitySpire);
+        Add(device, "building.grand_exchange", MegaSpriteSize, GrandExchange);
+        Add(device, "building.orbital_ring", MegaSpriteSize, OrbitalRing);
+        Add(device, "building.world_forge", MegaSpriteSize, WorldForge);
+        Add(device, "building.particle_accelerator", MegaSpriteSize, ParticleAccelerator);
+        Add(device, "building.fusion_beacon", MegaSpriteSize, FusionBeacon);
 
         // Agenti (živý svět).
         Add(device, "agent.person", 12, Person);
@@ -2340,97 +2340,187 @@ public sealed class SpriteLibrary : IDisposable
         }
     }
 
-    private static void Spaceport(PixelCanvas c)
-    {
-        c.FillRect(4, 25, 24, 5, new Color(110, 112, 118)); // rampa
-        // Raketa.
-        c.FillRect(13, 8, 6, 17, new Color(226, 228, 232));
-        c.FillTriangle(13f, 8f, 19f, 8f, 16f, 1f, new Color(200, 80, 70)); // špička
-        c.FillTriangle(13f, 20f, 13f, 25f, 9f, 25f, new Color(200, 80, 70)); // stabilizátory
-        c.FillTriangle(19f, 20f, 19f, 25f, 23f, 25f, new Color(200, 80, 70));
-        c.FillCircle(16f, 14f, 2f, new Color(120, 190, 230)); // okénko
-        c.FillRect(6, 14, 3, 12, new Color(140, 142, 148));   // obslužná věž
-    }
 
     // ----- megastavby -----
 
+    /// <summary>
+    /// Megastruktury se kreslí na větší plátno než ostatní budovy.
+    ///
+    /// <para>Proč: stojí na šesti až sedmi dlaždicích, tedy přes sto pixelů
+    /// obrazovky. Kdyby se kreslily na týchž 32×32 jako chalupa, roztáhly by se
+    /// na trojnásobek a z detailu by byly kostky. Konec hry má vypadat líp než
+    /// začátek, ne hůř.</para>
+    /// </summary>
+    public const int MegaSpriteSize = 96;
+
+    /// <summary>Městská věž: štíhlý jehlan s pásy oken a majákem na špici.</summary>
     private static void MegacitySpire(PixelCanvas c)
     {
-        c.FillTriangle(6f, 30f, 26f, 30f, 16f, 2f, new Color(120, 132, 150));
-        c.FillTriangle(10f, 30f, 22f, 30f, 16f, 6f, new Color(150, 164, 182));
-        for (int i = 0; i < 6; i++)
+        // Podnož: široká deska, ze které věž roste. Bez ní vypadal jehlan,
+        // jako by stál na špičce.
+        c.FillRect(14, 84, 68, 10, new Color(84, 92, 106));
+        c.FillRect(18, 80, 60, 5, new Color(102, 112, 128));
+
+        c.FillTriangle(20f, 84f, 76f, 84f, 48f, 6f, new Color(120, 132, 150));
+        c.FillTriangle(30f, 84f, 66f, 84f, 48f, 14f, new Color(150, 164, 182));
+        c.FillTriangle(42f, 84f, 54f, 84f, 48f, 20f, new Color(178, 192, 208));
+
+        // Pásy oken se s výškou zužují spolu s věží — rovné pruhy by z jehlanu
+        // udělaly krabici pomalovanou čárami.
+        for (int i = 0; i < 13; i++)
         {
-            c.FillRect(12, 26 - i * 4, 8, 1, new Color(190, 225, 245)); // pásy oken
+            int y = 78 - i * 5;
+            int half = 3 + (i * 22) / 13;
+            c.FillRect(48 - half, y, half * 2, 2, new Color(190, 225, 245));
         }
 
-        c.FillCircle(16f, 3f, 1.8f, new Color(255, 220, 120)); // maják na špici
+        c.FillCircle(48f, 8f, 4.5f, new Color(255, 220, 120));
+        c.FillCircle(48f, 8f, 2.2f, new Color(255, 250, 220));
     }
 
+    /// <summary>Velká burza: mramorový chrám obchodu s podloubím.</summary>
     private static void GrandExchange(PixelCanvas c)
     {
-        c.FillRect(4, 14, 24, 16, new Color(196, 186, 164)); // mramor
-        c.FillTriangle(2f, 14f, 30f, 14f, 16f, 5f, new Color(168, 156, 134)); // tympanon
-        for (int i = 0; i < 5; i++)
+        c.FillRect(10, 40, 76, 48, new Color(196, 186, 164));
+        c.FillTriangle(4f, 42f, 92f, 42f, 48f, 12f, new Color(168, 156, 134));
+        c.FillTriangle(12f, 40f, 84f, 40f, 48f, 20f, new Color(206, 196, 176));
+
+        // Sloupoví: každý sloup má hlavici i patku, jinak to jsou jen pruhy.
+        for (int i = 0; i < 7; i++)
         {
-            c.FillRect(6 + i * 5, 17, 3, 13, new Color(226, 218, 200)); // sloupy
+            int x = 14 + i * 11;
+            c.FillRect(x, 48, 7, 34, new Color(226, 218, 200));
+            c.FillRect(x - 1, 45, 9, 4, new Color(238, 232, 216));
+            c.FillRect(x - 1, 80, 9, 3, new Color(206, 198, 180));
         }
 
-        c.FillRect(4, 29, 24, 2, new Color(150, 140, 122)); // schodiště
+        c.FillRect(8, 84, 80, 4, new Color(150, 140, 122));
+        c.FillRect(4, 88, 88, 5, new Color(132, 124, 108));
+        c.FillCircle(48f, 26f, 5f, new Color(228, 196, 96)); // znak nad vchodem
     }
 
+    /// <summary>Orbitální prstenec: kotvící stožár a prstenec nad městem.</summary>
     private static void OrbitalRing(PixelCanvas c)
     {
-        c.FillCircle(16f, 15f, 12f, new Color(110, 130, 160) * 0.55f);
-        c.FillCircle(16f, 15f, 9f, Color.Transparent);      // prstenec
-        c.FillRect(15, 15, 3, 15, new Color(150, 154, 162)); // kotvící stožár
-        c.FillCircle(16f, 15f, 3.2f, new Color(180, 220, 245));
-        c.FillCircle(6f, 10f, 1.6f, new Color(255, 235, 160)); // moduly na prstenci
-        c.FillCircle(26f, 20f, 1.6f, new Color(255, 235, 160));
+        c.FillRect(38, 52, 20, 42, new Color(96, 100, 110)); // pata stožáru
+        c.FillRect(42, 30, 12, 30, new Color(150, 154, 162));
+        c.FillRect(30, 86, 36, 8, new Color(74, 78, 88));
+
+        // Prstenec: mezikruží se udělá tak, že se plný kruh vykrojí barvou
+        // pozadí — PixelCanvas jiný způsob nemá.
+        c.FillCircle(48f, 34f, 42f, new Color(110, 130, 160));
+        c.FillCircle(48f, 34f, 36f, Color.Transparent);
+        c.FillCircle(48f, 34f, 39f, new Color(150, 172, 200));
+        c.FillCircle(48f, 34f, 37f, Color.Transparent);
+
+        // Moduly rozsazené po obvodu — bez nich je to jen kroužek.
+        for (int i = 0; i < 8; i++)
+        {
+            float angle = i * MathF.Tau / 8f;
+            c.FillCircle(48f + MathF.Cos(angle) * 39f, 34f + MathF.Sin(angle) * 39f, 3.4f,
+                new Color(255, 235, 160));
+        }
+
+        c.FillCircle(48f, 34f, 8f, new Color(180, 220, 245));
+        c.FillCircle(48f, 34f, 4f, new Color(240, 250, 255));
     }
 
     /// <summary>Urychlovač částic: zapuštěný prstenec se svítící drahou uvnitř.</summary>
     private static void ParticleAccelerator(PixelCanvas c)
     {
-        c.FillCircle(16f, 17f, 13f, new Color(58, 66, 72));
-        c.FillCircle(16f, 17f, 11f, new Color(88, 98, 104));
-        c.FillCircle(16f, 17f, 8.5f, new Color(46, 54, 60));
+        c.FillCircle(48f, 50f, 44f, new Color(58, 66, 72));
+        c.FillCircle(48f, 50f, 38f, new Color(88, 98, 104));
+        c.FillCircle(48f, 50f, 30f, new Color(46, 54, 60));
 
         // Svítící dráha uvnitř prstence — to je ta věc, kvůli které se tam kouká.
-        c.FillCircle(16f, 17f, 7f, new Color(127, 227, 196));
-        c.FillCircle(16f, 17f, 5.5f, new Color(24, 32, 38));
+        c.FillCircle(48f, 50f, 24f, new Color(127, 227, 196));
+        c.FillCircle(48f, 50f, 19f, new Color(24, 32, 38));
 
-        // Injektory na obvodu.
-        c.FillRect(14, 2, 4, 6, new Color(120, 132, 138));
-        c.FillRect(2, 15, 6, 4, new Color(120, 132, 138));
-        c.FillRect(24, 15, 6, 4, new Color(120, 132, 138));
-        c.FillCircle(16f, 4f, 1.6f, new Color(190, 255, 235));
+        // Injektory po obvodu, každý s ústím.
+        for (int i = 0; i < 4; i++)
+        {
+            float angle = i * MathF.Tau / 4f;
+            float x = 48f + MathF.Cos(angle) * 40f;
+            float y = 50f + MathF.Sin(angle) * 40f;
+            c.FillCircle(x, y, 7f, new Color(120, 132, 138));
+            c.FillCircle(x, y, 3.2f, new Color(190, 255, 235));
+        }
+
+        c.FillRect(40, 4, 16, 14, new Color(120, 132, 138)); // hala nahoře
+        c.FillRect(43, 8, 10, 6, new Color(168, 180, 188));
     }
 
     /// <summary>Fúzní maják: štíhlá věž s žhnoucím jádrem na vrcholu.</summary>
     private static void FusionBeacon(PixelCanvas c)
     {
-        c.FillTriangle(9f, 30f, 23f, 30f, 16f, 6f, new Color(74, 78, 88));
-        c.FillTriangle(11f, 30f, 21f, 30f, 16f, 9f, new Color(104, 110, 122));
-        c.FillRect(6, 28, 20, 3, new Color(62, 66, 74));
+        c.FillRect(14, 84, 68, 10, new Color(62, 66, 74));
+        c.FillTriangle(24f, 86f, 72f, 86f, 48f, 18f, new Color(74, 78, 88));
+        c.FillTriangle(32f, 86f, 64f, 86f, 48f, 26f, new Color(104, 110, 122));
 
-        // Jádro nahoře: dvě vrstvy, ať vypadá rozpálené zevnitř.
-        c.FillCircle(16f, 7f, 4.2f, new Color(255, 217, 138));
-        c.FillCircle(16f, 7f, 2.2f, new Color(255, 252, 226));
-        c.FillCircle(16f, 18f, 1.6f, new Color(255, 217, 138) * 0.6f);
+        // Chladicí žebra po stranách — dávají věži šířku a měřítko.
+        for (int i = 0; i < 5; i++)
+        {
+            int y = 74 - i * 11;
+            int half = 8 + i;
+            c.FillRect(48 - half, y, half * 2, 3, new Color(126, 132, 146));
+        }
+
+        // Jádro nahoře: tři vrstvy, ať vypadá rozpálené zevnitř.
+        c.FillCircle(48f, 20f, 15f, new Color(255, 190, 96) * 0.45f);
+        c.FillCircle(48f, 20f, 11f, new Color(255, 217, 138));
+        c.FillCircle(48f, 20f, 5.5f, new Color(255, 252, 226));
     }
 
+    /// <summary>Světová huť: masiv s roztaveným jádrem a dvěma komíny.</summary>
     private static void WorldForge(PixelCanvas c)
     {
-        c.FillRect(3, 16, 26, 14, new Color(96, 92, 96));
-        c.FillTriangle(3f, 16f, 29f, 16f, 16f, 8f, new Color(72, 68, 72));
-        c.FillCircle(16f, 22f, 6f, new Color(232, 120, 50)); // roztavené jádro
-        c.FillCircle(16f, 22f, 3f, new Color(255, 220, 140));
-        c.FillRect(5, 6, 4, 11, new Color(88, 84, 88));
-        c.FillRect(23, 6, 4, 11, new Color(88, 84, 88));
-        c.FillCircle(7f, 5f, 2.4f, new Color(150, 140, 140) * 0.5f);
-        c.FillCircle(25f, 4f, 2f, new Color(150, 140, 140) * 0.45f);
+        c.FillRect(6, 46, 84, 46, new Color(96, 92, 96));
+        c.FillTriangle(4f, 48f, 92f, 48f, 48f, 20f, new Color(72, 68, 72));
+        c.FillRect(6, 88, 84, 6, new Color(58, 56, 60));
+
+        // Ústí pece: tři vrstvy od tmavého okraje ke žhavému středu.
+        c.FillCircle(48f, 64f, 22f, new Color(140, 60, 30));
+        c.FillCircle(48f, 64f, 17f, new Color(232, 120, 50));
+        c.FillCircle(48f, 64f, 9f, new Color(255, 220, 140));
+
+        // Komíny s kouřem.
+        c.FillRect(12, 12, 12, 36, new Color(88, 84, 88));
+        c.FillRect(72, 12, 12, 36, new Color(88, 84, 88));
+        c.FillRect(10, 8, 16, 6, new Color(104, 100, 104));
+        c.FillRect(70, 8, 16, 6, new Color(104, 100, 104));
+        c.FillCircle(18f, 4f, 6f, new Color(150, 140, 140) * 0.5f);
+        c.FillCircle(78f, 3f, 5f, new Color(150, 140, 140) * 0.45f);
+
+        // Odlévací žlaby ven z huti — teče z ní to, co vyrábí.
+        c.FillRect(6, 78, 84, 3, new Color(232, 140, 60));
     }
 
+    /// <summary>Kosmodrom: rampa, obslužná věž a raketa na startu.</summary>
+    private static void Spaceport(PixelCanvas c)
+    {
+        c.FillRect(6, 76, 84, 16, new Color(110, 112, 118)); // rampa
+        c.FillRect(6, 88, 84, 5, new Color(84, 86, 92));
+
+        // Plamenový kanál pod raketou.
+        c.FillRect(38, 76, 20, 10, new Color(58, 58, 62));
+
+        // Obslužná věž s plošinami.
+        c.FillRect(14, 20, 12, 58, new Color(140, 142, 148));
+        for (int i = 0; i < 5; i++)
+        {
+            c.FillRect(12, 30 + i * 11, 24, 3, new Color(116, 118, 124));
+        }
+
+        // Raketa.
+        c.FillRect(38, 22, 20, 56, new Color(226, 228, 232));
+        c.FillRect(38, 22, 6, 56, new Color(198, 200, 206)); // stín na boku
+        c.FillTriangle(38f, 24f, 58f, 24f, 48f, 2f, new Color(200, 80, 70)); // špička
+        c.FillTriangle(38f, 60f, 38f, 78f, 26f, 78f, new Color(200, 80, 70)); // stabilizátory
+        c.FillTriangle(58f, 60f, 58f, 78f, 70f, 78f, new Color(200, 80, 70));
+        c.FillCircle(48f, 40f, 5.5f, new Color(120, 190, 230)); // okénko
+        c.FillCircle(48f, 40f, 2.5f, new Color(210, 240, 255));
+        c.FillRect(38, 52, 20, 3, new Color(180, 182, 188));
+    }
 
     // ----- ikony pozdějších surovin -----
 
