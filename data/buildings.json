@@ -618,7 +618,120 @@
         "uranium": 40,
         "kelp": 120,
         "nodules": 80
+      },
+      "upgradesTo": "great_warehouse",
+      "upgradeCost": {
+        "planks": 70,
+        "stone": 60,
+        "iron": 20
       }
+    },
+    {
+      "id": "great_warehouse",
+      "category": "storage",
+      "mapColor": "#8C7A5E",
+      "footprint": [
+        3,
+        3
+      ],
+      "workerSlots": 6,
+      "buildCost": {
+        "planks": 90,
+        "stone": 80,
+        "iron": 30
+      },
+      "storage": {
+        "wood": 525,
+        "planks": 350,
+        "stone": 420,
+        "food": 420,
+        "grain": 490,
+        "flour": 350,
+        "bread": 315,
+        "tools": 210,
+        "copper_ore": 280,
+        "bronze": 210,
+        "iron_ore": 280,
+        "coal": 280,
+        "iron": 210,
+        "steel": 210,
+        "machine_parts": 175,
+        "silicon": 210,
+        "electronics": 175,
+        "computer": 140,
+        "nanomaterial": 140,
+        "robot": 105,
+        "science": 262,
+        "faith": 210,
+        "uranium": 140,
+        "kelp": 420,
+        "nodules": 280
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert"
+      ],
+      "upgradesTo": "logistics_hub",
+      "upgradeCost": {
+        "steel": 180,
+        "machine_parts": 90,
+        "electronics": 40
+      }
+    },
+    {
+      "id": "logistics_hub",
+      "category": "storage",
+      "mapColor": "#7E8AA0",
+      "footprint": [
+        4,
+        4
+      ],
+      "workerSlots": 20,
+      "buildCost": {
+        "steel": 220,
+        "machine_parts": 120,
+        "electronics": 60
+      },
+      "storage": {
+        "wood": 1800,
+        "planks": 1200,
+        "stone": 1440,
+        "food": 1440,
+        "grain": 1680,
+        "flour": 1200,
+        "bread": 1080,
+        "tools": 720,
+        "copper_ore": 960,
+        "bronze": 720,
+        "iron_ore": 960,
+        "coal": 960,
+        "iron": 720,
+        "steel": 720,
+        "machine_parts": 600,
+        "silicon": 720,
+        "electronics": 600,
+        "computer": 480,
+        "nanomaterial": 480,
+        "robot": 360,
+        "science": 900,
+        "faith": 720,
+        "uranium": 480,
+        "kelp": 1440,
+        "nodules": 960
+      },
+      "powerDemand": 40,
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert"
+      ]
     },
     {
       "id": "windmill",

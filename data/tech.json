@@ -372,7 +372,10 @@
         "bronze_working"
       ],
       "effect": "storage_mult",
-      "magnitude": 0.4
+      "magnitude": 0.4,
+      "unlocks": [
+        "great_warehouse"
+      ]
     },
     {
       "id": "cellars",
@@ -756,7 +759,10 @@
         "computing"
       ],
       "effect": "storage_mult",
-      "magnitude": 1.0
+      "magnitude": 1.0,
+      "unlocks": [
+        "logistics_hub"
+      ]
     },
     {
       "id": "networks",

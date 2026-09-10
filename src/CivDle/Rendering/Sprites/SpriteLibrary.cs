@@ -180,6 +180,8 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.farm", SpriteSize, Farm);
         Add(device, "building.plantation", SpriteSize, Farm);
         Add(device, "building.warehouse", SpriteSize, Warehouse);
+        Add(device, "building.great_warehouse", SpriteSize, GreatWarehouse);
+        Add(device, "building.logistics_hub", MegaSpriteSize, LogisticsHub);
         Add(device, "building.windmill", SpriteSize, Windmill);
         Add(device, "building.market", SpriteSize, Market);
         Add(device, "building.toolmaker", SpriteSize, Toolmaker);
@@ -1904,6 +1906,50 @@ public sealed class SpriteLibrary : IDisposable
         c.FillRect(3, 12, 26, 4, new Color(96, 72, 50)); // horní pruh
         c.FillRect(12, 18, 8, 12, new Color(80, 60, 42)); // vrata
         c.FillRect(12, 18, 8, 2, new Color(160, 130, 96));
+    }
+
+    /// <summary>Velký sklad: dvě lodě pod sebou a nakládací rampa.</summary>
+    private static void GreatWarehouse(PixelCanvas c)
+    {
+        c.FillRect(2, 8, 28, 22, new Color(126, 96, 66));
+        c.FillRect(2, 8, 28, 4, new Color(96, 72, 50));   // hřeben střechy
+        c.FillRect(2, 18, 28, 2, new Color(96, 72, 50));  // předěl mezi loděmi
+
+        // Troje vrata místo jedněch — na tom je hned vidět, že je větší.
+        for (int i = 0; i < 3; i++)
+        {
+            c.FillRect(5 + i * 9, 21, 6, 9, new Color(80, 60, 42));
+            c.FillRect(5 + i * 9, 21, 6, 2, new Color(160, 130, 96));
+        }
+
+        c.FillRect(1, 29, 30, 2, new Color(104, 100, 96)); // rampa
+    }
+
+    /// <summary>Překladiště: haly, jeřáb a kontejnery na složišti.</summary>
+    private static void LogisticsHub(PixelCanvas c)
+    {
+        c.FillRect(4, 30, 88, 56, new Color(112, 118, 128)); // hala
+        c.FillRect(4, 30, 88, 8, new Color(86, 92, 102));
+        c.FillRect(4, 84, 88, 8, new Color(74, 78, 88));     // rampa
+
+        // Vrata s čísly stání.
+        for (int i = 0; i < 5; i++)
+        {
+            int x = 10 + i * 17;
+            c.FillRect(x, 58, 12, 26, new Color(58, 62, 70));
+            c.FillRect(x, 58, 12, 3, new Color(196, 202, 212));
+        }
+
+        // Portálový jeřáb nad halou — silueta, podle které se pozná na dálku.
+        c.FillRect(10, 12, 76, 5, new Color(168, 150, 70));
+        c.FillRect(12, 12, 6, 20, new Color(140, 126, 60));
+        c.FillRect(78, 12, 6, 20, new Color(140, 126, 60));
+        c.FillRect(46, 17, 4, 12, new Color(120, 108, 52)); // kladkostroj
+
+        // Kontejnery na složišti.
+        c.FillRect(24, 22, 14, 8, new Color(196, 96, 80));
+        c.FillRect(56, 20, 14, 10, new Color(90, 150, 190));
+        c.FillRect(40, 24, 12, 6, new Color(150, 170, 110));
     }
 
     private static void Mine(PixelCanvas c)

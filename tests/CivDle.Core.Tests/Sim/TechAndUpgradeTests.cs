@@ -177,15 +177,43 @@ public class TechAndUpgradeTests
     }
 
     [Fact]
-    public void Warehouse_HasNoUpgrade()
+    public void Warehouse_UpgradesToABiggerOne()
     {
+        // Sklad dlouho žádnou vyšší úroveň neměl, takže se v pozdní hře musel
+        // množit do šířky — dvacet skladišť rozesetých po městě. Teď má řetěz
+        // stejně jako dům.
         var sim = Grass(out var content);
         int warehouse = content.Buildings.IndexOf("warehouse");
         TopUp(sim, content);
         Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(warehouse, 5, 5));
 
         Assert.True(sim.TryGetBuildingAt(5, 5, out int idx));
-        Assert.Equal(PlacementResult.NotUnlocked, sim.CanUpgrade(idx)); // bez další úrovně
+        Assert.Equal(PlacementResult.Ok, sim.CanUpgrade(idx));
+
+        int bigger = content.Buildings.IndexOf("great_warehouse");
+        int wood = content.Resources.IndexOf("wood");
+        double capacityBefore = sim.GetStorageCap(wood);
+
+        Assert.Equal(PlacementResult.Ok, sim.TryUpgradeBuilding(idx));
+
+        Assert.Equal(bigger, sim.Buildings[idx].DefIndex);
+        Assert.True(
+            sim.GetStorageCap(wood) > capacityBefore,
+            "vylepšený sklad nepobral víc než ten původní");
+    }
+
+    [Fact]
+    public void ADepotHasNoUpgrade()
+    {
+        // Druhá strana téhož: ne každá budova řetěz má, a kdo ho nemá, to musí
+        // říct — jinak by tlačítko slibovalo něco, co se nestane.
+        var sim = Grass(out var content);
+        int depot = content.Buildings.IndexOf("depot");
+        TopUp(sim, content);
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(depot, 5, 5));
+
+        Assert.True(sim.TryGetBuildingAt(5, 5, out int idx));
+        Assert.Equal(PlacementResult.NotUnlocked, sim.CanUpgrade(idx));
     }
 
     [Fact]
