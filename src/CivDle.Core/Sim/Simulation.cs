@@ -2543,6 +2543,23 @@ public sealed class Simulation
         }
     }
 
+    /// <summary>
+    /// Ladicí: nastaví surovinu na přesnou hodnotu.
+    ///
+    /// <para>Existuje kvůli testům, které potřebují <b>prázdný</b> zásobník —
+    /// naplnit sklad umí <see cref="DebugFillStorages"/>, vyprázdnit jeden
+    /// konkrétní druh dosud nešlo jinak než odtikat hodiny výroby.</para>
+    /// </summary>
+    public void DebugSetResource(int resourceIndex, double amount)
+    {
+        if (resourceIndex < 0 || resourceIndex >= _resources.Length)
+        {
+            return;
+        }
+
+        _resources[resourceIndex] = Math.Clamp(amount, 0, _storageCaps[resourceIndex]);
+    }
+
     /// <summary>Ladicí: přidá lidi rovnou (strop měřítka pak platí dál).</summary>
     public void DebugAddPopulation(double amount)
     {
@@ -3724,6 +3741,15 @@ public sealed class Simulation
         _seasonSystem.Tick(this);
         _constructionSystem.Tick(this); // staveniště napřed: co se dnes dostavělo, dnes i vyrábí
         _production.Tick(this);
+
+        // Elektrárně mohlo dojít palivo nebo se vyprázdnit směna. Síť se jinak
+        // přepočítává jen při změně zástavby, takže by o vyhaslé elektrárně
+        // nikdy nevěděla a rozvod by visel na výkonu, který už nikdo nevyrábí.
+        if (_production.TakePowerPlantsChanged())
+        {
+            _powerDirty = true;
+        }
+
         _toolsSystem.Tick(this); // až po výrobě: ohladí se to, čím se právě pracovalo
         _pollutionSystem.Tick(this); // taky po výrobě: dýmá to, co dnes běželo
         _haulSystem.Tick(this);

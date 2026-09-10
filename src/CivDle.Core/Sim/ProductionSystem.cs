@@ -41,6 +41,39 @@ internal sealed class ProductionSystem
         _defScarce = new bool[_defs.Length];
     }
 
+    /// <summary>
+    /// Změnil se od minulého tiku stav některé elektrárny?
+    ///
+    /// <para>Simulace si podle toho přepočítá rozvod. Bez toho by síť o vyhaslé
+    /// elektrárně nevěděla: přepočítává se jen při změně zástavby, a „došlo
+    /// palivo" žádná změna zástavby není.</para>
+    /// </summary>
+    public bool PowerPlantsChanged { get; private set; }
+
+    /// <summary>Simulace si příznak vyzvedne a zahodí.</summary>
+    public bool TakePowerPlantsChanged()
+    {
+        bool changed = PowerPlantsChanged;
+        PowerPlantsChanged = false;
+        return changed;
+    }
+
+    /// <summary>
+    /// Zapíše stav budovy — a když jde o elektrárnu, upozorní na to síť.
+    ///
+    /// <para>Kontrola stojí jedno porovnání s nulou a je nepravdivá skoro
+    /// u každé budovy ve městě, takže tikovou smyčku nezdrží.</para>
+    /// </summary>
+    private void SetStall(ref BuildingInstance building, BuildingDef def, BuildingStall stall)
+    {
+        if (def.PowerSupply > 0 && building.Stall != stall)
+        {
+            PowerPlantsChanged = true;
+        }
+
+        building.Stall = stall;
+    }
+
     public void Tick(Simulation sim)
     {
         var buildings = sim.BuildingsMutable;
@@ -71,6 +104,7 @@ internal sealed class ProductionSystem
         for (int i = 0; i < buildings.Length; i++)
         {
             ref var building = ref buildings[i];
+            var def = _defs[building.DefIndex];
 
             // Poškození se hlásí PŘED receptem: vyřazený je i dům a sklad,
             // které nic nevyrábějí, a inspektor to má ukázat u obojího.
@@ -78,31 +112,37 @@ internal sealed class ProductionSystem
             // to nestojí nic.
             if (building.DisabledTicks > 0)
             {
-                building.Stall = BuildingStall.Damaged;
+                SetStall(ref building, def, BuildingStall.Damaged);
                 continue;
             }
 
-            var def = _defs[building.DefIndex];
-            var recipe = def.Recipe;
-            if (recipe is null)
-            {
-                building.Stall = BuildingStall.None; // budova bez receptu nemá co stát
-                continue;
-            }
-
+            // Rozestavěnost se hlásí PŘED receptem. Div světa ani bašta recept
+            // nemají, takže se dřív ohlásily jako „v pořádku" už ve chvíli, kdy
+            // z nich stálo lešení — a kdo se ptal „stojí už to?", dostal ano.
             if (!building.IsComplete)
             {
-                building.Stall = BuildingStall.UnderConstruction;
+                SetStall(ref building, def, BuildingStall.UnderConstruction);
                 continue; // staveniště nevyrábí, dokud nestojí
             }
 
+            // A obsazenost taky. Elektrárna, přístav nebo bašta recept nemají,
+            // ale bez lidí nefungují — a dokud to nikdo neřekl, tvářily se, že
+            // jedou. Jaderná elektrárna tak sypala do sítě plný výkon s prázdnou
+            // směnou i prázdným zásobníkem paliva.
             float staffing = def.WorkerSlots > 0 ? _assigned[i] / (float)def.WorkerSlots : 1f;
             if (staffing <= 0f)
             {
                 // Nejčastější tichá příčina „proč se nic neděje": budovu nemá kdo
                 // obsluhovat. Bez tohohle příznaku nedostala ani červený roh,
                 // protože se nikdy nedopracovala na konec cyklu.
-                building.Stall = BuildingStall.NoWorkers;
+                SetStall(ref building, def, BuildingStall.NoWorkers);
+                continue;
+            }
+
+            var recipe = def.Recipe;
+            if (recipe is null)
+            {
+                SetStall(ref building, def, BuildingStall.None); // budova bez receptu nemá co stát
                 continue;
             }
 
@@ -137,7 +177,7 @@ internal sealed class ProductionSystem
                 // Stall: cyklus je „hotový", ale čeká na vstupy — dokončí se hned,
                 // jak suroviny dotečou.
                 building.Progress = recipe.TimeTicks;
-                building.Stall = BuildingStall.MissingInput;
+                SetStall(ref building, def, BuildingStall.MissingInput);
                 continue;
             }
 
@@ -148,11 +188,11 @@ internal sealed class ProductionSystem
             if (def.HarvestsTerrain && !sim.TryConsumeTerrain(ref building, def))
             {
                 building.Progress = recipe.TimeTicks;
-                building.Stall = BuildingStall.NoTerrain;
+                SetStall(ref building, def, BuildingStall.NoTerrain);
                 continue;
             }
 
-            building.Stall = BuildingStall.None;
+            SetStall(ref building, def, BuildingStall.None);
 
             for (int j = 0; j < recipe.Inputs.Count; j++)
             {

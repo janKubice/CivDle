@@ -69,12 +69,33 @@ public sealed class PowerGridSystem
         for (int i = 0; i < buildings.Length; i++)
         {
             var def = content.Buildings[buildings[i].DefIndex];
-            if (def.PowerSupply > 0 && buildings[i].IsComplete)
+            if (def.PowerSupply > 0 && IsDelivering(buildings[i]))
             {
                 Spread(buildings[i].X, buildings[i].Y, def.PowerSupply, config.Range);
             }
         }
     }
+
+    /// <summary>
+    /// Sype tahle elektrárna opravdu do sítě?
+    ///
+    /// <para>Dřív stačilo, že stojí — a to byla díra, kterou šlo projet
+    /// městem: jaderná elektrárna dodávala plných 260 i s prázdným zásobníkem
+    /// uranu a prázdnou směnou. Hráč pak koukal na budovy hlásící „má proud",
+    /// zatímco elektrárna, ze které ten proud měl téct, nevyráběla nic.</para>
+    ///
+    /// <para>Zhaslá elektrárna je zhaslá celá, ne z poloviny: proud se nedá
+    /// vyrobit napůl a poloviční dodávka by z jasného „došlo palivo" udělala
+    /// nevysvětlitelné zpomalení čtvrti.</para>
+    /// </summary>
+    private static bool IsDelivering(in BuildingInstance building) =>
+        building.IsComplete && building.Stall switch
+        {
+            BuildingStall.MissingInput => false,  // došlo palivo
+            BuildingStall.NoWorkers => false,     // nemá kdo obsluhovat
+            BuildingStall.Damaged => false,       // dostala zásah
+            _ => true,
+        };
 
     /// <summary>
     /// Jak dobře je místo zásobené: 1 = plný proud, 0 = tma.

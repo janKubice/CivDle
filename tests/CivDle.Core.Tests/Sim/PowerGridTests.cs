@@ -148,6 +148,92 @@ public class PowerGridTests
         Assert.Equal(0.0, sim.PowerAt(sim.Buildings[factory].X, sim.Buildings[factory].Y), 3);
     }
 
+    [Fact]
+    public void APlantWithNoFuelDeliversNothing()
+    {
+        // Tohle hlásil hráč: jaderná elektrárna nic nevyráběla a budovy kolem
+        // se přesto tvářily, že mají proud. Stačilo, že elektrárna STOJÍ —
+        // jestli má palivo, se nikdo neptal.
+        var (sim, content) = World();
+        int factory = PlaceConsumer(sim, content, 0, 0);
+
+        int nuclear = content.Buildings.IndexOf("nuclear_plant");
+        Assert.NotNull(content.Buildings[nuclear].Recipe);
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuildingFree(nuclear, 6, 0));
+        TickUntilComplete(sim, content, nuclear);
+
+        // Uran se v běžné hře nedá koupit ani vytěžit bez kráteru — tady se
+        // prostě odebere, ať je stav jednoznačný.
+        sim.DebugSetResource(content.Resources.IndexOf("uranium"), 0);
+        RunAWhile(sim);
+
+        Assert.Equal(
+            0.0,
+            sim.PowerAt(sim.Buildings[factory].X, sim.Buildings[factory].Y),
+            3);
+    }
+
+    [Fact]
+    public void TheSamePlantWithFuelDoesDeliver()
+    {
+        // Druhá půlka téhož: kdyby elektrárna nedodávala nikdy, byla by
+        // „oprava" jen jiná chyba.
+        var (sim, content) = World();
+        HouseTheWorkers(sim, content); // bez lidí by test ukazoval tu první polovinu ještě jednou
+        int factory = PlaceConsumer(sim, content, 0, 0);
+
+        int nuclear = content.Buildings.IndexOf("nuclear_plant");
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuildingFree(nuclear, 6, 0));
+        int plant = sim.Buildings.Length - 1;
+        TickUntilComplete(sim, content, nuclear);
+        sim.DebugFillStorages();
+        RunAWhile(sim);
+
+        Assert.Equal(BuildingStall.None, sim.Buildings[plant].Stall);
+        Assert.True(
+            sim.PowerAt(sim.Buildings[factory].X, sim.Buildings[factory].Y) > 0,
+            "elektrárna s palivem i lidmi nedodala nic");
+    }
+
+    /// <summary>
+    /// Postaví dost bydlení, aby bylo kým obsadit směnu. Jaderná elektrárna
+    /// chce osm lidí a ve světě o jednom domku se prostě nevezmou.
+    /// </summary>
+    private static void HouseTheWorkers(Simulation sim, GameContent content)
+    {
+        int house = content.Buildings.IndexOf("house");
+        for (int i = 0; i < 24; i++)
+        {
+            sim.TryPlaceBuildingFree(house, -20 + i, -20);
+        }
+
+        for (int i = 0; i < 400; i++)
+        {
+            sim.Tick();
+        }
+
+        sim.DebugFillStorages();
+    }
+
+    /// <summary>Nechá simulaci běžet tak dlouho, aby se stav výroby ustálil.</summary>
+    private static void RunAWhile(Simulation sim)
+    {
+        for (int i = 0; i < 120; i++)
+        {
+            sim.Tick();
+        }
+    }
+
+    private static void TickUntilComplete(Simulation sim, GameContent content, int defIndex)
+    {
+        for (int i = 0; i < content.Buildings[defIndex].BuildTicks + 10 && !sim.Buildings[^1].IsComplete; i++)
+        {
+            sim.Tick();
+        }
+
+        Assert.True(sim.Buildings[^1].IsComplete);
+    }
+
     private static int PlaceConsumer(Simulation sim, GameContent content, int x, int y)
     {
         int factory = content.Buildings.IndexOf("factory");
