@@ -171,9 +171,15 @@ public sealed class MapTools
     /// <para>Render si ji jen přečte a nakreslí — díky tomu je vidět <b>celá</b>
     /// budoucí ulice ještě před puštěním tlačítka.</para>
     /// </summary>
-    public IReadOnlyList<(int X, int Y)> RoadGhostPath => _roadPath;
+    public IReadOnlyList<RoadGhostTile> RoadGhostPath => _roadPath;
 
-    private readonly List<(int X, int Y)> _roadPath = new();
+    /// <summary>
+    /// Kolik dlaždic z tažené trasy opravdu vznikne. Zbytek leží na vodě,
+    /// ve skále nebo pod budovou.
+    /// </summary>
+    public int RoadGhostBuildable { get; private set; }
+
+    private readonly List<RoadGhostTile> _roadPath = new();
     private bool _roadDragging;
     private int _roadAnchorX;
     private int _roadAnchorY;
@@ -655,15 +661,15 @@ public sealed class MapTools
     /// <summary>Postaví (nebo strhne) celou rozestavěnou trasu a tah ukončí.</summary>
     private void CommitRoadPath()
     {
-        foreach (var (tileX, tileY) in _roadPath)
+        foreach (var tile in _roadPath)
         {
             if (RoadEraseMode)
             {
-                _simulation.TryRemoveRoad(tileX, tileY);
+                _simulation.TryRemoveRoad(tile.X, tile.Y);
             }
             else
             {
-                _simulation.TryBuildRoad(tileX, tileY);
+                _simulation.TryBuildRoad(tile.X, tile.Y);
             }
         }
 
@@ -676,26 +682,8 @@ public sealed class MapTools
     /// Lomená cesta je to, co hráč od tažení čeká — úhlopříčka po dlaždicích
     /// vypadá jako schody a v mřížkovém městě se nehodí.
     /// </summary>
-    private void TracePath(int fromX, int fromY, int toX, int toY)
-    {
-        _roadPath.Clear();
-
-        bool horizontalFirst = Math.Abs(toX - fromX) >= Math.Abs(toY - fromY);
-        int x = fromX;
-        int y = fromY;
-        _roadPath.Add((x, y));
-
-        if (horizontalFirst)
-        {
-            while (x != toX) { x += Math.Sign(toX - x); _roadPath.Add((x, y)); }
-            while (y != toY) { y += Math.Sign(toY - y); _roadPath.Add((x, y)); }
-        }
-        else
-        {
-            while (y != toY) { y += Math.Sign(toY - y); _roadPath.Add((x, y)); }
-            while (x != toX) { x += Math.Sign(toX - x); _roadPath.Add((x, y)); }
-        }
-    }
+    private void TracePath(int fromX, int fromY, int toX, int toY) =>
+        RoadGhostBuildable = RoadPath.Trace(_simulation, RoadEraseMode, fromX, fromY, toX, toY, _roadPath);
 
     /// <summary>
     /// Přetváření krajiny: náhled sleduje kurzor, levým tažením se zabere celý

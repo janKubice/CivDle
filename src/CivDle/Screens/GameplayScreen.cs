@@ -906,10 +906,15 @@ public sealed class GameplayScreen : IScreen
         {
             // Celá tažená trasa, ne jen dlaždice pod kurzorem — hráč vidí ulici,
             // kterou postaví, ještě než pustí tlačítko.
-            foreach (var (pathX, pathY) in _tools.RoadGhostPath)
+            foreach (var tile in _tools.RoadGhostPath)
             {
-                DrawTileOverlay(spriteBatch, _screens.WhitePixel, pathX, pathY, 1,
-                    (_tools.RoadGhostErasing ? UiPalette.TextBright : UiPalette.Good) * 0.45f);
+                // Červeně to, co v cestě překáží. Dřív byla celá trasa zelená
+                // a skálu nebo vodu v cestě hráč poznal až podle toho, že se
+                // po puštění tlačítka nic nepostavilo.
+                var pathColor = !tile.Ok
+                    ? UiPalette.Bad
+                    : _tools.RoadGhostErasing ? UiPalette.TextBright : UiPalette.Good;
+                DrawTileOverlay(spriteBatch, _screens.WhitePixel, tile.X, tile.Y, 1, pathColor * 0.45f);
             }
 
             DrawTileOverlay(spriteBatch, _screens.WhitePixel, _tools.RoadGhostX, _tools.RoadGhostY, 1,
@@ -4404,6 +4409,20 @@ public sealed class GameplayScreen : IScreen
 
         if (_tools.RoadToolActive)
         {
+            // Při tažení je nejdůležitější číslo to, kolik dlaždic z trasy
+            // opravdu vznikne. Skálu nebo vodu v cestě poznal hráč dřív jen
+            // podle toho, že se po puštění tlačítka nic nepostavilo.
+            int planned = _tools.RoadGhostPath.Count;
+            if (planned > 1)
+            {
+                int usable = _tools.RoadGhostBuildable;
+                _statusLabel.Text = loc.Format("build.bulkCount", usable, planned);
+                _statusLabel.TextColor = usable == planned
+                    ? Color.White
+                    : usable > 0 ? UiPalette.TextBright : UiPalette.Bad;
+                return;
+            }
+
             _statusLabel.Text = loc[_tools.RoadEraseMode ? "status.roadErase" : "status.road"];
             _statusLabel.TextColor = _tools.RoadEraseMode
                 ? UiPalette.TextBright
