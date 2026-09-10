@@ -20,7 +20,7 @@ public sealed class BuildingSummaryTests
             var loc = new Localization(content.Languages, content.Languages[language].Id);
             for (int i = 0; i < content.Buildings.Count; i++)
             {
-                string text = BuildingSummary.Describe(content, loc, content.Buildings[i]);
+                string text = TipLine.Strip(BuildingSummary.Describe(content, loc, content.Buildings[i]));
                 Assert.False(string.IsNullOrWhiteSpace(text));
                 Assert.DoesNotContain("~", text); // Localization značí chybějící klíč vlnovkami
             }
@@ -35,7 +35,7 @@ public sealed class BuildingSummaryTests
 
         int index = FirstProducer(content);
         var def = content.Buildings[index];
-        string text = BuildingSummary.Describe(content, loc, def);
+        string text = TipLine.Strip(BuildingSummary.Describe(content, loc, def));
 
         string output = loc[content.Resources[def.Recipe!.Outputs[0].ResourceIndex].NameKey];
         Assert.Contains(output, text);
@@ -60,7 +60,7 @@ public sealed class BuildingSummaryTests
             if (everywhere)
             {
                 Assert.DoesNotContain(loc["tip.build.biomes"].Split('{')[0].Trim(),
-                    BuildingSummary.Describe(content, loc, def));
+                    TipLine.Strip(BuildingSummary.Describe(content, loc, def)));
                 return;
             }
         }

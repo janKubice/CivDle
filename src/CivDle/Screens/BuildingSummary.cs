@@ -18,109 +18,109 @@ internal static class BuildingSummary
     public static string Describe(GameContent content, Localization loc, BuildingDef def)
     {
         var text = new StringBuilder();
-        text.Append(loc.Format("tip.build.cost", CostFormat.Line(content, loc, def.BuildCost)));
+        text.Append(TipLine.Tag(TipKind.Cost, loc.Format("tip.build.cost", CostFormat.Line(content, loc, def.BuildCost))));
 
         if (def.Recipe is { } recipe)
         {
             double perSecond = Simulation.TicksPerSecond / recipe.TimeTicks;
             if (recipe.Inputs.Count > 0)
             {
-                text.Append('\n').Append(loc.Format("tip.build.consumes", CostFormat.Line(content, loc, recipe.Inputs)));
+                text.Append('\n').Append(TipLine.Tag(TipKind.Consumes, loc.Format("tip.build.consumes", CostFormat.Line(content, loc, recipe.Inputs))));
             }
 
             if (recipe.Outputs.Count > 0)
             {
-                text.Append('\n').Append(loc.Format("tip.build.produces",
-                    CostFormat.Line(content, loc, recipe.Outputs), Rate(perSecond)));
+                text.Append('\n').Append(TipLine.Tag(TipKind.Produces, loc.Format("tip.build.produces",
+                    CostFormat.Line(content, loc, recipe.Outputs), Rate(perSecond))));
             }
         }
 
         if (def.HousingCapacity > 0)
         {
-            text.Append('\n').Append(loc.Format("tip.build.housing", def.HousingCapacity));
+            text.Append('\n').Append(TipLine.Tag(TipKind.People, loc.Format("tip.build.housing", def.HousingCapacity)));
         }
 
         if (def.WorkerSlots > 0)
         {
-            text.Append('\n').Append(loc.Format("tip.build.workers", def.WorkerSlots));
+            text.Append('\n').Append(TipLine.Tag(TipKind.People, loc.Format("tip.build.workers", def.WorkerSlots)));
         }
 
         if (def.Services > 0)
         {
-            text.Append('\n').Append(loc.Format("tip.build.services",
-                (int)Math.Round(def.Services * content.Gameplay.Happiness.PeoplePerServicePoint)));
+            text.Append('\n').Append(TipLine.Tag(TipKind.People, loc.Format("tip.build.services",
+                (int)Math.Round(def.Services * content.Gameplay.Happiness.PeoplePerServicePoint))));
         }
 
         if (def.Upkeep.Count > 0)
         {
-            text.Append('\n').Append(loc.Format("tip.build.upkeep", CostFormat.Line(content, loc, def.Upkeep)));
+            text.Append('\n').Append(TipLine.Tag(TipKind.Consumes, loc.Format("tip.build.upkeep", CostFormat.Line(content, loc, def.Upkeep))));
         }
 
         if (def.StorageBonus.Count > 0)
         {
-            text.Append('\n').Append(loc.Format("tip.build.storage", StorageLine(content, loc, def)));
+            text.Append('\n').Append(TipLine.Tag(TipKind.Storage, loc.Format("tip.build.storage", StorageLine(content, loc, def))));
         }
 
         if (def.PowerSupply > 0)
         {
-            text.Append('\n').Append(loc.Format("tip.build.power", def.PowerSupply));
+            text.Append('\n').Append(TipLine.Tag(TipKind.Power, loc.Format("tip.build.power", def.PowerSupply)));
         }
 
         if (def.NeedsPower)
         {
-            text.Append('\n').Append(loc.Format("tip.build.needsPower", def.PowerDemand));
+            text.Append('\n').Append(TipLine.Tag(TipKind.Power, loc.Format("tip.build.needsPower", def.PowerDemand)));
 
             // Že proud má dosah, se z čísla spotřeby nepozná — a je to první
             // věc, o kterou se hráč zarazí, když mu továrna jede na třetinu.
             if (content.Gameplay.Power.IsEnabled)
             {
-                text.Append('\n').Append(loc["tip.build.powerRange"]);
+                text.Append('\n').Append(TipLine.Tag(TipKind.Power, loc["tip.build.powerRange"]));
             }
         }
 
         if (def.NeedsWaterAccess)
         {
-            text.Append('\n').Append(loc["tip.build.needsWater"]);
+            text.Append('\n').Append(TipLine.Tag(TipKind.Limit, loc["tip.build.needsWater"]));
         }
 
         // Že se budova staví na dno a jen v dosahu přístavu, se z ceny ani
         // z receptu nepozná — a je to první věc, o kterou se hráč zarazí.
         if (def.IsSubsea)
         {
-            text.Append('\n').Append(loc["tip.build.subsea"]);
+            text.Append('\n').Append(TipLine.Tag(TipKind.Limit, loc["tip.build.subsea"]));
         }
 
         // Že budova mění krajinu sama, se z ceny ani receptu nepozná — a je to
         // ten jediný důvod, proč ji hráč staví.
         if (def.Terraforms)
         {
-            text.Append('\n').Append(loc.Format("tip.build.terraforms",
-                loc[content.Terraform[def.TerraformActionIndex].NameKey], def.TerraformRadius));
+            text.Append('\n').Append(TipLine.Tag(TipKind.Hint, loc.Format("tip.build.terraforms",
+                loc[content.Terraform[def.TerraformActionIndex].NameKey], def.TerraformRadius)));
         }
 
         // Svoz se týká každé výrobny, takže se zmiňuje jen jednou obecně —
         // konkrétní číslo pro místo pod kurzorem ukazuje stavební režim.
         if (def.Recipe is not null && content.Gameplay.Haul.IsEnabled)
         {
-            text.Append('\n').Append(loc["tip.build.haul"]);
+            text.Append('\n').Append(TipLine.Tag(TipKind.Hint, loc["tip.build.haul"]));
         }
 
         if (def.TakesTimeToBuild)
         {
-            text.Append('\n').Append(loc.Format("tip.build.buildTime", DurationFormat.FromTicks(def.BuildTicks)));
+            text.Append('\n').Append(TipLine.Tag(TipKind.Hint, loc.Format("tip.build.buildTime", DurationFormat.FromTicks(def.BuildTicks))));
         }
 
         if (def.Adjacency is { } adjacency)
         {
-            text.Append('\n').Append(loc.Format("tip.build.adjacency",
+            text.Append('\n').Append(TipLine.Tag(TipKind.Hint, loc.Format("tip.build.adjacency",
                 AdjacencyBiomes(content, loc, adjacency),
-                Percent(adjacency.MaxBonus)));
+                Percent(adjacency.MaxBonus))));
         }
 
         string biomes = AllowedBiomes(content, loc, def);
         if (biomes.Length > 0)
         {
-            text.Append('\n').Append(loc.Format("tip.build.biomes", biomes));
+            text.Append('\n').Append(TipLine.Tag(TipKind.Limit, loc.Format("tip.build.biomes", biomes)));
         }
 
         // Biom, který se v přírodě nevyskytuje, je slepá ulička, dokud hráč
@@ -129,7 +129,7 @@ internal static class BuildingSummary
         // postavit nikde.
         if (NeedsMadeGround(content, def))
         {
-            text.Append('\n').Append(loc["tip.build.madeGround"]);
+            text.Append('\n').Append(TipLine.Tag(TipKind.Limit, loc["tip.build.madeGround"]));
         }
 
         return text.ToString();

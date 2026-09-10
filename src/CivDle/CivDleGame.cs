@@ -183,6 +183,12 @@ public sealed class CivDleGame : Game
         MyraEnvironment.TooltipDelayInMs = 260;
         MyraEnvironment.TooltipOffset = new Point(16, 18);
 
+        // Bublina si sama obarví řádky podle toho, o jaký druh údaje jde.
+        // Myra jinak umí jen jeden řetězec jednou barvou a popisek budovy má
+        // osm druhů řádků — bez barvy je z toho stejnošedý blok, ve kterém
+        // hráč pokaždé hledá znovu.
+        Screens.RichTooltip.Install();
+
         // Obsah je načtený už z Program.cs, ještě před vznikem okna — viz
         // dokumentace konstruktoru.
         var content = _content;
