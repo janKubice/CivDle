@@ -2040,6 +2040,7 @@
     "tech.works_department.desc": "Guvernér umí odložit stavbu, když by vysál sklady pod nastavenou rezervu.",
     "tech.writing": "Písmo",
     "tech.writing.desc": "Odemkne knihovnu — první budovu, která vyrábí vědu.",
+    "templates.andMore": " a další {0} druhy",
     "templates.capture": "Sejmout novou šablonu",
     "templates.clipboardFailed": "Do schránky se to nepovedlo dát.",
     "templates.copied": "Kód je ve schránce — pošli ho, komu chceš.",

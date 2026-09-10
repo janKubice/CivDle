@@ -125,6 +125,11 @@ public sealed class TemplatesScreen : IScreen
     {
         var loc = _screens.Loc;
         var template = saved.ToTemplate();
+
+        // Dva řádky pod sebou: nahoře ovládání, dole co v šabloně je a co
+        // stojí. Rozměr sám o sobě nestačil — po týdnu nikdo neví, jestli je
+        // „Blok 2" obytná ulice nebo řada pil, a jestli na ni má.
+        var cell = new VerticalStackPanel { Spacing = 2, Width = PanelWidth - 40 };
         var row = new HorizontalStackPanel { Spacing = 8, Width = PanelWidth - 40 };
 
         // Jméno jde přepsat rovnou v řádku — přejmenovat šablonu je běžnější
@@ -165,7 +170,33 @@ public sealed class TemplatesScreen : IScreen
             BuildUi();
         }));
 
-        return row;
+        cell.Widgets.Add(row);
+
+        string contents = TemplateSummary.Contents(_screens.Content, loc, template);
+        if (contents.Length > 0)
+        {
+            cell.Widgets.Add(new Label
+            {
+                Text = contents,
+                TextColor = UiPalette.Text,
+                Wrap = true,
+                Width = PanelWidth - 40,
+            });
+        }
+
+        string cost = TemplateSummary.Cost(_screens.Content, loc, template);
+        if (cost.Length > 0)
+        {
+            cell.Widgets.Add(new Label
+            {
+                Text = loc.Format("tip.build.cost", cost),
+                TextColor = UiPalette.TextDim,
+                Wrap = true,
+                Width = PanelWidth - 40,
+            });
+        }
+
+        return cell;
     }
 
     /// <summary>

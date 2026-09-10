@@ -2040,6 +2040,7 @@
     "tech.works_department.desc": "Der Statthalter wartet mit dem Bauen, wenn es die Lager unter deine Reserve zöge.",
     "tech.writing": "Schrift",
     "tech.writing.desc": "Schaltet die Bibliothek frei — das erste Gebäude, das Wissenschaft herstellt.",
+    "templates.andMore": " und {0} weitere Arten",
     "templates.capture": "Neue Vorlage aufnehmen",
     "templates.clipboardFailed": "Es ließ sich nicht in die Zwischenablage legen.",
     "templates.copied": "Der Code liegt in der Zwischenablage — schick ihn, wem du willst.",

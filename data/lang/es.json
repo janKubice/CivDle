@@ -2040,6 +2040,7 @@
     "tech.works_department.desc": "El gobernador aplaza la obra si vaciara el almacén por debajo de tu reserva.",
     "tech.writing": "Escritura",
     "tech.writing.desc": "Desbloquea la biblioteca: el primer edificio que produce ciencia.",
+    "templates.andMore": " y {0} tipos más",
     "templates.capture": "Capturar nueva plantilla",
     "templates.clipboardFailed": "No se pudo poner en el portapapeles.",
     "templates.copied": "El código está en el portapapeles: mándaselo a quien quieras.",

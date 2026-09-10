@@ -2040,6 +2040,7 @@
     "tech.works_department.desc": "The governor can hold off building when it would drain storage below your reserve.",
     "tech.writing": "Writing",
     "tech.writing.desc": "Unlocks the library — the first building that makes science.",
+    "templates.andMore": " and {0} more kinds",
     "templates.capture": "Capture a new template",
     "templates.clipboardFailed": "Could not put it on the clipboard.",
     "templates.copied": "The code is on your clipboard — send it to whoever you like.",
