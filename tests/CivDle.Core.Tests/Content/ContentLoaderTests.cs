@@ -1734,6 +1734,11 @@ public class ContentLoaderTests : IDisposable
             "\"worldsize.s\": \"-\"",
             "\"preset.p\": \"-\"",
             "\"era.start\": \"-\"",
+
+            // Kategorie budovy je od té doby, co ji hlídá loader, taky jméno
+            // obsahu. Testovací budovy kategorii nemají, takže spadnou do
+            // „other" — a to musí mít fixture stejně jako skutečná data.
+            "\"category.other\": \"-\"",
         };
         if (includeBuildingName)
         {

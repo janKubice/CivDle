@@ -5049,6 +5049,12 @@ public sealed class ContentLoader
         required.AddRange(biomes.All.Select(b => b.NameKey));
         required.AddRange(resources.All.Select(r => r.NameKey));
         required.AddRange(buildings.All.Select(b => b.NameKey));
+
+        // Kategorie se v datech zavádí tím, že ji někdo napíše k budově — žádný
+        // seznam kategorií neexistuje. Bez téhle kontroly se nová kategorie
+        // pozná až tím, že v záložkách stavebního menu svítí holý klíč; přesně
+        // tak se do hry dostalo „~category.industry~".
+        required.AddRange(buildings.All.Select(b => $"category.{b.Category}").Distinct());
         required.AddRange(worldGen.Sizes.Select(s => s.NameKey));
         required.AddRange(worldGen.Presets.Select(p => p.NameKey));
         required.AddRange(techs.All.Select(t => t.NameKey));
