@@ -181,17 +181,22 @@ public sealed class RoadRenderer
                 DrawSurface(spriteBatch, kind, tileX, tileY, x, y, east, west, south, north, surface);
             }
 
-            // Vyjetý střed. U křižovatky se vynechá — tam se místo něj kreslí
-            // značka, jinak by z toho byla jen světlejší skvrna. Hliněná cesta
-            // ho nemá vůbec: místo hřebene má dvě koleje od kol.
             bool crossing = IsCrossing(east, west, south, north);
+
+            // Vyjetý střed. U křižovatky se vynechá — tam se místo něj kreslí
+            // značka. Hliněná cesta ho nemá vůbec: místo hřebene má dvě koleje
+            // od kol (kreslí je DrawSurface).
+            //
+            // POZOR na pořadí podmínek: dokud tohle bylo jedno if/else, spadla
+            // do větve „křižovatka" každá dlaždice hliněné cesty a celá síť
+            // byla posetá světlými čtverci.
             if (!crossing && (bridge || kind != RoadSurfaceKind.Dirt))
             {
                 DrawCrown(spriteBatch, x, y, east, west, south, north, middle);
             }
-            else
+            else if (crossing)
             {
-                spriteBatch.Draw(_pixel, new Rectangle(x + Pad + 1, y + Pad + 1, Thickness - 2, Thickness - 2), middle);
+                DrawCrossing(spriteBatch, x, y, surface);
             }
 
             if (markings && !crossing)
@@ -287,6 +292,28 @@ public sealed class RoadRenderer
             h = (h ^ (h >> 13)) * 1274126177;
             return h ^ (h >> 16);
         }
+    }
+
+    /// <summary>
+    /// Značka křižovatky: <b>ošlapaný</b> střed, ne světlá dlaždice.
+    ///
+    /// <para>Dřív to byl blok o dva odstíny světlejší než vozovka, velký skoro
+    /// jako celý polštářek. V husté síti z toho byla mřížka krémových čtverců
+    /// nalepených na cestu — čitelnost to přidalo, ale vypadalo to jako chyba.
+    /// Na skutečné křižovatce se povrch naopak <i>odírá</i>: je tmavší
+    /// a ušlapanější než okolní vozovka, protože po ní jezdí ze všech stran.</para>
+    ///
+    /// <para>Rohy zůstávají prázdné, takže skvrna čte kulatě — čtverec uprostřed
+    /// čtverce je právě to, co vypadalo nalepeně.</para>
+    /// </summary>
+    private void DrawCrossing(SpriteBatch spriteBatch, int x, int y, Color surface)
+    {
+        var worn = Shade(surface, 0.86f);
+        int inner = Thickness - 2;
+
+        // Kříž místo čtverce: vodorovný a svislý pruh přes střed.
+        spriteBatch.Draw(_pixel, new Rectangle(x + Pad + 1, y + Pad + 2, inner, inner - 2), worn);
+        spriteBatch.Draw(_pixel, new Rectangle(x + Pad + 2, y + Pad + 1, inner - 2, inner), worn);
     }
 
     /// <summary>Střed dlaždice a ramena k sousedům, volitelně o <paramref name="grow"/> px širší.</summary>
