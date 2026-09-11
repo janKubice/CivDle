@@ -76,7 +76,8 @@
         0.0,
         0.14
       ],
-      "productionMult": 0.6
+      "productionMult": 0.6,
+      "rocky": true
     },
     {
       "id": "beach",
@@ -324,7 +325,8 @@
         "charges": 40,
         "regrowSeconds": 0
       },
-      "productionMult": 0.9
+      "productionMult": 0.9,
+      "rocky": true
     },
     {
       "id": "highlands",
@@ -349,7 +351,8 @@
         "charges": 8,
         "regrowSeconds": 900
       },
-      "productionMult": 1.05
+      "productionMult": 1.05,
+      "rocky": true
     },
     {
       "id": "mountains",
@@ -366,7 +369,8 @@
         "charges": 40,
         "regrowSeconds": 0
       },
-      "productionMult": 1.2
+      "productionMult": 1.2,
+      "rocky": true
     },
     {
       "id": "volcanic",
@@ -387,7 +391,8 @@
         "charges": 40,
         "regrowSeconds": 0
       },
-      "productionMult": 1.35
+      "productionMult": 1.35,
+      "rocky": true
     },
     {
       "id": "glacier",
@@ -402,7 +407,8 @@
         0.0,
         0.2
       ],
-      "productionMult": 0.6
+      "productionMult": 0.6,
+      "rocky": true
     },
     {
       "id": "snow_peaks",
@@ -413,7 +419,8 @@
         0.46,
         1.0
       ],
-      "productionMult": 0.8
+      "productionMult": 0.8,
+      "rocky": true
     },
     {
       "id": "fallout",

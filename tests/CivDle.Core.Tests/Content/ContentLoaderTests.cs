@@ -1084,6 +1084,28 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadFrom_RockyWaterBiome_Fails()
+    {
+        // Hladina je vodorovná, ať je pod ní cokoli. 'rocky' u vody znamená,
+        // že si to někdo v datech rozmyslel napůl — a tiše by se to nikdy
+        // neprojevilo, protože voda se stejně stínovat nesmí.
+        WriteAllValid();
+        Write("biomes.json", """
+        {
+          "schemaVersion": 1,
+          "biomes": [
+            { "id": "water", "mapColor": "#1C4E7A", "isWater": true, "depthRange": [0, 1], "rocky": true },
+            { "id": "grass", "mapColor": "#6FA045", "elevationRange": [0, 1] }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("rocky", ex.Message);
+    }
+
+    [Fact]
     public void LoadFrom_RoadSurfaceWithUnknownKind_NamesTheKnownOnes()
     {
         // Překlep v druhu povrchu by jinak tiše spadl na hlínu a hráč by se

@@ -2534,8 +2534,15 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"Biom '{id}': 'productionMult' musí být 0.25–3.0, je {productionMult}.");
         }
 
+        if (dto.Rocky && dto.IsWater)
+        {
+            throw new ContentLoadException(path,
+                $"Biom '{id}': 'rocky' nedává smysl u vodního biomu — hladina je vodorovná, skála se pod ní nikdy neukáže.");
+        }
+
         return new Biome(id, color, (float)dto.ColorVariation, dto.IsWater,
-            depth, elevation, moisture, temperature, clickYield, productionMult, dto.Natural ?? true);
+            depth, elevation, moisture, temperature, clickYield, productionMult, dto.Natural ?? true,
+            dto.Rocky);
     }
 
     private static ValueRange ParseRange(string path, string biomeId, string field, double[]? values, bool required)

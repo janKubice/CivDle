@@ -55,8 +55,24 @@ public sealed record Biome(
     ValueRange TemperatureRange,
     ClickYield? ClickYield = null,
     double ProductionMult = 1.0,
-    bool Natural = true)
+    bool Natural = true,
+    bool Rocky = false)
 {
+    /// <summary>
+    /// Prosvítá na strmém svahu holé podloží?
+    ///
+    /// <para>Na louce se drn udrží i na prudkém kopci; v horách, v pustině
+    /// nebo na ledovci ne. Bez tohohle příznaku by se skála musela odvozovat
+    /// ze sklonu samotného — jenže výška ve světě roste rovnoměrně, takže
+    /// nejstrmější dlaždice leží roztroušené všude a kameny by prorážely
+    /// i uprostřed pastvin.</para>
+    ///
+    /// <para>O tom, kde je skála, tak rozhoduje obsah; o tom, jak vypadá,
+    /// renderer.</para>
+    /// </summary>
+    public bool ShowsBedrock => Rocky;
+
+
     /// <summary>
     /// Vzniká biom při generování světa?
     ///

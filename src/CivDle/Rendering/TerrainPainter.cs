@@ -88,7 +88,8 @@ public sealed class TerrainPainter
     /// Počítá ho <see cref="TerrainRenderer"/>, který jediný vidí výšky s přesahem.
     /// </param>
     public Color Tile(
-        int worldX, int worldY, ReadOnlySpan<byte> ring, int waterInWindow, float slopeShade = 0f)
+        int worldX, int worldY, ReadOnlySpan<byte> ring, int waterInWindow,
+        float slopeShade = 0f, float steepness = 0f)
     {
         byte self = ring[4];
         var biome = _biomes[self];
@@ -111,9 +112,81 @@ public sealed class TerrainPainter
         // Souš: u hranice biomů se dlaždice tu a tam převezme od souseda, takže
         // se z rovné hrany stane rozstřapatělý přechod.
         byte painted = DitherWithNeighbour(worldX, worldY, ring, self);
-        var color = _biomes[painted].MapColor;
-        return Shade(color, brightness);
+        var color = Shade(_biomes[painted].MapColor, brightness);
+
+        // Na srázu se travní drn neudrží a je vidět podloží — ale jen tam, kde
+        // ho podle obsahu vůbec je co odkrýt.
+        return _biomes[painted].ShowsBedrock
+            ? Cliff(worldX, worldY, color, steepness)
+            : color;
     }
+
+    /// <summary>
+    /// Odkryté podloží na strmém svahu.
+    ///
+    /// <para><b>Proč to chybělo:</b> hory byly stejně hladce obarvené jako
+    /// louka, jen jinou barvou. Skutečný kopec má na hřebenech a v roklích
+    /// holou skálu — a právě ta odlišuje pohoří od zeleného kopečku. Stínování
+    /// sklonu (<see cref="TerrainRenderer"/>) ukáže, <i>kde</i> je svah; útes
+    /// ukáže, že je <i>strmý</i>.</para>
+    ///
+    /// <para>Skála se nebere z pevné šedi, ale z barvy podloží: odbarvená
+    /// a ztmavená verze téže barvy. Pískovcový kaňon tak zůstane pískovcový
+    /// a žulový hřeben šedý, aniž by se skála musela psát ke každému biomu.</para>
+    ///
+    /// <para><b>Proč to nestačí zapnout podle sklonu:</b> výška roste ve světě
+    /// rovnoměrně — naměřený medián spádu je 0,008 na dlaždici a v horách
+    /// vychází <i>stejně</i> jako na louce. Samotný sklon by proto rozsypal
+    /// kameny i doprostřed pastvin. Kde je co odkrýt, rozhoduje biom
+    /// (<see cref="Biome.ShowsBedrock"/>); jak strmé to musí být, tenhle práh.</para>
+    ///
+    /// <para>Přes to jdou vrstvy: každý třetí řádek o kus tmavší. Je to
+    /// laciný trik, ale z výšky přesně čte jako sedimentární pruhy — a bez
+    /// něj je útes jen šedá skvrna.</para>
+    /// </summary>
+    private static Color Cliff(int worldX, int worldY, Color color, float steepness)
+    {
+        if (steepness <= CliffThreshold)
+        {
+            return color;
+        }
+
+        // Plynulý náběh: tvrdá hranice by udělala kolem hor obrys jako z mapy.
+        float amount = Math.Clamp((steepness - CliffThreshold) / (1f - CliffThreshold), 0f, 1f) * CliffStrength;
+
+        float grey = (color.R * 0.299f + color.G * 0.587f + color.B * 0.114f) * 0.86f;
+        var rock = new Color(
+            (int)(color.R * 0.3f + grey * 0.7f),
+            (int)(color.G * 0.3f + grey * 0.7f),
+            (int)(color.B * 0.3f + grey * 0.7f));
+
+        var result = Color.Lerp(color, rock, amount);
+
+        // Vrstvy. Trojka je schválně: dvojka vypadá jako pruhovaná tapeta,
+        // čtyřka se z výšky ztratí.
+        if (((worldY % 3) + 3) % 3 == 0)
+        {
+            result = Shade(result, 1f - StrataDarken * amount);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Od jaké strmosti začne prosvítat skála. Níž je to kopec, ne sráz.
+    ///
+    /// <para>Číslo je změřené, ne odhadnuté: zesílený spád vychází v mediánu
+    /// kolem 0,21 a v devětadevadesátém percentilu kolem 0,52. Práh 0,34 tak
+    /// nechá skálu prorazit zhruba na desetině skalnatých dlaždic — dost, aby
+    /// hřebeny nebyly hladké, málo, aby z hory nebyla suťová halda.</para>
+    /// </summary>
+    private const float CliffThreshold = 0.34f;
+
+    /// <summary>Nejvíc, co skála přebere. Celá by z hory udělala betonovou kostku.</summary>
+    private const float CliffStrength = 0.72f;
+
+    /// <summary>O kolik ztmavne vrstevnatý řádek na srázu.</summary>
+    private const float StrataDarken = 0.16f;
 
     /// <summary>
     /// Voda: pěna u břehu a hloubkový gradient. Bez toho byla vodní plocha

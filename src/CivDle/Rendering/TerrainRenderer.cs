@@ -189,7 +189,8 @@ public sealed class TerrainRenderer : IDisposable
                 }
 
                 pixels[ty * ChunkTiles + tx] = _painter.Tile(
-                    baseX + tx, baseY + ty, ring, CountWater(px, py), SlopeShade(px, py));
+                    baseX + tx, baseY + ty, ring, CountWater(px, py),
+                    SlopeShade(px, py), Steepness(px, py));
             }
         }
 
@@ -252,6 +253,36 @@ public sealed class TerrainRenderer : IDisposable
 
         return Math.Clamp(toward * SlopeGain, -1f, 1f);
     }
+
+    /// <summary>
+    /// Jak je dlaždice strmá bez ohledu na světovou stranu (0 = rovina,
+    /// 1 = sráz).
+    ///
+    /// <para><b>Proč to nejde vzít ze stínování:</b> <see cref="SlopeShade"/>
+    /// je <i>směrové</i> — svah kolmý ke slunci z něj vyjde jako nula, i když
+    /// je svislý. Na útes je potřeba velikost spádu, ne jeho natočení, jinak
+    /// by se skála objevovala jen na dvou světových stranách a na zbylých
+    /// dvou by týž sráz zůstal travnatý.</para>
+    ///
+    /// <para>Počítá se při pečení chunku, tedy jednou za jeho život.</para>
+    /// </summary>
+    private float Steepness(int px, int py)
+    {
+        int row = py * PaddedTiles + px;
+        float dzdx = (_elevationScratch[row + 1] - _elevationScratch[row - 1]) * 0.5f;
+        float dzdy = (_elevationScratch[row + PaddedTiles] - _elevationScratch[row - PaddedTiles]) * 0.5f;
+
+        return Math.Clamp(MathF.Sqrt(dzdx * dzdx + dzdy * dzdy) * SteepnessGain, 0f, 1f);
+    }
+
+    /// <summary>
+    /// Zesílení pro strmost. Menší než <see cref="SlopeGain"/> schválně:
+    /// stínování má být vidět na každém kopci, takže se smí opřít do stropu,
+    /// ale skála má prorazit jen na opravdu prudkém svahu. Se stejným zesílením
+    /// by strmost skončila nad prahem skoro všude a rozdíl mezi hřebenem
+    /// a mírným svahem by zmizel.
+    /// </summary>
+    private const float SteepnessGain = 26f;
 
     /// <summary>
     /// Jak moc se sklon zesílí, než se z něj stane jas.

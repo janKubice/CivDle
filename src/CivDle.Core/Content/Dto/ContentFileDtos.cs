@@ -19,7 +19,8 @@ public sealed record BiomeDto(
     double[]? TemperatureRange,
     ClickYieldDto? ClickYield,
     double ProductionMult,
-    bool? Natural = null);
+    bool? Natural = null,
+    bool Rocky = false);
 
 /// <summary>Výnos ručního kliknutí na biom tak, jak leží v JSON.</summary>
 public sealed record ClickYieldDto(string? Resource, int Amount, int Charges, double RegrowSeconds);
