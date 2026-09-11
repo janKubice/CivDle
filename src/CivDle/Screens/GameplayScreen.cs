@@ -184,6 +184,7 @@ public sealed class GameplayScreen : IScreen
     private readonly Rendering.Effects.AmbientMotes _motes;
     private readonly GodRayRenderer _godRays;
     private readonly ValleyMistRenderer _mist;
+    private readonly ParchmentOverlay _parchment;
 
     /// <summary>
     /// Odkud fouká. Pevný směr schválně: vítr, který by se otáčel, by při
@@ -512,6 +513,7 @@ public sealed class GameplayScreen : IScreen
         _motes = new Rendering.Effects.AmbientMotes(info.Seed);
         _godRays = new GodRayRenderer(screens.GraphicsDevice);
         _mist = new ValleyMistRenderer(screens.GraphicsDevice);
+        _parchment = new ParchmentOverlay(screens.GraphicsDevice);
         _raftRenderer = new RaftRenderer(screens.Sprites, screens.WhitePixel);
         _cityAudio = new Audio.SpatialSoundscape(screens.Content);
 
@@ -806,6 +808,10 @@ public sealed class GameplayScreen : IScreen
             SeasonGround.From(_simulation.CurrentSeason));
         // Odlesky hned nad terénem: patří na hladinu, ne přes to, co na ní pluje.
         _waterRenderer.Draw(spriteBatch, _camera, _simulation);
+
+        // Z velké dálky leží krajina na papíře. Hned za terénem, aby zrno
+        // dostala zem — ne město, cesty a čísla, která na ní leží.
+        _parchment.Draw(spriteBatch, _camera, _screens.GraphicsDevice.Viewport);
         _decorationRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
 
         // Mlha v nížinách: nad terénem a porostem, ale POD vším, co stojí.
@@ -1466,6 +1472,7 @@ public sealed class GameplayScreen : IScreen
         _cloudLayer.Dispose();
         _godRays.Dispose();
         _mist.Dispose();
+        _parchment.Dispose();
         _terrainRenderer.Dispose();
         _cityScale.Dispose(); // upečené textury hustoty
         _minimap.Dispose();
