@@ -983,3 +983,93 @@ vrstvu vůbec dostat?), `HudLayoutTests`, `AnomalyReachTests`,
 `PlacementMessageTests`, `PowerLegendTests`. Všechny testují dosažitelnost,
 ne chování — selžou přesně ve chvíli, kdy někdo z dat vyndá blok, na kterém
 stojí kus rozhraní.
+
+---
+
+## 8. Vizuál: proč obraz nedržel pohromadě a co s tím
+
+Zadání znělo „nevypadá to zle, ale není tam žádný wow efekt". Po rozboru měl
+ten dojem tři pojmenovatelné příčiny a všechny tři šly opravit bez jediného
+shaderu.
+
+### 8.1 Obraz neměl světlo
+
+Hra kreslila pětadvacet vrstev rovnou do backbufferu. Žádný mezikrok
+neexistoval, takže se s hotovým obrazem nedalo udělat nic — denní doba se
+„gradovala" průhledným obdélníkem přes celou obrazovku, což kontrast
+**snižuje**. Každý pixel přitom svítil na sto procent své barvy, nic
+neustupovalo do pozadí a oko nedostalo řečeno, kam se dívat. Výsledek byl
+čitelný, ale nerežírovaný: mapa, ne místo.
+
+**Řešení:** `SceneComposer`. Scéna jde do render targetu a teprve pak se
+skládá ven — denní světlo jako **násobič** (násobení tmavá místa ztmaví víc než
+světlá, takže kontrast roste), záře kolem zdrojů světla a sevření okraje.
+
+**Proč bez shaderů:** všechno, co je potřeba, jde přes `BlendState` a zmenšování
+do render targetů. Práh pro záři se udělá tím, že se obraz **umocní sám sebou**
+(blend `src×src`); dvojím průchodem vyjde čtvrtá mocnina, po které zbydou
+prakticky jen okna, ohně a odlesky. Nepřibyla tím závislost na MGCB a hlavně se
+to dá ověřit buildem, což u HLSL na linuxovém stroji neplatí.
+
+### 8.2 Zem neměla povrch
+
+Výška terénu se spočítala, vybral se z ní biom a pak se **zahodila**. Přitom
+teprve sklon řekne, kde je kopec a kde údolí. Stínování sklonu se počítá při
+pečení chunku, takže za běhu nestojí nic.
+
+Na to navázalo všechno ostatní, co ze země dělá zem: skála na srázech, brázdy
+na polích, stromy místo nafouknutých keřů, drobnosti rostoucí v trsech, silnice
+měnící povrch s érou, mlha v nížinách.
+
+**Dvě věci se přitom musely změřit, ne odhadnout.** Za prvé zesílení sklonu:
+sousední dlaždice se liší o tisíciny (medián 0,008), takže bez zesílení není
+stínování vidět vůbec. Za druhé — a to byl důležitější nález — **výška ve světě
+roste rovnoměrně**: spád v horách vychází stejně jako na louce. Skála se proto
+nedá zapnout podle sklonu samotného, jinak by kameny prorážely doprostřed
+pastvin. Kde je co odkrýt, rozhoduje nový příznak `rocky` u biomu; sklon
+rozhoduje jen o tom, jak strmé to musí být.
+
+### 8.3 Nic se nehýbalo
+
+Idle hra se dívá sama na sebe většinu času. Zastavený obraz mozek přestane
+vnímat jako místo a začne ho vnímat jako obrázek. Přibyl proto pohyb, který
+nestojí za pozornost, ale je: stíny mraků plující po zemi, mraky nad městem
+s paralaxou (hýbou se o pětinu víc než zem, protože jsou blíž — to je celá
+iluze hloubky), kymácející se porost, poletující plátky a listí podle období,
+prach a otáčející se jeřáb nad staveništěm.
+
+Všechno se hýbe podle **jednoho** větru (`AmbientWind`). Kdyby měl každý efekt
+svůj, viděl by hráč tři nezávislé animace místo jednoho počasí.
+
+### 8.4 Co šlo do dat
+
+Podle pravidla „data = co, kód = jak" přibyly tyhle zápisy: povrch silnice
+podle éry (`roads.surfaces`, druh je behavior-ID hook), `rocky` u biomu,
+`scale` a `sways` u dekorace, barva a hustota poletujících částic u období,
+barva a sníh na zemi u období, `prop` u čtvrti, `visualHeight` u budovy.
+Každý z nich má validaci při načtení, protože všechny selhávají tiše — chybný
+sprite se prostě nenakreslí a nikdo to nespojí s překlepem v datech.
+
+### 8.5 Falešná výška a co si vyžádala
+
+V pohledu shora zabíral mrakodrap tolik místa jako chalupa o stejném půdorysu.
+`visualHeight` ho nechá přerůst nahoru po obrazovce — půdorys zůstává, přerůstá
+jen obraz. Dvě věci to ale vyžádalo:
+
+* **Řazení budov od severu k jihu.** Dokud každá zabírala svůj půdorys, nemohly
+  se překrývat. Jakmile věž přeroste, musí ji zakrýt to, co stojí před ní.
+* **Výběr myší podle toho, co je vidět.** Klik na fasádu by jinak vybral to, co
+  je za ní. To je ten druh chyby, kterou nikdo nenahlásí — jen mu bude ovládání
+  připadat rozbité.
+
+Proto je výška **opt-in v datech**: platí se zakrýváním, a to se u mrakodrapu
+vyplatí, u pole ne.
+
+### 8.6 Co se vědomě neudělalo
+
+* **Vlastní písmo.** V repozitáři žádné není a přibalit ho znamená vybrat
+  licenci a nést nový soubor. Rozhodnutí pro člověka, ne pro commit.
+* **Přeskiny existujících budov podle éry.** Architektura se s érou už mění
+  obsahem (chalupa → cihlový dům → činžák → věžák → arkologie) a nově i ulicí
+  pod nimi. Dodatečně přebarvovat staré budovy by byl zase jen nádech.
+* **Vlajky ve větru.** Drobnost, na kterou zatím není co pověsit.
