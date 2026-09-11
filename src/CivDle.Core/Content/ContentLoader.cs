@@ -1258,6 +1258,16 @@ public sealed class ContentLoader
                     $"Období '{id}' má 'moteDensity', ale ne 'moteColor' — neviditelné listí nikdo neuvidí.");
             }
 
+            if (dto.GroundTintStrength > 0 && string.IsNullOrWhiteSpace(dto.GroundTint))
+            {
+                throw new ContentLoadException(path,
+                    $"Období '{id}' má 'groundTintStrength', ale ne 'groundTint' — není čím zem přebarvit.");
+            }
+
+            var groundTint = string.IsNullOrWhiteSpace(dto.GroundTint)
+                ? (RgbColor?)null
+                : ParseColor(path, dto.GroundTint, $"Období '{id}' ('groundTint')");
+
             var moteColor = string.IsNullOrWhiteSpace(dto.MoteColor)
                 ? (RgbColor?)null
                 : ParseColor(path, dto.MoteColor, $"Období '{id}' ('moteColor')");
@@ -1267,7 +1277,8 @@ public sealed class ContentLoader
                 dto.FoodProductionMult, dto.HarvestMult, dto.GrowthMult,
                 dto.FuelPerPersonPerSecond, dto.ColdGrowthMult,
                 Math.Clamp(dto.SnowCover, 0, 1),
-                moteColor, dto.MoteDensity, Math.Clamp(dto.MoteFall, 0, 1)));
+                moteColor, dto.MoteDensity, Math.Clamp(dto.MoteFall, 0, 1),
+                groundTint, Math.Clamp(dto.GroundTintStrength, 0, 1), Math.Clamp(dto.GroundSnow, 0, 1)));
         }
 
         return new SeasonCalendar(seasons, file.DaysPerSeason, fuelIndex);

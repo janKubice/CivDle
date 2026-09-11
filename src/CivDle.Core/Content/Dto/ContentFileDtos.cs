@@ -296,7 +296,10 @@ public sealed record SeasonDto(
     double SnowCover = 0.0,
     string? MoteColor = null,
     double MoteDensity = 0.0,
-    double MoteFall = 0.0);
+    double MoteFall = 0.0,
+    string? GroundTint = null,
+    double GroundTintStrength = 0.0,
+    double GroundSnow = 0.0);
 
 /// <summary>Nastavení spokojenosti tak, jak leží v JSON.</summary>
 public sealed record HappinessDto(

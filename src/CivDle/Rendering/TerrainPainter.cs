@@ -89,7 +89,7 @@ public sealed class TerrainPainter
     /// </param>
     public Color Tile(
         int worldX, int worldY, ReadOnlySpan<byte> ring, int waterInWindow,
-        float slopeShade = 0f, float steepness = 0f)
+        float slopeShade = 0f, float steepness = 0f, SeasonGround season = default)
     {
         byte self = ring[4];
         var biome = _biomes[self];
@@ -101,6 +101,8 @@ public sealed class TerrainPainter
 
         if (biome.IsWater)
         {
+            // Hladina období nemění. Zamrzlá voda je vlastní biom, ne obarvená
+            // obyčejná — a sníh na vodě by plaval jako polystyren.
             return PaintWater(worldX, worldY, ring, waterInWindow, biome, brightness);
         }
 
@@ -116,10 +118,52 @@ public sealed class TerrainPainter
 
         // Na srázu se travní drn neudrží a je vidět podloží — ale jen tam, kde
         // ho podle obsahu vůbec je co odkrýt.
-        return _biomes[painted].ShowsBedrock
-            ? Cliff(worldX, worldY, color, steepness)
-            : color;
+        if (_biomes[painted].ShowsBedrock)
+        {
+            color = Cliff(worldX, worldY, color, steepness);
+        }
+
+        return Season(worldX, worldY, color, season);
     }
+
+    /// <summary>
+    /// Přebarví zem podle období.
+    ///
+    /// <para><b>Proč zapečené, a ne závojem přes obraz:</b> průhledný závoj
+    /// kontrast <i>snižuje</i> — obraz zmléční a všechno se posune stejným
+    /// směrem, včetně střech, lidí a vody. Skutečný podzim přebarví listí
+    /// a trávu, ale ne omítku. Takhle se změní právě to, co se v přírodě mění,
+    /// a zbytek zůstane, jak byl.</para>
+    ///
+    /// <para>Sníh se sype <b>po</b> přebarvení a nerovnoměrně: stejně hluboká
+    /// vrstva všude vypadá jako natřená plocha. Závěje se drží téhož hashe
+    /// jako zbytek variace, takže se mezi snímky nehýbou.</para>
+    /// </summary>
+    private Color Season(int worldX, int worldY, Color color, SeasonGround season)
+    {
+        if (!season.Changes)
+        {
+            return color;
+        }
+
+        if (season.Strength > 0.001f)
+        {
+            color = Color.Lerp(color, season.Tint, season.Strength);
+        }
+
+        if (season.Snow > 0.001f)
+        {
+            // Závěj je někde hlubší, někde profoukaná. Rozptyl kolem poloviny,
+            // takže průměr zůstane na zadané hodnotě.
+            float drift = 0.65f + 0.7f * Unit(worldX, worldY, 13);
+            color = Color.Lerp(color, Snow, Math.Clamp(season.Snow * drift, 0f, 1f));
+        }
+
+        return color;
+    }
+
+    /// <summary>Barva sněhu na zemi: do modra, ne čistě bílá — ta vypadá jako díra.</summary>
+    private static readonly Color Snow = new(234, 240, 250);
 
     /// <summary>
     /// Odkryté podloží na strmém svahu.

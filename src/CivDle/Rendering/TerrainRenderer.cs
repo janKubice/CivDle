@@ -68,6 +68,19 @@ public sealed class TerrainRenderer : IDisposable
     /// </summary>
     private int _bakedRevision = -1;
 
+    /// <summary>
+    /// Vzhled země, se kterým jsou chunky upečené.
+    ///
+    /// <para>Období mění barvu terénu, a ta je zapečená v textuře — takže se
+    /// při přechodu musí napéct znovu. Je to v pořádku: období se mění po
+    /// dnech, ne po snímcích, a jednorázové přepečení je cena za to, že podzim
+    /// není mléčný závoj přes obraz.</para>
+    /// </summary>
+    private int _bakedSeason;
+
+    /// <summary>Vzhled země pro právě pečené chunky.</summary>
+    private SeasonGround _season = SeasonGround.None;
+
     private sealed record Chunk(Texture2D Texture)
     {
         public int LastFrame { get; set; }
@@ -89,17 +102,24 @@ public sealed class TerrainRenderer : IDisposable
     /// Číslo, které simulace zvýší při každé změně terénu. Když se liší od
     /// upečené cache, chunky se zahodí a napečou znovu.
     /// </param>
+    /// <param name="season">
+    /// Co dělá se zemí právě běžící období. Výchozí hodnota = léto, tedy
+    /// neutrální základ; menu a časosběr si o období neříkají.
+    /// </param>
     public void Draw(
         SpriteBatch spriteBatch,
         Camera2D camera,
         ITerrain terrain,
         IReadOnlyDictionary<long, byte>? overrides = null,
-        int revision = 0)
+        int revision = 0,
+        SeasonGround season = default)
     {
-        if (revision != _bakedRevision)
+        if (revision != _bakedRevision || season.CacheKey != _bakedSeason)
         {
             InvalidateCache();
             _bakedRevision = revision;
+            _bakedSeason = season.CacheKey;
+            _season = season;
         }
 
         _frame++;
@@ -190,7 +210,7 @@ public sealed class TerrainRenderer : IDisposable
 
                 pixels[ty * ChunkTiles + tx] = _painter.Tile(
                     baseX + tx, baseY + ty, ring, CountWater(px, py),
-                    SlopeShade(px, py), Steepness(px, py));
+                    SlopeShade(px, py), Steepness(px, py), _season);
             }
         }
 

@@ -802,7 +802,8 @@ public sealed class GameplayScreen : IScreen
 
         _terrainRenderer.Draw(
             spriteBatch, _camera, _simulation.Terrain,
-            _simulation.BiomeOverrideMap, _simulation.TerrainRevision);
+            _simulation.BiomeOverrideMap, _simulation.TerrainRevision,
+            SeasonGround.From(_simulation.CurrentSeason));
         // Odlesky hned nad terénem: patří na hladinu, ne přes to, co na ní pluje.
         _waterRenderer.Draw(spriteBatch, _camera, _simulation);
         _decorationRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);

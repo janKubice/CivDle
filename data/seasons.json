@@ -6,7 +6,7 @@
     {
       "id": "spring",
       "tintColor": "#7ED957",
-      "tintAlpha": 0.06,
+      "tintAlpha": 0.02,
       "foodProductionMult": 1.1,
       "harvestMult": 1.0,
       "growthMult": 1.25,
@@ -14,12 +14,15 @@
       "coldGrowthMult": 1.0,
       "moteColor": "#F6D4E2",
       "moteDensity": 0.7,
-      "moteFall": 0.28
+      "moteFall": 0.28,
+      "groundTint": "#96C85A",
+      "groundTintStrength": 0.12,
+      "groundSnow": 0.0
     },
     {
       "id": "summer",
       "tintColor": "#FFD24A",
-      "tintAlpha": 0.05,
+      "tintAlpha": 0.02,
       "foodProductionMult": 1.25,
       "harvestMult": 1.0,
       "growthMult": 1.0,
@@ -27,12 +30,14 @@
       "coldGrowthMult": 1.0,
       "moteColor": "#FFE9A8",
       "moteDensity": 0.45,
-      "moteFall": 0.06
+      "moteFall": 0.06,
+      "groundTintStrength": 0.0,
+      "groundSnow": 0.0
     },
     {
       "id": "autumn",
       "tintColor": "#E08A3C",
-      "tintAlpha": 0.08,
+      "tintAlpha": 0.03,
       "foodProductionMult": 1.0,
       "harvestMult": 1.5,
       "growthMult": 1.0,
@@ -40,12 +45,15 @@
       "coldGrowthMult": 1.0,
       "moteColor": "#D9803A",
       "moteDensity": 0.85,
-      "moteFall": 0.45
+      "moteFall": 0.45,
+      "groundTint": "#C4823A",
+      "groundTintStrength": 0.3,
+      "groundSnow": 0.0
     },
     {
       "id": "winter",
       "tintColor": "#9DC4E8",
-      "tintAlpha": 0.12,
+      "tintAlpha": 0.04,
       "foodProductionMult": 0.6,
       "harvestMult": 0.8,
       "growthMult": 0.75,
@@ -54,7 +62,10 @@
       "snowCover": 0.8,
       "moteColor": "#EDF3FC",
       "moteDensity": 1.0,
-      "moteFall": 0.6
+      "moteFall": 0.6,
+      "groundTint": "#B9C6D6",
+      "groundTintStrength": 0.18,
+      "groundSnow": 0.5
     }
   ]
 }

@@ -31,8 +31,23 @@ public sealed record SeasonDef(
     double SnowCover = 0.0,
     RgbColor? MoteColor = null,
     double MoteDensity = 0.0,
-    double MoteFall = 0.0)
+    double MoteFall = 0.0,
+    RgbColor? GroundTint = null,
+    double GroundTintStrength = 0.0,
+    double GroundSnow = 0.0)
 {
+    /// <summary>
+    /// Mění tohle období barvu <b>země</b>, ne jen nádech přes obraz?
+    ///
+    /// <para><b>Proč to nestačí nádechem:</b> průhledný závoj přes celou
+    /// obrazovku kontrast <i>snižuje</i> — obraz zmléční a všechno se posune
+    /// stejným směrem, včetně střech, lidí a vody. Skutečný podzim přebarví
+    /// listí a trávu, ale ne omítku. Když se barva zapeče do terénu, změní se
+    /// právě to, co se v přírodě mění, a zbytek zůstane, jak byl.</para>
+    /// </summary>
+    public bool RepaintsGround => (GroundTintStrength > 0.001 && GroundTint is not null) || GroundSnow > 0.001;
+
+
     /// <summary>
     /// Poletuje v tomhle období vzduchem něco? (Okvětní plátky, pyl, listí, sníh.)
     ///
