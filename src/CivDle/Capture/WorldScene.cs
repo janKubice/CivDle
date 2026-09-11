@@ -71,9 +71,13 @@ public sealed class WorldScene : IDisposable
     {
         var spriteBatch = _screens.SpriteBatch;
 
+        // Období se předává i sem: fotka s letní zemí pod zimním městem by
+        // byla ta nejnápadnější možná neshoda mezi hrou a tím, co si hráč
+        // uloží. Chunky jsou přitom tytéž, takže to nic nestojí.
         _terrain.Draw(
             spriteBatch, camera, simulation.Terrain,
-            simulation.BiomeOverrideMap, simulation.TerrainRevision);
+            simulation.BiomeOverrideMap, simulation.TerrainRevision,
+            Rendering.SeasonGround.From(simulation.CurrentSeason));
         _water.Draw(spriteBatch, camera, simulation);
         _decorations.Draw(spriteBatch, camera, simulation.Terrain);
         _urbanGround.Draw(spriteBatch, camera);
