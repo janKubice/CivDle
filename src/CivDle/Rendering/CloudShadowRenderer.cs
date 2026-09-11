@@ -35,6 +35,20 @@ public sealed class CloudShadowRenderer : IDisposable
     /// <summary>Nejtmavší, co stín udělá. Přes 30 % už to vypadá jako zatmění.</summary>
     private const float MaxDarkening = 0.26f;
 
+    /// <summary>
+    /// Práh a měkkost okraje pro stínovou vrstvu. Pod prahem je jasno; bez něj
+    /// by z toho byla rovnoměrná šeď, ne mraky.
+    /// </summary>
+    private const float Threshold = 0.42f;
+
+    private const float Softness = 0.34f;
+
+    /// <summary>
+    /// Seed tvaru. Vrstva nad městem má jiný, aby stín neležel přesně pod
+    /// mrakem — mraky letí výš a jinou rychlostí, takže by zákryt byl chyba.
+    /// </summary>
+    private const int Seed = 1;
+
     private readonly Texture2D _clouds;
     private float _time;
 
@@ -95,18 +109,4 @@ public sealed class CloudShadowRenderer : IDisposable
     }
 
     public void Dispose() => _clouds.Dispose();
-
-    /// <summary>
-    /// Práh a měkkost okraje pro stínovou vrstvu. Pod prahem je jasno; bez něj
-    /// by z toho byla rovnoměrná šeď, ne mraky.
-    /// </summary>
-    private const float Threshold = 0.42f;
-
-    private const float Softness = 0.34f;
-
-    /// <summary>
-    /// Seed tvaru. Vrstva nad městem má jiný, aby stín neležel přesně pod
-    /// mrakem — mraky letí výš a jinou rychlostí, takže by zákryt byl chyba.
-    /// </summary>
-    private const int Seed = 1;
 }
