@@ -1,4 +1,4 @@
-using CivDle.Rendering;
+using System.Reflection;
 using CivDle.Rendering.Sprites;
 using Microsoft.Xna.Framework;
 using Xunit;
@@ -93,5 +93,54 @@ public class FlatSpriteTests
         canvas.FillRect(3, 2, 2, 6, new Color(120, 90, 60));
 
         Assert.False(canvas.IsFlat, "průhledný závoj nad kresbou se počítá jako plocha");
+    }
+
+    [Fact]
+    public void TheOnlyFlatSpritesInTheGameAreTheFields()
+    {
+        // Pravidlo se dotýká všech dvou set kreseb v knihovně naráz, a když se
+        // splete, nikdo to nenahlásí — budově prostě v zimě zmizí sníh ze
+        // střechy. Sprity se kreslí až na grafické kartě, ale kreslicí metody
+        // samy grafiku nepotřebují, takže se dají projít všechny.
+        var draws = typeof(SpriteLibrary)
+            .GetMethods(BindingFlags.NonPublic | BindingFlags.Static)
+            .Where(m => m.ReturnType == typeof(void)
+                     && m.GetParameters().Length == 1
+                     && m.GetParameters()[0].ParameterType == typeof(PixelCanvas))
+            .ToList();
+
+        Assert.True(draws.Count > 100, $"reflexe našla jen {draws.Count} kreseb — test nic nehlídá");
+
+        var flat = new List<string>();
+        foreach (var draw in draws)
+        {
+            // Obě velikosti plátna, které knihovna používá. Kreslí se do obou,
+            // protože menší plátno kresbu ořízne a ořez je právě to, co by
+            // mohlo udělat z domu „plochu".
+            foreach (int size in new[] { SpriteLibrary.SpriteSize, SpriteLibrary.BigSpriteSize })
+            {
+                var canvas = new PixelCanvas(size, size);
+                try
+                {
+                    draw.Invoke(null, new object[] { canvas });
+                }
+                catch
+                {
+                    continue; // kresba na tuhle velikost nepasuje; posoudí se v té druhé
+                }
+
+                if (canvas.IsFlat && !flat.Contains(draw.Name))
+                {
+                    flat.Add(draw.Name);
+                }
+            }
+        }
+
+        flat.Sort();
+
+        // Pole jsou tři a jsou to jediné budovy, které leží na zemi. Kdyby
+        // přibyla čtvrtá, patří sem — a kdyby odsud něco zmizelo, vrátila se
+        // bílá deska.
+        Assert.Equal(new[] { "Farm", "GrainField", "Plantation" }, flat);
     }
 }
