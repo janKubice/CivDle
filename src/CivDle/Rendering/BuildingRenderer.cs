@@ -381,11 +381,21 @@ public sealed class BuildingRenderer
     /// </summary>
     private void SortBySouthEdge(ReadOnlySpan<BuildingInstance> buildings)
     {
-        if (_sortKeys.Length < buildings.Length)
+        // Pole se musí vejít na NEJVYŠŠÍ index z výřezu, ne jen na délku pole
+        // budov. Index z novějšího stavu simulace může být větší — renderer to
+        // ostatně o pár řádků níž sám ošetřuje — a klíč by se pak zapisoval za
+        // konec pole.
+        int needed = buildings.Length;
+        for (int slot = 0; slot < _visible.Count; slot++)
+        {
+            needed = Math.Max(needed, _visible[slot] + 1);
+        }
+
+        if (_sortKeys.Length < needed)
         {
             // Roste po dvojnásobku, ne přesně: město přibývá po jedné budově
             // a realokace při každé stavbě by byla alokace za snímek.
-            Array.Resize(ref _sortKeys, Math.Max(64, buildings.Length * 2));
+            Array.Resize(ref _sortKeys, Math.Max(64, needed * 2));
         }
 
         // Klíče se dopočítají dopředu do pole. Řadicí funkce pak nesahá na
