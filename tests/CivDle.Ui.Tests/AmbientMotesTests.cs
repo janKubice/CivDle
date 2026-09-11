@@ -44,6 +44,32 @@ public class AmbientMotesTests
     }
 
     [Fact]
+    public void AMoteKeepsTheSameSizeOnScreenAtAnyZoom()
+    {
+        // Tohle se ve hře projevilo jako hnědé bedny plovoucí po moři: částice
+        // se kreslily ve světových jednotkách, takže dvoupixelové smítko bylo
+        // při trojnásobném přiblížení šestipixelový blok. Poletující drobnost
+        // je blízko u kamery, ne na zemi.
+        const float size = 2f;
+
+        float nearSize = size * AmbientMotes.WorldPerPixel(3f) * 3f;   // svět → obrazovka
+        float farSize = size * AmbientMotes.WorldPerPixel(0.5f) * 0.5f;
+
+        Assert.Equal(nearSize, farSize, precision: 4);
+    }
+
+    [Fact]
+    public void ZeroZoomDoesNotBlowUp()
+    {
+        // Přiblížení se nikdy nedostane na nulu, ale dělení jím by byl
+        // nekonečný obdélník přes celou obrazovku.
+        float scale = AmbientMotes.WorldPerPixel(0f);
+
+        Assert.False(float.IsInfinity(scale));
+        Assert.False(float.IsNaN(scale));
+    }
+
+    [Fact]
     public void AMoteThatFliesOffOneEdgeComesBackOnTheOther()
     {
         // Kdyby částice odlétaly pryč, obraz by se po pár vteřinách vyprázdnil

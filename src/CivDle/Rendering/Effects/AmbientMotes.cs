@@ -111,6 +111,15 @@ public sealed class AmbientMotes
             return;
         }
 
+        // Velikost se dělí přiblížením, takže na obrazovce zůstane stejná.
+        //
+        // Bez toho rostly částice se zoomem: dvoupixelové smítko bylo při
+        // trojnásobném přiblížení šestipixelový blok a z listí na moři byly
+        // plovoucí bedny. Poletující drobnost je blízko u kamery, ne na zemi —
+        // takže má mít pevnou velikost v pixelech obrazovky, ne ve světě.
+        // Poloha zůstává světová, aby se částice při posunu kamery nevláčely.
+        float worldPerPixel = WorldPerPixel(camera.Zoom);
+
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
         for (int i = 0; i < ActiveCount; i++)
         {
@@ -119,12 +128,35 @@ public sealed class AmbientMotes
             // Rychlejší částice jsou „blíž", takže jsou i výraznější — týž trik
             // jako u paralaxy mraků, jen o řád menší.
             float alpha = 0.35f + 0.4f * (mote.Speed - 0.6f);
-            int size = Math.Max(1, (int)mote.Size);
-            spriteBatch.Draw(pixel, new Rectangle((int)mote.X, (int)mote.Y, size, size), color * alpha);
+            float size = Math.Max(1f, mote.Size) * worldPerPixel;
+
+            spriteBatch.Draw(
+                pixel,
+                new Vector2(mote.X, mote.Y),
+                null,
+                color * alpha,
+                0f,
+                Vector2.Zero,
+                size,
+                SpriteEffects.None,
+                0f);
         }
 
         spriteBatch.End();
     }
+
+    /// <summary>
+    /// Kolik světových jednotek je jeden pixel obrazovky.
+    ///
+    /// <para>Tím se dělí velikost částice, aby na obrazovce zůstala stejná.
+    /// Bez toho rostly se zoomem: dvoupixelové smítko bylo při trojnásobném
+    /// přiblížení šestipixelový blok a z listí na moři byly plovoucí bedny.
+    /// Poletující drobnost je blízko u kamery, ne na zemi.</para>
+    ///
+    /// <para>Veřejné, protože je to celé to pravidlo a jde ověřit bez
+    /// grafického zařízení.</para>
+    /// </summary>
+    public static float WorldPerPixel(float zoom) => 1f / Math.Max(0.0001f, zoom);
 
     /// <summary>Rozsype částice náhodně po výřezu. Volá se při prvním snímku období.</summary>
     private void Scatter(Vector2 min, Vector2 max)
