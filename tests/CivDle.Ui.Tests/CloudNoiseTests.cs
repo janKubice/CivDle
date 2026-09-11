@@ -76,6 +76,40 @@ public class CloudNoiseTests
         Assert.True(different > 200, $"dva seedy dávají skoro totéž nebe ({different} rozdílných míst)");
     }
 
+    [Fact]
+    public void TheShadowTextureCarriesDensityInAlphaNotInColor()
+    {
+        // Tohle je ta chyba, kvůli které vypadaly mraky jako šmouhy.
+        //
+        // Verze s hustotou v BARVĚ se dá kreslit jedině násobením, a násobení
+        // počítá cíl × zdroj — hustý mrak (černá) tedy vynásobí scénu nulou
+        // a udělá díru do černa. Sílu stínu přitom nejde nijak řídit, protože
+        // tint umí jen ubrat, ne přidat.
+        var solid = CloudNoise.Texel(1f, asShade: false);
+
+        Assert.Equal(255, solid.R);
+        Assert.Equal(255, solid.G);
+        Assert.Equal(255, solid.B);
+        Assert.Equal(255, solid.A);
+    }
+
+    [Fact]
+    public void ClearSkyIsFullyTransparent()
+    {
+        // Kde mrak není, se nesmí kreslit vůbec nic.
+        var clear = CloudNoise.Texel(0f, asShade: false);
+
+        Assert.Equal(0, clear.A);
+    }
+
+    [Fact]
+    public void DensityMapsStraightToOpacity()
+    {
+        // Řídký okraj mraku má stínit slabě, jádro naplno. Kdyby byl vztah
+        // nelineární, ztratil by mrak měkký okraj a byl by z něj zase flek.
+        Assert.True(CloudNoise.Texel(0.25f, asShade: false).A < CloudNoise.Texel(0.75f, asShade: false).A);
+    }
+
     /// <summary>Hustota mraku s týmiž parametry, jaké používá stínová vrstva.</summary>
     private static float Sample(int x, int y, int seed = 1) =>
         CloudNoise.DensityAt(x, y, 256, threshold: 0.42f, softness: 0.34f, seed: seed);

@@ -44,10 +44,7 @@ public static class CloudNoise
         {
             for (int x = 0; x < size; x++)
             {
-                float density = DensityAt(x, y, size, threshold, softness, seed);
-                pixels[y * size + x] = asShade
-                    ? new Color(1f - density, 1f - density, 1f - density)
-                    : new Color(1f, 1f, 1f, density);
+                pixels[y * size + x] = Texel(DensityAt(x, y, size, threshold, softness, seed), asShade);
             }
         }
 
@@ -55,6 +52,24 @@ public static class CloudNoise
         texture.SetData(pixels);
         return texture;
     }
+
+    /// <summary>
+    /// Jeden texel textury mraků.
+    ///
+    /// <para><b>Na tomhle rozdílu záleží víc, než vypadá.</b> Verze pro stíny
+    /// nese hustotu v <i>barvě</i>, takže se dá kreslit jedině násobením — a
+    /// násobení počítá <c>cíl × zdroj</c>, takže hustý mrak (černá) vynásobí
+    /// scénu nulou a udělá díru do černa. Přesně tak to taky vypadalo. Verze
+    /// pro míchání přes alfu nese hustotu v <i>alfě</i> a bílou v RGB, takže
+    /// výsledek je <c>cíl × (1 − α) + stín × α</c> — řízené ztmavení, jehož
+    /// sílu určuje volající.</para>
+    ///
+    /// <para>Veřejné schválně: je to celý ten rozdíl a dá se ověřit bez
+    /// grafického zařízení.</para>
+    /// </summary>
+    public static Color Texel(float density, bool asShade) => asShade
+        ? new Color(1f - density, 1f - density, 1f - density)
+        : new Color(1f, 1f, 1f, density);
 
     /// <summary>
     /// Hustota mraku na daném místě (0 = jasno, 1 = zataženo).
