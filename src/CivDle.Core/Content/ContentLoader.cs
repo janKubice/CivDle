@@ -4663,10 +4663,21 @@ public sealed class ContentLoader
                 colors.Add(ParseColor(path, colorText, $"Dekorace '{id}'"));
             }
 
+            // Nula znamená „nic nenapsáno" — JSON bez 'scale' má dostat výchozí
+            // zvětšení, ne strom o nulové velikosti. Strop je pojistka proti
+            // překlepu: dvacetkrát zvětšený sprite by přes sebe přetáhl půl
+            // obrazovky a vypadalo by to jako chyba vykreslování.
+            int scale = dto.Scale == 0 ? DecorationDef.DefaultScale : dto.Scale;
+            if (scale is < 1 or > 12)
+            {
+                throw new ContentLoadException(path, $"Dekorace '{id}': 'scale' musí být 1–12, je {dto.Scale}.");
+            }
+
             result.Add(new DecorationDef(
                 id, ParseBiomeMask(path, $"Dekorace '{id}'", dto.Biomes, biomes),
                 colors, (float)dto.Density, dto.MinSize, dto.MaxSize,
-                string.IsNullOrWhiteSpace(dto.Sprite) ? null : dto.Sprite.Trim()));
+                string.IsNullOrWhiteSpace(dto.Sprite) ? null : dto.Sprite.Trim(),
+                scale));
         }
 
         return result;

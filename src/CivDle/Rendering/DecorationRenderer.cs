@@ -14,16 +14,6 @@ namespace CivDle.Rendering;
 /// </summary>
 public sealed class DecorationRenderer
 {
-    /// <summary>
-    /// Kolikrát větší se kreslí sprite oproti vylosované velikosti.
-    ///
-    /// <para>Velikosti v datech byly vymyšlené pro barevný čtvereček (1–4 px).
-    /// Trs trávy o čtyřech pixelech by byl neviditelný, takže se sprite
-    /// natáhne — data se přepisovat nemusí a čtvereček jako záloha zůstává
-    /// ve své původní velikosti.</para>
-    /// </summary>
-    private const int SpriteScale = 3;
-
     /// <summary>Jak velká jsou oka shluků v dlaždicích.</summary>
     private const int ClumpCell = 7;
 
@@ -140,8 +130,9 @@ public sealed class DecorationRenderer
                     if (def.HasSprite && _sprites.Get(def.Sprite!) is { } sprite)
                     {
                         // Sprite je vyšší než široký (tráva roste nahoru), takže
-                        // se posadí patou na místo, které vyšlo z hashe.
-                        int drawn = size * SpriteScale;
+                        // se posadí patou na místo, které vyšlo z hashe. Zvětšení
+                        // je z dat: trs trávy a strom nemají být stejně velké.
+                        int drawn = size * def.Scale;
                         spriteBatch.Draw(
                             sprite,
                             new Rectangle(
@@ -149,7 +140,7 @@ public sealed class DecorationRenderer
                                 y * tileSize + offsetY - drawn + size,
                                 drawn,
                                 drawn),
-                            color.ToXna());
+                            SpriteTint(color));
                         continue;
                     }
 
@@ -162,6 +153,35 @@ public sealed class DecorationRenderer
         }
 
         spriteBatch.End();
+    }
+
+    /// <summary>
+    /// Barva z dat přepočtená na nádech pro sprite.
+    ///
+    /// <para><b>Proč to nejde vzít rovnou:</b> tint se <b>násobí</b>. Barvy
+    /// v datech byly vymyšlené jako výsledná barva čtverečku, takže jsou tmavé —
+    /// les má v datech <c>#2E5C26</c>. Vynásobit tmavě zelený sprite tmavě
+    /// zelenou barvou dá skoro černou: porost, který se obrázkem konečně dal
+    /// poznat, by zmizel v tmavé kaši.</para>
+    ///
+    /// <para>Řešení je vzít z dat <b>odstín</b> a jas nechat spritu: barva se
+    /// roztáhne tak, aby nejsilnější složka byla na maximu. Rozdíl mezi tajgou
+    /// a džunglí tím zůstane, ale kresba si udrží vlastní světla a stíny.</para>
+    /// </summary>
+    private static Color SpriteTint(RgbColor rgb)
+    {
+        var color = rgb.ToXna();
+        int peak = Math.Max(color.R, Math.Max(color.G, color.B));
+        if (peak == 0)
+        {
+            return Color.White; // černá v datech není přání, aby sprite zmizel
+        }
+
+        float boost = 255f / peak;
+        return new Color(
+            (int)MathF.Min(255f, color.R * boost),
+            (int)MathF.Min(255f, color.G * boost),
+            (int)MathF.Min(255f, color.B * boost));
     }
 
     private ulong Hash(int x, int y, int defIndex)

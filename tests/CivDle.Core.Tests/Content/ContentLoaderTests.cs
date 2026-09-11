@@ -1084,6 +1084,40 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadFrom_DecorationWithoutScale_GetsTheDefaultOne()
+    {
+        // Zvětšení je nepovinné: drtivá většina drobností na zemi ho nepotřebuje
+        // a nikdo je nemá psát do každého záznamu. Nula ze schématu ale nesmí
+        // projít jako „kresli nic".
+        WriteAllValid();
+
+        var content = Load();
+
+        Assert.All(content.Decorations, d => Assert.True(d.Scale >= 1));
+    }
+
+    [Fact]
+    public void LoadFrom_DecorationWithAbsurdScale_Fails()
+    {
+        // Strop je pojistka proti překlepu. Dvacetkrát zvětšený sprite přetáhne
+        // přes sebe půl obrazovky a vypadá to jako chyba vykreslování, ne jako
+        // špatné číslo v datech — takže se to musí ozvat hned při načtení.
+        WriteAllValid();
+        Write("decorations.json", """
+        {
+          "schemaVersion": 1,
+          "decorations": [
+            { "id": "flowers", "biomes": ["grass"], "colors": ["#E7E26B"], "density": 0.05, "minSize": 1, "maxSize": 2, "scale": 40 }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("scale", ex.Message);
+    }
+
+    [Fact]
     public void LoadFrom_DecorationWithUnknownBiome_ReportsId()
     {
         WriteAllValid();

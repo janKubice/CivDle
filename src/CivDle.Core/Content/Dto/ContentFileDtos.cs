@@ -348,7 +348,8 @@ public sealed record DecorationDto(
     double Density,
     int MinSize,
     int MaxSize,
-    string? Sprite = null);
+    string? Sprite = null,
+    int Scale = 0);
 
 /// <summary>Obsah souboru <c>data/fauna.json</c>.</summary>
 public sealed record FaunaFileDto(int SchemaVersion, List<FaunaDto>? Fauna);

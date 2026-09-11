@@ -97,6 +97,25 @@ public sealed class SpriteCoverageTests
             $"Suroviny bez ikony (v HUD zůstane barevný čtvereček): {string.Join(", ", missing)}");
     }
 
+    [Fact]
+    public void EveryDecorationSpriteExists()
+    {
+        // Dekorace se spritem, který v knihovně není, tiše spadne zpátky na
+        // barevný čtvereček. To je ta nejhorší varianta chyby: nic nespadne,
+        // jen je v lese místo stromu zelená tečka — a nikdo to nespojí
+        // s překlepem v datech.
+        var registered = AllRegisteredIds();
+        var content = LoadContent();
+
+        var missing = content.Decorations
+            .Where(d => d.HasSprite && !registered.Contains(d.Sprite!))
+            .Select(d => $"{d.Id} → {d.Sprite}")
+            .ToList();
+
+        Assert.True(missing.Count == 0,
+            $"Dekorace odkazují neexistující sprity: {string.Join(", ", missing)}");
+    }
+
     /// <summary>ID spritů zaregistrovaných v knihovně pro daný prefix.</summary>
     /// <summary>Všechna registrovaná ID i s předponou — fáze se odkazují celým jménem.</summary>
     private static HashSet<string> AllRegisteredIds()

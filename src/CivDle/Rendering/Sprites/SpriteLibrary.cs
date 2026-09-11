@@ -140,6 +140,16 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "deco.reed", PropSpriteSize, DecoReed);
         Add(device, "deco.driftstone", PropSpriteSize, DecoDriftstone);
 
+        // Stromy mají vlastní, větší plátno: les je ve výsledku největší
+        // zelená plocha na obrazovce a keř nafouknutý na velikost stromu
+        // vypadá jako rozmazaná skvrna.
+        Add(device, "deco.broadleaf", TreeSpriteSize, DecoBroadleaf);
+        Add(device, "deco.conifer", TreeSpriteSize, DecoConifer);
+        Add(device, "deco.jungle_tree", TreeSpriteSize, DecoJungleTree);
+        Add(device, "deco.acacia", TreeSpriteSize, DecoAcacia);
+        Add(device, "deco.mangrove", TreeSpriteSize, DecoMangrove);
+        Add(device, "deco.dead_tree", TreeSpriteSize, DecoDeadTree);
+
         Add(device, "node.tree", SpriteSize, Tree);
         Add(device, "node.rock", SpriteSize, Rock);
         Add(device, "node.stump", SpriteSize, Stump);
@@ -692,6 +702,128 @@ public sealed class SpriteLibrary : IDisposable
         c.FillCircle(x, y, r, new Color(120, 118, 112));
         c.FillCircle(x - r * 0.3f, y - r * 0.3f, r * 0.6f, new Color(150, 148, 142));
         c.FillCircle(x, y + r * 0.5f, r * 0.5f, new Color(96, 94, 90));
+    }
+
+    // ----- stromy (24×24, kotva dole uprostřed) -----
+
+    /// <summary>
+    /// Plátno stromu. Větší než u drobností, protože strom je ve výsledku
+    /// přes dvě dlaždice a na šestnácti pixelech by se koruna rozpadla na kaši.
+    /// </summary>
+    public const int TreeSpriteSize = 24;
+
+    /// <summary>
+    /// Stín stromu. Tmavší a větší než u drobností: koruna je vysoko nad zemí,
+    /// takže vrhá skutečný stín, ne jen kontaktní skvrnu — a právě ten stín
+    /// dělá z lesa hmotu místo zelené tapety.
+    /// </summary>
+    private static readonly Color TreeShadow = new(0, 0, 0, 78);
+
+    /// <summary>Listnatý strom: koruna ze tří laloků, osvětlená zleva shora.</summary>
+    private static void DecoBroadleaf(PixelCanvas c)
+    {
+        c.FillCircle(15f, 20f, 5.5f, TreeShadow); // stín doprava dolů, podle SceneLight
+        c.FillRect(11, 13, 3, 9, new Color(84, 60, 40));
+        c.FillRect(11, 13, 1, 9, new Color(108, 80, 54)); // osvětlená strana kmene
+
+        var dark = new Color(38, 74, 40);
+        var body = new Color(54, 102, 50);
+        var lit = new Color(80, 134, 64);
+
+        c.FillCircle(12.5f, 9f, 8f, dark);
+        c.FillCircle(11f, 8f, 6.5f, body);
+        c.FillCircle(9f, 6f, 4f, lit);
+        c.FillCircle(8f, 5f, 2f, new Color(104, 160, 78)); // lesk na vrcholku
+    }
+
+    /// <summary>Jehličnan: kužel ve třech patrech, špička výš než koruna listnáče.</summary>
+    private static void DecoConifer(PixelCanvas c)
+    {
+        c.FillCircle(14.5f, 20f, 4.5f, TreeShadow);
+        c.FillRect(11, 17, 2, 5, new Color(70, 52, 36));
+
+        var dark = new Color(24, 58, 46);
+        var lit = new Color(46, 92, 66);
+
+        // Zdola nahoru, každé patro užší — z toho vznikne kužel.
+        c.FillTriangle(3f, 19f, 21f, 19f, 12f, 10f, dark);
+        c.FillTriangle(4f, 14f, 20f, 14f, 12f, 5f, dark);
+        c.FillTriangle(6f, 9f, 18f, 9f, 12f, 1f, dark);
+
+        // Levý bok ke slunci. Užší trojúhelníky přes tytéž špičky.
+        c.FillTriangle(4f, 19f, 12f, 19f, 12f, 10f, lit);
+        c.FillTriangle(5f, 14f, 12f, 14f, 12f, 5f, lit);
+        c.FillTriangle(7f, 9f, 12f, 9f, 12f, 1f, lit);
+    }
+
+    /// <summary>Tropický strom: holý kmen a nahoře vějíř listů.</summary>
+    private static void DecoJungleTree(PixelCanvas c)
+    {
+        c.FillCircle(15f, 21f, 4.5f, TreeShadow);
+
+        // Kmen se mírně naklání — rovná svislice vypadá jako sloup, ne jako strom.
+        for (int i = 0; i < 14; i++)
+        {
+            c.FillRect(11 + i / 7, 8 + i, 2, 1, new Color(92, 74, 50));
+        }
+
+        var frond = new Color(32, 108, 52);
+        var lit = new Color(58, 148, 74);
+
+        c.FillTriangle(12f, 8f, 1f, 4f, 4f, 9f, frond);
+        c.FillTriangle(12f, 8f, 22f, 3f, 21f, 8f, frond);
+        c.FillTriangle(12f, 8f, 3f, 13f, 8f, 14f, frond);
+        c.FillTriangle(12f, 8f, 20f, 13f, 15f, 14f, frond);
+        c.FillTriangle(12f, 8f, 8f, 0f, 14f, 1f, lit);
+        c.FillTriangle(12f, 8f, 2f, 5f, 5f, 4f, lit);
+        c.FillCircle(12f, 8f, 2f, new Color(74, 56, 38)); // srdce koruny
+    }
+
+    /// <summary>Akácie: plochá koruna na holém kmeni, silueta savany.</summary>
+    private static void DecoAcacia(PixelCanvas c)
+    {
+        c.FillCircle(15f, 21f, 5f, TreeShadow);
+
+        c.FillRect(11, 12, 2, 10, new Color(94, 76, 52));
+        c.FillRect(8, 12, 3, 1, new Color(94, 76, 52));  // rozvětvení
+        c.FillRect(13, 11, 3, 1, new Color(94, 76, 52));
+
+        // Deštník: široký a nízký. To je celý tvar, podle kterého se akácie pozná.
+        c.FillRect(2, 8, 20, 4, new Color(72, 96, 46));
+        c.FillRect(4, 6, 16, 3, new Color(92, 120, 56));
+        c.FillRect(6, 5, 10, 2, new Color(112, 142, 68));
+        c.FillRect(2, 11, 20, 1, new Color(52, 70, 34)); // spodek koruny ve stínu
+    }
+
+    /// <summary>Mangrove: koruna na chůdových kořenech nad vodou.</summary>
+    private static void DecoMangrove(PixelCanvas c)
+    {
+        c.FillCircle(14f, 21f, 4f, TreeShadow);
+
+        // Kořeny vějířem dolů — podle nich se mangrove pozná od jiného stromu.
+        c.FillTriangle(12f, 13f, 5f, 22f, 8f, 22f, new Color(78, 58, 40));
+        c.FillTriangle(12f, 13f, 19f, 22f, 16f, 22f, new Color(70, 52, 36));
+        c.FillRect(11, 12, 2, 8, new Color(88, 66, 46));
+
+        c.FillCircle(11.5f, 8f, 7f, new Color(34, 76, 44));
+        c.FillCircle(10f, 7f, 5f, new Color(48, 100, 54));
+        c.FillCircle(8.5f, 5.5f, 2.6f, new Color(70, 128, 66));
+    }
+
+    /// <summary>Uschlý strom: holé větve. Do popela a pustiny, kde nic neroste.</summary>
+    private static void DecoDeadTree(PixelCanvas c)
+    {
+        c.FillCircle(14f, 21f, 3.5f, TreeShadow);
+
+        var wood = new Color(110, 100, 88);
+        var pale = new Color(140, 130, 118);
+
+        c.FillRect(11, 9, 2, 13, wood);
+        c.FillRect(11, 9, 1, 13, pale);
+        c.FillTriangle(12f, 12f, 4f, 5f, 6f, 8f, wood);
+        c.FillTriangle(12f, 10f, 20f, 4f, 19f, 7f, wood);
+        c.FillTriangle(12f, 15f, 3f, 12f, 5f, 14f, wood);
+        c.FillTriangle(12f, 7f, 9f, 1f, 12f, 2f, pale);
     }
 
     private static void Tree(PixelCanvas c)

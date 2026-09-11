@@ -18,8 +18,21 @@ public sealed record DecorationDef(
     float Density,
     int MinSize,
     int MaxSize,
-    string? Sprite = null)
+    string? Sprite = null,
+    int Scale = DecorationDef.DefaultScale)
 {
+    /// <summary>
+    /// Výchozí zvětšení spritu oproti vylosované velikosti.
+    ///
+    /// <para>Velikosti v datech (1–8) byly vymyšlené pro barevný čtvereček.
+    /// Trs trávy o čtyřech pixelech by byl neviditelný, takže se sprite
+    /// natáhne. Trojka sedí drobnostem na zemi; strom potřebuje víc a řekne
+    /// si o to v datech, protože o tom, co je strom, rozhoduje obsah, ne
+    /// renderer.</para>
+    /// </summary>
+    public const int DefaultScale = 3;
+
+
     /// <summary>
     /// Kreslí se tahle dekorace obrázkem, nebo jen barevným čtverečkem?
     ///

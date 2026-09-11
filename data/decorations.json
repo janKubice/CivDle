@@ -27,10 +27,11 @@
         "#4C8A3D",
         "#356B2C"
       ],
-      "density": 0.35,
-      "minSize": 2,
-      "maxSize": 4,
-      "sprite": "deco.bush"
+      "density": 0.22,
+      "minSize": 3,
+      "maxSize": 5,
+      "sprite": "deco.broadleaf",
+      "scale": 7
     },
     {
       "id": "steppe_shrub",
@@ -113,10 +114,11 @@
         "#0E4A24",
         "#57B36A"
       ],
-      "density": 0.42,
-      "minSize": 2,
+      "density": 0.26,
+      "minSize": 3,
       "maxSize": 5,
-      "sprite": "deco.fern"
+      "sprite": "deco.jungle_tree",
+      "scale": 7
     },
     {
       "id": "taiga_conifers",
@@ -129,10 +131,11 @@
         "#2F6350",
         "#1A362D"
       ],
-      "density": 0.3,
-      "minSize": 2,
-      "maxSize": 4,
-      "sprite": "deco.bush"
+      "density": 0.2,
+      "minSize": 3,
+      "maxSize": 5,
+      "sprite": "deco.conifer",
+      "scale": 7
     },
     {
       "id": "acacia",
@@ -144,10 +147,11 @@
         "#8A9247",
         "#5A6330"
       ],
-      "density": 0.07,
-      "minSize": 2,
-      "maxSize": 3,
-      "sprite": "deco.bush"
+      "density": 0.05,
+      "minSize": 3,
+      "maxSize": 4,
+      "sprite": "deco.acacia",
+      "scale": 6
     },
     {
       "id": "dune_ripples",
@@ -342,10 +346,11 @@
         "#4A3A2A",
         "#5E4A34"
       ],
-      "density": 0.06,
-      "minSize": 2,
+      "density": 0.12,
+      "minSize": 3,
       "maxSize": 4,
-      "sprite": "deco.reed"
+      "sprite": "deco.mangrove",
+      "scale": 6
     },
     {
       "id": "highland_heather",
@@ -487,6 +492,81 @@
       "minSize": 2,
       "maxSize": 3,
       "sprite": "deco.fern"
+    },
+    {
+      "id": "forest_understory",
+      "biomes": [
+        "forest"
+      ],
+      "colors": [
+        "#3E7A34",
+        "#4C8A3D"
+      ],
+      "density": 0.18,
+      "minSize": 2,
+      "maxSize": 4,
+      "sprite": "deco.bush"
+    },
+    {
+      "id": "jungle_understory",
+      "biomes": [
+        "jungle"
+      ],
+      "colors": [
+        "#2B9450",
+        "#14612F"
+      ],
+      "density": 0.3,
+      "minSize": 2,
+      "maxSize": 5,
+      "sprite": "deco.fern"
+    },
+    {
+      "id": "savanna_scrub",
+      "biomes": [
+        "savanna"
+      ],
+      "colors": [
+        "#8A9247",
+        "#6E7A3A"
+      ],
+      "density": 0.1,
+      "minSize": 2,
+      "maxSize": 3,
+      "sprite": "deco.bush"
+    },
+    {
+      "id": "dead_stands",
+      "biomes": [
+        "fallout",
+        "badlands",
+        "volcanic"
+      ],
+      "colors": [
+        "#8C8478",
+        "#6E6860"
+      ],
+      "density": 0.07,
+      "minSize": 3,
+      "maxSize": 4,
+      "sprite": "deco.dead_tree",
+      "scale": 6
+    },
+    {
+      "id": "highland_pines",
+      "biomes": [
+        "highlands",
+        "snow_peaks"
+      ],
+      "colors": [
+        "#2F6350",
+        "#22453A"
+      ],
+      "density": 0.08,
+      "minSize": 3,
+      "maxSize": 4,
+      "sprite": "deco.conifer",
+      "scale": 6
     }
   ]
 }
