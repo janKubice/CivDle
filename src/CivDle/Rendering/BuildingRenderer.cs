@@ -694,19 +694,33 @@ public sealed class BuildingRenderer
             return;
         }
 
-        // Odznak visí NAD střechou, ne na ní.
-        //
-        // Dřív to byl čtverec šest na šest v rohu půdorysu — na domku o jedné
-        // dlaždici tedy třetina střechy. Vypadalo to jako barevná záplata
-        // nalepená na kresbu, ne jako upozornění. Nad budovou je odznak
-        // čitelný, nepřebíjí sprite a je na první pohled poznat, že je to
-        // informace, ne architektura.
-        int size = Math.Clamp(bounds.Width / 4, 4, 8);
-        int badgeX = bounds.X + bounds.Width / 2 - size / 2;
-        int badgeY = bounds.Y - size - 2;
+        var badge = BadgeRect(bounds);
 
-        spriteBatch.Draw(_pixel, new Rectangle(badgeX - 1, badgeY - 1, size + 2, size + 2), Color.Black * 0.45f);
-        spriteBatch.Draw(_pixel, new Rectangle(badgeX, badgeY, size, size), color);
+        spriteBatch.Draw(
+            _pixel,
+            new Rectangle(badge.X - 1, badge.Y - 1, badge.Width + 2, badge.Height + 2),
+            Color.Black * 0.45f);
+        spriteBatch.Draw(_pixel, badge, color);
+    }
+
+    /// <summary>
+    /// Kam odznak patří: do <b>horního pravého rohu</b>, těsně nad půdorys.
+    ///
+    /// <para>Původně to byl čtverec šest na šest uvnitř půdorysu — na domku
+    /// o jedné dlaždici tedy třetina střechy, tedy barevná záplata přes kresbu.
+    /// Posunout ho doprostřed nad budovu ale problém jen o dlaždici odsunulo:
+    /// v souvislé zástavbě dosedl na střechu souseda nad sebou, takže to pořád
+    /// vypadalo jako flek na cizím domě — jen na cizím.</para>
+    ///
+    /// <para>Roh je jediné místo, kde se v pravidelném rastru potkávají mezery
+    /// mezi čtyřmi parcelami. Odznak tam leží na volné zemi, nepřekrývá kresbu
+    /// a je poznat, ke které budově patří. A je menší, než býval: stačí, aby si
+    /// ho oko všimlo, nemá se číst.</para>
+    /// </summary>
+    public static Rectangle BadgeRect(Rectangle bounds)
+    {
+        int size = Math.Clamp(bounds.Width / 6, 3, 6);
+        return new Rectangle(bounds.Right - size, bounds.Y - size, size, size);
     }
 
     /// <summary>
