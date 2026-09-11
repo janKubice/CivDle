@@ -41,17 +41,24 @@ public sealed class DistrictRenderer
     /// <summary>Pod tímhle přiblížením se cedule nekreslí — text by byl stejně nečitelný.</summary>
     private const float MinLabelZoom = 0.5f;
 
+    /// <summary>Pod tímhle přiblížením se drobnosti čtvrtí nekreslí.</summary>
+    private const float MinPropZoom = 0.9f;
+
     private readonly Texture2D _pixel;
     private readonly GameContent _content;
     private readonly Localization _loc;
     private readonly SpriteFontBase _font;
+    private readonly Sprites.SpriteLibrary _sprites;
 
-    public DistrictRenderer(Texture2D whitePixel, GameContent content, Localization loc, SpriteFontBase font)
+    public DistrictRenderer(
+        Texture2D whitePixel, GameContent content, Localization loc, SpriteFontBase font,
+        Sprites.SpriteLibrary sprites)
     {
         _pixel = whitePixel;
         _content = content;
         _loc = loc;
         _font = font;
+        _sprites = sprites;
     }
 
     /// <summary>Vykreslí zabarvení a rámy čtvrtí (pod budovami).</summary>
@@ -65,6 +72,11 @@ public sealed class DistrictRenderer
 
         var (min, max) = camera.VisibleWorldBounds();
         float fill = FillFor(camera.Zoom);
+
+        // Drobnosti jen zblízka. Z výšky mají šestnáct pixelů pod rozlišením
+        // a stálo by to stovky kreseb za obraz, který nikdo neuvidí.
+        bool props = camera.Zoom >= DetailLevel.Scale(MinPropZoom);
+
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
         for (int i = 0; i < districts.Count; i++)
         {
@@ -75,15 +87,82 @@ public sealed class DistrictRenderer
                 continue;
             }
 
-            var color = _content.Districts.Types[district.TypeIndex].MapColor.ToXna();
+            var type = _content.Districts.Types[district.TypeIndex];
+            var color = type.MapColor.ToXna();
             spriteBatch.Draw(_pixel, new Rectangle(px, py, pw, ph), color * fill);
             spriteBatch.Draw(_pixel, new Rectangle(px, py, pw, Border), color * 0.5f);
             spriteBatch.Draw(_pixel, new Rectangle(px, py + ph - Border, pw, Border), color * 0.5f);
             spriteBatch.Draw(_pixel, new Rectangle(px, py, Border, ph), color * 0.5f);
             spriteBatch.Draw(_pixel, new Rectangle(px + pw - Border, py, Border, ph), color * 0.5f);
+
+            if (props)
+            {
+                DrawProps(spriteBatch, simulation, type, district);
+            }
         }
 
         spriteBatch.End();
+    }
+
+    /// <summary>
+    /// Drobnosti, které dají čtvrti tvář: bedny a trubky u průmyslu, plot
+    /// a lavička u obytné.
+    ///
+    /// <para><b>Proč nestačí barva:</b> čtvrti se od sebe lišily jen jemným
+    /// nádechem země. Nádech je ale <i>značka</i>, ne <i>místo</i> — hráč se
+    /// podle něj dozví, jak se čtvrť jmenuje, ale ulice pořád vypadá jako
+    /// každá jiná. Trubky mezi halami poznají průmysl i tomu, kdo se na cedule
+    /// nedívá.</para>
+    ///
+    /// <para>Pozice jsou z hashe dlaždice, takže se nic neukládá a mezi snímky
+    /// se drobnosti nehýbou. Na zastavěnou dlaždici se nic nesype — prkna
+    /// prorůstající halou by vypadala jako chyba vykreslování.</para>
+    /// </summary>
+    private void DrawProps(
+        SpriteBatch spriteBatch, Simulation simulation, DistrictTypeDef type, District district)
+    {
+        if (!type.HasProps || _sprites.Get(type.Prop!) is not { } sprite)
+        {
+            return;
+        }
+
+        for (int ty = district.MinY; ty <= district.MaxY; ty++)
+        {
+            for (int tx = district.MinX; tx <= district.MaxX; tx++)
+            {
+                uint hash = Hash(tx, ty, district.TypeIndex);
+                if ((hash & 0xFFFF) / 65535f >= type.PropDensity)
+                {
+                    continue;
+                }
+
+                // Volná zem, ne střecha. A ne silnice: co leží na cestě, tam
+                // by překáželo i ve skutečnosti.
+                if (simulation.IsOccupied(tx, ty) || simulation.HasRoadAt(tx, ty))
+                {
+                    continue;
+                }
+
+                int size = TileSize - 2;
+                int offsetX = (int)((hash >> 16) % 5) - 2;
+                int offsetY = (int)((hash >> 20) % 5) - 2;
+                spriteBatch.Draw(
+                    sprite,
+                    new Rectangle(tx * TileSize + offsetX, ty * TileSize + offsetY, size, size),
+                    Color.White);
+            }
+        }
+    }
+
+    /// <summary>Deterministický hash dlaždice — drobnosti se nesmí mezi snímky hýbat.</summary>
+    private static uint Hash(int x, int y, int salt)
+    {
+        unchecked
+        {
+            uint h = (uint)(x * 374761393 + y * 668265263 + salt * 1442695041);
+            h = (h ^ (h >> 13)) * 1274126177;
+            return h ^ (h >> 16);
+        }
     }
 
     /// <summary>

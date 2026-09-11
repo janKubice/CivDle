@@ -116,6 +116,24 @@ public sealed class SpriteCoverageTests
             $"Dekorace odkazují neexistující sprity: {string.Join(", ", missing)}");
     }
 
+    [Fact]
+    public void EveryDistrictPropSpriteExists()
+    {
+        // Čtvrť s překlepem ve spritu by po zemi tiše nerozsypala nic a její
+        // ulice by vypadala jako každá jiná — tedy přesně ten stav, kvůli
+        // kterému drobnosti vznikly.
+        var registered = AllRegisteredIds();
+        var content = LoadContent();
+
+        var missing = content.Districts.Types.All
+            .Where(d => d.HasProps && !registered.Contains(d.Prop!))
+            .Select(d => $"{d.Id} → {d.Prop}")
+            .ToList();
+
+        Assert.True(missing.Count == 0,
+            $"Čtvrti odkazují neexistující sprity: {string.Join(", ", missing)}");
+    }
+
     /// <summary>ID spritů zaregistrovaných v knihovně pro daný prefix.</summary>
     /// <summary>Všechna registrovaná ID i s předponou — fáze se odkazují celým jménem.</summary>
     private static HashSet<string> AllRegisteredIds()

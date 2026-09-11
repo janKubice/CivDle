@@ -501,7 +501,8 @@ public sealed class GameplayScreen : IScreen
         _might = new MightBanner(screens.WhitePixel, _popupFont, screens.Loc);
         _toasts = new ToastRenderer(screens.WhitePixel, _popupFont);
         _cityScale = new CityScaleRenderer(screens.WhitePixel, _popupFont, screens.GraphicsDevice);
-        _districtRenderer = new DistrictRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont);
+        _districtRenderer = new DistrictRenderer(
+            screens.WhitePixel, screens.Content, screens.Loc, _popupFont, screens.Sprites);
         _npcCityRenderer = new NpcCityRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont);
         _carillon = new Audio.CarillonPlayer(screens.Sounds, screens.Content.Carillon.NoteSeconds);
         _carillon.Resync(simulation); // načtená hra nemá uvítat melodií za dávnou slavnost

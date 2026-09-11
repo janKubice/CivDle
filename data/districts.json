@@ -4,53 +4,74 @@
   "districts": [
     {
       "id": "industrial",
-      "categories": ["production"],
+      "categories": [
+        "production"
+      ],
       "minBuildings": 5,
       "clusterDistance": 2,
       "synergyPerBuilding": 0.03,
       "synergyMax": 0.35,
       "pollutionMult": 1.5,
-      "mapColor": "#8A6A4A"
+      "mapColor": "#8A6A4A",
+      "prop": "deco.pipes",
+      "propDensity": 0.1
     },
     {
       "id": "residential",
-      "categories": ["housing"],
+      "categories": [
+        "housing"
+      ],
       "minBuildings": 6,
       "clusterDistance": 2,
       "synergyPerBuilding": 0.0,
       "synergyMax": 0.0,
       "pollutionMult": 1.0,
-      "mapColor": "#7A6A8A"
+      "mapColor": "#7A6A8A",
+      "prop": "deco.hedge",
+      "propDensity": 0.09
     },
     {
       "id": "civic",
-      "categories": ["civic", "monument"],
+      "categories": [
+        "civic",
+        "monument"
+      ],
       "minBuildings": 4,
       "clusterDistance": 3,
       "synergyPerBuilding": 0.02,
       "synergyMax": 0.2,
       "pollutionMult": 1.0,
-      "mapColor": "#4A7A8A"
+      "mapColor": "#4A7A8A",
+      "prop": "deco.bench",
+      "propDensity": 0.07
     },
     {
       "id": "logistics",
-      "categories": ["storage"],
+      "categories": [
+        "storage"
+      ],
       "minBuildings": 3,
       "clusterDistance": 2,
       "synergyPerBuilding": 0.04,
       "synergyMax": 0.24,
       "pollutionMult": 1.0,
-      "mapColor": "#6A7A5A"
+      "mapColor": "#6A7A5A",
+      "prop": "deco.pallets",
+      "propDensity": 0.11
     },
     {
       "id": "power",
-      "categories": ["power"],
+      "categories": [
+        "power"
+      ],
       "minBuildings": 3,
       "clusterDistance": 2,
       "synergyPerBuilding": 0.03,
       "synergyMax": 0.18,
       "pollutionMult": 1.6,
-      "mapColor": "#8A7A3A"
+      "mapColor": "#8A7A3A",
+      "prop": "deco.transformer",
+      "propDensity": 0.06
     }
   ]
 }

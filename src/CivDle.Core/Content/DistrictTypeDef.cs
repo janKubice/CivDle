@@ -29,8 +29,25 @@ public sealed record DistrictTypeDef(
     double SynergyPerBuilding,
     double SynergyMax,
     double PollutionMult,
-    RgbColor MapColor)
+    RgbColor MapColor,
+    string? Prop = null,
+    double PropDensity = 0.0)
 {
+    /// <summary>
+    /// Má tahle čtvrť po zemi vlastní drobnosti?
+    ///
+    /// <para><b>Proč nestačí barva:</b> čtvrti se od sebe lišily jen jemným
+    /// nádechem země. Nádech je ale <i>značka</i>, ne <i>místo</i> — hráč se
+    /// podle něj dozví, jak se čtvrť jmenuje, ale ulice pořád vypadá jako
+    /// každá jiná. Bedny a trubky mezi domy poznají průmysl i tomu, kdo se
+    /// nedívá na cedule.</para>
+    ///
+    /// <para>Sprite je v datech, protože o tom, co k průmyslu patří, rozhoduje
+    /// obsah. Kód ví jen to, kam se rozsypat.</para>
+    /// </summary>
+    public bool HasProps => !string.IsNullOrEmpty(Prop) && PropDensity > 0.001;
+
+
     /// <summary>Lokalizační klíč jména čtvrti.</summary>
     public string NameKey => $"district.{Id}";
 

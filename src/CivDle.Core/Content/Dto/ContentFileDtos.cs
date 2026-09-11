@@ -144,7 +144,9 @@ public sealed record DistrictTypeDto(
     double SynergyPerBuilding,
     double SynergyMax,
     double PollutionMult,
-    string? MapColor);
+    string? MapColor,
+    string? Prop = null,
+    double PropDensity = 0.0);
 
 /// <summary>Obsah souboru <c>data/contracts.json</c>.</summary>
 public sealed record ContractsFileDto(int SchemaVersion, ContractBoardDto? Board, List<ContractDto>? Contracts);

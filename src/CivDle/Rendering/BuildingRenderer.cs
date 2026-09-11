@@ -576,12 +576,110 @@ public sealed class BuildingRenderer
             spriteBatch.Draw(_pixel, partial, def.MapColor.ToXna() * 0.85f);
         }
 
-        // Lešení: dvě vodorovné linky přes celý půdorys.
-        var scaffold = new Color(220, 190, 120) * 0.8f;
-        spriteBatch.Draw(_pixel, new Rectangle(x, y + height / 3, width, 1), scaffold);
-        spriteBatch.Draw(_pixel, new Rectangle(x, y + 2 * height / 3, width, 1), scaffold);
-
+        DrawScaffolding(spriteBatch, bounds);
+        DrawCrane(spriteBatch, def, bounds, progress);
+        DrawBuildDust(spriteBatch, bounds, progress);
         DrawProgressBar(spriteBatch, bounds, progress);
+    }
+
+    /// <summary>
+    /// Lešení: vodorovná patra a svislé stojky.
+    ///
+    /// <para>Samotné dvě vodorovné čáry vypadaly jako přeškrtnutá budova.
+    /// Teprve stojky z toho udělají konstrukci — mřížka je to, podle čeho oko
+    /// lešení pozná.</para>
+    /// </summary>
+    private void DrawScaffolding(SpriteBatch spriteBatch, Rectangle bounds)
+    {
+        var scaffold = new Color(220, 190, 120) * 0.8f;
+
+        spriteBatch.Draw(_pixel, new Rectangle(bounds.X, bounds.Y + bounds.Height / 3, bounds.Width, 1), scaffold);
+        spriteBatch.Draw(_pixel, new Rectangle(bounds.X, bounds.Y + 2 * bounds.Height / 3, bounds.Width, 1), scaffold);
+
+        // Stojky po krajích a uprostřed. Víc už je na šestnácti pixelech kaše.
+        var post = scaffold * 0.75f;
+        spriteBatch.Draw(_pixel, new Rectangle(bounds.X, bounds.Y, 1, bounds.Height), post);
+        spriteBatch.Draw(_pixel, new Rectangle(bounds.Right - 1, bounds.Y, 1, bounds.Height), post);
+        if (bounds.Width >= 24)
+        {
+            spriteBatch.Draw(_pixel, new Rectangle(bounds.X + bounds.Width / 2, bounds.Y, 1, bounds.Height), post);
+        }
+    }
+
+    /// <summary>
+    /// Jeřáb nad velkou stavbou. Otáčí se a houpe mu hák.
+    ///
+    /// <para><b>Proč to stavbě chybělo:</b> staveniště bylo statický obrázek
+    /// s pruhem postupu. Pruh říká „pracuje se" číslem, ale nic se nehýbe —
+    /// a hráč se dívá na obraz, ne na číslo. Otáčející se jeřáb je to jediné,
+    /// co ze staveniště udělá <b>událost</b>: místo, kde se zrovna něco děje
+    /// a stojí za to se na ně podívat.</para>
+    ///
+    /// <para>Jen u velkých staveb: nad domkem o jedné dlaždici by byl jeřáb
+    /// větší než dům. A jen v rozběhnuté stavbě — na začátku se kope, na konci
+    /// už jeřáb odjel.</para>
+    /// </summary>
+    private void DrawCrane(SpriteBatch spriteBatch, BuildingDef def, Rectangle bounds, double progress)
+    {
+        if (def.FootprintWidth < 2 || def.FootprintHeight < 2 || progress is < 0.15 or > 0.9)
+        {
+            return;
+        }
+
+        var steel = new Color(228, 176, 70);
+        int mastX = bounds.X + 2;
+        int mastTop = bounds.Y - bounds.Height / 2;
+
+        // Stožár od paty stavby nad ni: jeřáb musí přerůst to, co staví.
+        spriteBatch.Draw(_pixel, new Rectangle(mastX, mastTop, 2, bounds.Bottom - mastTop), steel);
+
+        // Rameno se otáčí. Sinus se převádí na délku ramene, takže výložník
+        // vypadá, jako by se točil kolem stožáru — bez jediné rotace textury.
+        float phase = _time * 0.6f + bounds.X * 0.03f;
+        int reach = (int)(MathF.Sin(phase) * (bounds.Width * 0.9f));
+        int jibY = mastTop + 2;
+        int from = Math.Min(mastX, mastX + reach);
+        spriteBatch.Draw(_pixel, new Rectangle(from, jibY, Math.Abs(reach) + 2, 2), steel);
+
+        // Lano a na něm břemeno. Houpe se pomaleji než rameno, takže zaostává —
+        // to je ten detail, po kterém to vypadá, že něco opravdu visí.
+        int hookX = mastX + reach;
+        int hookDrop = (int)(bounds.Height * (0.35f + 0.25f * MathF.Sin(phase * 1.7f)));
+        spriteBatch.Draw(_pixel, new Rectangle(hookX, jibY, 1, hookDrop), steel * 0.7f);
+        spriteBatch.Draw(_pixel, new Rectangle(hookX - 1, jibY + hookDrop, 3, 3), new Color(150, 118, 74));
+    }
+
+    /// <summary>
+    /// Prach od paty stavby.
+    ///
+    /// <para>Kouř nad komínem říká „tady se pracuje" u hotových provozů; tohle
+    /// je jeho protějšek pro stavbu. Obláčky jsou rozprostřené po dráze, takže
+    /// v každém okamžiku jeden stoupá a jiný se rozplývá.</para>
+    /// </summary>
+    private void DrawBuildDust(SpriteBatch spriteBatch, Rectangle bounds, double progress)
+    {
+        if (progress >= 0.97)
+        {
+            return; // hotovo, uklizeno
+        }
+
+        var dust = new Color(206, 194, 172);
+        float phase = bounds.X * 0.21f + bounds.Y * 0.13f;
+
+        for (int p = 0; p < 3; p++)
+        {
+            float rise = (_time * 0.55f + p / 3f + phase * 0.05f) % 1f;
+            float alpha = 0.30f * (1f - rise) * MathF.Min(1f, rise * 5f);
+            if (alpha <= 0.01f)
+            {
+                continue;
+            }
+
+            int size = 2 + (int)(rise * 3f);
+            int px = bounds.X + (int)(bounds.Width * (0.2f + 0.6f * ((phase + p) % 1f)));
+            int py = bounds.Bottom - 2 - (int)(rise * bounds.Height * 0.6f);
+            spriteBatch.Draw(_pixel, new Rectangle(px, py, size, size), dust * alpha);
+        }
     }
 
     /// <summary>Pruh postupu nad staveništěm. Společný pro fázovanou i obecnou stavbu.</summary>

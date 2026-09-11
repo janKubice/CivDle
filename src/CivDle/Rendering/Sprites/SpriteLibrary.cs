@@ -150,6 +150,15 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "deco.mangrove", TreeSpriteSize, DecoMangrove);
         Add(device, "deco.dead_tree", TreeSpriteSize, DecoDeadTree);
 
+        // Drobnosti čtvrtí. Malé plátno jako ostatní props: leží mezi domy
+        // a mají ulici dát tvář, ne se s domy přetahovat o pozornost.
+        Add(device, "deco.crates", PropSpriteSize, DecoCrates);
+        Add(device, "deco.pipes", PropSpriteSize, DecoPipes);
+        Add(device, "deco.hedge", PropSpriteSize, DecoHedge);
+        Add(device, "deco.bench", PropSpriteSize, DecoBench);
+        Add(device, "deco.pallets", PropSpriteSize, DecoPallets);
+        Add(device, "deco.transformer", PropSpriteSize, DecoTransformer);
+
         Add(device, "node.tree", SpriteSize, Tree);
         Add(device, "node.rock", SpriteSize, Rock);
         Add(device, "node.stump", SpriteSize, Stump);
@@ -858,6 +867,73 @@ public sealed class SpriteLibrary : IDisposable
         c.FillTriangle(12f, 10f, 20f, 4f, 19f, 7f, wood);
         c.FillTriangle(12f, 15f, 3f, 12f, 5f, 14f, wood);
         c.FillTriangle(12f, 7f, 9f, 1f, 12f, 2f, pale);
+    }
+
+    // ----- drobnosti čtvrtí (16×16, kotva dole uprostřed) -----
+
+    /// <summary>Bedny u provozu: dvě na sobě, světlo shora zleva.</summary>
+    private static void DecoCrates(PixelCanvas c)
+    {
+        c.FillRect(2, 13, 12, 2, PropShadow);
+        c.FillRect(3, 8, 7, 6, new Color(146, 108, 62));
+        c.FillRect(3, 8, 7, 1, new Color(178, 136, 82));
+        c.FillRect(9, 5, 6, 9, new Color(128, 94, 54));
+        c.FillRect(9, 5, 6, 1, new Color(160, 122, 72));
+        c.FillRect(9, 9, 6, 1, new Color(96, 70, 40)); // páska přes bednu
+    }
+
+    /// <summary>Potrubí: dvě trubky na stojkách, jak vedou mezi halami.</summary>
+    private static void DecoPipes(PixelCanvas c)
+    {
+        c.FillRect(1, 13, 14, 2, PropShadow);
+        c.FillRect(1, 6, 14, 3, new Color(128, 132, 138));
+        c.FillRect(1, 6, 14, 1, new Color(168, 172, 178)); // osvětlený vrch trubky
+        c.FillRect(1, 10, 14, 2, new Color(108, 112, 118));
+        c.FillRect(3, 8, 2, 6, new Color(92, 94, 100));    // stojka
+        c.FillRect(11, 8, 2, 6, new Color(92, 94, 100));
+    }
+
+    /// <summary>Živý plot podél ulice.</summary>
+    private static void DecoHedge(PixelCanvas c)
+    {
+        c.FillRect(1, 12, 14, 2, PropShadow);
+        c.FillRect(1, 7, 14, 6, new Color(52, 92, 48));
+        c.FillRect(1, 7, 14, 2, new Color(74, 122, 60));
+        c.FillCircle(4f, 7f, 2f, new Color(88, 138, 70));
+        c.FillCircle(11f, 7.5f, 2f, new Color(80, 128, 64));
+    }
+
+    /// <summary>Lavička: sedák, opěradlo, dvě nohy.</summary>
+    private static void DecoBench(PixelCanvas c)
+    {
+        c.FillRect(2, 13, 12, 2, PropShadow);
+        c.FillRect(2, 9, 12, 2, new Color(150, 114, 70));
+        c.FillRect(2, 6, 12, 2, new Color(134, 100, 60)); // opěradlo
+        c.FillRect(3, 11, 2, 3, new Color(88, 90, 96));
+        c.FillRect(11, 11, 2, 3, new Color(88, 90, 96));
+    }
+
+    /// <summary>Palety u skladu: naskládaná prkna.</summary>
+    private static void DecoPallets(PixelCanvas c)
+    {
+        c.FillRect(1, 13, 14, 2, PropShadow);
+        for (int i = 0; i < 4; i++)
+        {
+            int y = 12 - i * 2;
+            var plank = i % 2 == 0 ? new Color(164, 130, 84) : new Color(140, 108, 66);
+            c.FillRect(2 + (i % 2), y, 12, 2, plank);
+        }
+    }
+
+    /// <summary>Trafostanice: skříň s izolátory a výstražným pruhem.</summary>
+    private static void DecoTransformer(PixelCanvas c)
+    {
+        c.FillRect(2, 13, 12, 2, PropShadow);
+        c.FillRect(3, 5, 10, 9, new Color(122, 124, 130));
+        c.FillRect(3, 5, 10, 1, new Color(158, 160, 166));
+        c.FillRect(4, 9, 8, 2, new Color(226, 186, 64)); // výstražný pruh
+        c.FillRect(5, 2, 2, 3, new Color(96, 98, 104));  // izolátory
+        c.FillRect(9, 2, 2, 3, new Color(96, 98, 104));
     }
 
     private static void Tree(PixelCanvas c)

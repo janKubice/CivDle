@@ -1621,9 +1621,22 @@ public sealed class ContentLoader
             }
 
             var color = ParseColor(path, dto.MapColor, $"čtvrť '{id}'");
+            if (dto.PropDensity is < 0 or > 1)
+            {
+                throw new ContentLoadException(path,
+                    $"Čtvrť '{id}': 'propDensity' musí být 0–1, je {dto.PropDensity}.");
+            }
+
+            if (dto.PropDensity > 0 && string.IsNullOrWhiteSpace(dto.Prop))
+            {
+                throw new ContentLoadException(path,
+                    $"Čtvrť '{id}' má 'propDensity', ale ne 'prop' — není co po zemi rozsypat.");
+            }
+
             result.Add(new DistrictTypeDef(
                 id, categories, dto.MinBuildings, dto.ClusterDistance,
-                dto.SynergyPerBuilding, dto.SynergyMax, dto.PollutionMult, color));
+                dto.SynergyPerBuilding, dto.SynergyMax, dto.PollutionMult, color,
+                string.IsNullOrWhiteSpace(dto.Prop) ? null : dto.Prop.Trim(), dto.PropDensity));
         }
 
         return new DistrictCatalog(new DefRegistry<DistrictTypeDef>(result, d => d.Id, "druh čtvrti"));
