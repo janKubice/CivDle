@@ -4668,6 +4668,19 @@ public sealed class GameplayScreen : IScreen
         RefreshPowerCounts();
     }
 
+    /// <summary>
+    /// Otevře přehled výrobních řetězců — smoke nemá myš.
+    ///
+    /// <para>Obrazovka se po každém psaní staví celá znovu (kvůli filtrování),
+    /// a přestavba je přesně místo, kde UI padá.</para>
+    /// </summary>
+    internal ChainsScreen OpenChainsForSmoke()
+    {
+        var screen = new ChainsScreen(_screens, _simulation);
+        _screens.Push(screen);
+        return screen;
+    }
+
     /// <summary>Otevře strom výzkumu a vrátí ho — smoke si v něm zkouší hledání.</summary>
     internal TechScreen OpenTechForSmoke()
     {

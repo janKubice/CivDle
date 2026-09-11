@@ -37,6 +37,19 @@ public sealed class ChainsScreen : IScreen
     /// <summary>Kterou surovinu si hráč prohlíží; −1 = seznam.</summary>
     private int _selected = -1;
 
+    /// <summary>
+    /// Hledání v seznamu surovin.
+    ///
+    /// <para>Surovin je přes čtyřicet a seznam se procházel očima. Hráč přitom
+    /// tuhle obrazovku otevírá právě ve chvíli, kdy <b>ví</b>, co potřebuje —
+    /// dojdou mu prkna a chce vědět, kdo je dělá. Psát je rychlejší než rolovat.
+    /// </para>
+    /// </summary>
+    private SearchIndex _search = new(Array.Empty<string>());
+
+    private TextBox _searchBox = null!;
+    private string _query = string.Empty;
+
     /// <param name="simulation">
     /// Rozehraná hra, nebo <c>null</c> z hlavního menu. Slouží jen k tomu, aby
     /// se dalo říct „tohle už umíš" — bez ní se ukáže celý strom bez zámků.
@@ -98,8 +111,18 @@ public sealed class ChainsScreen : IScreen
             Width = PanelWidth - 20,
         });
 
+        if (_selected < 0)
+        {
+            layout.Widgets.Add(SearchRow(loc));
+        }
+
+        // Výška podle okna, ne pevných 400 px: na monitoru zbývalo půl obrazovky
+        // prázdné a seznam se přitom rolovat musel.
+        int viewportHeight = _screens.GraphicsDevice.Viewport.Height;
+        int listHeight = Math.Clamp(viewportHeight - 260, 320, 760);
+
         var content = _selected < 0 ? ResourceList() : Detail(_selected);
-        layout.Widgets.Add(new ScrollViewer { Content = content, Width = PanelWidth - 10, Height = 400 });
+        layout.Widgets.Add(new ScrollViewer { Content = content, Width = PanelWidth - 10, Height = listHeight });
 
         var buttons = new HorizontalStackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
         if (_selected >= 0)
@@ -124,6 +147,50 @@ public sealed class ChainsScreen : IScreen
     }
 
     /// <summary>Všechny suroviny jako tlačítka.</summary>
+    /// <summary>Řádek s hledáním — stejný jako ve stromu výzkumu, ať se hráč neučí dvakrát.</summary>
+    private Widget SearchRow(Localization loc)
+    {
+        RebuildSearchIndex(loc);
+
+        _searchBox = new TextBox { Width = 260, Text = _query };
+        _searchBox.TextChanged += (_, _) =>
+        {
+            _query = _searchBox.Text ?? string.Empty;
+            _search.Search(_query);
+            BuildUi();
+        };
+
+        var row = new HorizontalStackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
+        row.Widgets.Add(new Label { Text = loc["search.label"], VerticalAlignment = VerticalAlignment.Center });
+        row.Widgets.Add(_searchBox);
+        return row;
+    }
+
+    /// <summary>
+    /// Postaví rejstřík z jmen surovin i jmen budov, které je vyrábějí.
+    ///
+    /// <para>Hledá se i podle budovy schválně: hráč často neví, jak se surovina
+    /// jmenuje, ale ví, že ji dělá pila.</para>
+    /// </summary>
+    private void RebuildSearchIndex(Localization loc)
+    {
+        var resources = _screens.Content.Resources;
+        var entries = new string[resources.Count];
+        for (int i = 0; i < resources.Count; i++)
+        {
+            var text = new System.Text.StringBuilder(loc[resources[i].NameKey]);
+            foreach (var step in _chains.ProducersOf(i))
+            {
+                text.Append(' ').Append(loc[_screens.Content.Buildings[step.BuildingIndex].NameKey]);
+            }
+
+            entries[i] = text.ToString();
+        }
+
+        _search = new SearchIndex(entries);
+        _search.Search(_query);
+    }
+
     private Widget ResourceList()
     {
         var loc = _screens.Loc;
@@ -132,6 +199,11 @@ public sealed class ChainsScreen : IScreen
 
         for (int i = 0; i < resources.Count; i++)
         {
+            if (_search.IsFiltering && !_search.IsMatch(i))
+            {
+                continue;
+            }
+
             int captured = i;
             var row = new HorizontalStackPanel { Spacing = 8 };
 
@@ -265,5 +337,21 @@ public sealed class ChainsScreen : IScreen
 
             box.Widgets.Add(row);
         }
+    }
+
+    /// <summary>Napíše dotaz do hledání a vrátí, kolik surovin zbylo — smoke nemá klávesnici.</summary>
+    internal int SearchForSmoke(string query)
+    {
+        _query = query;
+        _search.Search(query);
+        BuildUi();
+        return _search.IsFiltering ? _search.MatchCount : _screens.Content.Resources.Count;
+    }
+
+    /// <summary>Rozklikne surovinu — detail je druhá polovina obrazovky a smoke jí neprošel.</summary>
+    internal void ShowResourceForSmoke(int resourceIndex)
+    {
+        _selected = resourceIndex;
+        BuildUi();
     }
 }

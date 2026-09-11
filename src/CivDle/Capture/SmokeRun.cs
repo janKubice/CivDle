@@ -89,6 +89,27 @@ public sealed class SmokeRun
         Check("pauza: zavřít", () => screens.Pop());
         Frames(screen, time);
 
+        // Výrobní řetězce: hledání přestavuje obrazovku po každém písmenu
+        // a detail je druhá půlka, kterou smoke dosud neviděl vůbec.
+        ChainsScreen? chains = null;
+        Check("řetězce: obrazovka", () => chains = screen.OpenChainsForSmoke());
+        Frames(screen, time);
+        Check("řetězce: hledat", () =>
+        {
+            chains!.SearchForSmoke("prk");
+            int none = chains.SearchForSmoke("qwertzuiop");
+            chains.SearchForSmoke(string.Empty);
+            if (none != 0)
+            {
+                throw new InvalidOperationException($"nesmyslný dotaz vrátil {none} surovin");
+            }
+        });
+        Frames(screen, time);
+        Check("řetězce: detail suroviny", () => chains!.ShowResourceForSmoke(0));
+        Frames(screen, time);
+        Check("řetězce: zavřít", () => screens.Pop());
+        Frames(screen, time);
+
         Check("výzkum: obrazovka", () => tech = screen.OpenTechForSmoke());
         Frames(screen, time);
         Check("výzkum: hledat", () => tech!.SearchForSmoke("dre"));
