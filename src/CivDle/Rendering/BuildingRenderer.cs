@@ -594,30 +594,62 @@ public sealed class BuildingRenderer
     /// znamenal, musel by hráč ulici číst; takhle si jen všimne, že není
     /// tapeta.</para>
     /// </summary>
+    /// <summary>
+    /// Nejmenší budova, která přístavek unese.
+    ///
+    /// <para>Na dlaždici o šestnácti pixelech nebylo kam ho dát: markýza přes
+    /// celou šířku byla červený pruh přes zeď, prádelní šňůra dvě barevné
+    /// tečky uprostřed domu. Sprite tam přitom už má dveře i okna — přístavek
+    /// jen přebil kresbu. Od dvou dlaždic je místa dost a přístavek dělá to,
+    /// k čemu byl: odliší jeden dům od druhého.</para>
+    /// </summary>
+    private const int ExtraMinTiles = 2 * TerrainRenderer.TileSize;
+
     private void DrawExtra(SpriteBatch spriteBatch, BuildingExtra extra, Rectangle bounds)
     {
+        // Komín je svislý a stojí NAD střechou, takže nepřekáží ani malému
+        // domku — a je na něm zavěšený kouř. Ostatní přístavky leží na kresbě.
+        if (extra == BuildingExtra.Chimney)
+        {
+            int stack = Math.Max(2, bounds.Width / 8);
+            spriteBatch.Draw(
+                _pixel,
+                new Rectangle(bounds.X + bounds.Width / 4, bounds.Y - stack * 2, stack, stack * 2),
+                new Color(92, 78, 68));
+            return;
+        }
+
+        if (bounds.Width < ExtraMinTiles || bounds.Height < ExtraMinTiles)
+        {
+            return;
+        }
+
         switch (extra)
         {
-            case BuildingExtra.Chimney:
-                // Na střeše, u návětrné strany — odtud pak stoupá kouř.
-                spriteBatch.Draw(_pixel, new Rectangle(bounds.X + bounds.Width / 4, bounds.Y - 3, 2, 4),
-                    new Color(92, 78, 68));
-                break;
-
             case BuildingExtra.Awning:
-                // Pruh nad vchodem u spodní hrany.
-                spriteBatch.Draw(_pixel,
-                    new Rectangle(bounds.X + 2, bounds.Bottom - 6, Math.Max(3, bounds.Width - 4), 2),
+                // Pruh nad vchodem, přisazený ke spodní hraně. Dřív visel šest
+                // pixelů nad ní, což je u malého domu půlka zdi.
+                int awning = Math.Max(1, bounds.Height / 12);
+                spriteBatch.Draw(
+                    _pixel,
+                    new Rectangle(
+                        bounds.X + bounds.Width / 4, bounds.Bottom - awning * 2,
+                        bounds.Width / 2, awning),
                     new Color(196, 82, 74));
                 break;
 
             case BuildingExtra.Laundry:
-                // Šňůra podél zdi a na ní dva hadříky.
-                spriteBatch.Draw(_pixel, new Rectangle(bounds.X + 1, bounds.Y + bounds.Height / 3, bounds.Width - 2, 1),
+                // Šňůra podél zdi a na ní dva hadříky, vše ve čtvrtinách šířky.
+                int cloth = Math.Max(1, bounds.Width / 12);
+                int lineY = bounds.Y + bounds.Height * 2 / 3;
+                spriteBatch.Draw(
+                    _pixel, new Rectangle(bounds.X + cloth, lineY, bounds.Width - cloth * 2, 1),
                     new Color(210, 205, 190) * 0.7f);
-                spriteBatch.Draw(_pixel, new Rectangle(bounds.X + 3, bounds.Y + bounds.Height / 3, 2, 3),
+                spriteBatch.Draw(
+                    _pixel, new Rectangle(bounds.X + bounds.Width / 4, lineY, cloth, cloth * 2),
                     new Color(226, 226, 236));
-                spriteBatch.Draw(_pixel, new Rectangle(bounds.X + bounds.Width - 6, bounds.Y + bounds.Height / 3, 2, 3),
+                spriteBatch.Draw(
+                    _pixel, new Rectangle(bounds.X + bounds.Width * 2 / 3, lineY, cloth, cloth * 2),
                     new Color(150, 190, 220));
                 break;
         }
@@ -657,8 +689,19 @@ public sealed class BuildingRenderer
             return;
         }
 
-        spriteBatch.Draw(_pixel, new Rectangle(bounds.Right - 8, bounds.Y + 2, 6, 6), Color.Black * 0.5f);
-        spriteBatch.Draw(_pixel, new Rectangle(bounds.Right - 7, bounds.Y + 3, 4, 4), color);
+        // Odznak visí NAD střechou, ne na ní.
+        //
+        // Dřív to byl čtverec šest na šest v rohu půdorysu — na domku o jedné
+        // dlaždici tedy třetina střechy. Vypadalo to jako barevná záplata
+        // nalepená na kresbu, ne jako upozornění. Nad budovou je odznak
+        // čitelný, nepřebíjí sprite a je na první pohled poznat, že je to
+        // informace, ne architektura.
+        int size = Math.Clamp(bounds.Width / 4, 4, 8);
+        int badgeX = bounds.X + bounds.Width / 2 - size / 2;
+        int badgeY = bounds.Y - size - 2;
+
+        spriteBatch.Draw(_pixel, new Rectangle(badgeX - 1, badgeY - 1, size + 2, size + 2), Color.Black * 0.45f);
+        spriteBatch.Draw(_pixel, new Rectangle(badgeX, badgeY, size, size), color);
     }
 
     /// <summary>
@@ -673,11 +716,16 @@ public sealed class BuildingRenderer
     {
         if (ProsperityLook.HasOrnament(prosperity))
         {
-            // Truhlík na parapetu: vodorovný proužek u spodní hrany.
+            // Truhlík u paty domu. Dřív visel pět pixelů nad spodní hranou
+            // a byl dva pixely vysoký — na malém domě z toho byl barevný pruh
+            // přes zeď. Teď je to proužek na zemi pod oknem, v poměru k budově.
             int boxWidth = Math.Max(2, bounds.Width / 3);
+            int boxHeight = Math.Max(1, bounds.Height / 16);
             spriteBatch.Draw(
                 _pixel,
-                new Rectangle(bounds.X + bounds.Width / 2 - boxWidth / 2, bounds.Bottom - 5, boxWidth, 2),
+                new Rectangle(
+                    bounds.X + bounds.Width / 2 - boxWidth / 2, bounds.Bottom - boxHeight,
+                    boxWidth, boxHeight),
                 ProsperityLook.OrnamentColor(buildingIndex));
             return;
         }

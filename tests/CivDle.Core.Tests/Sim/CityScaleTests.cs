@@ -37,7 +37,7 @@ public class CityScaleTests
     public void BiggerCityCostsMoreToBefriendAndToBuy()
     {
         var content = TestData.LoadRealContent();
-        var sim = new Simulation(content, new CivDle.Core.World.UniformTerrain(1));
+        var sim = new Simulation(content, LandEverywhere(content));
 
         var (small, big) = TwoCitiesOfDifferentSize(sim);
 
@@ -54,7 +54,7 @@ public class CityScaleTests
         // Odkup roste strměji: metropoli si nemá jít koupit za tolik co vesnici
         // jen proto, že hráč nasyslil.
         var content = TestData.LoadRealContent();
-        var sim = new Simulation(content, new CivDle.Core.World.UniformTerrain(1));
+        var sim = new Simulation(content, LandEverywhere(content));
 
         var (small, big) = TwoCitiesOfDifferentSize(sim);
 
@@ -64,13 +64,37 @@ public class CityScaleTests
         Assert.True(buyRatio > giftRatio, $"odkup roste ({buyRatio:0.00}×) pomaleji než dar ({giftRatio:0.00}×)");
     }
 
+    /// <summary>
+    /// Svět ze samé souše.
+    ///
+    /// <para>Testy jinde používají <c>UniformTerrain(1)</c>, což je v reálném
+    /// obsahu <i>pack_ice</i> — tedy voda. Od chvíle, kdy cizí města nevznikají
+    /// ve vodě, na takovém světě žádné město není a tenhle test nemá co měřit.
+    /// Diplomacie se zkouší na pevnině, ne na ledové kře.</para>
+    /// </summary>
+    private static CivDle.Core.World.UniformTerrain LandEverywhere(GameContent content)
+    {
+        for (int i = 0; i < content.Biomes.Count; i++)
+        {
+            if (!content.Biomes[i].IsWater)
+            {
+                return new CivDle.Core.World.UniformTerrain((byte)i);
+            }
+        }
+
+        throw new Xunit.Sdk.XunitException("v obsahu není jediný suchozemský biom");
+    }
+
     /// <summary>Dvě města v dosahu, která nemají stejnou velikost.</summary>
     private static (long Small, long Big) TwoCitiesOfDifferentSize(Simulation sim)
     {
         long small = 0, big = 0;
         double smallest = double.MaxValue, largest = 0;
 
-        foreach (var city in sim.CitiesNear(0, 0, NpcCityMap.CellTiles * 6))
+        // Dosah je štědrý schválně. Města od opravy nevznikají ve vodě, takže
+        // jich je na stejné ploše míň — a tenhle test potřebuje jen DVĚ různě
+        // velká, ne konkrétní hustotu.
+        foreach (var city in sim.CitiesNear(0, 0, NpcCityMap.CellTiles * 16))
         {
             double scale = sim.CityScale(city.Key);
             if (scale < smallest) { smallest = scale; small = city.Key; }

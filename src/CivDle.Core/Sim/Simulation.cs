@@ -224,7 +224,11 @@ public sealed class Simulation
         _pollutionSystem = new PollutionSystem(content);
         _contractSystem = new ContractSystem(content, seed);
         _prayerSystem = new PrayerSystem(content, seed);
-        NpcCities = new NpcCityMap(seed, content.NpcCities.Archetypes.Count, content.NpcCities.Names.Count);
+        // Města se ptají VYGENEROVANÉHO terénu, ne aktuálního stavu: kdyby
+        // koukala na přepisy hráče, po terraformaci by se stěhovala.
+        NpcCities = new NpcCityMap(
+            seed, content.NpcCities.Archetypes.Count, content.NpcCities.Names.Count,
+            (x, y) => !content.Biomes[terrain.BiomeAt(x, y)].IsWater);
         _districtSystem = new DistrictSystem(content);
         _citizenSystem = new CitizenSystem(content, seed);
         _milestoneBonuses = new BuildingMilestoneSystem(content);

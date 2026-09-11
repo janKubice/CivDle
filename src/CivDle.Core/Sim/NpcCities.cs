@@ -72,15 +72,42 @@ public sealed class NpcCityMap
     /// <summary>Jak často spolu dvě sousední města obchodují — a mají tedy cestu (0–1).</summary>
     private const double LinkDensity = 0.62;
 
+    /// <summary>
+    /// Kolik poloh v buňce se vyzkouší, než se buňka prohlásí za neobyvatelnou.
+    ///
+    /// <para>Města se nikdy neptala, na čem stojí — poloha vyšla z hashe a tím
+    /// to skončilo. Na mapě, kde je půlka plochy voda, tedy pravidelně vznikala
+    /// města uprostřed moře. A protože do vody nejde postavit dům, byla
+    /// zároveň prázdná: obě půlky té chyby mají tutéž příčinu.</para>
+    ///
+    /// <para>Osm pokusů stačí: na souši uspěje první nebo druhý, uprostřed
+    /// oceánu neuspěje žádný a buňka zůstane prázdná — což je správně, v moři
+    /// město být nemá.</para>
+    /// </summary>
+    private const int PlacementTries = 8;
+
+    /// <summary>
+    /// Kolik souše musí být kolem středu, aby se tam dalo město postavit.
+    /// Samotný ostrůvek o jedné dlaždici by dal město bez jediného domu.
+    /// </summary>
+    private const int RequiredLandNeighbours = 6;
+
     private readonly long _seed;
     private readonly int _archetypeCount;
     private readonly int _nameCount;
+    private readonly Func<int, int, bool> _isLand;
 
-    public NpcCityMap(long seed, int archetypeCount, int nameCount)
+    /// <param name="isLand">
+    /// Je na téhle dlaždici souš? Musí to být <b>čistá funkce seedu</b>, tedy
+    /// vygenerovaný terén, ne aktuální stav se zásahy hráče — jinak by se
+    /// města po terraformaci stěhovala.
+    /// </param>
+    public NpcCityMap(long seed, int archetypeCount, int nameCount, Func<int, int, bool>? isLand = null)
     {
         _seed = seed;
         _archetypeCount = Math.Max(1, archetypeCount);
         _nameCount = Math.Max(1, nameCount);
+        _isLand = isLand ?? ((_, _) => true);
     }
 
     /// <summary>Klíč buňky, do které dlaždice spadá.</summary>
@@ -105,16 +132,61 @@ public sealed class NpcCityMap
         }
 
         // Poloha uvnitř buňky, ať města nesedí v pravidelné mřížce jako panelák.
-        int offsetX = (int)((h >> 16) % (CellTiles - 24)) + 12;
-        int offsetY = (int)((h >> 30) % (CellTiles - 24)) + 12;
+        // Zkouší se několik poloh z téhož hashe, dokud se netrefí na souš —
+        // všechny jsou odvozené ze seedu, takže výsledek zůstává čistá funkce
+        // souřadnic a nikde se neukládá.
+        for (int attempt = 0; attempt < PlacementTries; attempt++)
+        {
+            ulong spread = Hash(cellX * 31 + attempt, cellY * 17 - attempt);
+            int offsetX = (int)((spread >> 16) % (CellTiles - 24)) + 12;
+            int offsetY = (int)((spread >> 30) % (CellTiles - 24)) + 12;
+            int tileX = cellX * CellTiles + offsetX;
+            int tileY = cellY * CellTiles + offsetY;
 
-        city = new NpcCity(
-            KeyOf(cellX, cellY),
-            cellX * CellTiles + offsetX,
-            cellY * CellTiles + offsetY,
-            (int)((h >> 44) % (ulong)_archetypeCount),
-            (int)((h >> 50) % (ulong)_nameCount));
-        return true;
+            if (!HasRoomForTown(tileX, tileY))
+            {
+                continue;
+            }
+
+            city = new NpcCity(
+                KeyOf(cellX, cellY),
+                tileX,
+                tileY,
+                (int)((h >> 44) % (ulong)_archetypeCount),
+                (int)((h >> 50) % (ulong)_nameCount));
+            return true;
+        }
+
+        return false; // celá buňka je voda — a v moři město nestojí
+    }
+
+    /// <summary>
+    /// Je kolem téhle dlaždice dost souše na město?
+    ///
+    /// <para>Nestačí, že střed není ve vodě: město na dlaždici trčící z moře by
+    /// nemělo kam postavit domy a hráč by našel jméno bez města. Proto se
+    /// kontroluje okolí 3×3 a chce se z něj většina.</para>
+    /// </summary>
+    private bool HasRoomForTown(int tileX, int tileY)
+    {
+        if (!_isLand(tileX, tileY))
+        {
+            return false;
+        }
+
+        int land = 0;
+        for (int dy = -1; dy <= 1; dy++)
+        {
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                if (_isLand(tileX + dx, tileY + dy))
+                {
+                    land++;
+                }
+            }
+        }
+
+        return land >= RequiredLandNeighbours;
     }
 
     /// <summary>Města v okolí dlaždice (v dlaždicích). Používá render i hledání cíle.</summary>
