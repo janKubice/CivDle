@@ -1097,3 +1097,77 @@ neříká, co má.
   obsahem (chalupa → cihlový dům → činžák → věžák → arkologie) a nově i ulicí
   pod nimi. Dodatečně přebarvovat staré budovy by byl zase jen nádech.
 * **Vlajky ve větru.** Drobnost, na kterou zatím není co pověsit.
+
+## 9. Co se ukázalo, až když si to člověk zahrál
+
+Vizuální vlna z §8 se ověřovala focením. Focení ukáže, jestli obraz drží
+pohromadě — neukáže, co v něm vadí po hodině hraní. Jedenáct bodů níž přišlo
+z hraní a každý z nich je jiný druh chyby než ty z §8: ne „chybí vrstva", ale
+„tahle vrstva je udělaná špatně".
+
+### 9.1 Čtyři chyby v tom, co už tam bylo
+
+**Mraky kreslily černé díry.** Stín mraku se násobil do scény
+(`MultiplyBlend`, tedy `cíl × zdroj`) a hustota byla v barvě. Hustý texel je
+černý, černá krát cokoli je nula — takže tmavost mraku neřídil odstín, ale
+násobení nulou, a přes krajinu se táhly díry. Hustota patří do **alfy**
+a míchat se má obyčejným alfa blendingem: ten je `cíl × (1−α) + zdroj × α`,
+což je řízené násobení, ne vypnutí pixelu.
+
+**Voda v noci svítila.** Záře se vytahovala z **neosvětlené** scény a přičítala
+se až po ztmavení, takže v noci přibylo denní světlo — a nejvíc ho bylo tam,
+kde je mapa nejsvětlejší, tedy na vodě. Světlo se teď násobí **do** render
+targetu ještě před tím, než se z něj záře vytáhne. Zároveň mířila `BloomStrength`
+obráceně (vrchol v noci): lampy a okna se kreslí až za složením scény, takže
+v záři nikdy nebyly. Vrchol patří na zlatou hodinu, kdy nízké slunce odlesky
+opravdu dělá.
+
+**Lesy vypadaly jako tapeta.** Jeden sprite na biom, bez zrcadlení a bez
+odstínu — pravidelný rastr stejných stromů. Každý biom má teď seznam spritů,
+zrcadlení a jemný posun odstínu z hashe. Při té příležitosti šlo z
+`decorations.json` pryč pět duplicitních stromů; test bohatosti biomů hned
+chytil, že tím mangrove přišel o všechen podrost.
+
+**Křižovatky.** Podmínka měla `else`, do kterého spadla každá hliněná
+dlaždice, takže „značka křižovatky" se kreslila i tam, kde žádná křižovatka
+nebyla. A kreslila se jako světlý čtverec. Teď je to **ošlapaný tmavší kříž**
+s prázdnými rohy, takže křížení čte kulatě.
+
+### 9.2 Tři věci, které stály v cestě
+
+Stromy a props se nedaly pokácet ani přestavět, protože to **nebyly entity** —
+kreslily se z hashe pozice a o zástavbě nevěděly. Dekorace i značky zvláštních
+míst se teď na obsazené dlaždici (budova, silnice, cizí město) prostě nekreslí.
+Je to oprava v renderu, ne v simulaci: ty stromy nikdy neexistovaly, jen tam
+byly vidět.
+
+Města se občas spawnla do vody nebo bez budov — poloha se počítala z hashe
+buňky a na terén se nikdo neptal. `NpcCityMap` dostal predikát „je to souš"
+a osm pokusů v rámci buňky; když je celá buňka voda, město tam prostě není.
+Ptá se **procedurálního** terénu, ne přepisů, aby terraforming městy neposouval.
+
+Noční okna svítila na náhodných místech z hashe, ne tam, kde sprite okna
+kreslí. `PixelCanvas.Window()` si teď obdélníky oken zapamatuje a `LightsRenderer`
+je čte a škáluje podle velikosti budovy.
+
+### 9.3 Dvě chyby, které nikdo nehlásil
+
+Obě našlo focení po opravách, ne uvažování nad kódem.
+
+* **Poletující listí rostlo s přiblížením.** Při oddálení z něj byly hnědé
+  bedny plovoucí po moři. Velikost je teď v pixelech obrazovky, ne ve světě.
+* **Pole měla v zimě bílou desku** přes horní třetinu. Sněhová čepice obkresluje
+  horní třetinu siluety — u domu střechu, u lánu, který vyplňuje celé plátno,
+  souvislou desku. Pozná se to z kresby (zaplnění nejvyššího neprázdného řádku),
+  ne ze seznamu výjimek v datech.
+
+### 9.4 Co zbývá rozhodnout člověku
+
+Tři čísla, která se od stolu nastavit nedají — chtějí oko na hotové hře:
+hustota mraků (teď 26 % ztmavení), tma noci (teď sedmina jasu, bývala pětina)
+a hustota lesů.
+
+A bod 11 ze seznamu — **„udělat svět živější"** — je návrh na změnu chování
+simulace, ne na kreslení: `AgentSystem.PickTarget` je náhodná procházka, která
+se nikdy neptá na denní dobu, takže město se neprobouzí ani neusíná a nikdo
+nikam nedojde. Bez odsouhlasení se do toho nesahá (viz CLAUDE.md).
