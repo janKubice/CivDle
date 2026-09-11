@@ -80,6 +80,17 @@ public class FieldSpriteTests
     }
 
     [Fact]
+    public void TheFieldDrawsNoDarkFrameOfItsOwn()
+    {
+        // Siluetu obtahuje knihovna spritů všem budovám stejně. Vlastní rámeček
+        // by se s ní sečetl a dvě sousední pole by měla mezi sebou čtyři pixely
+        // tmy — tedy přesně tu mřížku, kvůli které tahle kresba vznikla.
+        var canvas = Field();
+
+        Assert.Equal(canvas.At(1, 1), canvas.At(0, 0));
+    }
+
+    [Fact]
     public void RowsDoNotAllEndOnTheSamePixel()
     {
         // Pravítkem uříznutý porost je to, co z pole dělá ikonu.

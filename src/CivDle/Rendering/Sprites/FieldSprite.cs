@@ -19,7 +19,9 @@ namespace CivDle.Rendering.Sprites;
 /// povrch, aniž by přibyl jediný pixel navíc.</description></item>
 /// <item><description><b>Úvrať.</b> Pás holé hlíny kolem dokola — místo, kde
 /// pluh otáčí. Dvě sousední pole tak mezi sebou mají dvojitý hliněný pruh
-/// a přestanou splývat v jednu plochu.</description></item>
+/// a přestanou splývat v jednu plochu. Tmavý lem k tomu netřeba: siluetu
+/// obtahuje knihovna spritů všem budovám stejně a vlastní rámeček by se
+/// s ním sečetl do mřížky.</description></item>
 /// <item><description><b>Nerovný konec řádků.</b> Délka každého řádku se
 /// o kousek liší podle deterministického hashe, takže porost nemá pravítkem
 /// uříznutou hranu.</description></item>
@@ -59,12 +61,10 @@ public static class FieldSprite
         // ne zelený obdélník.
         c.FillRect(0, 0, w, h, soilLight);
 
-        // Tmavý lem úplně na kraji: hranice pozemku. Bez něj se dvě sousední
-        // pole slijí a mřížka je zpátky.
-        c.FillRect(0, 0, w, 1, soilDark);
-        c.FillRect(0, h - 1, w, 1, soilDark);
-        c.FillRect(0, 0, 1, h, soilDark);
-        c.FillRect(w - 1, 0, 1, h, soilDark);
+        // Lem pozemku se tu NEkreslí. Siluetu obtahuje knihovna spritů všem
+        // budovám stejně (PixelCanvas.Outline) a vlastní tmavý rámeček by se
+        // s ním sečetl: dvě sousední pole by měla mezi sebou čtyři pixely tmy
+        // a mřížka, kvůli které tahle kresba vznikla, by byla zpátky.
 
         int across = vertical ? w : h;
         int along = vertical ? h : w;
