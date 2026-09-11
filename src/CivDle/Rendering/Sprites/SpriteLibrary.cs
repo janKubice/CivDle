@@ -190,7 +190,7 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.quarry", SpriteSize, Quarry);
         Add(device, "building.mine", SpriteSize, Mine);
         Add(device, "building.farm", SpriteSize, Farm);
-        Add(device, "building.plantation", SpriteSize, Farm);
+        Add(device, "building.plantation", SpriteSize, Plantation);
         Add(device, "building.warehouse", SpriteSize, Warehouse);
         Add(device, "building.great_warehouse", SpriteSize, GreatWarehouse);
         Add(device, "building.logistics_hub", MegaSpriteSize, LogisticsHub);
@@ -1807,16 +1807,9 @@ public sealed class SpriteLibrary : IDisposable
         c.FillRect(6, 12, 12, 1, new Color(232, 190, 138));
     }
 
-    /// <summary>Obilné pole: řádky klasů v pruzích.</summary>
-    private static void GrainField(PixelCanvas c)
-    {
-        c.FillRect(0, 0, 32, 32, new Color(176, 146, 76));
-        for (int y = 3; y < 30; y += 6)
-        {
-            c.FillRect(2, y, 28, 3, new Color(214, 182, 100));
-            c.FillRect(2, y + 3, 28, 1, new Color(148, 122, 62));
-        }
-    }
+    /// <summary>Obilné pole: husté řádky klasů napříč, zralé do zlata.</summary>
+    private static void GrainField(PixelCanvas c) =>
+        FieldSprite.Draw(c, new Color(152, 122, 70), new Color(214, 182, 100), rowStep: 4, vertical: false, seed: 7);
 
     /// <summary>Mlýn na mouku: nízká budova s vodním kolem.</summary>
     private static void GristMill(PixelCanvas c)
@@ -2060,15 +2053,13 @@ public sealed class SpriteLibrary : IDisposable
         c.FillCircle(17f, 24f, 3f, new Color(160, 160, 166));
     }
 
-    private static void Farm(PixelCanvas c)
-    {
-        c.FillRect(2, 4, 28, 26, new Color(150, 116, 60)); // pole
-        var crop = new Color(196, 168, 78);
-        for (int row = 0; row < 5; row++)
-        {
-            c.FillRect(4, 6 + row * 5, 24, 3, crop);
-        }
-    }
+    /// <summary>Statek: široké řádky, ještě zelené — pole před sklizní.</summary>
+    private static void Farm(PixelCanvas c) =>
+        FieldSprite.Draw(c, new Color(140, 106, 58), new Color(146, 166, 78), rowStep: 5, vertical: true, seed: 3);
+
+    /// <summary>Plantáž: úzké řádky sytě zelených keřů, orba napříč.</summary>
+    private static void Plantation(PixelCanvas c) =>
+        FieldSprite.Draw(c, new Color(122, 92, 56), new Color(96, 148, 72), rowStep: 3, vertical: false, seed: 19);
 
     private static void Warehouse(PixelCanvas c)
     {

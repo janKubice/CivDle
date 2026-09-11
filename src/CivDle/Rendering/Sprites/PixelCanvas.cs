@@ -23,6 +23,15 @@ public sealed class PixelCanvas
 
     public int Height { get; }
 
+    /// <summary>
+    /// Barva pixelu. Mimo plátno vrací průhlednou — čtení za okrajem je
+    /// u testů běžné a výjimka by je nutila hlídat meze místo kresby.
+    /// </summary>
+    public Color At(int x, int y) =>
+        x < 0 || x >= Width || y < 0 || y >= Height
+            ? Color.Transparent
+            : _pixels[y * Width + x];
+
     /// <summary>Nakreslí pixel s alfa blendingem přes stávající obsah.</summary>
     public void Blend(int x, int y, Color color)
     {
