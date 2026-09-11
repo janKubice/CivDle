@@ -914,8 +914,12 @@ public sealed class GameplayScreen : IScreen
         var light = DayNightCycle.LightColor(
             timeOfDay, _screens.Content.Gameplay.DayNight, _simulation.CurrentSeason);
 
+        // Ve fotorežimu se okraje rozostří: město se změní v model na stole.
+        // Za hry by to překáželo — hráč se dívá po celé ploše — ale právě proto
+        // je to vázané na F11, tedy na chvíli, kdy se hráč dívá jako fotograf.
         _composer.Compose(
-            spriteBatch, _screens.WhitePixel, light, DayNightCycle.BloomStrength(timeOfDay));
+            spriteBatch, _screens.WhitePixel, light, DayNightCycle.BloomStrength(timeOfDay),
+            _photoMode ? TiltShiftOptions.Gentle : null);
 
         // Plátky, pyl, listí nebo sníh. Nad hotovou scénou, ale pod mraky:
         // poletují mezi kamerou a městem, ne pod ním.

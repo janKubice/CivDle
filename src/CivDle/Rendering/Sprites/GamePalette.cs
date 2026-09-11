@@ -66,6 +66,29 @@ public static class GamePalette
     public static Color At(int index) => Colors[((index % Count) + Count) % Count];
 
     /// <summary>
+    /// Přitáhne barvu k paletě, ale nedotáhne ji úplně.
+    ///
+    /// <para><b>Proč ne rovnou <see cref="Snap"/>:</b> terén nedrží barvou, ale
+    /// <b>plynulým přechodem</b> — variace jasu proti repetici, stínování
+    /// sklonu, hloubka vody, sníh. Tvrdé přemapování na dvaatřicet barev by
+    /// z těch přechodů udělalo pruhy a z moře vrstevnicovou mapu. Sprity si
+    /// snap dovolit můžou, protože jsou kreslené po plochách; terén ne.</para>
+    ///
+    /// <para>Změřeno: barvy biomů leží od palety v mediánu osmadvacet
+    /// jednotek RGB a nejdál třiapadesát. To je dost na to, aby zem a to, co
+    /// na ní stojí, vypadaly jako ze dvou různých her. Částečné přitažení ten
+    /// rozdíl srazí, ale nechá každému biomu jeho tvář — a hlavně nechá
+    /// stínování plynulé, protože se posune až <b>základ</b>, ne hotový
+    /// pixel.</para>
+    /// </summary>
+    /// <param name="amount">0 = nechat být, 1 = úplně na paletu.</param>
+    public static Color Nudge(Color color, float amount)
+    {
+        var target = Snap(color);
+        return Color.Lerp(color, target, Math.Clamp(amount, 0f, 1f));
+    }
+
+    /// <summary>
     /// Nejbližší barva z palety. Alfa se nemění — průhlednost je tvar, ne barva,
     /// a snap na ni sáhnout nesmí, jinak by se rozpadly měkké okraje spritů.
     ///

@@ -64,13 +64,40 @@ public sealed class TerrainPainter
     /// <summary>Barva pěny na pobřeží.</summary>
     private static readonly Color Foam = new(232, 244, 250);
 
+    /// <summary>
+    /// Jak moc se barvy biomů přitáhnou ke společné paletě hry.
+    ///
+    /// <para><b>Proč vůbec:</b> zem má vlastní barvy z JSON, zatímco všechno,
+    /// co na ní stojí, se srovnává na paletu. Změřeno: barvy biomů leží od
+    /// palety v mediánu osmadvacet jednotek RGB a nejdál třiapadesát — dost na
+    /// to, aby zem a město vypadaly jako ze dvou různých her.</para>
+    ///
+    /// <para><b>Proč jen zčásti:</b> úplné přemapování na dvaatřicet barev by
+    /// z plynulých přechodů terénu (variace, stínování sklonu, hloubka vody)
+    /// udělalo pruhy. Dvě pětiny stačí, aby se odstíny potkaly, a každý biom
+    /// si přitom nechá tvář.</para>
+    /// </summary>
+    private const float PaletteAffinity = 0.4f;
+
     private readonly BiomeRegistry _biomes;
     private readonly long _seed;
+
+    /// <summary>
+    /// Barvy biomů už přitažené k paletě. Počítá se jednou v konstruktoru:
+    /// je to pár desítek barev, ale sahá se na ně jednou za dlaždici.
+    /// </summary>
+    private readonly Color[] _baseColors;
 
     public TerrainPainter(BiomeRegistry biomes, long seed)
     {
         _biomes = biomes;
         _seed = seed;
+
+        _baseColors = new Color[biomes.Count];
+        for (int i = 0; i < biomes.Count; i++)
+        {
+            _baseColors[i] = Sprites.GamePalette.Nudge(biomes[i].MapColor.ToXna(), PaletteAffinity);
+        }
     }
 
     /// <summary>
@@ -103,7 +130,7 @@ public sealed class TerrainPainter
         {
             // Hladina období nemění. Zamrzlá voda je vlastní biom, ne obarvená
             // obyčejná — a sníh na vodě by plaval jako polystyren.
-            return PaintWater(worldX, worldY, ring, waterInWindow, biome, brightness);
+            return PaintWater(worldX, worldY, ring, waterInWindow, self, brightness);
         }
 
         // Reliéf: svah ke slunci se rozsvítí, odvrácený ztmavne. Voda se
@@ -114,7 +141,7 @@ public sealed class TerrainPainter
         // Souš: u hranice biomů se dlaždice tu a tam převezme od souseda, takže
         // se z rovné hrany stane rozstřapatělý přechod.
         byte painted = DitherWithNeighbour(worldX, worldY, ring, self);
-        var color = Shade(_biomes[painted].MapColor, brightness);
+        var color = Shade(_baseColors[painted], brightness);
 
         // Na srázu se travní drn neudrží a je vidět podloží — ale jen tam, kde
         // ho podle obsahu vůbec je co odkrýt.
@@ -238,14 +265,14 @@ public sealed class TerrainPainter
     /// nejčastěji ze všeho, protože kolem ní staví.
     /// </summary>
     private Color PaintWater(
-        int worldX, int worldY, ReadOnlySpan<byte> ring, int waterInWindow, Biome biome, float brightness)
+        int worldX, int worldY, ReadOnlySpan<byte> ring, int waterInWindow, byte biomeIndex, float brightness)
     {
         // Hloubka: podíl vody v okolí. Zátoka mezi mysy zůstane světlá,
         // otevřené moře ztmavne — z jedné barvy je najednou pobřeží.
         float dithered = waterInWindow + (Unit(worldX, worldY, 9) - 0.5f) * DepthDither;
         float openness = Math.Clamp(dithered / WaterWindowTiles, 0f, 1f);
         float depth = openness * openness; // mělčina se drží déle, hloubka nastupuje rychle
-        var color = Shade(biome.MapColor, brightness * (1f - DepthDarken * depth));
+        var color = Shade(_baseColors[biomeIndex], brightness * (1f - DepthDarken * depth));
 
         if (!TouchesLand(ring))
         {

@@ -57,6 +57,14 @@ public sealed class SceneComposer : IDisposable
     private RenderTarget2D? _scene;
     private RenderTarget2D? _bloomA;
     private RenderTarget2D? _bloomB;
+
+    /// <summary>
+    /// Scéna po tilt-shiftu. Vlastní textura, protože grafika nesmí číst z té,
+    /// do které zrovna píše.
+    /// </summary>
+    private RenderTarget2D? _tilted;
+
+    private TiltShift? _tiltShift;
     private int _width;
     private int _height;
 
@@ -88,16 +96,27 @@ public sealed class SceneComposer : IDisposable
     /// znovu nakreslená scéna — kdyby se kreslila scéna, vyšla by scéna na
     /// druhou a ne scéna krát světlo.
     /// </param>
-    public void Compose(SpriteBatch batch, Texture2D whitePixel, Color light, float bloom)
+    /// <param name="tilt">
+    /// Rozostření okrajů („město jako model na stole"), nebo <c>null</c>.
+    /// Zapíná se ve fotorežimu: hrát se s rozostřenými okraji nedá, ale
+    /// screenshot je díky němu úplně jiný obrázek.
+    /// </param>
+    public void Compose(
+        SpriteBatch batch, Texture2D whitePixel, Color light, float bloom,
+        TiltShiftOptions? tilt = null)
     {
         if (_scene is null)
         {
             return; // Begin se nezavolal — není co skládat
         }
 
+        // Tilt-shift jde PŘED záři: rozostřené světlo se má rozlít z toho, co
+        // je opravdu vidět, ne z ostré předlohy, která se pak rozmázne.
+        var source = ApplyTilt(batch, tilt) ?? _scene;
+
         if (bloom > 0.001f)
         {
-            BuildBloom(batch);
+            BuildBloom(batch, source);
         }
 
         _device.SetRenderTarget(null);
@@ -106,7 +125,7 @@ public sealed class SceneComposer : IDisposable
         var full = new Rectangle(0, 0, _width, _height);
 
         batch.Begin(samplerState: SamplerState.PointClamp);
-        batch.Draw(_scene, full, Color.White);
+        batch.Draw(source, full, Color.White);
         batch.End();
 
         // Světlo až na hotovou scénu: násobí se celý obraz včetně budov a lidí,
@@ -127,18 +146,46 @@ public sealed class SceneComposer : IDisposable
         _scene?.Dispose();
         _bloomA?.Dispose();
         _bloomB?.Dispose();
+        _tilted?.Dispose();
+        _tiltShift?.Dispose();
         _scene = null;
         _bloomA = null;
         _bloomB = null;
+        _tilted = null;
+        _tiltShift = null;
+    }
+
+    /// <summary>
+    /// Prožene scénu tilt-shiftem, jestli je zapnutý. Vrací <c>null</c>, když
+    /// se nic nedělá — volající pak použije původní scénu a neplatí se za
+    /// jedno zbytečné překreslení celé obrazovky.
+    ///
+    /// <para>Textura i samotný efekt se zakládají až při prvním použití.
+    /// Fotorežim je vzácný a nést kvůli němu render target přes celou
+    /// obrazovku po celou hru by byla paměť ležící ladem.</para>
+    /// </summary>
+    private RenderTarget2D? ApplyTilt(SpriteBatch batch, TiltShiftOptions? tilt)
+    {
+        if (tilt is not { HasEffect: true } options || _scene is null)
+        {
+            return null;
+        }
+
+        _tiltShift ??= new TiltShift(_device, batch);
+        _tilted ??= new RenderTarget2D(
+            _device, _width, _height, mipMap: false, SurfaceFormat.Color, DepthFormat.None);
+
+        _tiltShift.Render(_scene, _tilted, new Rectangle(0, 0, _width, _height), Color.Black, options);
+        return _tilted;
     }
 
     /// <summary>
     /// Vyrobí záři: zmenšit, dvakrát umocnit (to je ten práh), rozmazat
     /// zvětšením a zmenšením zpátky.
     /// </summary>
-    private void BuildBloom(SpriteBatch batch)
+    private void BuildBloom(SpriteBatch batch, Texture2D scene)
     {
-        if (_bloomA is null || _bloomB is null || _scene is null)
+        if (_bloomA is null || _bloomB is null)
         {
             return;
         }
@@ -150,7 +197,7 @@ public sealed class SceneComposer : IDisposable
         _device.SetRenderTarget(_bloomA);
         _device.Clear(Color.Transparent);
         batch.Begin(samplerState: SamplerState.LinearClamp);
-        batch.Draw(_scene, small, Color.White);
+        batch.Draw(scene, small, Color.White);
         batch.End();
 
         // Dvakrát umocnit: po čtvrté mocnině zbyde jen to, co opravdu svítí.
