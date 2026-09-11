@@ -97,7 +97,7 @@ public sealed class DistrictRenderer
 
             if (props)
             {
-                DrawProps(spriteBatch, simulation, type, district);
+                DrawProps(spriteBatch, simulation, type, district, min, max);
             }
         }
 
@@ -119,16 +119,25 @@ public sealed class DistrictRenderer
     /// prorůstající halou by vypadala jako chyba vykreslování.</para>
     /// </summary>
     private void DrawProps(
-        SpriteBatch spriteBatch, Simulation simulation, DistrictTypeDef type, District district)
+        SpriteBatch spriteBatch, Simulation simulation, DistrictTypeDef type, District district,
+        Vector2 min, Vector2 max)
     {
         if (!type.HasProps || _sprites.Get(type.Prop!) is not { } sprite)
         {
             return;
         }
 
-        for (int ty = district.MinY; ty <= district.MaxY; ty++)
+        // Jen průnik čtvrti s výřezem. Velkoměstská čtvrť má klidně dvě stě
+        // dlaždic na stranu — projít ji celou by znamenalo desítky tisíc
+        // dotazů za snímek kvůli hrstce bedýnek, které jsou vidět.
+        int fromX = Math.Max(district.MinX, (int)MathF.Floor(min.X / TileSize));
+        int toX = Math.Min(district.MaxX, (int)MathF.Ceiling(max.X / TileSize));
+        int fromY = Math.Max(district.MinY, (int)MathF.Floor(min.Y / TileSize));
+        int toY = Math.Min(district.MaxY, (int)MathF.Ceiling(max.Y / TileSize));
+
+        for (int ty = fromY; ty <= toY; ty++)
         {
-            for (int tx = district.MinX; tx <= district.MaxX; tx++)
+            for (int tx = fromX; tx <= toX; tx++)
             {
                 uint hash = Hash(tx, ty, district.TypeIndex);
                 if ((hash & 0xFFFF) / 65535f >= type.PropDensity)
