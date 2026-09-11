@@ -24,6 +24,12 @@ public sealed class DecorationRenderer
     private readonly long _seed;
     private readonly Sprites.SpriteLibrary _sprites;
 
+    /// <summary>
+    /// Čas pro vítr. Jediný stav rendereru — dekorace se jinak celé odvozují
+    /// z hashe a nic si nepamatují.
+    /// </summary>
+    private float _time;
+
     /// <summary>Předpočítané indexy dekorací pro každý biom — vnitřní smyčka jen prochází pole.</summary>
     private readonly int[][] _decorationsByBiome;
 
@@ -49,6 +55,9 @@ public sealed class DecorationRenderer
             _decorationsByBiome[biome] = list.ToArray();
         }
     }
+
+    /// <summary>Posune vítr. Bez toho by porost stál jako vylisovaný v herbáři.</summary>
+    public void Update(float dt) => _time += dt;
 
     /// <summary>
     /// Jak moc se na tomhle místě drobnostem daří (0 = holo, ~1,8 = houští).
@@ -133,14 +142,22 @@ public sealed class DecorationRenderer
                         // se posadí patou na místo, které vyšlo z hashe. Zvětšení
                         // je z dat: trs trávy a strom nemají být stejně velké.
                         int drawn = size * def.Scale;
-                        spriteBatch.Draw(
-                            sprite,
-                            new Rectangle(
-                                x * tileSize + offsetX - drawn / 3,
-                                y * tileSize + offsetY - drawn + size,
-                                drawn,
-                                drawn),
-                            SpriteTint(color));
+                        var target = new Rectangle(
+                            x * tileSize + offsetX - drawn / 3,
+                            y * tileSize + offsetY - drawn + size,
+                            drawn,
+                            drawn);
+
+                        // Rostliny se kolébají ve stejném větru jako kouř nad
+                        // komíny a stromy v hájích. Kdyby měl každý svůj, viděl
+                        // by hráč tři nezávislé animace místo jednoho počasí.
+                        if (def.SwaysInWind)
+                        {
+                            DrawSwaying(spriteBatch, sprite, target, SpriteTint(color), x, y);
+                            continue;
+                        }
+
+                        spriteBatch.Draw(sprite, target, SpriteTint(color));
                         continue;
                     }
 
@@ -153,6 +170,35 @@ public sealed class DecorationRenderer
         }
 
         spriteBatch.End();
+    }
+
+    /// <summary>
+    /// Nakreslí porost nakloněný větrem.
+    ///
+    /// <para>Otáčí se kolem <b>paty</b>, ne kolem středu: rostlina je
+    /// zakořeněná a kymácí se jí vrcholek. Otáčení kolem středu by ji nechalo
+    /// poskakovat po zemi a vypadalo by to jako chyba, ne jako vítr.</para>
+    /// </summary>
+    private void DrawSwaying(
+        SpriteBatch spriteBatch, Texture2D sprite, Rectangle target, Color tint, int tileX, int tileY)
+    {
+        float angle = AmbientWind.Sway(tileX, tileY, _time);
+
+        // Počátek v dolním středu obrázku, cíl posunutý na totéž místo —
+        // tím se osa otáčení přesune ke kořenům.
+        var origin = new Vector2(sprite.Width * 0.5f, sprite.Height);
+        float scale = target.Width / (float)sprite.Width;
+
+        spriteBatch.Draw(
+            sprite,
+            new Vector2(target.X + target.Width * 0.5f, target.Bottom),
+            null,
+            tint,
+            angle,
+            origin,
+            scale,
+            SpriteEffects.None,
+            0f);
     }
 
     /// <summary>

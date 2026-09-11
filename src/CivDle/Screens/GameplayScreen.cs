@@ -180,6 +180,7 @@ public sealed class GameplayScreen : IScreen
 
     /// <summary>Stíny mraků plující přes krajinu — jediné, co je z oblohy v pohledu shora vidět.</summary>
     private readonly CloudShadowRenderer _clouds;
+    private readonly CloudLayerRenderer _cloudLayer;
 
     /// <summary>
     /// Odkud fouká. Pevný směr schválně: vítr, který by se otáčel, by při
@@ -504,6 +505,7 @@ public sealed class GameplayScreen : IScreen
         _poiRenderer = new PoiRenderer(screens.Sprites, screens.WhitePixel);
         _composer = new SceneComposer(screens.GraphicsDevice);
         _clouds = new CloudShadowRenderer(screens.GraphicsDevice);
+        _cloudLayer = new CloudLayerRenderer(screens.GraphicsDevice);
         _raftRenderer = new RaftRenderer(screens.Sprites, screens.WhitePixel);
         _cityAudio = new Audio.SpatialSoundscape(screens.Content);
 
@@ -741,6 +743,7 @@ public sealed class GameplayScreen : IScreen
             _discoveries.Update(worldDt);
             _poiRenderer.Update(worldDt);
             _clouds.Update(worldDt);
+        _cloudLayer.Update(worldDt);
         }
 
         // Cheaty se udržují herním časem: v pauze se nic nedosypává a záběr,
@@ -762,6 +765,7 @@ public sealed class GameplayScreen : IScreen
         _lightsRenderer.Update(worldDt);   // okna v noci pomalu mihotají
         _waterRenderer.Update(worldDt);    // odlesky putují po hladině
         _ambientLife.Update(worldDt);      // kouř stoupá, stromy se kolébají, ptáci krouží
+        _decorationRenderer.Update(worldDt); // porost se kymácí v témž větru
         _weatherRenderer.Update(worldDt, _simulation, _screens.GraphicsDevice.Viewport);
         _minimap.Update(dt, _camera, _simulation);
         _might.Update(dt, _simulation);
@@ -886,6 +890,15 @@ public sealed class GameplayScreen : IScreen
 
         _composer.Compose(
             spriteBatch, _screens.WhitePixel, light, DayNightCycle.BloomStrength(timeOfDay));
+
+        // Mraky nad městem AŽ ZA složením. Letí mezi kamerou a zemí, takže je
+        // nemá co zastínit — a hlavně tím na chvíli zakryjí kus obrazu, což je
+        // jediná věc, po které oko uvěří, že je mezi ním a městem vzduch.
+        // Denní světlo dostanou vlastním nádechem: bílý mrak v noci by svítil
+        // jako neon.
+        _cloudLayer.Draw(
+            spriteBatch, _camera, _screens.GraphicsDevice.Viewport,
+            CloudCoverage(), WindDirectionX, WindDirectionY, light);
 
         // Lampy a okna až NAD osvětlením: jsou to zdroje světla, takže je noc
         // nemá co ztmavovat. Dřív se topily ve tmě spolu se vším ostatním.
@@ -1407,6 +1420,7 @@ public sealed class GameplayScreen : IScreen
         _screens.UiSettingsChanged -= BuildUi;
         _composer.Dispose();
         _clouds.Dispose();
+        _cloudLayer.Dispose();
         _terrainRenderer.Dispose();
         _cityScale.Dispose(); // upečené textury hustoty
         _minimap.Dispose();

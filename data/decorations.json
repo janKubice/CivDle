@@ -15,7 +15,8 @@
       "density": 0.06,
       "minSize": 1,
       "maxSize": 2,
-      "sprite": "deco.flowers"
+      "sprite": "deco.flowers",
+      "sways": true
     },
     {
       "id": "forest_canopy",
@@ -31,7 +32,8 @@
       "minSize": 3,
       "maxSize": 5,
       "sprite": "deco.broadleaf",
-      "scale": 7
+      "scale": 7,
+      "sways": true
     },
     {
       "id": "steppe_shrub",
@@ -46,7 +48,8 @@
       "density": 0.08,
       "minSize": 1,
       "maxSize": 3,
-      "sprite": "deco.tuft"
+      "sprite": "deco.tuft",
+      "sways": true
     },
     {
       "id": "mountain_rocks",
@@ -118,7 +121,8 @@
       "minSize": 3,
       "maxSize": 5,
       "sprite": "deco.jungle_tree",
-      "scale": 7
+      "scale": 7,
+      "sways": true
     },
     {
       "id": "taiga_conifers",
@@ -135,7 +139,8 @@
       "minSize": 3,
       "maxSize": 5,
       "sprite": "deco.conifer",
-      "scale": 7
+      "scale": 7,
+      "sways": true
     },
     {
       "id": "acacia",
@@ -151,7 +156,8 @@
       "minSize": 3,
       "maxSize": 4,
       "sprite": "deco.acacia",
-      "scale": 6
+      "scale": 6,
+      "sways": true
     },
     {
       "id": "dune_ripples",
@@ -179,7 +185,8 @@
       "density": 0.08,
       "minSize": 1,
       "maxSize": 2,
-      "sprite": "deco.tuft"
+      "sprite": "deco.tuft",
+      "sways": true
     },
     {
       "id": "reeds",
@@ -194,7 +201,8 @@
       "density": 0.22,
       "minSize": 1,
       "maxSize": 3,
-      "sprite": "deco.reed"
+      "sprite": "deco.reed",
+      "sways": true
     },
     {
       "id": "canyon_strata",
@@ -335,7 +343,8 @@
       "density": 0.08,
       "minSize": 1,
       "maxSize": 3,
-      "sprite": "deco.tuft"
+      "sprite": "deco.tuft",
+      "sways": true
     },
     {
       "id": "mangrove_stilts",
@@ -350,7 +359,8 @@
       "minSize": 3,
       "maxSize": 4,
       "sprite": "deco.mangrove",
-      "scale": 6
+      "scale": 6,
+      "sways": true
     },
     {
       "id": "highland_heather",
@@ -365,7 +375,8 @@
       "density": 0.06,
       "minSize": 1,
       "maxSize": 2,
-      "sprite": "deco.tuft"
+      "sprite": "deco.tuft",
+      "sways": true
     },
     {
       "id": "glacier_seracs",
@@ -420,7 +431,8 @@
       "density": 0.14,
       "minSize": 2,
       "maxSize": 3,
-      "sprite": "deco.tuft"
+      "sprite": "deco.tuft",
+      "sways": true
     },
     {
       "id": "field_stones",
@@ -491,7 +503,8 @@
       "density": 0.1,
       "minSize": 2,
       "maxSize": 3,
-      "sprite": "deco.fern"
+      "sprite": "deco.fern",
+      "sways": true
     },
     {
       "id": "forest_understory",
@@ -505,7 +518,8 @@
       "density": 0.18,
       "minSize": 2,
       "maxSize": 4,
-      "sprite": "deco.bush"
+      "sprite": "deco.bush",
+      "sways": true
     },
     {
       "id": "jungle_understory",
@@ -519,7 +533,8 @@
       "density": 0.3,
       "minSize": 2,
       "maxSize": 5,
-      "sprite": "deco.fern"
+      "sprite": "deco.fern",
+      "sways": true
     },
     {
       "id": "savanna_scrub",
@@ -533,7 +548,8 @@
       "density": 0.1,
       "minSize": 2,
       "maxSize": 3,
-      "sprite": "deco.bush"
+      "sprite": "deco.bush",
+      "sways": true
     },
     {
       "id": "dead_stands",
@@ -566,7 +582,8 @@
       "minSize": 3,
       "maxSize": 4,
       "sprite": "deco.conifer",
-      "scale": 6
+      "scale": 6,
+      "sways": true
     }
   ]
 }

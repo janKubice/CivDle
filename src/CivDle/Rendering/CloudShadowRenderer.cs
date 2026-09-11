@@ -40,7 +40,7 @@ public sealed class CloudShadowRenderer : IDisposable
 
     public CloudShadowRenderer(GraphicsDevice device)
     {
-        _clouds = BuildCloudTexture(device);
+        _clouds = CloudNoise.Build(device, TextureSize, Threshold, Softness, Seed, asShade: true);
     }
 
     public void Update(float dt) => _time += dt;
@@ -97,71 +97,16 @@ public sealed class CloudShadowRenderer : IDisposable
     public void Dispose() => _clouds.Dispose();
 
     /// <summary>
-    /// Vyrobí texturu mraků: pár vrstev hodnotového šumu přes sebe a na to
-    /// práh, aby vznikly ostrůvky zataženo a mezi nimi jasno.
-    ///
-    /// <para>Bílá znamená „sem svítí slunce", černá „tady je stín". Textura se
-    /// pak kreslí násobením, takže bílá nechá scénu být.</para>
+    /// Práh a měkkost okraje pro stínovou vrstvu. Pod prahem je jasno; bez něj
+    /// by z toho byla rovnoměrná šeď, ne mraky.
     /// </summary>
-    private static Texture2D BuildCloudTexture(GraphicsDevice device)
-    {
-        var pixels = new Color[TextureSize * TextureSize];
-        for (int y = 0; y < TextureSize; y++)
-        {
-            for (int x = 0; x < TextureSize; x++)
-            {
-                // Tři oktávy. Dlaždicové opakování drží to, že se vzorkuje po
-                // celých násobcích velikosti textury — okraj tak navazuje.
-                float value =
-                    Octave(x, y, 4) * 0.55f +
-                    Octave(x, y, 8) * 0.30f +
-                    Octave(x, y, 16) * 0.15f;
+    private const float Threshold = 0.42f;
 
-                // Práh: bez něj je to rovnoměrná šeď, ne mraky. Takhle vzniknou
-                // souvislé kusy stínu s měkkým okrajem.
-                float shade = Smooth(Math.Clamp((value - 0.42f) / 0.34f, 0f, 1f));
-                pixels[y * TextureSize + x] = new Color(1f - shade, 1f - shade, 1f - shade);
-            }
-        }
-
-        var texture = new Texture2D(device, TextureSize, TextureSize);
-        texture.SetData(pixels);
-        return texture;
-    }
-
-    /// <summary>Jedna vrstva hodnotového šumu, která se po hraně textury opakuje.</summary>
-    private static float Octave(int x, int y, int cells)
-    {
-        int size = TextureSize / cells;
-        int cx = x / size;
-        int cy = y / size;
-        float fx = Smooth((x % size) / (float)size);
-        float fy = Smooth((y % size) / (float)size);
-
-        float a = Corner(cx, cy, cells);
-        float b = Corner(cx + 1, cy, cells);
-        float c = Corner(cx, cy + 1, cells);
-        float d = Corner(cx + 1, cy + 1, cells);
-
-        return MathHelper.Lerp(MathHelper.Lerp(a, b, fx), MathHelper.Lerp(c, d, fx), fy);
-    }
+    private const float Softness = 0.34f;
 
     /// <summary>
-    /// Hodnota v rohu buňky. Souřadnice se zbytkem po dělení zabalí dokola,
-    /// takže levý okraj textury sedí na pravý a nahoře je totéž co dole.
+    /// Seed tvaru. Vrstva nad městem má jiný, aby stín neležel přesně pod
+    /// mrakem — mraky letí výš a jinou rychlostí, takže by zákryt byl chyba.
     /// </summary>
-    private static float Corner(int cx, int cy, int cells)
-    {
-        int wrappedX = ((cx % cells) + cells) % cells;
-        int wrappedY = ((cy % cells) + cells) % cells;
-
-        unchecked
-        {
-            uint h = (uint)(wrappedX * 374761393 + wrappedY * 668265263 + cells * 1442695041);
-            h = (h ^ (h >> 13)) * 1274126177;
-            return ((h ^ (h >> 16)) & 0xFFFF) / 65535f;
-        }
-    }
-
-    private static float Smooth(float t) => t * t * (3f - 2f * t);
+    private const int Seed = 1;
 }

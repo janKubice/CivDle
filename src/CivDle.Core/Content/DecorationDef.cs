@@ -19,8 +19,20 @@ public sealed record DecorationDef(
     int MinSize,
     int MaxSize,
     string? Sprite = null,
-    int Scale = DecorationDef.DefaultScale)
+    int Scale = DecorationDef.DefaultScale,
+    bool Sways = false)
 {
+    /// <summary>
+    /// Kolébá se tahle věc ve větru?
+    ///
+    /// <para>Strom ano, balvan ne. Je to v datech, ne odvozené z velikosti,
+    /// protože o tom, co je rostlina, rozhoduje obsah — a hlavně to šetří
+    /// práci: naklonění se počítá jen tam, kde má smysl, a kamenů bývá na
+    /// obrazovce víc než stromů.</para>
+    /// </summary>
+    public bool SwaysInWind => Sways;
+
+
     /// <summary>
     /// Výchozí zvětšení spritu oproti vylosované velikosti.
     ///

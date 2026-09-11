@@ -4737,7 +4737,7 @@ public sealed class ContentLoader
                 id, ParseBiomeMask(path, $"Dekorace '{id}'", dto.Biomes, biomes),
                 colors, (float)dto.Density, dto.MinSize, dto.MaxSize,
                 string.IsNullOrWhiteSpace(dto.Sprite) ? null : dto.Sprite.Trim(),
-                scale));
+                scale, dto.Sways));
         }
 
         return result;
