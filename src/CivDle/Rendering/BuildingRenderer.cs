@@ -81,6 +81,39 @@ public sealed class BuildingRenderer
             _visible);
 
         var buildings = simulation.Buildings;
+
+        // Stíny mají VLASTNÍ průchod, dřív než se nakreslí jediná budova.
+        //
+        // Dokud si stín kreslila každá budova sama těsně před sebou, padal
+        // i na sousedy nakreslené dřív — v husté zástavbě si tak domy dělaly
+        // tmavé fleky přes střechy a blok vypadal špinavě. Odděleným průchodem
+        // leží stín vždycky na zemi. A jako vedlejší efekt vznikne v hustých
+        // blocích přirozené zahuštění tmy, protože se skvrny překrývají: to
+        // je zadarmo získané kontaktní ztmavení, po kterém město přestane
+        // plavat nad terénem.
+        if (detailed && SceneLight.Enabled)
+        {
+            for (int slot = 0; slot < _visible.Count; slot++)
+            {
+                int index = _visible[slot];
+                if (index < buildings.Length
+                    && buildings[index].IsComplete
+                    && IsVisible(buildings[index], min, max, out var shadowDef, out var shadowBounds))
+                {
+                    DrawGrounding(spriteBatch, shadowBounds, shadowDef.FootprintWidth * shadowDef.FootprintHeight);
+                }
+            }
+
+            var foreignShadows = simulation.NpcBuildings;
+            for (int i = 0; i < foreignShadows.Length; i++)
+            {
+                if (IsVisible(foreignShadows[i], min, max, out var shadowDef, out var shadowBounds))
+                {
+                    DrawGrounding(spriteBatch, shadowBounds, shadowDef.FootprintWidth * shadowDef.FootprintHeight);
+                }
+            }
+        }
+
         for (int slot = 0; slot < _visible.Count; slot++)
         {
             int i = _visible[slot];
@@ -165,10 +198,6 @@ public sealed class BuildingRenderer
         // Odvozeno z polohy, takže se to mezi snímky ani po zbourání souseda nemění.
         var look = BuildingVariation.For(building.X, building.Y, building.DefIndex);
         var tint = BuildingVariation.Combine(ProsperityLook.Tint(prosperity), look.PaletteIndex);
-
-        // Stín a ztmavení u paty. Kreslí se PŘED budovou a pro všechny stejným
-        // směrem — to je celý trik, díky kterému scéna přestane být plochá.
-        DrawGrounding(spriteBatch, bounds, def.FootprintWidth * def.FootprintHeight);
 
         // Posun o pixel rozbije dokonalé řady. Až tady, aby stín zůstal podle
         // půdorysu — kdyby se posouval s budovou, přestal by ležet na zemi.
