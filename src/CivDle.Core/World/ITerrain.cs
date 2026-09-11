@@ -25,6 +25,19 @@ public interface ITerrain
     /// </summary>
     /// <param name="x">Dlaždice vodorovně.</param>
     /// <param name="y">Dlaždice svisle.</param>
+    /// <summary>
+    /// Výška dlaždice 0–1 (0 = dno, 1 = vrcholky).
+    ///
+    /// <para>Výška se dosud používala jen k výběru biomu a pak se zahodila.
+    /// Přitom je to ta jediná informace, ze které se dá spočítat <b>sklon</b>
+    /// — a teprve sklon udělá z barevné mřížky krajinu: svah ke slunci se
+    /// rozsvítí, odvrácený ztmavne. Bez toho je pohled shora plán, ne místo.</para>
+    ///
+    /// <para>Výchozí implementace vrací rovinu, takže plochý testovací terén
+    /// ani starší implementace se kvůli stínování nemusí měnit.</para>
+    /// </summary>
+    float ElevationAt(int x, int y) => 0.5f;
+
     /// <param name="dx">Výstup: −1, 0 nebo 1.</param>
     /// <param name="dy">Výstup: −1, 0 nebo 1.</param>
     bool TryRiverFlow(int x, int y, out int dx, out int dy)

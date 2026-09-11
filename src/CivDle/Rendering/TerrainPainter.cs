@@ -52,6 +52,15 @@ public sealed class TerrainPainter
     /// </summary>
     private const float DepthDither = 4.5f;
 
+    /// <summary>
+    /// Jak silně sklon mění jas dlaždice.
+    ///
+    /// <para>Přes 25 % už krajina vypadá jako reliéfní mapa z muzea a barvy
+    /// biomů se v tom ztratí; pod 12 % to není vidět. Dvaadvacet je ta míra,
+    /// po které je poznat kopec, a pořád je poznat i to, že je zelený.</para>
+    /// </summary>
+    private const float SlopeStrength = 0.22f;
+
     /// <summary>Barva pěny na pobřeží.</summary>
     private static readonly Color Foam = new(232, 244, 250);
 
@@ -74,7 +83,12 @@ public sealed class TerrainPainter
     /// Kolik vodních dlaždic je v okně 5×5 kolem. Z toho se odvozuje hloubka:
     /// zátoka obklopená pevninou je mělká a světlá, otevřené moře tmavé.
     /// </param>
-    public Color Tile(int worldX, int worldY, ReadOnlySpan<byte> ring, int waterInWindow)
+    /// <param name="slopeShade">
+    /// Sklon terénu jako −1 (odvrácený svah) až +1 (svah ke slunci); 0 = rovina.
+    /// Počítá ho <see cref="TerrainRenderer"/>, který jediný vidí výšky s přesahem.
+    /// </param>
+    public Color Tile(
+        int worldX, int worldY, ReadOnlySpan<byte> ring, int waterInWindow, float slopeShade = 0f)
     {
         byte self = ring[4];
         var biome = _biomes[self];
@@ -88,6 +102,11 @@ public sealed class TerrainPainter
         {
             return PaintWater(worldX, worldY, ring, waterInWindow, biome, brightness);
         }
+
+        // Reliéf: svah ke slunci se rozsvítí, odvrácený ztmavne. Voda se
+        // nestínuje — hladina je vodorovná, ať je pod ní cokoli, a stínovaná
+        // by vypadala jako pomačkaný igelit.
+        brightness *= 1f + slopeShade * SlopeStrength;
 
         // Souš: u hranice biomů se dlaždice tu a tam převezme od souseda, takže
         // se z rovné hrany stane rozstřapatělý přechod.
