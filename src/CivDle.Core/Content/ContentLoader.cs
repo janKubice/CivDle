@@ -3968,6 +3968,8 @@ public sealed class ContentLoader
                 $"'roads.disconnectedProductionMult' musí být 0–1 (napojení nesmí výrobu snižovat), je {disconnectedMult}.");
         }
 
+        var roadSurfaces = ReadRoadSurfaces(path, file.Roads.Surfaces);
+
         if (file.Settlements is null)
         {
             throw new ContentLoadException(path, "Chybí blok 'settlements' (detekce osad).");
@@ -4057,7 +4059,7 @@ public sealed class ContentLoader
             file.FoodPerPersonPerSecond,
             foodIndex,
             new AutoBuildConfig(file.AutoBuild.IntervalTicks, file.AutoBuild.SearchRadius, file.AutoBuild.PopulationHeadroom),
-            new RoadConfig(roadColor, file.Roads.MaxSearchDistance, file.Roads.MaxBridgeSpan, disconnectedMult),
+            new RoadConfig(roadColor, file.Roads.MaxSearchDistance, file.Roads.MaxBridgeSpan, disconnectedMult, roadSurfaces),
             new SettlementConfig(file.Settlements.MinBuildings, file.Settlements.ClusterDistance, file.Settlements.UpdateIntervalTicks),
             new DayNightConfig(
                 file.DayNight.DayLengthSeconds,
@@ -4626,6 +4628,57 @@ public sealed class ContentLoader
     }
 
     // ----- dekorace a fauna (živá mapa) -----
+
+    /// <summary>
+    /// Povrchy silnic podle éry. Nepovinné — bez nich se silnice kreslí jednou
+    /// barvou jako dřív.
+    ///
+    /// <para>Kontroluje se dvojí: že <c>kind</c> je jeden ze známých druhů
+    /// (překlep by jinak tiše spadl na hlínu a hráč by se v moderní éře divil,
+    /// proč má město polní cesty) a že éry jdou vzestupně a nezačínají až
+    /// někde uprostřed. Bez pokrytí nulté éry by první věk neměl povrch
+    /// žádný.</para>
+    /// </summary>
+    private IReadOnlyList<RoadSurface>? ReadRoadSurfaces(string path, List<RoadSurfaceDto>? dtos)
+    {
+        if (dtos is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        var result = new List<RoadSurface>(dtos.Count);
+        int previousEra = int.MinValue;
+        foreach (var dto in dtos)
+        {
+            if (!Enum.TryParse<RoadSurfaceKind>(dto.Kind, ignoreCase: true, out var kind))
+            {
+                throw new ContentLoadException(path,
+                    $"'roads.surfaces': neznámý druh povrchu '{dto.Kind}'. Známé: {string.Join(", ", Enum.GetNames<RoadSurfaceKind>()).ToLowerInvariant()}.");
+            }
+
+            if (dto.FromEra < 0)
+            {
+                throw new ContentLoadException(path, $"'roads.surfaces': 'fromEra' nesmí být záporná, je {dto.FromEra}.");
+            }
+
+            if (dto.FromEra <= previousEra)
+            {
+                throw new ContentLoadException(path,
+                    $"'roads.surfaces': éry musí jít vzestupně, {dto.FromEra} přišla po {previousEra}.");
+            }
+
+            previousEra = dto.FromEra;
+            result.Add(new RoadSurface(dto.FromEra, kind, ParseColor(path, dto.Color, "Povrch silnice")));
+        }
+
+        if (result[0].FromEra != 0)
+        {
+            throw new ContentLoadException(path,
+                $"'roads.surfaces': první povrch musí platit od éry 0, začíná až od {result[0].FromEra}.");
+        }
+
+        return result;
+    }
 
     private IReadOnlyList<DecorationDef> LoadDecorations(string path, BiomeRegistry biomes)
     {

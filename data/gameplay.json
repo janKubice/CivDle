@@ -14,7 +14,24 @@
     "mapColor": "#9A9284",
     "maxSearchDistance": 60,
     "maxBridgeSpan": 6,
-    "disconnectedProductionMult": 0.6
+    "disconnectedProductionMult": 0.6,
+    "surfaces": [
+      {
+        "fromEra": 0,
+        "kind": "dirt",
+        "color": "#96754E"
+      },
+      {
+        "fromEra": 2,
+        "kind": "cobble",
+        "color": "#9A9284"
+      },
+      {
+        "fromEra": 4,
+        "kind": "paved",
+        "color": "#7C7E86"
+      }
+    ]
   },
   "settlements": {
     "minBuildings": 3,

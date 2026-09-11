@@ -1084,6 +1084,63 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadFrom_RoadSurfaceWithUnknownKind_NamesTheKnownOnes()
+    {
+        // Překlep v druhu povrchu by jinak tiše spadl na hlínu a hráč by se
+        // v moderní éře divil, proč má město polní cesty.
+        WriteAllValid();
+        WriteRoadSurfaces("""[{ "fromEra": 0, "kind": "kocicihlavy", "color": "#9A9284" }]""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("kocicihlavy", ex.Message);
+        Assert.Contains("dirt", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_RoadSurfacesOutOfOrder_Fails()
+    {
+        // Pořadí je to jediné, podle čeho se povrch pro éru vybírá. Na přeskáčku
+        // by hra v půlce dějin přeskočila zpátky na polní cestu.
+        WriteAllValid();
+        WriteRoadSurfaces("""
+            [
+              { "fromEra": 0, "kind": "dirt", "color": "#96754E" },
+              { "fromEra": 4, "kind": "paved", "color": "#7C7E86" },
+              { "fromEra": 2, "kind": "cobble", "color": "#9A9284" }
+            ]
+            """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("vzestupně", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_RoadSurfacesNotStartingAtZero_Fails()
+    {
+        // Bez pokrytí nulté éry by první věk neměl povrch žádný.
+        WriteAllValid();
+        WriteRoadSurfaces("""[{ "fromEra": 2, "kind": "cobble", "color": "#9A9284" }]""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("éry 0", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_WithoutRoadSurfaces_LoadsAnyway()
+    {
+        // Povrchy jsou nepovinné: obsah bez nich je platný obsah a silnice se
+        // kreslí jednou barvou jako dřív.
+        WriteAllValid();
+
+        var content = Load();
+
+        Assert.NotNull(content.Gameplay.Roads);
+    }
+
+    [Fact]
     public void LoadFrom_DecorationWithoutScale_GetsTheDefaultOne()
     {
         // Zvětšení je nepovinné: drtivá většina drobností na zemi ho nepotřebuje
@@ -1648,6 +1705,28 @@ public class ContentLoaderTests : IDisposable
         }
         """);
     }
+
+    /// <summary>
+    /// Přepíše gameplay.json týmž platným obsahem, jen se zadanými povrchy
+    /// silnic. Bez toho by každý test na povrchy opisoval celý blok znovu
+    /// a první změna schématu by je všechny rozbila.
+    /// </summary>
+    private void WriteRoadSurfaces(string surfacesJson) =>
+        Write("gameplay.json", $$"""
+        {
+          "schemaVersion": 1,
+          "startingPopulation": 5,
+          "baseHousingCapacity": 6,
+          "populationGrowthPerSecond": 0.12,
+          "foodPerPersonPerSecond": 0.04,
+          "foodResource": "food",
+          "autoBuild": { "intervalTicks": 60, "searchRadius": 6, "populationHeadroom": 2 },
+          "roads": { "mapColor": "#9A9284", "maxSearchDistance": 60, "surfaces": {{surfacesJson}} },
+          "settlements": { "minBuildings": 3, "clusterDistance": 3, "updateIntervalTicks": 50 },
+          "dayNight": { "dayLengthSeconds": 240, "startTimeOfDay": 0.32, "nightColor": "#0A1430",
+                        "duskColor": "#E8862F", "nightAlpha": 0.45, "duskAlpha": 0.18 }
+        }
+        """);
 
     private void WriteAllValid()
     {

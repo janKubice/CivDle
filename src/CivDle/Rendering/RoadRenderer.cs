@@ -17,9 +17,14 @@ namespace CivDle.Rendering;
 /// mu drží tvar města.</para>
 ///
 /// <para>Křižovatky dostanou vlastní značku: bez ní byly křížení a rovný úsek
-/// k nerozeznání a síť ztrácela čitelnost přesně tam, kde je nejhustší.
-/// V pozdějších érách přibude vodorovné značení — dlážděná cesta a dálnice
-/// mají vypadat jinak.</para>
+/// k nerozeznání a síť ztrácela čitelnost přesně tam, kde je nejhustší.</para>
+///
+/// <para><b>Povrch se mění s érou</b> (<see cref="RoadSurface"/> z dat):
+/// hliněná cesta má dvě vyjeté koleje a rozdrbaný okraj, dlážděná nepravidelný
+/// kámen, asfalt hladký povrch a vodorovné značení. Silnice je nejdelší
+/// souvislá čára na obrazovce; kdyby vypadala v pravěku stejně jako
+/// v orbitální civilizaci, nezměnil by se dojem z města ani po tisíci letech
+/// vývoje.</para>
 ///
 /// <para>Barva z gameplay dat, culling podle výřezu. Čte jen ze simulace
 /// (nekonečná mapa — silnice jsou souřadnice).</para>
@@ -29,7 +34,10 @@ public sealed class RoadRenderer
     private const int Pad = 5;      // odsazení středového polštářku
     private const int Thickness = 6; // šířka pěšiny
 
-    /// <summary>Od téhle éry se na silnice kreslí vodorovné značení.</summary>
+    /// <summary>
+    /// Od téhle éry se kreslí vodorovné značení, když data povrchy nemají.
+    /// S povrchy rozhoduje druh: značení patří k asfaltu, ne k roku.
+    /// </summary>
     public const int MarkingsEra = 4;
 
     /// <summary>Pod tímhle přiblížením se kreslí jen holá vozovka bez detailů.</summary>
@@ -110,12 +118,19 @@ public sealed class RoadRenderer
         Vector2 min, Vector2 max, bool detailed)
     {
         const int tileSize = TerrainRenderer.TileSize;
-        var roadColor = _content.Gameplay.Roads.MapColor.ToXna();
+        var surfaceDef = _content.Gameplay.Roads.SurfaceForEra(simulation.CurrentEraIndex);
+        var kind = surfaceDef?.Kind ?? RoadSurfaceKind.Paved;
+        var roadColor = (surfaceDef?.Color ?? _content.Gameplay.Roads.MapColor).ToXna();
         var curb = Shade(roadColor, 0.62f);      // obrubník: tmavší lem po stranách
         var crown = Shade(roadColor, 1.22f);     // vyjetý střed vozovky
         // Most = silnice po vodě. Dřevěná deska pod cestou ho odliší od běžné pěšiny.
         var bridgeColor = new Color(122, 88, 56);
-        bool markings = detailed && simulation.CurrentEraIndex >= MarkingsEra;
+
+        // Značení patří k asfaltu. Bez povrchů v datech zůstává původní pravidlo
+        // podle éry, aby hra s neúplným obsahem vypadala jako dřív, ne hůř.
+        bool markings = detailed && (surfaceDef is null
+            ? simulation.CurrentEraIndex >= MarkingsEra
+            : kind == RoadSurfaceKind.Paved);
 
         for (int i = 0; i < roadTiles.Count; i++)
         {
@@ -131,7 +146,8 @@ public sealed class RoadRenderer
             var surface = roadColor;
             var edge = curb;
             var middle = crown;
-            if (simulation.IsBridge(tileX, tileY))
+            bool bridge = simulation.IsBridge(tileX, tileY);
+            if (bridge)
             {
                 // Podklad mostu přes celou dlaždici, ať je nad vodou čitelný.
                 spriteBatch.Draw(_pixel, new Rectangle(x, y, tileSize, tileSize), bridgeColor);
@@ -158,10 +174,18 @@ public sealed class RoadRenderer
                 continue;
             }
 
+            // Povrch. Most má vlastní prkna a druh povrchu se na něj nevztahuje —
+            // dřevěná lávka je dřevěná lávka i ve věku asfaltu.
+            if (!bridge)
+            {
+                DrawSurface(spriteBatch, kind, tileX, tileY, x, y, east, west, south, north, surface);
+            }
+
             // Vyjetý střed. U křižovatky se vynechá — tam se místo něj kreslí
-            // značka, jinak by z toho byla jen světlejší skvrna.
+            // značka, jinak by z toho byla jen světlejší skvrna. Hliněná cesta
+            // ho nemá vůbec: místo hřebene má dvě koleje od kol.
             bool crossing = IsCrossing(east, west, south, north);
-            if (!crossing)
+            if (!crossing && (bridge || kind != RoadSurfaceKind.Dirt))
             {
                 DrawCrown(spriteBatch, x, y, east, west, south, north, middle);
             }
@@ -174,6 +198,94 @@ public sealed class RoadRenderer
             {
                 DrawMarkings(spriteBatch, x, y, east, west, south, north);
             }
+        }
+    }
+
+    /// <summary>
+    /// Kresba podle druhu povrchu. Tohle je ten „jak" k „co" z dat: JSON řekne
+    /// <c>dirt</c>, tady se rozhodne, že to znamená koleje a hrudky.
+    /// </summary>
+    private void DrawSurface(
+        SpriteBatch spriteBatch, RoadSurfaceKind kind, int tileX, int tileY, int x, int y,
+        bool east, bool west, bool south, bool north, Color surface)
+    {
+        switch (kind)
+        {
+            case RoadSurfaceKind.Dirt:
+                DrawRuts(spriteBatch, x, y, east, west, south, north, surface);
+                break;
+            case RoadSurfaceKind.Cobble:
+                DrawCobbles(spriteBatch, tileX, tileY, x, y, surface);
+                break;
+            case RoadSurfaceKind.Paved:
+                break; // asfalt je hladký — o jeho vzhled se stará hřeben a značení
+        }
+    }
+
+    /// <summary>
+    /// Dvě vyjeté koleje místo jednoho hřebene uprostřed.
+    ///
+    /// <para>Polní cesta nemá klenbu — má dvě rýhy od kol a mezi nimi
+    /// vyšlapaný pruh. Je to jediná věc, kterou se hliněná cesta pozná od
+    /// dlážděné na první pohled, a stojí dvě kresby na dlaždici.</para>
+    /// </summary>
+    private void DrawRuts(
+        SpriteBatch spriteBatch, int x, int y,
+        bool east, bool west, bool south, bool north, Color surface)
+    {
+        var rut = Shade(surface, 0.78f);
+        const int tileSize = TerrainRenderer.TileSize;
+        int center = Pad + Thickness / 2;
+
+        if (east || west)
+        {
+            int from = west ? 0 : Pad;
+            int to = east ? tileSize : Pad + Thickness;
+            spriteBatch.Draw(_pixel, new Rectangle(x + from, y + center - 2, to - from, 1), rut);
+            spriteBatch.Draw(_pixel, new Rectangle(x + from, y + center + 1, to - from, 1), rut);
+        }
+
+        if (south || north)
+        {
+            int from = north ? 0 : Pad;
+            int to = south ? tileSize : Pad + Thickness;
+            spriteBatch.Draw(_pixel, new Rectangle(x + center - 2, y + from, 1, to - from), rut);
+            spriteBatch.Draw(_pixel, new Rectangle(x + center + 1, y + from, 1, to - from), rut);
+        }
+    }
+
+    /// <summary>
+    /// Nepravidelný kámen: pár tmavších a světlejších čtverečků podle polohy.
+    ///
+    /// <para>Vzorek je z hashe souřadnic, ne z náhody — dlažba se tak mezi
+    /// snímky nehýbe a po znovunačtení hry vypadá ulice stejně. Kdyby byla
+    /// dlažba pravidelná mřížka, četlo by se to jako textura z jiné hry;
+    /// nepravidelnost je celý smysl.</para>
+    /// </summary>
+    private void DrawCobbles(SpriteBatch spriteBatch, int tileX, int tileY, int x, int y, Color surface)
+    {
+        var dark = Shade(surface, 0.84f);
+        var light = Shade(surface, 1.12f);
+
+        // Čtyři kameny na dlaždici stačí: víc už z výšky splyne v šum.
+        for (int i = 0; i < 4; i++)
+        {
+            uint h = Hash(tileX, tileY, i);
+            int px = Pad + (int)(h % (uint)Thickness);
+            int py = Pad + (int)((h >> 8) % (uint)Thickness);
+            spriteBatch.Draw(
+                _pixel, new Rectangle(x + px, y + py, 2, 2), (h & 0x10000) == 0 ? dark : light);
+        }
+    }
+
+    /// <summary>Deterministický hash dlaždice — dlažba se nesmí mezi snímky hýbat.</summary>
+    private static uint Hash(int x, int y, int salt)
+    {
+        unchecked
+        {
+            uint h = (uint)(x * 374761393 + y * 668265263 + salt * 1442695041);
+            h = (h ^ (h >> 13)) * 1274126177;
+            return h ^ (h >> 16);
         }
     }
 

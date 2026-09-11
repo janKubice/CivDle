@@ -25,7 +25,35 @@ public sealed record RoadConfig(
     RgbColor MapColor,
     int MaxSearchDistance,
     int MaxBridgeSpan = 0,
-    double DisconnectedProductionMult = 1.0);
+    double DisconnectedProductionMult = 1.0,
+    IReadOnlyList<RoadSurface>? Surfaces = null)
+{
+    /// <summary>
+    /// Povrch platný v dané éře. Seznam je při načtení seřazený vzestupně,
+    /// takže stačí projít od konce a vzít první, který už začal.
+    ///
+    /// <para>Když data povrchy nemají, vrací <c>null</c> a renderer si vystačí
+    /// s <see cref="MapColor"/> — hra se kvůli chybějícímu vzhledu nemá
+    /// rozbít.</para>
+    /// </summary>
+    public RoadSurface? SurfaceForEra(int eraIndex)
+    {
+        if (Surfaces is null)
+        {
+            return null;
+        }
+
+        for (int i = Surfaces.Count - 1; i >= 0; i--)
+        {
+            if (eraIndex >= Surfaces[i].FromEra)
+            {
+                return Surfaces[i];
+            }
+        }
+
+        return Surfaces.Count > 0 ? Surfaces[0] : null;
+    }
+}
 
 /// <summary>
 /// Nastavení detekce osad (fáze 4: shluk budov se pozná jako sídlo se jménem).
