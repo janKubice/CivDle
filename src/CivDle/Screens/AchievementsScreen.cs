@@ -115,7 +115,9 @@ public sealed class AchievementsScreen : IScreen
             Spacing = 3,
             Width = 436,
             Padding = new Thickness(12, 8),
-            Background = new SolidBrush(unlocked ? UiPalette.Panel : UiPalette.Panel),
+            // Splněný a nesplněný úspěch se dřív lišily jen textem — obě větve
+            // vracely tutéž barvu. Vitrína, ve které je všechno stejné, nic neříká.
+            Background = new PanelBrush(unlocked ? UiPalette.PanelGood : UiPalette.PanelDeep),
         };
 
         // Skrytý a stále zamčený achievement se neprozradí.

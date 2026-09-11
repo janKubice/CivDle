@@ -372,7 +372,7 @@ public sealed class AscensionScreen : IScreen
                 },
                 Padding = new Thickness(20, 8),
                 HorizontalAlignment = HorizontalAlignment.Center,
-                Background = new SolidBrush(_confirming
+                Background = new PanelBrush(_confirming
                     ? UiPalette.PanelBad
                     : UiPalette.PanelAccent),
             };

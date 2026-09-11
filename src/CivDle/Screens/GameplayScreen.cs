@@ -3842,7 +3842,7 @@ public sealed class GameplayScreen : IScreen
                     TextColor = active ? Color.White : Color.LightGray,
                 },
                 Padding = new Thickness(12, 4),
-                Background = new SolidBrush(active ? UiPalette.PanelAccent : UiPalette.Panel),
+                Background = new PanelBrush(active ? UiPalette.PanelAccent : UiPalette.Panel),
             };
             string captured = category;
             button.Click += (_, _) =>
@@ -3952,7 +3952,9 @@ public sealed class GameplayScreen : IScreen
             // vyhrazená VÝROBĚ — dokud byla cena taky zelená, splývalo v dlaždici
             // „co to stojí" s „co to dělá".
             priceLabel.TextColor = affordable ? UiPalette.TextBright : UiPalette.Bad;
-            button.Background = new SolidBrush(affordable ? UiPalette.Panel : new Color(30, 34, 42, 170));
+            // Dlaždice katalogu je panel jako každý jiný — i ta nedostupná, jen
+            // tmavší a průsvitnější. Plochá výplň by ji z lišty vyňala.
+            button.Background = new PanelBrush(affordable ? UiPalette.Panel : new Color(30, 34, 42, 170));
         }
     }
 
@@ -4308,7 +4310,7 @@ public sealed class GameplayScreen : IScreen
         {
             if (button is not null)
             {
-                button.Background = new SolidBrush(active ? UiPalette.PanelAccent : UiPalette.Panel);
+                button.Background = new PanelBrush(active ? UiPalette.PanelAccent : UiPalette.Panel);
             }
         }
     }
@@ -4321,7 +4323,7 @@ public sealed class GameplayScreen : IScreen
         RefreshOverlayButtons();
 
         // Tlačítko „Stavět" drží stav otevřeného menu, ať je vidět, co je zapnuté.
-        _buildMenuButton.Background = new SolidBrush(_buildMenuOpen
+        _buildMenuButton.Background = new PanelBrush(_buildMenuOpen
             ? UiPalette.PanelAccent
             : UiPalette.Panel);
 
@@ -4348,7 +4350,7 @@ public sealed class GameplayScreen : IScreen
             }
 
             _speedButton.Tooltip = _screens.Loc["tip.speed"] + '\n' + _speed.Label;
-            _speedButton.Background = new SolidBrush(_speed.IsPaused
+            _speedButton.Background = new PanelBrush(_speed.IsPaused
                 ? UiPalette.PanelBad
                 : UiPalette.Panel);
         }

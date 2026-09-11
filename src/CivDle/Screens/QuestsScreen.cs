@@ -262,7 +262,7 @@ public sealed class QuestsScreen : IScreen
         // Splnitelná zakázka svítí: zelený rámeček a nádech pozadí, ne jen text.
         var panel = new Panel
         {
-            Background = new SolidBrush(canDeliver ? UiPalette.Panel : UiPalette.PanelDeep),
+            Background = new PanelBrush(canDeliver ? UiPalette.Panel : UiPalette.PanelDeep),
             Border = new SolidBrush(canDeliver ? UiPalette.Good * 0.9f : UiFactory.Accent * 0.55f),
             BorderThickness = new Thickness(canDeliver ? 2 : 1),
             Padding = new Thickness(10, 8),

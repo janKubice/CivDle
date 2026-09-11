@@ -141,7 +141,7 @@ public sealed class PoliciesScreen : IScreen
                 },
                 Width = 80,
                 Height = 32,
-                Background = new SolidBrush(active ? UiPalette.PanelGood : UiPalette.Panel),
+                Background = new PanelBrush(active ? UiPalette.PanelGood : UiPalette.Panel),
             };
             button.Click += (_, _) =>
             {
@@ -205,7 +205,7 @@ public sealed class PoliciesScreen : IScreen
                 },
                 Width = 132,
                 Height = 30,
-                Background = new SolidBrush(allowed ? UiPalette.PanelGood : UiPalette.Panel),
+                Background = new PanelBrush(allowed ? UiPalette.PanelGood : UiPalette.Panel),
             };
             button.Click += (_, _) =>
             {
@@ -402,7 +402,7 @@ public sealed class PoliciesScreen : IScreen
                 },
                 Width = 58,
                 Height = 32,
-                Background = new SolidBrush(active ? UiPalette.PanelGood : UiPalette.Panel),
+                Background = new PanelBrush(active ? UiPalette.PanelGood : UiPalette.Panel),
             };
             button.Click += (_, _) =>
             {

@@ -149,7 +149,9 @@ public sealed class PrayerScreen : IScreen
                 },
                 Width = 40,
                 Height = 30,
-                Background = new SolidBrush(active ? UiPalette.Panel : UiPalette.Panel),
+                // Obě větve vracely tutéž barvu, takže se zapnutá modlitba
+                // poznala jen podle textu tlačítka.
+                Background = new PanelBrush(active ? UiPalette.PanelGood : UiPalette.Panel),
             };
             button.Click += (_, _) =>
             {

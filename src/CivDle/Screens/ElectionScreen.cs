@@ -151,7 +151,7 @@ public sealed class ElectionScreen : IScreen
 
         var panel = new Panel
         {
-            Background = new SolidBrush(elected ? UiPalette.Panel : UiPalette.PanelDeep),
+            Background = new PanelBrush(elected ? UiPalette.Panel : UiPalette.PanelDeep),
             Border = new SolidBrush(elected ? UiPalette.Good : UiFactory.Accent * 0.55f),
             BorderThickness = new Thickness(1),
             Padding = new Thickness(10, 8),

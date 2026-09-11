@@ -184,7 +184,7 @@ public sealed class ModManagerScreen : IScreen
             Spacing = 3,
             Width = PanelWidth - 24,
             Padding = new Thickness(12, 8),
-            Background = new SolidBrush(mod.Status == ModStatus.Broken
+            Background = new PanelBrush(mod.Status == ModStatus.Broken
                 ? UiPalette.Panel
                 : UiPalette.Panel),
         };

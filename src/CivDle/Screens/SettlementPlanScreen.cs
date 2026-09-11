@@ -136,7 +136,7 @@ public sealed class SettlementPlanScreen : IScreen
                 },
                 Width = 132,
                 Height = 30,
-                Background = new SolidBrush(allowed ? UiPalette.PanelGood : UiPalette.Panel),
+                Background = new PanelBrush(allowed ? UiPalette.PanelGood : UiPalette.Panel),
             };
             button.Click += (_, _) =>
             {
