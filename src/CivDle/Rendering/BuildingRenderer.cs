@@ -82,6 +82,30 @@ public sealed class BuildingRenderer
 
         var buildings = simulation.Buildings;
 
+        // Odrazy jdou úplně první: leží na vodě, tedy pod vším ostatním.
+        if (detailed)
+        {
+            for (int slot = 0; slot < _visible.Count; slot++)
+            {
+                int index = _visible[slot];
+                if (index < buildings.Length
+                    && buildings[index].IsComplete
+                    && IsVisible(buildings[index], min, max, out var mirrorDef, out var mirrorBounds))
+                {
+                    DrawReflection(spriteBatch, simulation, buildings[index], mirrorDef, mirrorBounds);
+                }
+            }
+
+            var foreignMirrors = simulation.NpcBuildings;
+            for (int i = 0; i < foreignMirrors.Length; i++)
+            {
+                if (IsVisible(foreignMirrors[i], min, max, out var mirrorDef, out var mirrorBounds))
+                {
+                    DrawReflection(spriteBatch, simulation, foreignMirrors[i], mirrorDef, mirrorBounds);
+                }
+            }
+        }
+
         // Stíny mají VLASTNÍ průchod, dřív než se nakreslí jediná budova.
         //
         // Dokud si stín kreslila každá budova sama těsně před sebou, padal
@@ -162,6 +186,82 @@ public sealed class BuildingRenderer
         spriteBatch.End();
         DrawSnowPass(spriteBatch, camera);
     }
+
+    /// <summary>
+    /// Odraz budovy stojící u vody.
+    ///
+    /// <para><b>Proč zrovna tohle:</b> břeh byl dosud čára, na které město
+    /// končilo. Voda vedle přístavu nevěděla, že tam přístav je — vypadala
+    /// úplně stejně jako voda uprostřed oceánu. Přitom odraz je to jediné, co
+    /// hladinu spojí s tím, co nad ní stojí, a zároveň nejlevnější způsob, jak
+    /// z modré plochy udělat vodu.</para>
+    ///
+    /// <para>Kreslí se převrácený sprite pod budovu: nižší než originál (odraz
+    /// se na hladině zkracuje), průsvitný a s nádechem do modra, protože se
+    /// dívá skrz vodu. A mírně se vlní — bez pohybu vypadá odraz jako druhá,
+    /// vzhůru nohama postavená budova.</para>
+    ///
+    /// <para>Jde jen o budovy, které se vody opravdu dotýkají spodní hranou.
+    /// Zkoumat celé okolí by znamenalo čtyři dotazy na dlaždici u každé
+    /// budovy ve výřezu — a odraz stranou stejně není vidět, protože se
+    /// hladina odráží směrem k divákovi.</para>
+    /// </summary>
+    private void DrawReflection(
+        SpriteBatch spriteBatch, Simulation simulation, in BuildingInstance building,
+        BuildingDef def, Rectangle bounds)
+    {
+        if (!ReflectsOnWater(simulation, building.X, building.Y, def.FootprintWidth, def.FootprintHeight)
+            || _sprites.Get($"building.{def.Id}") is not { } sprite)
+        {
+            return;
+        }
+
+        // Vlnka. Amplituda pod dva pixely: víc a odraz se od budovy utrhne.
+        int sway = (int)MathF.Round(MathF.Sin(_time * 1.7f + building.X * 0.6f) * 1.4f);
+        int height = Math.Max(1, (int)(bounds.Height * ReflectionSquash));
+
+        spriteBatch.Draw(
+            sprite,
+            new Rectangle(bounds.X + sway, bounds.Bottom, bounds.Width, height),
+            null,
+            ReflectionTint,
+            0f,
+            Vector2.Zero,
+            SpriteEffects.FlipVertically,
+            0f);
+    }
+
+    /// <summary>
+    /// Odráží se tahle budova ve vodě? Tedy dotýká se <b>spodní</b> hranou
+    /// vodní dlaždice?
+    ///
+    /// <para>Jen spodní hranou schválně. Zkoumat celé okolí by znamenalo čtyři
+    /// dotazy na dlaždici u každé budovy ve výřezu, a odraz stranou stejně
+    /// není vidět: hladina se odráží směrem k divákovi, tedy dolů po
+    /// obrazovce.</para>
+    /// </summary>
+    public static bool ReflectsOnWater(Simulation simulation, int x, int y, int width, int height)
+    {
+        int below = y + height;
+        for (int tx = x; tx < x + width; tx++)
+        {
+            if (simulation.IsWaterAt(tx, below))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Jak vysoký je odraz oproti budově. Na hladině se zkracuje.</summary>
+    private const float ReflectionSquash = 0.62f;
+
+    /// <summary>
+    /// Nádech odrazu: průsvitný a do modra. Tint se násobí, takže tím zároveň
+    /// ztmavne — a to je správně, pod hladinu je vidět hůř než nad ni.
+    /// </summary>
+    private static readonly Color ReflectionTint = new Color(120, 170, 210) * 0.45f;
 
     /// <summary>Je budova ve výřezu? Vrací i její definici a obdélník ve světě.</summary>
     private bool IsVisible(
