@@ -44,7 +44,7 @@ public sealed class WorldScene : IDisposable
 
         _terrain = new TerrainRenderer(device, content.Biomes, seed);
         _water = new WaterRenderer(pixel);
-        _decorations = new DecorationRenderer(pixel, content, seed);
+        _decorations = new DecorationRenderer(pixel, content, seed, screens.Sprites);
         _urbanGround = new UrbanGroundRenderer(screens.SoftShadow, content);
         _roads = new RoadRenderer(pixel, content);
         _buildings = new BuildingRenderer(pixel, content, screens.Sprites, screens.SoftShadow);

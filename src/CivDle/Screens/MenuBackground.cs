@@ -51,7 +51,7 @@ public sealed class MenuBackground : IDisposable
         _simulation = new Simulation(content, terrain, seed);
 
         _terrain = new TerrainRenderer(screens.GraphicsDevice, content.Biomes, seed);
-        _decorations = new DecorationRenderer(screens.WhitePixel, content, seed);
+        _decorations = new DecorationRenderer(screens.WhitePixel, content, seed, screens.Sprites);
         _harvestables = new HarvestableRenderer(screens.Sprites, content);
         _roads = new RoadRenderer(screens.WhitePixel, content);
         _buildings = new BuildingRenderer(screens.WhitePixel, content, screens.Sprites, screens.SoftShadow);

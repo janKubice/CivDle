@@ -14,18 +14,33 @@ namespace CivDle.Rendering;
 /// </summary>
 public sealed class DecorationRenderer
 {
+    /// <summary>
+    /// Kolikrát větší se kreslí sprite oproti vylosované velikosti.
+    ///
+    /// <para>Velikosti v datech byly vymyšlené pro barevný čtvereček (1–4 px).
+    /// Trs trávy o čtyřech pixelech by byl neviditelný, takže se sprite
+    /// natáhne — data se přepisovat nemusí a čtvereček jako záloha zůstává
+    /// ve své původní velikosti.</para>
+    /// </summary>
+    private const int SpriteScale = 3;
+
+    /// <summary>Jak velká jsou oka shluků v dlaždicích.</summary>
+    private const int ClumpCell = 7;
+
     /// <summary>Pod tímhle zoomem jsou dekorace menší než pixel — nekreslí se.</summary>
 
     private readonly Texture2D _pixel;
     private readonly GameContent _content;
     private readonly long _seed;
+    private readonly Sprites.SpriteLibrary _sprites;
 
     /// <summary>Předpočítané indexy dekorací pro každý biom — vnitřní smyčka jen prochází pole.</summary>
     private readonly int[][] _decorationsByBiome;
 
-    public DecorationRenderer(Texture2D whitePixel, GameContent content, long seed)
+    public DecorationRenderer(Texture2D whitePixel, GameContent content, long seed, Sprites.SpriteLibrary sprites)
     {
         _pixel = whitePixel;
+        _sprites = sprites;
         _content = content;
         _seed = seed;
 
@@ -44,6 +59,39 @@ public sealed class DecorationRenderer
             _decorationsByBiome[biome] = list.ToArray();
         }
     }
+
+    /// <summary>
+    /// Jak moc se na tomhle místě drobnostem daří (0 = holo, ~1,8 = houští).
+    ///
+    /// <para>Bez tohohle byla hustota v celém biomu konstantní, takže kvítí
+    /// leželo po louce jako rovnoměrně rozsypané konfety. Příroda ale roste
+    /// v trsech: někde je holá zem, o kus dál houští. Plynulé oko shluků to
+    /// napraví a přitom nestojí nic — je to týž hash jako všechno ostatní,
+    /// jen na hrubší mřížce.</para>
+    /// </summary>
+    private float Clump(int x, int y, int decoration)
+    {
+        int cx = (int)MathF.Floor(x / (float)ClumpCell);
+        int cy = (int)MathF.Floor(y / (float)ClumpCell);
+        float fx = Smooth((x - cx * ClumpCell) / (float)ClumpCell);
+        float fy = Smooth((y - cy * ClumpCell) / (float)ClumpCell);
+
+        float a = Corner(cx, cy, decoration);
+        float b = Corner(cx + 1, cy, decoration);
+        float c = Corner(cx, cy + 1, decoration);
+        float d = Corner(cx + 1, cy + 1, decoration);
+
+        float value = MathHelper.Lerp(MathHelper.Lerp(a, b, fx), MathHelper.Lerp(c, d, fx), fy);
+
+        // Rozsah 0–1,8: holá místa jsou opravdu holá a houští znatelně hustší
+        // než rovnoměrné rozsypání, ale průměr zůstane kolem původní hustoty.
+        return value * 1.8f;
+    }
+
+    private float Corner(int cx, int cy, int decoration) =>
+        (Hash(cx * 7919, cy * 104729, decoration) & 0xFFFF) / 65535f;
+
+    private static float Smooth(float t) => t * t * (3f - 2f * t);
 
     public void Draw(SpriteBatch spriteBatch, Camera2D camera, ITerrain terrain)
     {
@@ -75,7 +123,8 @@ public sealed class DecorationRenderer
                     ulong hash = Hash(x, y, defs[d]);
 
                     // Spodních 24 bitů rozhoduje o výskytu, zbytek o vzhledu.
-                    if ((hash & 0xFFFFFF) / (float)0x1000000 >= def.Density)
+                    // Hustota se násobí shlukem: příroda neroste rovnoměrně.
+                    if ((hash & 0xFFFFFF) / (float)0x1000000 >= def.Density * Clump(x, y, defs[d]))
                     {
                         continue;
                     }
@@ -84,6 +133,25 @@ public sealed class DecorationRenderer
                     var color = def.Colors[(int)((hash >> 32) % (ulong)def.Colors.Count)];
                     int offsetX = (int)((hash >> 40) % (ulong)Math.Max(1, tileSize - size));
                     int offsetY = (int)((hash >> 50) % (ulong)Math.Max(1, tileSize - size));
+
+                    // Obrázek, pokud ho data mají. Čtvereček zůstává jako
+                    // záloha — barevná tečka je šum, ne porost, ale pořád je
+                    // lepší než prázdné místo tam, kde sprite chybí.
+                    if (def.HasSprite && _sprites.Get(def.Sprite!) is { } sprite)
+                    {
+                        // Sprite je vyšší než široký (tráva roste nahoru), takže
+                        // se posadí patou na místo, které vyšlo z hashe.
+                        int drawn = size * SpriteScale;
+                        spriteBatch.Draw(
+                            sprite,
+                            new Rectangle(
+                                x * tileSize + offsetX - drawn / 3,
+                                y * tileSize + offsetY - drawn + size,
+                                drawn,
+                                drawn),
+                            color.ToXna());
+                        continue;
+                    }
 
                     spriteBatch.Draw(
                         _pixel,

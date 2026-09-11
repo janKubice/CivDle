@@ -4665,7 +4665,8 @@ public sealed class ContentLoader
 
             result.Add(new DecorationDef(
                 id, ParseBiomeMask(path, $"Dekorace '{id}'", dto.Biomes, biomes),
-                colors, (float)dto.Density, dto.MinSize, dto.MaxSize));
+                colors, (float)dto.Density, dto.MinSize, dto.MaxSize,
+                string.IsNullOrWhiteSpace(dto.Sprite) ? null : dto.Sprite.Trim()));
         }
 
         return result;

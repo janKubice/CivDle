@@ -14,7 +14,8 @@
       ],
       "density": 0.06,
       "minSize": 1,
-      "maxSize": 2
+      "maxSize": 2,
+      "sprite": "deco.flowers"
     },
     {
       "id": "forest_canopy",
@@ -28,7 +29,8 @@
       ],
       "density": 0.35,
       "minSize": 2,
-      "maxSize": 4
+      "maxSize": 4,
+      "sprite": "deco.bush"
     },
     {
       "id": "steppe_shrub",
@@ -42,7 +44,8 @@
       ],
       "density": 0.08,
       "minSize": 1,
-      "maxSize": 3
+      "maxSize": 3,
+      "sprite": "deco.tuft"
     },
     {
       "id": "mountain_rocks",
@@ -56,7 +59,8 @@
       ],
       "density": 0.1,
       "minSize": 1,
-      "maxSize": 3
+      "maxSize": 3,
+      "sprite": "deco.boulder"
     },
     {
       "id": "beach_shells",
@@ -69,7 +73,8 @@
       ],
       "density": 0.04,
       "minSize": 1,
-      "maxSize": 1
+      "maxSize": 1,
+      "sprite": "deco.pebbles"
     },
     {
       "id": "snow_sparkle",
@@ -110,7 +115,8 @@
       ],
       "density": 0.42,
       "minSize": 2,
-      "maxSize": 5
+      "maxSize": 5,
+      "sprite": "deco.fern"
     },
     {
       "id": "taiga_conifers",
@@ -125,7 +131,8 @@
       ],
       "density": 0.3,
       "minSize": 2,
-      "maxSize": 4
+      "maxSize": 4,
+      "sprite": "deco.bush"
     },
     {
       "id": "acacia",
@@ -139,7 +146,8 @@
       ],
       "density": 0.07,
       "minSize": 2,
-      "maxSize": 3
+      "maxSize": 3,
+      "sprite": "deco.bush"
     },
     {
       "id": "dune_ripples",
@@ -166,7 +174,8 @@
       ],
       "density": 0.08,
       "minSize": 1,
-      "maxSize": 2
+      "maxSize": 2,
+      "sprite": "deco.tuft"
     },
     {
       "id": "reeds",
@@ -180,7 +189,8 @@
       ],
       "density": 0.22,
       "minSize": 1,
-      "maxSize": 3
+      "maxSize": 3,
+      "sprite": "deco.reed"
     },
     {
       "id": "canyon_strata",
@@ -194,7 +204,8 @@
       ],
       "density": 0.14,
       "minSize": 1,
-      "maxSize": 4
+      "maxSize": 4,
+      "sprite": "deco.driftstone"
     },
     {
       "id": "lava_cracks",
@@ -304,7 +315,8 @@
       ],
       "density": 0.05,
       "minSize": 1,
-      "maxSize": 3
+      "maxSize": 3,
+      "sprite": "deco.pebbles"
     },
     {
       "id": "swamp_moss",
@@ -318,7 +330,8 @@
       ],
       "density": 0.08,
       "minSize": 1,
-      "maxSize": 3
+      "maxSize": 3,
+      "sprite": "deco.tuft"
     },
     {
       "id": "mangrove_stilts",
@@ -331,7 +344,8 @@
       ],
       "density": 0.06,
       "minSize": 2,
-      "maxSize": 4
+      "maxSize": 4,
+      "sprite": "deco.reed"
     },
     {
       "id": "highland_heather",
@@ -345,7 +359,8 @@
       ],
       "density": 0.06,
       "minSize": 1,
-      "maxSize": 2
+      "maxSize": 2,
+      "sprite": "deco.tuft"
     },
     {
       "id": "glacier_seracs",
@@ -358,7 +373,8 @@
       ],
       "density": 0.05,
       "minSize": 2,
-      "maxSize": 4
+      "maxSize": 4,
+      "sprite": "deco.boulder"
     },
     {
       "id": "fallout_slag",
@@ -372,7 +388,8 @@
       ],
       "density": 0.28,
       "minSize": 1,
-      "maxSize": 3
+      "maxSize": 3,
+      "sprite": "deco.driftstone"
     },
     {
       "id": "fallout_glow",
@@ -386,6 +403,90 @@
       "density": 0.05,
       "minSize": 1,
       "maxSize": 2
+    },
+    {
+      "id": "grass_tufts",
+      "biomes": [
+        "grassland"
+      ],
+      "colors": [
+        "#FFFFFF"
+      ],
+      "density": 0.14,
+      "minSize": 2,
+      "maxSize": 3,
+      "sprite": "deco.tuft"
+    },
+    {
+      "id": "field_stones",
+      "biomes": [
+        "grassland",
+        "steppe",
+        "savanna"
+      ],
+      "colors": [
+        "#FFFFFF"
+      ],
+      "density": 0.03,
+      "minSize": 2,
+      "maxSize": 3,
+      "sprite": "deco.pebbles"
+    },
+    {
+      "id": "scree",
+      "biomes": [
+        "mountains",
+        "highlands",
+        "snow_peaks"
+      ],
+      "colors": [
+        "#FFFFFF"
+      ],
+      "density": 0.16,
+      "minSize": 2,
+      "maxSize": 4,
+      "sprite": "deco.pebbles"
+    },
+    {
+      "id": "desert_stones",
+      "biomes": [
+        "desert",
+        "badlands"
+      ],
+      "colors": [
+        "#FFFFFF"
+      ],
+      "density": 0.05,
+      "minSize": 2,
+      "maxSize": 4,
+      "sprite": "deco.boulder"
+    },
+    {
+      "id": "shore_stones",
+      "biomes": [
+        "beach"
+      ],
+      "colors": [
+        "#FFFFFF"
+      ],
+      "density": 0.06,
+      "minSize": 2,
+      "maxSize": 3,
+      "sprite": "deco.driftstone"
+    },
+    {
+      "id": "taiga_undergrowth",
+      "biomes": [
+        "taiga",
+        "forest"
+      ],
+      "colors": [
+        "#FFFFFF"
+      ],
+      "density": 0.1,
+      "minSize": 2,
+      "maxSize": 3,
+      "sprite": "deco.fern"
     }
   ]
 }

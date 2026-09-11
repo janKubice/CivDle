@@ -17,4 +17,17 @@ public sealed record DecorationDef(
     IReadOnlyList<RgbColor> Colors,
     float Density,
     int MinSize,
-    int MaxSize);
+    int MaxSize,
+    string? Sprite = null)
+{
+    /// <summary>
+    /// Kreslí se tahle dekorace obrázkem, nebo jen barevným čtverečkem?
+    ///
+    /// <para>Čtvereček byl původní řešení a je to vidět: „detail trávy" byly
+    /// barevné tečky, které oko přečte jako šum, ne jako porost. Sprite dá
+    /// drobnosti <b>siluetu</b> — teprve pak se z toho stane tráva, kapradí
+    /// nebo kámen. Čtvereček zůstává jako záloha pro data, která sprite
+    /// nemají.</para>
+    /// </summary>
+    public bool HasSprite => !string.IsNullOrEmpty(Sprite);
+}

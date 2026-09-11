@@ -455,7 +455,7 @@ public sealed class GameplayScreen : IScreen
 
         _terrainRenderer = new TerrainRenderer(screens.GraphicsDevice, screens.Content.Biomes, info.Seed);
         _waterRenderer = new WaterRenderer(screens.WhitePixel);
-        _decorationRenderer = new DecorationRenderer(screens.WhitePixel, screens.Content, info.Seed);
+        _decorationRenderer = new DecorationRenderer(screens.WhitePixel, screens.Content, info.Seed, screens.Sprites);
         _harvestables = new HarvestableRenderer(screens.Sprites, screens.Content);
         _roadRenderer = new RoadRenderer(screens.WhitePixel, screens.Content);
         _zoneRenderer = new ZoneRenderer(screens.WhitePixel, screens.Content);

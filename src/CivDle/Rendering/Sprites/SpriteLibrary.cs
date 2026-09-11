@@ -128,6 +128,18 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "icon.merge", IconSize, MergeIcon);
 
         // Těžitelné objekty na terénu.
+        // Drobnosti na zemi. Kreslí se na malé plátno schválně: na dlaždici
+        // o šestnácti pixelech je trs trávy velký šest až deset a větší plátno
+        // by se jen zmenšilo do kaše.
+        Add(device, "deco.tuft", PropSpriteSize, DecoTuft);
+        Add(device, "deco.fern", PropSpriteSize, DecoFern);
+        Add(device, "deco.flowers", PropSpriteSize, DecoFlowers);
+        Add(device, "deco.pebbles", PropSpriteSize, DecoPebbles);
+        Add(device, "deco.boulder", PropSpriteSize, DecoBoulder);
+        Add(device, "deco.bush", PropSpriteSize, DecoBush);
+        Add(device, "deco.reed", PropSpriteSize, DecoReed);
+        Add(device, "deco.driftstone", PropSpriteSize, DecoDriftstone);
+
         Add(device, "node.tree", SpriteSize, Tree);
         Add(device, "node.rock", SpriteSize, Rock);
         Add(device, "node.stump", SpriteSize, Stump);
@@ -569,6 +581,118 @@ public sealed class SpriteLibrary : IDisposable
     }
 
     // ----- těžitelné objekty (32×32, kotva dole uprostřed) -----
+
+    /// <summary>
+    /// Plátno drobností na zemi. Malé schválně — trs trávy je na dlaždici
+    /// velký šest až deset pixelů a na větším plátně by se jen zmenšil do kaše.
+    /// </summary>
+    public const int PropSpriteSize = 16;
+
+    /// <summary>
+    /// Barva stínu pod drobností. Jedna pro všechny: díky ní sedí na zemi
+    /// a nevypadá jako nálepka.
+    /// </summary>
+    private static readonly Color PropShadow = new(0, 0, 0, 70);
+
+    /// <summary>Trs trávy: tři stébla různé výšky a stín u paty.</summary>
+    private static void DecoTuft(PixelCanvas c)
+    {
+        c.FillRect(4, 13, 8, 2, PropShadow);
+        c.FillRect(7, 5, 2, 9, new Color(96, 138, 62));
+        c.FillRect(4, 7, 2, 7, new Color(114, 158, 74));
+        c.FillRect(10, 8, 2, 6, new Color(82, 122, 54));
+        c.FillRect(7, 4, 2, 2, new Color(140, 178, 92)); // světlá špička
+    }
+
+    /// <summary>Kapradí: vějíř listů z jednoho kořene.</summary>
+    private static void DecoFern(PixelCanvas c)
+    {
+        c.FillRect(4, 13, 8, 2, PropShadow);
+        c.FillTriangle(8f, 14f, 2f, 6f, 5f, 5f, new Color(64, 108, 56));
+        c.FillTriangle(8f, 14f, 14f, 6f, 11f, 5f, new Color(74, 122, 62));
+        c.FillTriangle(8f, 14f, 6f, 2f, 10f, 2f, new Color(88, 138, 70));
+    }
+
+    /// <summary>Kvítí: pár stébel a na nich barevné hlavičky.</summary>
+    private static void DecoFlowers(PixelCanvas c)
+    {
+        c.FillRect(4, 13, 8, 2, PropShadow);
+        c.FillRect(5, 7, 1, 7, new Color(88, 126, 58));
+        c.FillRect(9, 6, 1, 8, new Color(88, 126, 58));
+        c.FillRect(12, 9, 1, 5, new Color(88, 126, 58));
+        c.FillCircle(5.5f, 6f, 2f, new Color(228, 214, 96));
+        c.FillCircle(9.5f, 5f, 2.2f, new Color(216, 112, 112));
+        c.FillCircle(12.5f, 8.5f, 1.6f, new Color(232, 232, 238));
+    }
+
+    /// <summary>Oblázky: pár malých kamenů s osvětlenou horní hranou.</summary>
+    private static void DecoPebbles(PixelCanvas c)
+    {
+        c.FillRect(2, 12, 12, 2, PropShadow);
+        Pebble(c, 4f, 10f, 3f);
+        Pebble(c, 10f, 11f, 2.4f);
+        Pebble(c, 7.5f, 8f, 2f);
+    }
+
+    /// <summary>
+    /// Balvan: fasetovaný, ne kulatý.
+    ///
+    /// <para>Kámen má plochy a hrany. Kulatý blob vypadá jako guma — teprve
+    /// zřetelná osvětlená a stinná plocha z toho udělá skálu.</para>
+    /// </summary>
+    private static void DecoBoulder(PixelCanvas c)
+    {
+        c.FillRect(1, 12, 14, 3, PropShadow);
+
+        // Tělo ze dvou ploch: levá horní ke světlu, pravá dolní od něj.
+        c.FillTriangle(2f, 13f, 8f, 2f, 14f, 13f, new Color(118, 121, 128));
+        c.FillTriangle(8f, 2f, 14f, 13f, 9f, 13f, new Color(92, 95, 102));
+        c.FillTriangle(2f, 13f, 8f, 2f, 6f, 6f, new Color(146, 149, 156));
+
+        // Ostrá hrana nahoře a suť u paty — bez nich kámen visí ve vzduchu.
+        c.FillRect(6, 3, 3, 1, new Color(168, 171, 178));
+        c.FillRect(2, 13, 3, 2, new Color(104, 106, 112));
+        c.FillRect(11, 13, 3, 2, new Color(98, 100, 106));
+    }
+
+    /// <summary>Keř: shluk listů s tmavým spodkem.</summary>
+    private static void DecoBush(PixelCanvas c)
+    {
+        c.FillRect(3, 13, 10, 2, PropShadow);
+        c.FillCircle(8f, 9f, 5f, new Color(58, 94, 50));
+        c.FillCircle(5.5f, 8f, 3.4f, new Color(72, 114, 60));
+        c.FillCircle(10.5f, 8.5f, 3f, new Color(50, 84, 46));
+        c.FillCircle(7f, 6f, 2.4f, new Color(88, 132, 70)); // přisvícený vrch
+    }
+
+    /// <summary>Rákos u vody: vysoká stébla s palicemi.</summary>
+    private static void DecoReed(PixelCanvas c)
+    {
+        c.FillRect(5, 14, 7, 1, PropShadow);
+        c.FillRect(6, 3, 1, 12, new Color(106, 130, 70));
+        c.FillRect(9, 5, 1, 10, new Color(92, 116, 62));
+        c.FillRect(11, 7, 1, 8, new Color(112, 138, 76));
+        c.FillRect(5, 2, 3, 3, new Color(122, 88, 52));
+        c.FillRect(8, 4, 3, 3, new Color(108, 76, 46));
+    }
+
+    /// <summary>Naplavený kámen: plochý, ohlazený, s mokrým okrajem.</summary>
+    private static void DecoDriftstone(PixelCanvas c)
+    {
+        c.FillRect(2, 11, 12, 2, PropShadow);
+        c.FillCircle(8f, 9f, 5.5f, new Color(138, 134, 124));
+        c.FillCircle(7f, 8f, 4f, new Color(158, 154, 144));
+        c.FillCircle(6f, 7f, 2f, new Color(178, 174, 164));
+        c.FillRect(3, 11, 10, 1, new Color(112, 110, 104));
+    }
+
+    /// <summary>Jeden oblázek: tělo, přisvícený vrch, tmavý spodek.</summary>
+    private static void Pebble(PixelCanvas c, float x, float y, float r)
+    {
+        c.FillCircle(x, y, r, new Color(120, 118, 112));
+        c.FillCircle(x - r * 0.3f, y - r * 0.3f, r * 0.6f, new Color(150, 148, 142));
+        c.FillCircle(x, y + r * 0.5f, r * 0.5f, new Color(96, 94, 90));
+    }
 
     private static void Tree(PixelCanvas c)
     {
