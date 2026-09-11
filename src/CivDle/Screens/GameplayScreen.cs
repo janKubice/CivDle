@@ -182,6 +182,8 @@ public sealed class GameplayScreen : IScreen
     private readonly CloudShadowRenderer _clouds;
     private readonly CloudLayerRenderer _cloudLayer;
     private readonly Rendering.Effects.AmbientMotes _motes;
+    private readonly GodRayRenderer _godRays;
+    private readonly ValleyMistRenderer _mist;
 
     /// <summary>
     /// Odkud fouká. Pevný směr schválně: vítr, který by se otáčel, by při
@@ -508,6 +510,8 @@ public sealed class GameplayScreen : IScreen
         _clouds = new CloudShadowRenderer(screens.GraphicsDevice);
         _cloudLayer = new CloudLayerRenderer(screens.GraphicsDevice);
         _motes = new Rendering.Effects.AmbientMotes(info.Seed);
+        _godRays = new GodRayRenderer(screens.GraphicsDevice);
+        _mist = new ValleyMistRenderer(screens.GraphicsDevice);
         _raftRenderer = new RaftRenderer(screens.Sprites, screens.WhitePixel);
         _cityAudio = new Audio.SpatialSoundscape(screens.Content);
 
@@ -746,6 +750,8 @@ public sealed class GameplayScreen : IScreen
             _poiRenderer.Update(worldDt);
             _clouds.Update(worldDt);
         _cloudLayer.Update(worldDt);
+        _godRays.Update(worldDt);
+        _mist.Update(worldDt);
 
         // Co poletuje vzduchem, říká období: na jaře plátky, v zimě sníh.
         var season = _simulation.CurrentSeason;
@@ -800,6 +806,14 @@ public sealed class GameplayScreen : IScreen
         // Odlesky hned nad terénem: patří na hladinu, ne přes to, co na ní pluje.
         _waterRenderer.Draw(spriteBatch, _camera, _simulation);
         _decorationRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
+
+        // Mlha v nížinách: nad terénem a porostem, ale POD vším, co stojí.
+        // Město má z mlhy vystupovat, ne v ní mizet — hráč se musí pořád
+        // dívat na to, co postavil.
+        _mist.Draw(
+            spriteBatch, _camera, _simulation.Terrain,
+            ValleyMistRenderer.Density(_simulation.TimeOfDay01));
+
         _urbanGround.Draw(spriteBatch, _camera); // zpevněná zem, aby zeleň zbyla jen v parcích
         _zoneRenderer.Draw(spriteBatch, _camera, _simulation); // tint zón na zemi, pod budovami
         // Dosah podmořské sítě patří nad vodu, ale pod všechno ostatní —
@@ -917,6 +931,12 @@ public sealed class GameplayScreen : IScreen
         _cloudLayer.Draw(
             spriteBatch, _camera, _screens.GraphicsDevice.Viewport,
             CloudCoverage(), WindDirectionX, WindDirectionY, light);
+
+        // Paprsky úplně nakonec. Nízké slunce prosvítá mezerami v mracích
+        // a kreslí do vzduchu pruhy — proto až za mraky, ne před nimi.
+        _godRays.Draw(
+            spriteBatch, _screens.GraphicsDevice.Viewport,
+            DayNightCycle.DuskFactor(timeOfDay), light);
 
         // Lampy a okna až NAD osvětlením: jsou to zdroje světla, takže je noc
         // nemá co ztmavovat. Dřív se topily ve tmě spolu se vším ostatním.
@@ -1439,6 +1459,8 @@ public sealed class GameplayScreen : IScreen
         _composer.Dispose();
         _clouds.Dispose();
         _cloudLayer.Dispose();
+        _godRays.Dispose();
+        _mist.Dispose();
         _terrainRenderer.Dispose();
         _cityScale.Dispose(); // upečené textury hustoty
         _minimap.Dispose();
