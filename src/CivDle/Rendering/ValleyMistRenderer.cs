@@ -47,10 +47,19 @@ public sealed class ValleyMistRenderer : IDisposable
     private static readonly Color Tint = new(226, 234, 242);
 
     /// <summary>
-    /// Kolik dlaždic se ještě kreslí. Nad tím je mlha z výšky jen mléčný
-    /// závoj přes celý kontinent a stojí tisíce kreseb.
+    /// Kolik ok mřížky se ještě kreslí. Nad tím se mlha vypne.
+    ///
+    /// <para>Číslo je spočítané, ne odhadnuté: na plné obrazovce v základním
+    /// přiblížení vyjde kolem pěti set ok, a každé se kreslí jako skvrna
+    /// dvakrát širší než oko, aby mezi nimi nevznikla šachovnice. Tisíc dvě
+    /// stě tedy nechá mlhu i při mírném oddálení a přitom drží překreslování
+    /// v rozumných mezích — při čtyřech tisících už by se týž pixel maloval
+    /// třicetkrát.</para>
+    ///
+    /// <para>Z výšky je z mlhy stejně jen mléčný závoj přes celý kontinent,
+    /// takže se tím nic neztrácí.</para>
     /// </summary>
-    public const int MaxCells = 4096;
+    public const int MaxCells = 1200;
 
     private readonly Texture2D _blob;
     private float _time;
