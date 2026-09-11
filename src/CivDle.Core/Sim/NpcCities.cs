@@ -137,7 +137,11 @@ public sealed class NpcCityMap
         // souřadnic a nikde se neukládá.
         for (int attempt = 0; attempt < PlacementTries; attempt++)
         {
-            ulong spread = Hash(cellX * 31 + attempt, cellY * 17 - attempt);
+            // Nultý pokus je PŮVODNÍ poloha. Město, které stálo na souši, se
+            // tedy nikam nestěhuje — hledá se náhradní místo jen tam, kde
+            // město vycházelo do vody. Kdyby se přepočítaly všechny, posunula
+            // by se i města, se kterými nikdy nebyl problém.
+            ulong spread = attempt == 0 ? h : Hash(cellX * 31 + attempt, cellY * 17 - attempt);
             int offsetX = (int)((spread >> 16) % (CellTiles - 24)) + 12;
             int offsetY = (int)((spread >> 30) % (CellTiles - 24)) + 12;
             int tileX = cellX * CellTiles + offsetX;

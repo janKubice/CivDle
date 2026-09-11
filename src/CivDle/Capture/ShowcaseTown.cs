@@ -303,7 +303,15 @@ internal sealed class ShowcaseTown
             {
                 tiles++;
                 int biome = simulation.BiomeAt(tx, ty);
-                if (house.IsBiomeAllowed(biome))
+
+                // Nestačí, že to biom dovolí — dlaždice musí být i VOLNÁ.
+                // Známka tvrdila, že měří „postaví se tam dům?", ale na
+                // obsazenost se neptala, takže si přehlídka klidně vybrala
+                // místo, kde už stojí cizí město, a půlka parcel pak spadla pod
+                // stůl.
+                if (house.IsBiomeAllowed(biome)
+                    && !simulation.IsNpcOccupied(tx, ty)
+                    && !simulation.HasRoadAt(tx, ty))
                 {
                     buildable++;
                 }
@@ -320,11 +328,14 @@ internal sealed class ShowcaseTown
             return int.MinValue;
         }
 
-        // Stavitelnost váží desetkrát víc než zeleň: raději hezké městečko na
-        // savaně než děravé na louce. Zeleň ale rozhoduje mezi pláněmi, které
-        // jsou z hlediska stavby stejně dobré — a poušť vypadá na záběru jinak
-        // než luční kobercem prorostlé městečko s parky.
-        return buildable * 5000 / tiles
+        // Stavitelnost musí přebít VŠECHNO ostatní dohromady.
+        //
+        // Dřív vážila pět tisíc, zatímco jediné cizí město poblíž stálo čtyři —
+        // takže soused přebil rozdíl osmdesáti procentních bodů ve
+        // stavitelnosti. Přehlídka si pak vybrala prázdné místo, kde se z plánu
+        // postavilo pět šestin, místo plného místa o kus dál. Zeleň a okolí
+        // rozhodují mezi místy, která jsou ze stavebního hlediska stejná.
+        return buildable * 20000 / tiles
             + green * 1200 / tiles
             + Surroundings(simulation, content, x, y)
             - NeighborPenalty(simulation, x, y);
@@ -356,7 +367,10 @@ internal sealed class ShowcaseTown
             .CitiesNear(x + Size / 2, y + Size / 2, NeighborClearance)
             .Count();
 
-        return neighbors * 4000;
+        // Strop na dvou: rozdíl mezi „jeden soused" a „žádný" je pro záběr
+        // podstatný, mezi pěti a šesti už ne. Bez stropu rostla penalizace
+        // donekonečna a v hustěji osídlené krajině přebila i stavitelnost.
+        return Math.Min(neighbors, 2) * 1500;
     }
 
     /// <summary>
