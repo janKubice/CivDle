@@ -1246,11 +1246,28 @@ public sealed class ContentLoader
                 ? ParseColor(path, dto.TintColor, $"Období '{id}' ('tintColor')")
                 : new RgbColor(0, 0, 0);
 
+            if (dto.MoteDensity is < 0 or > 1)
+            {
+                throw new ContentLoadException(path,
+                    $"Období '{id}': 'moteDensity' musí být 0–1, je {dto.MoteDensity}.");
+            }
+
+            if (dto.MoteDensity > 0 && string.IsNullOrWhiteSpace(dto.MoteColor))
+            {
+                throw new ContentLoadException(path,
+                    $"Období '{id}' má 'moteDensity', ale ne 'moteColor' — neviditelné listí nikdo neuvidí.");
+            }
+
+            var moteColor = string.IsNullOrWhiteSpace(dto.MoteColor)
+                ? (RgbColor?)null
+                : ParseColor(path, dto.MoteColor, $"Období '{id}' ('moteColor')");
+
             seasons.Add(new SeasonDef(
                 id, tint, dto.TintAlpha,
                 dto.FoodProductionMult, dto.HarvestMult, dto.GrowthMult,
                 dto.FuelPerPersonPerSecond, dto.ColdGrowthMult,
-                Math.Clamp(dto.SnowCover, 0, 1)));
+                Math.Clamp(dto.SnowCover, 0, 1),
+                moteColor, dto.MoteDensity, Math.Clamp(dto.MoteFall, 0, 1)));
         }
 
         return new SeasonCalendar(seasons, file.DaysPerSeason, fuelIndex);

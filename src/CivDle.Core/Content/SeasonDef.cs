@@ -28,8 +28,24 @@ public sealed record SeasonDef(
     double GrowthMult,
     double FuelPerPersonPerSecond,
     double ColdGrowthMult,
-    double SnowCover = 0.0)
+    double SnowCover = 0.0,
+    RgbColor? MoteColor = null,
+    double MoteDensity = 0.0,
+    double MoteFall = 0.0)
 {
+    /// <summary>
+    /// Poletuje v tomhle období vzduchem něco? (Okvětní plátky, pyl, listí, sníh.)
+    ///
+    /// <para>Nádech přes scénu řekne „je podzim" jen tomu, kdo si toho všimne.
+    /// Listí padající přes obraz to řekne i tomu, kdo se dívá na jeden dům —
+    /// a hlavně dá scéně pohyb i ve chvíli, kdy se ve městě nic neděje.</para>
+    ///
+    /// <para>Co poletuje je <b>obsah</b>, ne algoritmus: barva, hustota
+    /// i rychlost pádu jsou v datech. Kód jen ví, jak se s tím hýbe.</para>
+    /// </summary>
+    public bool HasMotes => MoteDensity > 0.001 && MoteColor is not null;
+
+
     /// <summary>
     /// Leží na střechách sníh? 0 = vůbec, 1 = celá střecha bílá.
     ///

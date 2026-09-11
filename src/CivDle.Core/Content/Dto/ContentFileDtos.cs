@@ -293,7 +293,10 @@ public sealed record SeasonDto(
     double GrowthMult,
     double FuelPerPersonPerSecond,
     double ColdGrowthMult,
-    double SnowCover = 0.0);
+    double SnowCover = 0.0,
+    string? MoteColor = null,
+    double MoteDensity = 0.0,
+    double MoteFall = 0.0);
 
 /// <summary>Nastavení spokojenosti tak, jak leží v JSON.</summary>
 public sealed record HappinessDto(

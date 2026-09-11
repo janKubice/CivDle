@@ -181,6 +181,7 @@ public sealed class GameplayScreen : IScreen
     /// <summary>Stíny mraků plující přes krajinu — jediné, co je z oblohy v pohledu shora vidět.</summary>
     private readonly CloudShadowRenderer _clouds;
     private readonly CloudLayerRenderer _cloudLayer;
+    private readonly Rendering.Effects.AmbientMotes _motes;
 
     /// <summary>
     /// Odkud fouká. Pevný směr schválně: vítr, který by se otáčel, by při
@@ -506,6 +507,7 @@ public sealed class GameplayScreen : IScreen
         _composer = new SceneComposer(screens.GraphicsDevice);
         _clouds = new CloudShadowRenderer(screens.GraphicsDevice);
         _cloudLayer = new CloudLayerRenderer(screens.GraphicsDevice);
+        _motes = new Rendering.Effects.AmbientMotes(info.Seed);
         _raftRenderer = new RaftRenderer(screens.Sprites, screens.WhitePixel);
         _cityAudio = new Audio.SpatialSoundscape(screens.Content);
 
@@ -744,6 +746,15 @@ public sealed class GameplayScreen : IScreen
             _poiRenderer.Update(worldDt);
             _clouds.Update(worldDt);
         _cloudLayer.Update(worldDt);
+
+        // Co poletuje vzduchem, říká období: na jaře plátky, v zimě sníh.
+        var season = _simulation.CurrentSeason;
+        var (moteMin, moteMax) = _camera.VisibleWorldBounds();
+        _motes.Update(
+            worldDt, moteMin, moteMax,
+            (float)(season?.MoteDensity ?? 0.0),
+            (float)(season?.MoteFall ?? 0.0),
+            WindDirectionX, WindDirectionY);
         }
 
         // Cheaty se udržují herním časem: v pauze se nic nedosypává a záběr,
@@ -890,6 +901,13 @@ public sealed class GameplayScreen : IScreen
 
         _composer.Compose(
             spriteBatch, _screens.WhitePixel, light, DayNightCycle.BloomStrength(timeOfDay));
+
+        // Plátky, pyl, listí nebo sníh. Nad hotovou scénou, ale pod mraky:
+        // poletují mezi kamerou a městem, ne pod ním.
+        if (_simulation.CurrentSeason is { HasMotes: true } motesSeason)
+        {
+            _motes.Draw(spriteBatch, _camera, _screens.WhitePixel, motesSeason.MoteColor!.Value.ToXna());
+        }
 
         // Mraky nad městem AŽ ZA složením. Letí mezi kamerou a zemí, takže je
         // nemá co zastínit — a hlavně tím na chvíli zakryjí kus obrazu, což je

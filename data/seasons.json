@@ -11,7 +11,10 @@
       "harvestMult": 1.0,
       "growthMult": 1.25,
       "fuelPerPersonPerSecond": 0.0,
-      "coldGrowthMult": 1.0
+      "coldGrowthMult": 1.0,
+      "moteColor": "#F6D4E2",
+      "moteDensity": 0.7,
+      "moteFall": 0.28
     },
     {
       "id": "summer",
@@ -21,7 +24,10 @@
       "harvestMult": 1.0,
       "growthMult": 1.0,
       "fuelPerPersonPerSecond": 0.0,
-      "coldGrowthMult": 1.0
+      "coldGrowthMult": 1.0,
+      "moteColor": "#FFE9A8",
+      "moteDensity": 0.45,
+      "moteFall": 0.06
     },
     {
       "id": "autumn",
@@ -31,7 +37,10 @@
       "harvestMult": 1.5,
       "growthMult": 1.0,
       "fuelPerPersonPerSecond": 0.0,
-      "coldGrowthMult": 1.0
+      "coldGrowthMult": 1.0,
+      "moteColor": "#D9803A",
+      "moteDensity": 0.85,
+      "moteFall": 0.45
     },
     {
       "id": "winter",
@@ -42,7 +51,10 @@
       "growthMult": 0.75,
       "fuelPerPersonPerSecond": 0.012,
       "coldGrowthMult": 0.25,
-      "snowCover": 0.8
+      "snowCover": 0.8,
+      "moteColor": "#EDF3FC",
+      "moteDensity": 1.0,
+      "moteFall": 0.6
     }
   ]
 }
