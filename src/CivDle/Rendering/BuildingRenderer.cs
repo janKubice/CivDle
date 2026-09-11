@@ -52,6 +52,11 @@ public sealed class BuildingRenderer
     /// </summary>
     private readonly List<int> _visible = new();
 
+    /// <summary>Zapamatovaná řadicí funkce — viz <see cref="BySouthEdgeComparison"/>.</summary>
+    private Comparison<int>? _bySouthEdgeCache;
+
+    private Comparison<int> _bySouthEdge => _bySouthEdgeCache ??= BySouthEdgeComparison;
+
     public void Draw(SpriteBatch spriteBatch, Camera2D camera, Simulation simulation)
     {
         var (min, max) = camera.VisibleWorldBounds();
@@ -81,6 +86,7 @@ public sealed class BuildingRenderer
             _visible);
 
         var buildings = simulation.Buildings;
+        SortBySouthEdge(buildings);
 
         // Odrazy jdou úplně první: leží na vodě, tedy pod vším ostatním.
         if (detailed)
@@ -263,6 +269,148 @@ public sealed class BuildingRenderer
     /// </summary>
     private static readonly Color ReflectionTint = new Color(120, 170, 210) * 0.45f;
 
+    /// <summary>
+    /// Obdélník, ve kterém budova opravdu <b>vypadá</b> — tedy i s tím, oč
+    /// přerůstá svůj půdorys.
+    ///
+    /// <para>Vysoká budova se kreslí nahoru po obrazovce a patou zůstává na
+    /// půdorysu: v pohledu shora se stavba tyčí směrem od diváka, takže je to
+    /// horní hrana, která se posune. Kdyby rostla dolů, stála by v půdorysu
+    /// sousedů pod sebou.</para>
+    ///
+    /// <para>Veřejné, protože totéž musí vědět výběr myší: hráč klikne na to,
+    /// co vidí, ne na dlaždice, na kterých to stojí.</para>
+    /// </summary>
+    public static Rectangle VisualRect(Rectangle footprint, int visualHeight)
+    {
+        if (visualHeight <= 0)
+        {
+            return footprint;
+        }
+
+        int extra = visualHeight * TerrainRenderer.TileSize;
+        return new Rectangle(footprint.X, footprint.Y - extra, footprint.Width, footprint.Height + extra);
+    }
+
+    /// <summary>
+    /// Budova, jejíž <b>viditelná</b> část leží pod dlaždicí — i když ta
+    /// dlaždice patří někomu jinému.
+    ///
+    /// <para><b>Proč to musí existovat:</b> jakmile mrakodrap přeroste svůj
+    /// půdorys, zakryje dlaždice nad sebou. Klik na jeho fasádu by bez tohohle
+    /// vybral to, co je za ní — tedy hráč by klikl na věž a otevřel se mu dům,
+    /// který vůbec nevidí. To je ten druh chyby, kterou nikdo nenahlásí, jen
+    /// mu ovládání bude připadat rozbité.</para>
+    ///
+    /// <para>Prohledávají se řádky <b>pod</b> dlaždicí, od nejvzdálenějšího
+    /// k nejbližšímu: budova stojící jižněji se kreslí později, takže fasádou
+    /// vyhrává. Smyčka je krátká a shora omezená nejvyšší výškou v datech,
+    /// takže nezáleží na velikosti města.</para>
+    ///
+    /// <para>Nízké budovy tudy neprocházejí vůbec — ty se kryjí se svým
+    /// půdorysem a najde je obyčejný dotaz na dlaždici.</para>
+    /// </summary>
+    public static bool TryPickTall(
+        Simulation simulation, GameContent content, int tileX, int tileY, int maxVisualHeight,
+        out int buildingIndex)
+    {
+        for (int row = tileY + maxVisualHeight; row > tileY; row--)
+        {
+            if (!simulation.TryGetBuildingAt(tileX, row, out int candidate))
+            {
+                continue;
+            }
+
+            ref readonly var building = ref simulation.Buildings[candidate];
+            var def = content.Buildings[building.DefIndex];
+
+            if (CoversTile(building.Y, def.VisualHeight, tileY))
+            {
+                buildingIndex = candidate;
+                return true;
+            }
+        }
+
+        buildingIndex = -1;
+        return false;
+    }
+
+    /// <summary>
+    /// Sahá budova s patou na řádku <paramref name="buildingY"/> obrazem až na
+    /// řádek <paramref name="tileY"/>?
+    ///
+    /// <para>Budova se kreslí od <c>Y − výška</c> dolů, takže zakrývá řádky
+    /// nad svým půdorysem. Řádky <b>uvnitř</b> půdorysu sem nepatří: ty najde
+    /// obyčejný dotaz na dlaždici a započítat je podruhé by znamenalo, že
+    /// vysoká budova přebije kohokoli, kdo na ní stojí.</para>
+    ///
+    /// <para>Tohle je celé pravidlo výběru vysokých budov — proto je oddělené
+    /// a dá se ověřit bez světa i bez grafiky.</para>
+    /// </summary>
+    public static bool CoversTile(int buildingY, int visualHeight, int tileY) =>
+        visualHeight > 0 && tileY < buildingY && buildingY - visualHeight <= tileY;
+
+    /// <summary>
+    /// Nejvyšší přerůstání v obsahu. Spočítá se jednou a slouží jako strop
+    /// prohledávání ve <see cref="TryPickTall"/> — bez něj by se muselo hádat,
+    /// jak daleko se dívat.
+    /// </summary>
+    public static int MaxVisualHeight(GameContent content)
+    {
+        int max = 0;
+        for (int i = 0; i < content.Buildings.Count; i++)
+        {
+            max = Math.Max(max, content.Buildings[i].VisualHeight);
+        }
+
+        return max;
+    }
+
+    /// <summary>
+    /// Pořadí kreslení: od severu k jihu.
+    ///
+    /// <para><b>Proč teprve teď:</b> dokud každá budova zabírala právě svůj
+    /// půdorys, nemohly se překrývat a na pořadí nezáleželo. Jakmile mrakodrap
+    /// přeroste nahoru, musí ho zakrýt to, co stojí <i>před</i> ním, tedy
+    /// jižněji. Bez toho by věž překreslila dům v popředí a dojem výšky by se
+    /// převrátil.</para>
+    ///
+    /// <para>Řadí se podle spodní hrany, ne podle indexu: index je pořadí
+    /// stavby, což se scénou nemá nic společného. Při shodě rozhodne index,
+    /// aby bylo řazení stabilní a scéna se mezi snímky nepřeskupovala.</para>
+    /// </summary>
+    private void SortBySouthEdge(ReadOnlySpan<BuildingInstance> buildings)
+    {
+        if (_sortKeys.Length < buildings.Length)
+        {
+            // Roste po dvojnásobku, ne přesně: město přibývá po jedné budově
+            // a realokace při každé stavbě by byla alokace za snímek.
+            Array.Resize(ref _sortKeys, Math.Max(64, buildings.Length * 2));
+        }
+
+        // Klíče se dopočítají dopředu do pole. Řadicí funkce pak nesahá na
+        // buildings — span se do lambdy zachytit nedá.
+        for (int slot = 0; slot < _visible.Count; slot++)
+        {
+            int index = _visible[slot];
+            _sortKeys[index] = index < buildings.Length
+                ? buildings[index].Y + _content.Buildings[buildings[index].DefIndex].FootprintHeight
+                : int.MaxValue;
+        }
+
+        _visible.Sort(_bySouthEdge);
+    }
+
+    /// <summary>Spodní hrana budovy v dlaždicích, indexovaná indexem budovy.</summary>
+    private int[] _sortKeys = Array.Empty<int>();
+
+    /// <summary>
+    /// Řadicí funkce jako pole, ne lambda na místě: <see cref="List{T}.Sort(Comparison{T})"/>
+    /// by si z každého volání udělal nový delegát, tedy alokaci za snímek.
+    /// </summary>
+    private Comparison<int> BySouthEdgeComparison => (a, b) =>
+        _sortKeys[a] != _sortKeys[b] ? _sortKeys[a].CompareTo(_sortKeys[b]) : a.CompareTo(b);
+
     /// <summary>Je budova ve výřezu? Vrací i její definici a obdélník ve světě.</summary>
     private bool IsVisible(
         in BuildingInstance building, Vector2 min, Vector2 max,
@@ -302,6 +450,10 @@ public sealed class BuildingRenderer
         // Posun o pixel rozbije dokonalé řady. Až tady, aby stín zůstal podle
         // půdorysu — kdyby se posouval s budovou, přestal by ležet na zemi.
         var body = new Rectangle(bounds.X + look.OffsetX, bounds.Y + look.OffsetY, bounds.Width, bounds.Height);
+
+        // Vysoká budova se kreslí do obdélníku, který přerůstá půdorys nahoru.
+        // Stín a odznaky zůstávají u paty — ty patří na zem.
+        body = VisualRect(body, def.VisualHeight);
 
         var sprite = _sprites.Get($"building.{def.Id}");
         if (sprite is not null)

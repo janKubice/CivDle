@@ -73,7 +73,8 @@ public sealed record BuildingDto(
     DefenseDto? Defense = null,
     List<BuildStageDto>? Stages = null,
     RaftDto? Raft = null,
-    BuildingSoundDto? Sound = null);
+    BuildingSoundDto? Sound = null,
+    int VisualHeight = 0);
 
 /// <summary>Zvuk okolí budovy tak, jak leží v JSON.</summary>
 public sealed record BuildingSoundDto(string? Loop, double RadiusTiles, double Volume);

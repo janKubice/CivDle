@@ -1363,7 +1363,8 @@
       "upgradeCost": {
         "steel": 16,
         "electronics": 6
-      }
+      },
+      "visualHeight": 1
     },
     {
       "id": "steel_mill",
@@ -1515,7 +1516,8 @@
       "upgradeCost": {
         "nanomaterial": 10,
         "computer": 6
-      }
+      },
+      "visualHeight": 2
     },
     {
       "id": "silicon_mine",
@@ -2801,7 +2803,8 @@
         "tundra",
         "desert"
       ],
-      "buildable": false
+      "buildable": false,
+      "visualHeight": 1
     },
     {
       "id": "timber_yard",

@@ -3050,7 +3050,26 @@ public sealed class ContentLoader
             defense,
             stages,
             ParseRaft(path, id, dto.Raft, resources),
-            ParseBuildingSound(path, id, dto.Sound));
+            ParseBuildingSound(path, id, dto.Sound),
+            ReadVisualHeight(path, id, dto.VisualHeight));
+    }
+
+    /// <summary>
+    /// O kolik dlaždic budova přerůstá svůj půdorys nahoru po obrazovce.
+    ///
+    /// <para>Strop je pojistka proti překlepu: budova vysoká dvacet dlaždic by
+    /// zakryla půl obrazovky a vypadalo by to jako chyba vykreslování, ne jako
+    /// mrakodrap. Nula (nezadáno) znamená „kreslí se přesně na půdorys".</para>
+    /// </summary>
+    private static int ReadVisualHeight(string path, string id, int value)
+    {
+        if (value is < 0 or > 8)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': 'visualHeight' musí být 0–8 dlaždic, je {value}.");
+        }
+
+        return value;
     }
 
     /// <summary>

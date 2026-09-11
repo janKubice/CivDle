@@ -263,8 +263,11 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.hydroponics", SpriteSize, Hydroponics);
 
         // Bydlení pozdních ér.
-        Add(device, "building.apartment", SpriteSize, canvas => Tower(canvas, new Color(170, 156, 142), floors: 4));
-        Add(device, "building.high_rise", SpriteSize, canvas => Tower(canvas, new Color(140, 152, 168), floors: 6));
+        // Vysoké domy se kreslí na vyšší plátno, protože přerůstají svůj
+        // půdorys. Poměr stran sedí na cíl: 1 dlaždice široký, 2 vysoký
+        // u bytovky, 2×4 u výškové budovy.
+        AddTall(device, "building.apartment", 16, 32, canvas => TallTower(canvas, new Color(170, 156, 142), floors: 6));
+        AddTall(device, "building.high_rise", 32, 64, canvas => TallTower(canvas, new Color(140, 152, 168), floors: 11));
         Add(device, "building.arcology", BigSpriteSize, Arcology);
 
         // Sloučené bloky (2×2 z bloku čtyř stejných budov) — vyšší a širší silueta,
@@ -282,7 +285,7 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "building.manor", SpriteSize, canvas => BigHouse(canvas, new Color(199, 122, 68), 2));
         Add(device, "building.townhouses", SpriteSize, canvas => BigHouse(canvas, new Color(212, 137, 74), 3));
         Add(device, "building.terrace_row", SpriteSize, canvas => BigHouse(canvas, new Color(179, 106, 70), 4));
-        Add(device, "building.housing_block", SpriteSize, canvas => BigHouse(canvas, new Color(155, 90, 64), 5));
+        AddTall(device, "building.housing_block", 32, 48, canvas => TallTower(canvas, new Color(155, 90, 64), floors: 8));
         Add(device, "building.timber_yard", SpriteSize, TimberYard);
         Add(device, "building.great_quarry", SpriteSize, GreatQuarry);
 
@@ -460,15 +463,28 @@ public sealed class SpriteLibrary : IDisposable
     /// </summary>
     private static readonly string[] OutlinedPrefixes = { "building.", "deco.", "attacker.", "landmark." };
 
-    private void Add(GraphicsDevice device, string id, int size, Action<PixelCanvas> draw)
+    private void Add(GraphicsDevice device, string id, int size, Action<PixelCanvas> draw) =>
+        AddTall(device, id, size, size, draw);
+
+    /// <summary>
+    /// Sprite na <b>nečtvercovém</b> plátně.
+    ///
+    /// <para>Vysoké budovy přerůstají svůj půdorys nahoru (viz
+    /// <c>BuildingDef.VisualHeight</c>), takže se kreslí do vyššího obdélníku,
+    /// než jaký zabírají na zemi. Čtvercový sprite natažený do takového
+    /// obdélníku by měl obdélníkové pixely — a to je na pixel artu vidět
+    /// okamžitě. Plátno proto musí mít tentýž poměr stran jako cíl.</para>
+    /// </summary>
+    private void AddTall(GraphicsDevice device, string id, int width, int height, Action<PixelCanvas> draw)
     {
-        var canvas = new PixelCanvas(size, size);
+        var canvas = new PixelCanvas(width, height);
         draw(canvas);
 
         // Obrys se zapeče do obrázku, ne kreslí za běhu: obtáhnout siluetu
         // čtyřmi kresbami navíc by v husté zástavbě bylo cítit, takhle to
         // nestojí nic. Malé drobnosti se vynechají — viz OutlinedPrefixes.
-        if (size >= OutlineMinSize && OutlinedPrefixes.Any(prefix => id.StartsWith(prefix, StringComparison.Ordinal)))
+        if (Math.Max(width, height) >= OutlineMinSize
+            && OutlinedPrefixes.Any(prefix => id.StartsWith(prefix, StringComparison.Ordinal)))
         {
             canvas.Outline(OutlineStrength);
         }
@@ -2721,6 +2737,75 @@ public sealed class SpriteLibrary : IDisposable
     }
 
     // ----- bydlení pozdních ér -----
+
+    /// <summary>
+    /// Věžák na vysokém plátně: podnož, tělo s patry oken a plochá střecha
+    /// s atikou.
+    ///
+    /// <para><b>Proč vlastní kresba místo natažené staré:</b> starý
+    /// <see cref="Tower"/> se vešel do čtverce, takže „šest pater" byly tři
+    /// pruhy oken nad sebou. Na dvojnásob vysokém plátně jde nakreslit dům,
+    /// který opravdu má patra — a právě počet pater je to jediné, čím se
+    /// ve dvourozměrné scéně řekne, že je něco vysoké.</para>
+    ///
+    /// <para>Světlo zleva shora jako všude jinde: levá stěna je světlejší,
+    /// pravá ustupuje do stínu. Bez toho by věž byla plochý obdélník s okny.</para>
+    /// </summary>
+    private static void TallTower(PixelCanvas c, Color wall, int floors)
+    {
+        int w = c.Width;
+        int h = c.Height;
+        int margin = Math.Max(1, w / 8);
+        int bodyWidth = w - 2 * margin;
+        int top = Math.Max(1, h / 12);
+        int baseHeight = Math.Max(2, h / 14);
+        int bodyBottom = h - baseHeight;
+
+        var lit = Shade(wall, 1.12f);
+        var shade = Shade(wall, 0.78f);
+
+        // Tělo, a přes ně světlá levá a tmavá pravá třetina — z toho je hrana.
+        c.FillRect(margin, top, bodyWidth, bodyBottom - top, wall);
+        c.FillRect(margin, top, Math.Max(1, bodyWidth / 3), bodyBottom - top, lit);
+        c.FillRect(margin + bodyWidth - Math.Max(1, bodyWidth / 4), top,
+            Math.Max(1, bodyWidth / 4), bodyBottom - top, shade);
+
+        // Atika: světlá čára na okraji střechy. Bez ní střecha splývá se stěnou.
+        c.FillRect(margin - 1, top - 1, bodyWidth + 2, 2, Shade(wall, 1.3f));
+
+        // Podnož je širší a tmavší — dům tím dosedne na zem.
+        c.FillRect(Math.Max(0, margin - 2), bodyBottom, bodyWidth + 4, baseHeight, Shade(wall, 0.62f));
+
+        // Okna po patrech. Rozteč se dopočítá z počtu pater, takže sedí na
+        // jakkoli vysoké plátno.
+        int usable = bodyBottom - top - 3;
+        int step = Math.Max(2, usable / Math.Max(1, floors));
+        var glass = new Color(92, 110, 134);
+        var lightUp = new Color(214, 196, 132);
+
+        for (int floor = 0; floor < floors; floor++)
+        {
+            int y = top + 2 + floor * step;
+            if (y + 1 >= bodyBottom)
+            {
+                break;
+            }
+
+            for (int x = margin + 1; x < margin + bodyWidth - 1; x += 3)
+            {
+                // Pár oken svítí. Tichá pravidelnost vypadá jako mřížka, ne dům.
+                bool onFire = ((x * 7 + floor * 13) % 5) == 0;
+                c.FillRect(x, y, 2, Math.Max(1, step - 1), onFire ? lightUp : glass);
+            }
+        }
+    }
+
+    /// <summary>Tatáž barva světlejší nebo tmavší. Násobení drží odstín, míchání s bílou ho vybledne.</summary>
+    private static Color Shade(Color color, float factor) => new(
+        Math.Clamp((int)(color.R * factor), 0, 255),
+        Math.Clamp((int)(color.G * factor), 0, 255),
+        Math.Clamp((int)(color.B * factor), 0, 255),
+        color.A);
 
     private static void Tower(PixelCanvas c, Color wall, int floors)
     {

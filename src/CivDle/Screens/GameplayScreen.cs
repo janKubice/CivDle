@@ -187,6 +187,12 @@ public sealed class GameplayScreen : IScreen
     private readonly ParchmentOverlay _parchment;
 
     /// <summary>
+    /// Nejvyšší přerůstání v obsahu. Nemění se za běhu, takže se čte jednou —
+    /// je to strop prohledávání při výběru myší.
+    /// </summary>
+    private readonly int _maxVisualHeight;
+
+    /// <summary>
     /// Odkud fouká. Pevný směr schválně: vítr, který by se otáčel, by při
     /// každé změně počasí strhl pozornost k mrakům místo k městu.
     /// </summary>
@@ -515,6 +521,7 @@ public sealed class GameplayScreen : IScreen
         _godRays = new GodRayRenderer(screens.GraphicsDevice);
         _mist = new ValleyMistRenderer(screens.GraphicsDevice);
         _parchment = new ParchmentOverlay(screens.GraphicsDevice);
+        _maxVisualHeight = BuildingRenderer.MaxVisualHeight(screens.Content);
         _raftRenderer = new RaftRenderer(screens.Sprites, screens.WhitePixel);
         _cityAudio = new Audio.SpatialSoundscape(screens.Content);
 
@@ -1331,7 +1338,7 @@ public sealed class GameplayScreen : IScreen
 
         // Stojící budova má přednost přede vším ostatním na dlaždici: hráč na ni
         // najel právě proto, že se diví, proč nic nedělá.
-        if (_simulation.TryGetBuildingAt(tileX, tileY, out int hoveredBuilding)
+        if (TryPickBuilding(tileX, tileY, out int hoveredBuilding)
             && StallText(_simulation.Buildings[hoveredBuilding].Stall) is { } stallKey)
         {
             var def = content.Buildings[_simulation.Buildings[hoveredBuilding].DefIndex];
@@ -1379,6 +1386,19 @@ public sealed class GameplayScreen : IScreen
     /// sedí na jedné dlaždici. Bez tohohle šlo popisek vyvolat jen z té jedné
     /// a hráč měl dojem, že na ně najet nejde.</para>
     /// </summary>
+    /// <summary>
+    /// Budova pod dlaždicí, včetně té, která sem jen <b>sahá obrazem</b>.
+    ///
+    /// <para>Hráč klikne na to, co vidí. U vysokých budov to není totéž co
+    /// dlaždice pod kurzorem: fasáda mrakodrapu leží nad jeho půdorysem, takže
+    /// se nejdřív ptáme, jestli sem někdo nepřerůstá, a teprve pak na samotnou
+    /// dlaždici.</para>
+    /// </summary>
+    private bool TryPickBuilding(int tileX, int tileY, out int buildingIndex) =>
+        BuildingRenderer.TryPickTall(
+            _simulation, _screens.Content, tileX, tileY, _maxVisualHeight, out buildingIndex)
+        || _simulation.TryGetBuildingAt(tileX, tileY, out buildingIndex);
+
     private bool TryLandmarkUnder(int tileX, int tileY, out int landmark)
     {
         landmark = _simulation.LandmarkAt(tileX, tileY);
@@ -1796,7 +1816,7 @@ public sealed class GameplayScreen : IScreen
         }
 
         // Klik na budovu ji rozklikne (detail + vylepšení + přesun/demolice).
-        if (_simulation.TryGetBuildingAt(tileX, tileY, out int buildingIndex))
+        if (TryPickBuilding(tileX, tileY, out int buildingIndex))
         {
             _screens.Push(new BuildingInfoScreen(_screens, _simulation, buildingIndex, _tools.StartMove));
             return;

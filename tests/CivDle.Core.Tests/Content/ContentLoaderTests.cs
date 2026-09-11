@@ -1084,6 +1084,27 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadFrom_AbsurdVisualHeight_Fails()
+    {
+        // Budova vysoká dvacet dlaždic by zakryla půl obrazovky a vypadalo by
+        // to jako chyba vykreslování, ne jako mrakodrap.
+        WriteAllValid();
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "house", "mapColor": "#B5651D", "footprint": [1, 1], "housingCapacity": 4,
+              "buildCost": { "wood": 10 }, "allowedBiomes": ["grass"], "visualHeight": 40 }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("visualHeight", ex.Message);
+    }
+
+    [Fact]
     public void LoadFrom_RockyWaterBiome_Fails()
     {
         // Hladina je vodorovná, ať je pod ní cokoli. 'rocky' u vody znamená,

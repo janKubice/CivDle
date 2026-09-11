@@ -254,8 +254,29 @@ public sealed record BuildingDef(
     DefenseRule? DefenseOrNull = null,
     IReadOnlyList<BuildStage>? StagesOrNull = null,
     RaftRule? RaftOrNull = null,
-    BuildingSound? SoundOrNull = null)
+    BuildingSound? SoundOrNull = null,
+    int VisualHeight = 0)
 {
+    /// <summary>
+    /// O kolik dlaždic budova přerůstá svůj půdorys směrem nahoru po obrazovce.
+    ///
+    /// <para><b>Proč to hra potřebuje:</b> v pohledu shora zabírá mrakodrap
+    /// přesně tolik místa jako chalupa o stejném půdorysu — čtyři dlaždice.
+    /// Pozdní město tak vypadalo jako to rané, jen z jiných barev. Přerůstání
+    /// je jediný způsob, jak ve dvourozměrné scéně říct „tohle je vysoké",
+    /// a je to ten obraz, kvůli kterému se do pozdní hry jde.</para>
+    ///
+    /// <para><b>Proč jen některé budovy:</b> výška se platí zakrýváním toho, co
+    /// stojí za budovou. U mrakodrapu to čte jako mrakodrap, u pole jako chyba.
+    /// Je to proto <b>opt-in v datech</b>: nula znamená „kreslí se přesně na
+    /// půdorys", tedy přesně jako dosud.</para>
+    ///
+    /// <para>Půdorys se tím <b>nemění</b>. Budova pořád zabírá tytéž dlaždice,
+    /// staví se na ně a sousedství se počítá z nich — přerůstá jen obraz.</para>
+    /// </summary>
+    public bool IsTall => VisualHeight > 0;
+
+
     /// <summary>Zní tahle budova, když je hráč blízko? <c>null</c> = mlčí.</summary>
     public BuildingSound? Sound => SoundOrNull;
 
