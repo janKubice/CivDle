@@ -93,7 +93,7 @@ public sealed class CapsuleDirector
 
         var spriteBatch = screens.SpriteBatch;
         terrain.Draw(spriteBatch, camera, simulation.Terrain);
-        decorations.Draw(spriteBatch, camera, simulation.Terrain);
+        decorations.Draw(spriteBatch, camera, simulation.Terrain, simulation);
         harvestables.Draw(spriteBatch, camera, simulation);
         roads.Draw(spriteBatch, camera, simulation);
         buildings.Draw(spriteBatch, camera, simulation);

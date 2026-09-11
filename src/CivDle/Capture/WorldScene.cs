@@ -57,7 +57,7 @@ public sealed class WorldScene : IDisposable
         _roads = new RoadRenderer(pixel, content);
         _buildings = new BuildingRenderer(pixel, content, screens.Sprites, screens.SoftShadow);
         _ambient = new AmbientLifeRenderer(pixel, content);
-        _lights = new LightsRenderer(pixel, content);
+        _lights = new LightsRenderer(pixel, content, screens.Sprites);
         _mist = new ValleyMistRenderer(device);
         _cloudShadows = new CloudShadowRenderer(device);
         _cloudLayer = new CloudLayerRenderer(device);
@@ -115,7 +115,7 @@ public sealed class WorldScene : IDisposable
             simulation.BiomeOverrideMap, simulation.TerrainRevision,
             Rendering.SeasonGround.From(simulation.CurrentSeason));
         _water.Draw(spriteBatch, camera, simulation);
-        _decorations.Draw(spriteBatch, camera, simulation.Terrain);
+        _decorations.Draw(spriteBatch, camera, simulation.Terrain, simulation);
         _mist.Draw(spriteBatch, camera, simulation.Terrain, ValleyMistRenderer.Density(simulation.TimeOfDay01));
         _urbanGround.Draw(spriteBatch, camera);
         _roads.Draw(spriteBatch, camera, simulation);

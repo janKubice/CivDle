@@ -254,15 +254,31 @@ public static class DayNightCycle
     /// </summary>
     private const float GradeReach = 2.2f;
 
-    /// <summary>Nejtmavší, na co smí noc scénu stáhnout. Pod tím přestane být vidět tvar.</summary>
-    private const float MinimumLight = 0.22f;
+    /// <summary>
+    /// Nejtmavší, na co smí noc scénu stáhnout. Pod tím přestane být vidět tvar.
+    ///
+    /// <para>Sníženo z 0,22: noc při pětině jasu vypadala spíš jako podmračené
+    /// odpoledne. Čtrnáct procent je pořád dost na to, aby byl poznat tvar
+    /// města, ale rozsvícená okna už mají proti čemu svítit — a o ta v noci
+    /// jde.</para>
+    /// </summary>
+    private const float MinimumLight = 0.14f;
 
     /// <summary>
-    /// Jak silná má být záře. V noci nejvíc — okna a lampy jsou pak jediné
-    /// světlo v obraze a mají zářit; v poledni by ze všeho dělala mlhu.
+    /// Jak silná má být záře.
+    ///
+    /// <para><b>Opraveno proti původnímu záměru:</b> dřív rostla do noci, na
+    /// předpokladu, že okna a lampy jsou pak jediné světlo v obraze a mají
+    /// zářit. Jenže lampy a okna se kreslí až <b>po</b> složení scény, takže
+    /// v záři vůbec nejsou — vytahovala se jen z terénu a z vody. V noci tím
+    /// voda svítila, protože je z celé mapy nejsvětlejší.</para>
+    ///
+    /// <para>Záře se teď bere z <b>osvětlené</b> scény, takže se v noci utlumí
+    /// sama. Zbývá jen říct, kdy má být výraznější: za zlaté hodiny, kdy nízké
+    /// slunce opravdu dělá odlesky na vodě a na střechách.</para>
     /// </summary>
     public static float BloomStrength(double timeOfDay01) =>
-        0.12f + 0.38f * NightFactor(timeOfDay01);
+        0.10f + 0.16f * DuskFactor(timeOfDay01);
 
     private static float SmoothStep(float t)
     {

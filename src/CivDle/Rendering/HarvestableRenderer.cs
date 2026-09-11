@@ -32,8 +32,19 @@ public sealed class HarvestableRenderer
     private readonly Dictionary<long, ChopState> _chops = new();
     private readonly List<long> _finished = new();
 
-    /// <summary>Pro každý biom klíč node spritu (strom/kámen), nebo null.</summary>
-    private readonly string?[] _nodeSpriteByBiome;
+    /// <summary>
+    /// Pro každý biom sada spritů těžitelného uzlu, nebo prázdné pole.
+    ///
+    /// <para><b>Proč sada a ne jeden:</b> těžitelný uzel stojí na <b>každé</b>
+    /// dlaždici svého biomu. Jeden sprite pro všechny tak znamenal, že les byl
+    /// mřížka jednoho a téhož stromu — tapeta, ne porost. A protože týž sprite
+    /// dostala tajga i džungle, vypadaly všechny lesy světa stejně.</para>
+    ///
+    /// <para>Z několika tvarů na biom vznikne porost už jen tím, že se střídají;
+    /// spolu se zrcadlením a odstínem (viz <c>DrawNode</c>) se opakování
+    /// ztratí.</para>
+    /// </summary>
+    private readonly string[][] _nodeSpritesByBiome;
 
     public HarvestableRenderer(SpriteLibrary sprites, GameContent content)
     {
@@ -41,22 +52,49 @@ public sealed class HarvestableRenderer
         _content = content;
         _shadow = sprites.Get("fx.shadow");
 
-        _nodeSpriteByBiome = new string?[content.Biomes.Count];
+        _nodeSpritesByBiome = new string[content.Biomes.Count][];
         for (int i = 0; i < content.Biomes.Count; i++)
         {
+            _nodeSpritesByBiome[i] = Array.Empty<string>();
             var yield = content.Biomes[i].ClickYield;
             if (yield is null)
             {
                 continue;
             }
 
-            _nodeSpriteByBiome[i] = content.Resources[yield.ResourceIndex].Id switch
-            {
-                "wood" => "node.tree",
-                "stone" => "node.rock",
-                _ => "node.tree",
-            };
+            _nodeSpritesByBiome[i] = SpritesFor(content.Biomes[i].Id, content.Resources[yield.ResourceIndex].Id);
         }
+    }
+
+    /// <summary>
+    /// Které tvary rostou v daném biomu.
+    ///
+    /// <para>Suroviny rozhodují o <i>druhu</i> uzlu (dřevo/kámen), biom o jeho
+    /// <i>podobě</i>: v tajze jehličnany, v džungli tropické stromy, v mangrove
+    /// chůdové kořeny. Dřív dostaly všechny dřevo dávající biomy tentýž strom,
+    /// takže tajga vypadala jako listnatý les.</para>
+    /// </summary>
+    private static string[] SpritesFor(string biomeId, string resourceId)
+    {
+        if (resourceId == "stone")
+        {
+            return new[] { "node.rock" };
+        }
+
+        if (resourceId != "wood")
+        {
+            return new[] { "node.tree" };
+        }
+
+        return biomeId switch
+        {
+            "taiga" => new[] { "deco.conifer", "node.tree", "deco.conifer" },
+            "highlands" => new[] { "deco.conifer", "node.tree" },
+            "jungle" => new[] { "deco.jungle_tree", "node.tree", "deco.jungle_tree" },
+            "mangrove" => new[] { "deco.mangrove", "deco.jungle_tree" },
+            "swamp" => new[] { "deco.mangrove", "node.tree" },
+            _ => new[] { "node.tree", "deco.broadleaf", "node.tree" },
+        };
     }
 
     /// <summary>Zaznamená klik na těžitelnou dlaždici. Vrací true, když strom právě spadl (payoff).</summary>
@@ -140,7 +178,10 @@ public sealed class HarvestableRenderer
         {
             for (int x = startX; x <= endX; x++)
             {
-                var spriteKey = _nodeSpriteByBiome[simulation.BiomeAt(x, y)];
+                var shapes = _nodeSpritesByBiome[simulation.BiomeAt(x, y)];
+                string? spriteKey = shapes.Length > 0
+                    ? shapes[(int)(Hash(x, y) % (ulong)shapes.Length)]
+                    : null;
                 if (spriteKey is null && simulation.TryGetPlantedNode(x, y, out int plantedResource))
                 {
                     spriteKey = ResourceSprite(plantedResource); // zasazený háj se kreslí i těží jako přírodní
@@ -237,7 +278,32 @@ public sealed class HarvestableRenderer
         }
 
         float finalScale = (float)drawSize / texture.Width * shrink;
-        spriteBatch.Draw(texture, new Vector2(baseX, baseY), null, Color.White, rotation, origin, finalScale, SpriteEffects.None, 0f);
+
+        // Zrcadlení a odstín. Uzel stojí na KAŽDÉ dlaždici svého biomu, takže
+        // se tvary opakují sebevíc jich je — zrcadlením se počet siluet zdarma
+        // zdvojnásobí a drobná odchylka jasu rozbije i ten zbytek. Bez toho je
+        // les mřížka, ne porost.
+        var flip = (h & 0x10000) == 0 ? SpriteEffects.None : SpriteEffects.FlipHorizontally;
+        var tint = NodeTint(h);
+
+        spriteBatch.Draw(texture, new Vector2(baseX, baseY), null, tint, rotation, origin, finalScale, flip, 0f);
+    }
+
+    /// <summary>
+    /// Drobná odchylka jasu a teploty jednoho uzlu.
+    ///
+    /// <para>Rozsah je schválně malý: víc a z lesa je flekatý koberec. Jde
+    /// o to, aby dva sousední stromy nebyly <b>doslova</b> týž pixel — oko
+    /// shodu pozná okamžitě, i když rozdíl by nepojmenovalo.</para>
+    /// </summary>
+    private static Color NodeTint(ulong hash)
+    {
+        float shade = 0.86f + ((hash >> 17) & 0xFF) / 255f * 0.22f;   // 0,86–1,08
+        float warm = 0.96f + ((hash >> 25) & 0xFF) / 255f * 0.08f;    // trocha do žluta
+        return new Color(
+            Math.Clamp(shade * warm, 0f, 1f),
+            Math.Clamp(shade, 0f, 1f),
+            Math.Clamp(shade * (1.96f - warm), 0f, 1f));
     }
 
     /// <summary>Sprite pro zasazený uzel podle suroviny (dřevo → strom, kámen → skála).</summary>

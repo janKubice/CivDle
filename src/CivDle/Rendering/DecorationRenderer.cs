@@ -1,4 +1,5 @@
 using CivDle.Core.Content;
+using CivDle.Core.Sim;
 using CivDle.Core.World;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -92,7 +93,13 @@ public sealed class DecorationRenderer
 
     private static float Smooth(float t) => t * t * (3f - 2f * t);
 
-    public void Draw(SpriteBatch spriteBatch, Camera2D camera, ITerrain terrain)
+    /// <param name="occupancy">
+    /// Co na dlaždici stojí. Bez toho rostly stromy skrz střechy a přes
+    /// silnice: dekorace se kreslí podle hashe dlaždice, a ten o zástavbě
+    /// neví. Hráč pak měl v lese strom, který nešlo pokácet ani přestavět —
+    /// protože to nebyl strom, ale kulisa nalepená přes město.
+    /// </param>
+    public void Draw(SpriteBatch spriteBatch, Camera2D camera, ITerrain terrain, Simulation? occupancy = null)
     {
         if (camera.Zoom < DetailLevel.Decorations || _content.Decorations.Count == 0)
         {
@@ -115,6 +122,14 @@ public sealed class DecorationRenderer
         {
             for (int x = startX; x <= endX; x++)
             {
+                // Na zastavěné dlaždici neroste nic. Dotaz je O(1) a ptá se
+                // jednou za dlaždici, ne jednou za dekoraci.
+                if (occupancy is not null
+                    && (occupancy.IsOccupied(x, y) || occupancy.HasRoadAt(x, y) || occupancy.IsNpcOccupied(x, y)))
+                {
+                    continue;
+                }
+
                 var defs = _decorationsByBiome[terrain.BiomeAt(x, y)];
                 for (int d = 0; d < defs.Length; d++)
                 {

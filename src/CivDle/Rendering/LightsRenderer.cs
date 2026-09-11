@@ -44,10 +44,13 @@ public sealed class LightsRenderer
     /// <summary>Čas pro mihotání oken. Jediný stav rendereru.</summary>
     private float _time;
 
-    public LightsRenderer(Texture2D whitePixel, GameContent content)
+    private readonly Sprites.SpriteLibrary _sprites;
+
+    public LightsRenderer(Texture2D whitePixel, GameContent content, Sprites.SpriteLibrary sprites)
     {
         _pixel = whitePixel;
         _content = content;
+        _sprites = sprites;
     }
 
     /// <summary>
@@ -113,22 +116,65 @@ public sealed class LightsRenderer
             // Rozsvícená okénka. Klíč je POLOHA, ne index v poli: index se při
             // bourání přerovná a celá ulice by v tu chvíli přeblikla.
             int key = building.X * 73856093 ^ building.Y * 19349663;
-            int windows = 2 + (int)(Hash(key, 0) % 3);
-            for (int w = 0; w < windows; w++)
-            {
-                int windowX = x + 3 + (int)(Hash(key, w * 2 + 1) % (ulong)Math.Max(1, width - 6));
-                int windowY = y + 3 + (int)(Hash(key, w * 2 + 2) % (ulong)Math.Max(1, height - 6));
-                float alpha = WindowAlpha(key + w, _time) * nightFactor;
-                if (alpha <= 0.01f)
-                {
-                    continue;
-                }
-
-                spriteBatch.Draw(_pixel, new Rectangle(windowX, windowY, 2, 2), WindowColor * alpha);
-            }
+            DrawWindows(spriteBatch, def, x, y, width, height, key, nightFactor);
         }
 
         spriteBatch.End();
+    }
+
+    /// <summary>
+    /// Rozsvítí <b>ta</b> okna, která sprite opravdu kreslí.
+    ///
+    /// <para><b>Co bylo špatně:</b> polohy oken se losovaly z hashe kdekoli
+    /// uvnitř obdélníku budovy. V noci tak svítilo uprostřed střechy nebo ve
+    /// zdi vedle skutečného okna — na hotovém spritu je to vidět okamžitě
+    /// a kazí to jinak pěknou scénu. Sprity teď své okna hlásí
+    /// (<see cref="Sprites.PixelCanvas.Window"/>) a světlo se kreslí přesně
+    /// tam.</para>
+    ///
+    /// <para>Sprite, který okna nekreslí (sklad, pole, monument), nedostane
+    /// žádná. Dřív mu je hash vyrobil taky — svítící pole je nesmysl, kterého
+    /// si hráč všimne dřív než čehokoli hezkého vedle.</para>
+    /// </summary>
+    private void DrawWindows(
+        SpriteBatch spriteBatch, BuildingDef def,
+        int x, int y, int width, int height, int key, float nightFactor)
+    {
+        var windows = _sprites.Windows($"building.{def.Id}");
+        if (windows.Count == 0)
+        {
+            return;
+        }
+
+        // Sprite má vlastní rozlišení; okna se přepočítají na to, jak velká je
+        // budova na obrazovce.
+        var sprite = _sprites.Get($"building.{def.Id}");
+        if (sprite is null)
+        {
+            return;
+        }
+
+        float scaleX = width / (float)sprite.Width;
+        float scaleY = height / (float)sprite.Height;
+
+        for (int i = 0; i < windows.Count; i++)
+        {
+            float alpha = WindowAlpha(key + i, _time) * nightFactor;
+            if (alpha <= 0.01f)
+            {
+                continue;
+            }
+
+            var window = windows[i];
+            spriteBatch.Draw(
+                _pixel,
+                new Rectangle(
+                    x + (int)(window.X * scaleX),
+                    y + (int)(window.Y * scaleY),
+                    Math.Max(1, (int)(window.Width * scaleX)),
+                    Math.Max(1, (int)(window.Height * scaleY))),
+                WindowColor * alpha);
+        }
     }
 
     /// <summary>

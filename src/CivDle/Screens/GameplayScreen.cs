@@ -487,7 +487,7 @@ public sealed class GameplayScreen : IScreen
         _buildingRenderer = new BuildingRenderer(screens.WhitePixel, screens.Content, screens.Sprites, screens.SoftShadow);
         _urbanGround = new UrbanGroundRenderer(screens.SoftShadow, screens.Content);
         _ambientLife = new AmbientLifeRenderer(screens.WhitePixel, screens.Content);
-        _lightsRenderer = new LightsRenderer(screens.WhitePixel, screens.Content);
+        _lightsRenderer = new LightsRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
         _fauna = new FaunaSystem(screens.Content);
         _traffic = new TrafficSystem(screens.Content);
         _spectacles = new SpectacleRenderer(screens.Content);
@@ -820,7 +820,7 @@ public sealed class GameplayScreen : IScreen
         // Z velké dálky leží krajina na papíře. Hned za terénem, aby zrno
         // dostala zem — ne město, cesty a čísla, která na ní leží.
         _parchment.Draw(spriteBatch, _camera, _screens.GraphicsDevice.Viewport);
-        _decorationRenderer.Draw(spriteBatch, _camera, _simulation.Terrain);
+        _decorationRenderer.Draw(spriteBatch, _camera, _simulation.Terrain, _simulation);
 
         // Mlha v nížinách: nad terénem a porostem, ale POD vším, co stojí.
         // Město má z mlhy vystupovat, ne v ní mizet — hráč se musí pořád

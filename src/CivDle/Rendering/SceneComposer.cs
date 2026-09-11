@@ -114,6 +114,23 @@ public sealed class SceneComposer : IDisposable
         // je opravdu vidět, ne z ostré předlohy, která se pak rozmázne.
         var source = ApplyTilt(batch, tilt) ?? _scene;
 
+        var full = new Rectangle(0, 0, _width, _height);
+
+        // Světlo se vnáší DO scény, ne až na hotový obraz.
+        //
+        // Dřív se násobilo až na backbufferu, tedy AŽ ZA tím, než se z obrazu
+        // vytáhla záře. Záře se tedy počítala z plně denního obrazu a přičítala
+        // se ke scéně ztmavené na pětinu — v noci proto svítila voda, protože
+        // je z celé mapy nejsvětlejší. Osvětlením scény předem se to srovná
+        // samo: v noci není z čeho zářit a svítí jen to, co se kreslí až po
+        // složení (lampy, okna).
+        //
+        // Kreslí se bílý obdélník přes cíl, ne znovu scéna — scéna krát scéna
+        // by byla scéna na druhou, ne scéna krát světlo. Čtení z cíle při tom
+        // nenastane, takže se smí psát do textury, která je zrovna zdrojem.
+        _device.SetRenderTarget(source);
+        DayNightCycle.DrawLight(batch, whitePixel, new Viewport(full), light);
+
         if (bloom > 0.001f)
         {
             BuildBloom(batch, source);
@@ -122,16 +139,9 @@ public sealed class SceneComposer : IDisposable
         _device.SetRenderTarget(null);
         _device.Clear(Color.Black);
 
-        var full = new Rectangle(0, 0, _width, _height);
-
         batch.Begin(samplerState: SamplerState.PointClamp);
         batch.Draw(source, full, Color.White);
         batch.End();
-
-        // Světlo až na hotovou scénu: násobí se celý obraz včetně budov a lidí,
-        // ne jen terén. Kdyby se osvětlovala každá vrstva zvlášť, každá by si to
-        // vyložila jinak a soumrak by na budovách vypadal jinak než na zemi.
-        DayNightCycle.DrawLight(batch, whitePixel, new Viewport(full), light);
 
         if (bloom > 0.001f && _bloomA is not null)
         {

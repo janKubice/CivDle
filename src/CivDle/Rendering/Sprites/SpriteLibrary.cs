@@ -475,10 +475,25 @@ public sealed class SpriteLibrary : IDisposable
     /// obdélníku by měl obdélníkové pixely — a to je na pixel artu vidět
     /// okamžitě. Plátno proto musí mít tentýž poměr stran jako cíl.</para>
     /// </summary>
+    /// <summary>
+    /// Okna každého spritu v jeho vlastních souřadnicích. Noční osvětlení z nich
+    /// čte, kde se má rozsvítit — viz <see cref="PixelCanvas.Window"/>.
+    /// </summary>
+    private readonly Dictionary<string, IReadOnlyList<Rectangle>> _windows = new(StringComparer.Ordinal);
+
+    /// <summary>Okna spritu, nebo prázdný seznam, když žádná nekreslí.</summary>
+    public IReadOnlyList<Rectangle> Windows(string id) =>
+        _windows.TryGetValue(id, out var list) ? list : Array.Empty<Rectangle>();
+
     private void AddTall(GraphicsDevice device, string id, int width, int height, Action<PixelCanvas> draw)
     {
         var canvas = new PixelCanvas(width, height);
         draw(canvas);
+        if (canvas.Windows.Count > 0)
+        {
+            _windows[id] = canvas.Windows;
+        }
+
 
         // Obrys se zapeče do obrázku, ne kreslí za běhu: obtáhnout siluetu
         // čtyřmi kresbami navíc by v husté zástavbě bylo cítit, takhle to
@@ -1645,8 +1660,8 @@ public sealed class SpriteLibrary : IDisposable
         c.FillRect(6, 16, 20, 14, wall);
         c.FillTriangle(4f, 16f, 28f, 16f, 16f, 5f, new Color(150, 60, 48)); // střecha
         c.FillRect(14, 22, 5, 8, new Color(96, 64, 38)); // dveře
-        c.FillRect(9, 19, 4, 4, new Color(150, 205, 225)); // okno
-        c.FillRect(20, 19, 4, 4, new Color(150, 205, 225));
+        c.Window(9, 19, 4, 4, new Color(150, 205, 225));
+        c.Window(20, 19, 4, 4, new Color(150, 205, 225));
     }
 
 
@@ -1664,7 +1679,7 @@ public sealed class SpriteLibrary : IDisposable
         {
             float left = 2 + i * width;
             c.FillTriangle(left, 14f, left + width, 14f, left + width / 2f, 14f - width * 0.55f, new Color(150, 60, 48));
-            c.FillRect((int)left + width / 2 - 2, 17, 4, 4, new Color(150, 205, 225)); // okno
+            c.Window((int)left + width / 2 - 2, 17, 4, 4, new Color(150, 205, 225));
             c.FillRect((int)left + width / 2 - 1, 23, 3, 7, new Color(96, 64, 38));    // dveře
         }
     }
@@ -1715,7 +1730,7 @@ public sealed class SpriteLibrary : IDisposable
         c.FillTriangle(3f, 16f, 9f, 16f, 4f, 8f, new Color(96, 140, 200));      // ocas
         for (int i = 0; i < 6; i++)
         {
-            c.FillRect(9 + i * 3, 16, 1, 1, new Color(120, 160, 210)); // okénka
+            c.Window(9 + i * 3, 16, 1, 1, new Color(120, 160, 210));
         }
     }
 
@@ -2795,7 +2810,7 @@ public sealed class SpriteLibrary : IDisposable
             {
                 // Pár oken svítí. Tichá pravidelnost vypadá jako mřížka, ne dům.
                 bool onFire = ((x * 7 + floor * 13) % 5) == 0;
-                c.FillRect(x, y, 2, Math.Max(1, step - 1), onFire ? lightUp : glass);
+                c.Window(x, y, 2, Math.Max(1, step - 1), onFire ? lightUp : glass);
             }
         }
     }
@@ -2816,8 +2831,8 @@ public sealed class SpriteLibrary : IDisposable
         for (int f = 0; f < floors; f++)
         {
             int y = top + 2 + f * 4;
-            c.FillRect(10, y, 4, 2, new Color(150, 205, 225));
-            c.FillRect(18, y, 4, 2, new Color(150, 205, 225));
+            c.Window(10, y, 4, 2, new Color(150, 205, 225));
+            c.Window(18, y, 4, 2, new Color(150, 205, 225));
         }
 
         c.FillRect(14, 26, 4, 4, new Color(88, 84, 80)); // vchod

@@ -24,6 +24,30 @@ public sealed class PixelCanvas
     public int Height { get; }
 
     /// <summary>
+    /// Okna, která sprite kreslí — v jeho vlastních souřadnicích.
+    ///
+    /// <para><b>Proč to musí být zaznamenané a ne uhodnuté:</b> v noci se okna
+    /// rozsvěcí. Dokud se polohy losovaly z hashe, svítilo to kdekoli uvnitř
+    /// obdélníku budovy — tedy i uprostřed střechy nebo ve zdi vedle skutečného
+    /// okna. Na hotovém spritu je to okamžitě vidět a kazí to jinak pěknou
+    /// scénu. Barvu skla přitom nelze poznat automaticky: každý malíř si míchá
+    /// vlastní odstín.</para>
+    /// </summary>
+    public IReadOnlyList<Rectangle> Windows => _windows;
+
+    private readonly List<Rectangle> _windows = new();
+
+    /// <summary>
+    /// Nakreslí okno a zapamatuje si, kde je. Malíř tím zároveň řekne, co se
+    /// má v noci rozsvítit — a nemusí to nikde opisovat podruhé.
+    /// </summary>
+    public void Window(int x, int y, int w, int h, Color glass)
+    {
+        FillRect(x, y, w, h, glass);
+        _windows.Add(new Rectangle(x, y, w, h));
+    }
+
+    /// <summary>
     /// Barva pixelu. Mimo plátno vrací průhlednou — čtení za okrajem je
     /// u testů běžné a výjimka by je nutila hlídat meze místo kresby.
     /// </summary>

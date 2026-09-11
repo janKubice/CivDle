@@ -63,6 +63,15 @@ public sealed class PoiRenderer
 
         for (int i = 0; i < _visible.Count; i++)
         {
+            // Zastavěné zvláštní místo se nekreslí. Značka pod budovou vypadala
+            // jako kus kulisy, který se zapomněl smazat — hráč přes oázu
+            // postavil a ona tam pořád svítila.
+            if (simulation.IsOccupied(_visible[i].X, _visible[i].Y)
+                || simulation.HasRoadAt(_visible[i].X, _visible[i].Y))
+            {
+                continue;
+            }
+
             Mark(spriteBatch, sprite, _visible[i].X, _visible[i].Y, Idle * glow);
         }
 

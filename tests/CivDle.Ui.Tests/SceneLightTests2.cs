@@ -67,11 +67,28 @@ public class SceneLightTests2
     }
 
     [Fact]
-    public void BloomIsStrongestAtNight()
+    public void BloomPeaksAtGoldenHourNotAtNight()
     {
-        // V noci jsou okna a lampy jediné světlo v obraze a mají zářit.
-        // V poledni by z toho byla jen mlha.
-        Assert.True(DayNightCycle.BloomStrength(0.0) > DayNightCycle.BloomStrength(0.5));
+        // Původní pravidlo znělo „v noci nejvíc, protože okna a lampy jsou
+        // jediné světlo v obraze". Jenže lampy a okna se kreslí až ZA složením
+        // scény, takže v záři vůbec nejsou — vytahovala se jen z terénu
+        // a z vody, a v noci proto svítila voda, protože je z mapy nejsvětlejší.
+        //
+        // Záře patří tam, kde nízké slunce opravdu dělá odlesky: na zlatou
+        // hodinu.
+        float dusk = DayNightCycle.BloomStrength(0.25);
+        float noon = DayNightCycle.BloomStrength(0.5);
+        float night = DayNightCycle.BloomStrength(0.0);
+
+        Assert.True(dusk > noon, $"za soumraku má zářit víc než v poledne ({dusk:0.000} vs {noon:0.000})");
+        Assert.True(dusk > night, $"za soumraku má zářit víc než v noci ({dusk:0.000} vs {night:0.000})");
+    }
+
+    [Fact]
+    public void NightDoesNotGlowMoreThanNoon()
+    {
+        // Tohle je ta konkrétní stížnost: „voda v noci divně svítí".
+        Assert.True(DayNightCycle.BloomStrength(0.0) <= DayNightCycle.BloomStrength(0.5) + 0.0001f);
     }
 
     private static float Brightness(Color c) => (c.R + c.G + c.B) / (3f * 255f);

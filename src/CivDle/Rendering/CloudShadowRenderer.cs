@@ -16,8 +16,15 @@ namespace CivDle.Rendering;
 /// opakuje a posouvá s časem. Žádné částice, žádný stav na mrak: celý efekt je
 /// jeden draw call přes obrazovku.</para>
 ///
-/// <para>Kreslí se <b>násobením</b>, ne průhledným překryvem — stín je ubrané
-/// světlo. Překryv by plochu jen zašedil a vypadal by jako špína na skle.</para>
+/// <para><b>Jak se kreslí a proč ne násobením:</b> násobení počítá
+/// <c>cíl × zdroj</c>, takže texel s hustým mrakem (černá) vynásobí scénu
+/// nulou — z mraku je díra do černa a síla stínu se nedá řídit vůbec.
+/// Přesně tak to taky vypadalo. Správně je <b>míchání přes alfu</b> s tmavou
+/// barvou: výsledek je <c>cíl × (1 − α) + stín × α</c>, tedy per-pixel
+/// násobek, kde α nese hustota mraku a sílu určuje volající.</para>
+///
+/// <para>Stín přitom není šedý závoj: barva je tmavě modrošedá, protože
+/// zastíněné místo dostává světlo z oblohy, ne od slunce.</para>
 ///
 /// <para>Vrstva: čistý render. Nic nečte ze simulace kromě větru a času.</para>
 /// </summary>
@@ -34,6 +41,12 @@ public sealed class CloudShadowRenderer : IDisposable
 
     /// <summary>Nejtmavší, co stín udělá. Přes 30 % už to vypadá jako zatmění.</summary>
     private const float MaxDarkening = 0.26f;
+
+    /// <summary>
+    /// Barva stínu. Ne černá: zastíněné místo pořád dostává rozptýlené světlo
+    /// z oblohy, takže je chladnější, ne tmavší do ztracena.
+    /// </summary>
+    private static readonly Color ShadowColor = new(38, 46, 62);
 
     /// <summary>
     /// Práh a měkkost okraje pro stínovou vrstvu. Pod prahem je jasno; bez něj
@@ -54,7 +67,9 @@ public sealed class CloudShadowRenderer : IDisposable
 
     public CloudShadowRenderer(GraphicsDevice device)
     {
-        _clouds = CloudNoise.Build(device, TextureSize, Threshold, Softness, Seed, asShade: true);
+        // Hustota v ALFĚ, bílá v RGB. Verze s hustotou v barvě se dá kreslit
+        // jedině násobením, a to znamená díru do černa (viz hlavička třídy).
+        _clouds = CloudNoise.Build(device, TextureSize, Threshold, Softness, Seed, asShade: false);
     }
 
     public void Update(float dt) => _time += dt;
@@ -94,11 +109,13 @@ public sealed class CloudShadowRenderer : IDisposable
         source.Width = Math.Max(1, source.Width);
         source.Height = Math.Max(1, source.Height);
 
+        // Síla jde do alfy tintu, hustota mraku přijde z textury — obě se
+        // vynásobí, takže řídký okraj mraku stíní slabě a jádro naplno.
         float darkening = MaxDarkening * Math.Clamp(coverage, 0f, 1f);
-        var shade = new Color(1f - darkening, 1f - darkening, 1f - darkening * 0.85f);
+        var shade = ShadowColor * darkening;
 
         spriteBatch.Begin(
-            blendState: DayNightCycle.MultiplyBlend,
+            blendState: BlendState.AlphaBlend,
             samplerState: SamplerState.LinearWrap);
         spriteBatch.Draw(
             _clouds,
