@@ -219,6 +219,7 @@ public sealed class MainMenuScreen : IScreen
         _screens.ReplaceAll(new LoadingScreen(
             _screens, "loading.savedGame",
             offline => new GameplayScreen(_screens, loaded.Simulation, info, offline),
-            catchUp));
+            catchUp,
+            loaded.Simulation));
     }
 }

@@ -42,7 +42,7 @@ public sealed class TimelapseScreen : IScreen
     private readonly ITerrain _terrain;
     private readonly InputManager _input = new();
     private readonly Camera2D _camera = new();
-    private readonly TerrainRenderer _terrainRenderer;
+    private readonly HistoryPlayback _playback;
 
     /// <summary>Uložení do sbírky; null = otevřeno už uložené (není co ukládat).</summary>
     private readonly Action? _saveToCollection;
@@ -66,10 +66,13 @@ public sealed class TimelapseScreen : IScreen
         _history = history;
         _terrain = terrain;
         _saveToCollection = saveToCollection;
-        _terrainRenderer = new TerrainRenderer(screens.GraphicsDevice, screens.Content.Biomes, seed);
+        _playback = new HistoryPlayback(
+            screens.GraphicsDevice, screens.Content.Biomes, seed,
+            screens.WhitePixel, screens.Content.Gameplay.Roads.MapColor.ToXna());
         _roadColor = screens.Content.Gameplay.Roads.MapColor.ToXna();
 
-        FrameCity();
+        var viewport = screens.GraphicsDevice.Viewport;
+        HistoryPlayback.FrameCity(_camera, _history, viewport.Width, viewport.Height);
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
         _screens.UiSettingsChanged += BuildUi;
@@ -175,8 +178,9 @@ public sealed class TimelapseScreen : IScreen
         var pixel = _screens.WhitePixel;
 
         // Skutečný terén pod přehrávkou — to samé místo, na kterém hráč hrál.
-        _terrainRenderer.Draw(spriteBatch, _camera, _terrain);
-        DrawCells(spriteBatch, pixel);
+        // Kreslí sdílený renderer, aby přehrávka tady a v načítání nevypadala
+        // po pár změnách jinak.
+        _playback.Draw(spriteBatch, _camera, _terrain, _history, (int)_position);
 
         // Lehké ztmavení pruhů nahoře a dole, ať popisky přehrávače neplavou
         // v pixelech živé mapy.
@@ -189,90 +193,7 @@ public sealed class TimelapseScreen : IScreen
         _screens.RenderDesktop(this, _desktop);
     }
 
-    /// <summary>
-    /// Nakreslí zástavbu aktuálního snímku ve world-space: buňka = čtverec
-    /// 8×8 dlaždic v barvě skutečné budovy. Buňky, které oproti minulému snímku
-    /// přibyly, se rozsvítí — je vidět, co zrovna vyrostlo.
-    /// </summary>
-    private void DrawCells(SpriteBatch spriteBatch, Texture2D pixel)
-    {
-        if (_history.Count == 0)
-        {
-            return;
-        }
 
-        int index = Math.Clamp((int)_position, 0, _history.Count - 1);
-        int previous = Math.Max(0, index - 1);
-        const int cellWorld = CityHistory.TilesPerCell * TerrainRenderer.TileSize;
-
-        // Silnice se od zástavby pozná podle barvy z palety — kronika si víc
-        // než jeden bajt na buňku dovolit nemůže.
-        var roadColor = _roadColor;
-
-        spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.Transform);
-        for (int cy = 0; cy < CityHistory.GridSize; cy++)
-        {
-            for (int cx = 0; cx < CityHistory.GridSize; cx++)
-            {
-                if (_history.ColorAt(index, cx, cy) is not { } color)
-                {
-                    continue;
-                }
-
-                int worldX = (cx - CityHistory.GridSize / 2) * cellWorld;
-                int worldY = (cy - CityHistory.GridSize / 2) * cellWorld;
-                var tint = color.ToXna();
-
-                // Silnice zůstává plochá — je to povrch, ne stavba.
-                if (tint == roadColor)
-                {
-                    spriteBatch.Draw(pixel, new Rectangle(worldX, worldY, cellWorld, cellWorld), tint * 0.95f);
-                    DrawEdges(spriteBatch, pixel, index, cx, cy, worldX, worldY, cellWorld);
-                }
-                else
-                {
-                    // Zástavba jako DOMEK, ne kostička: podezdívka, tělo, střecha
-                    // a stín. Hráč si přehrávku pouští, aby viděl růst svého
-                    // města — a čtverečky vypadaly jako tabulka, ne jako město.
-                    DrawHouse(spriteBatch, pixel, worldX, worldY, cellWorld, tint);
-                    DrawEdges(spriteBatch, pixel, index, cx, cy, worldX, worldY, cellWorld);
-                }
-
-                if (!_history.IsOccupied(previous, cx, cy))
-                {
-                    spriteBatch.Draw(
-                        pixel, new Rectangle(worldX, worldY, cellWorld, cellWorld),
-                        Color.White * 0.35f); // novostavba zazáří
-                }
-            }
-        }
-
-        spriteBatch.End();
-    }
-
-    /// <summary>
-    /// Jedna buňka zástavby nakreslená jako domek: stín u paty, tělo ve své
-    /// barvě, tmavší střecha nahoře a světlý hřeben. Pár obdélníků navíc, ale
-    /// právě ony dělají rozdíl mezi „mapa obsazených polí" a „město".
-    /// </summary>
-    private static void DrawHouse(SpriteBatch spriteBatch, Texture2D pixel, int x, int y, int size, Color tint)
-    {
-        int inset = Math.Max(1, size / 8);
-        int roof = Math.Max(1, size / 3);
-
-        // Stín pod stavbou — bez něj domky splývají s terénem.
-        spriteBatch.Draw(pixel, new Rectangle(x + inset, y + size - inset, size - inset, inset), Color.Black * 0.3f);
-
-        // Tělo.
-        spriteBatch.Draw(pixel, new Rectangle(x, y + roof, size, size - roof), tint);
-
-        // Střecha: tmavší odstín téže barvy, ať je poznat, čí ten dům je.
-        spriteBatch.Draw(pixel, new Rectangle(x, y, size, roof), Color.Lerp(tint, Color.Black, 0.35f));
-
-        // Hřeben — jedna světlá linka, ze které vznikne dojem sklonu.
-        spriteBatch.Draw(pixel, new Rectangle(x, y, size, Math.Max(1, roof / 3)),
-            Color.Lerp(tint, Color.White, 0.25f));
-    }
 
     /// <summary>Pruh postupu dole — hráč vidí, kde v příběhu je.</summary>
     private void DrawProgressBar(SpriteBatch spriteBatch, Texture2D pixel, Viewport viewport)
@@ -291,92 +212,14 @@ public sealed class TimelapseScreen : IScreen
         spriteBatch.Draw(pixel, new Rectangle(left, y, (int)(width * progress), 4), UiPalette.TextBright);
     }
 
-    /// <summary>
-    /// Tmavý obrys na těch stranách buňky, kde už žádná zástavba není. Levnější
-    /// i hezčí než rámeček kolem každé buňky: uvnitř bloku se nekreslí nic,
-    /// takže velká budova vypadá jako jeden tvar.
-    /// </summary>
-    private void DrawEdges(
-        SpriteBatch spriteBatch, Texture2D pixel, int frame, int cx, int cy,
-        int worldX, int worldY, int cellWorld)
-    {
-        var edge = Color.Black * 0.45f;
-        const int thickness = 2;
-
-        if (!_history.IsOccupied(frame, cx, cy - 1))
-        {
-            spriteBatch.Draw(pixel, new Rectangle(worldX, worldY, cellWorld, thickness), edge);
-        }
-
-        if (!_history.IsOccupied(frame, cx, cy + 1))
-        {
-            spriteBatch.Draw(pixel, new Rectangle(worldX, worldY + cellWorld - thickness, cellWorld, thickness), edge);
-        }
-
-        if (!_history.IsOccupied(frame, cx - 1, cy))
-        {
-            spriteBatch.Draw(pixel, new Rectangle(worldX, worldY, thickness, cellWorld), edge);
-        }
-
-        if (!_history.IsOccupied(frame, cx + 1, cy))
-        {
-            spriteBatch.Draw(pixel, new Rectangle(worldX + cellWorld - thickness, worldY, thickness, cellWorld), edge);
-        }
-    }
 
     public void Dispose()
     {
         _screens.Loc.LanguageChanged -= BuildUi;
         _screens.UiSettingsChanged -= BuildUi;
-        _terrainRenderer.Dispose();
+        _playback.Dispose();
     }
 
-    /// <summary>
-    /// Nastaví kameru tak, aby bylo celé město (poslední snímek) v záběru.
-    /// Bez toho by přehrávka začínala pohledem někam do prázdna.
-    /// </summary>
-    private void FrameCity()
-    {
-        var viewport = _screens.GraphicsDevice.Viewport;
-        _camera.SetViewport(viewport.Width, viewport.Height);
-
-        int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
-        int last = _history.Count - 1;
-        for (int cy = 0; cy < CityHistory.GridSize; cy++)
-        {
-            for (int cx = 0; cx < CityHistory.GridSize; cx++)
-            {
-                if (!_history.IsOccupied(last, cx, cy))
-                {
-                    continue;
-                }
-
-                minX = Math.Min(minX, cx);
-                minY = Math.Min(minY, cy);
-                maxX = Math.Max(maxX, cx);
-                maxY = Math.Max(maxY, cy);
-            }
-        }
-
-        const int cellWorld = CityHistory.TilesPerCell * TerrainRenderer.TileSize;
-        if (minX > maxX)
-        {
-            _camera.Position = Vector2.Zero; // prázdná kronika → střed světa
-            _camera.SetZoom(0.6f);
-            return;
-        }
-
-        var center = new Vector2(
-            (minX + maxX + 1 - CityHistory.GridSize) * 0.5f * cellWorld,
-            (minY + maxY + 1 - CityHistory.GridSize) * 0.5f * cellWorld);
-        _camera.Position = center;
-
-        // Zoom tak, aby se vešel celý obrys města s rezervou po stranách.
-        float spanX = (maxX - minX + 3) * cellWorld;
-        float spanY = (maxY - minY + 3) * cellWorld;
-        float zoom = Math.Min(viewport.Width / spanX, (viewport.Height - 180) / spanY);
-        _camera.SetZoom(Math.Clamp(zoom, 0.15f, 2.5f));
-    }
 
     private void BuildUi()
     {
