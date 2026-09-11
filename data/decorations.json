@@ -137,7 +137,8 @@
     {
       "id": "reeds",
       "biomes": [
-        "swamp"
+        "swamp",
+        "mangrove"
       ],
       "colors": [
         "#5D7040",
