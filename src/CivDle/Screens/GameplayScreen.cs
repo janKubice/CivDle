@@ -178,6 +178,29 @@ public sealed class GameplayScreen : IScreen
     /// <summary>Výzdoba slavnosti — girlandy a stoupající lampiony.</summary>
     private readonly FestivalRenderer _festival;
 
+    /// <summary>Stíny mraků plující přes krajinu — jediné, co je z oblohy v pohledu shora vidět.</summary>
+    private readonly CloudShadowRenderer _clouds;
+
+    /// <summary>
+    /// Odkud fouká. Pevný směr schválně: vítr, který by se otáčel, by při
+    /// každé změně počasí strhl pozornost k mrakům místo k městu.
+    /// </summary>
+    private const float WindDirectionX = 0.94f;
+    private const float WindDirectionY = 0.34f;
+
+    /// <summary>
+    /// Jak zataženo je. Odvozuje se z počasí — čím hustší závoj v datech, tím
+    /// víc stínu na zemi. I za jasna něco zbyde: obloha úplně bez mraků je
+    /// nuda a hlavně by se krajina přestala hýbat.
+    /// </summary>
+    private float CloudCoverage()
+    {
+        var weather = _screens.Content.Weather;
+        int index = _simulation.CurrentWeatherIndex;
+        float overcast = index >= 0 && index < weather.Count ? (float)weather[index].TintAlpha : 0f;
+        return Math.Clamp(0.35f + overcast, 0f, 1f);
+    }
+
     /// <summary>Čím se vyplní scéna pod terénem — okraje nekonečné mapy.</summary>
     private static readonly Color SceneBackground = new(24, 26, 32);
 
@@ -480,6 +503,7 @@ public sealed class GameplayScreen : IScreen
         _festival = new FestivalRenderer(screens.WhitePixel);
         _poiRenderer = new PoiRenderer(screens.Sprites, screens.WhitePixel);
         _composer = new SceneComposer(screens.GraphicsDevice);
+        _clouds = new CloudShadowRenderer(screens.GraphicsDevice);
         _raftRenderer = new RaftRenderer(screens.Sprites, screens.WhitePixel);
         _cityAudio = new Audio.SpatialSoundscape(screens.Content);
 
@@ -716,6 +740,7 @@ public sealed class GameplayScreen : IScreen
             _golden.Update(worldDt, _camera, _simulation);
             _discoveries.Update(worldDt);
             _poiRenderer.Update(worldDt);
+            _clouds.Update(worldDt);
         }
 
         // Cheaty se udržují herním časem: v pauze se nic nedosypává a záběr,
@@ -844,6 +869,13 @@ public sealed class GameplayScreen : IScreen
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: _camera.Transform);
         _cityPulse.Draw(spriteBatch);
         spriteBatch.End();
+
+        // Stíny mraků úplně nakonec světa: padají na zem i na střechy, takže
+        // musí být nad vším, co na zemi stojí. Pod osvětlením zůstávají proto,
+        // že stín je ubrané světlo — v noci není co ubírat.
+        _clouds.Draw(
+            spriteBatch, _camera, _screens.GraphicsDevice.Viewport,
+            CloudCoverage(), WindDirectionX, WindDirectionY);
 
         // Tady svět končí. Období, denní doba i noc se složily do JEDNÉ barvy,
         // kterou se hotová scéna vynásobí — místo tří průhledných obdélníků
@@ -1374,6 +1406,7 @@ public sealed class GameplayScreen : IScreen
         _screens.Loc.LanguageChanged -= BuildUi;
         _screens.UiSettingsChanged -= BuildUi;
         _composer.Dispose();
+        _clouds.Dispose();
         _terrainRenderer.Dispose();
         _cityScale.Dispose(); // upečené textury hustoty
         _minimap.Dispose();
