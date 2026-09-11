@@ -118,7 +118,7 @@ public sealed class VideoRender : IDisposable
             _simulation.Tick();
         }
 
-        _scene.Update(1f / VideoTiming.Fps, _simulation);
+        _scene.Update(1f / VideoTiming.Fps, _simulation, _camera);
 
         var key = _take.Sample(VideoTiming.TimeOfFrame(DoneFrames));
         _camera.Position = key.Position;

@@ -94,7 +94,7 @@ internal sealed class CityShowcaseShot : ITrailerShot
             _town.Simulation.Tick();
         }
 
-        _scene.Update(1f / VideoTiming.Fps, _town.Simulation);
+        _scene.Update(1f / VideoTiming.Fps, _town.Simulation, _camera);
 
         float time = (float)VideoTiming.TimeOfFrame(frameIndex);
         float t = time / (float)DurationSeconds;

@@ -44,7 +44,7 @@ public sealed class ShareCard
 
         // Jednorázový snímek: vrstvy, které si stav dopočítávají za běhu (zpevněná
         // zem), musí dostat aspoň jeden takt, jinak by na fotce chyběly.
-        scene.Update(0f, simulation);
+        scene.Update(0f, simulation, sourceCamera);
 
         using var target = new RenderTarget2D(device, options.Width, options.Height);
 

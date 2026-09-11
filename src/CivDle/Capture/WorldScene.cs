@@ -36,6 +36,14 @@ public sealed class WorldScene : IDisposable
     private readonly AmbientLifeRenderer _ambient;
     private readonly LightsRenderer _lights;
 
+    // Atmosféra. Bez ní vypadá fotka a video jako jiná hra než ta, ze které
+    // vznikly — a přitom je to přesně to, kvůli čemu se fotí.
+    private readonly ValleyMistRenderer _mist;
+    private readonly CloudShadowRenderer _cloudShadows;
+    private readonly CloudLayerRenderer _cloudLayer;
+    private readonly GodRayRenderer _godRays;
+    private readonly Rendering.Effects.AmbientMotes _motes;
+
     public WorldScene(ScreenManager screens, GameContent content, long seed)
     {
         _screens = screens;
@@ -50,6 +58,11 @@ public sealed class WorldScene : IDisposable
         _buildings = new BuildingRenderer(pixel, content, screens.Sprites, screens.SoftShadow);
         _ambient = new AmbientLifeRenderer(pixel, content);
         _lights = new LightsRenderer(pixel, content);
+        _mist = new ValleyMistRenderer(device);
+        _cloudShadows = new CloudShadowRenderer(device);
+        _cloudLayer = new CloudLayerRenderer(device);
+        _godRays = new GodRayRenderer(device);
+        _motes = new Rendering.Effects.AmbientMotes(seed);
     }
 
     /// <summary>
@@ -57,14 +70,37 @@ public sealed class WorldScene : IDisposable
     /// a hladina by byla ze skla — tedy přesně ty věci, kvůli kterým se
     /// natáčí video a ne screenshot.
     /// </summary>
-    public void Update(float dt, Simulation simulation)
+    /// <param name="camera">
+    /// Odkud se právě dívá — poletující částice žijí ve světových
+    /// souřadnicích a zabalují se kolem výřezu, takže musí vědět, kde ten
+    /// výřez je. Bez kamery by se rozsypaly kolem počátku a u města postaveného
+    /// jinde by na snímku nebyly.
+    /// </param>
+    public void Update(float dt, Simulation simulation, Camera2D camera)
     {
         _water.Update(dt);
         _urbanGround.Update(dt, simulation);
         _ambient.Update(dt);
         _lights.Update(dt);
         _buildings.Update(dt);
+        _decorations.Update(dt);
+        _mist.Update(dt);
+        _cloudShadows.Update(dt);
+        _cloudLayer.Update(dt);
+        _godRays.Update(dt);
+
+        var season = simulation.CurrentSeason;
+        var (min, max) = camera.VisibleWorldBounds();
+        _motes.Update(
+            dt, min, max,
+            (float)(season?.MoteDensity ?? 0.0), (float)(season?.MoteFall ?? 0.0),
+            WindX, WindY);
     }
+
+    /// <summary>Směr větru. Tentýž jako ve hře, jinak by kouř letěl jinam než mraky.</summary>
+    private const float WindX = 0.94f;
+
+    private const float WindY = 0.34f;
 
     /// <summary>Vykreslí svět. Volající si řídí render target i kameru.</summary>
     public void Draw(Camera2D camera, Simulation simulation, Viewport viewport)
@@ -80,10 +116,16 @@ public sealed class WorldScene : IDisposable
             Rendering.SeasonGround.From(simulation.CurrentSeason));
         _water.Draw(spriteBatch, camera, simulation);
         _decorations.Draw(spriteBatch, camera, simulation.Terrain);
+        _mist.Draw(spriteBatch, camera, simulation.Terrain, ValleyMistRenderer.Density(simulation.TimeOfDay01));
         _urbanGround.Draw(spriteBatch, camera);
         _roads.Draw(spriteBatch, camera, simulation);
         _buildings.Draw(spriteBatch, camera, simulation);
         _ambient.Draw(spriteBatch, camera, simulation);
+
+        // Stíny mraků nad vším, co na zemi stojí, ale pod osvětlením: stín je
+        // ubrané světlo, a v noci není co ubírat.
+        float coverage = CloudCoverage(simulation);
+        _cloudShadows.Draw(spriteBatch, camera, viewport, coverage, WindX, WindY);
 
         // Světlo až nakonec, přes hotovou scénu — stejným násobičem jako ve hře.
         // Kdyby si focení počítalo vlastní, vypadal by snímek jinak než hra,
@@ -95,7 +137,36 @@ public sealed class WorldScene : IDisposable
 
         // Lampy a okna až nad osvětlením — jsou to zdroje světla, ne plocha.
         _lights.Draw(spriteBatch, camera, simulation, DayNightCycle.NightFactor(timeOfDay));
+
+        // Co letí vzduchem, jde úplně nakonec: je to mezi kamerou a městem,
+        // takže to nemá co zastínit.
+        if (simulation.CurrentSeason is { HasMotes: true } motesSeason)
+        {
+            _motes.Draw(spriteBatch, camera, _screens.WhitePixel, motesSeason.MoteColor!.Value.ToXna());
+        }
+
+        _cloudLayer.Draw(spriteBatch, camera, viewport, coverage, WindX, WindY, light);
+        _godRays.Draw(spriteBatch, viewport, DayNightCycle.DuskFactor(timeOfDay), light);
     }
 
-    public void Dispose() => _terrain.Dispose();
+    /// <summary>
+    /// Kolik oblohy zabírají mraky. Odvozeno z počasí stejně jako ve hře —
+    /// kdyby si focení počítalo vlastní, byl by na fotce jiný den.
+    /// </summary>
+    private float CloudCoverage(Simulation simulation)
+    {
+        var weather = _screens.Content.Weather;
+        int index = simulation.CurrentWeatherIndex;
+        float overcast = index >= 0 && index < weather.Count ? (float)weather[index].TintAlpha : 0f;
+        return Math.Clamp(0.35f + overcast, 0f, 1f);
+    }
+
+    public void Dispose()
+    {
+        _terrain.Dispose();
+        _mist.Dispose();
+        _cloudShadows.Dispose();
+        _cloudLayer.Dispose();
+        _godRays.Dispose();
+    }
 }
