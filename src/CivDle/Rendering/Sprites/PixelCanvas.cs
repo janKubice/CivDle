@@ -109,6 +109,62 @@ public sealed class PixelCanvas
         }
     }
 
+    /// <summary>
+    /// Obtáhne siluetu: krajní pixely kresby ztmaví.
+    ///
+    /// <para><b>Proč to obrázek potřebuje:</b> budova ležela na terénu bez
+    /// hranice. Střecha o podobném jasu jako tráva pod ní splynula a z bloku
+    /// domů byla skvrna — oko nemělo za co chytit tvar. Tmavší okraj je
+    /// nejstarší trik pixel artu a dělá přesně tohle: odlepí objekt od pozadí,
+    /// ať je pozadí jakékoli.</para>
+    ///
+    /// <para>Ztmavuje se <b>uvnitř</b> siluety, nepřidává se prstenec ven —
+    /// obrázek tím nemění velikost ani se nemusí kreslit vícekrát. A dělá se
+    /// to při stavbě spritu, takže za běhu nestojí nic; obtahování čtyřmi
+    /// kresbami navíc by v husté zástavbě bylo cítit.</para>
+    ///
+    /// <para>Za okrajem plátna se počítá prázdno, takže lem dostane i kresba,
+    /// která plátno vyplní celé — dvě takové budovy vedle sebe by jinak
+    /// splynuly v jednu.</para>
+    /// </summary>
+    /// <param name="strength">Jak moc lem ztmavne (0 = nic, 1 = do černa).</param>
+    public void Outline(float strength)
+    {
+        var source = (Color[])_pixels.Clone();
+        float keep = 1f - Math.Clamp(strength, 0f, 1f);
+
+        for (int y = 0; y < Height; y++)
+        {
+            for (int x = 0; x < Width; x++)
+            {
+                int i = y * Width + x;
+
+                // Průsvitné pixely se neobtahují. Stín pod stromem je taky
+                // kresba — obtáhnout ho by znamenalo tmavý prstenec kolem
+                // stínu, tedy přesně ten „nálepkový" dojem, proti kterému
+                // obrys je.
+                if (source[i].A < Solid || !IsOnRim(source, x, y))
+                {
+                    continue;
+                }
+
+                var c = _pixels[i];
+                _pixels[i] = new Color((int)(c.R * keep), (int)(c.G * keep), (int)(c.B * keep), c.A);
+            }
+        }
+    }
+
+    /// <summary>Od jaké krytí se pixel počítá za tělo kresby, ne za stín či závoj.</summary>
+    private const byte Solid = 200;
+
+    /// <summary>Sousedí pixel s prázdnem, s průsvitem, nebo s okrajem plátna?</summary>
+    private bool IsOnRim(Color[] source, int x, int y) =>
+        IsEmpty(source, x - 1, y) || IsEmpty(source, x + 1, y)
+        || IsEmpty(source, x, y - 1) || IsEmpty(source, x, y + 1);
+
+    private bool IsEmpty(Color[] source, int x, int y) =>
+        x < 0 || x >= Width || y < 0 || y >= Height || source[y * Width + x].A < Solid;
+
     public Texture2D ToTexture(GraphicsDevice device)
     {
         var texture = new Texture2D(device, Width, Height);

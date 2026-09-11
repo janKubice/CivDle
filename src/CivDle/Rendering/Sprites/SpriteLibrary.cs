@@ -431,10 +431,38 @@ public sealed class SpriteLibrary : IDisposable
         _sprites.Clear();
     }
 
+    /// <summary>
+    /// O kolik ztmavne obrys kolem siluety budov a stromů.
+    ///
+    /// <para>Čtvrtina stačí: silnější lem už vypadá jako komiksová linka
+    /// a v husté zástavbě se ze střech stane mřížka. Slabší a splyne s běžným
+    /// stínováním, takže by se objekt od pozadí neodlepil — což je celý
+    /// důvod, proč obrys je.</para>
+    /// </summary>
+    private const float OutlineStrength = 0.26f;
+
+    /// <summary>
+    /// Které předpony obrys dostanou.
+    ///
+    /// <para>Jen věci, které na terénu <b>stojí</b>. Ikonám v HUD by lem jen
+    /// ubral čitelnost (leží na panelu, ne na trávě), a u drobností na zemi
+    /// by z trsu trávy udělal černou tečku — ta je tři pixely široká, takže
+    /// by byl obrys celý trs.</para>
+    /// </summary>
+    private static readonly string[] OutlinedPrefixes = { "building.", "deco.", "attacker.", "landmark." };
+
     private void Add(GraphicsDevice device, string id, int size, Action<PixelCanvas> draw)
     {
         var canvas = new PixelCanvas(size, size);
         draw(canvas);
+
+        // Obrys se zapeče do obrázku, ne kreslí za běhu: obtáhnout siluetu
+        // čtyřmi kresbami navíc by v husté zástavbě bylo cítit, takhle to
+        // nestojí nic. Malé drobnosti se vynechají — viz OutlinedPrefixes.
+        if (size >= OutlineMinSize && OutlinedPrefixes.Any(prefix => id.StartsWith(prefix, StringComparison.Ordinal)))
+        {
+            canvas.Outline(OutlineStrength);
+        }
 
         // Jediné místo, kde se srovnává paleta. Sprity se kreslí dál po svém;
         // tenhle jeden řádek zajistí, že se všechny trefí do téhož nádechu —
@@ -442,6 +470,12 @@ public sealed class SpriteLibrary : IDisposable
         canvas.SnapToPalette();
         _sprites[id] = canvas.ToTexture(device);
     }
+
+    /// <summary>
+    /// Pod tuhle velikost se neobtahuje. Na šestnácti pixelech je lem kolem
+    /// dokola šestina plochy a z kresby zbyde tmavý obrys s náplní.
+    /// </summary>
+    private const int OutlineMinSize = 24;
 
     /// <summary>
     /// Načte sprity z modů: <c>mods/&lt;mod&gt;/sprites/&lt;id&gt;.png</c> se
