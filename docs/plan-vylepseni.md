@@ -1065,7 +1065,31 @@ jen obraz. Dvě věci to ale vyžádalo:
 Proto je výška **opt-in v datech**: platí se zakrýváním, a to se u mrakodrapu
 vyplatí, u pole ne.
 
-### 8.6 Co se vědomě neudělalo
+### 8.6 Fotka a video musí ukazovat tutéž hru
+
+Focení a natáčení mají vlastní sadu rendererů (`WorldScene`), aby nesahaly do
+těch, které patří obrazovce. Cena za to je, že každá nová vrstva se musí přidat
+**dvakrát** — a zrovna tady na tom záleží nejvíc, protože zadání znělo „na
+trailer to nevypadá good". Atmosféra se proto propsala i sem: mlha, stíny
+mraků, mraky nad městem, paprsky, poletující listí, období na zemi. Vítr
+i oblačnost se berou ze stejného zdroje jako ve hře; kdyby si focení počítalo
+vlastní, byl by na fotce jiný den.
+
+### 8.7 Panely rozhraní
+
+HUD je v každém screenshotu, takže je to jediná věc, kterou divák uvidí, i když
+se na hru dívá pět vteřin. Panely byly plné obdélníky na osmačtyřiceti místech;
+plná plocha nemá povrch, nedá se z ní poznat, co je nahoře a co dole. Společný
+štětec jim dal svislý přechod, světlou linku nahoře a tmavou dole — tentýž trik
+jako u silnic a u brázd na poli.
+
+Cestou se našly **čtyři** místa, kde obě větve podmínky vracely tutéž barvu:
+zamčený stupeň automatického vylepšování, zapnutá politika, splněný úspěch
+a zapnutá modlitba. Všude se stav dal poznat jen z textu. Je to tichá chyba
+téhož druhu jako lišta, která se nepřestavovala — nic nespadne, jen rozhraní
+neříká, co má.
+
+### 8.8 Co se vědomě neudělalo
 
 * **Vlastní písmo.** V repozitáři žádné není a přibalit ho znamená vybrat
   licenci a nést nový soubor. Rozhodnutí pro člověka, ne pro commit.
