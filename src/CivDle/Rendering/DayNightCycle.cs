@@ -160,6 +160,110 @@ public static class DayNightCycle
         spriteBatch.End();
     }
 
+    /// <summary>
+    /// Barva světla, kterou se <b>násobí</b> hotová scéna — grading, noc
+    /// i roční období v jednom čísle.
+    ///
+    /// <para><b>Proč násobit a ne překrývat.</b> Dosud se přes obraz táhly tři
+    /// průhledné obdélníky (nádech období, grading, tma noci). Průhledný
+    /// obdélník míchá každý pixel směrem k sobě, takže tmavá místa zesvětlí
+    /// stejně jako světlá ztmaví — kontrast plošně klesá a obraz zmléční.
+    /// Násobení dělá pravý opak: tmavé ztmaví víc než světlé, přesně jako když
+    /// zapadne slunce. Táž barva, opačný účinek na obraz.</para>
+    ///
+    /// <para>Tři vrstvy se skládají do jedné proto, že tři průhledné obdélníky
+    /// znamenaly tři plné přetažení obrazovky za snímek — a hlavně se jejich
+    /// pořadí muselo hlídat ručně.</para>
+    /// </summary>
+    public static Color LightColor(double timeOfDay01, DayNightConfig config, SeasonDef? season)
+    {
+        var light = Vector3.One;
+
+        // Grading: barva světla, které zbývá. Síla z Grade() je krytí závoje,
+        // takže se používá jako míra, jak daleko od bílé se posunout.
+        var (gradeColor, gradeAlpha) = Grade(timeOfDay01);
+        if (gradeAlpha > 0.001f)
+        {
+            light *= Vector3.Lerp(Vector3.One, gradeColor.ToVector3(), gradeAlpha * GradeReach);
+        }
+
+        // Roční období.
+        if (season is { TintAlpha: > 0.001 })
+        {
+            light *= Vector3.Lerp(Vector3.One, season.TintColor.ToXna().ToVector3(), (float)season.TintAlpha);
+        }
+
+        // Soumrak a noc: nejdřív zlatavý nádech, pak ztmavení do modra.
+        float dusk = DuskFactor(timeOfDay01);
+        if (dusk > 0.001f)
+        {
+            light *= Vector3.Lerp(Vector3.One, config.DuskColor.ToXna().ToVector3(), (float)(config.DuskAlpha * dusk));
+        }
+
+        float night = NightFactor(timeOfDay01);
+        if (night > 0.001f)
+        {
+            // Noc nesmí spadnout na čerň: z násobení nulou už nic nevytáhne ani
+            // pouliční lampa. Zbytek světla je měsíc.
+            var nightColor = config.NightColor.ToXna().ToVector3();
+            float strength = (float)(config.NightAlpha * night);
+            light *= Vector3.Lerp(Vector3.One, Vector3.Lerp(nightColor, Vector3.Zero, 0.35f), strength);
+            light = Vector3.Max(light, new Vector3(MinimumLight));
+        }
+
+        return new Color(light);
+    }
+
+    /// <summary>
+    /// Vynásobí hotovou scénu barvou světla.
+    ///
+    /// <para>Jedno místo pro celou hru: totéž potřebuje herní obrazovka
+    /// i focení do obchodu, a kdyby si to každá dělala po svém, vypadal by
+    /// screenshot jinak než hra, ze které vznikl.</para>
+    /// </summary>
+    public static void DrawLight(SpriteBatch spriteBatch, Texture2D pixel, Viewport viewport, Color light)
+    {
+        if (light == Color.White)
+        {
+            return; // poledne: násobit jedničkou je zbytečné přetažení obrazovky
+        }
+
+        spriteBatch.Begin(blendState: MultiplyBlend, samplerState: SamplerState.PointClamp);
+        spriteBatch.Draw(pixel, new Rectangle(0, 0, viewport.Width, viewport.Height), light);
+        spriteBatch.End();
+    }
+
+    /// <summary>
+    /// Vynásobí cíl zdrojem — z barvy světla a scény udělá osvětlenou scénu.
+    /// Průhledný obdélník by místo toho kontrast rozpustil.
+    /// </summary>
+    public static BlendState MultiplyBlend { get; } = new()
+    {
+        ColorSourceBlend = Blend.DestinationColor,
+        ColorDestinationBlend = Blend.Zero,
+        AlphaSourceBlend = Blend.DestinationAlpha,
+        AlphaDestinationBlend = Blend.Zero,
+    };
+
+    /// <summary>
+    /// Kolikrát silněji se grading projeví jako násobič než jako závoj.
+    ///
+    /// <para>Krytí závoje bylo schválně malé (do 12 %), protože závoj kontrast
+    /// ničí. Násobič ho naopak drží, takže si může dovolit víc — jinak by po
+    /// převodu byla zlatá hodina sotva vidět.</para>
+    /// </summary>
+    private const float GradeReach = 2.2f;
+
+    /// <summary>Nejtmavší, na co smí noc scénu stáhnout. Pod tím přestane být vidět tvar.</summary>
+    private const float MinimumLight = 0.22f;
+
+    /// <summary>
+    /// Jak silná má být záře. V noci nejvíc — okna a lampy jsou pak jediné
+    /// světlo v obraze a mají zářit; v poledni by ze všeho dělala mlhu.
+    /// </summary>
+    public static float BloomStrength(double timeOfDay01) =>
+        0.12f + 0.38f * NightFactor(timeOfDay01);
+
     private static float SmoothStep(float t)
     {
         t = Math.Clamp(t, 0f, 1f);

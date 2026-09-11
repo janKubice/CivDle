@@ -81,13 +81,15 @@ public sealed class WorldScene : IDisposable
         _buildings.Draw(spriteBatch, camera, simulation);
         _ambient.Draw(spriteBatch, camera, simulation);
 
-        // Světlo až nakonec, přes hotovou scénu — stejné pořadí jako ve hře.
+        // Světlo až nakonec, přes hotovou scénu — stejným násobičem jako ve hře.
+        // Kdyby si focení počítalo vlastní, vypadal by snímek jinak než hra,
+        // ze které vznikl.
         double timeOfDay = simulation.TimeOfDay01;
-        DayNightCycle.DrawSeasonTint(spriteBatch, _screens.WhitePixel, viewport, simulation.CurrentSeason);
-        DayNightCycle.DrawGrade(spriteBatch, _screens.WhitePixel, viewport, timeOfDay);
-        DayNightCycle.DrawOverlay(
-            spriteBatch, _screens.WhitePixel, viewport,
-            _screens.Content.Gameplay.DayNight, timeOfDay);
+        var light = DayNightCycle.LightColor(
+            timeOfDay, _screens.Content.Gameplay.DayNight, simulation.CurrentSeason);
+        DayNightCycle.DrawLight(spriteBatch, _screens.WhitePixel, viewport, light);
+
+        // Lampy a okna až nad osvětlením — jsou to zdroje světla, ne plocha.
         _lights.Draw(spriteBatch, camera, simulation, DayNightCycle.NightFactor(timeOfDay));
     }
 

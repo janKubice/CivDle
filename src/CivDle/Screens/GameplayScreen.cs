@@ -178,6 +178,15 @@ public sealed class GameplayScreen : IScreen
     /// <summary>Výzdoba slavnosti — girlandy a stoupající lampiony.</summary>
     private readonly FestivalRenderer _festival;
 
+    /// <summary>Čím se vyplní scéna pod terénem — okraje nekonečné mapy.</summary>
+    private static readonly Color SceneBackground = new(24, 26, 32);
+
+    /// <summary>
+    /// Skládá hotový obraz: scéna do textury, pak osvětlení a záře.
+    /// Bez něj by se s obrazem nedalo po nakreslení dělat vůbec nic.
+    /// </summary>
+    private readonly SceneComposer _composer;
+
     /// <summary>Značky anomálií na mapě.</summary>
     private readonly PoiRenderer _poiRenderer;
 
@@ -470,6 +479,7 @@ public sealed class GameplayScreen : IScreen
         _carillon.Resync(simulation); // načtená hra nemá uvítat melodií za dávnou slavnost
         _festival = new FestivalRenderer(screens.WhitePixel);
         _poiRenderer = new PoiRenderer(screens.Sprites, screens.WhitePixel);
+        _composer = new SceneComposer(screens.GraphicsDevice);
         _raftRenderer = new RaftRenderer(screens.Sprites, screens.WhitePixel);
         _cityAudio = new Audio.SpatialSoundscape(screens.Content);
 
@@ -738,6 +748,12 @@ public sealed class GameplayScreen : IScreen
     public void Draw(GameTime gameTime)
     {
         var spriteBatch = _screens.SpriteBatch;
+
+        // Svět se kreslí do textury, ne rovnou na obrazovku. Teprve nad hotovým
+        // obrazem se dá udělat osvětlení a záře — do backbufferu se maximálně
+        // přetáhne průhledný obdélník, a ten kontrast dusí místo aby ho tvaroval.
+        _composer.Begin(SceneBackground);
+
         _terrainRenderer.Draw(
             spriteBatch, _camera, _simulation.Terrain,
             _simulation.BiomeOverrideMap, _simulation.TerrainRevision);
@@ -829,20 +845,18 @@ public sealed class GameplayScreen : IScreen
         _cityPulse.Draw(spriteBatch);
         spriteBatch.End();
 
-        // Nádech období pod den/noc — hráč pozná zimu dřív, než se podívá do HUD.
-        DayNightCycle.DrawSeasonTint(
-            spriteBatch, _screens.WhitePixel, _screens.GraphicsDevice.Viewport, _simulation.CurrentSeason);
-
-        // Barva denního světla (teplé ráno → bílé poledne → modrofialový večer).
-        // Pod ztmavením noci: tohle je barva světla, které ještě zbývá.
+        // Tady svět končí. Období, denní doba i noc se složily do JEDNÉ barvy,
+        // kterou se hotová scéna vynásobí — místo tří průhledných obdélníků
+        // přes sebe. Násobení tvar zachová, závoj ho rozpouštěl.
         double timeOfDay = _simulation.TimeOfDay01;
-        DayNightCycle.DrawGrade(
-            spriteBatch, _screens.WhitePixel, _screens.GraphicsDevice.Viewport, timeOfDay);
+        var light = DayNightCycle.LightColor(
+            timeOfDay, _screens.Content.Gameplay.DayNight, _simulation.CurrentSeason);
 
-        // Den/noc: ztmavení scény a pak aditivní světla, ať září skrz tmu.
-        DayNightCycle.DrawOverlay(
-            spriteBatch, _screens.WhitePixel, _screens.GraphicsDevice.Viewport,
-            _screens.Content.Gameplay.DayNight, timeOfDay);
+        _composer.Compose(
+            spriteBatch, _screens.WhitePixel, light, DayNightCycle.BloomStrength(timeOfDay));
+
+        // Lampy a okna až NAD osvětlením: jsou to zdroje světla, takže je noc
+        // nemá co ztmavovat. Dřív se topily ve tmě spolu se vším ostatním.
         _lightsRenderer.Draw(spriteBatch, _camera, _simulation, DayNightCycle.NightFactor(timeOfDay));
 
         // Duch pod kurzorem — co přesně se kreslí, ví MapTools; obrazovka to jen zobrazí.
@@ -1359,6 +1373,7 @@ public sealed class GameplayScreen : IScreen
     {
         _screens.Loc.LanguageChanged -= BuildUi;
         _screens.UiSettingsChanged -= BuildUi;
+        _composer.Dispose();
         _terrainRenderer.Dispose();
         _cityScale.Dispose(); // upečené textury hustoty
         _minimap.Dispose();
