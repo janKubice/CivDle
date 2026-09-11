@@ -257,7 +257,7 @@ internal sealed class ObjectiveTracker
 
         var card = new Panel
         {
-            Background = new SolidBrush(UiPalette.PanelDeep),
+            Background = new PanelBrush(UiPalette.PanelDeep),
             Border = new SolidBrush(UiFactory.Accent * 0.55f),
             BorderThickness = new Thickness(1),
             Padding = new Thickness(10, 8),

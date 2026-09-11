@@ -126,7 +126,7 @@ public sealed class OnlineStatusScreen : IScreen
             Spacing = 2,
             Width = PanelWidth - 40,
             Padding = new Thickness(10, 6),
-            Background = new SolidBrush(UiPalette.Panel),
+            Background = new PanelBrush(UiPalette.Panel),
         };
 
         var header = new HorizontalStackPanel { Spacing = 8 };

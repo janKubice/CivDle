@@ -303,7 +303,7 @@ public sealed class CityScreen : IScreen
                     // vlastně nastavené, dokud cestu nepostaví.
                     if (index == _originIndex)
                     {
-                        button.Background = new SolidBrush(UiPalette.PanelAccent);
+                        button.Background = new PanelBrush(UiPalette.PanelAccent);
                     }
 
                     row.Widgets.Add(button);
@@ -376,7 +376,7 @@ public sealed class CityScreen : IScreen
     {
         var panel = new Panel
         {
-            Background = new SolidBrush(UiPalette.Panel),
+            Background = new PanelBrush(UiPalette.Panel),
             Padding = new Thickness(14, 12),
         };
         panel.Widgets.Add(content);

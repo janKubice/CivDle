@@ -134,7 +134,7 @@ public sealed class TimelapseListScreen : IScreen
             Spacing = 3,
             Width = 492,
             Padding = new Thickness(12, 8),
-            Background = new Myra.Graphics2D.Brushes.SolidBrush(UiPalette.Panel),
+            Background = new PanelBrush(UiPalette.Panel),
         };
         row.Widgets.Add(new Label
         {

@@ -60,7 +60,7 @@ internal static class UiFactory
             Width = MenuButtonWidth,
             Height = MenuButtonHeight,
             HorizontalAlignment = HorizontalAlignment.Center,
-            Background = new SolidBrush(UiPalette.Panel),
+            Background = new PanelBrush(UiPalette.Panel),
             Tooltip = explanation,
             Enabled = false,
         };
@@ -127,7 +127,7 @@ internal static class UiFactory
     {
         var backdrop = new Panel
         {
-            Background = new SolidBrush(UiPalette.PanelDeep),
+            Background = new PanelBrush(UiPalette.PanelDeep),
             Border = new SolidBrush(new Color(90, 120, 150, 150)),
             BorderThickness = new Thickness(1),
             Padding = new Thickness(36, 28),
@@ -233,7 +233,7 @@ internal static class UiFactory
             TextColor = Color.White,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Top,
-            Background = new SolidBrush(UiPalette.PanelBad),
+            Background = new PanelBrush(UiPalette.PanelBad),
             Padding = new Thickness(4, 1),
             Visible = false,
         };

@@ -143,7 +143,7 @@ public sealed class LeaderboardScreen : IScreen
             Width = PanelWidth - 24,
             Height = RowHeight,
             Padding = new Thickness(8, 4),
-            Background = new SolidBrush(UiPalette.Panel),
+            Background = new PanelBrush(UiPalette.Panel),
         };
 
         long current = CurrentValue(board.Id);

@@ -185,7 +185,7 @@ public sealed class ControlsScreen : IScreen
             Spacing = 8,
             Width = PanelWidth - 50,
             Padding = new Thickness(8, 4),
-            Background = new SolidBrush(UiPalette.Panel),
+            Background = new PanelBrush(UiPalette.Panel),
         };
 
         row.Widgets.Add(new Label

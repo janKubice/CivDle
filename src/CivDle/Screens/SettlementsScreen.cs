@@ -235,7 +235,7 @@ public sealed class SettlementsScreen : IScreen
             Content = caption,
             Width = 600,
             Padding = new Thickness(14, 10),
-            Background = new SolidBrush(UiPalette.Panel),
+            Background = new PanelBrush(UiPalette.Panel),
             Tooltip = loc["npc.openTip"],
         };
         button.Click += (_, _) => _screens.Push(new CityScreen(_screens, _simulation, _camera, city));
@@ -246,7 +246,7 @@ public sealed class SettlementsScreen : IScreen
     {
         var panel = new Panel
         {
-            Background = new Myra.Graphics2D.Brushes.SolidBrush(UiPalette.Panel),
+            Background = new PanelBrush(UiPalette.Panel),
             Padding = new Thickness(10, 8),
         };
         panel.Widgets.Add(content);
@@ -303,7 +303,7 @@ public sealed class SettlementsScreen : IScreen
             Content = caption,
             Width = 440,
             Padding = new Thickness(12, 8),
-            Background = new SolidBrush(UiPalette.Panel),
+            Background = new PanelBrush(UiPalette.Panel),
         };
         button.Click += (_, _) => JumpTo(settlement);
 

@@ -182,7 +182,7 @@ public sealed class ModEditorScreen : IScreen
 
             if (i == _typeIndex)
             {
-                button.Background = new SolidBrush(UiPalette.PanelAccent);
+                button.Background = new PanelBrush(UiPalette.PanelAccent);
             }
 
             row.Widgets.Add(button);
@@ -498,7 +498,7 @@ public sealed class ModEditorScreen : IScreen
             Spacing = 5,
             Width = PanelWidth - 24,
             Padding = new Thickness(12, 8),
-            Background = new SolidBrush(UiPalette.Panel),
+            Background = new PanelBrush(UiPalette.Panel),
         };
         box.Widgets.Add(new Label { Text = title, TextColor = UiFactory.Accent });
         return box;

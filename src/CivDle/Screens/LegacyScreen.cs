@@ -225,7 +225,7 @@ public sealed class LegacyScreen : IScreen
             Spacing = 4,
             Width = PanelWidth - 24,
             Padding = new Thickness(12, 8),
-            Background = new SolidBrush(UiPalette.Panel),
+            Background = new PanelBrush(UiPalette.Panel),
         };
 
         long points = _simulation.PendingLegacyPoints();
@@ -277,7 +277,7 @@ public sealed class LegacyScreen : IScreen
             Spacing = 3,
             Width = PanelWidth - 24,
             Padding = new Thickness(12, 8),
-            Background = new SolidBrush(UiPalette.Panel),
+            Background = new PanelBrush(UiPalette.Panel),
         };
         row.Widgets.Add(new Label { Text = loc[upgrade.NameKey], TextColor = UiPalette.TextBright });
         row.Widgets.Add(new Label { Text = loc[upgrade.DescriptionKey], TextColor = Color.LightGray, Wrap = true });
@@ -318,7 +318,7 @@ public sealed class LegacyScreen : IScreen
             },
             Padding = new Thickness(14, 5),
             HorizontalAlignment = HorizontalAlignment.Left,
-            Background = new SolidBrush(UiPalette.Panel),
+            Background = new PanelBrush(UiPalette.Panel),
             Enabled = status == PlacementResult.Ok,
         };
         button.Click += (_, _) =>

@@ -315,7 +315,7 @@ public sealed class ChainsScreen : IScreen
                 Spacing = 2,
                 Width = PanelWidth - 60,
                 Padding = new Thickness(10, 5),
-                Background = new SolidBrush(UiPalette.Panel),
+                Background = new PanelBrush(UiPalette.Panel),
             };
 
             row.Widgets.Add(new Label

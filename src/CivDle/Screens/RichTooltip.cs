@@ -55,7 +55,7 @@ internal static class RichTooltip
         return new Panel
         {
             Padding = new Thickness(10, 8),
-            Background = new SolidBrush(UiPalette.PanelDeep),
+            Background = new PanelBrush(UiPalette.PanelDeep),
             Border = new SolidBrush(UiPalette.AccentDim),
             BorderThickness = new Thickness(1),
             Widgets = { rows },

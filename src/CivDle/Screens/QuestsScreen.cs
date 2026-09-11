@@ -127,7 +127,7 @@ public sealed class QuestsScreen : IScreen
 
         var panel = new Panel
         {
-            Background = new SolidBrush(UiPalette.Panel),
+            Background = new PanelBrush(UiPalette.Panel),
             Border = new SolidBrush(UiPalette.TextBright * 0.5f),
             BorderThickness = new Thickness(1),
             Padding = new Thickness(10, 8),
@@ -331,7 +331,7 @@ public sealed class QuestsScreen : IScreen
 
         var panel = new Panel
         {
-            Background = new SolidBrush(UiPalette.PanelDeep),
+            Background = new PanelBrush(UiPalette.PanelDeep),
             Border = new SolidBrush(UiFactory.Accent * 0.55f),
             BorderThickness = new Thickness(1),
             Padding = new Thickness(10, 8),
@@ -443,7 +443,7 @@ public sealed class QuestsScreen : IScreen
             Spacing = 3,
             Width = 440,
             Padding = new Thickness(12, 8),
-            Background = new SolidBrush(UiPalette.Panel),
+            Background = new PanelBrush(UiPalette.Panel),
         };
         row.Widgets.Add(new Label { Text = name, TextColor = UiFactory.Accent });
         row.Widgets.Add(new Label { Text = desc, TextColor = Color.LightGray, Wrap = true });
@@ -472,7 +472,7 @@ public sealed class QuestsScreen : IScreen
             Spacing = 8,
             Width = 440,
             Padding = new Thickness(12, 6),
-            Background = new SolidBrush(UiPalette.Panel),
+            Background = new PanelBrush(UiPalette.Panel),
         };
         row.Widgets.Add(new Label { Text = name, TextColor = UiPalette.TextDim });
         row.Widgets.Add(new Label { Text = loc["quest.done"], TextColor = Color.LightGreen });

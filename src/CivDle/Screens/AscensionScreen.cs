@@ -256,7 +256,7 @@ public sealed class AscensionScreen : IScreen
             Padding = new Thickness(10, 8),
             Width = PanelWidth - 40,
             HorizontalAlignment = HorizontalAlignment.Center,
-            Background = new SolidBrush(UiPalette.Panel),
+            Background = new PanelBrush(UiPalette.Panel),
         };
 
         box.Widgets.Add(new Label
@@ -333,7 +333,7 @@ public sealed class AscensionScreen : IScreen
 
             if (size == _batch)
             {
-                button.Background = new SolidBrush(UiPalette.PanelAccent);
+                button.Background = new PanelBrush(UiPalette.PanelAccent);
             }
 
             row.Widgets.Add(button);
@@ -454,7 +454,7 @@ public sealed class AscensionScreen : IScreen
             Spacing = 4,
             Width = RowWidth,
             Padding = new Thickness(16, 12),
-            Background = new SolidBrush(UiPalette.Panel),
+            Background = new PanelBrush(UiPalette.Panel),
             Border = new SolidBrush(new Color(120, 96, 180, 160)),
             BorderThickness = new Thickness(1),
         };
@@ -614,7 +614,7 @@ public sealed class AscensionScreen : IScreen
             },
             Padding = new Thickness(14, 5),
             HorizontalAlignment = HorizontalAlignment.Left,
-            Background = new SolidBrush(UiPalette.PanelAccent),
+            Background = new PanelBrush(UiPalette.PanelAccent),
             Enabled = status == PlacementResult.Ok,
         };
         button.Click += (_, _) => BuyBatch(upgradeIndex);

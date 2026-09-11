@@ -126,7 +126,7 @@ public sealed class DoctrinesScreen : IScreen
             Spacing = 4,
             Width = PanelWidth - 50,
             Padding = new Thickness(12, 8),
-            Background = new SolidBrush(UiPalette.PanelDeep),
+            Background = new PanelBrush(UiPalette.PanelDeep),
         };
 
         card.Widgets.Add(new Label { Text = loc[doctrine.NameKey], TextColor = UiPalette.TextBright });

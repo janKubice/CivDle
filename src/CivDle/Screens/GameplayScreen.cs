@@ -3253,7 +3253,7 @@ public sealed class GameplayScreen : IScreen
                 _screens.Content.Gameplay.Boost.DurationSeconds,
                 _screens.Content.Gameplay.Boost.CooldownSeconds),
             () => _simulation.TryStartBoost());
-        _festivalButton.Background = new SolidBrush(UiPalette.PanelBad);
+        _festivalButton.Background = new PanelBrush(UiPalette.PanelBad);
         if (_simulation.IsFeatureUnlocked("festival"))
         {
             row.Widgets.Add(_festivalButton);
@@ -4151,7 +4151,7 @@ public sealed class GameplayScreen : IScreen
         {
             Content = caption,
             Padding = new Thickness(10, 6),
-            Background = new SolidBrush(UiPalette.Panel),
+            Background = new PanelBrush(UiPalette.Panel),
             // Popisek u kurzoru se skládá z definice — nová budova v JSON má
             // vysvětlení hned, bez ručně psaného textu.
             Tooltip = BuildingSummary.Describe(content, loc, def),

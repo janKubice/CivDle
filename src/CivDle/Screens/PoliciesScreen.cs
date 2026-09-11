@@ -250,7 +250,7 @@ public sealed class PoliciesScreen : IScreen
             Spacing = 5,
             Width = 436,
             Padding = new Thickness(12, 8),
-            Background = new SolidBrush(UiPalette.Panel),
+            Background = new PanelBrush(UiPalette.Panel),
         };
         box.Widgets.Add(new Label { Text = loc["hud.governor"], TextColor = UiFactory.Accent });
 
@@ -298,8 +298,11 @@ public sealed class PoliciesScreen : IScreen
                 },
                 Width = 44,
                 Height = 32,
-                Background = new SolidBrush(active ? UiPalette.PanelGood
-                    : unlocked ? UiPalette.Panel : UiPalette.Panel),
+                // Zamčený stupeň musí být poznat POZADÍM, ne jen zašedlým textem:
+                // obě větve tu dřív vracely tutéž barvu, takže dostupné
+                // a nedostupné tlačítko vypadalo úplně stejně.
+                Background = new PanelBrush(active ? UiPalette.PanelGood
+                    : unlocked ? UiPalette.Panel : UiPalette.PanelDeep),
             };
             button.Click += (_, _) =>
             {
@@ -424,7 +427,9 @@ public sealed class PoliciesScreen : IScreen
             Spacing = 4,
             Width = 436,
             Padding = new Thickness(12, 8),
-            Background = new SolidBrush(active ? UiPalette.Panel : UiPalette.Panel),
+            // Zapnutá politika má být vidět na první pohled. Obě větve tu dřív
+            // vracely tutéž barvu, takže se stav dal poznat jen z textu tlačítka.
+            Background = new PanelBrush(active ? UiPalette.PanelGood : UiPalette.Panel),
         };
         row.Widgets.Add(new Label
         {

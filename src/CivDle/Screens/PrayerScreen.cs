@@ -187,7 +187,7 @@ public sealed class PrayerScreen : IScreen
 
         var panel = new Panel
         {
-            Background = new SolidBrush(UiPalette.Panel),
+            Background = new PanelBrush(UiPalette.Panel),
             Border = new SolidBrush(UiPalette.TextBright * 0.5f),
             BorderThickness = new Thickness(1),
             Padding = new Thickness(10, 8),
