@@ -470,7 +470,12 @@ public sealed class BuildingRenderer
         {
             var flip = look.Mirrored ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
             spriteBatch.Draw(sprite, body, null, tint, 0f, Vector2.Zero, flip, 0f);
-            if (_snow > 0.001f)
+
+            // Na pole sníh nepadá. Sněhová čepice obkresluje horní třetinu
+            // siluety — u domu to obkreslí střechu, u lánu, který vyplňuje celé
+            // plátno, z toho byla bílá deska přes horní třetinu pole. Pole
+            // nemá střechu a zasněžená zem se stejně kreslí už v terénu.
+            if (_snow > 0.001f && !_sprites.IsFlat($"building.{def.Id}"))
             {
                 _snowCaps.Add(($"building.{def.Id}", body, flip));
             }

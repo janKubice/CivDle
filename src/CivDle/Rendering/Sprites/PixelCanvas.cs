@@ -24,6 +24,47 @@ public sealed class PixelCanvas
     public int Height { get; }
 
     /// <summary>
+    /// Je kresba <b>plochá</b>, tedy leží na zemi místo aby z ní trčela?
+    ///
+    /// <para><b>K čemu to je:</b> v zimě se na sprity sype sníh — na horní
+    /// třetinu siluety. U domu to obkreslí střechu a vypadá to přesně tak, jak
+    /// má. U pole, které vyplňuje celé plátno, z toho ale byla <b>bílá deska</b>
+    /// přes horní třetinu lánu: pole nemá střechu, na kterou by se sníh
+    /// chytil, a zasněžená zem se stejně kreslí už v terénu.</para>
+    ///
+    /// <para>Pozná se to bez dat a bez seznamu výjimek: u kresby se najde
+    /// nejvyšší neprázdný řádek a zjistí se, kolik ho je. Sedlová střecha má
+    /// nahoře hřeben o pár pixelech, plochá střecha skladu většinu šířky, pole
+    /// úplně všechno. Prahem projde jen to poslední.</para>
+    /// </summary>
+    public bool IsFlat
+    {
+        get
+        {
+            for (int y = 0; y < Height; y++)
+            {
+                int covered = 0;
+                for (int x = 0; x < Width; x++)
+                {
+                    if (_pixels[y * Width + x].A > 128)
+                    {
+                        covered++;
+                    }
+                }
+
+                if (covered > 0)
+                {
+                    // Ostrý práh: i plochá střecha skladu má kolem sebe kus
+                    // prázdna, pole nemá nic.
+                    return covered >= Width - 1;
+                }
+            }
+
+            return false; // prázdné plátno; sníh nemá na co padat
+        }
+    }
+
+    /// <summary>
     /// Okna, která sprite kreslí — v jeho vlastních souřadnicích.
     ///
     /// <para><b>Proč to musí být zaznamenané a ne uhodnuté:</b> v noci se okna

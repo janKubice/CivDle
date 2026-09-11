@@ -481,6 +481,15 @@ public sealed class SpriteLibrary : IDisposable
     /// </summary>
     private readonly Dictionary<string, IReadOnlyList<Rectangle>> _windows = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Sprity, které leží na zemi místo aby z ní trčely (pole, plochy).
+    /// Sníh na ně nepadá — viz <see cref="PixelCanvas.IsFlat"/>.
+    /// </summary>
+    private readonly HashSet<string> _flat = new(StringComparer.Ordinal);
+
+    /// <summary>Leží tenhle sprite na zemi? Pak na něj nepatří sněhová čepice.</summary>
+    public bool IsFlat(string id) => _flat.Contains(id);
+
     /// <summary>Okna spritu, nebo prázdný seznam, když žádná nekreslí.</summary>
     public IReadOnlyList<Rectangle> Windows(string id) =>
         _windows.TryGetValue(id, out var list) ? list : Array.Empty<Rectangle>();
@@ -492,6 +501,11 @@ public sealed class SpriteLibrary : IDisposable
         if (canvas.Windows.Count > 0)
         {
             _windows[id] = canvas.Windows;
+        }
+
+        if (canvas.IsFlat)
+        {
+            _flat.Add(id);
         }
 
 
