@@ -373,7 +373,9 @@ public sealed record FaunaDto(
     int Size,
     double Speed,
     string? TimeOfDay,
-    bool Glow);
+    bool Glow,
+    int Herd = 1,
+    bool Shy = false);
 
 /// <summary>Obsah souboru <c>data/vehicles.json</c>.</summary>
 public sealed record VehiclesFileDto(int SchemaVersion, List<VehicleDto>? Vehicles, List<AircraftDto>? Aircraft);

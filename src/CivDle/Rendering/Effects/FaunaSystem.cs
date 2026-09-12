@@ -13,7 +13,21 @@ namespace CivDle.Rendering.Effects;
 /// </summary>
 public sealed class FaunaSystem
 {
-    private const int MaxCritters = 18;
+    /// <summary>
+    /// Strop počtu tvorů. Zvednutý z osmnácti: jakmile chodí zvířata ve
+    /// stádech, spolklo by jedno stádo srnců skoro celý původní strop a na
+    /// zbytek krajiny by nezbylo nic.
+    /// </summary>
+    private const int MaxCritters = 40;
+
+    /// <summary>Na jakou vzdálenost plaché zvíře zaregistruje člověka (world pixely).</summary>
+    private const float FlightRadius = TerrainRenderer.TileSize * 5f;
+
+    /// <summary>Kolikrát rychleji zvíře utíká, než se pase.</summary>
+    private const float FlightSpeedup = 2.6f;
+
+    /// <summary>Jak dlouho po vyplašení ještě běží.</summary>
+    private const float FlightSeconds = 2.2f;
     private const float MinZoom = 0.55f;
     private const float SpawnCooldownSeconds = 0.5f;
     private const float DespawnMargin = 96f;
@@ -25,6 +39,20 @@ public sealed class FaunaSystem
         public int DefIndex;
         public float DirectionTimer;
         public float Phase;
+
+        /// <summary>
+        /// Kolik sekund ještě utíká. Dokud je kladné, drží zvíře směr od toho,
+        /// kdo ho vyplašil, a běží rychleji.
+        /// </summary>
+        public float FleeSeconds;
+
+        /// <summary>
+        /// Kolem kterého bodu se pase. Zvířata se dřív toulala každé po svém
+        /// náhodným směrem — ze stáda by tak během půl minuty byly rozprchlé
+        /// tečky. Střed drží skupinu pohromadě, aniž by se musela počítat
+        /// vzájemná přitažlivost.
+        /// </summary>
+        public Vector2 Anchor;
     }
 
     private readonly GameContent _content;
@@ -36,6 +64,59 @@ public sealed class FaunaSystem
     public FaunaSystem(GameContent content)
     {
         _content = content;
+    }
+
+    /// <summary>Kolik tvorů je na scéně. Pro testy stád.</summary>
+    internal int CountForTests => _count;
+
+    /// <summary>
+    /// Kolik zvířat zrovna utíká. Přímá odpověď na „vyplašilo je něco?" —
+    /// počítat sousedy kolem bodu je na tuhle otázku okliku, protože zvířata
+    /// se kolem něj beztak procházejí sem a tam.
+    /// </summary>
+    internal int FleeingForTests
+    {
+        get
+        {
+            int fleeing = 0;
+            for (int i = 0; i < _count; i++)
+            {
+                if (_critters[i].FleeSeconds > 0f)
+                {
+                    fleeing++;
+                }
+            }
+
+            return fleeing;
+        }
+    }
+
+    /// <summary>Kde tvorové zrovna jsou. Pro testy, které měří útěk.</summary>
+    internal IEnumerable<Vector2> PositionsForTests
+    {
+        get
+        {
+            for (int i = 0; i < _count; i++)
+            {
+                yield return _critters[i].Position;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Kde tvor je a ke kterému stádu patří (střed, kolem něhož se pase).
+    /// Pro test soudržnosti: v obraze je stád víc naráz, takže měřit rozptyl
+    /// přes všechna zvířata dohromady by neměřilo nic.
+    /// </summary>
+    internal IEnumerable<(Vector2 Position, Vector2 Anchor)> HerdsForTests
+    {
+        get
+        {
+            for (int i = 0; i < _count; i++)
+            {
+                yield return (_critters[i].Position, _critters[i].Anchor);
+            }
+        }
     }
 
     public void Update(float dt, Camera2D camera, Simulation simulation)
@@ -91,10 +172,55 @@ public sealed class FaunaSystem
             critter.Position += critter.Velocity * dt;
             critter.Phase += dt;
             critter.DirectionTimer -= dt;
-            if (critter.DirectionTimer <= 0f)
+
+            if (critter.FleeSeconds > 0f)
             {
-                critter.Velocity = RandomDirection() * def.Speed;
-                critter.DirectionTimer = 1.5f + Random.Shared.NextSingle() * 3f;
+                // Útěk: směr se nepřehazuje, dokud zvíře neuklidní. Kdyby si
+                // v běhu losovalo nový, běželo by do kruhu a vypadalo by to
+                // spíš vyděšeně než plaše.
+                critter.FleeSeconds -= dt;
+                if (critter.FleeSeconds <= 0f)
+                {
+                    // Střed stáda se po útěku NEPŘEPISUJE. Kdyby se každé zvíře
+                    // zakotvilo tam, kam doběhlo, rozpadla by se skupina při
+                    // prvním kolemjdoucím natrvalo; takhle se rozprchne a zase
+                    // se sejde, což je přesně to, co dělá stádo.
+                    critter.Velocity = RandomDirection() * def.Speed;
+                    critter.DirectionTimer = GrazeSeconds();
+                }
+            }
+            else
+            {
+                if (def.Shy && NearestPersonWithin(critter.Position, FlightRadius, out var threat))
+                {
+                    var away = critter.Position - threat;
+                    if (away.LengthSquared() < 0.01f)
+                    {
+                        away = RandomDirection();
+                    }
+
+                    away.Normalize();
+                    critter.Velocity = away * def.Speed * FlightSpeedup;
+                    critter.FleeSeconds = FlightSeconds;
+                }
+                else if (critter.DirectionTimer <= 0f)
+                {
+                    // Pastva: krok se losuje, ale zpátky ke středu stáda —
+                    // jinak by se skupina během půl minuty rozprchla na tečky.
+                    var home = critter.Anchor - critter.Position;
+                    bool strayed = home.LengthSquared() > HerdLeashSquared;
+
+                    var direction = strayed
+                        ? Vector2.Normalize(home)
+                        : Vector2.Normalize(RandomDirection() + (home * HerdPull));
+
+                    critter.Velocity = direction * def.Speed;
+
+                    // Kdo se zatoulal, rozmýšlí se častěji. S běžným intervalem
+                    // ušel i na cestě zpátky další kus jiným směrem a stádo se
+                    // pomalu roztahovalo, dokud z něj nebyly rozseté tečky.
+                    critter.DirectionTimer = strayed ? ReturnSeconds() : GrazeSeconds();
+                }
             }
 
             int tileX = (int)MathF.Floor(critter.Position.X / TerrainRenderer.TileSize);
@@ -149,15 +275,92 @@ public sealed class FaunaSystem
         }
 
         int defIndex = _eligibleDefs[Random.Shared.Next(_eligibleDefs.Count)];
-        _critters[_count++] = new Critter
+        var chosen = _content.Fauna[defIndex];
+
+        // Stádo naráz, ne po jednom. Srnec sám uprostřed pláně je tečka;
+        // skupina, která se táhne přes louku, je výjev. Kolik jich chodí
+        // pohromadě, je v datech u druhu — je to vlastnost zvířete, ne algoritmu.
+        var anchor = new Vector2(x, y);
+        int herd = Math.Min(chosen.Herd, MaxCritters - _count);
+
+        for (int i = 0; i < herd; i++)
         {
-            Position = new Vector2(x, y),
-            Velocity = RandomDirection() * _content.Fauna[defIndex].Speed,
-            DefIndex = defIndex,
-            DirectionTimer = 1f + Random.Shared.NextSingle() * 2f,
-            Phase = Random.Shared.NextSingle() * 10f,
-        };
+            var spot = anchor + new Vector2(
+                (Random.Shared.NextSingle() - 0.5f) * HerdSpread,
+                (Random.Shared.NextSingle() - 0.5f) * HerdSpread);
+
+            _critters[_count++] = new Critter
+            {
+                Position = spot,
+                Anchor = anchor,
+                Velocity = RandomDirection() * chosen.Speed,
+                DefIndex = defIndex,
+                DirectionTimer = GrazeSeconds(),
+                Phase = Random.Shared.NextSingle() * 10f,
+            };
+        }
     }
+
+    /// <summary>Jak daleko od sebe se stádo při příchodu rozprostře.</summary>
+    private const float HerdSpread = TerrainRenderer.TileSize * 2.5f;
+
+    /// <summary>Za jakou vzdálenost od středu už se zvíře vrací ke stádu.</summary>
+    private const float HerdLeashSquared =
+        (TerrainRenderer.TileSize * 3f) * (TerrainRenderer.TileSize * 3f);
+
+    /// <summary>
+    /// Jak silně táhne střed stáda do jinak náhodného kroku.
+    ///
+    /// <para>Slabý tah nestačí: s jemným popostrkováním se skupina během
+    /// minuty roztáhla přes půl obrazovky, protože náhodný směr ho pokaždé
+    /// přebil. Tady už se o střed opravdu opírá.</para>
+    /// </summary>
+    private const float HerdPull = 0.03f;
+
+    /// <summary>Jak dlouho zvíře drží jeden směr, než se zase rozhodne.</summary>
+    private static float GrazeSeconds() => 1.5f + (Random.Shared.NextSingle() * 3f);
+
+    /// <summary>Jak dlouho drží směr zvíře na cestě zpátky ke stádu — kratčeji.</summary>
+    private static float ReturnSeconds() => 0.5f + (Random.Shared.NextSingle() * 0.8f);
+
+    /// <summary>
+    /// Je poblíž člověk? Plachá zvířata z toho dělají to jediné, co na ambientní
+    /// fauně opravdu vypadá živě — reakci.
+    ///
+    /// <para>Lidi sem hlásí <see cref="AgentSystem"/> přes <see cref="People"/>;
+    /// fauna o něm neví a nesahá do něj, takže spolu ty dva systémy nejsou
+    /// svázané.</para>
+    /// </summary>
+    private bool NearestPersonWithin(Vector2 from, float radius, out Vector2 person)
+    {
+        person = Vector2.Zero;
+        if (People is null)
+        {
+            return false;
+        }
+
+        float bestSquared = radius * radius;
+        bool found = false;
+
+        foreach (var candidate in People)
+        {
+            float distanceSquared = Vector2.DistanceSquared(candidate, from);
+            if (distanceSquared < bestSquared)
+            {
+                bestSquared = distanceSquared;
+                person = candidate;
+                found = true;
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>
+    /// Kde zrovna stojí lidé. Plachá zvířata před nimi utíkají; <c>null</c>
+    /// znamená „nikdo tu není" a fauna se pak chová jako dřív.
+    /// </summary>
+    public IReadOnlyList<Vector2>? People { get; set; }
 
     private static Vector2 RandomDirection()
     {

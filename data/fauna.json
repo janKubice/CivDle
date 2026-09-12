@@ -10,7 +10,9 @@
       "color": "#8A5A33",
       "size": 3,
       "speed": 10,
-      "timeOfDay": "day"
+      "timeOfDay": "day",
+      "herd": 5,
+      "shy": true
     },
     {
       "id": "bird",
@@ -23,7 +25,9 @@
       "color": "#F2F2F2",
       "size": 2,
       "speed": 34,
-      "timeOfDay": "day"
+      "timeOfDay": "day",
+      "herd": 6,
+      "shy": true
     },
     {
       "id": "rabbit",
@@ -34,7 +38,9 @@
       "color": "#C9B38C",
       "size": 2,
       "speed": 16,
-      "timeOfDay": "any"
+      "timeOfDay": "any",
+      "herd": 3,
+      "shy": true
     },
     {
       "id": "firefly",
@@ -46,7 +52,9 @@
       "size": 2,
       "speed": 6,
       "timeOfDay": "night",
-      "glow": true
+      "glow": true,
+      "herd": 7,
+      "shy": false
     },
     {
       "id": "camel",
@@ -57,7 +65,9 @@
       "color": "#C79B62",
       "size": 3,
       "speed": 8,
-      "timeOfDay": "day"
+      "timeOfDay": "day",
+      "herd": 3,
+      "shy": false
     },
     {
       "id": "gazelle",
@@ -67,7 +77,9 @@
       "color": "#D2A96B",
       "size": 3,
       "speed": 24,
-      "timeOfDay": "day"
+      "timeOfDay": "day",
+      "herd": 6,
+      "shy": true
     },
     {
       "id": "parrot",
@@ -78,7 +90,9 @@
       "color": "#4CD07A",
       "size": 2,
       "speed": 30,
-      "timeOfDay": "day"
+      "timeOfDay": "day",
+      "herd": 4,
+      "shy": false
     },
     {
       "id": "wolf",
@@ -90,7 +104,9 @@
       "color": "#7E838C",
       "size": 3,
       "speed": 18,
-      "timeOfDay": "night"
+      "timeOfDay": "night",
+      "herd": 3,
+      "shy": true
     },
     {
       "id": "reindeer",
@@ -101,7 +117,9 @@
       "color": "#9C8265",
       "size": 3,
       "speed": 12,
-      "timeOfDay": "day"
+      "timeOfDay": "day",
+      "herd": 7,
+      "shy": true
     },
     {
       "id": "penguin",
@@ -113,7 +131,9 @@
       "color": "#2B2F38",
       "size": 2,
       "speed": 7,
-      "timeOfDay": "any"
+      "timeOfDay": "any",
+      "herd": 6,
+      "shy": false
     },
     {
       "id": "heron",
@@ -125,7 +145,9 @@
       "color": "#DDE3E8",
       "size": 3,
       "speed": 14,
-      "timeOfDay": "day"
+      "timeOfDay": "day",
+      "herd": 1,
+      "shy": true
     },
     {
       "id": "eagle",
@@ -137,7 +159,9 @@
       "color": "#6B5A44",
       "size": 3,
       "speed": 38,
-      "timeOfDay": "day"
+      "timeOfDay": "day",
+      "herd": 1,
+      "shy": true
     },
     {
       "id": "fish_school",
@@ -148,7 +172,9 @@
       "color": "#F0C060",
       "size": 2,
       "speed": 20,
-      "timeOfDay": "any"
+      "timeOfDay": "any",
+      "herd": 8,
+      "shy": false
     },
     {
       "id": "ash_moth",
@@ -158,7 +184,9 @@
       "color": "#D8B08A",
       "size": 2,
       "speed": 14,
-      "timeOfDay": "night"
+      "timeOfDay": "night",
+      "herd": 5,
+      "shy": false
     },
     {
       "id": "vulture",
@@ -170,7 +198,9 @@
       "color": "#4A4238",
       "size": 4,
       "speed": 16,
-      "timeOfDay": "day"
+      "timeOfDay": "day",
+      "herd": 2,
+      "shy": false
     },
     {
       "id": "whale",
@@ -181,7 +211,9 @@
       "color": "#3C5A78",
       "size": 7,
       "speed": 6,
-      "timeOfDay": "day"
+      "timeOfDay": "day",
+      "herd": 2,
+      "shy": false
     },
     {
       "id": "jellyfish",
@@ -192,7 +224,9 @@
       "color": "#C8A0D8",
       "size": 3,
       "speed": 4,
-      "timeOfDay": "night"
+      "timeOfDay": "night",
+      "herd": 4,
+      "shy": false
     },
     {
       "id": "seagull",
@@ -204,7 +238,9 @@
       "color": "#E8E8E8",
       "size": 3,
       "speed": 18,
-      "timeOfDay": "day"
+      "timeOfDay": "day",
+      "herd": 5,
+      "shy": false
     },
     {
       "id": "frog",
@@ -215,7 +251,9 @@
       "color": "#5A8A3A",
       "size": 2,
       "speed": 8,
-      "timeOfDay": "night"
+      "timeOfDay": "night",
+      "herd": 3,
+      "shy": true
     },
     {
       "id": "monkey",
@@ -225,7 +263,9 @@
       "color": "#6A4A32",
       "size": 3,
       "speed": 14,
-      "timeOfDay": "day"
+      "timeOfDay": "day",
+      "herd": 4,
+      "shy": false
     },
     {
       "id": "ibex",
@@ -237,7 +277,9 @@
       "color": "#8A7A62",
       "size": 4,
       "speed": 12,
-      "timeOfDay": "day"
+      "timeOfDay": "day",
+      "herd": 3,
+      "shy": true
     },
     {
       "id": "glow_beetle",
@@ -247,7 +289,9 @@
       "color": "#C6E85A",
       "size": 2,
       "speed": 12,
-      "timeOfDay": "night"
+      "timeOfDay": "night",
+      "herd": 6,
+      "shy": false
     },
     {
       "id": "crow",
@@ -258,7 +302,9 @@
       "color": "#2B2B33",
       "size": 2,
       "speed": 30,
-      "timeOfDay": "day"
+      "timeOfDay": "day",
+      "herd": 4,
+      "shy": false
     }
   ]
 }

@@ -24,6 +24,15 @@ public enum FaunaTime
 /// <param name="Speed">Rychlost pohybu ve world pixelech za sekundu.</param>
 /// <param name="Time">Denní doba výskytu.</param>
 /// <param name="Glow">Svítí (světlušky) — kreslí se s pulzující jasnou barvou.</param>
+/// <param name="Herd">
+/// Kolik kusů se objeví pohromadě. Srnec sám uprostřed pláně je tečka; stádo,
+/// které se táhne přes louku, je výjev. 1 = samotář (liška, sova).
+/// </param>
+/// <param name="Shy">
+/// Utíká tenhle druh před lidmi? Plachost je nejlevnější způsob, jak dát
+/// zvířeti <b>reakci</b> — a bez reakce nevypadá živě nic, ať se hýbe jakkoli.
+/// Vrabec ne, srnec ano.
+/// </param>
 public sealed record FaunaDef(
     string Id,
     bool[] BiomeMask,
@@ -31,4 +40,6 @@ public sealed record FaunaDef(
     int Size,
     float Speed,
     FaunaTime Time,
-    bool Glow);
+    bool Glow,
+    int Herd = 1,
+    bool Shy = false);

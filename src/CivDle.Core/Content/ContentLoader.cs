@@ -4819,6 +4819,12 @@ public sealed class ContentLoader
             }
 
             var color = ParseColor(path, dto.Color, $"Fauna '{id}'");
+            if (dto.Herd is < 1 or > 12)
+            {
+                throw new ContentLoadException(
+                    path, $"Fauna '{id}': 'herd' musí být 1–12, je {dto.Herd}.");
+            }
+
             if (dto.Size is < 1 or > 8)
             {
                 throw new ContentLoadException(path, $"Fauna '{id}': 'size' musí být 1–8, je {dto.Size}.");
@@ -4839,7 +4845,7 @@ public sealed class ContentLoader
 
             result.Add(new FaunaDef(
                 id, ParseBiomeMask(path, $"Fauna '{id}'", dto.Biomes, biomes),
-                color, dto.Size, (float)dto.Speed, time, dto.Glow));
+                color, dto.Size, (float)dto.Speed, time, dto.Glow, dto.Herd, dto.Shy));
         }
 
         return result;

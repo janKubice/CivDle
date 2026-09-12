@@ -169,6 +169,28 @@ public sealed class AgentSystem
     /// <summary>Za jakou dálku se už za trhem nechodí (v dlaždicích).</summary>
     private const int AttractionRangeTiles = 22;
 
+    /// <summary>
+    /// Kde zrovna stojí lidé. Čte to fauna, aby před nimi plachá zvířata
+    /// utíkala.
+    ///
+    /// <para>Seznam se přepisuje jednou za <see cref="Update"/>, ne při každém
+    /// sáhnutí: kdyby se plnil až tady, vymazal by se komukoli, kdo ho zrovna
+    /// prochází, jen proto, že si o něj řekl někdo druhý.</para>
+    /// </summary>
+    public IReadOnlyList<Vector2> People => _people;
+
+    private readonly List<Vector2> _people = new();
+
+    /// <summary>Přepíše seznam pozic pro faunu. Bez alokace — pořád tentýž seznam.</summary>
+    private void RefreshPeople()
+    {
+        _people.Clear();
+        for (int i = 0; i < _count; i++)
+        {
+            _people.Add(_agents[i].Position);
+        }
+    }
+
     /// <summary>Kolik agentů je právě na scéně. Pro testy poolu.</summary>
     internal int CountForTests => _count;
 
@@ -205,6 +227,7 @@ public sealed class AgentSystem
         if (camera.Zoom < DetailLevel.Scale(MinZoom) || simulation.Buildings.Length == 0)
         {
             _count = 0; // oddáleno nebo prázdný svět → nikdo tu není
+            _people.Clear();
             return;
         }
 
@@ -212,6 +235,7 @@ public sealed class AgentSystem
         var errand = DayRhythm.ErrandAt(simulation.TimeOfDay01);
         UpdateAgents(dt, simulation, min, max, errand);
         TrySpawn(dt, camera, simulation, min, max, errand);
+        RefreshPeople();
     }
 
     /// <summary>Klik na obyvatele poblíž bodu — vrací jeho pozici (herní obrazovka pak ukáže myšlenku).</summary>

@@ -753,6 +753,10 @@ public sealed class GameplayScreen : IScreen
         // obří viditelnou plochu (a stejně se nekreslí; z výšky vidíš hustotu).
         if (_camera.Zoom >= CityScaleRenderer.ThresholdZoom)
         {
+            // Zvěř má vědět, kde jsou lidi — plachá před nimi utíká. Předává se
+            // sem, ne aby si fauna sahala do chodců: dva ambientní systémy spolu
+            // nemají být svázané.
+            _fauna.People = _agents.People;
             _fauna.Update(worldDt, _camera, _simulation);
             _traffic.Update(worldDt, _camera, _simulation);
             _agents.Update(worldDt, _camera, _simulation);

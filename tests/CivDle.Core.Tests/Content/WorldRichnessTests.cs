@@ -56,6 +56,45 @@ public class WorldRichnessTests
     }
 
     [Fact]
+    public void HerdAnimalsActuallyComeInHerds()
+    {
+        // Srnec sám uprostřed pláně je tečka; stádo je výjev. Kolik kusů chodí
+        // pohromadě, je vlastnost zvířete, takže to patří do dat — a když na to
+        // u nového druhu někdo zapomene, zůstane po něm v krajině samotář.
+        var content = TestData.LoadRealContent();
+
+        int social = content.Fauna.Count(f => f.Herd >= 3);
+
+        Assert.True(
+            social >= content.Fauna.Count / 2,
+            $"ve stádech chodí jen {social} z {content.Fauna.Count} druhů");
+    }
+
+    [Fact]
+    public void SomethingInTheWildIsAfraidOfPeople()
+    {
+        // Plachost je nejlevnější způsob, jak dát zvířeti reakci — a bez reakce
+        // nevypadá živě nic, ať se hýbe jakkoli.
+        var content = TestData.LoadRealContent();
+
+        Assert.True(content.Fauna.Any(f => f.Shy), "před člověkem neuteče ani jedno zvíře");
+        Assert.True(content.Fauna.Any(f => !f.Shy), "úplně všechno se lekne — svět je jen plachý");
+    }
+
+    [Fact]
+    public void EveryHerdFitsInThePool()
+    {
+        // Jedno stádo nesmí spolknout celý strop tvorů: pak by se v krajině
+        // objevilo jedno hejno a už nic jiného.
+        var content = TestData.LoadRealContent();
+
+        foreach (var fauna in content.Fauna)
+        {
+            Assert.InRange(fauna.Herd, 1, 12);
+        }
+    }
+
+    [Fact]
     public void TheWorldHasEnoughVariety()
     {
         // Strop proti opačnému extrému — pár landmarků rozesetých po velké mapě
