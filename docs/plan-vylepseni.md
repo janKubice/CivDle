@@ -1171,3 +1171,88 @@ A bod 11 ze seznamu — **„udělat svět živější"** — je návrh na změn
 simulace, ne na kreslení: `AgentSystem.PickTarget` je náhodná procházka, která
 se nikdy neptá na denní dobu, takže město se neprobouzí ani neusíná a nikdo
 nikam nedojde. Bez odsouhlasení se do toho nesahá (viz CLAUDE.md).
+
+## 10. Živý svět (bod 11)
+
+Bod 11 ze seznamu zněl „promyslet, jak udělat svět mnohem živější a zábavnější
+na sledování". Diagnóza byla jednoduchá a platila dvakrát: **všechno se hýbalo
+náhodně a nic na nic nereagovalo**. Chodci losovali bod pár dlaždic daleko,
+zvířata losovala směr každé zvlášť. Pohyb bez cíle a bez reakce vypadá živě
+tak pět vteřin, pak je z toho tapeta — stejná chyba jako u lesů v §9.1, jen
+v pohybu.
+
+Neleží to v simulaci, ale v renderu (`Rendering/Effects`). Ambientní život
+simulaci čte a nikdy do ní nezapisuje, takže se nic z toho neukládá a nemůže
+se rozejít se savem.
+
+### 10.1 Lidi někam jdou
+
+Chodec si vybírá cílovou **budovu** z okolí přes chunkový index zástavby a jde
+k ní; kdo se drží silnic, bere ze sousedních dlaždic tu, která ho k cíli
+přiblíží, takže dojde i křivolakou ulicí. U prahu se zastaví a chvíli postojí.
+
+To zastavení je celý rozdíl mezi „lidi se hýbou" a „lidi někam jdou" — dřív
+totiž nikdo nikdy nikam nedošel, jen se to hemžilo.
+
+### 10.2 Město má denní rytmus
+
+`DayRhythm` je čistá funkce času: ráno se jde do práce, večer domů, přes den
+a v noci nic určitého. S ní se mění i to, kolik lidí je venku — naměřeno
+poledne 56 lidí, noc 13. V hluboké noci zůstane pár, ne nikdo: prázdná ulice
+vypadá jako vypnutá hra, ne jako spící město.
+
+Dřív se systém na denní dobu neptal vůbec, takže město ve tři ráno vypadalo
+stejně jako v poledne.
+
+### 10.3 Stezky jako paměť
+
+Chodci jsou kulisa, která zmizí, jakmile se hráč podívá jinam. `FootfallMap`
+si pamatuje došlapy a `WornPathRenderer` je kreslí jako průhledný závoj hlíny
+— stopa, ze které je chování vidět i na prázdném náměstí.
+
+Tři věci to drží použitelné: stezky **zarůstají** (jinak by se po hodině
+ošlapala celá mapa), paměť má **strop** (svět je nekonečný, paměť ne) a na
+silnici stezka **nevzniká** (vzniká tam, kudy se chodí navzdory tomu, že tudy
+cesta nevede).
+
+Nepeče se to do terénu schválně: zem se vykresluje po chuncích do textur
+a stezky se mění pořád.
+
+### 10.4 Událost, která má konec
+
+Karavana dojela, vyplatila surovinu a zmizela — událost bez následku, číslo,
+které vyskočilo a spadlo zpátky. Teď po sobě nechá **tržiště**: stánky se
+postaví, půlka okolních chodců k nim zamíří, po pár minutách se to sbalí.
+
+Dav dělá `AgentSystem.Attraction`. Bez něj je z události jen obrázek: stánky
+by stály na návsi a lidi by chodili dál po svém, jako by se nic nedělo.
+Naměřeno: klid 12,7 lidí u návsi → při trhu 20,2 → po něm 11,8.
+
+### 10.5 Svět mimo město
+
+Zvířata měla úplně tutéž nemoc jako chodci. Teď se objevují **po stádech**
+a drží se kolem jeho středu (medián do dvou dlaždic, p90 do čtyř), a **plachá
+utíkají před lidmi**. Reakce je to jediné, co na ambientní fauně opravdu
+vypadá živě, ať se hýbe jakkoli.
+
+Kolik kusů chodí pohromadě a kdo je plachý, přibylo do `fauna.json` — je to
+vlastnost zvířete, ne algoritmu. Po vyplašení se střed stáda nepřepisuje,
+takže se skupina rozprchne a zase sejde, místo aby se při prvním kolemjdoucím
+rozpadla natrvalo.
+
+### 10.6 Čemu se testy musely naučit
+
+Tři testy davu a stáda měřily zpočátku něco jiného, než si myslely, a jeden
+z nich byl kvůli tomu vrtkavý:
+
+* Měřit **jeden okamžik** u náhodného procesu znamená měřit los. Průměruje se
+  přes úsek.
+* Měřit od začátku běhu znamená měřit hlavně to, že se **pool teprve plní** —
+  čísla rostou sama od sebe a test projde, i kdyby zkoumaná věc nedělala nic.
+  Měří se až po zahřátí a proti vlastnímu klidovému stavu.
+* Rozptyl **přes všechna zvířata** není soudržnost stáda, ale velikost výřezu;
+  a maximum je opozdilec, ne tvar skupiny. Měří se vzdálenost od vlastního
+  středu, medián a p90.
+
+Kde to jde, je lepší se zeptat rovnou: „utíká někdo?" je přímá otázka,
+„kolik jich je kolem bodu" je na totéž oklika.
