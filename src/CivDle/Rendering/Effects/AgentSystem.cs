@@ -98,6 +98,20 @@ public sealed class AgentSystem
         /// <summary>Má vůbec kam jít? Bez cíle se agent toulá jako dřív.</summary>
         public bool HasDestination;
 
+        /// <summary>
+        /// Na které dlaždici agent stál minule.
+        ///
+        /// <para>Došlap se počítá při <b>vstupu na novou dlaždici</b>, ne každý
+        /// snímek. Přechod přes jednu dlaždici trvá chodci skoro vteřinu, takže
+        /// se po snímcích počítal jako dvacet došlapů — jedno přejití vyšlapalo
+        /// cestu a náves byla do minuty celá hnědá. Je to počítadlo kroků, ne
+        /// stopky.</para>
+        /// </summary>
+        public int LastTileX;
+
+        /// <summary>Na které dlaždici agent stál minule. Viz <see cref="LastTileX"/>.</summary>
+        public int LastTileY;
+
         /// <summary>Drží se tenhle agent silnic? Vozy vždy, lidé zhruba půl na půl.</summary>
         public bool FollowsRoads;
         public Kind Kind;
@@ -379,15 +393,22 @@ public sealed class AgentSystem
                 agent.Position += step;
                 agent.FaceLeft = step.X < 0f;
 
-                // Došlap se počítá jen tam, kde žádná cesta není: stezka vzniká
-                // tím, kudy lidi chodí NAVZDORY tomu, že tudy cesta nevede.
-                // Ošlapávat dlažbu by znamenalo kreslit hlínu přes silnici.
+                // Došlap se počítá při vstupu na NOVOU dlaždici — viz Agent.LastTileX.
+                //
+                // A jen tam, kde žádná cesta není: stezka vzniká tím, kudy lidi
+                // chodí NAVZDORY tomu, že tudy cesta nevede. Ošlapávat dlažbu by
+                // znamenalo kreslit hlínu přes silnici.
                 int tileX = (int)MathF.Floor(agent.Position.X / TerrainRenderer.TileSize);
                 int tileY = (int)MathF.Floor(agent.Position.Y / TerrainRenderer.TileSize);
-                if (agent.Kind != Kind.Boat && !simulation.HasRoadAt(tileX, tileY))
+                if ((tileX != agent.LastTileX || tileY != agent.LastTileY)
+                    && agent.Kind != Kind.Boat
+                    && !simulation.HasRoadAt(tileX, tileY))
                 {
                     Footfall.Step(tileX, tileY);
                 }
+
+                agent.LastTileX = tileX;
+                agent.LastTileY = tileY;
             }
 
             bool outOfView = agent.Position.X < min.X - DespawnMargin || agent.Position.X > max.X + DespawnMargin
@@ -579,6 +600,11 @@ public sealed class AgentSystem
             Position = pos,
             Destination = destination,
             HasDestination = hasDestination,
+
+            // Dlaždice, na které se objevil, se za došlap nepočítá — jinak by
+            // každý nový chodec ošlapal zem už tím, že se ukázal.
+            LastTileX = (int)MathF.Floor(pos.X / TerrainRenderer.TileSize),
+            LastTileY = (int)MathF.Floor(pos.Y / TerrainRenderer.TileSize),
             Target = PickTarget(simulation, pos, followsRoads, Vector2.Zero),
             Kind = kind,
             FollowsRoads = followsRoads,

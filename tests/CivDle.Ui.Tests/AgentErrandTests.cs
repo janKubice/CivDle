@@ -65,6 +65,38 @@ public class AgentErrandTests
     }
 
     [Fact]
+    public void PathsTakeTimeToFormInsteadOfAppearingAtOnce()
+    {
+        // Došlap se musí počítat při vstupu na novou dlaždici, ne každý snímek.
+        // Přechod přes dlaždici trvá chodci skoro vteřinu, takže se po snímcích
+        // počítal jako dvacet došlapů: jedno přejití vyšlapalo cestu a náves
+        // byla do minuty celá hnědá. Naměřeno tehdy: 21 úplně ošlapaných
+        // dlaždic po deseti vteřinách.
+        var (agents, sim, camera) = Scene(size: 20);
+
+        Run(agents, sim, camera, seconds: 30);
+
+        float worst = 0f;
+        int trodden = 0;
+        for (int y = -5; y < 30; y++)
+        {
+            for (int x = -5; x < 30; x++)
+            {
+                float wear = agents.Footfall.WearAt(x, y);
+                worst = MathF.Max(worst, wear);
+                if (wear > 0f)
+                {
+                    trodden++;
+                }
+            }
+        }
+
+        _out.WriteLine($"po 30 s: dotčených dlaždic {trodden}, nejvíc ošlapaná {worst:0.00}");
+        Assert.True(trodden > 0, "za půl minuty se neošlapalo vůbec nic");
+        Assert.True(worst < 0.8f, $"za půl minuty už je někde vyšlapaná cesta ({worst:0.00})");
+    }
+
+    [Fact]
     public void PathsNeverFormOnTopOfRoads()
     {
         // Stezka vzniká tam, kudy se chodí NAVZDORY tomu, že tudy cesta nevede.
