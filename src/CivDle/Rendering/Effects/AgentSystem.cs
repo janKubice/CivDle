@@ -80,7 +80,23 @@ public sealed class AgentSystem
     private struct Agent
     {
         public Vector2 Position;
+
+        /// <summary>Nejbližší bod, ke kterému agent zrovna jde (krok po silnici).</summary>
         public Vector2 Target;
+
+        /// <summary>
+        /// Kam má namířeno doopravdy — práh budovy na druhém konci ulice.
+        ///
+        /// <para>Tohle je celý rozdíl mezi „lidi se hýbou" a „lidi někam jdou".
+        /// Dřív se losoval bod do deseti dlaždic kolem, takže se nikdo nikdy
+        /// nikam nedostal; jen se to hemžilo. Cíl drží krok za krokem směr
+        /// a hlavně má konec: když se dojde, chodec se zastaví a chvíli
+        /// postojí.</para>
+        /// </summary>
+        public Vector2 Destination;
+
+        /// <summary>Má vůbec kam jít? Bez cíle se agent toulá jako dřív.</summary>
+        public bool HasDestination;
 
         /// <summary>Drží se tenhle agent silnic? Vozy vždy, lidé zhruba půl na půl.</summary>
         public bool FollowsRoads;
@@ -134,6 +150,18 @@ public sealed class AgentSystem
     /// <summary>Kolik agentů je právě na scéně. Pro testy poolu.</summary>
     internal int CountForTests => _count;
 
+    /// <summary>
+    /// Kolikrát už někdo došel tam, kam šel.
+    ///
+    /// <para>Existuje kvůli testu, a je to ta jediná věc, která se na celé téhle
+    /// vrstvě dá smysluplně ověřit: dřív se losoval bod pár dlaždic daleko, takže
+    /// se sice pořád někdo hýbal, ale <b>nikdo nikdy nikam nedošel</b>. To se
+    /// zvenčí nepozná jinak než tím, že se příchody počítají.</para>
+    /// </summary>
+    internal int ArrivalsForTests => _arrivals;
+
+    private int _arrivals;
+
     public void Update(float dt, Camera2D camera, Simulation simulation)
     {
         if (camera.Zoom < DetailLevel.Scale(MinZoom) || simulation.Buildings.Length == 0)
@@ -143,8 +171,9 @@ public sealed class AgentSystem
         }
 
         var (min, max) = camera.VisibleWorldBounds();
-        UpdateAgents(dt, simulation, min, max);
-        TrySpawn(dt, camera, simulation, min, max);
+        var errand = DayRhythm.ErrandAt(simulation.TimeOfDay01);
+        UpdateAgents(dt, simulation, min, max, errand);
+        TrySpawn(dt, camera, simulation, min, max, errand);
     }
 
     /// <summary>Klik na obyvatele poblíž bodu — vrací jeho pozici (herní obrazovka pak ukáže myšlenku).</summary>
@@ -210,7 +239,7 @@ public sealed class AgentSystem
         spriteBatch.End();
     }
 
-    private void UpdateAgents(float dt, Simulation simulation, Vector2 min, Vector2 max)
+    private void UpdateAgents(float dt, Simulation simulation, Vector2 min, Vector2 max, Errand errand)
     {
         for (int i = _count - 1; i >= 0; i--)
         {
@@ -227,7 +256,9 @@ public sealed class AgentSystem
                 {
                     agent.Kind = Kind.Person;
                     agent.Speed = PersonSpeed;
-                    agent.Target = PickTarget(simulation, agent.Position, agent.FollowsRoads, Vector2.Zero);
+                    agent.HasDestination =
+                        TryPickDestination(simulation, agent.Position, errand, out agent.Destination);
+                    agent.Target = NextStep(simulation, ref agent, Vector2.Zero);
                 }
 
                 if (IsOutOfSight(agent.Position, min, max))
@@ -238,18 +269,44 @@ public sealed class AgentSystem
                 continue;
             }
 
+            // Došel až k prahu? Pak se tu chvíli zdrží — a to je ten okamžik,
+            // který z pohybu dělá pochůzku. Bez zastavení by chodec u dveří
+            // jen otočil a šel dál a nikdo by nepoznal, že někam došel.
+            if (agent.HasDestination
+                && agent.Kind != Kind.Boat
+                && Vector2.DistanceSquared(agent.Position, agent.Destination) < ArrivalRadiusSquared)
+            {
+                agent.HasDestination = false;
+                agent.LingerSeconds = MinLingerSeconds
+                    + (Random.Shared.NextSingle() * (MaxLingerSeconds - MinLingerSeconds));
+                _arrivals++;
+                continue;
+            }
+
             var toTarget = agent.Target - agent.Position;
             float distance = toTarget.Length();
             if (distance < 3f)
             {
-                // Směr, kterým agent zrovna míří — nový cíl se hledá přednostně
+                // Směr, kterým agent zrovna míří — nový krok se hledá přednostně
                 // dopředu, aby vůz na silnici neposkakoval tam a zpět.
                 var heading = distance > 0.01f ? toTarget / distance : Vector2.Zero;
-                // Loďka hledá cíl po vodě, ostatní po souši — jiné prostředí,
-                // jiná pravidla pohybu.
-                agent.Target = agent.Kind == Kind.Boat
-                    ? PickWaterTarget(simulation, agent.Position, heading)
-                    : PickTarget(simulation, agent.Position, agent.FollowsRoads, heading);
+
+                if (agent.Kind == Kind.Boat)
+                {
+                    // Loďka hledá cíl po vodě — jiné prostředí, jiná pravidla.
+                    agent.Target = PickWaterTarget(simulation, agent.Position, heading);
+                }
+                else
+                {
+                    if (!agent.HasDestination)
+                    {
+                        agent.HasDestination =
+                            TryPickDestination(simulation, agent.Position, errand, out agent.Destination);
+                    }
+
+                    agent.Target = NextStep(simulation, ref agent, heading);
+                }
+
                 toTarget = agent.Target - agent.Position;
                 distance = toTarget.Length();
             }
@@ -365,14 +422,18 @@ public sealed class AgentSystem
         return true;
     }
 
-    private void TrySpawn(float dt, Camera2D camera, Simulation simulation, Vector2 min, Vector2 max)
+    private void TrySpawn(float dt, Camera2D camera, Simulation simulation, Vector2 min, Vector2 max, Errand errand)
     {
         _spawnTimer -= dt;
         // Cíl počtu roste s městem — jak zástavbou, tak lidmi. Bez populace by
         // aglomerace o milionu vypadala stejně prázdně jako první osada.
+        // Cíl počtu se násobí denním rytmem: ve tři ráno má být ulice prázdná
+        // skoro, ne úplně. Dolní mez drží pár lidí venku i v hluboké noci —
+        // vylidněné město vypadá jako vypnutá hra, ne jako spící město.
+        int full = 4 + simulation.Buildings.Length + (int)(simulation.Population / PeoplePerAgent);
         int desired = Math.Min(
             MaxAgents,
-            4 + simulation.Buildings.Length + (int)(simulation.Population / PeoplePerAgent));
+            Math.Max(3, (int)(full * DayRhythm.CrowdAt(simulation.TimeOfDay01))));
         if (_spawnTimer > 0f || _count >= desired)
         {
             return;
@@ -435,9 +496,17 @@ public sealed class AgentSystem
                 + (Random.Shared.NextSingle() * (MaxLingerSeconds - MinLingerSeconds));
         }
 
+        // Kdo postává nebo rybaří, nikam nejde — cíl by mu jen ležel v datech.
+        var destination = Vector2.Zero;
+        bool hasDestination = kind != Kind.Idler
+            && kind != Kind.Fisherman
+            && TryPickDestination(simulation, pos, errand, out destination);
+
         _agents[_count++] = new Agent
         {
             Position = pos,
+            Destination = destination,
+            HasDestination = hasDestination,
             Target = PickTarget(simulation, pos, followsRoads, Vector2.Zero),
             Kind = kind,
             FollowsRoads = followsRoads,
@@ -470,10 +539,144 @@ public sealed class AgentSystem
             || simulation.IsWaterAt(tileX, tileY - 1);
     }
 
+    /// <summary>Jak blízko k prahu se počítá za „došel". Zhruba polovina dlaždice.</summary>
+    private const float ArrivalRadiusSquared =
+        (TerrainRenderer.TileSize * 0.6f) * (TerrainRenderer.TileSize * 0.6f);
+
+    /// <summary>
+    /// Další krok agenta.
+    ///
+    /// <para>Když má cíl, míří se k němu: kdo se drží silnic, jde po síti, ale
+    /// ze sousedních dlaždic si vybere tu, která ho k cíli přiblíží — proto se
+    /// dojde i křivolakou ulicí. Kdo silnice neřeší, jde rovnou.</para>
+    ///
+    /// <para>Bez cíle zbývá staré toulání: je to kulisa, ne rozvrh, a chodec
+    /// bez cíle je pořád lepší než chodec stojící na místě.</para>
+    /// </summary>
+    private Vector2 NextStep(Simulation simulation, ref Agent agent, Vector2 heading)
+    {
+        if (!agent.HasDestination)
+        {
+            return PickTarget(simulation, agent.Position, agent.FollowsRoads, heading);
+        }
+
+        var toGoal = agent.Destination - agent.Position;
+        if (toGoal.LengthSquared() > 0.01f)
+        {
+            toGoal.Normalize();
+        }
+
+        if (agent.FollowsRoads && TryStepAlongRoad(simulation, agent.Position, toGoal, out var roadStep))
+        {
+            return roadStep;
+        }
+
+        // Přímá cesta: krok o dlaždici k cíli. Když do ní nelze vstoupit (voda,
+        // sráz), cíl se zahodí a chodec se vydá jinam — obcházení překážek by
+        // z kulisy udělalo hledání cesty, a to je na ambientní chodce moc.
+        var step = agent.Position + (toGoal * TerrainRenderer.TileSize);
+        if (IsPassable(simulation, step))
+        {
+            return step;
+        }
+
+        agent.HasDestination = false;
+        return PickTarget(simulation, agent.Position, agent.FollowsRoads, heading);
+    }
+
+    /// <summary>Hledání cílové budovy si půjčuje tenhle seznam, aby se každý krok nealokovalo.</summary>
+    private readonly List<int> _nearby = new();
+
+    /// <summary>
+    /// Jak daleko (v dlaždicích) se hledá cílová budova. Dost na to, aby byla
+    /// cesta vidět, ne tak daleko, aby chodec mizel za obzorem dřív, než dojde.
+    /// </summary>
+    private const int ErrandRadiusTiles = 14;
+
+    /// <summary>
+    /// Vybere budovu, ke které se chodec vydá — podle toho, co je za denní dobu.
+    ///
+    /// <para>Prochází se jen okolí agenta přes chunkový index zástavby, takže
+    /// to nestojí víc ani ve městě o statisících budov. Když se nic vhodného
+    /// nenajde (ráno v průmyslové čtvrti bez dílen), vrátí <c>false</c>
+    /// a chodec se prostě toulá jako dřív — je to kulisa, ne rozvrh.</para>
+    /// </summary>
+    private bool TryPickDestination(Simulation simulation, Vector2 from, Errand errand, out Vector2 destination)
+    {
+        const int tile = TerrainRenderer.TileSize;
+        int x = (int)MathF.Floor(from.X / tile);
+        int y = (int)MathF.Floor(from.Y / tile);
+
+        _nearby.Clear();
+        simulation.BuildingsIn(
+            x - ErrandRadiusTiles, y - ErrandRadiusTiles,
+            x + ErrandRadiusTiles, y + ErrandRadiusTiles,
+            _nearby);
+
+        destination = Vector2.Zero;
+        if (_nearby.Count == 0)
+        {
+            return false;
+        }
+
+        // Losuje se z těch, co k pochůzce sedí; rezervou je kterákoli budova,
+        // ať chodec nezůstane stát jen proto, že v okolí není dílna.
+        int chosen = -1;
+        int matches = 0;
+        int fallback = _nearby[Random.Shared.Next(_nearby.Count)];
+
+        for (int i = 0; i < _nearby.Count; i++)
+        {
+            int index = _nearby[i];
+            if (index < 0 || index >= simulation.Buildings.Length)
+            {
+                continue;
+            }
+
+            if (!Suits(errand, _content.Buildings[simulation.Buildings[index].DefIndex]))
+            {
+                continue;
+            }
+
+            // Reservoir sampling: jeden průchod, žádný druhý seznam.
+            matches++;
+            if (Random.Shared.Next(matches) == 0)
+            {
+                chosen = index;
+            }
+        }
+
+        if (chosen < 0)
+        {
+            chosen = fallback;
+            if (chosen < 0 || chosen >= simulation.Buildings.Length)
+            {
+                return false;
+            }
+        }
+
+        ref readonly var building = ref simulation.Buildings[chosen];
+
+        // Práh, ne střed: k budově se dochází zvenčí, a stát uprostřed sprite
+        // vypadá, jako by chodec prošel zdí.
+        destination = new Vector2(
+            (building.X + 0.5f) * tile,
+            (building.Y + 1.15f) * tile);
+        return true;
+    }
+
+    /// <summary>Hodí se tahle budova na tuhle pochůzku?</summary>
+    private static bool Suits(Errand errand, BuildingDef def) => errand switch
+    {
+        Errand.Home => def.HousingCapacity > 0,
+        Errand.Work => def.HousingCapacity == 0 && def.WorkerSlots > 0,
+        _ => true,
+    };
+
     /// <summary>
     /// Vybere další cíl. Kdo se drží silnic, míří na SOUSEDNÍ dlaždici cesty —
     /// krátkými kroky po síti, takže je vidět, že jede po silnici, a ne přes pole.
-    /// Ostatní se toulají volně jako dřív.
+    /// Ostatní jdou rovnou k cíli, a když žádný nemají, toulají se jako dřív.
     /// </summary>
     private Vector2 PickTarget(Simulation simulation, Vector2 from, bool followsRoads, Vector2 heading)
     {
