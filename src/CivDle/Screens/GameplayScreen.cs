@@ -112,6 +112,7 @@ public sealed class GameplayScreen : IScreen
     private readonly FaunaSystem _fauna;
     private readonly TrafficSystem _traffic;
     private readonly AgentSystem _agents;
+    private readonly WornPathRenderer _wornPaths;
 
     /// <summary>Balony a letadla nad mapou — kulisa nad zástavbou (bod 42).</summary>
     private readonly AirTrafficSystem _airTraffic;
@@ -492,6 +493,7 @@ public sealed class GameplayScreen : IScreen
         _traffic = new TrafficSystem(screens.Content);
         _spectacles = new SpectacleRenderer(screens.Content);
         _agents = new AgentSystem(screens.Content, screens.Sprites);
+        _wornPaths = new WornPathRenderer(screens.WhitePixel, _agents.Footfall);
         _airTraffic = new AirTrafficSystem(screens.Content, screens.Sprites);
         _minimap = new MinimapRenderer(screens.GraphicsDevice, screens.Content.Biomes, screens.WhitePixel);
         _vignette = new VignetteRenderer(screens.GraphicsDevice);
@@ -853,6 +855,10 @@ public sealed class GameplayScreen : IScreen
         // drobných jednotlivců (game-feel-wow: „koukni, jak to vyrostlo").
         if (_camera.Zoom >= CityScaleRenderer.ThresholdZoom)
         {
+            // Vyšlapané stezky leží na zemi — pod vším, co na ní stojí. Kreslí se
+            // až tady, a ne se zemí: chunky se pečou do textur a stezky se mění
+            // pořád, takže by se okolí kamery přepékalo každou chvíli.
+            _wornPaths.Draw(spriteBatch, _camera, _simulation);
             _harvestables.Draw(spriteBatch, _camera, _simulation);
             _discoveries.Draw(spriteBatch, _camera, _simulation);
             _poiRenderer.Draw(spriteBatch, _camera, _simulation);

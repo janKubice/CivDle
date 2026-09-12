@@ -52,6 +52,37 @@ public class AgentErrandTests
         Assert.True(Busyness(0.02) > 0, "v noci nezůstal venku vůbec nikdo");
     }
 
+    [Fact]
+    public void WalkingWearsTheGroundIntoPaths()
+    {
+        // Stezka je jediná stopa, kterou po sobě chodci nechají — bez ní vypadá
+        // prázdné náměstí stejně jako to, kudy celý den chodí lidi.
+        var (agents, sim, camera) = Scene();
+
+        Run(agents, sim, camera, seconds: 30);
+
+        Assert.True(agents.Footfall.Count > 0, "za půl minuty chození se neošlapala jediná dlaždice");
+    }
+
+    [Fact]
+    public void PathsNeverFormOnTopOfRoads()
+    {
+        // Stezka vzniká tam, kudy se chodí NAVZDORY tomu, že tudy cesta nevede.
+        // Ošlapávat dlažbu by znamenalo kreslit hlínu přes silnici.
+        var (agents, sim, camera) = Scene();
+        for (int x = 0; x < 10; x++)
+        {
+            sim.AddRoadTileForTest(x, 11);
+        }
+
+        Run(agents, sim, camera, seconds: 30);
+
+        for (int x = 0; x < 10; x++)
+        {
+            Assert.Equal(0f, agents.Footfall.WearAt(x, 11));
+        }
+    }
+
     /// <summary>Kolik lidí je venku v danou denní dobu.</summary>
     private static int Busyness(double timeOfDay)
     {

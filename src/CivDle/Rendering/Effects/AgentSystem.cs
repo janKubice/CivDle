@@ -147,6 +147,12 @@ public sealed class AgentSystem
         _sprites = null;
     }
 
+    /// <summary>
+    /// Kudy se tu chodí. Kreslí to <see cref="WornPathRenderer"/> — agenti sem
+    /// jen hlásí došlapy, o kreslení nevědí.
+    /// </summary>
+    public FootfallMap Footfall { get; } = new();
+
     /// <summary>Kolik agentů je právě na scéně. Pro testy poolu.</summary>
     internal int CountForTests => _count;
 
@@ -164,6 +170,10 @@ public sealed class AgentSystem
 
     public void Update(float dt, Camera2D camera, Simulation simulation)
     {
+        // Stezky zarůstají, i když se hráč dívá jinam nebo je oddálený — jinak by
+        // se po návratu ke městu objevily přesně tak, jak je opustil, i po hodině.
+        Footfall.Update(dt);
+
         if (camera.Zoom < DetailLevel.Scale(MinZoom) || simulation.Buildings.Length == 0)
         {
             _count = 0; // oddáleno nebo prázdný svět → nikdo tu není
@@ -316,6 +326,16 @@ public sealed class AgentSystem
                 var step = toTarget / distance * agent.Speed * dt;
                 agent.Position += step;
                 agent.FaceLeft = step.X < 0f;
+
+                // Došlap se počítá jen tam, kde žádná cesta není: stezka vzniká
+                // tím, kudy lidi chodí NAVZDORY tomu, že tudy cesta nevede.
+                // Ošlapávat dlažbu by znamenalo kreslit hlínu přes silnici.
+                int tileX = (int)MathF.Floor(agent.Position.X / TerrainRenderer.TileSize);
+                int tileY = (int)MathF.Floor(agent.Position.Y / TerrainRenderer.TileSize);
+                if (agent.Kind != Kind.Boat && !simulation.HasRoadAt(tileX, tileY))
+                {
+                    Footfall.Step(tileX, tileY);
+                }
             }
 
             bool outOfView = agent.Position.X < min.X - DespawnMargin || agent.Position.X > max.X + DespawnMargin
