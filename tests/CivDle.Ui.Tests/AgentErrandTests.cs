@@ -83,6 +83,89 @@ public class AgentErrandTests
         }
     }
 
+    [Fact]
+    public void ACrowdGathersWhereSomethingIsHappening()
+    {
+        // Bez sbíhajícího se davu je z události jen obrázek: stánky by stály na
+        // návsi a lidi by chodili dál po svém, jako by se nic nedělo.
+        //
+        // Měří se až po zahřátí a proti vlastnímu klidovému stavu. Bez toho by
+        // se do výsledku počítalo i to, že se pool teprve plní — čísla by
+        // rostla sama od sebe a test by prošel, i kdyby událost nedělala nic.
+        var (agents, sim, camera) = Scene(size: 20);
+        var square = new Vector2(10 * TerrainRenderer.TileSize, 10 * TerrainRenderer.TileSize);
+
+        Run(agents, sim, camera, seconds: WarmUpSeconds);
+        double quiet = AverageNear(agents, sim, camera, square, MeasureSeconds);
+
+        agents.Attraction = square;
+        double during = AverageNear(agents, sim, camera, square, MeasureSeconds);
+
+        _out.WriteLine($"klid {quiet:0.0}, během události {during:0.0}");
+        Assert.True(during > quiet, $"na událost se nikdo nesešel ({quiet:0.0} → {during:0.0})");
+    }
+
+    [Fact]
+    public void WhenTheEventEndsThePeopleGoBackToTheirOwnBusiness()
+    {
+        // Druhá půlka oblouku: trh skončí a dav se rozejde. Bez toho by se
+        // u návsi jednou nashromáždili lidi a zůstali tam navždycky.
+        var (agents, sim, camera) = Scene(size: 20);
+        var square = new Vector2(10 * TerrainRenderer.TileSize, 10 * TerrainRenderer.TileSize);
+
+        Run(agents, sim, camera, seconds: WarmUpSeconds);
+
+        agents.Attraction = square;
+        double during = AverageNear(agents, sim, camera, square, MeasureSeconds);
+
+        agents.Attraction = null;
+        // Kdo k trhu došel, ještě chvíli postojí — rozchod nezačne tím okamžikem,
+        // kdy se stánky složí.
+        Run(agents, sim, camera, seconds: 20);
+        double after = AverageNear(agents, sim, camera, square, MeasureSeconds);
+
+        _out.WriteLine($"během události {during:0.0}, po ní {after:0.0}");
+        Assert.True(during > 1, "na trh se nikdo nesešel, takže se ani nemá kdo rozejít");
+        Assert.True(after < during, $"po konci trhu se dav nerozešel ({during:0.0} → {after:0.0})");
+    }
+
+    /// <summary>Než se začne měřit: pool se musí naplnit, jinak se měří jeho růst.</summary>
+    private const double WarmUpSeconds = 60;
+
+    /// <summary>Jak dlouhý úsek se průměruje.</summary>
+    private const double MeasureSeconds = 40;
+
+    /// <summary>
+    /// Průměrný počet lidí u místa za daný úsek. Jeden snímek by byl los —
+    /// kdo kde zrovna stojí, se mezi snímky mění.
+    /// </summary>
+    private static double AverageNear(
+        AgentSystem agents, Simulation sim, Camera2D camera, Vector2 place, double seconds)
+    {
+        const float step = 1f / 30f;
+        long total = 0;
+        int samples = 0;
+
+        for (int i = 0; i < seconds / step; i++)
+        {
+            agents.Update(step, camera, sim);
+            if (i % 15 == 0)
+            {
+                total += CountNear(agents, place);
+                samples++;
+            }
+        }
+
+        return samples == 0 ? 0 : total / (double)samples;
+    }
+
+    /// <summary>Kolik agentů stojí do tří dlaždic od místa.</summary>
+    private static int CountNear(AgentSystem agents, Vector2 place)
+    {
+        float radius = 3f * TerrainRenderer.TileSize;
+        return agents.PositionsForTests.Count(p => Vector2.Distance(p, place) < radius);
+    }
+
     /// <summary>Kolik lidí je venku v danou denní dobu.</summary>
     private static int Busyness(double timeOfDay)
     {
@@ -120,7 +203,7 @@ public class AgentErrandTests
         }
     }
 
-    private static (AgentSystem Agents, Simulation Sim, Camera2D Camera) Scene()
+    private static (AgentSystem Agents, Simulation Sim, Camera2D Camera) Scene(int size = 10)
     {
         var content = new ContentLoader().LoadFrom(Path.Combine(AppContext.BaseDirectory, "data"));
         var sim = new Simulation(content, new UniformTerrain(content.Biomes.IndexOf("grassland")));
@@ -138,17 +221,29 @@ public class AgentErrandTests
         // ověřoval jen to, že se něco hýbe.
         int house = content.Buildings.IndexOf("house");
         int workshop = content.Buildings.IndexOf("lumber_camp");
-        for (int y = 0; y < 10; y++)
+        // Uprostřed zůstane náves. Trh nevyroste na střeše domu, takže by test
+        // na zastavěném čtverci měřil jen to, že se tam nedá dojít.
+        int squareX = size / 2;
+        int squareY = size / 2;
+
+        for (int y = 0; y < size; y++)
         {
-            for (int x = 0; x < 10; x++)
+            for (int x = 0; x < size; x++)
             {
+                if (Math.Abs(x - squareX) <= 2 && Math.Abs(y - squareY) <= 2)
+                {
+                    continue;
+                }
+
                 sim.TryPlaceBuildingFree((x + y) % 3 == 0 ? workshop : house, x, y);
             }
         }
 
         var camera = new Camera2D();
         camera.SetViewport(1280, 720);
-        camera.CenterOn(new Vector2(5 * TerrainRenderer.TileSize, 5 * TerrainRenderer.TileSize), 2f);
+        camera.CenterOn(
+            new Vector2(size * 0.5f * TerrainRenderer.TileSize, size * 0.5f * TerrainRenderer.TileSize),
+            2f);
 
         return (new AgentSystem(content), sim, camera);
     }

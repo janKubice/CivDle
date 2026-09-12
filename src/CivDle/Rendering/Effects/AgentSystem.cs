@@ -153,6 +153,22 @@ public sealed class AgentSystem
     /// </summary>
     public FootfallMap Footfall { get; } = new();
 
+    /// <summary>
+    /// Místo, kam se zrovna stojí za to jít — trh, slavnost, cokoli, co se
+    /// v tu chvíli děje. <c>null</c> = nic zvláštního.
+    ///
+    /// <para>Bez tohohle je z události jen obrázek: stánky by stály na návsi
+    /// a lidi by chodili dál po svém, jako by se nic nedělo. Dav, který se
+    /// sbíhá, je na události to jediné, co je opravdu vidět.</para>
+    /// </summary>
+    public Vector2? Attraction { get; set; }
+
+    /// <summary>Jak často chodec upřednostní událost před svou pochůzkou.</summary>
+    private const float AttractionShare = 0.5f;
+
+    /// <summary>Za jakou dálku se už za trhem nechodí (v dlaždicích).</summary>
+    private const int AttractionRangeTiles = 22;
+
     /// <summary>Kolik agentů je právě na scéně. Pro testy poolu.</summary>
     internal int CountForTests => _count;
 
@@ -165,6 +181,18 @@ public sealed class AgentSystem
     /// zvenčí nepozná jinak než tím, že se příchody počítají.</para>
     /// </summary>
     internal int ArrivalsForTests => _arrivals;
+
+    /// <summary>Kde všude agenti zrovna stojí. Pro testy, které měří, kam se dav stáhne.</summary>
+    internal IEnumerable<Vector2> PositionsForTests
+    {
+        get
+        {
+            for (int i = 0; i < _count; i++)
+            {
+                yield return _agents[i].Position;
+            }
+        }
+    }
 
     private int _arrivals;
 
@@ -634,6 +662,21 @@ public sealed class AgentSystem
             _nearby);
 
         destination = Vector2.Zero;
+
+        // Děje-li se poblíž něco, jde půlka lidí tam — ať je na události vidět,
+        // že o ni někdo stojí.
+        if (Attraction is { } attraction
+            && Random.Shared.NextSingle() < AttractionShare
+            && Vector2.DistanceSquared(from, attraction)
+                < (AttractionRangeTiles * tile) * (AttractionRangeTiles * tile))
+        {
+            // Rozptyl kolem stánků: dav se má shluknout, ne stát v jednom bodě.
+            destination = attraction + new Vector2(
+                (Random.Shared.NextSingle() - 0.5f) * 3f * tile,
+                (Random.Shared.NextSingle() - 0.5f) * 3f * tile);
+            return true;
+        }
+
         if (_nearby.Count == 0)
         {
             return false;

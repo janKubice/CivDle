@@ -113,6 +113,8 @@ public sealed class GameplayScreen : IScreen
     private readonly TrafficSystem _traffic;
     private readonly AgentSystem _agents;
     private readonly WornPathRenderer _wornPaths;
+    private readonly MarketEvent _market = new();
+    private readonly MarketRenderer _marketRenderer;
 
     /// <summary>Balony a letadla nad mapou — kulisa nad zástavbou (bod 42).</summary>
     private readonly AirTrafficSystem _airTraffic;
@@ -494,6 +496,7 @@ public sealed class GameplayScreen : IScreen
         _spectacles = new SpectacleRenderer(screens.Content);
         _agents = new AgentSystem(screens.Content, screens.Sprites);
         _wornPaths = new WornPathRenderer(screens.WhitePixel, _agents.Footfall);
+        _marketRenderer = new MarketRenderer(screens.Sprites, _market);
         _airTraffic = new AirTrafficSystem(screens.Content, screens.Sprites);
         _minimap = new MinimapRenderer(screens.GraphicsDevice, screens.Content.Biomes, screens.WhitePixel);
         _vignette = new VignetteRenderer(screens.GraphicsDevice);
@@ -866,6 +869,9 @@ public sealed class GameplayScreen : IScreen
             // Provoz patří NAD silnici a POD budovy — auto má zajet za dům, ne přes něj.
             _traffic.Draw(spriteBatch, _screens.WhitePixel, _camera, DayNightCycle.NightFactor(_simulation.TimeOfDay01));
             _raftRenderer.Draw(spriteBatch, _camera, _simulation);
+            // Stánky nad zemí, ale pod budovami: trh je dočasná věc na návsi,
+            // ne stavba, a má zajít za dům jako každý jiný předmět na zemi.
+            _marketRenderer.Draw(spriteBatch, _camera);
             _buildingRenderer.Draw(spriteBatch, _camera, _simulation);
             // Kouř nad střechy, ptáci nad krajinu. Vydrží dál než chodci, takže
             // scéna nezmrzne hned, jak hráč trochu odjede kamerou.
@@ -4003,7 +4009,18 @@ public sealed class GameplayScreen : IScreen
             // dojela, a ukáže výsledek (CLAUDE.md, vrstvy).
             int paid = _simulation.CompleteCaravan(cityKey, resourceIndex, amount);
             CollectFeedback(resourceIndex, paid, position);
+
+            // Karavana po sobě nechá trh. Dřív dojela, vyplatila surovinu
+            // a zmizela — událost bez následku, číslo, které vyskočilo a spadlo
+            // zpátky. Stánky na návsi z ní dělají něco, co má průběh.
+            _market.Open(
+                (int)MathF.Floor(position.X / TerrainRenderer.TileSize),
+                (int)MathF.Floor(position.Y / TerrainRenderer.TileSize));
         }
+
+        // Lidi se za trhem chodí podívat, dokud se obchoduje.
+        _market.Update(dt);
+        _agents.Attraction = _market.DrawsCrowd ? _market.Position : null;
     }
 
     /// <summary>Promítne přístupnostní volbu „omezit pohyb" do vizuálních efektů.</summary>
