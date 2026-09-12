@@ -59,6 +59,11 @@ public sealed class WornPathRenderer
         }
 
         var (min, max) = camera.VisibleWorldBounds();
+
+        // Vlastní dávka, jako každý renderer v téhle vrstvě: volající žádnou
+        // otevřenou nenechává.
+        spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
+
         int minX = (int)MathF.Floor(min.X / TileSize);
         int minY = (int)MathF.Floor(min.Y / TileSize);
         int maxX = (int)MathF.Ceiling(max.X / TileSize);
@@ -84,9 +89,11 @@ public sealed class WornPathRenderer
                 spriteBatch.Draw(
                     _pixel,
                     new Rectangle(x * TileSize, y * TileSize, TileSize, TileSize),
-                    Trodden * (Alpha(wear)));
+                    Trodden * Alpha(wear));
             }
         }
+
+        spriteBatch.End();
     }
 
     /// <summary>

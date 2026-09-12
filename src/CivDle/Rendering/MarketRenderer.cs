@@ -67,6 +67,9 @@ public sealed class MarketRenderer
 
         var sprite = _sprites.Get("building.market");
 
+        // Vlastní dávka, jako každý renderer v téhle vrstvě.
+        spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
+
         for (int i = 0; i < StallCount; i++)
         {
             var (dx, dy) = Layout[i];
@@ -91,5 +94,7 @@ public sealed class MarketRenderer
                 new Rectangle(rect.X, rect.Y, TileSize, awning),
                 Awnings[i % Awnings.Length] * 0.9f);
         }
+
+        spriteBatch.End();
     }
 }
