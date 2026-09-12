@@ -36,6 +36,9 @@ public sealed class TerrainPainter
     /// <summary>Velikost oka makro-šumu v dlaždicích. Menší = neklidnější krajina.</summary>
     private const int MacroCell = 24;
 
+    /// <summary>Jak široká je jedna závěj (v dlaždicích) — viz <see cref="SnowDrift"/>.</summary>
+    private const int DriftCell = 10;
+
     /// <summary>Jak silně makro-šum mění jas (±). Nad 8 % už je vidět mřížka šumu.</summary>
     private const float MacroStrength = 0.055f;
 
@@ -180,10 +183,7 @@ public sealed class TerrainPainter
 
         if (season.Snow > 0.001f)
         {
-            // Závěj je někde hlubší, někde profoukaná. Rozptyl kolem poloviny,
-            // takže průměr zůstane na zadané hodnotě.
-            float drift = 0.65f + 0.7f * Unit(worldX, worldY, 13);
-            color = Color.Lerp(color, Snow, Math.Clamp(season.Snow * drift, 0f, 1f));
+            color = Color.Lerp(color, Snow, Math.Clamp(season.Snow * SnowDrift(worldX, worldY), 0f, 1f));
         }
 
         return color;
@@ -343,17 +343,40 @@ public sealed class TerrainPainter
     /// interpolací. Právě ta hrubá mřížka je smysl věci: krajina má mít
     /// světlejší a tmavší <b>kraje</b>, ne zrno.
     /// </summary>
-    public float MacroNoise(int worldX, int worldY)
-    {
-        int cellX = FloorDiv(worldX, MacroCell);
-        int cellY = FloorDiv(worldY, MacroCell);
-        float fx = Smooth((worldX - cellX * MacroCell) / (float)MacroCell);
-        float fy = Smooth((worldY - cellY * MacroCell) / (float)MacroCell);
+    public float MacroNoise(int worldX, int worldY) => SmoothNoise(worldX, worldY, MacroCell, 11);
 
-        float topLeft = Unit(cellX, cellY, 11);
-        float topRight = Unit(cellX + 1, cellY, 11);
-        float bottomLeft = Unit(cellX, cellY + 1, 11);
-        float bottomRight = Unit(cellX + 1, cellY + 1, 11);
+    /// <summary>
+    /// Jak hluboký je sníh na téhle dlaždici (násobek zadané hodnoty období).
+    ///
+    /// <para><b>Proč plynule:</b> dřív se hloubka losovala pro každou dlaždici
+    /// zvlášť v rozsahu 0,65–1,35. Dlaždice je ale jednolitá barva, takže ze
+    /// sousedů s nezávislým losem byla <b>kostkovaná deka</b> — v zimě, kdy
+    /// období zemi navíc vybělí, to bylo přes celou pláň vidět jako šachovnice.
+    /// Skutečná závěj je někde hlubší a jinde profoukaná <i>přes několik
+    /// dlaždic</i>, ne ob jednu.</para>
+    ///
+    /// <para>Buňka je menší než u velkoplošné vlny: vlna dělá světlejší a tmavší
+    /// kus pláně, závěj je jev o pár dlaždicích.</para>
+    /// </summary>
+    public float SnowDrift(int worldX, int worldY) =>
+        0.65f + 0.7f * SmoothNoise(worldX, worldY, DriftCell, 13);
+
+    /// <summary>
+    /// Hodnotový šum, který se mezi dlaždicemi mění plynule: losuje se v rozích
+    /// mřížky o straně <paramref name="cell"/> a mezi nimi se vyhlazeně
+    /// interpoluje.
+    /// </summary>
+    private float SmoothNoise(int worldX, int worldY, int cell, int salt)
+    {
+        int cellX = FloorDiv(worldX, cell);
+        int cellY = FloorDiv(worldY, cell);
+        float fx = Smooth((worldX - cellX * cell) / (float)cell);
+        float fy = Smooth((worldY - cellY * cell) / (float)cell);
+
+        float topLeft = Unit(cellX, cellY, salt);
+        float topRight = Unit(cellX + 1, cellY, salt);
+        float bottomLeft = Unit(cellX, cellY + 1, salt);
+        float bottomRight = Unit(cellX + 1, cellY + 1, salt);
 
         float top = topLeft + (topRight - topLeft) * fx;
         float bottom = bottomLeft + (bottomRight - bottomLeft) * fx;

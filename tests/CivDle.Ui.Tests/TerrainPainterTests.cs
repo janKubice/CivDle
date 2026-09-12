@@ -187,6 +187,53 @@ public sealed class TerrainPainterTests
     }
 
     [Fact]
+    public void SnowLiesInDriftsNotInSquares()
+    {
+        // Tohle je ta konkrétní chyba: hloubka se losovala pro každou dlaždici
+        // zvlášť, dlaždice je jednolitá barva, a z pláně byla kostkovaná deka.
+        var painter = Painter();
+
+        for (int x = 0; x < 60; x++)
+        {
+            float here = painter.SnowDrift(x, 30);
+            float next = painter.SnowDrift(x + 1, 30);
+
+            Assert.True(MathF.Abs(here - next) < 0.12f,
+                $"sníh skáče mezi sousedy na x={x} ({here:0.00} vs {next:0.00})");
+        }
+    }
+
+    [Fact]
+    public void SnowIsNotTheSameDepthEverywhere()
+    {
+        // Druhá strana téhož: rovnoměrná vrstva vypadá jako natřená plocha.
+        var painter = Painter();
+
+        float min = 9f, max = -9f;
+        for (int x = 0; x < 400; x += 3)
+        {
+            float drift = painter.SnowDrift(x, 17);
+            min = MathF.Min(min, drift);
+            max = MathF.Max(max, drift);
+        }
+
+        Assert.True(max - min > 0.3f, $"sníh je všude stejně hluboký ({min:0.00}–{max:0.00})");
+    }
+
+    [Fact]
+    public void SnowDepthStaysInItsRange()
+    {
+        // Vyjde-li násobek nad 1, zapadne dlaždice úplně a krajina pod sněhem
+        // zmizí; pod nulou by sníh ubíral barvu.
+        var painter = Painter();
+
+        for (int i = -300; i <= 300; i += 7)
+        {
+            Assert.InRange(painter.SnowDrift(i, -i), 0.65f, 1.35f);
+        }
+    }
+
+    [Fact]
     public void MacroNoiseStaysInRange()
     {
         var painter = Painter();
