@@ -504,10 +504,12 @@ public sealed class BuildingRenderer
             DrawBalloon(spriteBatch, building, bounds);
         }
 
-        // Stojící budova má být VIDĚT — a hlavně má být poznat PROČ. Jeden
-        // červený roh pro všechno znamenal, že hráč viděl „něco je špatně"
-        // a musel hádat; barva teď důvod rozliší a bublina ho pojmenuje.
-        DrawStallBadge(spriteBatch, building.Stall, bounds);
+        // Proč se tu odznak „budova stojí" NEKRESLÍ: ve zralém městě stojí
+        // skoro každá těžební budova (vytěžila okolí), takže odznaků byly na
+        // obrazovce stovky — z upozornění se stala vyrážka. A místo pro ně
+        // není: nad půdorysem kreslí střechu dům nad ním, uvnitř leží odznak
+        // na kresbě. Od toho je vyhrazený překryv úzkých hrdel s legendou
+        // (StallOverlayRenderer) a inspektor po kliknutí.
     }
 
     /// <summary>Střechy k zasněžení, posbírané při hlavním průchodu.</summary>
@@ -673,7 +675,10 @@ public sealed class BuildingRenderer
         spriteBatch.Draw(_pixel, new Rectangle(balloon.X + 2, balloon.Y + 2, 6, 5), new Color(224, 140, 132));
     }
 
-    /// <summary>Barva odznaku podle důvodu, proč budova stojí.</summary>
+    /// <summary>
+    /// Barva přiřazená důvodu, proč budova stojí. Čte ji inspektor a popisek
+    /// pod kurzorem, aby měl důvod stejnou barvu všude, kde se pojmenuje.
+    /// </summary>
     public static Color StallColor(BuildingStall stall) => stall switch
     {
         BuildingStall.NoWorkers => new Color(255, 190, 70),   // oranžová = chybí lidi
@@ -681,47 +686,6 @@ public sealed class BuildingRenderer
         BuildingStall.NoTerrain => new Color(150, 110, 220),  // fialová = došlo okolí
         _ => Color.Transparent,
     };
-
-    /// <summary>
-    /// Odznak v rohu budovy. Rozestavěná budova ho nedostane — u té je vidět
-    /// lešení i pruh postupu, druhá cedule by jen šuměla.
-    /// </summary>
-    private void DrawStallBadge(SpriteBatch spriteBatch, BuildingStall stall, Rectangle bounds)
-    {
-        var color = StallColor(stall);
-        if (color == Color.Transparent)
-        {
-            return;
-        }
-
-        var badge = BadgeRect(bounds);
-
-        spriteBatch.Draw(
-            _pixel,
-            new Rectangle(badge.X - 1, badge.Y - 1, badge.Width + 2, badge.Height + 2),
-            Color.Black * 0.45f);
-        spriteBatch.Draw(_pixel, badge, color);
-    }
-
-    /// <summary>
-    /// Kam odznak patří: do <b>horního pravého rohu</b>, těsně nad půdorys.
-    ///
-    /// <para>Původně to byl čtverec šest na šest uvnitř půdorysu — na domku
-    /// o jedné dlaždici tedy třetina střechy, tedy barevná záplata přes kresbu.
-    /// Posunout ho doprostřed nad budovu ale problém jen o dlaždici odsunulo:
-    /// v souvislé zástavbě dosedl na střechu souseda nad sebou, takže to pořád
-    /// vypadalo jako flek na cizím domě — jen na cizím.</para>
-    ///
-    /// <para>Roh je jediné místo, kde se v pravidelném rastru potkávají mezery
-    /// mezi čtyřmi parcelami. Odznak tam leží na volné zemi, nepřekrývá kresbu
-    /// a je poznat, ke které budově patří. A je menší, než býval: stačí, aby si
-    /// ho oko všimlo, nemá se číst.</para>
-    /// </summary>
-    public static Rectangle BadgeRect(Rectangle bounds)
-    {
-        int size = Math.Clamp(bounds.Width / 6, 3, 6);
-        return new Rectangle(bounds.Right - size, bounds.Y - size, size, size);
-    }
 
     /// <summary>
     /// Drobnost, ze které je poznat, jak se domu vede: kvetoucí dům dostane
