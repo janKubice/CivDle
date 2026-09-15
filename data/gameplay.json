@@ -171,7 +171,21 @@
   "demo": {
     "populationCap": 1500,
     "ascensionRequirement": 10000,
-    "techCount": 16
+    "techCount": 16,
+    "techs": [
+      "milling",
+      "trade",
+      "tools",
+      "sharp_axes",
+      "granary",
+      "crop_rotation",
+      "crop_terraces",
+      "grain_drying",
+      "silviculture",
+      "seed_selection",
+      "masonry",
+      "stone_sledges"
+    ]
   },
   "golden": {
     "minGapSeconds": 65,

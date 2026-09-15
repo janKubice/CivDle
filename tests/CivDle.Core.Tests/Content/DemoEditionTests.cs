@@ -33,7 +33,7 @@ public class DemoEditionTests
     {
         // Nula v datech by znamenala strom bez jediné dostupné technologie —
         // hráč by to nečetl jako demo, ale jako rozbitou hru.
-        var broken = new DemoConfig(10_000, 10_000, 0);
+        var broken = new DemoConfig(10_000, 10_000, 0, Array.Empty<string>());
 
         Assert.True(broken.TechCountFor(100) >= 1);
     }
@@ -43,7 +43,7 @@ public class DemoEditionTests
     {
         // Tohle je ten rozdíl: šestnáct uzlů je šestnáct uzlů, ať má plná hra
         // stromů kolik chce.
-        var demo = new DemoConfig(1_500, 10_000, 16);
+        var demo = new DemoConfig(1_500, 10_000, 16, Array.Empty<string>());
 
         Assert.Equal(16, demo.TechCountFor(100));
         Assert.Equal(16, demo.TechCountFor(1_000));
@@ -55,7 +55,7 @@ public class DemoEditionTests
         // Dřív to byl podíl (0,2 stromu). Každých pět technologií přidaných do
         // plné hry tím tiše přidalo jednu do ukázky — délku dema měnil kdokoli,
         // kdo doplnil obsah, a nikdo o tom nevěděl.
-        var demo = new DemoConfig(1_500, 10_000, 16);
+        var demo = new DemoConfig(1_500, 10_000, 16, Array.Empty<string>());
 
         Assert.Equal(demo.TechCountFor(158), demo.TechCountFor(400));
     }
@@ -63,7 +63,7 @@ public class DemoEditionTests
     [Fact]
     public void ASmallTreeIsNeverCutBelowItself()
     {
-        var demo = new DemoConfig(1_500, 10_000, 16);
+        var demo = new DemoConfig(1_500, 10_000, 16, Array.Empty<string>());
 
         Assert.Equal(7, demo.TechCountFor(7));
     }
@@ -129,10 +129,9 @@ public class DemoEditionTests
     }
 
     [Fact]
-    public void OnlyAFractionOfTheTreeIsReachable()
+    public void OnlyASmallSliceOfTheTreeIsReachable()
     {
         var sim = DemoWorld(out var content);
-        int available = content.Demo.TechCountFor(sim.TechCount);
 
         int open = 0;
         for (int i = 0; i < sim.TechCount; i++)
@@ -143,9 +142,28 @@ public class DemoEditionTests
             }
         }
 
-        Assert.Equal(available, open);
-        Assert.True(open < sim.TechCount, "ukázka nabídla celý strom");
+        Assert.True(open >= content.Demo.TechIds.Count, "ukázka nenabídla ani to, co má vyjmenované");
+        Assert.True(open < sim.TechCount / 4, $"ukázka otevřela {open} ze {sim.TechCount} uzlů");
         Assert.True(sim.IsTechBeyondDemo(sim.TechCount - 1), "poslední uzel má být zamčený");
+    }
+
+    [Fact]
+    public void TheDemoNeverReachesTheIndustrialBranch()
+    {
+        // Uzávěr přes předpoklady umí ukázku tiše protáhnout přes půl stromu:
+        // sklady, akvadukty i balon visí přes toolsmithing na celé železné
+        // větvi až po parní stroj. Demo má být první hodina hry, ne exkurze
+        // do průmyslu — a tohle je jediný způsob, jak to uhlídat, protože se
+        // to nepozná jinak než vyzkoušením.
+        var sim = DemoWorld(out var content);
+
+        foreach (string beyond in new[] { "steam_power", "electrification", "electronics", "iron_working" })
+        {
+            int index = content.Techs.IndexOf(beyond);
+            Assert.True(
+                index < 0 || sim.IsTechBeyondDemo(index),
+                $"'{beyond}' se do ukázky dostal přes předpoklady");
+        }
     }
 
     [Fact]
@@ -240,6 +258,87 @@ public class DemoEditionTests
             content.Demo.PopulationCap > demo.AscensionRequirement(),
             $"strop ({content.Demo.PopulationCap}) je pod prvním Vzestupem "
             + $"({demo.AscensionRequirement()})");
+    }
+
+    [Fact]
+    public void TheDemoPicksItsTechsByName()
+    {
+        // Prvních N v pořadí souboru je špatný vzorek: v prvních šestnácti je
+        // deset technologií, které neodemknou nic viditelného. Hráč by v ukázce
+        // desetkrát bádal a desetkrát se mu nic nového neobjevilo.
+        var content = TestData.LoadRealContent();
+
+        Assert.True(content.Demo.HasCuratedTechs, "ukázka nemá vybraný výzkum");
+    }
+
+    [Fact]
+    public void MostDemoResearchUnlocksSomething()
+    {
+        // Odemykání je ta odměna, kvůli které se bádá dál. V ukázce, která má
+        // hodinu, musí většina kroků něco přinést.
+        var content = TestData.LoadRealContent();
+
+        int withUnlocks = 0;
+        foreach (string id in content.Demo.TechIds)
+        {
+            int index = content.Techs.IndexOf(id);
+            if (content.Techs[index].UnlockedBuildingIndices.Count > 0)
+            {
+                withUnlocks++;
+            }
+        }
+
+        Assert.True(
+            withUnlocks * 2 > content.Demo.TechIds.Count,
+            $"jen {withUnlocks} z {content.Demo.TechIds.Count} kroků výzkumu něco odemkne");
+    }
+
+    [Fact]
+    public void TheNamedListIsExactlyWhatTheDemoOffers()
+    {
+        var content = TestData.LoadRealContent();
+        content.EnableDemoEdition();
+        var sim = new Simulation(content, new UniformTerrain(1));
+
+        foreach (string id in content.Demo.TechIds)
+        {
+            Assert.False(
+                sim.IsTechBeyondDemo(content.Techs.IndexOf(id)),
+                $"'{id}' je v seznamu ukázky, ale zamčený");
+        }
+    }
+
+    [Fact]
+    public void NamingATechAlsoBringsItsPrerequisites()
+    {
+        // Kdyby se předpoklad nedosypal, visel by v ukázce uzel, ke kterému
+        // nevede cesta — a to vypadá jako chyba, ne jako hranice dema.
+        var content = TestData.LoadRealContent();
+
+        var allowed = DemoTechSelection.BuildFrom(content.Techs.All, content.Demo.TechIds);
+
+        for (int i = 0; i < allowed.Length; i++)
+        {
+            if (!allowed[i])
+            {
+                continue;
+            }
+
+            foreach (int prereq in content.Techs[i].PrerequisiteIndices)
+            {
+                Assert.True(allowed[prereq], $"'{content.Techs[i].Id}' visí bez předpokladu");
+            }
+        }
+    }
+
+    [Fact]
+    public void AnEmptyListFallsBackToCounting()
+    {
+        // Zpětná slučitelnost: data bez seznamu se mají chovat jako dřív.
+        var demo = new DemoConfig(1_500, 10_000, 16, Array.Empty<string>());
+
+        Assert.False(demo.HasCuratedTechs);
+        Assert.Equal(16, demo.TechCountFor(158));
     }
 
     // ----- pomůcky -----

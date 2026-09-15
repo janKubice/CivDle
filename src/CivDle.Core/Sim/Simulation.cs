@@ -7445,8 +7445,10 @@ public sealed class Simulation
             return false;
         }
 
-        _demoTechs ??= DemoTechSelection.Build(
-            _content.Techs.All, _content.Demo.TechCountFor(_content.Techs.Count));
+        _demoTechs ??= _content.Demo.HasCuratedTechs
+            ? DemoTechSelection.BuildFrom(_content.Techs.All, _content.Demo.TechIds)
+            : DemoTechSelection.Build(
+                _content.Techs.All, _content.Demo.TechCountFor(_content.Techs.Count));
 
         return !_demoTechs[techIndex];
     }

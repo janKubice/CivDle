@@ -19,6 +19,63 @@ namespace CivDle.Core.Content;
 public static class DemoTechSelection
 {
     /// <summary>
+    /// Maska podle <b>jmenovitého</b> seznamu z dat, doplněná o předpoklady.
+    ///
+    /// <para>Autor ukázky vybírá, co má demo ukázat — typicky technologie,
+    /// které něco odemykají. Předpoklady se dosypou samy: kdyby chyběly, visel
+    /// by v ukázce uzel, ke kterému nevede cesta, a to vypadá jako chyba, ne
+    /// jako hranice dema.</para>
+    /// </summary>
+    public static bool[] BuildFrom(IReadOnlyList<TechDef> techs, IReadOnlyList<string> ids)
+    {
+        var allowed = new bool[techs.Count];
+
+        for (int i = 0; i < techs.Count; i++)
+        {
+            for (int j = 0; j < ids.Count; j++)
+            {
+                if (string.Equals(techs[i].Id, ids[j], StringComparison.Ordinal))
+                {
+                    allowed[i] = true;
+                    break;
+                }
+            }
+        }
+
+        AddMissingPrerequisites(techs, allowed);
+        return allowed;
+    }
+
+    /// <summary>
+    /// Dosype předpoklady všeho, co je ve výběru. Opakuje se, dokud se něco
+    /// přidává — předpoklad může mít vlastní předpoklad.
+    /// </summary>
+    private static void AddMissingPrerequisites(IReadOnlyList<TechDef> techs, bool[] allowed)
+    {
+        bool added = true;
+        while (added)
+        {
+            added = false;
+            for (int i = 0; i < techs.Count; i++)
+            {
+                if (!allowed[i])
+                {
+                    continue;
+                }
+
+                foreach (int prereq in techs[i].PrerequisiteIndices)
+                {
+                    if (!allowed[prereq])
+                    {
+                        allowed[prereq] = true;
+                        added = true;
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Vrátí masku technologií dostupných v ukázce.
     /// </summary>
     /// <param name="techs">Celý strom.</param>

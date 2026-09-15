@@ -686,13 +686,29 @@ public sealed record SubseaConfig(int Range)
     public bool IsEnabled => Range > 0;
 }
 
+/// <param name="TechIds">
+/// Které technologie ukázka nabídne — <b>vyjmenované</b>, ne prvních N.
+///
+/// <para>Bez seznamu se bere prvních <see cref="DemoConfig.TechCount"/> uzlů
+/// v pořadí souboru, a to je špatný vzorek: v prvních šestnácti je deset
+/// takových, které neodemknou <b>nic viditelného</b> (jsou to pasivní
+/// násobiče). Hráč v ukázce desetkrát klikne na výzkum a desetkrát se mu nic
+/// nového neobjeví — a odemykání je přitom ta odměna, kvůli které se hraje
+/// dál.</para>
+///
+/// <para>Prázdný seznam = chovej se jako dřív (prvních N).</para>
+/// </param>
 public sealed record DemoConfig(
     double PopulationCap,
     long AscensionRequirement,
-    int TechCount)
+    int TechCount,
+    IReadOnlyList<string> TechIds)
 {
     /// <summary>Výchozí meze, když si data neřeknou jinak.</summary>
-    public static DemoConfig Default { get; } = new(1_500, 10_000, 16);
+    public static DemoConfig Default { get; } = new(1_500, 10_000, 16, Array.Empty<string>());
+
+    /// <summary>Vybírá ukázka technologie jmenovitě?</summary>
+    public bool HasCuratedTechs => TechIds.Count > 0;
 
     /// <summary>
     /// Kolik uzlů stromu je v ukázce dostupných. Vždy aspoň jeden — strom bez

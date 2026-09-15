@@ -4110,7 +4110,11 @@ public sealed class ContentLoader
 
         var demo = file.Demo is null
             ? DemoConfig.Default
-            : new DemoConfig(file.Demo.PopulationCap, file.Demo.AscensionRequirement, file.Demo.TechCount);
+            : new DemoConfig(
+                file.Demo.PopulationCap,
+                file.Demo.AscensionRequirement,
+                file.Demo.TechCount,
+                file.Demo.Techs ?? Array.Empty<string>());
 
         if (file.Demo is not null)
         {
@@ -4126,6 +4130,25 @@ public sealed class ContentLoader
             {
                 throw new ContentLoadException(
                     path, $"demo.techCount musí být aspoň 1, je {demo.TechCount}.");
+            }
+
+            // Jmenovitý seznam se ověřuje proti stromu hned při startu. Překlep
+            // v ID by jinak ukázku tiše ochudil o jednu technologii a nikdo by
+            // se to nedozvěděl — demo by prostě bylo o kus kratší.
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (string id in demo.TechIds)
+            {
+                if (techs.IndexOf(id) < 0)
+                {
+                    throw new ContentLoadException(
+                        path, $"demo.techs odkazuje na neznámou technologii '{id}'.");
+                }
+
+                if (!seen.Add(id))
+                {
+                    throw new ContentLoadException(
+                        path, $"demo.techs uvádí '{id}' dvakrát.");
+                }
             }
         }
 
