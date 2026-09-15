@@ -694,7 +694,7 @@ public sealed record TerraformDto(
 public sealed record DemoDto(
     double PopulationCap,
     long AscensionRequirement,
-    double TechFraction);
+    int TechCount);
 
 /// <summary>Obsah souboru <c>data/figures.json</c>.</summary>
 public sealed record FiguresFileDto(int SchemaVersion, List<FigureDto>? Figures);

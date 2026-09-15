@@ -169,9 +169,9 @@
   },
   "_comment_planting": "Co jde zasadit. Druhy se odemykaji vyzkumem (requiresTech), takze sazeni roste spolu s hrou misto jedne vecne moznosti. Prvni druh je zaroven to, co seje UFO.",
   "demo": {
-    "populationCap": 10000,
+    "populationCap": 1500,
     "ascensionRequirement": 10000,
-    "techFraction": 0.2
+    "techCount": 16
   },
   "golden": {
     "minGapSeconds": 65,

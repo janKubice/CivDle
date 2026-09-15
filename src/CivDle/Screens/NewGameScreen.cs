@@ -115,7 +115,12 @@ public sealed class NewGameScreen : IScreen
 
         // Obrana se nabízí jen tehdy, když ji obsah vůbec má — bez dat by to
         // byl přepínač, po kterém se nic nestane.
-        if (_screens.Content.Frontier.IsAvailable)
+        //
+        // V demu se nenabízí vůbec. Ukázka má hodinu až dvě na to, aby ukázala
+        // jádro hry: stavění, řetězce a Vzestup. Vlny útočníků jsou volitelná
+        // vrstva navíc, která k tomu nic nepřidá — jen odvede pozornost
+        // a ještě vezme čas na to, aby ji hráč pochopil.
+        if (!Edition.IsDemo && _screens.Content.Frontier.IsAvailable)
         {
             layout.Widgets.Add(UiFactory.Row(loc["newgame.frontier"], frontier.Widget));
             layout.Widgets.Add(frontierHint);
@@ -146,7 +151,10 @@ public sealed class NewGameScreen : IScreen
             simulation.MarkAsSandbox();
         }
 
-        if (_frontier)
+        // Pojistka, ne jen skrytý přepínač: kdyby se _frontier někdy nastavilo
+        // jinudy (načtené nastavení, klávesa, budoucí obrazovka), demo by se
+        // rozjelo s vlnami, které v něm být nemají.
+        if (_frontier && !Edition.IsDemo)
         {
             simulation.EnableFrontierDefense();
         }

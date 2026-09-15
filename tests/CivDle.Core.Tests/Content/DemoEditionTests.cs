@@ -25,7 +25,7 @@ public class DemoEditionTests
 
         Assert.True(demo.PopulationCap > 0);
         Assert.True(demo.AscensionRequirement > 0);
-        Assert.InRange(demo.SafeTechFraction, 0.05, 1.0);
+        Assert.True(demo.TechCount >= 1);
     }
 
     [Fact]
@@ -33,18 +33,39 @@ public class DemoEditionTests
     {
         // Nula v datech by znamenala strom bez jediné dostupné technologie —
         // hráč by to nečetl jako demo, ale jako rozbitou hru.
-        var broken = new DemoConfig(10_000, 10_000, 0.0);
+        var broken = new DemoConfig(10_000, 10_000, 0);
 
         Assert.True(broken.TechCountFor(100) >= 1);
     }
 
     [Fact]
-    public void TheTechCutIsAFractionOfTheTree()
+    public void TheTechCutIsACountNotAShareOfTheTree()
     {
-        var demo = new DemoConfig(10_000, 10_000, 0.2);
+        // Tohle je ten rozdíl: šestnáct uzlů je šestnáct uzlů, ať má plná hra
+        // stromů kolik chce.
+        var demo = new DemoConfig(1_500, 10_000, 16);
 
-        Assert.Equal(20, demo.TechCountFor(100));
-        Assert.True(demo.TechCountFor(7) >= 1, "malý strom nesmí zmizet celý");
+        Assert.Equal(16, demo.TechCountFor(100));
+        Assert.Equal(16, demo.TechCountFor(1_000));
+    }
+
+    [Fact]
+    public void GrowingTheFullGameDoesNotGrowTheDemo()
+    {
+        // Dřív to byl podíl (0,2 stromu). Každých pět technologií přidaných do
+        // plné hry tím tiše přidalo jednu do ukázky — délku dema měnil kdokoli,
+        // kdo doplnil obsah, a nikdo o tom nevěděl.
+        var demo = new DemoConfig(1_500, 10_000, 16);
+
+        Assert.Equal(demo.TechCountFor(158), demo.TechCountFor(400));
+    }
+
+    [Fact]
+    public void ASmallTreeIsNeverCutBelowItself()
+    {
+        var demo = new DemoConfig(1_500, 10_000, 16);
+
+        Assert.Equal(7, demo.TechCountFor(7));
     }
 
     [Fact]
@@ -54,7 +75,9 @@ public class DemoEditionTests
         var content = TestData.LoadRealContent();
 
         Assert.True(content.Demo.PopulationCap > 0);
-        Assert.True(content.Demo.SafeTechFraction < 1.0, "demo by nabídlo celý strom");
+        Assert.True(
+            content.Demo.TechCountFor(content.Techs.Count) < content.Techs.Count,
+            "demo by nabídlo celý strom");
     }
 
     // ----- plná hra -----
@@ -189,6 +212,34 @@ public class DemoEditionTests
         var allowed = DemoTechSelection.Build(content.Techs.All, wanted);
 
         Assert.Equal(wanted, allowed.Count(x => x));
+    }
+
+    [Fact]
+    public void TheDemoAllowsExactlyOneAscension()
+    {
+        // „Jeden Vzestup" znamená, že na druhý se nedá dosáhnout: práh musí
+        // ležet NAD stropem obyvatel. Kdyby byly stejné, visel by druhý Vzestup
+        // přesně na stropu a hráč by ho po dlouhém dojezdu dostal — z ukázky by
+        // byla plná hra se zpožděním.
+        var content = TestData.LoadRealContent();
+
+        Assert.True(
+            content.Demo.AscensionRequirement > content.Demo.PopulationCap,
+            $"druhý Vzestup ({content.Demo.AscensionRequirement}) je v dosahu stropu "
+            + $"({content.Demo.PopulationCap})");
+    }
+
+    [Fact]
+    public void TheDemoEndsWhereThePlayerCanSeeIt()
+    {
+        // Strop musí být nad prahem prvního Vzestupu, jinak hráč narazí na zeď
+        // dřív, než mu ukázka stihne ukázat prestiž — tedy to hlavní.
+        var demo = DemoWorld(out var content);
+
+        Assert.True(
+            content.Demo.PopulationCap > demo.AscensionRequirement(),
+            $"strop ({content.Demo.PopulationCap}) je pod prvním Vzestupem "
+            + $"({demo.AscensionRequirement()})");
     }
 
     // ----- pomůcky -----

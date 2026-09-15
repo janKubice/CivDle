@@ -594,7 +594,14 @@ public sealed record StaffingConfig(double ScarcityThreshold)
 /// Práh <b>druhého</b> Vzestupu. První zůstává normální, aby si hráč prestiž
 /// osahal celou; druhý je cíl, na kterém demo končí.
 /// </param>
-/// <param name="TechFraction">Jaký díl stromu výzkumu je v ukázce dostupný (0–1).</param>
+/// <param name="TechCount">
+/// Kolik uzlů stromu výzkumu ukázka nabídne — <b>absolutní počet</b>, ne podíl.
+///
+/// <para>Býval to podíl (0,2 z celého stromu). Jenže strom plné hry roste, a
+/// s ním tiše rostlo i demo: každých pět nových technologií v plné verzi
+/// přidalo jednu do ukázky, aniž by to kdokoli chtěl. Kolik výzkumu má hráč
+/// v demu projít, je rozhodnutí o délce ukázky — a to se nemá měnit samo.</para>
+/// </param>
 /// <summary>
 /// Jeden druh zlatého úlovku — vzácný tvor, na kterého se dá kliknout.
 ///
@@ -682,18 +689,16 @@ public sealed record SubseaConfig(int Range)
 public sealed record DemoConfig(
     double PopulationCap,
     long AscensionRequirement,
-    double TechFraction)
+    int TechCount)
 {
     /// <summary>Výchozí meze, když si data neřeknou jinak.</summary>
-    public static DemoConfig Default { get; } = new(10_000, 10_000, 0.2);
-
-    /// <summary>Díl stromu oříznutý do rozumného rozsahu (ochrana proti překlepu v datech).</summary>
-    public double SafeTechFraction => Math.Clamp(TechFraction, 0.05, 1.0);
+    public static DemoConfig Default { get; } = new(1_500, 10_000, 16);
 
     /// <summary>
     /// Kolik uzlů stromu je v ukázce dostupných. Vždy aspoň jeden — strom bez
-    /// jediné dostupné technologie by vypadal jako rozbitá hra.
+    /// jediné dostupné technologie by vypadal jako rozbitá hra — a nikdy víc,
+    /// než kolik jich vůbec je.
     /// </summary>
     public int TechCountFor(int totalTechs) =>
-        Math.Clamp((int)Math.Ceiling(totalTechs * SafeTechFraction), 1, Math.Max(1, totalTechs));
+        Math.Clamp(TechCount, 1, Math.Max(1, totalTechs));
 }

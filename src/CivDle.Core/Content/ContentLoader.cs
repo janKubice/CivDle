@@ -4110,7 +4110,24 @@ public sealed class ContentLoader
 
         var demo = file.Demo is null
             ? DemoConfig.Default
-            : new DemoConfig(file.Demo.PopulationCap, file.Demo.AscensionRequirement, file.Demo.TechFraction);
+            : new DemoConfig(file.Demo.PopulationCap, file.Demo.AscensionRequirement, file.Demo.TechCount);
+
+        if (file.Demo is not null)
+        {
+            // Fail-fast: překlep v mezích ukázky se jinak projeví až tím, že
+            // demo pustí dál, než mělo — a to nikdo nepozná při startu.
+            if (demo.PopulationCap < 1)
+            {
+                throw new ContentLoadException(
+                    path, $"demo.populationCap musí být aspoň 1, je {demo.PopulationCap}.");
+            }
+
+            if (demo.TechCount < 1)
+            {
+                throw new ContentLoadException(
+                    path, $"demo.techCount musí být aspoň 1, je {demo.TechCount}.");
+            }
+        }
 
         // Zlaté úlovky: bez bloku zůstane jeden bezejmenný třpyt jako dřív,
         // takže starý gameplay.json (i z modu) načte beze změny.

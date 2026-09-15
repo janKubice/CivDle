@@ -503,7 +503,13 @@ public sealed class GameplayScreen : IScreen
         _fogRenderer = new FogRenderer(screens.WhitePixel);
         _bubbles = new BubbleSystem(screens.Sprites, screens.Content);
         _caravans = new CaravanSystem(screens.Sprites, screens.Content);
-        _caravans.UseFriends(screens.Friends);
+        // Karavany od kamarádů jsou online funkce (jména a avatary ze Steamu).
+        // V demu se nepoužívají — karavany jezdí dál, jen bez jmen, což je
+        // zároveň normální stav pro každého, kdo hru spustí bez Steamu.
+        if (!Edition.IsDemo)
+        {
+            _caravans.UseFriends(screens.Friends);
+        }
         _golden = new GoldenSpawnSystem(screens.Sprites, screens.Content);
         _discoveries = new DiscoveryRenderer(screens.Sprites);
         // Pozor na pořadí: všechno pod tímhle řádkem si font drží, takže se to
