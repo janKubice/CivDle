@@ -42,4 +42,22 @@ public enum GameAction
 
     /// <summary>Uložit sdílitelnou kartu.</summary>
     ShareCard,
+
+    // Panely: otevřít a zavřít týmž písmenem. Panel, který se otevírá klávesou
+    // a zavírá Escapem, se ovládá hůř než ten, co má jedno tlačítko na obojí.
+
+    /// <summary>Strom výzkumu.</summary>
+    OpenTech,
+
+    /// <summary>Úkoly.</summary>
+    OpenQuests,
+
+    /// <summary>Výrobní řetězce.</summary>
+    OpenChains,
+
+    /// <summary>Vzestup.</summary>
+    OpenAscend,
+
+    /// <summary>Osady.</summary>
+    OpenSettlements,
 }

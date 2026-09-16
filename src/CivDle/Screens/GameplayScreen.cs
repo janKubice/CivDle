@@ -2970,6 +2970,32 @@ public sealed class GameplayScreen : IScreen
         return grid;
     }
 
+    /// <summary>
+    /// Přidá do lišty jednu kategorii — nadpis a pod ním mřížku jejích ikon.
+    ///
+    /// <para>Prázdná kategorie se vynechá i s nadpisem. Většina odboček se
+    /// odemyká postupně, takže v rané hře by jinak nad prázdnem visely tři
+    /// nadpisy a lišta by slibovala víc, než v tu chvíli umí.</para>
+    /// </summary>
+    private static void AddSection(VerticalStackPanel stack, string title, List<Widget> buttons)
+    {
+        if (buttons.Count == 0)
+        {
+            return;
+        }
+
+        const int columns = 4;
+        stack.Widgets.Add(UiFactory.ToolSectionLabel(title));
+
+        var grid = IconGrid(columns);
+        for (int i = 0; i < buttons.Count; i++)
+        {
+            Place(grid, buttons[i], i, columns);
+        }
+
+        stack.Widgets.Add(grid);
+    }
+
     /// <summary>Posadí tlačítko do mřížky na dané pořadí (řádky se dopočítají).</summary>
     private static void Place(Grid grid, Widget widget, int index, int columns)
     {
@@ -2987,14 +3013,60 @@ public sealed class GameplayScreen : IScreen
     /// jeden dlouhý sloupec textových tlačítek — bylo jich dvanáct pod sebou,
     /// zabíral půl obrazovky a nešlo v něm nic najít.</para>
     /// </summary>
+    /// <summary>
+    /// Písmeno zkratky tak, jak ho má hráč vidět na tlačítku.
+    ///
+    /// <para>Čte se z <see cref="Input.KeyMap"/>, ne z konstanty: zkratky jdou
+    /// přenastavit, a nápověda, která po přenastavení lže, je horší než žádná.</para>
+    /// </summary>
+    private string KeyHint(GameAction action) => _screens.Keys.KeyFor(action) switch
+    {
+        Microsoft.Xna.Framework.Input.Keys.None => string.Empty,
+        var key => key.ToString(),
+    };
+
+    /// <summary>
+    /// Přihlásí panely, které se otevírají a zavírají jedním písmenem.
+    ///
+    /// <para>Drží to správce obrazovek, protože aktualizuje vždy jen tu vrchní:
+    /// kdyby zkratku hlídala herní obrazovka, otevřela by panel a víc už by
+    /// o klávese neslyšela.</para>
+    /// </summary>
+    private void RegisterPanelShortcuts()
+    {
+        _screens.ClearPanels();
+        _screens.RegisterPanel(
+            GameAction.OpenTech, typeof(TechScreen),
+            () => new TechScreen(_screens, _simulation));
+        _screens.RegisterPanel(
+            GameAction.OpenQuests, typeof(QuestsScreen),
+            () => new QuestsScreen(_screens, _simulation));
+        _screens.RegisterPanel(
+            GameAction.OpenChains, typeof(ChainsScreen),
+            () => new ChainsScreen(_screens, _simulation));
+        _screens.RegisterPanel(
+            GameAction.OpenAscend, typeof(AscensionScreen),
+            () => new AscensionScreen(_screens, _simulation, _info));
+        _screens.RegisterPanel(
+            GameAction.OpenSettlements, typeof(SettlementsScreen),
+            () => new SettlementsScreen(_screens, _simulation, _camera));
+    }
+
     private Widget BuildScreenButtons()
     {
         var loc = _screens.Loc;
-        const int columns = 4;
-        var grid = IconGrid(columns);
-        int slot = 0;
+
+        // Odbočky se dřív sypaly do jedné ploché mřížky v pořadí, v jakém je
+        // kód přidával. Při dvaceti ikonách to přestane být nabídka a stane se
+        // z toho zeď — hráč v ní hledá podle toho, jak vypadá obrázek, ne podle
+        // toho, co potřebuje. Čtyři koše podle otázky, kterou si zrovna klade.
+        var view = new List<Widget>();     // co teď vidím na mapě
+        var city = new List<Widget>();     // co město zrovna chce
+        var progress = new List<Widget>(); // kam se posouvám
+        var records = new List<Widget>();  // co už se stalo
 
         BuildRadialMenu(loc);
+        RegisterPanelShortcuts();
 
         _speedBadge = UiFactory.ToolButtonWithBadge(Ico("ui.play"), loc["tip.speed"], () =>
         {
@@ -3002,10 +3074,10 @@ public sealed class GameplayScreen : IScreen
             RefreshHudTexts();
         }, "1x");
         _speedButton = _speedBadge.Button;
-        Place(grid, _speedBadge.Root, slot++, columns);
+        view.Add(_speedBadge.Root);
 
-        Place(grid, UiFactory.ToolButton(
-            Ico("ui.home"), loc["hud.backToCity"] + '\n' + loc["tip.backToCity"], RecenterOnCity), slot++, columns);
+        view.Add(UiFactory.ToolButton(
+            Ico("ui.home"), loc["hud.backToCity"] + '\n' + loc["tip.backToCity"], RecenterOnCity));
 
         // Překryvy měly doteď jen klávesu. Klávesa, o které se hráč nikde
         // nedozví, není ovládání — je to tajemství. Tlačítko ji navíc v bublině
@@ -3013,14 +3085,14 @@ public sealed class GameplayScreen : IScreen
         _bottleneckButton = UiFactory.ToolButton(
             Ico("ui.inspector"), loc["hud.bottlenecks"] + '\n' + loc["tip.bottlenecks"],
             ToggleBottlenecks);
-        Place(grid, _bottleneckButton, slot++, columns);
+        view.Add(UiFactory.WithKeyHint(_bottleneckButton, KeyHint(GameAction.Bottlenecks)));
 
         if (_screens.Content.Gameplay.Power.IsEnabled)
         {
             _powerButton = UiFactory.ToolButton(
                 Ico("ui.power"), loc["hud.powerOverlay"] + '\n' + loc["tip.powerOverlay"],
                 TogglePower);
-            Place(grid, _powerButton, slot++, columns);
+            view.Add(UiFactory.WithKeyHint(_powerButton, KeyHint(GameAction.PowerOverlay)));
         }
 
         if (_simulation.Subsea.IsEnabled)
@@ -3028,20 +3100,22 @@ public sealed class GameplayScreen : IScreen
             _subseaButton = UiFactory.ToolButton(
                 Ico("ui.subsea"), loc["hud.subseaOverlay"] + '\n' + loc["tip.subseaOverlay"],
                 ToggleSubsea);
-            Place(grid, _subseaButton, slot++, columns);
+            view.Add(UiFactory.WithKeyHint(_subseaButton, KeyHint(GameAction.SubseaOverlay)));
         }
 
         if (_simulation.IsFeatureUnlocked("settlements"))
         {
-            Place(grid, UiFactory.ToolButton(
-                Ico("ui.settlements"), loc["hud.settlements"] + '\n' + loc["tip.settlements"],
-                () => _screens.Push(new SettlementsScreen(_screens, _simulation, _camera))), slot++, columns);
+            city.Add(UiFactory.WithKeyHint(
+                UiFactory.ToolButton(
+                    Ico("ui.settlements"), loc["hud.settlements"] + '\n' + loc["tip.settlements"],
+                    () => _screens.Push(new SettlementsScreen(_screens, _simulation, _camera))),
+                KeyHint(GameAction.OpenSettlements)));
         }
 
         _questsBadge = UiFactory.ToolButtonWithBadge(
             Ico("ui.quests"), loc["hud.quests"] + '\n' + loc["tip.quests"],
             () => _screens.Push(new QuestsScreen(_screens, _simulation)));
-        Place(grid, _questsBadge.Root, slot++, columns);
+        city.Add(UiFactory.WithKeyHint(_questsBadge.Root, KeyHint(GameAction.OpenQuests)));
 
         // Zakázky mají vlastní tlačítko, i když bydlí na obrazovce úkolů: je to
         // nejkratší smyčka ve hře a schovaná o dvě kliknutí by zanikla.
@@ -3051,7 +3125,10 @@ public sealed class GameplayScreen : IScreen
                 Ico("ui.contracts"), loc["hud.contracts"] + '\n' + loc["tip.contracts"],
                 () => _screens.Push(new QuestsScreen(_screens, _simulation)));
             _contractsButton = _contractsBadge.Button;
-            Place(grid, _contractsBadge.Root, slot++, columns);
+            // Zakázky vlastní písmeno nemají: otevírají TUTÉŽ obrazovku jako
+            // úkoly (jsou na ní záložkou). Druhá zkratka na tentýž panel by
+            // slibovala něco, co neexistuje.
+            city.Add(_contractsBadge.Root);
         }
 
         if (_screens.Content.Techs.Count > 0 && _simulation.IsFeatureUnlocked("research"))
@@ -3059,30 +3136,32 @@ public sealed class GameplayScreen : IScreen
             _techBadge = UiFactory.ToolButtonWithBadge(
                 Ico("ui.tech"), loc["hud.tech"] + '\n' + loc["tip.tech"],
                 () => _screens.Push(new TechScreen(_screens, _simulation)));
-            Place(grid, _techBadge.Root, slot++, columns);
+            progress.Add(UiFactory.WithKeyHint(_techBadge.Root, KeyHint(GameAction.OpenTech)));
         }
 
         if (_screens.Content.Policies.Count > 0 && _simulation.IsFeatureUnlocked("governor"))
         {
-            Place(grid, UiFactory.ToolButton(
+            city.Add(UiFactory.ToolButton(
                 Ico("ui.governor"), loc["hud.governor"] + '\n' + loc["tip.governor"],
-                () => _screens.Push(new PoliciesScreen(_screens, _simulation))), slot++, columns);
+                () => _screens.Push(new PoliciesScreen(_screens, _simulation))));
         }
 
         if (_simulation.IsFeatureUnlocked("ascend"))
         {
-            Place(grid, UiFactory.ToolButton(
-                Ico("ui.ascend"), loc["hud.ascend"] + '\n' + loc["tip.ascend"],
-                () => _screens.Push(new AscensionScreen(_screens, _simulation, _info))), slot++, columns);
+            progress.Add(UiFactory.WithKeyHint(
+                UiFactory.ToolButton(
+                    Ico("ui.ascend"), loc["hud.ascend"] + '\n' + loc["tip.ascend"],
+                    () => _screens.Push(new AscensionScreen(_screens, _simulation, _info))),
+                KeyHint(GameAction.OpenAscend)));
         }
 
         // Velké dílo se v liště objeví, teprve až je čím sypat — dřív by to byla
         // nabídka na něco, co hráč nemá jak použít.
         if (_simulation.GrandWorkAvailable)
         {
-            Place(grid, UiFactory.ToolButton(
+            progress.Add(UiFactory.ToolButton(
                 Ico("ui.grandwork"), loc["hud.grandwork"] + '\n' + loc["grandwork.desc"],
-                () => _screens.Push(new GrandWorkScreen(_screens, _simulation))), slot++, columns);
+                () => _screens.Push(new GrandWorkScreen(_screens, _simulation))));
         }
 
         // Obrana má vlastní panel, ne jen řádek v rohu: hráč se z něj musí
@@ -3090,9 +3169,9 @@ public sealed class GameplayScreen : IScreen
         // jako by tam nebyl.
         if (_simulation.FrontierDefense)
         {
-            Place(grid, UiFactory.ToolButton(
+            city.Add(UiFactory.ToolButton(
                 Ico("ui.frontier"), loc["hud.frontier"] + '\n' + loc["tip.frontierPanel"],
-                () => _screens.Push(new FrontierScreen(_screens, _simulation))), slot++, columns);
+                () => _screens.Push(new FrontierScreen(_screens, _simulation))));
         }
 
         // Orbita se v liště objeví, teprve až stojí kosmodrom. Dřív by to byl
@@ -3100,18 +3179,18 @@ public sealed class GameplayScreen : IScreen
         // nemá ohlašovat dvě éry předem.
         if (_simulation.HasLaunchSite)
         {
-            Place(grid, UiFactory.ToolButton(
+            records.Add(UiFactory.ToolButton(
                 Ico("orbit.planet"), loc["hud.orbit"] + '\n' + loc["tip.orbit"],
-                () => _screens.Push(new OrbitScreen(_screens, _simulation))), slot++, columns);
+                () => _screens.Push(new OrbitScreen(_screens, _simulation))));
         }
 
         // Osobnosti až od chvíle, kdy se první někdo narodil. Prázdný seznam
         // v liště by jen sliboval mechaniku, na kterou hráč nemá jak dosáhnout.
         if (_simulation.Figures.Remembered.Count > 0)
         {
-            Place(grid, UiFactory.ToolButton(
+            records.Add(UiFactory.ToolButton(
                 Ico("ui.figures"), loc["figures.title"] + '\n' + loc["tip.figures"],
-                () => _screens.Push(new FiguresScreen(_screens, _simulation))), slot++, columns);
+                () => _screens.Push(new FiguresScreen(_screens, _simulation))));
         }
 
         // Doktríny až s prvními body: dokud hráč nemá za co, je to obrazovka
@@ -3119,49 +3198,51 @@ public sealed class GameplayScreen : IScreen
         if (_screens.Content.Doctrines.IsEnabled
             && (_simulation.PrestigePoints > 0 || _simulation.Doctrine is not null))
         {
-            Place(grid, UiFactory.ToolButton(
+            records.Add(UiFactory.ToolButton(
                 Ico("ui.doctrines"), loc["doctrines.title"] + '\n' + loc["tip.doctrines"],
-                () => _screens.Push(new DoctrinesScreen(_screens, _simulation))), slot++, columns);
+                () => _screens.Push(new DoctrinesScreen(_screens, _simulation))));
         }
 
         // Odkaz se ukáže až po prvním Vzestupu — vrstva nad mechanikou, kterou
         // hráč ještě nezná, by byla jen matoucí tlačítko navíc.
         if (_simulation.LegacyAvailable)
         {
-            Place(grid, UiFactory.ToolButton(
+            progress.Add(UiFactory.ToolButton(
                 Ico("ui.legacy"), loc["hud.legacy"] + '\n' + loc["legacy.desc"],
-                () => _screens.Push(new LegacyScreen(_screens, _simulation))), slot++, columns);
+                () => _screens.Push(new LegacyScreen(_screens, _simulation))));
         }
 
         if (_simulation.HistoryEnabled)
         {
-            Place(grid, UiFactory.ToolButton(
+            records.Add(UiFactory.ToolButton(
                 Ico("ui.stats"), loc["hud.stats"] + '\n' + loc["tip.stats"],
-                () => _screens.Push(new StatsScreen(_screens, _simulation.History))), slot++, columns);
+                () => _screens.Push(new StatsScreen(_screens, _simulation.History))));
         }
 
         // Zvonohra se v liště ukáže, teprve až nějaká stojí — do prázdna se
         // melodie skládá blbě.
         if (_simulation.HasCarillon)
         {
-            Place(grid, UiFactory.ToolButton(
+            records.Add(UiFactory.ToolButton(
                 Ico("ui.carillon"), loc["carillon.title"] + '\n' + loc["tip.carillon"],
-                () => _screens.Push(new CarillonScreen(_screens, _simulation, _carillon))), slot++, columns);
+                () => _screens.Push(new CarillonScreen(_screens, _simulation, _carillon))));
         }
 
         // Řetězce jsou vedle stavění schválně: hráč je otevírá právě ve chvíli,
         // kdy neví, co postavit.
-        Place(grid, UiFactory.ToolButton(
-            Ico("ui.chains"), loc["menu.chains"] + '\n' + loc["tip.chains"],
-            () => _screens.Push(new ChainsScreen(_screens, _simulation))), slot++, columns);
+        records.Add(UiFactory.WithKeyHint(
+            UiFactory.ToolButton(
+                Ico("ui.chains"), loc["menu.chains"] + '\n' + loc["tip.chains"],
+                () => _screens.Push(new ChainsScreen(_screens, _simulation))),
+            KeyHint(GameAction.OpenChains)));
 
         // Kronika stojí vedle statistik schválně: obojí čte tentýž časosběr,
         // jen jedno odpovídá na „kolik" a druhé na „co se stalo".
         if (_simulation.HistoryEnabled && _screens.Content.Chronicle.IsEnabled)
         {
-            Place(grid, UiFactory.ToolButton(
+            records.Add(UiFactory.ToolButton(
                 Ico("ui.chronicle"), loc["chronicle.page.title"] + '\n' + loc["tip.chroniclePage"],
-                () => _screens.Push(new ChroniclePageScreen(_screens, _simulation))), slot++, columns);
+                () => _screens.Push(new ChroniclePageScreen(_screens, _simulation))));
         }
 
         // Achievementy a žebříčky v demu nejsou. Zůstávají v liště zamčené,
@@ -3169,23 +3250,23 @@ public sealed class GameplayScreen : IScreen
         // ve hře cestu, jak je odemknout, když žádná není.
         if (Edition.IsDemo)
         {
-            Place(grid, UiFactory.ToolButton(
+            records.Add(UiFactory.ToolButton(
                 Ico("ui.trophy"), loc["hud.achievements"] + '\n' + loc["demo.locked"],
-                ShowDemoLocked), slot++, columns);
+                ShowDemoLocked));
 
-            Place(grid, UiFactory.ToolButton(
+            records.Add(UiFactory.ToolButton(
                 Ico("ui.stats"), loc["hud.leaderboards"] + '\n' + loc["demo.locked"],
-                ShowDemoLocked), slot++, columns);
+                ShowDemoLocked));
         }
         else
         {
-            Place(grid, UiFactory.ToolButton(
+            records.Add(UiFactory.ToolButton(
                 Ico("ui.trophy"), loc["hud.achievements"] + '\n' + loc["tip.achievements"],
-                () => _screens.Push(new AchievementsScreen(_screens, _simulation))), slot++, columns);
+                () => _screens.Push(new AchievementsScreen(_screens, _simulation))));
 
-            Place(grid, UiFactory.ToolButton(
+            records.Add(UiFactory.ToolButton(
                 Ico("ui.stats"), loc["hud.leaderboards"] + '\n' + loc["board.title"],
-                () => _screens.Push(new LeaderboardScreen(_screens, _simulation))), slot++, columns);
+                () => _screens.Push(new LeaderboardScreen(_screens, _simulation))));
         }
 
         if (_simulation.IsFeatureUnlocked("elections") && _screens.Content.Elections.IsEnabled)
@@ -3193,14 +3274,20 @@ public sealed class GameplayScreen : IScreen
             _electionBadge = UiFactory.ToolButtonWithBadge(
                 Ico("ui.vote"), loc["hud.election"] + '\n' + loc["tip.election"],
                 () => _screens.Push(new ElectionScreen(_screens, _simulation)));
-            Place(grid, _electionBadge.Root, slot++, columns);
+            records.Add(_electionBadge.Root);
         }
 
-        Place(grid, UiFactory.ToolButton(
+        records.Add(UiFactory.ToolButton(
             Ico("ui.chronicle"), loc["menu.chronicle"] + '\n' + loc["tip.chronicle"],
-            () => _screens.Push(new ChronicleScreen(_screens))), slot, columns);
+            () => _screens.Push(new ChronicleScreen(_screens))));
 
-        var panel = UiFactory.DarkPanel(grid);
+        var stack = new VerticalStackPanel { Spacing = 2 };
+        AddSection(stack, loc["hud.section.view"], view);
+        AddSection(stack, loc["hud.section.city"], city);
+        AddSection(stack, loc["hud.section.progress"], progress);
+        AddSection(stack, loc["hud.section.records"], records);
+
+        var panel = UiFactory.DarkPanel(stack);
         panel.HorizontalAlignment = HorizontalAlignment.Right;
         panel.VerticalAlignment = VerticalAlignment.Bottom;
         panel.Margin = new Thickness(0, 0, 12, MinimapRenderer.ReservedHeight);

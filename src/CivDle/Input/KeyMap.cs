@@ -32,6 +32,14 @@ public sealed class KeyMap
         (GameAction.CycleBatch, Keys.Tab, null),
         (GameAction.HideHud, Keys.F11, null),
         (GameAction.ShareCard, Keys.F12, null),
+
+        // Písmena k významu, ne k pořadí na klávesnici. W A S D a B/E/M/Z jsou
+        // zabrané pohybem a překryvy, takže se vybíralo z toho, co zbylo.
+        (GameAction.OpenTech, Keys.T, null),        // Technologie
+        (GameAction.OpenQuests, Keys.U, null),      // Úkoly
+        (GameAction.OpenChains, Keys.C, null),      // řetězCe
+        (GameAction.OpenAscend, Keys.V, null),      // Vzestup
+        (GameAction.OpenSettlements, Keys.O, null), // Osady
     };
 
     private readonly Dictionary<GameAction, Keys> _keys = new();

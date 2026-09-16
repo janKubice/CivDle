@@ -121,6 +121,37 @@ public class KeyMapTests
     }
 
     [Fact]
+    public void NoTwoActionsShareAKeyByDefault()
+    {
+        // Výchozí rozložení musí být použitelné bez jediného přenastavení.
+        // Kolizi si autor vyrobí snadno — stačí přidat akci a sáhnout po
+        // písmenu, které už něco dělá — a projeví se až tím, že hráči jedna
+        // klávesa spustí dvě věci naráz.
+        var taken = new Dictionary<Microsoft.Xna.Framework.Input.Keys, GameAction>();
+
+        foreach (var action in Enum.GetValues<GameAction>())
+        {
+            foreach (var key in BoundKeys(action))
+            {
+                Assert.False(
+                    taken.ContainsKey(key),
+                    $"klávesa {key} je na '{action}' i na '{(taken.TryGetValue(key, out var other) ? other : action)}'");
+                taken[key] = action;
+            }
+        }
+    }
+
+    private static IEnumerable<Microsoft.Xna.Framework.Input.Keys> BoundKeys(GameAction action)
+    {
+        var map = new KeyMap(new PlayerProfile());
+        yield return map.KeyFor(action);
+        if (map.AlternateFor(action) is { } alternate)
+        {
+            yield return alternate;
+        }
+    }
+
+    [Fact]
     public void EveryActionHasAName_InEveryLanguage()
     {
         // Obrazovka ovládání prochází celý výčet akcí, takže na novou akci

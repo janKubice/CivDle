@@ -208,12 +208,88 @@ public sealed class ScreenManager
     /// <summary>Ukončí hru.</summary>
     public void ExitGame() => Game.Exit();
 
+    /// <summary>
+    /// Panely, které se otevírají a zavírají jednou klávesou.
+    ///
+    /// <para><b>Proč to bydlí tady, a ne v herní obrazovce:</b> aktualizuje se
+    /// vždycky jen ta vrchní obrazovka. Kdyby zkratku hlídala hra, otevřel by
+    /// panel a víc už o klávese neslyšela — zavřít by šel jen Escapem. Zkratka
+    /// patří aplikaci, ne jedné obrazovce.</para>
+    /// </summary>
+    private readonly List<(Input.GameAction Action, Type Panel, Func<IScreen> Open)> _panels = new();
+
+    private readonly Input.InputManager _panelInput = new();
+
+    /// <summary>Přihlásí panel ke klávesové zkratce (otevře i zavře).</summary>
+    public void RegisterPanel(Input.GameAction action, Type panel, Func<IScreen> open)
+    {
+        _panels.RemoveAll(p => p.Action == action);
+        _panels.Add((action, panel, open));
+    }
+
+    /// <summary>Zapomene všechny panely (mění se s rozehranou hrou).</summary>
+    public void ClearPanels() => _panels.Clear();
+
     public void Update(GameTime gameTime)
     {
-        if (_screens.Count > 0)
+        if (_screens.Count == 0)
         {
-            _screens[^1].Update(gameTime);
+            return;
         }
+
+        if (TryTogglePanel())
+        {
+            return; // klávesu spotřeboval panel; vrchní obrazovka ji už nevidí
+        }
+
+        _screens[^1].Update(gameTime);
+    }
+
+    /// <summary>
+    /// Zmáčkl hráč zkratku panelu? Otevřený panel se týmž písmenem zavře.
+    ///
+    /// <para>Zkratky se poslouchají jen nad hrou a nad samotnými panely. V menu,
+    /// v dialogu nebo při psaní semínka do pole by „T" nemělo otevírat výzkum.</para>
+    /// </summary>
+    private bool TryTogglePanel()
+    {
+        if (_panels.Count == 0)
+        {
+            return false;
+        }
+
+        _panelInput.Update();
+        var top = _screens[^1];
+        bool overGame = top is GameplayScreen || _panels.Any(p => p.Panel.IsInstanceOfType(top));
+        if (!overGame)
+        {
+            return false;
+        }
+
+        foreach (var panel in _panels)
+        {
+            if (!Keys.WasPressed(_panelInput, panel.Action))
+            {
+                continue;
+            }
+
+            if (panel.Panel.IsInstanceOfType(top))
+            {
+                Pop();
+                return true;
+            }
+
+            // Jiný panel je navrchu: přepni se rovnou, ať se nevrší na sebe.
+            if (_panels.Any(p => p.Panel.IsInstanceOfType(top)))
+            {
+                Pop();
+            }
+
+            Push(panel.Open());
+            return true;
+        }
+
+        return false;
     }
 
     public void Draw(GameTime gameTime)

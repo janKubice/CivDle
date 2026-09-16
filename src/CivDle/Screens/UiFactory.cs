@@ -222,6 +222,88 @@ internal static class UiFactory
     /// v něm něco čeká — u úkolů, zakázek a výzkumu to znamená obcházet HUD
     /// dokola. Odznak to řekne rovnou.</para>
     /// </summary>
+    /// <summary>
+    /// Tlačítko s <b>písmenem zkratky v rohu</b>.
+    ///
+    /// <para>Zkratka, o které se hráč dozví jen z bubliny, je napůl tajemství:
+    /// bublinu si vyvolá, až když si o tlačítku není jistý — tedy přesně tehdy,
+    /// když už myší klikl. Písmeno na tlačítku ji naučí bez ptaní.</para>
+    ///
+    /// <para>Sedí vlevo dole, aby si nepřekáželo s odznakem počtu (ten je
+    /// vpravo nahoře), a je tlumené — je to nápověda, ne hodnota.</para>
+    /// </summary>
+    /// <summary>
+    /// Přilepí písmeno zkratky do rohu hotového tlačítka.
+    ///
+    /// <para>Existuje zvlášť od <see cref="ToolButtonWithKey"/>, protože část
+    /// tlačítek už svůj panel má (nesou odznak s počtem). Nápověda se k nim
+    /// musí přidat, ne je přestavět — jinak by se odznak ztratil.</para>
+    /// </summary>
+    public static Widget WithKeyHint(Widget root, string key)
+    {
+        if (root is not Panel panel)
+        {
+            var wrapper = new Panel
+            {
+                Width = IconButtonSize,
+                Height = IconButtonSize,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+            };
+            wrapper.Widgets.Add(root);
+            panel = wrapper;
+        }
+
+        panel.Widgets.Add(KeyHintLabel(key));
+        return panel;
+    }
+
+    public static Widget ToolButtonWithKey(
+        Texture2D? icon, string tooltip, Action onClick, string key, string? fallbackText = null)
+    {
+        var button = ToolButton(icon, tooltip, onClick, fallbackText);
+
+        var hint = KeyHintLabel(key);
+
+        var root = new Panel
+        {
+            Width = IconButtonSize,
+            Height = IconButtonSize,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
+        };
+        root.Widgets.Add(button);
+        root.Widgets.Add(hint);
+        return root;
+    }
+
+    /// <summary>
+    /// Štítek s písmenem zkratky.
+    ///
+    /// <para><b>Proč má podložku:</b> bez ní se písmeno kreslilo rovnou na
+    /// ikonu a u těch, které mají v levém dolním rohu kresbu podobné šedi
+    /// (rozvod proudu), s ní úplně splynulo — na snímku šlo „E" rozeznat až
+    /// při desetinásobném zvětšení. Nápověda, kterou není vidět, je jen šum
+    /// v rohu.</para>
+    /// </summary>
+    private static Label KeyHintLabel(string key) => new()
+    {
+        Text = key,
+        TextColor = UiPalette.Text,
+        HorizontalAlignment = HorizontalAlignment.Left,
+        VerticalAlignment = VerticalAlignment.Bottom,
+        Background = new PanelBrush(UiPalette.PanelDeep),
+        Padding = new Thickness(3, 0),
+    };
+
+    /// <summary>Nadpis kategorie v liště odboček.</summary>
+    public static Widget ToolSectionLabel(string text) => new Label
+    {
+        Text = text,
+        TextColor = UiPalette.TextDim,
+        HorizontalAlignment = HorizontalAlignment.Left,
+    };
+
     public static BadgedButton ToolButtonWithBadge(
         Texture2D? icon, string tooltip, Action onClick, string? fallbackText = null)
     {
