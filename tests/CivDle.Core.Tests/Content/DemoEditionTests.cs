@@ -233,42 +233,76 @@ public class DemoEditionTests
     }
 
     [Fact]
-    public void TheDemoAllowsExactlyOneAscension()
+    public void TheSecondAscensionIsReachable()
     {
-        // „Jeden Vzestup" znamená, že na druhý se nedá dosáhnout: práh musí
-        // ležet NAD stropem obyvatel. Kdyby byly stejné, visel by druhý Vzestup
-        // přesně na stropu a hráč by ho po dlouhém dojezdu dostal — z ukázky by
-        // byla plná hra se zpožděním.
+        // Konec ukázky je druhý Vzestup, ne zeď u stropu. Musí se na něj tedy
+        // dát dosáhnout: práh leží POD stropem obyvatel.
+        //
+        // Dřív tu stálo pravidlo opačné (práh nad stropem, aby byl Vzestup
+        // nedosažitelný). Skončit u šedého nápisu o stropu je ale konec bez
+        // odměny — a Vzestup je to nejlepší, co hra má.
         var content = TestData.LoadRealContent();
 
         Assert.True(
-            content.Demo.AscensionRequirement > content.Demo.PopulationCap,
-            $"druhý Vzestup ({content.Demo.AscensionRequirement}) je v dosahu stropu "
-            + $"({content.Demo.PopulationCap})");
+            content.Demo.AscensionRequirement <= content.Demo.PopulationCap,
+            $"druhý Vzestup ({content.Demo.AscensionRequirement}) je nad stropem "
+            + $"({content.Demo.PopulationCap}), takže na něj hráč nedosáhne");
     }
 
     [Fact]
-    public void TheDemoEndsWhereThePlayerCanSeeIt()
+    public void TheDemoEndsAfterTheSecondAscensionNotBefore()
     {
-        // Strop musí být nad prahem prvního Vzestupu, jinak hráč narazí na zeď
-        // dřív, než mu ukázka stihne ukázat prestiž — tedy to hlavní.
+        // Strop musí být nad prvním Vzestupem, jinak hráč narazí na zeď dřív,
+        // než mu ukázka stihne ukázat prestiž — tedy to hlavní.
         var demo = DemoWorld(out var content);
 
         Assert.True(
-            content.Demo.PopulationCap > demo.AscensionRequirement(),
-            $"strop ({content.Demo.PopulationCap}) je pod prvním Vzestupem "
+            content.Demo.AscensionRequirement > demo.AscensionRequirement(),
+            $"druhý Vzestup ({content.Demo.AscensionRequirement}) není dál než první "
             + $"({demo.AscensionRequirement()})");
     }
 
     [Fact]
-    public void TheDemoPicksItsTechsByName()
+    public void TheDemoKnowsHowMuchOfTheGameItShows()
     {
-        // Prvních N v pořadí souboru je špatný vzorek: v prvních šestnácti je
-        // deset technologií, které neodemknou nic viditelného. Hráč by v ukázce
-        // desetkrát bádal a desetkrát se mu nic nového neobjevilo.
+        // Čísla na závěrečné kartě jsou důvod ke koupi. Počítají se z obsahu,
+        // aby se s ním nerozešla při první přidané budově — nepravda je to
+        // poslední, co si má hráč z ukázky odnést.
         var content = TestData.LoadRealContent();
 
-        Assert.True(content.Demo.HasCuratedTechs, "ukázka nemá vybraný výzkum");
+        var scope = DemoScope.Measure(content);
+
+        Assert.True(scope.Techs > 0, "ukázka nenabízí žádný výzkum");
+        Assert.True(scope.Buildings > 0, "v ukázce se nedá postavit nic");
+        Assert.True(scope.TechsBeyond > 0, "ukázka nabízí celý strom");
+        Assert.True(scope.BuildingsBeyond > 0, "ukázka nabízí všechny budovy");
+        Assert.True(scope.Buildings < scope.TotalBuildings);
+        Assert.True(scope.Techs < scope.TotalTechs);
+    }
+
+    [Fact]
+    public void BuildingsThatNeedNoResearchCountTowardsTheDemo()
+    {
+        // Většina rané zástavby (dům, pila, lom) se staví od začátku bez
+        // výzkumu. Kdyby se počítaly jen odemčené technologiemi, tvrdila by
+        // závěrečná karta, že demo nabízí míň, než ve skutečnosti nabízí.
+        var content = TestData.LoadRealContent();
+
+        var scope = DemoScope.Measure(content);
+
+        Assert.True(
+            scope.Buildings > content.Demo.TechIds.Count,
+            $"v ukázce je jen {scope.Buildings} budov — to je míň než technologií");
+    }
+
+    [Fact]
+    public void AnEmptyListFallsBackToCounting()
+    {
+        // Zpětná slučitelnost: data bez seznamu se mají chovat jako dřív.
+        var demo = new DemoConfig(1_500, 10_000, 16, Array.Empty<string>());
+
+        Assert.False(demo.HasCuratedTechs);
+        Assert.Equal(16, demo.TechCountFor(158));
     }
 
     [Fact]
@@ -291,21 +325,6 @@ public class DemoEditionTests
         Assert.True(
             withUnlocks * 2 > content.Demo.TechIds.Count,
             $"jen {withUnlocks} z {content.Demo.TechIds.Count} kroků výzkumu něco odemkne");
-    }
-
-    [Fact]
-    public void TheNamedListIsExactlyWhatTheDemoOffers()
-    {
-        var content = TestData.LoadRealContent();
-        content.EnableDemoEdition();
-        var sim = new Simulation(content, new UniformTerrain(1));
-
-        foreach (string id in content.Demo.TechIds)
-        {
-            Assert.False(
-                sim.IsTechBeyondDemo(content.Techs.IndexOf(id)),
-                $"'{id}' je v seznamu ukázky, ale zamčený");
-        }
     }
 
     [Fact]
@@ -332,13 +351,29 @@ public class DemoEditionTests
     }
 
     [Fact]
-    public void AnEmptyListFallsBackToCounting()
+    public void TheDemoPicksItsTechsByName()
     {
-        // Zpětná slučitelnost: data bez seznamu se mají chovat jako dřív.
-        var demo = new DemoConfig(1_500, 10_000, 16, Array.Empty<string>());
+        // Prvních N v pořadí souboru je špatný vzorek: v prvních šestnácti je
+        // deset technologií, které neodemknou nic viditelného. Hráč by v ukázce
+        // desetkrát bádal a desetkrát se mu nic nového neobjevilo.
+        var content = TestData.LoadRealContent();
 
-        Assert.False(demo.HasCuratedTechs);
-        Assert.Equal(16, demo.TechCountFor(158));
+        Assert.True(content.Demo.HasCuratedTechs, "ukázka nemá vybraný výzkum");
+    }
+
+    [Fact]
+    public void TheNamedListIsExactlyWhatTheDemoOffers()
+    {
+        var content = TestData.LoadRealContent();
+        content.EnableDemoEdition();
+        var sim = new Simulation(content, new UniformTerrain(1));
+
+        foreach (string id in content.Demo.TechIds)
+        {
+            Assert.False(
+                sim.IsTechBeyondDemo(content.Techs.IndexOf(id)),
+                $"'{id}' je v seznamu ukázky, ale zamčený");
+        }
     }
 
     // ----- pomůcky -----

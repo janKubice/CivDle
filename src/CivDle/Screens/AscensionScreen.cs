@@ -16,6 +16,12 @@ namespace CivDle.Screens;
 /// </summary>
 public sealed class AscensionScreen : IScreen
 {
+    /// <summary>
+    /// Kolikátý Vzestup je v ukázce ten poslední. První si má hráč osahat celý
+    /// (prestiž je to hlavní, co má demo ukázat), druhý je cílová páska.
+    /// </summary>
+    private const int DemoFinaleLevel = 2;
+
     private readonly ScreenManager _screens;
     private readonly Simulation _simulation;
     private readonly WorldInfo _info;
@@ -403,7 +409,14 @@ public sealed class AscensionScreen : IScreen
 
                     // Bilance běhu jako tečka za kapitolou — bez ní je Vzestup
                     // jen tlačítko „smazat město".
-                    _screens.Push(new RunSummaryScreen(_screens, _simulation.LastRun));
+                    //
+                    // V demu je druhý Vzestup zároveň koncem ukázky. Nahradí ho
+                    // proto závěrečná karta: totéž ohlédnutí, a k tomu čím hra
+                    // pokračuje. Dvě obrazovky za sebou by se navzájem shodily.
+                    _screens.Push(
+                        Edition.IsDemo && _simulation.AscensionLevel >= DemoFinaleLevel
+                            ? new DemoFinaleScreen(_screens, _simulation.LastRun)
+                            : new RunSummaryScreen(_screens, _simulation.LastRun));
                 }
             };
 

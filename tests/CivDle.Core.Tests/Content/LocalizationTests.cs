@@ -16,6 +16,47 @@ public class LocalizationTests
     }
 
     [Fact]
+    public void EveryLanguageCarriesTheSameKeys()
+    {
+        // Chybějící klíč v jednom jazyce se ve hře projeví až tím, že tam na
+        // hráče vykoukne holé „demo.finale.title" — a to nikdo netestuje ručně
+        // v pěti jazycích. Čeština je měřítko, protože se do ní píše první.
+        var content = TestData.LoadRealContent();
+        var reference = content.Languages[content.Languages.IndexOf("cs")];
+
+        for (int i = 0; i < content.Languages.Count; i++)
+        {
+            var language = content.Languages[i];
+            var missing = reference.Strings.Keys.Where(k => !language.Strings.ContainsKey(k)).ToList();
+
+            Assert.True(
+                missing.Count == 0,
+                $"jazyk '{language.Id}' nemá {missing.Count} klíčů, např.: "
+                + string.Join(", ", missing.Take(5)));
+        }
+    }
+
+    [Fact]
+    public void NoLanguageInventsKeysTheOthersDoNotHave()
+    {
+        // Opačný směr: klíč navíc znamená, že se někde překládá něco, co už
+        // v kódu není — mrtvý řádek, který při další úpravě mate.
+        var content = TestData.LoadRealContent();
+        var reference = content.Languages[content.Languages.IndexOf("cs")];
+
+        for (int i = 0; i < content.Languages.Count; i++)
+        {
+            var language = content.Languages[i];
+            var extra = language.Strings.Keys.Where(k => !reference.Strings.ContainsKey(k)).ToList();
+
+            Assert.True(
+                extra.Count == 0,
+                $"jazyk '{language.Id}' má {extra.Count} klíčů navíc, např.: "
+                + string.Join(", ", extra.Take(5)));
+        }
+    }
+
+    [Fact]
     public void Indexer_ReturnsTranslationForCurrentLanguage()
     {
         var content = TestData.LoadRealContent();
