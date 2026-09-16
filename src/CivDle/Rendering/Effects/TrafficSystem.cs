@@ -1,5 +1,6 @@
 using CivDle.Core.Content;
 using CivDle.Core.Sim;
+using CivDle.Rendering.Sprites;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -99,12 +100,27 @@ public sealed class TrafficSystem
         TrySpawn(dt, simulation, min, max);
     }
 
-    public void Draw(SpriteBatch spriteBatch, Texture2D pixel, Camera2D camera, float nightFactor)
+    /// <summary>
+    /// Vykreslí provoz.
+    ///
+    /// <para>Vozidlo je sprite, ne obdélníček. Volský povoz a vznášedlo se
+    /// dosud lišily jen odstínem a o pár pixelů velikostí — a přitom právě
+    /// po dopravě je poznat, v jaké je hráč éře. Navíc se odehrává přímo
+    /// v jeho městě, takže na ni kouká pořád; divočina je kulisa, tohle ne.</para>
+    ///
+    /// <para>Kresby jsou <b>shora a čelem doprava</b>, protože po silnici se
+    /// jezdí na čtyři strany. Jízda doleva je otočení o celý půlkruh, ne
+    /// zrcadlení: shora je auto jedoucí doleva totéž auto obrácené, kdežto
+    /// zrcadlení by z pravostranného provozu udělalo levostranný.</para>
+    /// </summary>
+    public void Draw(SpriteBatch spriteBatch, SpriteLibrary sprites, Texture2D pixel, Camera2D camera, float nightFactor)
     {
         if (_count == 0)
         {
             return;
         }
+
+        ResolveSprites(sprites);
 
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
         for (int i = 0; i < _count; i++)
@@ -119,14 +135,32 @@ public sealed class TrafficSystem
             int height = horizontal ? def.Width : def.Length;
 
             var body = def.Color.ToXna() * vehicle.Shade;
-            spriteBatch.Draw(
-                pixel,
-                new Rectangle(
-                    (int)(vehicle.Position.X - width * 0.5f),
-                    (int)(vehicle.Position.Y - height * 0.5f),
-                    width,
-                    height),
-                body);
+            var sprite = _spriteByDef![vehicle.DefIndex];
+
+            if (sprite is null)
+            {
+                spriteBatch.Draw(
+                    pixel,
+                    new Rectangle(
+                        (int)(vehicle.Position.X - width * 0.5f),
+                        (int)(vehicle.Position.Y - height * 0.5f),
+                        width,
+                        height),
+                    body);
+            }
+            else
+            {
+                spriteBatch.Draw(
+                    sprite,
+                    vehicle.Position,
+                    null,
+                    Color.White * vehicle.Shade,
+                    Heading(vehicle.Direction),
+                    new Vector2(sprite.Width * 0.5f, sprite.Height * 0.5f),
+                    1f,
+                    SpriteEffects.None,
+                    0f);
+            }
 
             // Světla se rozsvítí až v noci; ve dne by z náklaďáku dělala vánoční stromek.
             if (def.Glow && nightFactor > 0.25f)
@@ -142,6 +176,50 @@ public sealed class TrafficSystem
         }
 
         spriteBatch.End();
+    }
+
+    /// <summary>
+    /// O kolik se kresba otočí. Kresby míří doprava, takže jízda doprava je nula.
+    /// </summary>
+    private static float Heading(Point direction)
+    {
+        if (direction.X > 0)
+        {
+            return 0f;
+        }
+
+        if (direction.X < 0)
+        {
+            return MathF.PI;
+        }
+
+        return direction.Y > 0 ? MathF.PI / 2f : -MathF.PI / 2f;
+    }
+
+    /// <summary>
+    /// Kresba pro každý typ vozidla, vytažená jednou.
+    ///
+    /// <para>Skládat <c>"vehicle." + id</c> při kreslení by znamenalo řetězec
+    /// na každé vozidlo v každém snímku — při stropu dvaasedmdesáti vozidel
+    /// tisíce zahozených řetězců za sekundu. To je přesně ta alokace
+    /// v kreslicí smyčce, kterou si projekt zakazuje.</para>
+    /// </summary>
+    private Texture2D?[]? _spriteByDef;
+
+    private void ResolveSprites(SpriteLibrary sprites)
+    {
+        if (_spriteByDef is not null)
+        {
+            return;
+        }
+
+        var textures = new Texture2D?[_content.Vehicles.Count];
+        for (int i = 0; i < _content.Vehicles.Count; i++)
+        {
+            textures[i] = sprites.Get($"vehicle.{_content.Vehicles[i].Id}");
+        }
+
+        _spriteByDef = textures;
     }
 
     private void Advance(float dt, Simulation simulation, Vector2 min, Vector2 max)

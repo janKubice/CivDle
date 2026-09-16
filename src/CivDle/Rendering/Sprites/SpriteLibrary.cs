@@ -400,6 +400,17 @@ public sealed class SpriteLibrary : IDisposable
             AddTall(device, critter.Id, critter.Width, critter.Height, critter.Draw);
         }
 
+        // Vozidla na silnicích, shora. Rozměry plátna kopírují data
+        // (délka × šířka), takže se sprite kreslí 1:1 a neroztahuje se.
+        // Kreslí se čelem doprava; směr jízdy řeší otočení při kreslení.
+        AddTall(device, "vehicle.handcart", 5, 3, VehicleHandcart);
+        AddTall(device, "vehicle.ox_wagon", 8, 4, VehicleOxWagon);
+        AddTall(device, "vehicle.horse_cart", 7, 4, VehicleHorseCart);
+        AddTall(device, "vehicle.steam_lorry", 10, 5, VehicleSteamLorry);
+        AddTall(device, "vehicle.delivery_truck", 11, 5, VehicleDeliveryTruck);
+        AddTall(device, "vehicle.city_bus", 14, 6, VehicleCityBus);
+        AddTall(device, "vehicle.hover_pod", 8, 5, VehicleHoverPod);
+
         // Efekty: měkký kontaktní stín pod objekty (ať „sedí" na terénu).
         Add(device, "fx.shadow", SpriteSize, Shadow);
         Add(device, "fx.bubble", SpriteSize, Bubble);   // sběrná bublina nad budovou
@@ -1405,6 +1416,135 @@ public sealed class SpriteLibrary : IDisposable
         c.FillRect(18, 15, 2, 2, new Color(92, 58, 128));
         c.FillRect(13, 20, 2, 2, new Color(76, 156, 196));
         c.FillRect(16, 20, 3, 2, new Color(196, 168, 112));
+    }
+
+    // ----- vozidla (shora, čelem doprava) -----
+    //
+    // Vozidla se kreslila jako vyplněné obdélníčky v barvě z dat. Volský
+    // povoz a vznášedlo se tak lišily jen odstínem a o pár pixelů velikostí —
+    // a přitom právě po nich hráč pozná, v jaké je éře. Doprava se navíc
+    // odehrává přímo v jeho městě, takže na ni kouká pořád; divočina je
+    // kulisa, tohle ne.
+    //
+    // Shora, ne z boku: vozidlo jezdí na čtyři strany a otáčí se s tím, kam
+    // míří. Pohled z boku by při jízdě nahoru ukazoval bok.
+
+    /// <summary>Kolo, oj, kabina — společné tóny, aby vozový park držel pohromadě.</summary>
+    private static readonly Color Tyre = new(48, 44, 46);
+    private static readonly Color Glass = new(120, 168, 196);
+    private static readonly Color Chrome = new(176, 180, 186);
+
+    /// <summary>Ruční vozík: korba, dvě kola a oje dopředu.</summary>
+    private static void VehicleHandcart(PixelCanvas c)
+    {
+        var wood = new Color(138, 106, 68);
+
+        c.FillRect(0, 0, 4, 3, wood);
+        c.FillRect(0, 0, 4, 1, new Color(168, 132, 86)); // prkna do světla
+        c.FillRect(1, 0, 2, 1, Tyre);                    // kola po stranách
+        c.FillRect(1, 2, 2, 1, Tyre);
+        c.FillRect(4, 1, 1, 1, new Color(108, 82, 52));  // oj
+    }
+
+    /// <summary>Volský povoz: dlouhá korba s plachtou a spřežení vpředu.</summary>
+    private static void VehicleOxWagon(PixelCanvas c)
+    {
+        var wood = new Color(110, 82, 49);
+        var canvasCloth = new Color(198, 186, 160);
+
+        c.FillRect(0, 0, 6, 4, wood);
+        c.FillRect(1, 1, 4, 2, canvasCloth);             // plachta přes korbu
+        c.FillRect(0, 0, 6, 1, Tyre);                    // kola v jedné ose po stranách
+        c.FillRect(0, 3, 6, 1, Tyre);
+        c.FillRect(1, 0, 4, 1, wood);
+        c.FillRect(1, 3, 4, 1, wood);
+        c.FillRect(6, 1, 2, 2, new Color(74, 56, 38));   // spřežení
+    }
+
+    /// <summary>Kočár: lakovaná skříň, kozlík a kůň v zápřahu.</summary>
+    private static void VehicleHorseCart(PixelCanvas c)
+    {
+        var body = new Color(154, 122, 78);
+
+        c.FillRect(0, 0, 5, 4, body);
+        c.FillRect(1, 1, 3, 2, new Color(96, 74, 46));   // otevřená korba
+        c.FillRect(0, 0, 5, 1, Tyre);
+        c.FillRect(0, 3, 5, 1, Tyre);
+        c.FillRect(1, 0, 3, 1, body);
+        c.FillRect(1, 3, 3, 1, body);
+        c.FillRect(5, 1, 2, 2, new Color(120, 88, 56));  // kůň
+    }
+
+    /// <summary>Parní nákladní vůz: kotel vpředu, korba vzadu, komín.</summary>
+    private static void VehicleSteamLorry(PixelCanvas c)
+    {
+        var body = new Color(87, 97, 107);
+
+        c.FillRect(0, 0, 10, 5, body);
+        c.FillRect(0, 0, 10, 1, Tyre);                   // pneumatiky po obou bocích
+        c.FillRect(0, 4, 10, 1, Tyre);
+        c.FillRect(1, 0, 3, 1, body);
+        c.FillRect(1, 4, 3, 1, body);
+
+        c.FillRect(0, 1, 5, 3, new Color(68, 60, 54));   // ložná plocha
+        c.FillRect(6, 1, 3, 3, new Color(108, 118, 128));// kabina
+        c.FillRect(7, 2, 2, 1, Glass);
+        c.FillRect(5, 2, 1, 1, new Color(52, 48, 48));   // komín
+    }
+
+    /// <summary>Dodávka: hladká skříň, kabina se sklem, nárazník.</summary>
+    private static void VehicleDeliveryTruck(PixelCanvas c)
+    {
+        var body = new Color(196, 201, 206);
+
+        c.FillRect(0, 0, 11, 5, body);
+        c.FillRect(0, 0, 11, 1, Tyre);
+        c.FillRect(0, 4, 11, 1, Tyre);
+        c.FillRect(1, 0, 4, 1, body);
+        c.FillRect(1, 4, 4, 1, body);
+
+        c.FillRect(1, 1, 6, 3, new Color(232, 234, 238)); // bílá skříň
+        c.FillRect(7, 1, 3, 3, new Color(158, 164, 170)); // kabina
+        c.FillRect(8, 2, 2, 1, Glass);
+        c.FillRect(10, 2, 1, 1, Chrome);                  // nárazník
+    }
+
+    /// <summary>Autobus: pás oken po celé délce — podle nich se pozná na dálku.</summary>
+    private static void VehicleCityBus(PixelCanvas c)
+    {
+        var body = new Color(217, 164, 65);
+
+        c.FillRect(0, 0, 14, 6, body);
+        c.FillRect(0, 0, 14, 1, Tyre);
+        c.FillRect(0, 5, 14, 1, Tyre);
+        c.FillRect(1, 0, 8, 1, body);
+        c.FillRect(1, 5, 8, 1, body);
+
+        // Okna po obou bocích. Autobus je hlavně okno.
+        for (int x = 2; x < 11; x += 2)
+        {
+            c.FillRect(x, 1, 1, 1, Glass);
+            c.FillRect(x, 4, 1, 1, Glass);
+        }
+
+        c.FillRect(11, 1, 2, 4, new Color(238, 196, 112)); // předek
+        c.FillRect(13, 2, 1, 2, Glass);                    // čelní sklo
+    }
+
+    /// <summary>Vznášedlo: kapkovitý tvar, kupole a světelný pás místo kol.</summary>
+    private static void VehicleHoverPod(PixelCanvas c)
+    {
+        var body = new Color(111, 216, 224);
+
+        c.FillRect(1, 1, 6, 3, body);
+        c.FillRect(0, 2, 8, 1, body);                     // špička vpředu i vzadu
+        c.FillRect(2, 0, 4, 1, body);
+        c.FillRect(2, 4, 4, 1, body);
+        c.FillRect(2, 1, 3, 3, new Color(196, 244, 248)); // kupole
+
+        // Nemá kola — má svítící pás u země. To je celý rozdíl proti autu.
+        c.PaintRect(2, 0, 4, 1, new Color((byte)150, (byte)240, (byte)255, (byte)170));
+        c.PaintRect(2, 4, 4, 1, new Color((byte)150, (byte)240, (byte)255, (byte)170));
     }
 
     private static void FxAnomaly(PixelCanvas c)

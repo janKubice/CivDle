@@ -103,6 +103,25 @@ public sealed class SpriteCoverageTests
     }
 
     [Fact]
+    public void EveryRoadVehicle_HasItsOwnSprite()
+    {
+        // Doprava se odehrává přímo v hráčově městě, takže na ni kouká pořád —
+        // a právě po ní je poznat, v jaké je éře. Vozidlo bez kresby spadne
+        // zpátky na vyplněný obdélníček a volský povoz se od vznášedla liší
+        // jen odstínem.
+        var registered = RegisteredIds("vehicle");
+        var content = LoadContent();
+
+        var missing = content.Vehicles
+            .Where(v => !registered.Contains(v.Id))
+            .Select(v => v.Id)
+            .ToList();
+
+        Assert.True(missing.Count == 0,
+            $"Vozidla bez kresby (zůstane po nich obdélníček): {string.Join(", ", missing)}");
+    }
+
+    [Fact]
     public void EveryResource_HasAnIcon()
     {
         var registered = RegisteredIds("icon");

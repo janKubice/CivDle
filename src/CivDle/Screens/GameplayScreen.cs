@@ -877,7 +877,7 @@ public sealed class GameplayScreen : IScreen
             _poiRenderer.Draw(spriteBatch, _camera, _simulation);
             _roadRenderer.Draw(spriteBatch, _camera, _simulation);
             // Provoz patří NAD silnici a POD budovy — auto má zajet za dům, ne přes něj.
-            _traffic.Draw(spriteBatch, _screens.WhitePixel, _camera, DayNightCycle.NightFactor(_simulation.TimeOfDay01));
+            _traffic.Draw(spriteBatch, _screens.Sprites, _screens.WhitePixel, _camera, DayNightCycle.NightFactor(_simulation.TimeOfDay01));
             _raftRenderer.Draw(spriteBatch, _camera, _simulation);
             // Stánky nad zemí, ale pod budovami: trh je dočasná věc na návsi,
             // ne stavba, a má zajít za dům jako každý jiný předmět na zemi.
