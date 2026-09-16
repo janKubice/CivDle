@@ -83,6 +83,26 @@ public sealed class SpriteCoverageTests
     }
 
     [Fact]
+    public void EveryAnomalyKind_HasItsOwnSprite()
+    {
+        // Jedna společná značka pro všechny druhy říkala jen „něco tu je".
+        // Hráč se přitom rozhoduje, kam poslat výpravu — a to je rozhodnutí
+        // mezi zasypanou ruinou a spadlým meteoritem. Nový druh v datech bez
+        // vlastní kresby spadne zpátky na obecný kosočtverec a ten rozdíl
+        // zase zmizí, aniž by se cokoli pokazilo nahlas.
+        var registered = RegisteredIds("poi");
+        var content = LoadContent();
+
+        var missing = content.PointsOfInterest.Kinds
+            .Where(k => !registered.Contains(k.Id))
+            .Select(k => k.Id)
+            .ToList();
+
+        Assert.True(missing.Count == 0,
+            $"Anomálie bez vlastní značky (na mapě splynou): {string.Join(", ", missing)}");
+    }
+
+    [Fact]
     public void EveryResource_HasAnIcon()
     {
         var registered = RegisteredIds("icon");

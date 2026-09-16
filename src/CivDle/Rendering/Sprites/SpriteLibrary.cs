@@ -108,6 +108,15 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "ui.figures", IconSize, UiFigures);
         Add(device, "ui.carillon", IconSize, UiCarillon);
         Add(device, "fx.anomaly", SpriteSize, FxAnomaly);
+
+        // Anomálie podle druhu. Jeden fialový kosočtverec pro všechno říkal
+        // jen „něco tu je" — hráč se ale rozhoduje, kam poslat výpravu, a to
+        // je rozhodnutí mezi zasypanou ruinou a spadlým meteoritem. Značka,
+        // která ten rozdíl neukáže, ho nutí klikat, aby se to dozvěděl.
+        Add(device, "poi.buried_ruin", SpriteSize, PoiBuriedRuin);
+        Add(device, "poi.sky_stone", SpriteSize, PoiSkyStone);
+        Add(device, "poi.sunken_hold", SpriteSize, PoiSunkenHold);
+        Add(device, "poi.old_archive", SpriteSize, PoiOldArchive);
         Add(device, "ui.doctrines", IconSize, UiDoctrines);
         Add(device, "ui.inspector", IconSize, UiInspector);
         Add(device, "ui.power", IconSize, UiPower);
@@ -1305,6 +1314,99 @@ public sealed class SpriteLibrary : IDisposable
     /// Značka anomálie: kosočtverec s jádrem. Tvar, jaký na mapě nic jiného
     /// nemá — hráč ho pozná dřív, než přečte popisek.
     /// </summary>
+    /// <summary>
+    /// Zasypaná ruina: dva pahýly sloupů a překlad, co z nich ještě drží.
+    /// Půlka je pod zemí — proto ty useknuté dříky.
+    /// </summary>
+    private static void PoiBuriedRuin(PixelCanvas c)
+    {
+        var stone = new Color(170, 160, 146);
+        var shade = new Color(112, 104, 94);
+        var soil = new Color(94, 67, 44);
+
+        c.FillRect(6, 22, 20, 4, soil);          // navátá hlína, ze které to čouhá
+        c.FillRect(9, 11, 4, 12, stone);         // levý sloup
+        c.FillRect(19, 13, 4, 10, stone);        // pravý, o kus níž — ruina není rovná
+        c.FillRect(9, 11, 4, 1, shade);
+        c.FillRect(19, 13, 4, 1, shade);
+        c.FillRect(7, 8, 18, 3, stone);          // překlad
+        c.FillRect(7, 10, 18, 1, shade);
+        c.FillRect(14, 20, 3, 3, shade);         // spadlý kvádr mezi sloupy
+    }
+
+    /// <summary>
+    /// Nebeský kámen: kráter a v něm žhnoucí meteorit. Kráter je důležitější
+    /// než kámen — podle něj se pozná, že to sem spadlo.
+    /// </summary>
+    private static void PoiSkyStone(PixelCanvas c)
+    {
+        var rim = new Color(122, 104, 88);
+        var pit = new Color(74, 62, 54);
+        var rock = new Color(54, 48, 52);
+        var heat = new Color(226, 160, 47);
+
+        c.FillCircle(16f, 19f, 10f, rim);
+        c.FillCircle(16f, 19f, 7.5f, pit);
+        c.FillCircle(16f, 18f, 4.5f, rock);
+        c.FillCircle(15f, 17f, 2.2f, heat);      // ještě nevychladlo
+        c.Blend(14, 16, new Color(245, 210, 92));
+
+        // Rýha, kterou to přiletělo. Bez ní je to jen kámen v důlku.
+        c.FillRect(24, 8, 2, 2, heat);
+        c.FillRect(26, 6, 2, 2, new Color(226, 160, 47, 160));
+    }
+
+    /// <summary>
+    /// Potopený vrak: trup nakloněný pod hladinu, stěžeň a bublina. Zbytek
+    /// lodi je pod vodou, takže se kreslí jen to, co čouhá.
+    /// </summary>
+    private static void PoiSunkenHold(PixelCanvas c)
+    {
+        var hull = new Color(96, 70, 48);
+        var deck = new Color(138, 100, 64);
+        var water = new Color((byte)47, (byte)113, (byte)155, (byte)160);
+        var foam = new Color((byte)143, (byte)203, (byte)224, (byte)200);
+
+        c.FillTriangle(4f, 22f, 27f, 16f, 27f, 24f, hull);  // nakloněný trup
+        c.FillRect(10, 17, 12, 3, deck);
+        c.FillRect(18, 6, 2, 12, deck);                      // stěžeň
+        c.FillRect(13, 8, 6, 2, new Color(200, 196, 186));   // cár plachty
+
+        // Jen příboj kolem vraku, ne modrý pruh přes celý obrázek. Vrak leží
+        // i na pláži a v mangrovech — plná hladina by tam byla kaluž, která
+        // se do krajiny nehodí a vypadá jako chyba.
+        c.PaintRect(3, 22, 25, 1, foam);
+        c.PaintRect(2, 23, 27, 3, water);
+        c.PaintRect(5, 26, 20, 2, new Color((byte)47, (byte)113, (byte)155, (byte)90));
+        c.Paint(7, 20, foam);
+        c.Paint(8, 19, foam);
+    }
+
+    /// <summary>
+    /// Starý archiv: police se svitky pod klenbou. Vědění, ne kořist —
+    /// proto knihy a ne truhla.
+    /// </summary>
+    private static void PoiOldArchive(PixelCanvas c)
+    {
+        var wall = new Color(146, 136, 120);
+        var shadow = new Color(72, 64, 58);
+        var wood = new Color(120, 86, 54);
+
+        c.FillRect(6, 10, 20, 18, wall);
+        c.FillTriangle(16f, 3f, 27f, 11f, 5f, 11f, wall);    // klenba nad vchodem
+        c.FillRect(11, 14, 10, 14, shadow);                   // tmavý vstup
+
+        // Police se svitky. Každý jinou barvou — řada stejných obdélníků
+        // vypadá jako okno, ne jako knihovna.
+        c.FillRect(12, 17, 8, 1, wood);
+        c.FillRect(12, 22, 8, 1, wood);
+        c.FillRect(12, 15, 2, 2, new Color(196, 168, 112));
+        c.FillRect(15, 15, 2, 2, new Color(163, 50, 50));
+        c.FillRect(18, 15, 2, 2, new Color(92, 58, 128));
+        c.FillRect(13, 20, 2, 2, new Color(76, 156, 196));
+        c.FillRect(16, 20, 3, 2, new Color(196, 168, 112));
+    }
+
     private static void FxAnomaly(PixelCanvas c)
     {
         var edge = new Color(198, 156, 255);

@@ -524,7 +524,7 @@ public sealed class GameplayScreen : IScreen
         _carillon = new Audio.CarillonPlayer(screens.Sounds, screens.Content.Carillon.NoteSeconds);
         _carillon.Resync(simulation); // načtená hra nemá uvítat melodií za dávnou slavnost
         _festival = new FestivalRenderer(screens.WhitePixel);
-        _poiRenderer = new PoiRenderer(screens.Sprites, screens.WhitePixel);
+        _poiRenderer = new PoiRenderer(screens.Sprites, screens.WhitePixel, screens.Content);
         _composer = new SceneComposer(screens.GraphicsDevice);
         _clouds = new CloudShadowRenderer(screens.GraphicsDevice);
         _cloudLayer = new CloudLayerRenderer(screens.GraphicsDevice);

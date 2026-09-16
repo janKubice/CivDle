@@ -1,3 +1,4 @@
+using CivDle.Core.Content;
 using CivDle.Core.Sim;
 using CivDle.Rendering.Sprites;
 using Microsoft.Xna.Framework;
@@ -31,12 +32,32 @@ public sealed class PoiRenderer
     /// <summary>Jeden seznam na celý život — žádná alokace za snímek.</summary>
     private readonly List<PointOfInterest> _visible = new();
 
+    /// <summary>
+    /// Kresba pro každý druh anomálie, vytažená jednou při startu.
+    ///
+    /// <para>Skládat <c>"poi." + id</c> při kreslení by znamenalo řetězec na
+    /// každou značku v každém snímku. Tabulka se navíc plní podle indexu
+    /// druhu, kterým se anomálie identifikuje i v simulaci — nic se nehledá.</para>
+    ///
+    /// <para>Druh bez vlastní kresby spadne zpátky na obecnou značku. Nová
+    /// anomálie v datech tak nezmizí z mapy jen proto, že se na ni zapomnělo
+    /// nakreslit obrázek; hlídá to test pokrytí.</para>
+    /// </summary>
+    private readonly Texture2D?[] _byKind;
+
     private float _pulse;
 
-    public PoiRenderer(SpriteLibrary sprites, Texture2D whitePixel)
+    public PoiRenderer(SpriteLibrary sprites, Texture2D whitePixel, GameContent content)
     {
         _sprites = sprites;
         _pixel = whitePixel;
+
+        var kinds = content.PointsOfInterest.Kinds;
+        _byKind = new Texture2D?[kinds.Count];
+        for (int i = 0; i < kinds.Count; i++)
+        {
+            _byKind[i] = sprites.Get($"poi.{kinds[i].Id}");
+        }
     }
 
     public void Update(float dt) => _pulse += dt;
@@ -56,7 +77,7 @@ public sealed class PoiRenderer
             return;
         }
 
-        var sprite = _sprites.Get("fx.anomaly");
+        var generic = _sprites.Get("fx.anomaly");
         float glow = 0.55f + (0.45f * MathF.Sin(_pulse * 2.4f));
 
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
@@ -72,7 +93,18 @@ public sealed class PoiRenderer
                 continue;
             }
 
-            Mark(spriteBatch, sprite, _visible[i].X, _visible[i].Y, Idle * glow);
+            // Značka podle druhu. Jeden fialový kosočtverec pro všechno říkal
+            // jen „něco tu je" — jenže hráč se rozhoduje, kam poslat výpravu,
+            // a to je rozhodnutí mezi zasypanou ruinou a spadlým meteoritem.
+            //
+            // Kresba druhu se kreslí v plné barvě; pulzuje kolem ní obecná
+            // značka, aby zůstalo poznat, že tohle místo na hráče čeká.
+            Mark(spriteBatch, generic, _visible[i].X, _visible[i].Y, Idle * (glow * 0.5f));
+
+            if (SpriteFor(_visible[i].KindIndex) is { } kind)
+            {
+                Landmark(spriteBatch, kind, _visible[i].X, _visible[i].Y);
+            }
         }
 
         // Cíl běžící výpravy zůstane vidět, i když je „vybraný": jinak by
@@ -80,10 +112,38 @@ public sealed class PoiRenderer
         if (simulation.ExpeditionRunning)
         {
             var target = simulation.ExpeditionTarget;
-            Mark(spriteBatch, sprite, target.X, target.Y, Target);
+            Mark(spriteBatch, generic, target.X, target.Y, Target);
         }
 
         spriteBatch.End();
+    }
+
+    /// <summary>Kresba druhu, nebo <c>null</c> u druhu, který svou nemá.</summary>
+    private Texture2D? SpriteFor(int kindIndex) =>
+        kindIndex >= 0 && kindIndex < _byKind.Length ? _byKind[kindIndex] : null;
+
+    /// <summary>
+    /// Kresba druhu — přes dvě dlaždice a patou na tu svou.
+    ///
+    /// <para>Do jedné dlaždice se nevejde. Kresby jsou na plátně 32×32 a do
+    /// šestnácti pixelů by se zmenšily na polovinu, tedy <b>každý druhý pixel
+    /// pryč</b> — z ruiny by zbyly tři nesouvislé kameny. Obecný kosočtverec
+    /// to snese, protože je to jeden velký tvar; ruina ani vrak ne.</para>
+    ///
+    /// <para>Anomálie navíc leží jen na volné zemi, takže větší značka nemá
+    /// co přerůst.</para>
+    /// </summary>
+    private static void Landmark(SpriteBatch spriteBatch, Texture2D sprite, int tileX, int tileY)
+    {
+        int size = TileSize * 2;
+        spriteBatch.Draw(
+            sprite,
+            new Rectangle(
+                (tileX * TileSize) + (TileSize / 2) - (size / 2),
+                (tileY * TileSize) + TileSize - size,
+                size,
+                size),
+            Color.White);
     }
 
     private void Mark(SpriteBatch spriteBatch, Texture2D? sprite, int tileX, int tileY, Color color)
