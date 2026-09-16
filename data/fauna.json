@@ -305,6 +305,333 @@
       "timeOfDay": "day",
       "herd": 4,
       "shy": false
+    },
+    {
+      "id": "bear",
+      "biomes": [
+        "taiga",
+        "forest",
+        "highlands"
+      ],
+      "color": "#6B5240",
+      "size": 4,
+      "speed": 9,
+      "timeOfDay": "day",
+      "herd": 1,
+      "shy": false
+    },
+    {
+      "id": "polar_bear",
+      "biomes": [
+        "glacier",
+        "ice_shelf",
+        "pack_ice"
+      ],
+      "color": "#E4EAF0",
+      "size": 4,
+      "speed": 8,
+      "timeOfDay": "any",
+      "herd": 1,
+      "shy": false
+    },
+    {
+      "id": "arctic_fox",
+      "biomes": [
+        "tundra",
+        "glacier",
+        "ice_shelf"
+      ],
+      "color": "#DCE4EC",
+      "size": 2,
+      "speed": 20,
+      "timeOfDay": "any",
+      "herd": 1,
+      "shy": true
+    },
+    {
+      "id": "fox",
+      "biomes": [
+        "forest",
+        "grassland",
+        "taiga"
+      ],
+      "color": "#C4702E",
+      "size": 2,
+      "speed": 19,
+      "timeOfDay": "night",
+      "herd": 1,
+      "shy": true
+    },
+    {
+      "id": "moose",
+      "biomes": [
+        "taiga",
+        "tundra"
+      ],
+      "color": "#5E4632",
+      "size": 4,
+      "speed": 8,
+      "timeOfDay": "day",
+      "herd": 2,
+      "shy": true
+    },
+    {
+      "id": "snow_hare",
+      "biomes": [
+        "tundra",
+        "taiga",
+        "snow_peaks"
+      ],
+      "color": "#EAEFF4",
+      "size": 2,
+      "speed": 22,
+      "timeOfDay": "any",
+      "herd": 4,
+      "shy": true
+    },
+    {
+      "id": "seal",
+      "biomes": [
+        "ice_shelf",
+        "glacier"
+      ],
+      "color": "#8A94A2",
+      "size": 3,
+      "speed": 6,
+      "timeOfDay": "day",
+      "herd": 3,
+      "shy": true
+    },
+    {
+      "id": "fennec",
+      "biomes": [
+        "desert"
+      ],
+      "color": "#D8B778",
+      "size": 2,
+      "speed": 21,
+      "timeOfDay": "night",
+      "herd": 1,
+      "shy": true
+    },
+    {
+      "id": "desert_lizard",
+      "biomes": [
+        "desert",
+        "badlands"
+      ],
+      "color": "#B08A4E",
+      "size": 2,
+      "speed": 14,
+      "timeOfDay": "day",
+      "herd": 2,
+      "shy": true
+    },
+    {
+      "id": "scorpion",
+      "biomes": [
+        "desert",
+        "badlands"
+      ],
+      "color": "#6E5434",
+      "size": 2,
+      "speed": 7,
+      "timeOfDay": "night",
+      "herd": 1,
+      "shy": false
+    },
+    {
+      "id": "oryx",
+      "biomes": [
+        "desert",
+        "savanna"
+      ],
+      "color": "#D6CBB4",
+      "size": 3,
+      "speed": 15,
+      "timeOfDay": "day",
+      "herd": 4,
+      "shy": true
+    },
+    {
+      "id": "zebra",
+      "biomes": [
+        "savanna"
+      ],
+      "color": "#D9D4C8",
+      "size": 3,
+      "speed": 16,
+      "timeOfDay": "day",
+      "herd": 6,
+      "shy": true
+    },
+    {
+      "id": "elephant",
+      "biomes": [
+        "savanna"
+      ],
+      "color": "#8E8B86",
+      "size": 5,
+      "speed": 6,
+      "timeOfDay": "day",
+      "herd": 3,
+      "shy": false
+    },
+    {
+      "id": "ostrich",
+      "biomes": [
+        "savanna",
+        "steppe"
+      ],
+      "color": "#3E3A36",
+      "size": 3,
+      "speed": 24,
+      "timeOfDay": "day",
+      "herd": 3,
+      "shy": true
+    },
+    {
+      "id": "lion",
+      "biomes": [
+        "savanna"
+      ],
+      "color": "#C79A52",
+      "size": 3,
+      "speed": 13,
+      "timeOfDay": "night",
+      "herd": 2,
+      "shy": false
+    },
+    {
+      "id": "boar",
+      "biomes": [
+        "forest",
+        "swamp",
+        "grassland"
+      ],
+      "color": "#6A5A4C",
+      "size": 3,
+      "speed": 14,
+      "timeOfDay": "night",
+      "herd": 3,
+      "shy": false
+    },
+    {
+      "id": "badger",
+      "biomes": [
+        "forest",
+        "grassland"
+      ],
+      "color": "#9AA0A6",
+      "size": 2,
+      "speed": 11,
+      "timeOfDay": "night",
+      "herd": 1,
+      "shy": true
+    },
+    {
+      "id": "owl",
+      "biomes": [
+        "forest",
+        "taiga"
+      ],
+      "color": "#8C7B62",
+      "size": 2,
+      "speed": 26,
+      "timeOfDay": "night",
+      "herd": 1,
+      "shy": false
+    },
+    {
+      "id": "butterfly",
+      "biomes": [
+        "grassland",
+        "forest",
+        "savanna"
+      ],
+      "color": "#E8C860",
+      "size": 2,
+      "speed": 9,
+      "timeOfDay": "day",
+      "herd": 5,
+      "shy": false
+    },
+    {
+      "id": "chamois",
+      "biomes": [
+        "mountains",
+        "highlands",
+        "snow_peaks"
+      ],
+      "color": "#7A6248",
+      "size": 3,
+      "speed": 17,
+      "timeOfDay": "day",
+      "herd": 3,
+      "shy": true
+    },
+    {
+      "id": "marmot",
+      "biomes": [
+        "mountains",
+        "highlands"
+      ],
+      "color": "#A8875E",
+      "size": 2,
+      "speed": 10,
+      "timeOfDay": "day",
+      "herd": 3,
+      "shy": true
+    },
+    {
+      "id": "dragonfly",
+      "biomes": [
+        "swamp",
+        "mangrove"
+      ],
+      "color": "#6FD0C4",
+      "size": 2,
+      "speed": 23,
+      "timeOfDay": "day",
+      "herd": 4,
+      "shy": false
+    },
+    {
+      "id": "crocodile",
+      "biomes": [
+        "swamp",
+        "mangrove"
+      ],
+      "color": "#5A6B4A",
+      "size": 4,
+      "speed": 8,
+      "timeOfDay": "any",
+      "herd": 1,
+      "shy": false
+    },
+    {
+      "id": "toucan",
+      "biomes": [
+        "jungle"
+      ],
+      "color": "#E2703A",
+      "size": 2,
+      "speed": 22,
+      "timeOfDay": "day",
+      "herd": 3,
+      "shy": false
+    },
+    {
+      "id": "jaguar",
+      "biomes": [
+        "jungle"
+      ],
+      "color": "#C89A4E",
+      "size": 3,
+      "speed": 16,
+      "timeOfDay": "night",
+      "herd": 1,
+      "shy": false
     }
   ]
 }

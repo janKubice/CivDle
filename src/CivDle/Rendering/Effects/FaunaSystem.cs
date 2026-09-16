@@ -91,6 +91,22 @@ public sealed class FaunaSystem
         }
     }
 
+    /// <summary>
+    /// Kde tvorové jsou a jestli jsou plaší. Test útěku musí člověka postavit
+    /// k <b>plachému</b> druhu — jinak měří jen to, který tvor se zrovna objevil
+    /// první, a s každým novým neplachým zvířetem v datech začne být vrtkavý.
+    /// </summary>
+    internal IEnumerable<(Vector2 Position, bool Shy)> CrittersForTests
+    {
+        get
+        {
+            for (int i = 0; i < _count; i++)
+            {
+                yield return (_critters[i].Position, _content.Fauna[_critters[i].DefIndex].Shy);
+            }
+        }
+    }
+
     /// <summary>Kde tvorové zrovna jsou. Pro testy, které měří útěk.</summary>
     internal IEnumerable<Vector2> PositionsForTests
     {

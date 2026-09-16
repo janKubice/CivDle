@@ -75,7 +75,10 @@ public class WildlifeTests
         var (fauna, sim, camera) = Wild();
         Run(fauna, sim, camera, seconds: 6);
 
-        var person = fauna.PositionsForTests.First();
+        var shyOnes = fauna.CrittersForTests.Where(c => c.Shy).Select(c => c.Position).ToList();
+        Assert.NotEmpty(shyOnes);
+
+        var person = shyOnes[0];
         int before = CountWithin(fauna, person, Reach);
 
         fauna.People = new[] { person };
@@ -109,7 +112,13 @@ public class WildlifeTests
         var (fauna, sim, camera) = Wild();
         Run(fauna, sim, camera, seconds: 6);
 
-        fauna.People = new[] { fauna.PositionsForTests.First() };
+        // Člověk musí stoupnout k PLACHÉMU druhu. Vzít prostě první zvíře v poli
+        // znamenalo měřit, kdo se zrovna objevil první — a jakmile v datech
+        // přibyla neplachá zvířata (motýl, medvěd), začal test padat.
+        var shy = fauna.CrittersForTests.Where(c => c.Shy).Select(c => c.Position).ToList();
+        Assert.NotEmpty(shy);
+
+        fauna.People = new[] { shy[0] };
         Run(fauna, sim, camera, seconds: 1);
 
         _out.WriteLine($"utíká {fauna.FleeingForTests} z {fauna.CountForTests}");
