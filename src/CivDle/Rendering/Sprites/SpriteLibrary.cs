@@ -148,6 +148,8 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "deco.bush", PropSpriteSize, DecoBush);
         Add(device, "deco.reed", PropSpriteSize, DecoReed);
         Add(device, "deco.driftstone", PropSpriteSize, DecoDriftstone);
+        Add(device, "deco.coral", PropSpriteSize, DecoCoral);
+        Add(device, "deco.ice_floe", PropSpriteSize, DecoIceFloe);
 
         // Stromy mají vlastní, větší plátno: les je ve výsledku největší
         // zelená plocha na obrazovce a keř nafouknutý na velikost stromu
@@ -719,6 +721,51 @@ public sealed class SpriteLibrary : IDisposable
     /// a nevypadá jako nálepka.
     /// </summary>
     private static readonly Color PropShadow = new(0, 0, 0, 70);
+
+    /// <summary>
+    /// Trs korálu: tři větvičky různé výšky a barvy.
+    ///
+    /// <para>Korálový útes měl hustotu dekorací 0,2 — tedy nejvyšší ze všech
+    /// biomů — a skládal se z barevných teček o jednom až dvou pixelech.
+    /// Z nejbarevnějšího místa mapy byl šum. Barvy zůstávají z dat (tinting),
+    /// tvar přidává tenhle sprite.</para>
+    /// </summary>
+    private static void DecoCoral(PixelCanvas c)
+    {
+        c.FillRect(3, 13, 10, 2, PropShadow);
+
+        // Větvený tvar. Jednolitý hrbol by byl kámen, ne korál — korál se pozná
+        // podle toho, že se rozvětvuje.
+        c.FillRect(6, 6, 2, 8, new Color(228, 116, 106));
+        c.FillRect(4, 9, 2, 5, new Color(240, 182, 92));
+        c.FillRect(9, 8, 2, 6, new Color(127, 214, 196));
+        c.FillRect(6, 4, 2, 2, new Color(240, 170, 160));
+        c.Blend(5, 8, new Color(248, 206, 130));
+        c.Blend(10, 7, new Color(168, 232, 218));
+        c.Blend(8, 10, new Color(199, 123, 208));
+    }
+
+    /// <summary>
+    /// Kra: plochá deska ledu s nasvícenou hranou a stínem ve vodě.
+    ///
+    /// <para>Leží na hladině, takže nemá výšku — na rozdíl od trsu trávy je
+    /// široká a nízká. Stín je modrý, ne šedý: pod krou je voda.</para>
+    /// </summary>
+    private static void DecoIceFloe(PixelCanvas c)
+    {
+        var ice = new Color(226, 238, 246);
+        var lit = new Color(248, 252, 255);
+        var wet = new Color(150, 186, 208);
+
+        c.FillRect(2, 12, 12, 2, new Color(40, 80, 110, 70)); // stín ve vodě
+
+        c.FillRect(2, 9, 12, 4, ice);
+        c.FillRect(3, 8, 9, 1, ice);
+        c.FillRect(3, 8, 8, 1, lit);                          // horní hrana do světla
+        c.FillRect(2, 12, 12, 1, wet);                        // omytý okraj u vody
+        c.Blend(13, 9, wet);
+        c.Blend(2, 8, wet);
+    }
 
     /// <summary>Trs trávy: tři stébla různé výšky a stín u paty.</summary>
     private static void DecoTuft(PixelCanvas c)

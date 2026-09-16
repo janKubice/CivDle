@@ -196,6 +196,7 @@
     },
     {
       "id": "reef_coral",
+      "sprite": "deco.coral",
       "biomes": [
         "coral_reef"
       ],
@@ -211,6 +212,7 @@
     },
     {
       "id": "ice_floes",
+      "sprite": "deco.ice_floe",
       "biomes": [
         "pack_ice"
       ],
