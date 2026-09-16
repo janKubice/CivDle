@@ -34,8 +34,33 @@ public sealed class ValleyMistRenderer : IDisposable
     /// <summary>Pod touhle výškou je mlha nejhustší.</summary>
     private const float LowWater = 0.44f;
 
-    /// <summary>Nejvyšší krytí. Přes patnáct procent přestane být vidět, co pod tím leží.</summary>
-    private const float MaxOpacity = 0.34f;
+    /// <summary>
+    /// Nejvyšší krytí jedné skvrny. Přes patnáct procent přestane být vidět,
+    /// co pod tím leží.
+    ///
+    /// <para>Bývalo 0,34 — víc než dvojnásobek toho, co si tenhle komentář sám
+    /// předepisoval. Naměřeno na hotovém snímku: mlha přidala za svítání
+    /// <b>63 bodů jasu</b> (medián 54 → 117) a poslala tím svítání nad poledne
+    /// (106). Rozbřesk vycházel světlejší než pravé poledne.</para>
+    /// </summary>
+    private const float MaxOpacity = 0.15f;
+
+    /// <summary>Krytí jedné skvrny — vystavené, aby si na mez mohl sáhnout test.</summary>
+    public static float MaxPatchOpacity => MaxOpacity;
+
+    /// <summary>
+    /// Nad tímhle přiblížením je mlha v plné síle.
+    ///
+    /// <para>Mlha je detail zblízka — leží v údolích a dává terénu třetí rozměr.
+    /// Při oddálení je ale nížina většina obrazu, takže z místního jevu je
+    /// <b>závoj přes celou obrazovku</b> a hra vypadá vybledle. Tvrdý strop na
+    /// počtu buněk to neuhlídá: při oddálení na 0,75 se jich vejde ~900,
+    /// tedy pod limit, a mlha se pořád kreslí.</para>
+    /// </summary>
+    private const float FullZoom = 2.0f;
+
+    /// <summary>Pod tímhle přiblížením mlha zmizí úplně.</summary>
+    private const float GoneZoom = 1.1f;
 
     /// <summary>Hrana měkké skvrny v pixelech.</summary>
     private const int BlobSize = 32;
@@ -79,9 +104,36 @@ public sealed class ValleyMistRenderer : IDisposable
     public static float Density(double timeOfDay01)
     {
         float t = (float)(timeOfDay01 - Math.Floor(timeOfDay01));
-        float dawn = Bump(t, center: 0.22f, width: 0.10f);
+        // Ráno bývalo na plnou sílu a večer na 0,55. Radiační mlha je ráno
+        // opravdu hustší, jenže rozdíl mezi „hustší" a „dvojnásobná" je přesně
+        // ten rozdíl mezi atmosférou a vybělenou obrazovkou — a stěžovalo se
+        // na obojí, na východ i na západ.
+        float dawn = Bump(t, center: 0.22f, width: 0.10f) * 0.8f;
         float evening = Bump(t, center: 0.84f, width: 0.07f) * 0.55f;
         return Math.Clamp(MathF.Max(dawn, evening), 0f, 1f);
+    }
+
+    /// <summary>
+    /// Kolik z mlhy zbude při daném přiblížení (1 = plná, 0 = žádná).
+    ///
+    /// <para>Zblízka je mlha v údolí; z výšky by to byl závoj přes celý
+    /// kontinent. Přechod je plynulý, aby mlha při odjezdu kamerou
+    /// <b>nezmizela skokem</b> — toho by si oko všimlo víc než mlhy samotné.</para>
+    /// </summary>
+    public static float ZoomFade(float zoom)
+    {
+        if (zoom >= FullZoom)
+        {
+            return 1f;
+        }
+
+        if (zoom <= GoneZoom)
+        {
+            return 0f;
+        }
+
+        float t = (zoom - GoneZoom) / (FullZoom - GoneZoom);
+        return t * t * (3f - 2f * t); // hladký nájezd, ne lineární
     }
 
     /// <summary>Jak silná je mlha v místě o dané výšce (0 = nic, 1 = plná).</summary>
@@ -100,6 +152,7 @@ public sealed class ValleyMistRenderer : IDisposable
     /// <param name="density">Hustota podle denní doby (<see cref="Density"/>).</param>
     public void Draw(SpriteBatch spriteBatch, Camera2D camera, ITerrain terrain, float density)
     {
+        density *= ZoomFade(camera.Zoom);
         if (density <= 0.02f)
         {
             return;
