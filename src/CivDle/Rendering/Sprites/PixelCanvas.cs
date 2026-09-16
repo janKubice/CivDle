@@ -122,6 +122,42 @@ public sealed class PixelCanvas
             (int)(color.A + dst.A * inv));
     }
 
+    /// <summary>
+    /// Zapíše pixel <b>bez míchání</b> s tím, co pod ním je.
+    ///
+    /// <para>Na co to je: <see cref="Blend"/> počítá s tím, že pod pixelem
+    /// něco leží. Nad prázdnem je ale podklad průhledná černá, takže
+    /// průsvitná barva se namíchá s <em>černou</em> — křídlo vážky o krytí
+    /// 0,5 se uloží s poloviční jasností a pak se ještě jednou prosvítí při
+    /// kreslení na mapu. Výsledkem je šedá šmouha místo průsvitného křídla.</para>
+    ///
+    /// <para>Pro průsvitné <b>světlé</b> kresby na prázdném plátně (křídla,
+    /// vodní tříšť, chapadla) je tedy správně zapsat barvu tak, jak je,
+    /// a nechat míchání až na kreslení scény. Stín je opačný případ — ten je
+    /// černý a přes <see cref="Blend"/> vyjde správně.</para>
+    /// </summary>
+    public void Paint(int x, int y, Color color)
+    {
+        if (x < 0 || x >= Width || y < 0 || y >= Height)
+        {
+            return;
+        }
+
+        _pixels[y * Width + x] = color;
+    }
+
+    /// <summary>Obdélník zapsaný přes <see cref="Paint"/> — bez míchání s podkladem.</summary>
+    public void PaintRect(int x, int y, int w, int h, Color color)
+    {
+        for (int yy = y; yy < y + h; yy++)
+        {
+            for (int xx = x; xx < x + w; xx++)
+            {
+                Paint(xx, yy, color);
+            }
+        }
+    }
+
     public void FillRect(int x, int y, int w, int h, Color color)
     {
         for (int yy = y; yy < y + h; yy++)
