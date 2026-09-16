@@ -890,7 +890,7 @@ public sealed class GameplayScreen : IScreen
             // Útočníci mezi chodce a faunu: chodí po zemi jako oni. Mimo režim
             // obrany je to prázdné volání, které se vrátí na prvním řádku.
             _frontierRenderer.Draw(spriteBatch, _camera, _simulation);
-            _fauna.Draw(spriteBatch, _screens.WhitePixel, _camera);
+            _fauna.Draw(spriteBatch, _screens.Sprites, _screens.WhitePixel, _camera);
             // Letouny až za pozemní kulisou — mají letět NAD vším, co stojí na zemi.
             _airTraffic.Draw(spriteBatch, _camera);
             _bubbles.Draw(spriteBatch, _camera);

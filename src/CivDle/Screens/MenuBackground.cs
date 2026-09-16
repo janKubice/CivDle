@@ -112,7 +112,7 @@ public sealed class MenuBackground : IDisposable
         _roads.Draw(spriteBatch, _camera, _simulation);
         _buildings.Draw(spriteBatch, _camera, _simulation);
         _agents.Draw(spriteBatch, _camera);
-        _fauna.Draw(spriteBatch, _screens.WhitePixel, _camera);
+        _fauna.Draw(spriteBatch, _screens.Sprites, _screens.WhitePixel, _camera);
 
         double timeOfDay = _simulation.TimeOfDay01;
         DayNightCycle.DrawOverlay(

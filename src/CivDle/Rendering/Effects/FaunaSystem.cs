@@ -1,5 +1,6 @@
 using CivDle.Core.Content;
 using CivDle.Core.Sim;
+using CivDle.Rendering.Sprites;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -150,12 +151,26 @@ public sealed class FaunaSystem
         TrySpawn(dt, simulation, isNight, min, max);
     }
 
-    public void Draw(SpriteBatch spriteBatch, Texture2D pixel, Camera2D camera)
+    /// <summary>
+    /// Vykreslí zvěř.
+    ///
+    /// <para>Zvíře je sprite, ne čtvereček. Dokud byly druhy tři, dal se
+    /// barevný bod omluvit; s osmačtyřiceti z toho byla mapa různobarevných
+    /// teček, na které medvěd od lišky poznat nejde — a zvíře, které hráč
+    /// nepozná, je zážitkově totéž jako zvíře, které tam vůbec není.</para>
+    ///
+    /// <para>Sprite chybí jen tehdy, když druh v datech nemá kresbu; hlídá to
+    /// test pokrytí. I tak se kreslí náhradní čtvereček: zvíře, které se
+    /// <b>nezobrazí</b>, je horší chyba než zvíře, které vypadá jako dřív.</para>
+    /// </summary>
+    public void Draw(SpriteBatch spriteBatch, SpriteLibrary sprites, Texture2D pixel, Camera2D camera)
     {
         if (_count == 0)
         {
             return;
         }
+
+        ResolveSprites(sprites);
 
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
         for (int i = 0; i < _count; i++)
@@ -163,19 +178,82 @@ public sealed class FaunaSystem
             ref readonly var critter = ref _critters[i];
             var def = _content.Fauna[critter.DefIndex];
 
-            // Světlušky pulzují; ostatní tvorové jsou plné tečky.
+            // Světlušky pulzují; ostatní tvorové jsou plní.
             float alpha = def.Glow ? 0.45f + 0.55f * MathF.Abs(MathF.Sin(critter.Phase * 3f)) : 1f;
+            var sprite = _spriteByDef![critter.DefIndex];
+
+            if (sprite is null)
+            {
+                spriteBatch.Draw(
+                    pixel,
+                    new Rectangle(
+                        (int)(critter.Position.X - def.Size * 0.5f),
+                        (int)(critter.Position.Y - def.Size * 0.5f),
+                        def.Size,
+                        def.Size),
+                    def.Color.ToXna() * alpha);
+                continue;
+            }
+
+            // Kotva podle toho, jak je kresba postavená: čtyřnožec stojí
+            // nohama na zemi, pták v letu visí středem. Postavit letícího
+            // ptáka „na nohy" by ho posunulo o půl těla a letěl by pod sebou.
+            var origin = _anchorByDef![critter.DefIndex] == FaunaAnchor.Ground
+                ? new Vector2(sprite.Width * 0.5f, sprite.Height)
+                : new Vector2(sprite.Width * 0.5f, sprite.Height * 0.5f);
+
+            // Kdo jde doleva, dívá se doleva. Všechny kresby hledí doprava;
+            // bez převrácení by se půlka zvěře pohybovala pozpátku.
+            var effect = critter.Velocity.X < 0f ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
+
+            // Drobné houpání v kroku. Bez něj zvíře po krajině klouže jako
+            // nálepka — je to týž trik, kterým chodí chodci.
+            float bob = def.Glow ? 0f : MathF.Abs(MathF.Sin(critter.Phase * 5f)) * 0.8f;
+
             spriteBatch.Draw(
-                pixel,
-                new Rectangle(
-                    (int)(critter.Position.X - def.Size * 0.5f),
-                    (int)(critter.Position.Y - def.Size * 0.5f),
-                    def.Size,
-                    def.Size),
-                def.Color.ToXna() * alpha);
+                sprite,
+                new Vector2(critter.Position.X, critter.Position.Y - bob),
+                null,
+                Color.White * alpha,
+                0f,
+                origin,
+                1f,
+                effect,
+                0f);
         }
 
         spriteBatch.End();
+    }
+
+    /// <summary>
+    /// Sprite a kotva pro každý druh, spočítané jednou.
+    ///
+    /// <para>Hledat je při kreslení by znamenalo skládat ID
+    /// (<c>"fauna." + id</c>) pro každého tvora v každém snímku — tedy tisíce
+    /// řetězců za sekundu zahozených hned po použití. Tabulka se plní jednou
+    /// a pak už se jen indexuje.</para>
+    /// </summary>
+    private Texture2D?[]? _spriteByDef;
+    private FaunaAnchor[]? _anchorByDef;
+
+    private void ResolveSprites(SpriteLibrary sprites)
+    {
+        if (_spriteByDef is not null)
+        {
+            return;
+        }
+
+        var textures = new Texture2D?[_content.Fauna.Count];
+        var anchors = new FaunaAnchor[_content.Fauna.Count];
+        for (int i = 0; i < _content.Fauna.Count; i++)
+        {
+            string id = _content.Fauna[i].Id;
+            textures[i] = sprites.Get(FaunaSprites.IdFor(id));
+            anchors[i] = FaunaSprites.AnchorFor(id);
+        }
+
+        _anchorByDef = anchors;
+        _spriteByDef = textures;
     }
 
     private void UpdateCritters(float dt, Simulation simulation, bool isNight, Vector2 min, Vector2 max)

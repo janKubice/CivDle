@@ -383,6 +383,14 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "agent.cart", 18, Cart);
         Add(device, "agent.fisherman", 12, Fisherman);
 
+        // Zvěř. Kresby jsou ve vlastním souboru (FaunaSprites): je jich
+        // osmačtyřicet a jsou stavěné na archetypech, takže do knihovny patří
+        // jako hotový seznam, ne jako dalších osmačtyřicet volání Add.
+        foreach (var critter in FaunaSprites.All)
+        {
+            AddTall(device, critter.Id, critter.Width, critter.Height, critter.Draw);
+        }
+
         // Efekty: měkký kontaktní stín pod objekty (ať „sedí" na terénu).
         Add(device, "fx.shadow", SpriteSize, Shadow);
         Add(device, "fx.bubble", SpriteSize, Bubble);   // sběrná bublina nad budovou
