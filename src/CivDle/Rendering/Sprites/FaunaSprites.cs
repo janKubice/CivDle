@@ -1,3 +1,4 @@
+using CivDle.Core.Content;
 using Microsoft.Xna.Framework;
 
 namespace CivDle.Rendering.Sprites;
@@ -35,6 +36,23 @@ public readonly record struct FaunaSprite(
     Action<PixelCanvas> Draw);
 
 /// <summary>
+/// Tvar jednoho druhu: proporce, kotva a vlastní kresba.
+///
+/// <para>Barvu ani měřítko tvar nezná — ty přicházejí z <c>data/fauna.json</c>.
+/// Tohle je to „jak" z pravidla „data = co, kód = jak": že má srnec čtyři nohy
+/// a paroží, je vlastnost kresby; jakou má barvu a jak je velký, je obsah.</para>
+/// </summary>
+/// <param name="BaseWidth">Šířka plátna při měřítku 1.</param>
+/// <param name="BaseHeight">Výška plátna při měřítku 1.</param>
+/// <param name="Anchor">Kam kresba patří vůči pozici tvora.</param>
+/// <param name="Draw">Kresba; dostane plátno a srst namíchanou z barvy v datech.</param>
+internal readonly record struct FaunaShape(
+    int BaseWidth,
+    int BaseHeight,
+    FaunaAnchor Anchor,
+    Action<PixelCanvas, FaunaSprites.Pelt> Draw);
+
+/// <summary>
 /// Kresby ambientní zvěře.
 ///
 /// <para><b>Proč to vzniklo:</b> zvěř se kreslila jako barevný čtvereček o dvou
@@ -62,18 +80,62 @@ public static class FaunaSprites
     /// <summary>ID spritu pro druh z <c>data/fauna.json</c>.</summary>
     public static string IdFor(string faunaId) => $"fauna.{faunaId}";
 
-    /// <summary>Všechny kresby zvěře. Knihovna si je při startu projde a zaregistruje.</summary>
-    public static IReadOnlyList<FaunaSprite> All { get; } = Build();
+    /// <summary>
+    /// Kresby pro druhy, jak jsou v datech — s jejich barvou a měřítkem.
+    ///
+    /// <para><b>Proč to bere obsah:</b> barva každého druhu byla napsaná
+    /// dvakrát — jednou v <c>fauna.json</c> a podruhé natvrdo tady. Změna
+    /// v datech pak přebarvila zvíře na minimapě, ale sprite ne. To je ta
+    /// nejhorší varianta chyby: nic nespadne, jen si dva kusy hry myslí něco
+    /// jiného. Teď je barva jen na jednom místě — v datech.</para>
+    ///
+    /// <para>Druh bez kresby se přeskočí, aby cizí obsah neshodil start hry;
+    /// že žádný takový není, hlídá test pokrytí.</para>
+    /// </summary>
+    public static IReadOnlyList<FaunaSprite> For(IReadOnlyList<FaunaDef> fauna)
+    {
+        var list = new List<FaunaSprite>(fauna.Count);
+
+        foreach (var def in fauna)
+        {
+            if (!Shapes.TryGetValue(def.Id, out var shape))
+            {
+                continue;
+            }
+
+            var pelt = Pelt.Of(def.Color);
+            list.Add(new FaunaSprite(
+                IdFor(def.Id),
+                Scaled(shape.BaseWidth, def.Scale),
+                Scaled(shape.BaseHeight, def.Scale),
+                shape.Anchor,
+                canvas => shape.Draw(canvas, pelt)));
+        }
+
+        return list;
+    }
+
+    /// <summary>
+    /// Rozměr plátna po zvětšení podle dat.
+    ///
+    /// <para>Meze nejsou dekorace: dlaždice má šestnáct pixelů a chodec dvanáct.
+    /// Pod pěti pixely je zvíře zase jen tečka, nad dvaceti přeroste dlaždici,
+    /// na které stojí, a rozbije měřítko krajiny.</para>
+    /// </summary>
+    private static int Scaled(int baseSize, double scale) =>
+        Math.Clamp((int)Math.Round(baseSize * scale), 4, 20);
+
+    /// <summary>Zná knihovna kresbu pro tenhle druh?</summary>
+    public static bool Knows(string faunaId) => Shapes.ContainsKey(faunaId);
 
     /// <summary>
     /// Kam patří sprite daného druhu. Volá render při kreslení; neznámý druh
     /// se chová jako tvor na zemi, což je většina.
     /// </summary>
     public static FaunaAnchor AnchorFor(string faunaId) =>
-        Anchors.TryGetValue(faunaId, out var anchor) ? anchor : FaunaAnchor.Ground;
+        Shapes.TryGetValue(faunaId, out var shape) ? shape.Anchor : FaunaAnchor.Ground;
 
-    private static readonly Dictionary<string, FaunaAnchor> Anchors =
-        All.ToDictionary(s => s.Id[("fauna.".Length)..], s => s.Anchor, StringComparer.Ordinal);
+    private static readonly Dictionary<string, FaunaShape> Shapes = Build();
 
     // ---------------------------------------------------------------------
     // Barvy
@@ -92,7 +154,7 @@ public static class FaunaSprites
     /// z obdélníku stane objem — a zároveň strop toho, co se na deseti
     /// pixelech dá rozeznat.</para>
     /// </summary>
-    private readonly record struct Pelt(Color Coat, Color Shade, Color Light, Color Accent)
+    internal readonly record struct Pelt(Color Coat, Color Shade, Color Light, Color Accent)
     {
         /// <summary>
         /// Rampa z jedné barvy druhu, aby se barva držela dat.
@@ -108,6 +170,10 @@ public static class FaunaSprites
         /// <para>Světlá srst se proto stínuje <em>odspodu</em>: u bílé lišky
         /// se „ještě světlejší" nikam nevejde, zatímco tmavší tón ano.</para>
         /// </summary>
+        /// <summary>Rampa z barvy druhu, jak je zapsaná v <c>data/fauna.json</c>.</summary>
+        public static Pelt Of(RgbColor color, Color? accent = null) =>
+            Of((color.R << 16) | (color.G << 8) | color.B, accent);
+
         public static Pelt Of(int rgb, Color? accent = null)
         {
             var coat = new Color((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
@@ -263,8 +329,6 @@ public static class FaunaSprites
     /// <summary>Čtyřnožec i s tím, čím se liší od ostatních čtyřnožců.</summary>
     private sealed record Beast
     {
-        public required Pelt Pelt { get; init; }
-
         public Horns Horn { get; init; } = Horns.None;
 
         public Tails Tail { get; init; } = Tails.Thin;
@@ -291,151 +355,156 @@ public static class FaunaSprites
     // Seznam druhů
     // ---------------------------------------------------------------------
 
-    private static List<FaunaSprite> Build()
+    private static Dictionary<string, FaunaShape> Build()
     {
-        var list = new List<FaunaSprite>();
+        var shapes = new Dictionary<string, FaunaShape>(StringComparer.Ordinal);
+
+        void Add(string id, int w, int h, FaunaAnchor anchor, Action<PixelCanvas, Pelt> draw) =>
+            shapes[id] = new FaunaShape(w, h, anchor, draw);
 
         void Quad(string id, int w, int h, Beast beast) =>
-            list.Add(new FaunaSprite(IdFor(id), w, h, FaunaAnchor.Ground, c => Quadruped(c, beast)));
+            Add(id, w, h, FaunaAnchor.Ground, (c, p) => Quadruped(c, p, beast));
+
+        void Sit(string id, int w, int h, int ears, bool tail) =>
+            Add(id, w, h, FaunaAnchor.Ground, (c, p) => Sitter(c, p, ears, tail));
+
+        void Flyer(
+            string id,
+            int w,
+            int h,
+            Color? beak = null,
+            Color? wingTip = null,
+            bool fingered = false,
+            bool bigBeak = false,
+            bool owlFace = false) =>
+            Add(id, w, h, FaunaAnchor.Free,
+                (c, p) => Bird(c, p, beak, wingTip, fingered, bigBeak, owlFace));
 
         // ----- čtyřnožci -----
         Quad("deer", 13, 12, new Beast
         {
-            Pelt = Pelt.Of(0x8A5A33), Horn = Horns.Antlers, Tail = Tails.Stub, Neck = 2, Legs = 1.1f,
+            Horn = Horns.Antlers, Tail = Tails.Stub, Neck = 2, Legs = 1.1f,
         });
         Quad("reindeer", 13, 12, new Beast
         {
-            Pelt = Pelt.Of(0x9C8265), Horn = Horns.Antlers, Tail = Tails.Stub, Neck = 2,
+            Horn = Horns.Antlers, Tail = Tails.Stub, Neck = 2,
         });
         Quad("moose", 15, 13, new Beast
         {
-            Pelt = Pelt.Of(0x5E4632), Horn = Horns.Palmate, Tail = Tails.Stub, Neck = 2, Legs = 1.15f,
+            Horn = Horns.Palmate, Tail = Tails.Stub, Neck = 2, Legs = 1.15f,
         });
         Quad("camel", 13, 13, new Beast
         {
-            Pelt = Pelt.Of(0xC79B62), Tail = Tails.Thin, Mark = Marks.Hump, Neck = 4, Legs = 1.2f,
+            Tail = Tails.Thin, Mark = Marks.Hump, Neck = 4, Legs = 1.2f,
         });
         Quad("gazelle", 12, 11, new Beast
         {
-            Pelt = Pelt.Of(0xD2A96B), Horn = Horns.Spikes, Tail = Tails.Stub, Neck = 2, Legs = 1.2f,
+            Horn = Horns.Spikes, Tail = Tails.Stub, Neck = 2, Legs = 1.2f,
         });
         Quad("oryx", 13, 13, new Beast
         {
-            Pelt = Pelt.Of(0xD6CBB4), Horn = Horns.Straight, Tail = Tails.Tuft, Neck = 2, Legs = 1.1f,
+            Horn = Horns.Straight, Tail = Tails.Tuft, Neck = 2, Legs = 1.1f,
         });
         Quad("ibex", 12, 11, new Beast
         {
-            Pelt = Pelt.Of(0x8A7A62), Horn = Horns.Curved, Tail = Tails.Stub, Neck = 1,
+            Horn = Horns.Curved, Tail = Tails.Stub, Neck = 1,
         });
         Quad("chamois", 12, 11, new Beast
         {
-            Pelt = Pelt.Of(0x7A6248), Horn = Horns.Spikes, Tail = Tails.Stub, Neck = 1,
+            Horn = Horns.Spikes, Tail = Tails.Stub, Neck = 1,
         });
         Quad("zebra", 13, 11, new Beast
         {
-            Pelt = Pelt.Of(0xD9D4C8), Tail = Tails.Tuft, Mark = Marks.Stripes, Neck = 2, Legs = 1.05f,
+            Tail = Tails.Tuft, Mark = Marks.Stripes, Neck = 2, Legs = 1.05f,
         });
         Quad("elephant", 16, 14, new Beast
         {
-            Pelt = Pelt.Of(0x8E8B86), Tail = Tails.Thin, Ear = Ears.Flap, Mark = Marks.Trunk, Neck = 0, Legs = 1.15f,
+            Tail = Tails.Thin, Ear = Ears.Flap, Mark = Marks.Trunk, Neck = 0, Legs = 1.15f,
         });
         Quad("lion", 13, 11, new Beast
         {
-            Pelt = Pelt.Of(0xC79A52), Tail = Tails.Tuft, Mark = Marks.Mane, Neck = 1,
+            Tail = Tails.Tuft, Mark = Marks.Mane, Neck = 1,
         });
         Quad("jaguar", 13, 11, new Beast
         {
-            Pelt = Pelt.Of(0xC89A4E), Tail = Tails.Thin, Mark = Marks.Spots, Neck = 1, Legs = 0.85f,
+            Tail = Tails.Thin, Mark = Marks.Spots, Neck = 1, Legs = 0.85f,
         });
         Quad("wolf", 13, 11, new Beast
         {
-            Pelt = Pelt.Of(0x7E838C), Tail = Tails.Bushy, Neck = 1,
+            Tail = Tails.Bushy, Neck = 1,
         });
         Quad("fox", 12, 10, new Beast
         {
-            Pelt = Pelt.Of(0xC4702E), Tail = Tails.Bushy, Neck = 1, Legs = 0.9f,
+            Tail = Tails.Bushy, Neck = 1, Legs = 0.9f,
         });
         Quad("arctic_fox", 12, 10, new Beast
         {
-            Pelt = Pelt.Of(0xDCE4EC), Tail = Tails.Bushy, Neck = 1, Legs = 0.9f,
+            Tail = Tails.Bushy, Neck = 1, Legs = 0.9f,
         });
         Quad("fennec", 11, 10, new Beast
         {
-            Pelt = Pelt.Of(0xD8B778), Tail = Tails.Bushy, Ear = Ears.Big, Neck = 1, Legs = 0.9f,
+            Tail = Tails.Bushy, Ear = Ears.Big, Neck = 1, Legs = 0.9f,
         });
         Quad("bear", 14, 11, new Beast
         {
-            Pelt = Pelt.Of(0x6B5240), Tail = Tails.Stub, Ear = Ears.Round, Neck = 0, Legs = 0.85f,
+            Tail = Tails.Stub, Ear = Ears.Round, Neck = 0, Legs = 0.85f,
         });
         Quad("polar_bear", 14, 11, new Beast
         {
-            Pelt = Pelt.Of(0xE4EAF0), Tail = Tails.Stub, Ear = Ears.Round, Neck = 0, Legs = 0.85f,
+            Tail = Tails.Stub, Ear = Ears.Round, Neck = 0, Legs = 0.85f,
         });
         Quad("boar", 12, 11, new Beast
         {
-            Pelt = Pelt.Of(0x6A5A4C), Horn = Horns.Tusks, Tail = Tails.Stub, Mark = Marks.Bristles, Neck = 0, Legs = 0.8f,
+            Horn = Horns.Tusks, Tail = Tails.Stub, Mark = Marks.Bristles, Neck = 0, Legs = 0.8f,
         });
         Quad("badger", 11, 9, new Beast
         {
-            Pelt = Pelt.Of(0x9AA0A6), Tail = Tails.Stub, Mark = Marks.Blaze, Neck = 0, Legs = 0.7f,
+            Tail = Tails.Stub, Mark = Marks.Blaze, Neck = 0, Legs = 0.7f,
         });
 
         // ----- drobní, co sedí -----
-        list.Add(Sit("rabbit", 8, 9, Pelt.Of(0xC9B38C), ears: 3, tail: true));
-        list.Add(Sit("snow_hare", 9, 10, Pelt.Of(0xEAEFF4), ears: 3, tail: true));
-        list.Add(Sit("marmot", 8, 9, Pelt.Of(0xA8875E), ears: 2, tail: false));
-        list.Add(new FaunaSprite(IdFor("frog"), 8, 6, FaunaAnchor.Ground, c => Frog(c, Pelt.Of(0x5A8A3A))));
-        list.Add(new FaunaSprite(IdFor("monkey"), 9, 10, FaunaAnchor.Ground, c => Monkey(c, Pelt.Of(0x6A4A32))));
+        Sit("rabbit", 8, 9, ears: 3, tail: true);
+        Sit("snow_hare", 9, 10, ears: 3, tail: true);
+        Sit("marmot", 8, 9, ears: 2, tail: false);
+        Add("frog", 8, 6, FaunaAnchor.Ground, (c, p) => Frog(c, p));
+        Add("monkey", 9, 10, FaunaAnchor.Ground, (c, p) => Monkey(c, p));
 
         // ----- ptáci v letu (shora) -----
-        list.Add(Flyer("bird", 9, 5, Pelt.Of(0xF2F2F2)));
-        list.Add(Flyer("crow", 10, 7, Pelt.Of(0x2B2B33)));
-        list.Add(Flyer("parrot", 10, 7, Pelt.Of(0x4CD07A), beak: new Color(226, 160, 47)));
-        list.Add(Flyer("seagull", 12, 6, Pelt.Of(0xE8E8E8), wingTip: Ink));
-        list.Add(Flyer("eagle", 13, 7, Pelt.Of(0x6B5A44), beak: new Color(226, 160, 47), fingered: true));
-        list.Add(Flyer("vulture", 13, 7, Pelt.Of(0x4A4238), beak: new Color(185, 141, 92), fingered: true));
-        list.Add(Flyer("owl", 10, 7, Pelt.Of(0x8C7B62), owlFace: true));
-        list.Add(Flyer("toucan", 11, 7, Pelt.Of(0xE2703A), beak: new Color(245, 210, 92), bigBeak: true));
+        Flyer("bird", 9, 5);
+        Flyer("crow", 10, 7);
+        Flyer("parrot", 10, 7, beak: new Color(226, 160, 47));
+        Flyer("seagull", 12, 6, wingTip: Ink);
+        Flyer("eagle", 13, 7, beak: new Color(226, 160, 47), fingered: true);
+        Flyer("vulture", 13, 7, beak: new Color(185, 141, 92), fingered: true);
+        Flyer("owl", 10, 7, owlFace: true);
+        Flyer("toucan", 11, 7, beak: new Color(245, 210, 92), bigBeak: true);
 
         // ----- ptáci po svých (z boku) -----
-        list.Add(new FaunaSprite(IdFor("penguin"), 8, 11, FaunaAnchor.Ground, Penguin));
-        list.Add(new FaunaSprite(IdFor("heron"), 11, 14, FaunaAnchor.Ground, c => Wader(c, Pelt.Of(0xDDE3E8), neck: 5)));
-        list.Add(new FaunaSprite(IdFor("ostrich"), 12, 13, FaunaAnchor.Ground, c => Wader(c, Pelt.Of(0x3E3A36), neck: 4, plump: true)));
+        Add("penguin", 8, 11, FaunaAnchor.Ground, (c, _) => Penguin(c));
+        Add("heron", 11, 14, FaunaAnchor.Ground, (c, p) => Wader(c, p, neck: 5));
+        Add("ostrich", 12, 13, FaunaAnchor.Ground, (c, p) => Wader(c, p, neck: 4, plump: true));
 
         // ----- voda -----
-        list.Add(new FaunaSprite(IdFor("fish_school"), 9, 5, FaunaAnchor.Free, c => Fish(c, Pelt.Of(0xF0C060))));
-        list.Add(new FaunaSprite(IdFor("whale"), 18, 8, FaunaAnchor.Free, c => Whale(c, Pelt.Of(0x3C5A78))));
-        list.Add(new FaunaSprite(IdFor("jellyfish"), 8, 9, FaunaAnchor.Free, c => Jellyfish(c, Pelt.Of(0xC8A0D8))));
-        list.Add(new FaunaSprite(IdFor("seal"), 13, 7, FaunaAnchor.Ground, c => Seal(c, Pelt.Of(0x8A94A2))));
-        list.Add(new FaunaSprite(IdFor("crocodile"), 16, 6, FaunaAnchor.Ground, c => Crocodile(c, Pelt.Of(0x5A6B4A))));
+        Add("fish_school", 9, 5, FaunaAnchor.Free, (c, p) => Fish(c, p));
+        Add("whale", 18, 8, FaunaAnchor.Free, (c, p) => Whale(c, p));
+        Add("jellyfish", 8, 9, FaunaAnchor.Free, (c, p) => Jellyfish(c, p));
+        Add("seal", 13, 7, FaunaAnchor.Ground, (c, p) => Seal(c, p));
+        Add("crocodile", 16, 6, FaunaAnchor.Ground, (c, p) => Crocodile(c, p));
 
         // ----- hmyz a plazi -----
-        list.Add(new FaunaSprite(IdFor("firefly"), 5, 5, FaunaAnchor.Free, c => Spark(c, new Color(255, 233, 133))));
-        list.Add(new FaunaSprite(IdFor("glow_beetle"), 7, 5, FaunaAnchor.Ground, c => Beetle(c, Pelt.Of(0xC6E85A))));
-        list.Add(new FaunaSprite(IdFor("butterfly"), 9, 7, FaunaAnchor.Free, c => Butterfly(c, Pelt.Of(0xE8C860), round: true)));
-        list.Add(new FaunaSprite(IdFor("ash_moth"), 9, 6, FaunaAnchor.Free, c => Butterfly(c, Pelt.Of(0xD8B08A), round: false)));
-        list.Add(new FaunaSprite(IdFor("dragonfly"), 10, 7, FaunaAnchor.Free, c => Dragonfly(c, Pelt.Of(0x6FD0C4))));
-        list.Add(new FaunaSprite(IdFor("scorpion"), 10, 7, FaunaAnchor.Ground, c => Scorpion(c, Pelt.Of(0x6E5434))));
-        list.Add(new FaunaSprite(IdFor("desert_lizard"), 11, 5, FaunaAnchor.Ground, c => Lizard(c, Pelt.Of(0xB08A4E))));
+        Add("firefly", 5, 5, FaunaAnchor.Free, (c, p) => Spark(c, p.Light));
+        Add("glow_beetle", 7, 5, FaunaAnchor.Ground, (c, p) => Beetle(c, p));
+        Add("butterfly", 9, 7, FaunaAnchor.Free, (c, p) => Butterfly(c, p, round: true));
+        Add("ash_moth", 9, 6, FaunaAnchor.Free, (c, p) => Butterfly(c, p, round: false));
+        Add("dragonfly", 10, 7, FaunaAnchor.Free, (c, p) => Dragonfly(c, p));
+        Add("scorpion", 10, 7, FaunaAnchor.Ground, (c, p) => Scorpion(c, p));
+        Add("desert_lizard", 11, 5, FaunaAnchor.Ground, (c, p) => Lizard(c, p));
 
-        return list;
+        return shapes;
     }
 
     private static FaunaSprite Sit(string id, int w, int h, Pelt pelt, int ears, bool tail) =>
         new(IdFor(id), w, h, FaunaAnchor.Ground, c => Sitter(c, pelt, ears, tail));
-
-    private static FaunaSprite Flyer(
-        string id,
-        int w,
-        int h,
-        Pelt pelt,
-        Color? beak = null,
-        Color? wingTip = null,
-        bool fingered = false,
-        bool bigBeak = false,
-        bool owlFace = false) =>
-        new(IdFor(id), w, h, FaunaAnchor.Free,
-            c => Bird(c, pelt, beak, wingTip, fingered, bigBeak, owlFace));
 
     // ---------------------------------------------------------------------
     // Archetypy
@@ -448,11 +517,10 @@ public static class FaunaSprites
     /// není libovolné — zadní nohy musí zmizet pod trupem, jinak má zvíře
     /// osm nohou vedle sebe a vypadá jako stonožka.</para>
     /// </summary>
-    private static void Quadruped(PixelCanvas c, Beast b)
+    private static void Quadruped(PixelCanvas c, Pelt p, Beast b)
     {
         int w = c.Width;
         int h = c.Height;
-        var p = b.Pelt;
 
         // Plátno se dělí odshora: co má zvíře nad hlavou (rohy, uši), pak
         // hlava, pak trup, pak nohy, dole stín. Dřív se všechno počítalo
@@ -534,7 +602,7 @@ public static class FaunaSprites
             }
         }
 
-        Tail(c, b, bodyLeft, bodyTop, bodyBottom);
+        Tail(c, p, b, bodyLeft, bodyTop, bodyBottom);
 
         // Krk a hlava.
         int headH = Math.Max(2, bodyHeight - 1);
@@ -594,9 +662,8 @@ public static class FaunaSprites
         _ => 1,
     };
 
-    private static void Tail(PixelCanvas c, Beast b, int bodyLeft, int bodyTop, int bodyBottom)
+    private static void Tail(PixelCanvas c, Pelt p, Beast b, int bodyLeft, int bodyTop, int bodyBottom)
     {
-        var p = b.Pelt;
         int y = bodyTop + 1;
 
         switch (b.Tail)

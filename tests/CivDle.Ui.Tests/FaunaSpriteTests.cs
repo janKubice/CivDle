@@ -25,10 +25,8 @@ public class FaunaSpriteTests
         // Tohle je ta chyba, která se nedá odhalit pohledem: nový druh v JSON,
         // na který se zapomnělo nakreslit tělo. Nic nespadne — jen je v trávě
         // místo lišky oranžová tečka a nikdo to nespojí s chybějící kresbou.
-        var drawn = FaunaSprites.All.Select(s => s.Id).ToHashSet(StringComparer.Ordinal);
-
         var missing = LoadContent().Fauna
-            .Where(f => !drawn.Contains(FaunaSprites.IdFor(f.Id)))
+            .Where(f => !FaunaSprites.Knows(f.Id))
             .Select(f => f.Id)
             .ToList();
 
@@ -41,12 +39,11 @@ public class FaunaSpriteTests
     {
         // Opačný směr. Kresba bez druhu je mrtvý kód, který si nikdo nevšimne,
         // protože se prostě nikdy nepoužije.
-        var species = LoadContent().Fauna.Select(f => FaunaSprites.IdFor(f.Id))
-            .ToHashSet(StringComparer.Ordinal);
+        var species = LoadContent().Fauna.Select(f => f.Id).ToHashSet(StringComparer.Ordinal);
 
-        var orphans = FaunaSprites.All
-            .Where(s => !species.Contains(s.Id))
-            .Select(s => s.Id)
+        var orphans = Sprites
+            .Select(s => s.Id["fauna.".Length..])
+            .Where(id => !species.Contains(id))
             .ToList();
 
         Assert.True(orphans.Count == 0,
@@ -56,7 +53,7 @@ public class FaunaSpriteTests
     [Fact]
     public void EverySpriteActuallyDrawsSomething()
     {
-        foreach (var sprite in FaunaSprites.All)
+        foreach (var sprite in Sprites)
         {
             var canvas = Paint(sprite);
             Assert.True(Solid(canvas) >= 4, $"{sprite.Id} je skoro prázdný");
@@ -68,7 +65,7 @@ public class FaunaSpriteTests
     {
         // Silueta je na deseti pixelech celá informace. Kresba, která vyplní
         // plátno od kraje ke kraji, je zpátky ten čtvereček — jen větší.
-        foreach (var sprite in FaunaSprites.All)
+        foreach (var sprite in Sprites)
         {
             var canvas = Paint(sprite);
             float covered = Solid(canvas) / (float)(sprite.Width * sprite.Height);
@@ -83,7 +80,7 @@ public class FaunaSpriteTests
         // PixelCanvas kresbu za okrajem tiše zahodí. Zvíře, kterému uteče
         // půlka rohů mimo plátno, tedy nespadne — jen bude bezrohé, a to je
         // přesně ta chyba, kterou test musí chytit za mě.
-        foreach (var sprite in FaunaSprites.All)
+        foreach (var sprite in Sprites)
         {
             var canvas = Paint(sprite);
 
@@ -97,7 +94,7 @@ public class FaunaSpriteTests
     {
         // Kotva „na zem" znamená, že spodní řádek plátna je země. Kdyby tvor
         // končil o tři pixely výš, vznášel by se nad trávou.
-        foreach (var sprite in FaunaSprites.All.Where(s => s.Anchor == FaunaAnchor.Ground))
+        foreach (var sprite in Sprites.Where(s => s.Anchor == FaunaAnchor.Ground))
         {
             var canvas = Paint(sprite);
 
@@ -115,7 +112,7 @@ public class FaunaSpriteTests
         // proto pixel po pixelu.
         var seen = new Dictionary<string, string>(StringComparer.Ordinal);
 
-        foreach (var sprite in FaunaSprites.All)
+        foreach (var sprite in Sprites)
         {
             string signature = Signature(Paint(sprite));
             Assert.False(seen.TryGetValue(signature, out string? twin),
@@ -130,7 +127,7 @@ public class FaunaSpriteTests
         // Dlaždice má šestnáct pixelů a chodec dvanáct. Zvíře menší než pět
         // pixelů je zpátky tečka; zvíře přes dvacet přeroste dlaždici,
         // na které stojí, a rozbije měřítko krajiny.
-        foreach (var sprite in FaunaSprites.All)
+        foreach (var sprite in Sprites)
         {
             Assert.InRange(sprite.Width, 5, 20);
             Assert.InRange(sprite.Height, 4, 16);
@@ -151,6 +148,85 @@ public class FaunaSpriteTests
         // ta méně nápadná chyba z těch dvou.
         Assert.Equal(FaunaAnchor.Ground, FaunaSprites.AnchorFor("neexistuje"));
     }
+
+    [Fact]
+    public void TheColourComesFromTheDataNotFromTheCode()
+    {
+        // Tohle byla tichá chyba: barva druhu stála dvakrát — v fauna.json
+        // a natvrdo v kresbě. Změna v datech pak přebarvila zvíře na
+        // minimapě, ale sprite ne, takže si dva kusy hry myslely něco
+        // jiného a nic nespadlo.
+        //
+        // Test obarví druh nesmyslně a čeká, že se to na kresbě projeví.
+        var content = LoadContent();
+        var deer = content.Fauna.First(f => f.Id == "deer");
+
+        var repainted = deer with { Color = new RgbColor(20, 200, 40) };
+        var sprite = FaunaSprites.For(new[] { repainted }).Single();
+
+        var canvas = new PixelCanvas(sprite.Width, sprite.Height);
+        sprite.Draw(canvas);
+
+        Assert.True(HasGreenish(canvas), "změna barvy v datech se do kresby nepromítla");
+    }
+
+    [Fact]
+    public void TheScaleComesFromTheDataToo()
+    {
+        // Měřítko musí data opravdu řídit. Dřív tu bylo pole `size`, které
+        // po příchodu kreseb neřídilo nic — a pole, které tiše nic nedělá,
+        // je horší než žádné.
+        var content = LoadContent();
+        var bear = content.Fauna.First(f => f.Id == "bear");
+
+        var small = FaunaSprites.For(new[] { bear with { Scale = 0.6 } }).Single();
+        var large = FaunaSprites.For(new[] { bear with { Scale = 1.6 } }).Single();
+
+        Assert.True(large.Width > small.Width, "měřítko z dat nemění šířku kresby");
+        Assert.True(large.Height > small.Height, "měřítko z dat nemění výšku kresby");
+    }
+
+    [Fact]
+    public void AnAbsurdScaleStillFitsTheWorld()
+    {
+        // Dlaždice má šestnáct pixelů. Zvíře se musí do krajiny vejít i tehdy,
+        // když někdo v datech přepíše měřítko na krajní hodnotu.
+        var content = LoadContent();
+        var bear = content.Fauna.First(f => f.Id == "bear");
+
+        foreach (double scale in new[] { 0.4, 3.0 })
+        {
+            var sprite = FaunaSprites.For(new[] { bear with { Scale = scale } }).Single();
+
+            Assert.InRange(sprite.Width, 4, 20);
+            Assert.InRange(sprite.Height, 4, 20);
+        }
+    }
+
+    private static bool HasGreenish(PixelCanvas canvas)
+    {
+        for (int y = 0; y < canvas.Height; y++)
+        {
+            for (int x = 0; x < canvas.Width; x++)
+            {
+                var pixel = canvas.At(x, y);
+                if (pixel.A > 128 && pixel.G > pixel.R + 20 && pixel.G > pixel.B + 20)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Kresby postavené z <b>ostrých dat</b>. Barva i měřítko jdou z
+    /// <c>fauna.json</c>, takže test kontroluje to, co hráč opravdu uvidí —
+    /// ne jen tvary, které leží v kódu.
+    /// </summary>
+    private static IReadOnlyList<FaunaSprite> Sprites { get; } =
+        FaunaSprites.For(LoadContent().Fauna);
 
     private static PixelCanvas Paint(FaunaSprite sprite)
     {

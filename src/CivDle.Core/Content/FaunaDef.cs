@@ -20,7 +20,15 @@ public enum FaunaTime
 /// <param name="Id">Stabilní ID.</param>
 /// <param name="BiomeMask">Biomy, kde se tvor vyskytuje.</param>
 /// <param name="Color">Barva tvora (MVP vizuál).</param>
-/// <param name="Size">Velikost v pixelech dlaždice.</param>
+/// <param name="Scale">
+/// Násobek proporcí kresby. 1 je tak, jak je druh nakreslený.
+///
+/// <para>Dřív tu byla <c>size</c> — hrana barevného čtverečku z doby, kdy
+/// zvíře žádnou kresbu nemělo. Jakmile kresby přišly, přestalo to číslo
+/// cokoli znamenat: liška ho měla 2 a kreslila se přes dvanáct pixelů,
+/// velryba 7 a osmnáct. Držet dál pole, které nic neřídí, je horší než ho
+/// nemít — proto je z něj poctivé měřítko.</para>
+/// </param>
 /// <param name="Speed">Rychlost pohybu ve world pixelech za sekundu.</param>
 /// <param name="Time">Denní doba výskytu.</param>
 /// <param name="Glow">Svítí (světlušky) — kreslí se s pulzující jasnou barvou.</param>
@@ -46,7 +54,7 @@ public sealed record FaunaDef(
     string Id,
     bool[] BiomeMask,
     RgbColor Color,
-    int Size,
+    double Scale,
     float Speed,
     FaunaTime Time,
     bool Glow,

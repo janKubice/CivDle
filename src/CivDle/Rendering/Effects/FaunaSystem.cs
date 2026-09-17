@@ -24,6 +24,13 @@ public sealed class FaunaSystem
     /// <summary>Strop poolu — vystavený, aby test mohl mluvit o podílu, ne o čísle.</summary>
     public static int MaxActive => MaxCritters;
 
+    /// <summary>
+    /// Čtvereček pro druh, který nemá kresbu. Nemá nastat — hlídá to test
+    /// pokrytí — ale zvíře, které se <b>nezobrazí</b>, je horší chyba než
+    /// zvíře, které vypadá jako dřív.
+    /// </summary>
+    private const int FallbackSize = 3;
+
     /// <summary>Na jakou vzdálenost plaché zvíře zaregistruje člověka (world pixely).</summary>
     private const float FlightRadius = TerrainRenderer.TileSize * 5f;
 
@@ -233,10 +240,10 @@ public sealed class FaunaSystem
                 spriteBatch.Draw(
                     pixel,
                     new Rectangle(
-                        (int)(critter.Position.X - def.Size * 0.5f),
-                        (int)(critter.Position.Y - def.Size * 0.5f),
-                        def.Size,
-                        def.Size),
+                        (int)(critter.Position.X - (FallbackSize * 0.5f)),
+                        (int)(critter.Position.Y - (FallbackSize * 0.5f)),
+                        FallbackSize,
+                        FallbackSize),
                     def.Color.ToXna() * alpha);
                 continue;
             }

@@ -1,3 +1,4 @@
+using CivDle.Core.Content;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -50,7 +51,16 @@ public sealed class SpriteLibrary : IDisposable
 
     private readonly GraphicsDevice _device;
 
-    public SpriteLibrary(GraphicsDevice device)
+    /// <summary>
+    /// Postaví knihovnu spritů.
+    /// </summary>
+    /// <param name="device">Grafické zařízení, na kterém vzniknou textury.</param>
+    /// <param name="fauna">
+    /// Druhy zvěře z obsahu. Kresba si z nich bere <b>barvu a měřítko</b> —
+    /// barva byla dřív napsaná dvakrát, v datech i tady v kódu, a změna
+    /// v datech pak přebarvila zvíře na minimapě, ale sprite ne.
+    /// </param>
+    public SpriteLibrary(GraphicsDevice device, IReadOnlyList<FaunaDef> fauna)
     {
         _device = device;
         // Suroviny (ikony do HUD).
@@ -397,7 +407,7 @@ public sealed class SpriteLibrary : IDisposable
         // Zvěř. Kresby jsou ve vlastním souboru (FaunaSprites): je jich
         // osmačtyřicet a jsou stavěné na archetypech, takže do knihovny patří
         // jako hotový seznam, ne jako dalších osmačtyřicet volání Add.
-        foreach (var critter in FaunaSprites.All)
+        foreach (var critter in FaunaSprites.For(fauna))
         {
             AddTall(device, critter.Id, critter.Width, critter.Height, critter.Draw);
         }

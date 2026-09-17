@@ -4865,9 +4865,13 @@ public sealed class ContentLoader
                     path, $"Fauna '{id}': 'herd' musí být 1–12, je {dto.Herd}.");
             }
 
-            if (dto.Size is < 1 or > 8)
+            // Nula znamená „v datech nic nestojí" — pak platí kresba tak,
+            // jak je. Bez toho by každý druh musel měřítko vypisovat.
+            double scale = dto.Scale == 0 ? 1.0 : dto.Scale;
+            if (scale is < 0.4 or > 3.0)
             {
-                throw new ContentLoadException(path, $"Fauna '{id}': 'size' musí být 1–8, je {dto.Size}.");
+                throw new ContentLoadException(
+                    path, $"Fauna '{id}': 'scale' musí být 0,4–3, je {dto.Scale}.");
             }
 
             if (dto.Speed is <= 0 or > 500)
@@ -4885,7 +4889,7 @@ public sealed class ContentLoader
 
             result.Add(new FaunaDef(
                 id, ParseBiomeMask(path, $"Fauna '{id}'", dto.Biomes, biomes),
-                color, dto.Size, (float)dto.Speed, time, dto.Glow, dto.Herd, dto.Shy, dto.Predator));
+                color, scale, (float)dto.Speed, time, dto.Glow, dto.Herd, dto.Shy, dto.Predator));
         }
 
         return result;

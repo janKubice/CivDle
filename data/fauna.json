@@ -8,7 +8,6 @@
         "forest"
       ],
       "color": "#8A5A33",
-      "size": 3,
       "speed": 10,
       "timeOfDay": "day",
       "herd": 5,
@@ -23,7 +22,6 @@
         "forest"
       ],
       "color": "#F2F2F2",
-      "size": 2,
       "speed": 34,
       "timeOfDay": "day",
       "herd": 6,
@@ -36,7 +34,6 @@
         "steppe"
       ],
       "color": "#C9B38C",
-      "size": 2,
       "speed": 16,
       "timeOfDay": "any",
       "herd": 3,
@@ -49,7 +46,6 @@
         "forest"
       ],
       "color": "#FFE985",
-      "size": 2,
       "speed": 6,
       "timeOfDay": "night",
       "glow": true,
@@ -63,7 +59,6 @@
         "steppe"
       ],
       "color": "#C79B62",
-      "size": 3,
       "speed": 8,
       "timeOfDay": "day",
       "herd": 3,
@@ -75,7 +70,6 @@
         "savanna"
       ],
       "color": "#D2A96B",
-      "size": 3,
       "speed": 24,
       "timeOfDay": "day",
       "herd": 6,
@@ -88,7 +82,6 @@
         "mangrove"
       ],
       "color": "#4CD07A",
-      "size": 2,
       "speed": 30,
       "timeOfDay": "day",
       "herd": 4,
@@ -103,7 +96,6 @@
         "highlands"
       ],
       "color": "#7E838C",
-      "size": 3,
       "speed": 18,
       "timeOfDay": "night",
       "herd": 3,
@@ -116,7 +108,6 @@
         "taiga"
       ],
       "color": "#9C8265",
-      "size": 3,
       "speed": 12,
       "timeOfDay": "day",
       "herd": 7,
@@ -130,7 +121,6 @@
         "glacier"
       ],
       "color": "#2B2F38",
-      "size": 2,
       "speed": 7,
       "timeOfDay": "any",
       "herd": 6,
@@ -144,7 +134,6 @@
         "shallow_water"
       ],
       "color": "#DDE3E8",
-      "size": 3,
       "speed": 14,
       "timeOfDay": "day",
       "herd": 1,
@@ -159,7 +148,6 @@
         "snow_peaks"
       ],
       "color": "#6B5A44",
-      "size": 3,
       "speed": 38,
       "timeOfDay": "day",
       "herd": 1,
@@ -172,7 +160,6 @@
         "shallow_water"
       ],
       "color": "#F0C060",
-      "size": 2,
       "speed": 20,
       "timeOfDay": "any",
       "herd": 8,
@@ -184,7 +171,6 @@
         "volcanic"
       ],
       "color": "#D8B08A",
-      "size": 2,
       "speed": 14,
       "timeOfDay": "night",
       "herd": 5,
@@ -199,7 +185,6 @@
         "volcanic"
       ],
       "color": "#4A4238",
-      "size": 4,
       "speed": 16,
       "timeOfDay": "day",
       "herd": 2,
@@ -212,7 +197,6 @@
         "deep_ocean"
       ],
       "color": "#3C5A78",
-      "size": 7,
       "speed": 6,
       "timeOfDay": "day",
       "herd": 2,
@@ -225,7 +209,6 @@
         "ocean"
       ],
       "color": "#C8A0D8",
-      "size": 3,
       "speed": 4,
       "timeOfDay": "night",
       "herd": 4,
@@ -239,7 +222,6 @@
         "shallow_water"
       ],
       "color": "#E8E8E8",
-      "size": 3,
       "speed": 18,
       "timeOfDay": "day",
       "herd": 5,
@@ -252,7 +234,6 @@
         "mangrove"
       ],
       "color": "#5A8A3A",
-      "size": 2,
       "speed": 8,
       "timeOfDay": "night",
       "herd": 3,
@@ -264,7 +245,6 @@
         "jungle"
       ],
       "color": "#6A4A32",
-      "size": 3,
       "speed": 14,
       "timeOfDay": "day",
       "herd": 4,
@@ -278,7 +258,6 @@
         "snow_peaks"
       ],
       "color": "#8A6F4A",
-      "size": 4,
       "speed": 12,
       "timeOfDay": "day",
       "herd": 3,
@@ -290,7 +269,6 @@
         "fallout"
       ],
       "color": "#C6E85A",
-      "size": 2,
       "speed": 12,
       "timeOfDay": "night",
       "herd": 6,
@@ -303,7 +281,6 @@
         "badlands"
       ],
       "color": "#2B2B33",
-      "size": 2,
       "speed": 30,
       "timeOfDay": "day",
       "herd": 4,
@@ -318,7 +295,6 @@
         "highlands"
       ],
       "color": "#6B5240",
-      "size": 4,
       "speed": 9,
       "timeOfDay": "day",
       "herd": 1,
@@ -333,7 +309,6 @@
         "pack_ice"
       ],
       "color": "#E4EAF0",
-      "size": 4,
       "speed": 8,
       "timeOfDay": "any",
       "herd": 1,
@@ -348,7 +323,6 @@
         "ice_shelf"
       ],
       "color": "#DCE4EC",
-      "size": 2,
       "speed": 20,
       "timeOfDay": "any",
       "herd": 1,
@@ -363,7 +337,6 @@
         "taiga"
       ],
       "color": "#C4702E",
-      "size": 2,
       "speed": 19,
       "timeOfDay": "night",
       "herd": 1,
@@ -376,7 +349,6 @@
         "tundra"
       ],
       "color": "#5E4632",
-      "size": 4,
       "speed": 8,
       "timeOfDay": "day",
       "herd": 2,
@@ -390,7 +362,6 @@
         "snow_peaks"
       ],
       "color": "#EAEFF4",
-      "size": 2,
       "speed": 22,
       "timeOfDay": "any",
       "herd": 4,
@@ -403,7 +374,6 @@
         "glacier"
       ],
       "color": "#8A94A2",
-      "size": 3,
       "speed": 6,
       "timeOfDay": "day",
       "herd": 3,
@@ -416,7 +386,6 @@
         "desert"
       ],
       "color": "#D8B778",
-      "size": 2,
       "speed": 21,
       "timeOfDay": "night",
       "herd": 1,
@@ -429,7 +398,6 @@
         "badlands"
       ],
       "color": "#B08A4E",
-      "size": 2,
       "speed": 14,
       "timeOfDay": "day",
       "herd": 2,
@@ -443,7 +411,6 @@
         "badlands"
       ],
       "color": "#6E5434",
-      "size": 2,
       "speed": 7,
       "timeOfDay": "night",
       "herd": 1,
@@ -456,7 +423,6 @@
         "savanna"
       ],
       "color": "#D6CBB4",
-      "size": 3,
       "speed": 15,
       "timeOfDay": "day",
       "herd": 4,
@@ -468,7 +434,6 @@
         "savanna"
       ],
       "color": "#D9D4C8",
-      "size": 3,
       "speed": 16,
       "timeOfDay": "day",
       "herd": 6,
@@ -480,7 +445,6 @@
         "savanna"
       ],
       "color": "#8E8B86",
-      "size": 5,
       "speed": 6,
       "timeOfDay": "day",
       "herd": 3,
@@ -493,7 +457,6 @@
         "steppe"
       ],
       "color": "#3E3A36",
-      "size": 3,
       "speed": 24,
       "timeOfDay": "day",
       "herd": 3,
@@ -506,7 +469,6 @@
         "savanna"
       ],
       "color": "#C79A52",
-      "size": 3,
       "speed": 13,
       "timeOfDay": "night",
       "herd": 2,
@@ -520,7 +482,6 @@
         "grassland"
       ],
       "color": "#6A5A4C",
-      "size": 3,
       "speed": 14,
       "timeOfDay": "night",
       "herd": 3,
@@ -533,7 +494,6 @@
         "grassland"
       ],
       "color": "#9AA0A6",
-      "size": 2,
       "speed": 11,
       "timeOfDay": "night",
       "herd": 1,
@@ -547,7 +507,6 @@
         "taiga"
       ],
       "color": "#8C7B62",
-      "size": 2,
       "speed": 26,
       "timeOfDay": "night",
       "herd": 1,
@@ -561,7 +520,6 @@
         "savanna"
       ],
       "color": "#E8C860",
-      "size": 2,
       "speed": 9,
       "timeOfDay": "day",
       "herd": 5,
@@ -575,7 +533,6 @@
         "snow_peaks"
       ],
       "color": "#7A6248",
-      "size": 3,
       "speed": 17,
       "timeOfDay": "day",
       "herd": 3,
@@ -588,7 +545,6 @@
         "highlands"
       ],
       "color": "#A8875E",
-      "size": 2,
       "speed": 10,
       "timeOfDay": "day",
       "herd": 3,
@@ -601,7 +557,6 @@
         "mangrove"
       ],
       "color": "#6FD0C4",
-      "size": 2,
       "speed": 23,
       "timeOfDay": "day",
       "herd": 4,
@@ -615,7 +570,6 @@
         "mangrove"
       ],
       "color": "#5A6B4A",
-      "size": 4,
       "speed": 8,
       "timeOfDay": "any",
       "herd": 1,
@@ -627,7 +581,6 @@
         "jungle"
       ],
       "color": "#E2703A",
-      "size": 2,
       "speed": 22,
       "timeOfDay": "day",
       "herd": 3,
@@ -640,7 +593,6 @@
         "jungle"
       ],
       "color": "#C89A4E",
-      "size": 3,
       "speed": 16,
       "timeOfDay": "night",
       "herd": 1,

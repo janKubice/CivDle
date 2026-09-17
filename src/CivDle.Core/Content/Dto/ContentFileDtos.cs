@@ -370,7 +370,7 @@ public sealed record FaunaDto(
     string? Id,
     string[]? Biomes,
     string? Color,
-    int Size,
+    double Scale,
     double Speed,
     string? TimeOfDay,
     bool Glow,
