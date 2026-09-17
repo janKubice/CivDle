@@ -391,8 +391,8 @@ public sealed class SpriteLibrary : IDisposable
 
         // Agenti (živý svět).
         Add(device, "agent.person", 12, Person);
-        Add(device, "agent.cart", 18, Cart);
-        Add(device, "agent.fisherman", 12, Fisherman);
+        AddTall(device, "agent.cart", 18, 16, Cart);
+        AddTall(device, "agent.fisherman", 12, 15, Fisherman);
 
         // Zvěř. Kresby jsou ve vlastním souboru (FaunaSprites): je jich
         // osmačtyřicet a jsou stavěné na archetypech, takže do knihovny patří
@@ -2740,12 +2740,25 @@ public sealed class SpriteLibrary : IDisposable
 
     private static void Person(PixelCanvas c)
     {
+        // Stín u nohou. Zvířata ho mají zapečený ve spritu, takže bez něj by
+        // srnec stál v trávě a chodec vedle něj se vznášel.
+        c.FillRect(3, 11, 6, 1, AgentShadow);
         c.FillCircle(6f, 3.5f, 2.4f, new Color(232, 194, 160)); // hlava
         c.FillRect(4, 5, 4, 6, new Color(70, 110, 180)); // tělo
     }
 
+    /// <summary>
+    /// Stín pod agentem. Slabší než pod stromem — chodec je drobný a plný
+    /// stín pod ním vypadá jako díra v zemi.
+    /// </summary>
+    private static readonly Color AgentShadow = new(0, 0, 0, 60);
+
     private static void Cart(PixelCanvas c)
     {
+        // Plátno bylo osmnáct řádků vysoké, ale kola končila na patnáctém —
+        // vozík se tím vznášel dva pixely nad svou vlastní kotvou. Teď je
+        // plátno přesně tak vysoké, jak vozík sahá, a dole je stín.
+        c.FillRect(3, 15, 12, 1, AgentShadow); // stín pod koly
         c.FillRect(2, 4, 12, 6, new Color(140, 100, 60)); // korba
         c.FillCircle(5f, 12f, 2.6f, new Color(50, 40, 32)); // kola
         c.FillCircle(12f, 12f, 2.6f, new Color(50, 40, 32));
@@ -3727,6 +3740,10 @@ public sealed class SpriteLibrary : IDisposable
     /// <summary>Rybář: postava s prutem nataženým nad vodu.</summary>
     private static void Fisherman(PixelCanvas c)
     {
+        // Nohy se kreslily na řádky 12-13, jenže plátno mělo dvanáct řádků
+        // (0-11), takže je PixelCanvas tiše zahodil a rybář stál na pahýlech.
+        // Plátno je teď o tři řádky vyšší: nohy se vejdou a pod ně stín.
+        c.FillRect(2, 14, 7, 1, AgentShadow);
         c.FillCircle(5f, 4f, 2.4f, new Color(216, 178, 148));   // hlava
         c.FillRect(3, 6, 5, 6, new Color(94, 118, 84));         // tělo
         c.FillRect(3, 12, 2, 2, new Color(70, 60, 50));         // nohy

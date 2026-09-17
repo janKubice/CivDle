@@ -150,6 +150,20 @@ public sealed class TrafficSystem
             }
             else
             {
+                // Stín se kreslí zvlášť a NEOTÁČÍ se s vozidlem. Zapečený ve
+                // spritu by se otočil spolu s ním, takže by u vozidla mířícího
+                // nahoru ležel vedle něj místo pod ním — slunce se s autem
+                // neotáčí. Chodci a zvířata ho mají ve spritu proto, že se
+                // kreslí z boku a neotáčejí se vůbec.
+                spriteBatch.Draw(
+                    pixel,
+                    new Rectangle(
+                        (int)(vehicle.Position.X - width * 0.5f) + 1,
+                        (int)(vehicle.Position.Y - height * 0.5f) + 1,
+                        width,
+                        height),
+                    VehicleShadow);
+
                 spriteBatch.Draw(
                     sprite,
                     vehicle.Position,
@@ -177,6 +191,12 @@ public sealed class TrafficSystem
 
         spriteBatch.End();
     }
+
+    /// <summary>
+    /// Stín pod vozidlem. Posunutý o pixel doprava dolů, aby vozidlo na silnici
+    /// sedělo a nevypadalo jako nálepka; slabý, protože pod autem není díra.
+    /// </summary>
+    private static readonly Color VehicleShadow = new(0, 0, 0, 55);
 
     /// <summary>
     /// O kolik se kresba otočí. Kresby míří doprava, takže jízda doprava je nula.
