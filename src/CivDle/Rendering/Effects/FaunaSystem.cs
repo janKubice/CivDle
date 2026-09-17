@@ -21,6 +21,9 @@ public sealed class FaunaSystem
     /// </summary>
     private const int MaxCritters = 40;
 
+    /// <summary>Strop poolu — vystavený, aby test mohl mluvit o podílu, ne o čísle.</summary>
+    public static int MaxActive => MaxCritters;
+
     /// <summary>Na jakou vzdálenost plaché zvíře zaregistruje člověka (world pixely).</summary>
     private const float FlightRadius = TerrainRenderer.TileSize * 5f;
 
@@ -263,7 +266,25 @@ public sealed class FaunaSystem
             ref var critter = ref _critters[i];
             var def = _content.Fauna[critter.DefIndex];
 
-            critter.Position += critter.Velocity * dt;
+            // Krok se nejdřív zkusí. Zvíře, které by šláplo na budovu, se
+            // odrazí — nezmizí. Tohle bývalo obráceně a byla to ta pravá
+            // příčina, proč ve městě zvěř nebyla: zrušila se při prvním
+            // došlápnutí na barák, tedy ve městě skoro okamžitě. Přidávat
+            // pokusy o vypuštění bylo marné, protože problém nebyl v rození,
+            // ale v umírání.
+            var step = critter.Position + (critter.Velocity * dt);
+            if (IsFreeAt(simulation, step))
+            {
+                critter.Position = step;
+            }
+            else
+            {
+                // Odraz: nový směr a krátké rozmyšlení, ať se tvor nezasekne
+                // čumákem ve zdi.
+                critter.Velocity = RandomDirection() * def.Speed;
+                critter.DirectionTimer = ReturnSeconds();
+            }
+
             critter.Phase += dt;
             critter.DirectionTimer -= dt;
 
@@ -322,6 +343,9 @@ public sealed class FaunaSystem
             bool outOfView = critter.Position.X < min.X - DespawnMargin || critter.Position.X > max.X + DespawnMargin
                 || critter.Position.Y < min.Y - DespawnMargin || critter.Position.Y > max.Y + DespawnMargin;
             bool wrongTime = def.Time == FaunaTime.Day && isNight || def.Time == FaunaTime.Night && !isNight;
+            // Zastavěná dlaždice POD zvířetem znamená, že mu hráč postavil
+            // dům přímo na hlavu — tam ať zmizí. Ale dům před nosem se řeší
+            // odrazem výš, ne zrušením.
             bool badTile = !def.BiomeMask[simulation.BiomeAt(tileX, tileY)]
                 || simulation.IsOccupied(tileX, tileY);
 
@@ -342,11 +366,7 @@ public sealed class FaunaSystem
 
         _spawnTimer = SpawnCooldownSeconds;
 
-        float x = min.X + Random.Shared.NextSingle() * (max.X - min.X);
-        float y = min.Y + Random.Shared.NextSingle() * (max.Y - min.Y);
-        int tileX = (int)MathF.Floor(x / TerrainRenderer.TileSize);
-        int tileY = (int)MathF.Floor(y / TerrainRenderer.TileSize);
-        if (simulation.IsOccupied(tileX, tileY))
+        if (!TryFindFreeSpot(simulation, min, max, out float x, out float y, out int tileX, out int tileY))
         {
             return;
         }
@@ -379,9 +399,17 @@ public sealed class FaunaSystem
 
         for (int i = 0; i < herd; i++)
         {
-            var spot = anchor + new Vector2(
-                (Random.Shared.NextSingle() - 0.5f) * HerdSpread,
-                (Random.Shared.NextSingle() - 0.5f) * HerdSpread);
+            // Každý kus stáda potřebuje volnou zem, ne jen kotva.
+            //
+            // Stádo se rozprostírá o dvě a půl dlaždice kolem středu. V městě
+            // je devět dlaždic z deseti zastavěných, takže skoro celé stádo
+            // dopadlo na budovy — a hned v dalším tiku se vyřadilo, protože
+            // zvíře na baráku se ruší. Vypadalo to jako „zvěř se nerodí",
+            // ale ona se rodila a okamžitě umírala.
+            if (!TryScatter(simulation, anchor, out var spot))
+            {
+                continue;
+            }
 
             _critters[_count++] = new Critter
             {
@@ -394,6 +422,90 @@ public sealed class FaunaSystem
             };
         }
     }
+
+    /// <summary>
+    /// Najde ve výřezu volné místo, kam se dá vypustit zvěř.
+    ///
+    /// <para><b>Proč se zkouší víckrát:</b> dřív se losoval <b>jeden</b> bod za
+    /// pokus a když padl na zastavěnou dlaždici, celý pokus propadl. Jenže
+    /// hráč se dívá hlavně na svoje město, a tam je většina výřezu zastavěná —
+    /// takže právě tam, kde se kouká nejčastěji, se zvěř skoro nerodila.</para>
+    ///
+    /// <para>Změřeno: na obraze bývalo 1 až 13 kusů proti stropu
+    /// <see cref="MaxCritters"/> = 40. Přibývající druhy v datech na tom nic
+    /// nezměnily, protože je nebrzdila data, ale tenhle jeden losovaný bod.</para>
+    ///
+    /// <para>Osm pokusů je kompromis: na volné krajině uspěje první a nic to
+    /// nestojí, v hustém městě dá zvěři reálnou šanci. Prohledávat celý výřez
+    /// by byl kvůli kulise nesmysl.</para>
+    /// </summary>
+    private static bool TryFindFreeSpot(
+        Simulation simulation,
+        Vector2 min,
+        Vector2 max,
+        out float x,
+        out float y,
+        out int tileX,
+        out int tileY)
+    {
+        for (int attempt = 0; attempt < SpawnAttempts; attempt++)
+        {
+            x = min.X + Random.Shared.NextSingle() * (max.X - min.X);
+            y = min.Y + Random.Shared.NextSingle() * (max.Y - min.Y);
+            tileX = (int)MathF.Floor(x / TerrainRenderer.TileSize);
+            tileY = (int)MathF.Floor(y / TerrainRenderer.TileSize);
+
+            if (!simulation.IsOccupied(tileX, tileY))
+            {
+                return true;
+            }
+        }
+
+        x = 0f;
+        y = 0f;
+        tileX = 0;
+        tileY = 0;
+        return false;
+    }
+
+    /// <summary>Kolik míst se za jeden pokus zkusí, než to systém vzdá.</summary>
+    private const int SpawnAttempts = 8;
+
+    /// <summary>
+    /// Najde místo pro jeden kus stáda kolem jeho středu — na volné zemi.
+    ///
+    /// <para>Kdo se nevejde, prostě nepřijde: v sevřeném městě se tak pase
+    /// pár kusů po dvorcích místo celého stáda, které by se stejně hned
+    /// vyřadilo. Na volné krajině se první pokus trefí a nic to nestojí.</para>
+    /// </summary>
+    private static bool TryScatter(Simulation simulation, Vector2 anchor, out Vector2 spot)
+    {
+        for (int attempt = 0; attempt < ScatterAttempts; attempt++)
+        {
+            spot = anchor + new Vector2(
+                (Random.Shared.NextSingle() - 0.5f) * HerdSpread,
+                (Random.Shared.NextSingle() - 0.5f) * HerdSpread);
+
+            int tileX = (int)MathF.Floor(spot.X / TerrainRenderer.TileSize);
+            int tileY = (int)MathF.Floor(spot.Y / TerrainRenderer.TileSize);
+            if (!simulation.IsOccupied(tileX, tileY))
+            {
+                return true;
+            }
+        }
+
+        spot = Vector2.Zero;
+        return false;
+    }
+
+    /// <summary>Kolik míst se zkusí pro jeden kus stáda.</summary>
+    private const int ScatterAttempts = 6;
+
+    /// <summary>Je na tomhle světovém bodě volná zem, kam se dá šlápnout?</summary>
+    private static bool IsFreeAt(Simulation simulation, Vector2 position) =>
+        !simulation.IsOccupied(
+            (int)MathF.Floor(position.X / TerrainRenderer.TileSize),
+            (int)MathF.Floor(position.Y / TerrainRenderer.TileSize));
 
     /// <summary>Jak daleko od sebe se stádo při příchodu rozprostře.</summary>
     private const float HerdSpread = TerrainRenderer.TileSize * 2.5f;

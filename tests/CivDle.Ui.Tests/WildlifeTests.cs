@@ -87,6 +87,34 @@ public class WildlifeTests
     }
 
     [Fact]
+    public void WildlifeStillArrivesInABuiltUpTown()
+    {
+        // Tohle je ta chyba, kterou nešlo vidět v prázdné krajině.
+        //
+        // Zvíře, které šláplo na budovu, se RUŠILO. Ve městě, kde je devět
+        // dlaždic z deseti zastavěných, tím zmizelo do vteřiny — takže právě
+        // tam, kam se hráč dívá nejčastěji, žádná zvěř nebyla. Naměřeno na
+        // hotovém snímku: 1 až 13 kusů proti stropu 40.
+        //
+        // Přidat pokusy o vypuštění nepomohlo ani o kus: problém nebyl
+        // v rození, ale v umírání. Test to ukázal — s opraveným spawnerem
+        // a starým rušením pořád vycházelo jedno zvíře ze čtyřiceti.
+        //
+        // Test staví zastavěné město a čeká, že se zvěř přesto objeví na
+        // zbytku krajiny. Měří se PODÍL stropu, ne absolutní číslo: přesný
+        // počet závisí na losu, ale „skoro nic" od „slušně obsazeno" to
+        // odliší spolehlivě.
+        var (fauna, sim, camera) = Town();
+
+        Run(fauna, sim, camera, seconds: 12);
+
+        _out.WriteLine($"v zastavěném městě: {fauna.CountForTests} z {FaunaSystem.MaxActive}");
+        Assert.True(
+            fauna.CountForTests >= FaunaSystem.MaxActive / 2,
+            $"v zastavěném městě se objevilo jen {fauna.CountForTests} zvířat z {FaunaSystem.MaxActive}");
+    }
+
+    [Fact]
     public void ShyAnimalsRunFromPeople()
     {
         // Reakce je to jediné, co na ambientní fauně opravdu vypadá živě.
@@ -189,6 +217,43 @@ public class WildlifeTests
         {
             fauna.Update(step, camera, sim);
         }
+    }
+
+    /// <summary>
+    /// Hustě zastavěné město. Tohle je ten případ, na kterém se spawner dusil.
+    ///
+    /// <para>Zástavba pokrývá celý výřez kamery a volných dlaždic je desetina —
+    /// zhruba jako ve skutečném městě, kde mezi domy zbývají ulice a dvorky.
+    /// Vzor je spočítaný, ne losovaný, aby test neměl vlastní náhodu.</para>
+    ///
+    /// <para>Poloviční zástavba nestačila: při ní uspěl i jediný losovaný bod
+    /// dost často na to, aby se strop naplnil, a test chybu nechytil.</para>
+    /// </summary>
+    private static (FaunaSystem Fauna, Simulation Sim, Camera2D Camera) Town()
+    {
+        var content = new ContentLoader().LoadFrom(Path.Combine(AppContext.BaseDirectory, "data"));
+        var sim = new Simulation(content, new UniformTerrain(content.Biomes.IndexOf("grassland")));
+        sim.SkipTutorial();
+        sim.DebugFillStorages();
+
+        int house = content.Buildings.IndexOf("house");
+        for (int y = 0; y < 32; y++)
+        {
+            for (int x = 0; x < 48; x++)
+            {
+                // Devět dlaždic z deseti zastavěných; zbytek jsou mezery.
+                if ((x * 7 + y * 13) % 10 != 0)
+                {
+                    sim.TryPlaceBuildingFree(house, x, y);
+                }
+            }
+        }
+
+        var camera = new Camera2D();
+        camera.SetViewport(1280, 720);
+        camera.CenterOn(new Vector2(24 * TerrainRenderer.TileSize, 16 * TerrainRenderer.TileSize), 2f);
+
+        return (new FaunaSystem(content), sim, camera);
     }
 
     /// <summary>Prázdná pláň bez jediné budovy — tohle je ten svět „mimo město".</summary>
