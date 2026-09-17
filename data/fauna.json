@@ -96,6 +96,7 @@
     },
     {
       "id": "wolf",
+      "predator": true,
       "biomes": [
         "taiga",
         "tundra",
@@ -151,6 +152,7 @@
     },
     {
       "id": "eagle",
+      "predator": true,
       "biomes": [
         "mountains",
         "badlands",
@@ -190,6 +192,7 @@
     },
     {
       "id": "vulture",
+      "predator": true,
       "biomes": [
         "badlands",
         "desert",
@@ -308,6 +311,7 @@
     },
     {
       "id": "bear",
+      "predator": true,
       "biomes": [
         "taiga",
         "forest",
@@ -322,6 +326,7 @@
     },
     {
       "id": "polar_bear",
+      "predator": true,
       "biomes": [
         "glacier",
         "ice_shelf",
@@ -336,6 +341,7 @@
     },
     {
       "id": "arctic_fox",
+      "predator": true,
       "biomes": [
         "tundra",
         "glacier",
@@ -350,6 +356,7 @@
     },
     {
       "id": "fox",
+      "predator": true,
       "biomes": [
         "forest",
         "grassland",
@@ -404,6 +411,7 @@
     },
     {
       "id": "fennec",
+      "predator": true,
       "biomes": [
         "desert"
       ],
@@ -429,6 +437,7 @@
     },
     {
       "id": "scorpion",
+      "predator": true,
       "biomes": [
         "desert",
         "badlands"
@@ -492,6 +501,7 @@
     },
     {
       "id": "lion",
+      "predator": true,
       "biomes": [
         "savanna"
       ],
@@ -531,6 +541,7 @@
     },
     {
       "id": "owl",
+      "predator": true,
       "biomes": [
         "forest",
         "taiga"
@@ -598,6 +609,7 @@
     },
     {
       "id": "crocodile",
+      "predator": true,
       "biomes": [
         "swamp",
         "mangrove"
@@ -623,6 +635,7 @@
     },
     {
       "id": "jaguar",
+      "predator": true,
       "biomes": [
         "jungle"
       ],

@@ -112,6 +112,49 @@ public sealed class FaunaSystem
     }
 
     /// <summary>Kde tvorové zrovna jsou. Pro testy, které měří útěk.</summary>
+    /// <summary>
+    /// Vysadí do světa dravce na dané místo. Čistě pro test útěku před šelmou:
+    /// čekat, až se lev sám objeví vedle stáda gazel, by byl test o náhodě.
+    ///
+    /// <para>Vybírá se šelma, která na tom místě <b>vydrží</b> — se správným
+    /// biomem a činná v kteroukoli denní dobu. Na prvního dravce ze seznamu
+    /// to fungovat nemohlo: byl to vlk, tedy noční druh z tajgy, a na denní
+    /// travnaté pláni se vyřadil dřív, než ho stačil kdokoli zahlédnout.</para>
+    /// </summary>
+    internal bool SpawnPredatorForTests(Simulation simulation, Vector2 position)
+    {
+        int tileX = (int)MathF.Floor(position.X / TerrainRenderer.TileSize);
+        int tileY = (int)MathF.Floor(position.Y / TerrainRenderer.TileSize);
+        byte biome = simulation.BiomeAt(tileX, tileY);
+
+        for (int i = 0; i < _content.Fauna.Count; i++)
+        {
+            var candidate = _content.Fauna[i];
+            if (!candidate.Predator || candidate.Time != FaunaTime.Any || !candidate.BiomeMask[biome])
+            {
+                continue;
+            }
+
+            // Po opravě vypouštění se pool na volné krajině zaplní na strop,
+            // takže dravec nemá kam. Uvolní se mu poslední místo — test má
+            // zkoumat útěk, ne kapacitu.
+            int slot = _count < MaxCritters ? _count++ : _count - 1;
+
+            _critters[slot] = new Critter
+            {
+                Position = position,
+                Anchor = position,
+                Velocity = Vector2.Zero,
+                DefIndex = i,
+                DirectionTimer = GrazeSeconds(),
+            };
+
+            return true;
+        }
+
+        return false;
+    }
+
     internal IEnumerable<Vector2> PositionsForTests
     {
         get
@@ -306,7 +349,7 @@ public sealed class FaunaSystem
             }
             else
             {
-                if (def.Shy && NearestPersonWithin(critter.Position, FlightRadius, out var threat))
+                if (def.Shy && NearestThreat(i, critter.Position, out var threat))
                 {
                     var away = critter.Position - threat;
                     if (away.LengthSquared() < 0.01f)
@@ -528,6 +571,60 @@ public sealed class FaunaSystem
 
     /// <summary>Jak dlouho drží směr zvíře na cestě zpátky ke stádu — kratčeji.</summary>
     private static float ReturnSeconds() => 0.5f + (Random.Shared.NextSingle() * 0.8f);
+
+    /// <summary>
+    /// Co plaché zvíře zrovna vyplašilo — člověk, nebo dravec?
+    ///
+    /// <para><b>Proč i dravec:</b> v datech byl vlk, medvěd i lev, ale zvěř
+    /// o nich nevěděla — gazela se pásla lvovi pod nosem. Stádo, které se dá
+    /// na útěk před šelmou, udělá ze savany ekosystém místo zoo, a nestojí to
+    /// nic: nikdo nikoho nechytá, jde jen o <b>reakci</b>.</para>
+    ///
+    /// <para>Dravec vlastní druh nevyplaší. Liška je zároveň plachá (před
+    /// člověkem) i dravá (pro králíky) — což si neodporuje, jen se to týká
+    /// někoho jiného. Kdyby se druh lekal sám sebe, rozprchla by se smečka
+    /// vlků při prvním kroku.</para>
+    /// </summary>
+    private bool NearestThreat(int index, Vector2 from, out Vector2 threat)
+    {
+        if (NearestPersonWithin(from, FlightRadius, out threat))
+        {
+            return true;
+        }
+
+        int ownDef = _critters[index].DefIndex;
+        float bestSquared = PredatorRadius * PredatorRadius;
+        bool found = false;
+
+        for (int i = 0; i < _count; i++)
+        {
+            if (i == index || _critters[i].DefIndex == ownDef)
+            {
+                continue;
+            }
+
+            if (!_content.Fauna[_critters[i].DefIndex].Predator)
+            {
+                continue;
+            }
+
+            float distanceSquared = Vector2.DistanceSquared(_critters[i].Position, from);
+            if (distanceSquared < bestSquared)
+            {
+                bestSquared = distanceSquared;
+                threat = _critters[i].Position;
+                found = true;
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>
+    /// Na jakou dálku zvěř zaregistruje šelmu. Kratší než u člověka: člověk
+    /// se po krajině pohybuje hlučně a nápadně, šelma se plíží.
+    /// </summary>
+    private const float PredatorRadius = TerrainRenderer.TileSize * 3.5f;
 
     /// <summary>
     /// Je poblíž člověk? Plachá zvířata z toho dělají to jediné, co na ambientní

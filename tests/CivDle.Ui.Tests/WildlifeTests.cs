@@ -175,6 +175,30 @@ public class WildlifeTests
         Assert.True(fauna.FleeingForTests > 0, "člověk prošel stádem a nikdo se nehnul");
     }
 
+    [Fact]
+    public void ShyAnimalsRunFromPredatorsToo()
+    {
+        // V datech byl vlk, medvěd i lev, ale zvěř o nich nevěděla — gazela
+        // se pásla lvovi pod nosem. Stádo, které se dá na útěk před šelmou,
+        // udělá ze savany ekosystém místo zoo.
+        //
+        // Dravec se do světa vysadí ručně: čekat, až se lev sám objeví vedle
+        // stáda, by byl test o náhodě, ne o útěku.
+        // Tundra schválně: polární liška (dravec) i zajíc bělák (plachá kořist)
+        // jsou tam činní v kteroukoli denní dobu, takže test nezávisí na tom,
+        // kolik je zrovna hodin.
+        var (fauna, sim, camera) = Wild("tundra");
+        Run(fauna, sim, camera, seconds: 6);
+
+        var prey = fauna.CrittersForTests.Where(c => c.Shy).Select(c => c.Position).ToList();
+        Assert.NotEmpty(prey);
+
+        Assert.True(fauna.SpawnPredatorForTests(sim, prey[0]), "do světa se nepodařilo vysadit dravce");
+        Run(fauna, sim, camera, seconds: 1);
+
+        Assert.True(fauna.FleeingForTests > 0, "vedle stáda stojí šelma a nikdo se nehnul");
+    }
+
     /// <summary>Na jakou vzdálenost plaché zvíře člověka zaregistruje.</summary>
     private static readonly float Reach = TerrainRenderer.TileSize * 5f;
 
@@ -257,10 +281,10 @@ public class WildlifeTests
     }
 
     /// <summary>Prázdná pláň bez jediné budovy — tohle je ten svět „mimo město".</summary>
-    private static (FaunaSystem Fauna, Simulation Sim, Camera2D Camera) Wild()
+    private static (FaunaSystem Fauna, Simulation Sim, Camera2D Camera) Wild(string biome = "grassland")
     {
         var content = new ContentLoader().LoadFrom(Path.Combine(AppContext.BaseDirectory, "data"));
-        var sim = new Simulation(content, new UniformTerrain(content.Biomes.IndexOf("grassland")));
+        var sim = new Simulation(content, new UniformTerrain(content.Biomes.IndexOf(biome)));
         sim.SkipTutorial();
 
         var camera = new Camera2D();

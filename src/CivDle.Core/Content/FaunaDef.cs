@@ -33,6 +33,15 @@ public enum FaunaTime
 /// zvířeti <b>reakci</b> — a bez reakce nevypadá živě nic, ať se hýbe jakkoli.
 /// Vrabec ne, srnec ano.
 /// </param>
+/// <param name="Predator">
+/// Loví tenhle druh ostatní? Plachá zvířata před ním utíkají stejně jako
+/// před člověkem.
+///
+/// <para>Je to ta nejlevnější věc, která ze savany udělá ekosystém místo
+/// zoo: stádo gazel, které se dá na útěk před lvem, vypráví příběh, aniž by
+/// se cokoli simulovalo. Nikdo nikoho nechytá — jde o <b>reakci</b>, ne
+/// o predaci.</para>
+/// </param>
 public sealed record FaunaDef(
     string Id,
     bool[] BiomeMask,
@@ -42,4 +51,5 @@ public sealed record FaunaDef(
     FaunaTime Time,
     bool Glow,
     int Herd = 1,
-    bool Shy = false);
+    bool Shy = false,
+    bool Predator = false);

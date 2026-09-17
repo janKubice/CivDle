@@ -4885,7 +4885,7 @@ public sealed class ContentLoader
 
             result.Add(new FaunaDef(
                 id, ParseBiomeMask(path, $"Fauna '{id}'", dto.Biomes, biomes),
-                color, dto.Size, (float)dto.Speed, time, dto.Glow, dto.Herd, dto.Shy));
+                color, dto.Size, (float)dto.Speed, time, dto.Glow, dto.Herd, dto.Shy, dto.Predator));
         }
 
         return result;
