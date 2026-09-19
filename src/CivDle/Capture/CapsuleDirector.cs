@@ -25,8 +25,22 @@ namespace CivDle.Capture;
 public sealed class CapsuleDirector
 {
     private readonly string _outputDirectory;
+    private readonly bool _second;
 
-    public CapsuleDirector(string outputDirectory) => _outputDirectory = outputDirectory;
+    /// <summary>
+    /// </summary>
+    /// <param name="outputDirectory">Kam se podklady uloží.</param>
+    /// <param name="second">
+    /// Druhá verze vzhledu? Základní kreslí město v poledne a bez světla —
+    /// je čitelné, ale ploché, takže z hlavního obrázku hry je zelená textura.
+    /// Druhá staví na tom nejhezčím, co hra umí: nízké slunce, voda s odlesky
+    /// a první rozsvícená okna.
+    /// </param>
+    public CapsuleDirector(string outputDirectory, bool second = false)
+    {
+        _outputDirectory = outputDirectory;
+        _second = second;
+    }
 
     /// <summary>Vykreslí a uloží všechny kapsle. Volá se jednou, pak hra končí.</summary>
     public void RenderAll(ScreenManager screens, Simulation simulation)
@@ -40,6 +54,8 @@ public sealed class CapsuleDirector
         var roads = new RoadRenderer(screens.WhitePixel, content);
         var buildings = new BuildingRenderer(screens.WhitePixel, content, screens.Sprites, screens.SoftShadow);
         var harvestables = new HarvestableRenderer(screens.Sprites, content);
+        var water = new WaterRenderer(screens.WhitePixel);
+        var lights = new LightsRenderer(screens.WhitePixel, content, screens.Sprites);
 
         Directory.CreateDirectory(_outputDirectory);
         foreach (var spec in CapsuleSpec.All)
@@ -48,7 +64,24 @@ public sealed class CapsuleDirector
             device.SetRenderTarget(target);
             device.Clear(new Color(18, 26, 30));
 
-            DrawScene(screens, simulation, spec, terrainRenderer, decorations, roads, buildings, harvestables);
+            DrawScene(
+                screens, simulation, spec, terrainRenderer, decorations, roads, buildings,
+                harvestables, _second ? water : null, _second ? lights : null);
+
+            if (_second)
+            {
+                // Světlo se vnáší násobením, ne závojem: násobení tmavá místa
+                // ztmaví víc než světlá, takže kontrast roste. Průhledný
+                // obdélník přes scénu ho naopak plošně dusí a obraz zmléční —
+                // přesně to dělalo z kapsle placatou zelenou textturu.
+                var light = DayNightCycle.LightColor(
+                    simulation.TimeOfDay01, content.Gameplay.DayNight, simulation.CurrentSeason);
+
+                DayNightCycle.DrawLight(
+                    screens.SpriteBatch, screens.WhitePixel,
+                    new Viewport(0, 0, spec.Width, spec.Height), light);
+            }
+
             DrawEdgeShade(screens, spec);
 
             device.SetRenderTarget(null);
@@ -69,7 +102,9 @@ public sealed class CapsuleDirector
         DecorationRenderer decorations,
         RoadRenderer roads,
         BuildingRenderer buildings,
-        HarvestableRenderer harvestables)
+        HarvestableRenderer harvestables,
+        WaterRenderer? water,
+        LightsRenderer? lights)
     {
         var camera = new Camera2D();
         camera.SetViewport(spec.Width, spec.Height);
@@ -93,10 +128,21 @@ public sealed class CapsuleDirector
 
         var spriteBatch = screens.SpriteBatch;
         terrain.Draw(spriteBatch, camera, simulation.Terrain);
+
+        // Voda až za terénem: pěna u břehu a odlesky na hladině jsou to
+        // nejhezčí, co hra kreslí, a na ploché kapsli z nich nebylo nic.
+        water?.Draw(spriteBatch, camera, simulation);
+
         decorations.Draw(spriteBatch, camera, simulation.Terrain, simulation);
         harvestables.Draw(spriteBatch, camera, simulation);
         roads.Draw(spriteBatch, camera, simulation);
         buildings.Draw(spriteBatch, camera, simulation);
+
+        // Okna se rozsvěcí podle noci. V podvečer je to pár teplých teček
+        // mezi střechami — právě ony dělají z města místo, kde někdo bydlí.
+        lights?.Draw(
+            spriteBatch, camera, simulation,
+            DayNightCycle.NightFactor(simulation.TimeOfDay01));
     }
 
     /// <summary>

@@ -9,7 +9,7 @@ vypsané jako data a kontroluje je test.
 
 Použití::
 
-    python3 tools/make_store_assets.py <složka-s-podklady> <výstupní-složka>
+    python3 tools/make_store_assets.py <složka-s-podklady> <výstupní-složka> [--druha]
 
 Pravidla, podle kterých je to složené:
 
@@ -51,6 +51,8 @@ class Asset:
     stacked: bool = False
     #: Svislá pozice středu značky (0 = nahoře, 1 = dole).
     logo_y: float = 0.5
+    #: Vodorovná pozice středu značky (0,5 = na střed, méně = doleva).
+    logo_x: float = 0.5
     #: Oříznout plátno těsně na značku? (Pro volně použitelné logo — u kapslí
     #: rozměr diktuje Steam, tady ho diktuje sama grafika.)
     trim: bool = False
@@ -85,6 +87,65 @@ ASSETS: tuple[Asset, ...] = (
     Asset("emblem-transparent-1024x1024.png", (1024, 1024), None,
           note="Samotný emblém bez nápisu, průhledný"),
 )
+
+
+#: Druhá verze kompozice.
+#:
+#: Základní sada staví značku doprostřed každé kapsle. Je to bezpečné a čitelné,
+#: ale kompozičně mrtvé: logo visí nad texturou a město za ním nemá kam ustoupit.
+#: Druhá verze ho u širokých formátů odsune do levé třetiny — pravá půlka tak
+#: zůstane na město — a u vysokých nahoru, protože poster se čte shora dolů
+#: a pod nápisem je pak vidět, jak se město táhne do dálky.
+#:
+#: Malá kapsle výjimka: Steam u ní výslovně chce, aby nápis vyplnil skoro celou
+#: plochu, takže na kompozici není místo a zůstává na střed.
+SECOND_ASSETS: tuple[Asset, ...] = (
+    Asset("header-capsule-920x430.png", (920, 430), "bg-header-920x430",
+          logo_width=0.60, logo_x=0.33, logo_y=0.50, note="Header Capsule"),
+    Asset("small-capsule-462x174.png", (462, 174), "bg-small-462x174",
+          logo_width=0.95, logo_y=0.50, note="Small Capsule"),
+    Asset("main-capsule-1232x706.png", (1232, 706), "bg-main-1232x706",
+          logo_width=0.54, logo_x=0.32, logo_y=0.66, note="Main Capsule"),
+    Asset("vertical-capsule-748x896.png", (748, 896), "bg-vertical-748x896",
+          logo_width=0.80, stacked=True, logo_y=0.26, note="Vertical Capsule"),
+    Asset("page-background-1438x810.png", (1438, 810), "bg-page-1438x810",
+          note="Page Background (Steam ho ztmaví a rozostří sám — proto bez značky)"),
+    Asset("library-capsule-600x900.png", (600, 900), "bg-library-capsule-600x900",
+          logo_width=0.82, stacked=True, logo_y=0.24, note="Library Capsule"),
+    Asset("library-header-920x430.png", (920, 430), "bg-header-920x430",
+          logo_width=0.60, logo_x=0.33, logo_y=0.50, note="Library Header"),
+    Asset("library-hero-3840x1240.png", (3840, 1240), "bg-library-hero-3840x1240",
+          note="Library Hero (logo přes něj kreslí Steam sám)"),
+    Asset("library-logo-1280x720.png", (1280, 720), None,
+          logo_width=0.94, stacked=True, note="Library Logo — MUSÍ být průhledné"),
+    Asset("community-icon-184x184.png", (184, 184), None, note="Community Icon"),
+    Asset("logo-transparent.png", (2400, 700), None, logo_width=1.0, trim=True,
+          note="Značka na šířku, průhledná — na volné použití (web, tisk, video)"),
+    Asset("logo-transparent-stacked.png", (1400, 1400), None,
+          logo_width=1.0, stacked=True, trim=True, note="Značka na výšku, průhledná"),
+    Asset("emblem-transparent-1024x1024.png", (1024, 1024), None,
+          note="Samotný emblém bez nápisu, průhledný"),
+)
+
+
+def side_scrim(size: tuple[int, int], center_x: float) -> Image.Image:
+    """
+    Spád do tmy od té strany, kde stojí značka.
+
+    Vodorovný pruh přes celou šířku ubírá město i tam, kde nad ním nic není.
+    Když značka sedí vlevo, má ztmavení jít taky zleva — pravá půlka kapsle pak
+    zůstane světlá a je na ní vidět, že se dívám na hru.
+    """
+    width, height = size
+    row = Image.new("L", (width, 1))
+    for x in range(width):
+        distance = abs(x / max(1, width - 1) - center_x)
+        strength = max(0.0, 1.0 - (distance / 0.62) ** 1.4)
+        row.putpixel((x, 0), int(165 * strength))
+
+    veil = Image.new("RGBA", size, (6, 10, 16, 255))
+    veil.putalpha(row.resize(size, Image.BILINEAR))
+    return veil
 
 
 def scrim(size: tuple[int, int], center_y: float) -> Image.Image:
@@ -155,15 +216,25 @@ def build(asset: Asset, backdrops: Path) -> Image.Image:
         mark = mark.resize((max(1, int(mark.width * scale)), max_height), Image.LANCZOS)
 
     if asset.backdrop is not None:
-        canvas.alpha_composite(scrim(asset.size, asset.logo_y))
+        # Značka mimo střed si žádá ztmavení ze své strany, ne pruh přes celou
+        # šířku: jinak se ubere i ta část města, kterou má kapsle ukazovat.
+        canvas.alpha_composite(
+            scrim(asset.size, asset.logo_y) if abs(asset.logo_x - 0.5) < 0.04
+            else side_scrim(asset.size, asset.logo_x))
 
-    x = (asset.size[0] - mark.width) // 2
+    x = int(asset.size[0] * asset.logo_x - mark.width / 2)
     y = int(asset.size[1] * asset.logo_y - mark.height / 2)
-    canvas.alpha_composite(mark, (x, max(0, y)))
+    canvas.alpha_composite(
+        mark, (max(0, min(x, asset.size[0] - mark.width)), max(0, y)))
     return canvas
 
 
 def main(argv: list[str]) -> int:
+    # --druha přepne na druhou kompozici. Obě zůstávají v kódu, aby šly
+    # postavit vedle sebe a vybrat — ne aby jedna nahradila druhou.
+    second = "--druha" in argv
+    argv = [item for item in argv if item != "--druha"]
+
     if len(argv) != 3:
         print(__doc__)
         return 2
@@ -172,7 +243,7 @@ def main(argv: list[str]) -> int:
     output = Path(argv[2])
     output.mkdir(parents=True, exist_ok=True)
 
-    for asset in ASSETS:
+    for asset in (SECOND_ASSETS if second else ASSETS):
         image = build(asset, backdrops)
         if not asset.trim and image.size != asset.size:
             raise AssertionError(f"{asset.name}: {image.size} != {asset.size}")
