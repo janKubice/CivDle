@@ -83,12 +83,42 @@ internal static class CityFixture
         }
 
         TopUp(sim, fast, 0.55);
+        SettleUntilStaffed(sim, fast);
+
         for (int i = 0; i < 120; i++)
         {
             sim.Tick(); // krátké usazení, ať čísla v HUD nevypadají naklikaná
         }
 
         return sim;
+    }
+
+    /// <summary>
+    /// Nechá město doběhnout, dokud se budovy nezaplní lidmi.
+    ///
+    /// <para><b>Proč:</b> plán se postaví naráz, ale obyvatelstvo dorůstá —
+    /// takže na hotovém snímku svítilo v HUD „217 idle (no workers)". Na
+    /// obchodní stránce to čte jako „tohle město nefunguje", a je to přitom
+    /// jen otázka pár dalších odtikaných minut.</para>
+    ///
+    /// <para>Nehoní se to na nulu: pár prázdných budov je v živém městě
+    /// normální a čekat na dokonalý stav by mohlo trvat donekonečna. Stačí,
+    /// aby se z varování stala drobnost.</para>
+    /// </summary>
+    private static void SettleUntilStaffed(Simulation sim, GameContent content)
+    {
+        const int acceptableIdle = 8;
+        const int maxTicks = 120_000;
+
+        for (int tick = 1; tick <= maxTicks && sim.IdleBuildings > acceptableIdle; tick++)
+        {
+            if (tick % 200 == 0)
+            {
+                TopUp(sim, content, 0.55);
+            }
+
+            sim.Tick();
+        }
     }
 
     /// <summary>
@@ -125,17 +155,32 @@ internal static class CityFixture
         }
     }
 
-    /// <summary>Postaví rozestavěný div světa na kraj města — kvůli záběru na staveniště.</summary>
+    /// <summary>
+    /// Postaví rozestavěný div světa na kraj města — kvůli záběru na staveniště.
+    ///
+    /// <para>Bere <b>největší</b> stavbu, která se staví na čas, ne první
+    /// v pořadí. Div světa má na snímku vypadat jako div světa; první stavba
+    /// se stavěcí dobou je klidně dílna o jedné dlaždici a záběr na ni nikdo
+    /// nepozná od obyčejného domku.</para>
+    /// </summary>
     public static bool PlaceWonder(Simulation sim, GameContent content, out int x, out int y)
     {
         x = y = 0;
-        for (int defIndex = 0; defIndex < content.Buildings.Count; defIndex++)
-        {
-            if (!content.Buildings[defIndex].TakesTimeToBuild)
-            {
-                continue;
-            }
 
+        var byBulk = new List<int>();
+        for (int i = 0; i < content.Buildings.Count; i++)
+        {
+            if (content.Buildings[i].TakesTimeToBuild)
+            {
+                byBulk.Add(i);
+            }
+        }
+
+        byBulk.Sort((left, right) =>
+            Footprint(content.Buildings[right]).CompareTo(Footprint(content.Buildings[left])));
+
+        foreach (int defIndex in byBulk)
+        {
             int reach = BlocksPerSide / 2 * BlockPitch + 6;
             for (int radius = 4; radius <= reach; radius += 2)
             {
@@ -155,6 +200,10 @@ internal static class CityFixture
 
         return false;
     }
+
+    /// <summary>Kolik dlaždic stavba zabere — podle toho se pozná div světa od kůlny.</summary>
+    private static int Footprint(BuildingDef building) =>
+        building.FootprintWidth * building.FootprintHeight;
 
     /// <summary>Odtiká, dokud denní čas nespadne do zadaného pásma (poledne, noc…).</summary>
     public static void TickUntilTimeOfDay(Simulation sim, double from, double to)
