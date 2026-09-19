@@ -34,6 +34,9 @@ public sealed class CivDleGame : Game
     private readonly ProfileStore _profileStore;
     private readonly CaptureDirector? _capture;
     private readonly string? _capsuleDirectory;
+
+    /// <summary>Natáčí se druhá sada podkladů a snímků?</summary>
+    private readonly bool _secondSet;
     private readonly TrailerDirector? _trailer;
     private readonly GameContent _content;
     private readonly bool _smoke;
@@ -88,12 +91,14 @@ public sealed class CivDleGame : Game
         string? trailerDirectory = null,
         bool trailerPreview = false,
         bool smoke = false,
-        bool perf = false)
+        bool perf = false,
+        bool secondSet = false)
     {
+        _secondSet = secondSet;
         _content = content;
         _smoke = smoke;
         _perf = perf;
-        _capture = captureDirectory is null ? null : new CaptureDirector(captureDirectory);
+        _capture = captureDirectory is null ? null : new CaptureDirector(captureDirectory, secondSet);
         _capsuleDirectory = capsuleDirectory;
         _trailer = trailerDirectory is null
             ? null
@@ -229,9 +234,23 @@ public sealed class CivDleGame : Game
 
         if (_capsuleDirectory is not null)
         {
-            var scene = CityFixture.Grow(content, seed: 20260728, minutes: 14);
-            CityFixture.TickUntilPostcardMoment(scene, content, from: 0.40, to: 0.58);
-            new CapsuleDirector(_capsuleDirectory).RenderAll(screens, scene);
+            // Druhá verze má jiné město i jinou hodinu: nízké slunce dává
+            // budovám dlouhé stíny a vodě odlesk, kdežto v poledne je scéna
+            // plochá. Základní zůstává na poledni, aby šly obě porovnat.
+            var scene = _secondSet
+                ? CityFixture.Grow(content, seed: 815022, minutes: 17)
+                : CityFixture.Grow(content, seed: 20260728, minutes: 14);
+
+            if (_secondSet)
+            {
+                CityFixture.TickUntilTimeOfDay(scene, from: 0.77, to: 0.81);
+            }
+            else
+            {
+                CityFixture.TickUntilPostcardMoment(scene, content, from: 0.40, to: 0.58);
+            }
+
+            new CapsuleDirector(_capsuleDirectory, _secondSet).RenderAll(screens, scene);
             Exit();
             return; // _screens zůstává null — Update ani Draw už nemají co dělat
         }
@@ -268,7 +287,7 @@ public sealed class CivDleGame : Game
 
         if (_capture is not null)
         {
-            _screens.ReplaceAll(_capture.PrepareNextShot(_screens));
+            _capture.PrepareNextShot(_screens);
             return;
         }
 
@@ -343,7 +362,7 @@ public sealed class CivDleGame : Game
                 return;
             }
 
-            _screens.ReplaceAll(_capture.PrepareNextShot(_screens));
+            _capture.PrepareNextShot(_screens);
         }
     }
 
