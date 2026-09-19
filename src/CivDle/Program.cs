@@ -41,6 +41,9 @@ try
         trailerDirectory = args[trailerFlag + 1];
     }
 
+    // --druha: místo základní sady snímků natočí tu druhou (víc mechanik,
+    // jiná semínka). Obě sady zůstávají v kódu, aby šly porovnat.
+    bool secondSet = args.Contains("--druha");
     bool trailerPreview = args.Contains("--nahled");
     bool smoke = args.Contains("--smoke");
     bool perf = args.Contains("--perf");
@@ -74,7 +77,7 @@ try
     }
 
     using var game = new CivDleGame(
-        content, captureDirectory, capsuleDirectory, trailerDirectory, trailerPreview, smoke, perf);
+        content, captureDirectory, capsuleDirectory, trailerDirectory, trailerPreview, smoke, perf, secondSet);
     game.Run();
     return 0;
 }

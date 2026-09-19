@@ -45,6 +45,37 @@ public enum ShotSubject
     /// Aglomerace z výšky v noci — z hustoty zástavby se stane světelná mapa.
     /// </summary>
     NightScale,
+
+    /// <summary>
+    /// Rozestavěný div světa. Megastruktura je největší věc, kterou hráč
+    /// postaví, a na běžném záběru na město z ní není nic — staveniště přitom
+    /// samo vypráví, že se tu dělá něco velkého.
+    /// </summary>
+    Wonder,
+
+    /// <summary>
+    /// Rozbřesk: studené světlo, mlha v údolích, okna ještě svítí. Protipól
+    /// <see cref="GoldenHour"/> — tentýž trik s nízkým sluncem, ale opačný konec dne.
+    /// </summary>
+    Dawn,
+
+    /// <summary>
+    /// Přehled výrobních řetězců. Jádro hry je řetězec „co z čeho" a na fotce
+    /// města ho nepozná nikdo — tahle obrazovka je jediné místo, kde je vidět celý.
+    /// </summary>
+    Chains,
+
+    /// <summary>Vzestup: prestiž a to, co se za něj dá koupit. Konec smyčky.</summary>
+    Ascension,
+
+    /// <summary>Obrana hranice — že se hra dá i prohrát.</summary>
+    Frontier,
+
+    /// <summary>Kronika města: co všechno se cestou stalo.</summary>
+    Chronicle,
+
+    /// <summary>Statistiky a grafy růstu — pro toho, kdo si rád kouká na čísla.</summary>
+    Stats,
 }
 
 /// <summary>
