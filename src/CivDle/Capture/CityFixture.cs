@@ -83,42 +83,12 @@ internal static class CityFixture
         }
 
         TopUp(sim, fast, 0.55);
-        SettleUntilStaffed(sim, fast);
-
         for (int i = 0; i < 120; i++)
         {
             sim.Tick(); // krátké usazení, ať čísla v HUD nevypadají naklikaná
         }
 
         return sim;
-    }
-
-    /// <summary>
-    /// Nechá město doběhnout, dokud se budovy nezaplní lidmi.
-    ///
-    /// <para><b>Proč:</b> plán se postaví naráz, ale obyvatelstvo dorůstá —
-    /// takže na hotovém snímku svítilo v HUD „217 idle (no workers)". Na
-    /// obchodní stránce to čte jako „tohle město nefunguje", a je to přitom
-    /// jen otázka pár dalších odtikaných minut.</para>
-    ///
-    /// <para>Nehoní se to na nulu: pár prázdných budov je v živém městě
-    /// normální a čekat na dokonalý stav by mohlo trvat donekonečna. Stačí,
-    /// aby se z varování stala drobnost.</para>
-    /// </summary>
-    private static void SettleUntilStaffed(Simulation sim, GameContent content)
-    {
-        const int acceptableIdle = 8;
-        const int maxTicks = 120_000;
-
-        for (int tick = 1; tick <= maxTicks && sim.IdleBuildings > acceptableIdle; tick++)
-        {
-            if (tick % 200 == 0)
-            {
-                TopUp(sim, content, 0.55);
-            }
-
-            sim.Tick();
-        }
     }
 
     /// <summary>
