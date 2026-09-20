@@ -237,13 +237,17 @@ public sealed class CivDleGame : Game
             // Druhá verze má jiné město i jinou hodinu: nízké slunce dává
             // budovám dlouhé stíny a vodě odlesk, kdežto v poledne je scéna
             // plochá. Základní zůstává na poledni, aby šly obě porovnat.
-            var scene = _secondSet
-                ? CityFixture.Grow(content, seed: 815022, minutes: 17)
-                : CityFixture.Grow(content, seed: 20260728, minutes: 14);
+            // Totéž semínko jako základní verze: je prověřené a staví HUSTÉ
+            // město. Vlastní semínko mi vyrostlo řídce a na kapsli z něj byla
+            // z půlky prázdná mřížka silnic.
+            var scene = CityFixture.Grow(content, seed: 20260728, minutes: 14);
 
             if (_secondSet)
             {
-                CityFixture.TickUntilTimeOfDay(scene, from: 0.77, to: 0.81);
+                // Pozdní odpoledne, ne hluboká zlatá hodina: při 0,78 bylo
+                // světlo tak nízké, že z města zbyla tmavá kaše. Tady je slunce
+                // ještě nad obzorem, ale stíny už jsou dlouhé.
+                CityFixture.TickUntilTimeOfDay(scene, from: 0.66, to: 0.70);
             }
             else
             {
