@@ -169,7 +169,8 @@ public class GovernorSupplyTests
 
     /// <summary>Louka s lesem daleko od města; volitelně malý háj hned vedle a skála mezi.</summary>
     private static Simulation World(
-        bool grove = false, bool renewableForest = false, bool rocks = false, bool breadChain = false)
+        bool grove = false, bool renewableForest = false, bool rocks = false, bool breadChain = false,
+        bool noForest = false)
     {
         var map = new WorldMap(48, 48);
         Array.Fill(map.BiomeIndices, Grass);
@@ -178,7 +179,11 @@ public class GovernorSupplyTests
             Paint(map, Rocks, Rock);
         }
 
-        Paint(map, FarForest);
+        if (!noForest)
+        {
+            Paint(map, FarForest);
+        }
+
         if (grove)
         {
             Paint(map, (8, 8, 9, 9));
@@ -369,13 +374,45 @@ public class GovernorSupplyTests
     }
 
     [Fact]
-    public void WithNoWoodAtAllItAsksThePlayer()
+    public void WithNoWoodAtAll_PeopleGatherItByHand()
     {
-        // Na dřevorubce je potřeba dřevo, a to neteče. Z toho se automatika
-        // sama nedostane — musí to říct, ne tiše čekat.
+        // Na dřevorubce je potřeba dřevo, a to neteče. Dřív guvernér jen
+        // čekal na hráče; teď pošle lidi sbírat a co nasbírají, drží na
+        // dřevorubce.
         var sim = World();
         sim.TryPlaceBuildingFree(House, 2, 2);
         sim.SetPopulationForTest(9); // strop 10 − rezerva 2 → chce další dům
+
+        Run(sim, 20);
+
+        Assert.Equal(GovernorActivity.Gathering, sim.GovernorStatus.Activity);
+        Assert.Equal(LumberCamp, sim.GovernorStatus.DefIndex);
+        Assert.Equal(LumberCamp, sim.Claim.DefIndex); // nasbírané nesní nic jiného
+        Assert.True(sim.GetResource(Wood) > 0, "nikdo nic nenasbíral");
+    }
+
+    [Fact]
+    public void GatheringByHand_EndsWithARealLumberCamp()
+    {
+        // Sběr je nouzové řešení, ne náhrada výroby: jakmile je na dřevorubce,
+        // postaví se a dřevo začne téct samo.
+        var sim = World();
+        sim.TryPlaceBuildingFree(House, 2, 2);
+        sim.SetPopulationForTest(9);
+
+        Run(sim, 600);
+
+        Assert.True(CountOf(sim, LumberCamp) > 0, "dřevorubec se z nasbíraného dřeva nepostavil");
+    }
+
+    [Fact]
+    public void WithNothingToGather_ItAsksThePlayer()
+    {
+        // V dosahu není ani strom. Z toho se automatika sama nedostane —
+        // musí to říct, ne tiše čekat.
+        var sim = World(noForest: true);
+        sim.TryPlaceBuildingFree(House, 2, 2);
+        sim.SetPopulationForTest(9);
 
         Run(sim, 20);
 

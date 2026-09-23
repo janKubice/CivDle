@@ -409,15 +409,43 @@ internal sealed class AutoBuildSystem
         }
 
         // Všechny výrobny potřebují ke stavbě právě tu surovinu, která neteče.
-        // Z toho se automatika sama nedostane — trochu musí nasbírat hráč. Aspoň
-        // si na výrobnu zadrží, co nasbírá, ať to nesní pila ani topení.
+        // Lidé bez práce ji jdou sbírat ručně, a co nasbírají, drží se na
+        // výrobnu (nesní to pila ani topení). Hráče se guvernér dovolá, jen
+        // když v dosahu není co sbírat.
         if (bootstrap >= 0)
         {
-            return Save(sim, bootstrap, resource, GovernorBlocker.Bootstrap);
+            return _sites.GatherByHand(sim, resource, GatherBatch(sim)) > 0
+                ? Gather(sim, bootstrap, resource)
+                : Save(sim, bootstrap, resource, GovernorBlocker.Bootstrap);
         }
 
         SetStuck(sim, GovernorBlocker.NoProducer, forTarget, resource);
         return Outcome.Impossible;
+    }
+
+    /// <summary>Na kolik lidí bez práce připadá jedna dávka ručního sběru za kolo.</summary>
+    private const int PeoplePerGather = 10;
+
+    /// <summary>Nejvíc dávek ručního sběru za kolo — nouzové řešení, ne náhrada výroby.</summary>
+    private const int MaxGathersPerRound = 3;
+
+    /// <summary>Kolik dávek nasbírají lidé bez práce (aspoň jednu — někdo se vždycky najde).</summary>
+    private static int GatherBatch(Simulation sim)
+    {
+        double jobless = Math.Max(0, sim.Population - sim.ProductiveWorkers);
+        return Math.Clamp((int)(jobless / PeoplePerGather), 1, MaxGathersPerRound);
+    }
+
+    /// <summary>Lidé sbírají ručně na první výrobnu: šetří se jako obvykle, jen stav řekne proč.</summary>
+    private Outcome Gather(Simulation sim, int defIndex, int resource)
+    {
+        Save(sim, defIndex, resource);
+        if (_roundStatus.Activity == GovernorActivity.Saving && _roundStatus.DefIndex == defIndex)
+        {
+            _roundStatus = new GovernorStatus(GovernorActivity.Gathering, GovernorBlocker.None, defIndex, resource);
+        }
+
+        return Outcome.Saving;
     }
 
     /// <summary>

@@ -14,6 +14,12 @@ public enum GovernorActivity
 
     /// <summary>Něco potřebuje, ale neví jak — hráč by měl zasáhnout.</summary>
     Stuck,
+
+    /// <summary>
+    /// Posílá lidi sbírat surovinu ručně, protože bez ní nepostaví ani první
+    /// výrobnu (dřevo na dřevorubce). Pomalé, ale ze zámku to vede ven.
+    /// </summary>
+    Gathering,
 }
 
 /// <summary>Proč guvernér uvízl.</summary>

@@ -16,6 +16,7 @@ public class GovernorStatusTextTests
         yield return new object[] { new GovernorStatus(GovernorActivity.Building, GovernorBlocker.None, 0, -1) };
         yield return new object[] { new GovernorStatus(GovernorActivity.Saving, GovernorBlocker.None, 0, 0) };
         yield return new object[] { new GovernorStatus(GovernorActivity.Saving, GovernorBlocker.None, 0, -1) };
+        yield return new object[] { new GovernorStatus(GovernorActivity.Gathering, GovernorBlocker.None, 0, 0) };
         foreach (var blocker in Enum.GetValues<GovernorBlocker>().Where(b => b != GovernorBlocker.None))
         {
             yield return new object[] { new GovernorStatus(GovernorActivity.Stuck, blocker, 0, 0) };

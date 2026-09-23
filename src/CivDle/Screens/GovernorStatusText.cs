@@ -23,6 +23,8 @@ internal static class GovernorStatusText
             GovernorActivity.Saving when building.Length > 0 && resource.Length > 0 =>
                 loc.Format("governor.status.saving", building, resource),
             GovernorActivity.Saving when building.Length > 0 => loc.Format("governor.status.savingAny", building),
+            GovernorActivity.Gathering when building.Length > 0 && resource.Length > 0 =>
+                loc.Format("governor.status.gathering", resource, building),
             GovernorActivity.Stuck => StuckLine(loc, status.Blocker, building, resource),
             _ => string.Empty,
         };
@@ -33,6 +35,7 @@ internal static class GovernorStatusText
     {
         GovernorActivity.Building => loc["governor.hint.building"],
         GovernorActivity.Saving => loc["governor.hint.saving"],
+        GovernorActivity.Gathering => loc["governor.hint.gathering"],
         GovernorActivity.Stuck => status.Blocker switch
         {
             GovernorBlocker.NoSite => loc["governor.hint.noSite"],

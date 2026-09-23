@@ -4638,6 +4638,44 @@ public sealed class Simulation
             : _content.Biomes[Terrain.BiomeAt(x, y)].ClickYield;
     }
 
+    /// <summary>
+    /// Ruční sběr, který dělají lidé bez práce na pokyn guvernéra — jediná cesta
+    /// ze zámku „na dřevorubce je potřeba dřevo, a dřevo neteče".
+    ///
+    /// <para>Jen základní výnos uzlu: kombo, krit, slavnost ani statistiky ručního
+    /// sběru sem nepatří — to je odměna za hráčovo klikání a guvernér mu ji nemá
+    /// brát.</para>
+    ///
+    /// <para>Do evidence toků se <b>nezapisuje</b>, a to schválně: guvernér podle
+    /// ní pozná, jestli surovina teče. Kdyby viděl nasbírané dřevo jako přítok,
+    /// přestal by sbírat a začal jen šetřit — a zámek by se vrátil. Sběr má
+    /// trvat jen do chvíle, kdy stojí první výrobna.</para>
+    /// </summary>
+    /// <returns>Kolik se nasbíralo (0 = tady nic, nebo plný sklad).</returns>
+    internal int GatherForGovernor(int x, int y)
+    {
+        if (_occupancy.ContainsKey(TileKey.Pack(x, y)))
+        {
+            return 0;
+        }
+
+        var yield = YieldAt(x, y);
+        if (yield is null)
+        {
+            return 0;
+        }
+
+        int index = yield.ResourceIndex;
+        if (_resources[index] + yield.Amount > _storageCaps[index] || !_nodes.TryConsume(x, y, yield, TickCount))
+        {
+            return 0;
+        }
+
+        _resources[index] += yield.Amount;
+        _resourceKnown[index] = true;
+        return yield.Amount;
+    }
+
     /// <summary>Evidence vytěžených dlaždic — pro sav a testy.</summary>
     public NodeLedger Nodes => _nodes;
 

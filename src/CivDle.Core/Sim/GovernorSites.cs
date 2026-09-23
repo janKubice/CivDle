@@ -142,6 +142,34 @@ internal sealed class GovernorSites
     }
 
     /// <summary>
+    /// Pošle lidi sbírat ručně: projde uzly dané suroviny od středu města
+    /// a sebere z nich nejvýš <paramref name="gathers"/> dávek. Nejbližší
+    /// uzly první — lidé nechodí pro dřevo přes půl mapy.
+    /// </summary>
+    /// <returns>Kolik dávek se opravdu nasbíralo.</returns>
+    public int GatherByHand(Simulation sim, int resource, int gathers)
+    {
+        int done = 0;
+        int centerX = sim.CityCenterX;
+        int centerY = sim.CityCenterY;
+        for (int ring = 0; ring <= HarvestSearchRadius && done < gathers; ring++)
+        {
+            for (int i = 0; i < RingLength(ring) && done < gathers; i++)
+            {
+                RingTile(ring, i, out int dx, out int dy);
+                int x = centerX + dx;
+                int y = centerY + dy;
+                if (sim.TryPeekNode(x, y, out int found) && found == resource && sim.GatherForGovernor(x, y) > 0)
+                {
+                    done++;
+                }
+            }
+        }
+
+        return done;
+    }
+
+    /// <summary>
     /// Kruhy od středu města k prvnímu místu, kam budova smí a kde ji plán sídla
     /// nezakazuje. Záloha pro vše, co se nevešlo kolem zástavby (pole na louce
     /// za městem, rybárna na pláži).
