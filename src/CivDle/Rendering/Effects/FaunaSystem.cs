@@ -107,13 +107,14 @@ public sealed class FaunaSystem
     /// k <b>plachému</b> druhu — jinak měří jen to, který tvor se zrovna objevil
     /// první, a s každým novým neplachým zvířetem v datech začne být vrtkavý.
     /// </summary>
-    internal IEnumerable<(Vector2 Position, bool Shy)> CrittersForTests
+    internal IEnumerable<(Vector2 Position, bool Shy, bool Predator)> CrittersForTests
     {
         get
         {
             for (int i = 0; i < _count; i++)
             {
-                yield return (_critters[i].Position, _content.Fauna[_critters[i].DefIndex].Shy);
+                var def = _content.Fauna[_critters[i].DefIndex];
+                yield return (_critters[i].Position, def.Shy, def.Predator);
             }
         }
     }
