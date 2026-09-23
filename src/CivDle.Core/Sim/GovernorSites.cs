@@ -33,8 +33,14 @@ internal sealed class GovernorSites
     /// <summary>Jak daleko od středu města se hledá les nebo skála.</summary>
     private const int HarvestSearchRadius = 40;
 
-    /// <summary>Kolik shluků surovin se prozkoumá, než se vybere nejlepší.</summary>
+    /// <summary>Kolik použitelných shluků surovin stačí najít, než se vybere nejlepší.</summary>
     private const int ClustersToInspect = 6;
+
+    /// <summary>
+    /// Kolik shluků se nejvýš vyzkouší (i neúspěšně). Strop drží cenu hledání,
+    /// když kolem města nic použitelného není.
+    /// </summary>
+    private const int MaxClusterAttempts = 24;
 
     /// <summary>Jak daleko od středu města se hledá místo pro ostatní budovy.</summary>
     private const int AnySiteRadius = 28;
@@ -67,30 +73,53 @@ internal sealed class GovernorSites
         int radius = Math.Max(1, def.TerrainHarvestRadius);
         CollectCovered(sim, defIndex, ignoreBuilding);
 
+        // Napřed jen uzly toho, co budova vyrábí (dřevorubec hledá stromy, lom
+        // skálu). Dřív se bral první uzel jakéhokoli druhu: když byly blíž
+        // k městu hory, všech šest pokusů padlo na skálu, kam dřevorubec nesmí,
+        // a les o kus dál už se nezkusil — guvernér pak stavěl pilu za pilou,
+        // protože dřevorubce „neměl kam dát". Jiné uzly jsou jen záloha pro
+        // budovy, jejichž výrobek na mapě jako uzel neroste.
+        return TryFindHarvestSite(sim, def, defIndex, radius, ignoreBuilding, forMove, matchingOnly: true, out x, out y)
+            || TryFindHarvestSite(sim, def, defIndex, radius, ignoreBuilding, forMove, matchingOnly: false, out x, out y);
+    }
+
+    private bool TryFindHarvestSite(
+        Simulation sim, BuildingDef def, int defIndex, int radius, int ignoreBuilding, bool forMove, bool matchingOnly,
+        out int x, out int y)
+    {
         x = y = 0;
         int bestScore = int.MinValue;
-        int clusters = 0;
+        int found = 0;
+        int attempts = 0;
         int centerX = sim.CityCenterX;
         int centerY = sim.CityCenterY;
+        var outputs = def.Recipe?.Outputs;
 
         // Kruhy od středu města s krokem 2: les se najde spolehlivě, a přitom se
-        // nesahá na každou dlaždici v okruhu čtyřiceti.
-        for (int ring = 0; ring <= HarvestSearchRadius && clusters < ClustersToInspect; ring += 2)
+        // nesahá na každou dlaždici v okruhu čtyřiceti. Počítají se jen shluky,
+        // kde budova opravdu může stát — neúspěšný pokus hledání nezastaví,
+        // dokud nedojde strop pokusů.
+        int coveredBefore = _covered.Count;
+        for (int ring = 0; ring <= HarvestSearchRadius && found < ClustersToInspect && attempts < MaxClusterAttempts; ring += 2)
         {
-            for (int i = 0; i < RingLength(ring) && clusters < ClustersToInspect; i += 2)
+            for (int i = 0; i < RingLength(ring) && found < ClustersToInspect && attempts < MaxClusterAttempts; i += 2)
             {
                 RingTile(ring, i, out int dx, out int dy);
                 int nodeX = centerX + dx;
                 int nodeY = centerY + dy;
-                if (!sim.TryPeekNode(nodeX, nodeY, out _) || IsCovered(nodeX, nodeY, radius))
+                if (!sim.TryPeekNode(nodeX, nodeY, out int resource)
+                    || (matchingOnly && !Produces(outputs, resource))
+                    || IsCovered(nodeX, nodeY, radius))
                 {
                     continue;
                 }
 
-                clusters++;
+                attempts++;
                 if (TryBestPlacementAround(sim, def, defIndex, nodeX, nodeY, radius, ignoreBuilding, forMove,
                         out int siteX, out int siteY, out int score))
                 {
+                    found++;
+
                     // Blízko města je lepší: dlouhá cesta znamená pomalý svoz.
                     score -= ring / 2;
                     if (score > bestScore)
@@ -106,6 +135,9 @@ internal sealed class GovernorSites
             }
         }
 
+        // Prozkoumané shluky nejsou zabrané budovou — druhé kolo (a počítání
+        // uzlů) je musí vidět znovu.
+        _covered.RemoveRange(coveredBefore, _covered.Count - coveredBefore);
         return bestScore != int.MinValue;
     }
 

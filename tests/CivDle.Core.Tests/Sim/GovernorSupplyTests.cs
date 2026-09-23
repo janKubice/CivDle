@@ -15,13 +15,15 @@ namespace CivDle.Core.Tests.Sim;
 /// <item>město na louce nemělo kam postavit dřevorubce (smí jen do lesa),</item>
 /// <item>pila brala tři dřeva hned, jak přišla, a dům za pět se nepostavil nikdy,</item>
 /// <item>k hladovým pilám přibývaly další pily místo dřevorubců,</item>
-/// <item>vykácený dřevorubec stál navždy, i když o kus dál rostl les.</item>
+/// <item>vykácený dřevorubec stál navždy, i když o kus dál rostl les,</item>
+/// <item>skála blíž k městu vyčerpala hledání dřív, než došlo na les.</item>
 /// </list>
 /// </summary>
 public class GovernorSupplyTests
 {
     private const byte Grass = 1;
     private const byte Forest = 2;
+    private const byte Rock = 3;
 
     private const int Food = 0;
     private const int Wood = 1;
@@ -40,6 +42,9 @@ public class GovernorSupplyTests
     /// <summary>Kde roste velký les (daleko od města).</summary>
     private static readonly (int MinX, int MinY, int MaxX, int MaxY) FarForest = (30, 30, 38, 38);
 
+    /// <summary>Skalnatý pás mezi městem a lesem (uzly rudy, dřevorubec tam nesmí).</summary>
+    private static readonly (int MinX, int MinY, int MaxX, int MaxY) Rocks = (10, 10, 27, 27);
+
     private static GameContent Content(bool renewableForest = false)
     {
         var yield = new ClickYield(Wood, 1, Charges: 1, RegrowSeconds: renewableForest ? 30 : 0);
@@ -48,6 +53,7 @@ public class GovernorSupplyTests
             TestContent.WaterBiome(),
             TestContent.LandBiome("grass"),
             TestContent.LandBiome("forest") with { ClickYield = yield },
+            TestContent.LandBiome("rock") with { ClickYield = new ClickYield(Ore, 1, Charges: 1, RegrowSeconds: 0) },
         };
 
         var resources = new[]
@@ -59,10 +65,10 @@ public class GovernorSupplyTests
             new Resource("metal", new RgbColor(1, 1, 1), StartAmount: 0, BaseStorage: 1000),
         };
 
-        bool[] grassOnly = { false, true, false };
-        bool[] forestOnly = { false, false, true };
+        bool[] grassOnly = { false, true, false, false };
+        bool[] forestOnly = { false, false, true, false };
 
-        var lumberCamp = TestContent.Producer("lumber_camp", Wood, 2, timeTicks: 5, biomeCount: 3) with
+        var lumberCamp = TestContent.Producer("lumber_camp", Wood, 2, timeTicks: 5, biomeCount: 4) with
         {
             Category = "production",
             AllowedBiomes = forestOnly,
@@ -70,13 +76,13 @@ public class GovernorSupplyTests
             TerrainHarvestRadius = 2,
             BuildCost = new[] { new ResourceAmount(Wood, 5) },
         };
-        var sawmill = TestContent.Converter("sawmill", Wood, 3, Planks, 1, timeTicks: 5, biomeCount: 3,
+        var sawmill = TestContent.Converter("sawmill", Wood, 3, Planks, 1, timeTicks: 5, biomeCount: 4,
             buildCost: new[] { new ResourceAmount(Wood, 20) }, autoBuild: true) with
         {
             Category = "production",
             AllowedBiomes = grassOnly,
         };
-        var house = TestContent.SimpleBuilding("house", 3, housing: 4) with
+        var house = TestContent.SimpleBuilding("house", 4, housing: 4) with
         {
             Category = "housing",
             AllowedBiomes = grassOnly,
@@ -85,16 +91,16 @@ public class GovernorSupplyTests
         };
 
         // Pomalý zdroj dřeva, který guvernér sám nestaví — pevný přítok pro testy zámků.
-        var slowCamp = TestContent.Producer("slow_camp", Wood, 1, timeTicks: 20, biomeCount: 3) with
+        var slowCamp = TestContent.Producer("slow_camp", Wood, 1, timeTicks: 20, biomeCount: 4) with
         {
             AllowedBiomes = grassOnly,
         };
-        var mine = TestContent.Producer("mine", Ore, 2, timeTicks: 5, biomeCount: 3) with
+        var mine = TestContent.Producer("mine", Ore, 2, timeTicks: 5, biomeCount: 4) with
         {
             Category = "production",
             AllowedBiomes = grassOnly,
         };
-        var smelter = TestContent.Converter("smelter", Ore, 2, Metal, 1, timeTicks: 5, biomeCount: 3) with
+        var smelter = TestContent.Converter("smelter", Ore, 2, Metal, 1, timeTicks: 5, biomeCount: 4) with
         {
             Category = "production",
             AllowedBiomes = grassOnly,
@@ -102,7 +108,7 @@ public class GovernorSupplyTests
 
         // Pomalý spotřebitel dřeva: jeden dřevorubec ho uživí, takže guvernér
         // nemá důvod stavět další — jen když dřevorubci dojde les.
-        var kiln = TestContent.Converter("kiln", Wood, 1, Planks, 1, timeTicks: 20, biomeCount: 3) with
+        var kiln = TestContent.Converter("kiln", Wood, 1, Planks, 1, timeTicks: 20, biomeCount: 4) with
         {
             AllowedBiomes = grassOnly,
         };
@@ -120,11 +126,16 @@ public class GovernorSupplyTests
             new[] { lumberCamp, sawmill, house, slowCamp, mine, smelter, kiln }, gameplay);
     }
 
-    /// <summary>Louka s lesem daleko od města; volitelně malý háj hned vedle.</summary>
-    private static Simulation World(bool grove = false, bool renewableForest = false)
+    /// <summary>Louka s lesem daleko od města; volitelně malý háj hned vedle a skála mezi.</summary>
+    private static Simulation World(bool grove = false, bool renewableForest = false, bool rocks = false)
     {
         var map = new WorldMap(48, 48);
         Array.Fill(map.BiomeIndices, Grass);
+        if (rocks)
+        {
+            Paint(map, Rocks, Rock);
+        }
+
         Paint(map, FarForest);
         if (grove)
         {
@@ -134,13 +145,13 @@ public class GovernorSupplyTests
         return new Simulation(Content(renewableForest), new GridTerrain(map), seed: 11);
     }
 
-    private static void Paint(WorldMap map, (int MinX, int MinY, int MaxX, int MaxY) area)
+    private static void Paint(WorldMap map, (int MinX, int MinY, int MaxX, int MaxY) area, byte biome = Forest)
     {
         for (int y = area.MinY; y <= area.MaxY; y++)
         {
             for (int x = area.MinX; x <= area.MaxX; x++)
             {
-                map.BiomeIndices[map.Index(x, y)] = Forest;
+                map.BiomeIndices[map.Index(x, y)] = biome;
             }
         }
     }
@@ -166,6 +177,22 @@ public class GovernorSupplyTests
         // šesti dlaždic od domů — a nenašel nikdy.
         var sim = World();
         sim.TryPlaceBuildingFree(Sawmill, 5, 5); // pila bez dřeva = vyschlý vstup
+        sim.DebugSetResource(Wood, 10);
+
+        Run(sim, 20);
+
+        var camp = sim.Buildings.ToArray().Single(b => b.DefIndex == LumberCamp);
+        Assert.True(Inside(FarForest, camp), $"dřevorubec stojí mimo les ({camp.X},{camp.Y})");
+    }
+
+    [Fact]
+    public void RocksCloserToTown_DoNotHideTheForest()
+    {
+        // Seed 777001: hory u města, les o patnáct dlaždic dál. Hledání bralo
+        // první uzly jakéhokoli druhu, všechny pokusy padly na skálu (kam
+        // dřevorubec nesmí) — a guvernér pak stavěl pilu za pilou.
+        var sim = World(rocks: true);
+        sim.TryPlaceBuildingFree(Sawmill, 5, 5);
         sim.DebugSetResource(Wood, 10);
 
         Run(sim, 20);
