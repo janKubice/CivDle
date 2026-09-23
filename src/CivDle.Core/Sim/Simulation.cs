@@ -4512,6 +4512,23 @@ public sealed class Simulation
     /// <summary>Kolik sběrů uzel na dlaždici pojme, když je plný.</summary>
     public int NodeMaxCharges(int x, int y) => YieldAt(x, y)?.Charges ?? 0;
 
+    /// <summary>
+    /// Je na dlaždici co těžit, a co? Pro guvernéra, který hledá les nebo skálu
+    /// pro dřevorubce či lom — nic nespotřebuje, jen se podívá.
+    /// </summary>
+    internal bool TryPeekNode(int x, int y, out int resourceIndex)
+    {
+        var yield = YieldAt(x, y);
+        if (yield is null || _nodes.ChargesLeft(x, y, yield, TickCount) <= 0)
+        {
+            resourceIndex = -1;
+            return false;
+        }
+
+        resourceIndex = yield.ResourceIndex;
+        return true;
+    }
+
     /// <summary>Co dlaždice dává ručnímu sběru — zasazený uzel, landmark, nebo biom.</summary>
     private ClickYield? YieldAt(int x, int y)
     {
@@ -5055,6 +5072,12 @@ public sealed class Simulation
     /// (viz <see cref="ConstructionClaim"/>).
     /// </summary>
     public ConstructionClaim Claim { get; }
+
+    /// <summary>
+    /// Co guvernér zrovna dělá a proč případně stojí. Odvozený stav (neukládá se),
+    /// přepočítá se v každém kole auto-stavby.
+    /// </summary>
+    public GovernorStatus GovernorStatus { get; internal set; } = GovernorStatus.Idle;
 
     /// <summary>Obnoví rezervu ze savu.</summary>
     internal void RestoreGovernorReserve(double fraction) => SetGovernorReserve(fraction);
@@ -7256,6 +7279,11 @@ public sealed class Simulation
 
         building.X = x;
         building.Y = y;
+        // Na novém místě se okolí prohledá od začátku — kurzor i příznak „došlo"
+        // patřily starému lesu. Bez toho by přestěhovaný dřevorubec hlásil prázdné
+        // okolí, dokud by ho výroba náhodou nezkusila znovu.
+        building.HarvestCursor = 0;
+        building.OutOfResources = false;
         // Přesun mění biom pod budovou i její okolí → cachované násobiče jdou s ní.
         building.BiomeMult = (float)_content.Biomes[Terrain.BiomeAt(x, y)].Production;
         building.AdjacencyMult = (float)AdjacencyMultiplier(def, x, y);

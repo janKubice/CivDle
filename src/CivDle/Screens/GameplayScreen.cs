@@ -2461,6 +2461,7 @@ public sealed class GameplayScreen : IScreen
         NotificationKind.Ascended => UiPalette.Accent,
         NotificationKind.BuildingMilestone => UiPalette.TextBright, // barva ohňostroje
         NotificationKind.BuildingMerged => UiPalette.Text, // provozní zpráva, ne svátek
+        NotificationKind.GovernorStuck => UiPalette.Warn, // výzva k zásahu, ne oslava
         _ => UiPalette.Accent,
     };
 

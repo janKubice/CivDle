@@ -1,0 +1,277 @@
+using CivDle.Core.Content;
+using CivDle.Core.Sim;
+using CivDle.Core.Tests.Support;
+using CivDle.Core.World;
+using Xunit;
+
+namespace CivDle.Core.Tests.Sim;
+
+/// <summary>
+/// Guvernér, který se nezasekne: shání suroviny přes celý řetěz, staví těžbu
+/// tam, kde je co těžit, a když neví jak dál, řekne to.
+///
+/// <para>Každý test odpovídá zámku, který se změřil na skutečných seedech:</para>
+/// <list type="bullet">
+/// <item>město na louce nemělo kam postavit dřevorubce (smí jen do lesa),</item>
+/// <item>pila brala tři dřeva hned, jak přišla, a dům za pět se nepostavil nikdy,</item>
+/// <item>k hladovým pilám přibývaly další pily místo dřevorubců,</item>
+/// <item>vykácený dřevorubec stál navždy, i když o kus dál rostl les.</item>
+/// </list>
+/// </summary>
+public class GovernorSupplyTests
+{
+    private const byte Grass = 1;
+    private const byte Forest = 2;
+
+    private const int Food = 0;
+    private const int Wood = 1;
+    private const int Planks = 2;
+    private const int Ore = 3;
+    private const int Metal = 4;
+
+    private const int LumberCamp = 0;
+    private const int Sawmill = 1;
+    private const int House = 2;
+    private const int SlowCamp = 3;
+    private const int Mine = 4;
+    private const int Smelter = 5;
+    private const int Kiln = 6;
+
+    /// <summary>Kde roste velký les (daleko od města).</summary>
+    private static readonly (int MinX, int MinY, int MaxX, int MaxY) FarForest = (30, 30, 38, 38);
+
+    private static GameContent Content(bool renewableForest = false)
+    {
+        var yield = new ClickYield(Wood, 1, Charges: 1, RegrowSeconds: renewableForest ? 30 : 0);
+        var biomes = new[]
+        {
+            TestContent.WaterBiome(),
+            TestContent.LandBiome("grass"),
+            TestContent.LandBiome("forest") with { ClickYield = yield },
+        };
+
+        var resources = new[]
+        {
+            new Resource("food", new RgbColor(1, 1, 1), StartAmount: 0, BaseStorage: 1000),
+            new Resource("wood", new RgbColor(1, 1, 1), StartAmount: 0, BaseStorage: 1000),
+            new Resource("planks", new RgbColor(1, 1, 1), StartAmount: 0, BaseStorage: 1000),
+            new Resource("ore", new RgbColor(1, 1, 1), StartAmount: 0, BaseStorage: 1000),
+            new Resource("metal", new RgbColor(1, 1, 1), StartAmount: 0, BaseStorage: 1000),
+        };
+
+        bool[] grassOnly = { false, true, false };
+        bool[] forestOnly = { false, false, true };
+
+        var lumberCamp = TestContent.Producer("lumber_camp", Wood, 2, timeTicks: 5, biomeCount: 3) with
+        {
+            Category = "production",
+            AllowedBiomes = forestOnly,
+            AutoBuild = true,
+            TerrainHarvestRadius = 2,
+            BuildCost = new[] { new ResourceAmount(Wood, 5) },
+        };
+        var sawmill = TestContent.Converter("sawmill", Wood, 3, Planks, 1, timeTicks: 5, biomeCount: 3,
+            buildCost: new[] { new ResourceAmount(Wood, 20) }, autoBuild: true) with
+        {
+            Category = "production",
+            AllowedBiomes = grassOnly,
+        };
+        var house = TestContent.SimpleBuilding("house", 3, housing: 4) with
+        {
+            Category = "housing",
+            AllowedBiomes = grassOnly,
+            AutoBuild = true,
+            BuildCost = new[] { new ResourceAmount(Wood, 5), new ResourceAmount(Planks, 4) },
+        };
+
+        // Pomalý zdroj dřeva, který guvernér sám nestaví — pevný přítok pro testy zámků.
+        var slowCamp = TestContent.Producer("slow_camp", Wood, 1, timeTicks: 20, biomeCount: 3) with
+        {
+            AllowedBiomes = grassOnly,
+        };
+        var mine = TestContent.Producer("mine", Ore, 2, timeTicks: 5, biomeCount: 3) with
+        {
+            Category = "production",
+            AllowedBiomes = grassOnly,
+        };
+        var smelter = TestContent.Converter("smelter", Ore, 2, Metal, 1, timeTicks: 5, biomeCount: 3) with
+        {
+            Category = "production",
+            AllowedBiomes = grassOnly,
+        };
+
+        // Pomalý spotřebitel dřeva: jeden dřevorubec ho uživí, takže guvernér
+        // nemá důvod stavět další — jen když dřevorubci dojde les.
+        var kiln = TestContent.Converter("kiln", Wood, 1, Planks, 1, timeTicks: 20, biomeCount: 3) with
+        {
+            AllowedBiomes = grassOnly,
+        };
+
+        var gameplay = TestContent.DefaultGameplay with
+        {
+            FoodResourceIndex = Food,
+            FoodPerPersonPerSecond = 0.0,
+            PopulationGrowthPerSecond = 0.0,
+            AutoBuild = new AutoBuildConfig(IntervalTicks: 5, SearchRadius: 6, PopulationHeadroom: 2),
+        };
+
+        return TestContent.Build(
+            biomes, fallbackBiomeIndex: 1, resources,
+            new[] { lumberCamp, sawmill, house, slowCamp, mine, smelter, kiln }, gameplay);
+    }
+
+    /// <summary>Louka s lesem daleko od města; volitelně malý háj hned vedle.</summary>
+    private static Simulation World(bool grove = false, bool renewableForest = false)
+    {
+        var map = new WorldMap(48, 48);
+        Array.Fill(map.BiomeIndices, Grass);
+        Paint(map, FarForest);
+        if (grove)
+        {
+            Paint(map, (8, 8, 9, 9));
+        }
+
+        return new Simulation(Content(renewableForest), new GridTerrain(map), seed: 11);
+    }
+
+    private static void Paint(WorldMap map, (int MinX, int MinY, int MaxX, int MaxY) area)
+    {
+        for (int y = area.MinY; y <= area.MaxY; y++)
+        {
+            for (int x = area.MinX; x <= area.MaxX; x++)
+            {
+                map.BiomeIndices[map.Index(x, y)] = Forest;
+            }
+        }
+    }
+
+    private static void Run(Simulation sim, int ticks)
+    {
+        for (int i = 0; i < ticks; i++)
+        {
+            sim.Tick();
+        }
+    }
+
+    private static int CountOf(Simulation sim, int defIndex) =>
+        sim.Buildings.ToArray().Count(b => b.DefIndex == defIndex);
+
+    private static bool Inside((int MinX, int MinY, int MaxX, int MaxY) area, BuildingInstance building) =>
+        building.X >= area.MinX && building.X <= area.MaxX && building.Y >= area.MinY && building.Y <= area.MaxY;
+
+    [Fact]
+    public void ALumberCampIsBuiltInTheForest_NotNextToTown()
+    {
+        // Město stojí na louce, dřevorubec smí jen do lesa. Dřív hledal místo do
+        // šesti dlaždic od domů — a nenašel nikdy.
+        var sim = World();
+        sim.TryPlaceBuildingFree(Sawmill, 5, 5); // pila bez dřeva = vyschlý vstup
+        sim.DebugSetResource(Wood, 10);
+
+        Run(sim, 20);
+
+        var camp = sim.Buildings.ToArray().Single(b => b.DefIndex == LumberCamp);
+        Assert.True(Inside(FarForest, camp), $"dřevorubec stojí mimo les ({camp.X},{camp.Y})");
+    }
+
+    [Fact]
+    public void AnExhaustedLumberCampMovesToFreshForest()
+    {
+        // Háj u města se vykácí a neobnoví. O kus dál roste les — přestěhovat
+        // dřevorubce je zadarmo a nic dalšího se nestaví.
+        var sim = World(grove: true);
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuildingFree(LumberCamp, 8, 8));
+        sim.TryPlaceBuildingFree(Kiln, 3, 3);
+        sim.TryPlaceBuildingFree(House, 3, 5); // dost bydlení, ať guvernér neřeší nic jiného
+        sim.TryPlaceBuildingFree(House, 5, 5);
+
+        Run(sim, 1500);
+
+        Assert.Equal(1, CountOf(sim, LumberCamp));
+        var camp = sim.Buildings.ToArray().Single(b => b.DefIndex == LumberCamp);
+        Assert.True(Inside(FarForest, camp), $"vykácený dřevorubec zůstal stát na ({camp.X},{camp.Y})");
+    }
+
+    [Fact]
+    public void AHouseGetsBuiltEvenWhenASawmillEatsEveryLog()
+    {
+        // Zámek na sto minut: pila bere tři dřeva, jakmile tam jsou, dům chce
+        // pět. Bez rezervy se na pět nikdy nedostane.
+        var sim = World();
+        sim.TryPlaceBuildingFree(SlowCamp, 2, 2);
+        sim.TryPlaceBuildingFree(Sawmill, 4, 2);
+        sim.SetPopulationForTest(6); // strop bydlení 6 → chce dům
+
+        Run(sim, 3000);
+
+        Assert.True(CountOf(sim, House) > 0, "dům se nepostavil — pila spolykala každé dřevo");
+    }
+
+    [Fact]
+    public void WhileSavingTheGovernorSaysWhatFor()
+    {
+        var sim = World();
+        sim.TryPlaceBuildingFree(SlowCamp, 2, 2);
+        sim.TryPlaceBuildingFree(Sawmill, 4, 2);
+        sim.SetPopulationForTest(6);
+
+        Run(sim, 20);
+
+        Assert.Equal(GovernorActivity.Saving, sim.GovernorStatus.Activity);
+        Assert.Equal(House, sim.GovernorStatus.DefIndex);
+        Assert.Equal(House, sim.Claim.DefIndex);
+    }
+
+    [Fact]
+    public void HungrySawmillsGetMoreWood_NotMoreSawmills()
+    {
+        // Dřív: pily nemají dřevo → „prkna nikdo nedělá" → další pila. Osm pil
+        // na dva dřevorubce. Úzké hrdlo je dřevo.
+        var sim = World(renewableForest: true);
+        sim.TryPlaceBuildingFree(SlowCamp, 2, 2);
+        sim.TryPlaceBuildingFree(Sawmill, 4, 2);
+        sim.TryPlaceBuildingFree(Sawmill, 6, 2);
+        sim.SetPopulationForTest(8);
+
+        Run(sim, 3000);
+
+        Assert.Equal(2, CountOf(sim, Sawmill));
+        Assert.True(CountOf(sim, LumberCamp) > 0, "k hladovým pilám nepřibyl dřevorubec");
+    }
+
+    [Fact]
+    public void WithNoWoodAtAllItAsksThePlayer()
+    {
+        // Na dřevorubce je potřeba dřevo, a to neteče. Z toho se automatika
+        // sama nedostane — musí to říct, ne tiše čekat.
+        var sim = World();
+        sim.TryPlaceBuildingFree(House, 2, 2);
+        sim.SetPopulationForTest(9); // strop 10 − rezerva 2 → chce další dům
+
+        Run(sim, 20);
+
+        Assert.Equal(GovernorBlocker.Bootstrap, sim.GovernorStatus.Blocker);
+        Assert.Equal(LumberCamp, sim.Claim.DefIndex); // co hráč nasbírá, drží se na dřevorubce
+
+        bool reported = false;
+        while (sim.TryDequeueNotification(out var note))
+        {
+            reported |= note.Kind == NotificationKind.GovernorStuck && note.TitleKey == "toast.governor.bootstrap";
+        }
+
+        Assert.True(reported, "guvernér uvízl potichu");
+    }
+
+    [Fact]
+    public void ItFeedsAChainThePlayerStarted_EvenWithABuildingItNeverBuildsAlone()
+    {
+        // Hráč postavil huť; ruda nikde. Důl nemá značku autoBuild — ale nechat
+        // huť stát navždy by bylo horší než ho dostavět.
+        var sim = World();
+        sim.TryPlaceBuildingFree(Smelter, 5, 5);
+
+        Run(sim, 20);
+
+        Assert.Equal(1, CountOf(sim, Mine));
+    }
+}

@@ -19,6 +19,13 @@ public enum CityNeed
 
     /// <summary>Populace naráží na strop bydlení.</summary>
     Housing,
+
+    /// <summary>
+    /// Lidé nemají práci, i když žádná budova nestojí prázdná — město roste
+    /// v lidech a nikdo pro ně nic nevyrábí. Nejnižší priorita: nic to
+    /// nezastaví, jen se nevyužije potenciál.
+    /// </summary>
+    Jobs,
 }
 
 /// <summary>
@@ -62,11 +69,39 @@ public sealed class GovernorNeeds
     /// <summary>Na kolik sekund dopředu musí být jídlo, aby se nepovažovalo za nedostatek.</summary>
     private const double FoodBufferSeconds = 60;
 
+    /// <summary>Víc než tuhle část skladu zásoba „na minutu" chtít nesmí — víc se nevejde.</summary>
+    private const double FoodBufferMaxShareOfStorage = 0.5;
+
+    /// <summary>
+    /// Když jídla přibývá aspoň takovým podílem spotřeby, není to hlad — jen se
+    /// sklad teprve plní.
+    /// </summary>
+    private const double RisingShareOfConsumption = 0.05;
+
     /// <summary>Pod tímhle pokrytím služeb se město bere jako neobsloužené.</summary>
     private const double ServiceCoverageFloor = 0.75;
 
     /// <summary>Pod tímhle naplněním skladu se vstup považuje za vyschlý.</summary>
     private const double InputDryBelow = 0.02;
+
+    /// <summary>Pod tímhle přítokem (za sekundu) surovinu nikdo nevyrábí.</summary>
+    private const double NoFlowBelow = 0.005;
+
+    /// <summary>Od jakého podílu nezaměstnaných má smysl stavět další výrobnu.</summary>
+    private const double JoblessShare = 0.15;
+
+    /// <summary>Pár lidí bez práce je normální stav rostoucího města, ne potřeba.</summary>
+    private const double MinJobless = 3;
+
+    /// <summary>
+    /// Od jaké velikosti se nezaměstnanost řeší. Začínající vesnice nemá práci
+    /// pro nikoho — tu první výrobnu staví hráč (průvodce ho k ní vede) a guvernér
+    /// by mu ji jinak postavil dřív, než by pochopil, k čemu je.
+    /// </summary>
+    private const double MinPopulationForJobs = 20;
+
+    /// <summary>Kolik potřeb může být najednou (velikost bufferu pro <see cref="AssessAll"/>).</summary>
+    public const int MaxNeeds = 5;
 
     private readonly GameContent _content;
 
@@ -83,7 +118,7 @@ public sealed class GovernorNeeds
     /// </summary>
     public CityNeed Assess(Simulation sim)
     {
-        Span<CityNeed> all = stackalloc CityNeed[4];
+        Span<CityNeed> all = stackalloc CityNeed[MaxNeeds];
         int count = AssessAll(sim, all);
         return count > 0 ? all[0] : CityNeed.None;
     }
@@ -121,12 +156,24 @@ public sealed class GovernorNeeds
             needs[count++] = CityNeed.Housing;
         }
 
+        if (HasJoblessPeople(sim))
+        {
+            needs[count++] = CityNeed.Jobs;
+        }
+
         return count;
     }
 
     /// <summary>
     /// Má město jídlo aspoň na minutu dopředu? Zásoba se poměřuje se spotřebou,
     /// ne s pevným číslem — velkoměsto sní za minutu tolik co vesnice za hodinu.
+    ///
+    /// <para>Dvě pojistky, obě zjištěné měřením (495 polí na 150 obyvatel):</para>
+    /// <list type="bullet">
+    /// <item>Zásoba „na minutu" nesmí chtít víc než půlku skladu. U většího města
+    /// by jinak žádala víc, než se vůbec vejde — a město by bylo hladové navždy.</item>
+    /// <item>Když jídla přibývá, hlad to není: pole stačí, jen se sklad teprve plní.</item>
+    /// </list>
     /// </summary>
     public bool IsHungry(Simulation sim)
     {
@@ -137,14 +184,28 @@ public sealed class GovernorNeeds
             return false;
         }
 
-        return sim.GetResource(gameplay.FoodResourceIndex) < perSecond * FoodBufferSeconds;
+        int food = gameplay.FoodResourceIndex;
+        double buffer = Math.Min(perSecond * FoodBufferSeconds, sim.GetStorageCap(food) * FoodBufferMaxShareOfStorage);
+        if (sim.GetResource(food) >= buffer)
+        {
+            return false;
+        }
+
+        return sim.Ledger.NetPerSecond(food) <= perSecond * RisingShareOfConsumption;
     }
 
     /// <summary>
-    /// Surovina, kterou nějaká postavená budova potřebuje a která došla; −1 = žádná.
+    /// Surovina, kterou nějaká postavená budova potřebuje, která došla a kterou
+    /// nikdo nevyrábí; −1 = žádná.
     ///
     /// <para>Tohle je ten rozdíl mezi „město stojí" a „město ví, proč stojí":
     /// prázdná pila si řekne o dřevo, ne o další pilu.</para>
+    ///
+    /// <para>„Nikdo nevyrábí" je podstatné. Prkna, která se vyrábějí a hned je
+    /// spolykají domy, jsou na skladě pořád skoro na nule — a guvernér z toho
+    /// dřív usoudil, že prkna nikdo nedělá, a stavěl pilu za pilou (osm pil na
+    /// dva dřevorubce). Pomalý přítok řeší šetření na konkrétní stavbu, ne tahle
+    /// potřeba.</para>
     /// </summary>
     public int DriedUpInput(Simulation sim)
     {
@@ -160,7 +221,8 @@ public sealed class GovernorNeeds
             {
                 int index = recipe.Inputs[j].ResourceIndex;
                 double cap = sim.GetStorageCap(index);
-                if (sim.GetResource(index) < Math.Max(recipe.Inputs[j].Amount, cap * InputDryBelow))
+                if (sim.GetResource(index) < Math.Max(recipe.Inputs[j].Amount, cap * InputDryBelow)
+                    && sim.Ledger.ProducedPerSecond(index) <= NoFlowBelow)
                 {
                     return index;
                 }
@@ -168,6 +230,22 @@ public sealed class GovernorNeeds
         }
 
         return -1;
+    }
+
+    /// <summary>
+    /// Je ve městě dost lidí bez práce, a přitom žádná budova nestojí prázdná?
+    /// Pak je další výrobna přesně to, co město potřebuje — lidé by jinak jen
+    /// bydleli. (Prázdná budova znamená opak: lidí je málo, ne práce.)
+    /// </summary>
+    public bool HasJoblessPeople(Simulation sim)
+    {
+        if (sim.Population < MinPopulationForJobs || sim.IdleBuildings > 0)
+        {
+            return false;
+        }
+
+        double jobless = sim.Population - sim.EmployedWorkers;
+        return jobless >= Math.Max(MinJobless, sim.Population * JoblessShare);
     }
 
     /// <summary>Drží spokojenost dole chybějící služby?</summary>

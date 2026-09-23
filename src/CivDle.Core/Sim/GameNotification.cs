@@ -73,6 +73,12 @@ public enum NotificationKind
     /// že něco získal.
     /// </summary>
     FigureDied,
+
+    /// <summary>
+    /// Guvernér uvízl a sám z toho neumí (chybí surovina bez výrobny, není kam
+    /// stavět). Vlastní druh, protože je to výzva k zásahu, ne oslava.
+    /// </summary>
+    GovernorStuck,
 }
 
 /// <summary>
