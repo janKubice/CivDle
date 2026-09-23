@@ -2132,6 +2132,7 @@
     "tech.tiled_roofs": "Ziegeldächer",
     "tech.tiled_roofs.desc": "Unter Ziegeln wohnt es sich besser als unter Stroh. Wohnraum aus Gebäuden +7 % pro Stufe.",
     "tech.tooExpensive": "▸ Noch nicht genug Rohstoffe",
+    "tech.needsStorage": "▸ Du brauchst mehr Lager: {1} {0}, es passen nur {2} hinein. Bau ein Lager.",
     "tech.tools": "Werkzeug",
     "tech.tools.desc": "Schaltet den Werkzeugmacher frei (Bretter → Werkzeug).",
     "tech.toolsmithing": "Werkzeugschmiede",

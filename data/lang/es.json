@@ -2132,6 +2132,7 @@
     "tech.tiled_roofs": "Tejados de teja",
     "tech.tiled_roofs.desc": "Bajo teja se vive mejor que bajo paja. Vivienda de los edificios +7 % por nivel.",
     "tech.tooExpensive": "▸ Aún faltan recursos",
+    "tech.needsStorage": "▸ Necesitas más almacén: {1} de {0}, pero solo caben {2}. Construye almacenes.",
     "tech.tools": "Herramientas",
     "tech.tools.desc": "Desbloquea al herramentero (tablones → herramientas).",
     "tech.toolsmithing": "Forja de herramientas",

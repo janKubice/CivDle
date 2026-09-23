@@ -2132,6 +2132,7 @@
     "tech.tiled_roofs": "Tiled Roofs",
     "tech.tiled_roofs.desc": "A fired tile beats thatch to live under. Housing from buildings +7 % per level.",
     "tech.tooExpensive": "▸ Not enough resources yet",
+    "tech.needsStorage": "▸ You need more storage: {1} {0}, but only {2} fits. Build storage.",
     "tech.tools": "Tools",
     "tech.tools.desc": "Unlocks the toolmaker (planks → tools).",
     "tech.toolsmithing": "Toolsmithing",

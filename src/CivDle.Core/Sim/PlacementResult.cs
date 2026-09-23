@@ -18,6 +18,13 @@ public enum PlacementResult
     /// <summary>Nedostatek surovin na cenu stavby.</summary>
     NotEnoughResources,
 
+    /// <summary>
+    /// Cena je vyšší, než se vůbec vejde do skladu — našetřit se na ni nedá,
+    /// ať se čeká jak dlouho chce. Řeší se sklad, ne trpělivost. (Zatím jen
+    /// u výzkumu, kde cena roste s každou hotovou technologií.)
+    /// </summary>
+    ExceedsStorage,
+
     /// <summary>Budova není odemčená (chybí technologie) nebo se nedá stavět přímo.</summary>
     NotUnlocked,
 

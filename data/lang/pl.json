@@ -2132,6 +2132,7 @@
     "tech.tiled_roofs": "Dachy dachówkowe",
     "tech.tiled_roofs.desc": "Pod dachówką mieszka się lepiej niż pod strzechą. Mieszkania z budynków +7 % na poziom.",
     "tech.tooExpensive": "▸ Jeszcze za mało surowców",
+    "tech.needsStorage": "▸ Potrzebujesz większego magazynu: {0} {1}, mieści się tylko {2}. Zbuduj magazyn.",
     "tech.tools": "Narzędzia",
     "tech.tools.desc": "Odblokowuje wytwórnię narzędzi (deski → narzędzia).",
     "tech.toolsmithing": "Kowalstwo narzędziowe",

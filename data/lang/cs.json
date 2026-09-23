@@ -2132,6 +2132,7 @@
     "tech.tiled_roofs": "Taškové střechy",
     "tech.tiled_roofs.desc": "Pod pálenou taškou se bydlí líp než pod došky. Bydlení z budov +7 % za úroveň.",
     "tech.tooExpensive": "▸ Zatím nemáš suroviny",
+    "tech.needsStorage": "▸ Potřebuješ větší sklad: {0} {1}, vejde se jen {2}. Postav sklad.",
     "tech.tools": "Nástroje",
     "tech.tools.desc": "Odemyká nástrojárnu (prkna → nástroje).",
     "tech.toolsmithing": "Kovářství",

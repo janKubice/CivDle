@@ -7404,7 +7404,32 @@ public sealed class Simulation
             }
         }
 
+        // Cena roste s každou hotovou technologií — a dřív nebo později přeroste
+        // sklad. Pak „nemáš na to" lže: na to se nedá našetřit nikdy. Hráč viděl
+        // červenou cenu navždy a nevěděl, že chybí sklad, ne čas.
+        if (!Sandbox && ResourceBeyondStorage(ScaledResearchCost(techIndex)) >= 0)
+        {
+            return PlacementResult.ExceedsStorage;
+        }
+
         return CanPayResearch(tech, level) ? PlacementResult.Ok : PlacementResult.NotEnoughResources;
+    }
+
+    /// <summary>
+    /// Surovina, které cena chce víc, než se vejde do skladu; −1 = vejde se všechno.
+    /// UI podle ní hráči řekne, jaký sklad postavit.
+    /// </summary>
+    public int ResourceBeyondStorage(IReadOnlyList<ResourceAmount> cost)
+    {
+        for (int i = 0; i < cost.Count; i++)
+        {
+            if (cost[i].Amount > _storageCaps[cost[i].ResourceIndex] + 1e-9)
+            {
+                return cost[i].ResourceIndex;
+            }
+        }
+
+        return -1;
     }
 
     /// <summary>Nejvyšší podíl surovin, který jde přes Vzestup přenést.</summary>
