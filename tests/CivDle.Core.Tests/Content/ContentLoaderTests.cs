@@ -600,6 +600,34 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadFrom_PopulationFillRate_IsParsed_AndMissingMeansOldGrowth()
+    {
+        WriteAllValid();
+        WriteGameplayWith("""
+          "populationFillRate": 0.003,
+        """.TrimEnd().TrimEnd(','));
+
+        Assert.Equal(0.003, Load().Gameplay.PopulationFillRate, 6);
+
+        WriteGameplayWith(string.Empty);
+        Assert.Equal(0.0, Load().Gameplay.PopulationFillRate, 6);
+    }
+
+    [Fact]
+    public void LoadFrom_PopulationFillRateAboveOne_Throws()
+    {
+        // Nad jedna by se za sekundu nastěhovalo víc lidí, než je volných míst.
+        WriteAllValid();
+        WriteGameplayWith("""
+          "populationFillRate": 1.5
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("populationFillRate", ex.Message);
+    }
+
+    [Fact]
     public void LoadFrom_HappinessWithReachAndThreshold_ParsesThem()
     {
         WriteAllValid();

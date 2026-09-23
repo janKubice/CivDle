@@ -3965,6 +3965,13 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"'foodPerPersonPerSecond' nesmí být záporný, je {file.FoodPerPersonPerSecond}.");
         }
 
+        // Podíl volného bydlení za sekundu; nad jedna by se za sekundu nastěhovalo
+        // víc lidí, než je volných míst.
+        if (file.PopulationFillRate is < 0 or > 1)
+        {
+            throw new ContentLoadException(path, $"'populationFillRate' musí být 0–1, je {file.PopulationFillRate}.");
+        }
+
         if (string.IsNullOrWhiteSpace(file.FoodResource))
         {
             throw new ContentLoadException(path, "Chybí 'foodResource' — která surovina je jídlo.");
@@ -4192,7 +4199,8 @@ public sealed class ContentLoader
             demo,
             golden,
             subsea,
-            power);
+            power,
+            file.PopulationFillRate ?? 0.0);
     }
 
     /// <summary>

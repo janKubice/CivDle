@@ -534,8 +534,23 @@ public sealed record GameplayConfig(
     DemoConfig? DemoOrNull = null,
     GoldenConfig? GoldenOrNull = null,
     SubseaConfig? SubseaOrNull = null,
-    PowerConfig? PowerOrNull = null)
+    PowerConfig? PowerOrNull = null,
+    double PopulationFillRate = 0.0)
 {
+    /// <summary>
+    /// Kolik lidí za sekundu přibude, když je v bydlení <paramref name="freeHousing"/>
+    /// volných míst (před násobiči spokojenosti, Vzestupu, období…).
+    ///
+    /// <para><b>Proč ne jen pevné číslo:</b> pevný přírůstek znamenal, že vesnice
+    /// i milionové město přibírají stejně lidí za sekundu — panelák pro čtyřicet
+    /// se plnil pět minut a mrakodrap celé hodiny. Podíl volného bydlení dělá
+    /// z nového bydlení událost, která je vidět hned, a z tempa růstu otázku
+    /// „stíhá se stavět", ne „kolik je hodin". Pevný základ zůstává, aby se
+    /// i malá vesnice pohnula.</para>
+    /// </summary>
+    public double GrowthPerSecond(double freeHousing) =>
+        PopulationGrowthPerSecond + PopulationFillRate * Math.Max(0.0, freeHousing);
+
     /// <summary>Meze demoverze; chybí-li v datech, platí výchozí.</summary>
     public DemoConfig Demo => DemoOrNull ?? DemoConfig.Default;
 

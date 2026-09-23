@@ -236,7 +236,8 @@ public sealed record GameplayFileDto(
     DemoDto? Demo,
     GoldenDto? Golden,
     SubseaDto? Subsea,
-    PowerDto? Power);
+    PowerDto? Power,
+    double? PopulationFillRate = null);
 
 /// <summary>Škálování cen výzkumu tak, jak leží v JSON.</summary>
 public sealed record ResearchDto(

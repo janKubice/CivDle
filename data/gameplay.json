@@ -3,6 +3,8 @@
   "startingPopulation": 5,
   "baseHousingCapacity": 6,
   "populationGrowthPerSecond": 0.12,
+  "_comment_populationFillRate": "Růst = populationGrowthPerSecond + populationFillRate × volná místa v bydlení (za sekundu). 0.003 = každou sekundu se nastěhuje 0,3 % volných míst — nový panelák se zaplní za pár minut, mrakodrap za desítky minut, ne za hodiny. 0 = starý pevný přírůstek.",
+  "populationFillRate": 0.003,
   "foodPerPersonPerSecond": 0.04,
   "foodResource": "food",
   "autoBuild": {
