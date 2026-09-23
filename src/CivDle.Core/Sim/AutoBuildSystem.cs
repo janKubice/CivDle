@@ -159,6 +159,7 @@ internal sealed class AutoBuildSystem
     // a stav pro UI hru neovlivňují, jen ji vysvětlují.
     private GovernorStatus _roundStatus = GovernorStatus.Idle;
     private bool _claimedThisRound;
+    private bool _gatheredThisRound;
     private readonly Dictionary<long, long> _lastReportTick = new();
 
     /// <summary>Samotné kolo růstu: až <paramref name="budget"/> staveb podle potřeb města.</summary>
@@ -168,6 +169,7 @@ internal sealed class AutoBuildSystem
         // po každé otáčce (CA2014).
         Span<CityNeed> needs = stackalloc CityNeed[GovernorNeeds.MaxNeeds];
         _claimedThisRound = false;
+        _gatheredThisRound = false;
         _roundStatus = GovernorStatus.Idle;
         _chains.BeginRound();
 
@@ -414,7 +416,13 @@ internal sealed class AutoBuildSystem
         // když v dosahu není co sbírat.
         if (bootstrap >= 0)
         {
-            return _sites.GatherByHand(sim, resource, GatherBatch(sim)) > 0
+            // Sbírá se jednou za kolo, i když ke stejnému zámku dojde víc potřeb.
+            if (!_gatheredThisRound && _sites.GatherByHand(sim, resource, GatherBatch(sim)) > 0)
+            {
+                _gatheredThisRound = true;
+            }
+
+            return _gatheredThisRound
                 ? Gather(sim, bootstrap, resource)
                 : Save(sim, bootstrap, resource, GovernorBlocker.Bootstrap);
         }
