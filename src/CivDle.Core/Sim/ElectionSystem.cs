@@ -18,7 +18,10 @@ internal sealed class ElectionSystem
     private const int CheckIntervalTicks = 10; // ~1× za sekundu (10 Hz sim)
 
     private readonly GameContent _content;
-    private long _nextCheckTick;
+
+    // Rytmus kontrol se odvozuje z čísla tiku, ne z pole „příště v tiku X":
+    // to se neukládalo, takže načtená hra kontrolovala jinak než ta, která běžela
+    // dál. A Vzestup nuluje tiky, pole ne.
 
     public ElectionSystem(GameContent content)
     {
@@ -27,12 +30,10 @@ internal sealed class ElectionSystem
 
     public void Tick(Simulation sim)
     {
-        if (sim.TickCount < _nextCheckTick || !_content.Elections.IsEnabled)
+        if (sim.TickCount % CheckIntervalTicks != 0 || !_content.Elections.IsEnabled)
         {
             return;
         }
-
-        _nextCheckTick = sim.TickCount + CheckIntervalTicks;
 
         long term = CurrentTerm(sim);
         if (term == sim.ElectionTerm)
