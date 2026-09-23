@@ -4,14 +4,29 @@ using CivDle.Core.WorldGen;
 namespace CivDle.Core.Sim;
 
 /// <summary>
-/// Automatický růst zástavby (fáze 2 roadmapy: „domy se staví samy dle poptávky").
-/// Když se populace blíží kapacitě bydlení, civilizace si sama postaví budovu
-/// označenou <c>autoBuild</c> poblíž existující zástavby — za normální cenu,
-/// takže růst táhne poptávku po surovinách (dřevo → prkna).
+/// Guvernér: automatický růst města (fáze 2 roadmapy: „domy se staví samy dle
+/// poptávky"), dnes už i jeho zásobování. Staví za normální cenu, takže růst
+/// táhne poptávku po surovinách (dřevo → prkna).
 ///
-/// Běží na nízké frekvenci (intervalTicks), ne každý tik (CLAUDE.md, výkon).
+/// <para>Jedno kolo = zjistit, co město nejvíc potřebuje, a zkusit to pokrýt:</para>
+/// <list type="bullet">
+/// <item><see cref="GovernorNeeds"/> — co chybí (jídlo, vstupy, služby, bydlení, práce).</item>
+/// <item><see cref="GovernorChains"/> — dá se surovina vůbec sehnat? Nezačne řetěz,
+/// který nedotáhne (pekárna bez obilí).</item>
+/// <item><see cref="GovernorSites"/> — kam budovu dát (dřevorubce k lesu, služby
+/// k neobslouženým domům) a kde lidé nasbírají surovinu ručně.</item>
+/// <item><see cref="ConstructionClaim"/> — na co se šetří; výroba to nechá být.</item>
+/// <item><see cref="GovernorStatus"/> — co dělá a proč případně stojí (pro UI).</item>
+/// </list>
+///
+/// <para>Chybějící materiál se shání po řetězu (dům → prkna → pila → dřevo →
+/// dřevorubec); nová výrobna přibude, jen když ji má kdo obsadit a čím krmit.
+/// Ze zámku „na dřevorubce je potřeba dřevo" pošle lidi bez práce sbírat ručně.</para>
+///
+/// <para>Běží na nízké frekvenci (intervalTicks), ne každý tik (CLAUDE.md, výkon).
 /// „Náhoda" je bezstavový hash (seed, tik) — deterministická a přežívá save/load
-/// bez ukládání stavu RNG.
+/// bez ukládání stavu RNG. Rozhoduje jen podle uloženého stavu (evidence toků,
+/// rezerva), takže načtená hra pokračuje stejně jako ta, která běžela dál.</para>
 /// </summary>
 internal sealed class AutoBuildSystem
 {
