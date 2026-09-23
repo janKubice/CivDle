@@ -310,6 +310,13 @@ public sealed class GameplayScreen : IScreen
     private Label _populationLabel = null!;
     private Label _idleLabel = null!;
     private Label _eventEffectsLabel = null!;
+    private Label _governorLabel = null!;
+
+    // Guvernér hlásí stav jednou za kolo auto-stavby a mezi koly bývá „nic".
+    // Řádek proto drží poslední hlášení chvíli déle, jinak by blikal.
+    private GovernorStatus _shownGovernor = GovernorStatus.Idle;
+    private long _governorSeenTick;
+    private const long GovernorHoldTicks = (long)(Simulation.TicksPerSecond * 6);
     private Label _eraLabel = null!;
     private Label _eraNextLabel = null!;
     private Label _tierLabel = null!;
@@ -2575,6 +2582,11 @@ public sealed class GameplayScreen : IScreen
         summaryRow.Widgets.Add(_eventEffectsLabel);
         resourceBar.Widgets.Add(summaryRow);
 
+        // Co guvernér dělá a proč případně stojí. Toast přijde jednou a zmizí;
+        // tenhle řádek visí, dokud stav trvá, a bublina radí, jak z toho ven.
+        _governorLabel = new Label { VerticalAlignment = VerticalAlignment.Center };
+        resourceBar.Widgets.Add(_governorLabel);
+
         // Lišta surovin roste s každou odemčenou surovinou a v pozdní hře
         // dolezla pod pravý panel se stavem světa. Má proto strop šířky
         // a suroviny se do něj zalamují po řádcích (viz RepackResourceChips).
@@ -4496,6 +4508,30 @@ public sealed class GameplayScreen : IScreen
         }
     }
 
+    /// <summary>Řádek se stavem guvernéra (viz <see cref="GovernorStatusText"/>).</summary>
+    private void RefreshGovernorLine(Localization loc)
+    {
+        var status = _simulation.GovernorStatus;
+        long tick = _simulation.TickCount;
+        if (status.Activity != GovernorActivity.Idle)
+        {
+            _shownGovernor = status;
+            _governorSeenTick = tick;
+        }
+        else if (tick - _governorSeenTick > GovernorHoldTicks || tick < _governorSeenTick)
+        {
+            _shownGovernor = GovernorStatus.Idle; // „tick < seen": Vzestup vynuloval čas
+        }
+
+        string line = GovernorStatusText.Line(_screens.Content, loc, _shownGovernor);
+        _governorLabel.Visible = line.Length > 0;
+        _governorLabel.Text = line;
+        _governorLabel.Tooltip = GovernorStatusText.Hint(loc, _shownGovernor);
+        _governorLabel.TextColor = GovernorStatusText.NeedsPlayer(_shownGovernor)
+            ? UiPalette.Warn
+            : _shownGovernor.Activity == GovernorActivity.Building ? UiPalette.Good : UiPalette.TextDim;
+    }
+
     private void RefreshHudTexts()
     {
         var loc = _screens.Loc;
@@ -4580,6 +4616,8 @@ public sealed class GameplayScreen : IScreen
         _idleLabel.Text = _simulation.IdleBuildings > 0
             ? loc.Format("hud.idleBuildings", _simulation.IdleBuildings)
             : string.Empty;
+
+        RefreshGovernorLine(loc);
 
         var eventEffects = _simulation.EventEffects.Active;
         _eventEffectsLabel.Text = EventChoiceSummary.ActiveLine(_screens.Content, loc, eventEffects, _simulation.TickCount);

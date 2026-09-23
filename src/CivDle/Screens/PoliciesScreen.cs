@@ -254,6 +254,21 @@ public sealed class PoliciesScreen : IScreen
         };
         box.Widgets.Add(new Label { Text = loc["hud.governor"], TextColor = UiFactory.Accent });
 
+        // Co guvernér právě dělá — auto-stavba běží i před odemčením správy
+        // vylepšení, takže stav patří nad zámek.
+        var status = _simulation.GovernorStatus;
+        string line = GovernorStatusText.Line(_screens.Content, loc, status);
+        if (line.Length > 0)
+        {
+            box.Widgets.Add(new Label
+            {
+                Text = line,
+                Wrap = true,
+                TextColor = GovernorStatusText.NeedsPlayer(status) ? UiPalette.Warn : UiPalette.TextBright,
+            });
+            box.Widgets.Add(new Label { Text = GovernorStatusText.Hint(loc, status), TextColor = UiPalette.TextDim, Wrap = true });
+        }
+
         if (!_simulation.IsGovernorUnlocked)
         {
             box.Widgets.Add(new Label { Text = loc["governor.locked"], TextColor = UiPalette.TextDim, Wrap = true });
