@@ -35,8 +35,11 @@ internal sealed class ToolsSystem
 
         // Do záporu se nikdy nejde: bez nástrojů se pracuje hůř (nulový bonus),
         // ale nikdo nedluží — soft pressure jako u jídla a paliva.
-        double before = resources[index];
-        resources[index] = Math.Max(0, before - wear);
-        sim.Ledger.RecordConsumed(index, before - resources[index], ConsumptionKind.Tools);
+        // Opotřebí se jen nástroje nad rezervou guvernéra — ty odložené na
+        // stavbu se nepoužívají (lidé pracují bez nich, jen s menším bonusem).
+        double usable = Math.Max(0, resources[index] - sim.Claim.AmountOf(index));
+        double worn = Math.Min(usable, wear);
+        resources[index] -= worn;
+        sim.Ledger.RecordConsumed(index, worn, ConsumptionKind.Tools);
     }
 }

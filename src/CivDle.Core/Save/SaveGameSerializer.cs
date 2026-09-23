@@ -164,6 +164,15 @@ public sealed class SaveGameSerializer
     /// </summary>
     private const string SectionRafts = "rafts";
 
+    /// <summary>
+    /// Materiál, na který guvernér šetří (<see cref="ConstructionClaim"/>).
+    ///
+    /// <para>Ukládá se, protože o něm rozhoduje výroba v každém tiku: načtená hra
+    /// bez rezervy by pár sekund řezala dřevo, které původní hra držela na dům,
+    /// a rozešla by se s ní. Starší save sekci nemá = na nic se nešetří.</para>
+    /// </summary>
+    private const string SectionGovernorClaim = "governorclaim";
+
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
     {
@@ -403,6 +412,11 @@ public sealed class SaveGameSerializer
                     w.Write(logs[i].TicksLeft);
                 }
             });
+        }
+
+        if (simulation.Claim.IsActive)
+        {
+            WriteSection(writer, SectionGovernorClaim, w => WriteClaim(w, simulation));
         }
 
         if (simulation.SettlementPlans.Count > 0)
@@ -970,6 +984,9 @@ public sealed class SaveGameSerializer
             case SectionRafts:
                 ReadRafts(section, simulation);
                 break;
+            case SectionGovernorClaim:
+                ReadClaim(section, content, simulation);
+                break;
             case SectionSettlementPlans:
                 ReadSettlementPlans(section, simulation);
                 break;
@@ -1122,6 +1139,54 @@ public sealed class SaveGameSerializer
         }
 
         writer.Write(simulation.WondersCompleted);
+    }
+
+    /// <summary>Rezerva guvernéra: budova a suroviny podle ID, ať přežije přeskládání dat.</summary>
+    private static void WriteClaim(BinaryWriter writer, Simulation simulation)
+    {
+        var content = SimContent(simulation);
+        var claim = simulation.Claim;
+        writer.Write(content.Buildings[claim.DefIndex].Id);
+        writer.Write(claim.SinceTick);
+
+        var held = new List<int>();
+        for (int i = 0; i < content.Resources.Count; i++)
+        {
+            if (claim.AmountOf(i) > 0)
+            {
+                held.Add(i);
+            }
+        }
+
+        writer.Write(held.Count);
+        foreach (int index in held)
+        {
+            writer.Write(content.Resources[index].Id);
+            writer.Write(claim.AmountOf(index));
+        }
+    }
+
+    private static void ReadClaim(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        string buildingId = reader.ReadString();
+        long since = reader.ReadInt64();
+        int count = ReadCount(reader, max: 10_000, what: "rezervovaných surovin");
+        var amounts = new List<(int ResourceIndex, double Amount)>(count);
+        for (int i = 0; i < count; i++)
+        {
+            string resourceId = reader.ReadString();
+            double amount = reader.ReadDouble();
+            if (content.Resources.TryIndexOf(resourceId, out int index))
+            {
+                amounts.Add((index, amount));
+            }
+        }
+
+        // Budova mohla z dat zmizet (mod, přejmenování) — pak se prostě nešetří.
+        if (content.Buildings.TryIndexOf(buildingId, out int defIndex))
+        {
+            simulation.Claim.Restore(defIndex, since, amounts);
+        }
     }
 
     private static void ReadConstruction(BinaryReader reader, Simulation simulation)

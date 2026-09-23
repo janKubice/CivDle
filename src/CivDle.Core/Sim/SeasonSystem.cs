@@ -40,9 +40,15 @@ internal sealed class SeasonSystem
 
         double demand = sim.Population * season.FuelPerPersonPerSecond / Simulation.TicksPerSecond;
         var resources = sim.Resources;
-        double available = resources[calendar.FuelResourceIndex];
+        int fuel = calendar.FuelResourceIndex;
+
+        // Topí se jen z toho, co je nad rezervou guvernéra. Jinak zima spálila
+        // každé dřevo, jakmile přišlo, guvernér nikdy nenašetřil pět dřev na
+        // dřevorubce — a město stálo celou zimu i s tím, co by ho z ní dostalo.
+        // Lidé radši chvíli mrznou (růst zpomalí), než aby město zamrzlo celé.
+        double available = Math.Max(0, resources[fuel] - sim.Claim.AmountOf(fuel));
         double burned = Math.Min(available, demand);
-        resources[calendar.FuelResourceIndex] = available - burned;
+        resources[fuel] -= burned;
         sim.Ledger.RecordConsumed(calendar.FuelResourceIndex, burned, ConsumptionKind.Heating);
 
         // Netopí se „skoro dost" — buď je čím, nebo město mrzne a přestane růst.

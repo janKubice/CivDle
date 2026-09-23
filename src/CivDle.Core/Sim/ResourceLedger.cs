@@ -161,6 +161,13 @@ public sealed class ResourceLedger
     public double ConsumedPerSecond(int resourceIndex, ConsumptionKind kind) =>
         _consumedByKind[(int)kind][resourceIndex];
 
+    /// <summary>
+    /// Spotřeba, kterou rezerva guvernéra nezastaví — to, co snědí lidé. Když sní
+    /// celý přítok, našetřit se nedá, ať se čeká jak dlouho chce. (Výroba,
+    /// topení, údržba i nástroje rezervu respektují, viz <see cref="ConstructionClaim"/>.)
+    /// </summary>
+    public double UncontrolledPerSecond(int resourceIndex) =>
+        _consumedByKind[(int)ConsumptionKind.People][resourceIndex];
 
     /// <summary>Kolik jí za sekundu propadne do plného skladu.</summary>
     public double WastedPerSecond(int resourceIndex) => _wasted[resourceIndex];

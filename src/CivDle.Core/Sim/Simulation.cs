@@ -205,6 +205,7 @@ public sealed class Simulation
 
         _resources = new double[content.Resources.Count];
         _storageCaps = new double[content.Resources.Count];
+        Claim = new ConstructionClaim(content.Resources.Count);
         _resourceProductionMult = new double[content.Resources.Count];
         Array.Fill(_resourceProductionMult, 1.0);
         for (int i = 0; i < _resources.Length; i++)
@@ -3568,6 +3569,10 @@ public sealed class Simulation
     /// </summary>
     public void SetPopulationForTest(double population) => Population = Math.Max(0, population);
 
+    /// <summary>Testovací háček: guvernér šetří na danou budovu (jako by se tak rozhodl sám).</summary>
+    public void SetClaimForTest(int defIndex) =>
+        Claim.Set(defIndex, _content.Buildings[defIndex].BuildCost, _storageCaps, TickCount);
+
     /// <summary>Označí dlaždici jako silnici (RoadBuilder, načtení savu). Duplicitní volání je no-op.</summary>
     /// <summary>
     /// Je na dlaždici most? Most je silnice vedoucí po vodě — odvozuje se z terénu,
@@ -5045,6 +5050,12 @@ public sealed class Simulation
     /// <summary>Surová rezerva pro save (bez ohledu na odemčení).</summary>
     internal double GovernorReserveRaw => _governorReserve;
 
+    /// <summary>
+    /// Materiál, na který guvernér zrovna šetří — výrobny ho nechají být
+    /// (viz <see cref="ConstructionClaim"/>).
+    /// </summary>
+    public ConstructionClaim Claim { get; }
+
     /// <summary>Obnoví rezervu ze savu.</summary>
     internal void RestoreGovernorReserve(double fraction) => SetGovernorReserve(fraction);
 
@@ -5053,10 +5064,20 @@ public sealed class Simulation
     /// proti kapacitě skladu, ne proti aktuálnímu stavu — jinak by se rezerva
     /// sama snižovala tím, jak zásoby ubývají.
     /// </summary>
-    internal bool AutomationCanSpend(IReadOnlyList<ResourceAmount> cost)
+    internal bool AutomationCanSpend(IReadOnlyList<ResourceAmount> cost) => AutomationCanSpend(cost, forDefIndex: -1);
+
+    /// <summary>
+    /// Totéž, ale se zohledněním stavby, na kterou guvernér šetří: cokoli jiného
+    /// smí sáhnout jen na přebytek nad její rezervou. Sama stavba, pro kterou je
+    /// rezerva, si z ní brát smí — od toho tam je.
+    /// </summary>
+    /// <param name="cost">Cena.</param>
+    /// <param name="forDefIndex">Co se staví (−1 = nejde o budovu, třeba vylepšení).</param>
+    internal bool AutomationCanSpend(IReadOnlyList<ResourceAmount> cost, int forDefIndex)
     {
         double reserve = GovernorReserve;
-        if (reserve <= 0)
+        bool honourClaim = Claim.IsActive && Claim.DefIndex != forDefIndex;
+        if (reserve <= 0 && !honourClaim)
         {
             return true;
         }
@@ -5064,7 +5085,13 @@ public sealed class Simulation
         for (int i = 0; i < cost.Count; i++)
         {
             int index = cost[i].ResourceIndex;
-            if (_resources[index] - cost[i].Amount < _storageCaps[index] * reserve)
+            double floor = _storageCaps[index] * reserve;
+            if (honourClaim)
+            {
+                floor += Claim.AmountOf(index);
+            }
+
+            if (_resources[index] - cost[i].Amount < floor)
             {
                 return false;
             }
@@ -8764,6 +8791,7 @@ public sealed class Simulation
 
         Population = _content.Gameplay.StartingPopulation;
         TickCount = 0;
+        Claim.Clear(); // nový běh nemá na co šetřit — budova, na kterou se šetřilo, je pryč
         SettlementsDirty = true;
         DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;

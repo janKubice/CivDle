@@ -197,7 +197,7 @@ internal sealed class ProductionSystem
                 continue;
             }
 
-            if (!HasInputs(resources, recipe))
+            if (!HasInputs(resources, sim.Claim.Amounts, recipe))
             {
                 // Stall: cyklus je „hotový", ale čeká na vstupy — dokončí se hned,
                 // jak suroviny dotečou.
@@ -374,7 +374,7 @@ internal sealed class ProductionSystem
             {
                 _blocked[i] = BuildingStall.OutputFull;
             }
-            else if (!HasInputs(resources, recipe))
+            else if (!HasInputs(resources, sim.Claim.Amounts, recipe))
             {
                 _blocked[i] = BuildingStall.MissingInput;
             }
@@ -489,11 +489,17 @@ internal sealed class ProductionSystem
     /// <summary>Tolerance „plného" skladu — výroba ořezává na strop přesně, jen pojistka proti zaokrouhlení.</summary>
     private const double FullEpsilon = 1e-6;
 
-    private static bool HasInputs(double[] resources, Recipe recipe)
+    /// <summary>
+    /// Má výrobna z čeho vyrábět? Počítá se jen to, co je <b>nad</b> rezervou
+    /// guvernéra — materiál odložený na stavbu pila nesmí rozřezat
+    /// (viz <see cref="ConstructionClaim"/>).
+    /// </summary>
+    private static bool HasInputs(double[] resources, double[] claimed, Recipe recipe)
     {
         for (int j = 0; j < recipe.Inputs.Count; j++)
         {
-            if (resources[recipe.Inputs[j].ResourceIndex] < recipe.Inputs[j].Amount)
+            int index = recipe.Inputs[j].ResourceIndex;
+            if (resources[index] - claimed[index] < recipe.Inputs[j].Amount)
             {
                 return false;
             }

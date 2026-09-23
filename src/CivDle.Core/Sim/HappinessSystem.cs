@@ -108,7 +108,9 @@ internal sealed class HappinessSystem
 
             if (def.Upkeep.Count > 0)
             {
-                if (!CanPay(resources, def.Upkeep))
+                // Údržba se platí jen z toho, co je nad rezervou guvernéra (viz
+                // ConstructionClaim): když se šetří na farmu, trh chvíli počká.
+                if (!CanPay(resources, sim.Claim.Amounts, def.Upkeep))
                 {
                     continue; // nezaplacená údržba = budova neslouží
                 }
@@ -129,11 +131,12 @@ internal sealed class HappinessSystem
         return served;
     }
 
-    private static bool CanPay(double[] resources, IReadOnlyList<ResourceAmount> upkeep)
+    private static bool CanPay(double[] resources, double[] claimed, IReadOnlyList<ResourceAmount> upkeep)
     {
         for (int i = 0; i < upkeep.Count; i++)
         {
-            if (resources[upkeep[i].ResourceIndex] < upkeep[i].Amount)
+            int index = upkeep[i].ResourceIndex;
+            if (resources[index] - claimed[index] < upkeep[i].Amount)
             {
                 return false;
             }
