@@ -4700,9 +4700,22 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"'happiness.freePopulation' nesmí být záporné, je {dto.FreePopulation}.");
         }
 
+        double threshold = dto.CrowdingThreshold ?? 0.0;
+        if (threshold is < 0 or >= 1)
+        {
+            throw new ContentLoadException(path, $"'happiness.crowdingThreshold' musí být 0 až pod 1, je {threshold}.");
+        }
+
+        int reach = dto.ServiceReachTiles ?? 0;
+        if (reach < 0)
+        {
+            throw new ContentLoadException(path, $"'happiness.serviceReachTiles' nesmí být záporné, je {reach}.");
+        }
+
         return new HappinessConfig(
             dto.IntervalTicks, dto.BaseHappiness, dto.ServiceWeight,
-            dto.OvercrowdingPenalty, dto.PeoplePerServicePoint, dto.GrowthFloor, dto.FreePopulation);
+            dto.OvercrowdingPenalty, dto.PeoplePerServicePoint, dto.GrowthFloor, dto.FreePopulation,
+            threshold, reach);
     }
 
     // ----- devlog (volitelný obsah menu) -----

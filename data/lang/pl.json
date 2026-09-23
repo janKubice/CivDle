@@ -1091,6 +1091,8 @@
     "hud.happinessGovernment": " · rząd {0}",
     "hud.happinessParts": "Podstawa {0} · usługi {1} · ciasnota {2}",
     "hud.happinessPollution": " · smog {0}",
+    "hud.happinessUnpaid": " · usługi bez utrzymania {0}%",
+    "hud.happinessOutOfReach": " · {0}% ludzi daleko od usług",
     "hud.help": "Ruch: WASD / strzałki / prawy przycisk myszy · Zoom: kółko · Esc: pauza",
     "hud.idleBuildings": "{0} bez pracowników",
     "hud.jackpot": "ŁUP ŻYCIA! +{0}",

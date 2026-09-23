@@ -312,7 +312,9 @@ public sealed record HappinessDto(
     double OvercrowdingPenalty,
     double PeoplePerServicePoint,
     double GrowthFloor,
-    double FreePopulation);
+    double FreePopulation,
+    double? CrowdingThreshold = null,
+    int? ServiceReachTiles = null);
 
 /// <summary>Nastavení slavnosti (dočasný boost) tak, jak leží v JSON.</summary>
 public sealed record BoostDto(int DurationSeconds, int CooldownSeconds, double Multiplier);

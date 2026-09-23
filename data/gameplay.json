@@ -104,7 +104,7 @@
       }
     ]
   },
-  "_comment_happiness": "Spokojenost 0-1: základ + pokrytí službami - přelidnění. Nízká brzdí růst (nikdy nikoho nezabije). intervalTicks 0 = vrstva vypnutá.",
+  "_comment_happiness": "Spokojenost 0-1: základ + pokrytí službami - přelidnění. Nízká brzdí růst (nikdy nikoho nezabije). intervalTicks 0 = vrstva vypnutá. Přelidnění bere až nad obsazeností crowdingThreshold; služba obslouží jen domy do serviceReachTiles dlaždic (0 = celé město).",
   "happiness": {
     "intervalTicks": 50,
     "baseHappiness": 0.55,
@@ -112,7 +112,9 @@
     "overcrowdingPenalty": 0.25,
     "peoplePerServicePoint": 12,
     "growthFloor": 0.15,
-    "freePopulation": 25
+    "freePopulation": 25,
+    "crowdingThreshold": 0.85,
+    "serviceReachTiles": 14
   },
   "staffing": {
     "scarcityThreshold": 0.6

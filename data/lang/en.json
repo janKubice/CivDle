@@ -1091,6 +1091,8 @@
     "hud.happinessGovernment": " · government {0}",
     "hud.happinessParts": "Base {0} · services {1} · crowding {2}",
     "hud.happinessPollution": " · smog {0}",
+    "hud.happinessUnpaid": " · services without upkeep {0}%",
+    "hud.happinessOutOfReach": " · {0}% of people far from services",
     "hud.help": "Pan: WASD / arrows / right mouse button · Zoom: wheel · Esc: pause",
     "hud.idleBuildings": "{0} idle (no workers)",
     "hud.jackpot": "CATCH OF A LIFETIME! +{0}",

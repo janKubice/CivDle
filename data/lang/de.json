@@ -1091,6 +1091,8 @@
     "hud.happinessGovernment": " · Regierung {0}",
     "hud.happinessParts": "Grundwert {0} · Dienste {1} · Enge {2}",
     "hud.happinessPollution": " · Smog {0}",
+    "hud.happinessUnpaid": " · Dienste ohne Unterhalt {0} %",
+    "hud.happinessOutOfReach": " · {0} % der Leute weit weg von Diensten",
     "hud.help": "Bewegen: WASD / Pfeile / rechte Maustaste · Zoom: Rad · Esc: Pause",
     "hud.idleBuildings": "{0} ohne Arbeiter",
     "hud.jackpot": "FANG DES LEBENS! +{0}",

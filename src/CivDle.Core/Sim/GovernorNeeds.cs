@@ -261,15 +261,40 @@ public sealed class GovernorNeeds
     }
 
     /// <summary>
+    /// Stačily by služby, kdyby měly zaplacenou údržbu? Pak další budova
+    /// nepomůže — chybějí suroviny na provoz, ne služby.
+    /// </summary>
+    public bool ServicesLackUpkeepOnly(Simulation sim)
+    {
+        var parts = sim.HappinessParts;
+        return parts.ServiceCoverage < ServiceCoverageFloor && parts.ServiceReach >= ServiceCoverageFloor;
+    }
+
+    /// <summary>
     /// Naráží populace na strop bydlení?
     ///
     /// <para>Na stropu MĚŘÍTKA ne: tam už další dům nikoho nepřivede a guvernér
     /// by donekonečna stavěl prázdné čtvrti. Když je město na stropu, ať radši
     /// řeší služby a výrobu — město se aspoň dál viditelně mění.</para>
     /// </summary>
-    public bool NeedsHousing(Simulation sim) =>
-        !sim.IsAtScaleCap
-        && sim.Population >= sim.HousingCapacity - _content.Gameplay.AutoBuild.PopulationHeadroom;
+    public bool NeedsHousing(Simulation sim)
+    {
+        if (sim.IsAtScaleCap)
+        {
+            return false;
+        }
+
+        if (sim.Population >= sim.HousingCapacity - _content.Gameplay.AutoBuild.PopulationHeadroom)
+        {
+            return true;
+        }
+
+        // Přelidnění bere spokojenost až nad prahem — guvernér staví dřív, než se
+        // k němu město dostane. Tlačit se lidé začnou, až když na domy nestačí
+        // materiál, a to je přesně ten signál, který má hráč vidět.
+        double threshold = _content.Gameplay.Happiness.CrowdingThreshold;
+        return threshold > 0 && sim.HousingCapacity > 0 && sim.Population / sim.HousingCapacity >= threshold;
+    }
 
     /// <summary>
     /// Surovina, která městu chybí na postavení dané budovy; −1 = má na všechno.

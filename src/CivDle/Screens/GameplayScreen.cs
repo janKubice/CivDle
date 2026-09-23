@@ -2052,6 +2052,20 @@ public sealed class GameplayScreen : IScreen
             text += loc.Format("hud.happinessPollution", Points(parts.Pollution));
         }
 
+        // Proč služby nestačí: buď na ně nedosáhnou (postav trh jinam), nebo
+        // nemají údržbu (chybí surovina). Dvě různé rady — řekne se ta pravá.
+        int unpaid = (int)Math.Round((parts.ServiceReach - parts.ServiceCoverage) * 100);
+        int outOfReach = (int)Math.Round((1.0 - parts.ServiceReach) * 100);
+        if (unpaid >= 5)
+        {
+            text += loc.Format("hud.happinessUnpaid", unpaid);
+        }
+
+        if (outOfReach >= 5)
+        {
+            text += loc.Format("hud.happinessOutOfReach", outOfReach);
+        }
+
         return text;
     }
 

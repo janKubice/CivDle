@@ -1904,9 +1904,9 @@ public sealed class Simulation
     public long EmployedWorkers { get; internal set; }
 
     /// <summary>
-    /// Rozpad spokojenosti na položky — kvůli čemu je zrovna taková. Počítá se
-    /// na vyžádání a bez placení údržby, takže se na něj UI může ptát, kdy chce,
-    /// aniž by tím sáhlo do hry.
+    /// Rozpad spokojenosti na položky — kvůli čemu je zrovna taková. Je to rozpad
+    /// z posledního přepočtu, takže sedí s <see cref="Happiness"/> a UI se na něj
+    /// může ptát každý snímek, aniž by tím sáhlo do hry.
     /// </summary>
     public HappinessBreakdown HappinessParts
     {
@@ -1914,10 +1914,13 @@ public sealed class Simulation
         {
             var config = _content.Gameplay.Happiness;
             return config.IsEnabled
-                ? _happinessSystem.Evaluate(this, config, payUpkeep: false)
+                ? _happinessSystem.Current(this, config)
                 : HappinessBreakdown.Perfect;
         }
     }
+
+    /// <summary>Kde bydlí nejvíc lidí bez služby v dosahu (pro guvernéra).</summary>
+    internal bool TryFindUnservedHome(out int x, out int y) => _happinessSystem.TryFindUnservedHome(this, out x, out y);
 
     /// <summary>
     /// Stopa průmyslu v krajině. Render i UI z ní čtou (zákal nad mapou, HUD);
@@ -8820,6 +8823,7 @@ public sealed class Simulation
         Population = _content.Gameplay.StartingPopulation;
         TickCount = 0;
         Claim.Clear(); // nový běh nemá na co šetřit — budova, na kterou se šetřilo, je pryč
+        _happinessSystem.Invalidate(); // rozpad spokojenosti patřil městu, které už nestojí
         SettlementsDirty = true;
         DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;

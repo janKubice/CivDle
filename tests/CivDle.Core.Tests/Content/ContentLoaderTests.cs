@@ -600,6 +600,55 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadFrom_HappinessWithReachAndThreshold_ParsesThem()
+    {
+        WriteAllValid();
+        WriteGameplayWith("""
+          "happiness": { "intervalTicks": 50, "baseHappiness": 0.55, "serviceWeight": 0.45,
+                         "overcrowdingPenalty": 0.25, "peoplePerServicePoint": 12, "growthFloor": 0.15,
+                         "freePopulation": 25, "crowdingThreshold": 0.85, "serviceReachTiles": 14 }
+        """);
+
+        var happiness = Load().Gameplay.Happiness;
+
+        Assert.Equal(0.85, happiness.CrowdingThreshold, 6);
+        Assert.Equal(14, happiness.ServiceReachTiles);
+    }
+
+    [Fact]
+    public void LoadFrom_HappinessWithoutReach_KeepsTheOldCitywideServices()
+    {
+        // Starší data i mody bez nových polí se chovají jako dřív.
+        WriteAllValid();
+        WriteGameplayWith("""
+          "happiness": { "intervalTicks": 50, "baseHappiness": 0.55, "serviceWeight": 0.45,
+                         "overcrowdingPenalty": 0.25, "peoplePerServicePoint": 12, "growthFloor": 0.15,
+                         "freePopulation": 25 }
+        """);
+
+        var happiness = Load().Gameplay.Happiness;
+
+        Assert.False(happiness.HasServiceReach);
+        Assert.Equal(0.0, happiness.CrowdingThreshold, 6);
+    }
+
+    [Fact]
+    public void LoadFrom_CrowdingThresholdOfOne_Throws()
+    {
+        // Práh 1 by dělil nulou — přelidnění by nešlo spočítat.
+        WriteAllValid();
+        WriteGameplayWith("""
+          "happiness": { "intervalTicks": 50, "baseHappiness": 0.55, "serviceWeight": 0.45,
+                         "overcrowdingPenalty": 0.25, "peoplePerServicePoint": 12, "growthFloor": 0.15,
+                         "freePopulation": 25, "crowdingThreshold": 1.0 }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("crowdingThreshold", ex.Message);
+    }
+
+    [Fact]
     public void LoadFrom_PollutionSpreadAboveOne_Throws()
     {
         WriteAllValid();

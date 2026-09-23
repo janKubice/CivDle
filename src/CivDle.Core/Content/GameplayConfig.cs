@@ -126,8 +126,29 @@ public sealed record HappinessConfig(
     double OvercrowdingPenalty,
     double PeoplePerServicePoint,
     double GrowthFloor,
-    double FreePopulation = 0)
+    double FreePopulation = 0,
+    double CrowdingThreshold = 0.0,
+    int ServiceReachTiles = 0)
 {
+    /// <summary>
+    /// Kolik ubere přelidnění při dané obsazenosti bydlení (0–1).
+    ///
+    /// <para><b>Až nad prahem.</b> Dřív se trestala obsazenost od nuly — a protože
+    /// populace vždycky doroste ke stropu bydlení, byl postih trvale skoro plný:
+    /// konstanta −0,24, se kterou hráč nemohl nic udělat. Nad prahem je to signál
+    /// „město se tlačí, stav" — a jde mu předejít stavbou dřív.</para>
+    /// </summary>
+    public double CrowdingPenalty(double occupancy)
+    {
+        double over = CrowdingThreshold <= 0
+            ? occupancy
+            : (occupancy - CrowdingThreshold) / (1.0 - CrowdingThreshold);
+        return Math.Clamp(over, 0.0, 1.0) * OvercrowdingPenalty;
+    }
+
+    /// <summary>Mají služby omezený dosah (0 = obslouží celé město odkudkoli)?</summary>
+    public bool HasServiceReach => ServiceReachTiles > 0;
+
     /// <summary>Vypnutá spokojenost — hra bez téhle vrstvy (výchozí pro starší data).</summary>
     public static HappinessConfig Disabled { get; } = new(0, 1.0, 0.0, 0.0, 0.0, 1.0);
 

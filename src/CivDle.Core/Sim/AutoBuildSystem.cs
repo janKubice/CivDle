@@ -237,6 +237,15 @@ internal sealed class AutoBuildSystem
             return MeetJobs(sim, ref rng);
         }
 
+        // Služby: když by stávající stačily, jen nemají zaplacenou údržbu, další
+        // trh nepomůže — chybí suroviny na provoz (dřív guvernér stavěl knihovnu
+        // za knihovnou, které pak stály bez údržby taky).
+        if (need == CityNeed.Services && _needs.ServicesLackUpkeepOnly(sim))
+        {
+            int upkeep = MissingUpkeepResource(sim);
+            return upkeep >= 0 ? SecureResource(sim, upkeep, forTarget: -1, depth: 0, ref rng) : Outcome.Impossible;
+        }
+
         Span<int> ranked = stackalloc int[_content.Buildings.Count];
         int count = RankCandidates(sim, need, ranked);
         if (count == 0)
@@ -473,6 +482,12 @@ internal sealed class AutoBuildSystem
             placed = _sites.TryFindHarvestSite(sim, defIndex, ignoreBuilding: -1, forMove: false, out int x, out int y)
                 && sim.TryPlaceBuilding(defIndex, x, y) == PlacementResult.Ok;
         }
+        else if (def.ServiceValue > 0 && sim.TryFindUnservedHome(out int homeX, out int homeY)
+            && TryBuildNear(sim, defIndex, homeX, homeY))
+        {
+            // Služba patří tam, kam žádná jiná nedosáhne — trh vedle trhu nikomu nepomůže.
+            placed = true;
+        }
         else
         {
             placed = TryAtAnchors(sim, defIndex, ref rng)
@@ -677,6 +692,26 @@ internal sealed class AutoBuildSystem
 
         _roundStatus = new GovernorStatus(GovernorActivity.Building, GovernorBlocker.None, defIndex, -1);
         return true;
+    }
+
+    /// <summary>Surovina, bez které stojí údržba některé služby (−1 = žádná).</summary>
+    private int MissingUpkeepResource(Simulation sim)
+    {
+        var buildings = sim.Buildings;
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            var upkeep = _content.Buildings[buildings[i].DefIndex].Upkeep;
+            for (int u = 0; u < upkeep.Count; u++)
+            {
+                int index = upkeep[u].ResourceIndex;
+                if (sim.GetResource(index) - sim.Claim.AmountOf(index) < upkeep[u].Amount)
+                {
+                    return index;
+                }
+            }
+        }
+
+        return -1;
     }
 
     /// <summary>Stojí některá hotová výrobna té suroviny jen proto, že nemá lidi?</summary>

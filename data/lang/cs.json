@@ -1091,6 +1091,8 @@
     "hud.happinessGovernment": " · vláda {0}",
     "hud.happinessParts": "Základ {0} · služby {1} · přelidnění {2}",
     "hud.happinessPollution": " · smog {0}",
+    "hud.happinessUnpaid": " · služby bez údržby {0} %",
+    "hud.happinessOutOfReach": " · daleko od služeb {0} % lidí",
     "hud.help": "Posun: WASD / šipky / pravé tlačítko · Zoom: kolečko · Esc: pauza",
     "hud.idleBuildings": "{0} bez dělníků",
     "hud.jackpot": "ÚLOVEK ŽIVOTA! +{0}",
