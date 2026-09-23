@@ -16,7 +16,8 @@ namespace CivDle.Core.Tests.Sim;
 /// <item>pila brala tři dřeva hned, jak přišla, a dům za pět se nepostavil nikdy,</item>
 /// <item>k hladovým pilám přibývaly další pily místo dřevorubců,</item>
 /// <item>vykácený dřevorubec stál navždy, i když o kus dál rostl les,</item>
-/// <item>skála blíž k městu vyčerpala hledání dřív, než došlo na les.</item>
+/// <item>skála blíž k městu vyčerpala hledání dřív, než došlo na les,</item>
+/// <item>lidé bez práce dostávali další hladovou pilu místo dřevorubce.</item>
 /// </list>
 /// </summary>
 public class GovernorSupplyTests
@@ -199,6 +200,31 @@ public class GovernorSupplyTests
 
         var camp = sim.Buildings.ToArray().Single(b => b.DefIndex == LumberCamp);
         Assert.True(Inside(FarForest, camp), $"dřevorubec stojí mimo les ({camp.X},{camp.Y})");
+    }
+
+    [Fact]
+    public void JoblessPeopleGetALumberCamp_NotAnotherHungrySawmill()
+    {
+        // Lidé bez práce → „postav výrobnu nejprázdnější suroviny" → prkna → pila.
+        // Jenže stávající pila stojí bez dřeva a nová by stála vedle ní.
+        // Změřeno: 47 pil a jeden dřevorubec.
+        var sim = World(renewableForest: true);
+        sim.TryPlaceBuildingFree(SlowCamp, 2, 2); // dřevo teče, jen pomalu
+        sim.TryPlaceBuildingFree(Sawmill, 4, 2);
+        for (int x = 0; x <= 18; x += 2)
+        {
+            sim.TryPlaceBuildingFree(House, x, 12); // bydlení dost, ať řeší jen práci
+        }
+
+        sim.SetPopulationForTest(40);
+        sim.DebugSetResource(Wood, 60);
+
+        // Pár kol guvernéra: dřevo zatím nemá přebytek, takže pila nesmí přibýt.
+        // (Až ho dřevorubci vytvoří, další pila je v pořádku — to už není tenhle zámek.)
+        Run(sim, 30);
+
+        Assert.Equal(1, CountOf(sim, Sawmill));
+        Assert.True(CountOf(sim, LumberCamp) > 0, "lidem bez práce nepřibyl dřevorubec");
     }
 
     [Fact]

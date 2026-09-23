@@ -95,4 +95,18 @@ public class WorkerPriorityTests
 
         Assert.Equal(4, sim.EmployedWorkers);
     }
+
+    [Fact]
+    public void WorkersAtABlockedBuilding_AreNotProductive()
+    {
+        // Přidělení k hladové pile není práce. Guvernér se podle tohohle čísla
+        // ptá, jestli lidé mají co dělat — kdyby je počítal jako zaměstnané,
+        // nepoznal by, že chybí dřevo, které by jim práci dalo.
+        var sim = SawmillThenCamp(population: 10);
+
+        sim.Tick();
+
+        Assert.Equal(4, sim.EmployedWorkers);
+        Assert.Equal(2, sim.ProductiveWorkers); // jen dřevorubec; pila stojí bez dřeva
+    }
 }

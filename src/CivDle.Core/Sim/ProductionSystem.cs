@@ -295,6 +295,7 @@ internal sealed class ProductionSystem
         long workforce = (long)Math.Floor(sim.Population);
         long workersLeft = AssignPass(buildings, workforce, StaffingPass.ScarceReady);
         workersLeft = AssignPass(buildings, workersLeft, StaffingPass.Ready);
+        sim.ProductiveWorkers = workforce - workersLeft; // do stojících budov jde až zbytek
         workersLeft = AssignPass(buildings, workersLeft, StaffingPass.Blocked);
 
         // Kolik lidí opravdu pracuje — podle toho se opotřebovávají nástroje.

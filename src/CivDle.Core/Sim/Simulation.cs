@@ -1969,6 +1969,17 @@ public sealed class Simulation
     public long EmployedWorkers { get; internal set; }
 
     /// <summary>
+    /// Kolik z nich je u budov, které opravdu můžou pracovat. Zbytek „dělá"
+    /// v pile bez dřeva nebo v dílně s plným skladem — přidělení, ale bez práce.
+    ///
+    /// <para>Guvernér se podle tohohle čísla ptá, jestli mají lidé co dělat.
+    /// S <see cref="EmployedWorkers"/> to nešlo: lidé u hladových pil se
+    /// počítali jako zaměstnaní, takže guvernér nevěděl, že je potřeba dřevo,
+    /// a stavěl další pily, u kterých zase jen stáli.</para>
+    /// </summary>
+    public long ProductiveWorkers { get; internal set; }
+
+    /// <summary>
     /// Rozpad spokojenosti na položky — kvůli čemu je zrovna taková. Je to rozpad
     /// z posledního přepočtu, takže sedí s <see cref="Happiness"/> a UI se na něj
     /// může ptát každý snímek, aniž by tím sáhlo do hry.

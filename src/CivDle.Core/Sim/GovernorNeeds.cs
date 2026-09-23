@@ -244,7 +244,9 @@ public sealed class GovernorNeeds
             return false;
         }
 
-        double jobless = sim.Population - sim.EmployedWorkers;
+        // Lidé u stojících budov (pila bez dřeva) práci nemají, i když jsou
+        // přidělení — jinak by guvernér nepoznal, že chybí to, co je nakrmí.
+        double jobless = sim.Population - sim.ProductiveWorkers;
         return jobless >= Math.Max(MinJobless, sim.Population * JoblessShare);
     }
 

@@ -654,13 +654,17 @@ internal sealed class AutoBuildSystem
 
     /// <summary>
     /// Přidá další výrobnu suroviny, která teče, ale pomalu — pokud ji má kdo
-    /// obsadit. Prázdná druhá pila by nevyrobila nic a spolkla by materiál.
+    /// obsadit a pokud ji má čím krmit. Prázdná druhá pila by nevyrobila nic
+    /// a spolkla by materiál; hladová druhá pila by jen ujídala té první.
+    /// Když chybí vstup, přidá se místo ní výrobna vstupu (o patro níž).
     /// </summary>
     /// <param name="sim">Simulace.</param>
     /// <param name="resource">Čeho má být víc.</param>
     /// <param name="rng">Deterministická náhoda kola.</param>
     /// <param name="ownInitiative">Jen budovy se značkou autoBuild (guvernérova vlastní iniciativa).</param>
-    private bool TryAddProducer(Simulation sim, int resource, ref SplitMix64 rng, bool ownInitiative = false)
+    /// <param name="depth">Kolikáté patro řetězu (výrobna vstupu se hledá jen jednou).</param>
+    private bool TryAddProducer(
+        Simulation sim, int resource, ref SplitMix64 rng, bool ownInitiative = false, int depth = 0)
     {
         Span<int> producers = stackalloc int[_content.Buildings.Count];
         int count = RankProducers(sim, resource, producers);
@@ -668,6 +672,22 @@ internal sealed class AutoBuildSystem
         {
             if (ownInitiative && !_content.Buildings[producers[i]].AutoBuild)
             {
+                continue;
+            }
+
+            // Stejná budova už stojí bez vstupu, nebo vstup nemá přebytek →
+            // další by stála vedle ní. Změřeno: 47 pil a jeden dřevorubec — lidé
+            // bez práce „dostali" pilu za pilou, i když žádná neměla z čeho řezat.
+            // Úzké hrdlo je vstup, takže přibude jeho výrobna.
+            int shortInput = ShortInputOf(sim, producers[i]);
+            if (shortInput >= 0 || HasStarvedInstance(sim, producers[i]))
+            {
+                int feed = shortInput >= 0 ? shortInput : StarvedInputOf(sim, producers[i]);
+                if (feed >= 0 && depth == 0 && TryAddProducer(sim, feed, ref rng, ownInitiative, depth + 1))
+                {
+                    return true;
+                }
+
                 continue;
             }
 
@@ -712,6 +732,59 @@ internal sealed class AutoBuildSystem
         }
 
         return -1;
+    }
+
+    /// <summary>Jakou část chuti nové výrobny musí pokrýt dnešní přebytek vstupu.</summary>
+    private const double SurplusShare = 0.5;
+
+    /// <summary>Nad takovým naplněním skladu je vstupu dost, ať teče jakkoli.</summary>
+    private const double SurplusFillFloor = 0.5;
+
+    /// <summary>
+    /// Vstup, jehož přítok neuživí ještě jednu takovou budovu (−1 = všechny uživí).
+    /// Ptá se na přebytek (výroba − veškerá spotřeba), ne na zásobu: pár klád na
+    /// skladě pilu nakrmí na minutu, ale ne napořád.
+    /// </summary>
+    private int ShortInputOf(Simulation sim, int defIndex)
+    {
+        if (_content.Buildings[defIndex].Recipe is not { } recipe || recipe.Inputs.Count == 0)
+        {
+            return -1;
+        }
+
+        double cyclesPerSecond = Simulation.TicksPerSecond / Math.Max(1, recipe.TimeTicks);
+        var ledger = sim.Ledger;
+        for (int j = 0; j < recipe.Inputs.Count; j++)
+        {
+            int index = recipe.Inputs[j].ResourceIndex;
+            if (FillOf(sim, index) >= SurplusFillFloor)
+            {
+                continue; // sklad se plní — přebytek je, ať ho evidence vidí, nebo ne
+            }
+
+            double surplus = ledger.ProducedPerSecond(index) - ledger.ConsumedPerSecond(index);
+            if (surplus < recipe.Inputs[j].Amount * cyclesPerSecond * SurplusShare)
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>Stojí některá budova tohoto druhu, protože jí chybí vstup?</summary>
+    private static bool HasStarvedInstance(Simulation sim, int defIndex)
+    {
+        var buildings = sim.Buildings;
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            if (buildings[i].DefIndex == defIndex && buildings[i].Stall == BuildingStall.MissingInput)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Stojí některá hotová výrobna té suroviny jen proto, že nemá lidi?</summary>
