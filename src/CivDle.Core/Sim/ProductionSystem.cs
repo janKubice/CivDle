@@ -243,6 +243,10 @@ internal sealed class ProductionSystem
                 // kterými je strom plný, se musí projevit i ve výrobě.
                 yield *= sim.ResourceProductionMult(index);
 
+                // Dozvuk volby z události (ignorovaná povodeň, stávka…) — pole
+                // o velikosti počtu surovin, takže jen sáhnutí do paměti.
+                yield *= sim.EventEffects.ProductionMult(index);
+
                 // Účtuje se zvlášť, co se do skladu VEŠLO a co propadlo. Plný
                 // sklad výrobu nezastaví, přebytek mizí — je to záměr, ale bez
                 // téhle dvojice čísel hráč nemá jak zjistit, že o něj přichází.

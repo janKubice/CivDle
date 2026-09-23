@@ -309,6 +309,7 @@ public sealed class GameplayScreen : IScreen
     private float[] _fullStorageCooldown = Array.Empty<float>();
     private Label _populationLabel = null!;
     private Label _idleLabel = null!;
+    private Label _eventEffectsLabel = null!;
     private Label _eraLabel = null!;
     private Label _eraNextLabel = null!;
     private Label _tierLabel = null!;
@@ -2226,8 +2227,7 @@ public sealed class GameplayScreen : IScreen
         switch (decision.Cue)
         {
             case DirectorCue.Event when decision.EventIndex >= 0:
-                _screens.Push(new EventScreen(
-                    _screens, _simulation, _screens.Content.Events[decision.EventIndex]));
+                _screens.Push(new EventScreen(_screens, _simulation, decision.EventIndex));
                 break;
 
             case DirectorCue.Hint:
@@ -2564,6 +2564,15 @@ public sealed class GameplayScreen : IScreen
             Tooltip = _screens.Loc["tip.idleBuildings"],
         };
         summaryRow.Widgets.Add(_idleLabel);
+
+        // Dozvuky voleb z událostí (ignorovaná povodeň, karavana…). Bez nich by
+        // hráč za tři minuty nevěděl, proč mu jídlo najednou přibývá pomaleji.
+        _eventEffectsLabel = new Label
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            Tooltip = _screens.Loc["tip.eventEffects"],
+        };
+        summaryRow.Widgets.Add(_eventEffectsLabel);
         resourceBar.Widgets.Add(summaryRow);
 
         // Lišta surovin roste s každou odemčenou surovinou a v pozdní hře
@@ -4571,6 +4580,10 @@ public sealed class GameplayScreen : IScreen
         _idleLabel.Text = _simulation.IdleBuildings > 0
             ? loc.Format("hud.idleBuildings", _simulation.IdleBuildings)
             : string.Empty;
+
+        var eventEffects = _simulation.EventEffects.Active;
+        _eventEffectsLabel.Text = EventChoiceSummary.ActiveLine(_screens.Content, loc, eventEffects, _simulation.TickCount);
+        _eventEffectsLabel.TextColor = EventChoiceSummary.AnyPenalty(eventEffects) ? UiPalette.Warn : UiPalette.Good;
 
         _populationLabel.Text = loc.Format("hud.population",
             CivDle.Core.Numbers.Format(_simulation.Population), CivDle.Core.Numbers.Format(_simulation.HousingCapacity));

@@ -181,6 +181,13 @@ public sealed class SaveGameSerializer
     /// </summary>
     private const string SectionLedger = "ledger";
 
+    /// <summary>
+    /// Běžící dozvuky voleb z událostí (<see cref="EventEffects"/>). Zbývající
+    /// čas se ukládá relativně, ne jako tik konce: efekt pak po načtení doběhne
+    /// přesně tolik, kolik mu zbývalo. Starší save sekci nemá = nic neběží.
+    /// </summary>
+    private const string SectionEventEffects = "eventeffects";
+
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
     {
@@ -428,6 +435,11 @@ public sealed class SaveGameSerializer
         }
 
         WriteSection(writer, SectionLedger, w => WriteLedger(w, simulation));
+
+        if (simulation.EventEffects.Active.Count > 0)
+        {
+            WriteSection(writer, SectionEventEffects, w => WriteEventEffects(w, simulation));
+        }
 
         if (simulation.SettlementPlans.Count > 0)
         {
@@ -1000,6 +1012,9 @@ public sealed class SaveGameSerializer
             case SectionLedger:
                 ReadLedger(section, content, simulation);
                 break;
+            case SectionEventEffects:
+                ReadEventEffects(section, content, simulation);
+                break;
             case SectionSettlementPlans:
                 ReadSettlementPlans(section, simulation);
                 break;
@@ -1192,6 +1207,48 @@ public sealed class SaveGameSerializer
             {
                 simulation.Ledger.Import(index, produced, wasted, byKind);
             }
+        }
+    }
+
+    /// <summary>Dozvuky událostí: druh, surovina podle ID („" = všechny), násobič, zbývající tiky.</summary>
+    private static void WriteEventEffects(BinaryWriter writer, Simulation simulation)
+    {
+        var content = SimContent(simulation);
+        var active = simulation.EventEffects.Active;
+        writer.Write(active.Count);
+        foreach (var effect in active)
+        {
+            writer.Write((int)effect.Kind);
+            writer.Write(effect.ResourceIndex >= 0 ? content.Resources[effect.ResourceIndex].Id : string.Empty);
+            writer.Write(effect.Multiplier);
+            writer.Write(EventEffects.TicksLeft(effect, simulation.TickCount));
+        }
+    }
+
+    private static void ReadEventEffects(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        int count = ReadCount(reader, max: 1_000, what: "efektů událostí");
+        for (int i = 0; i < count; i++)
+        {
+            int kind = reader.ReadInt32();
+            string resourceId = reader.ReadString();
+            double multiplier = reader.ReadDouble();
+            long ticksLeft = reader.ReadInt64();
+
+            // Neznámý druh (novější verze) nebo surovina, která z dat zmizela:
+            // efekt se zahodí. Dočasný dozvuk nestojí za rozbitý save.
+            if (!Enum.IsDefined(typeof(EventEffectKind), kind))
+            {
+                continue;
+            }
+
+            int resourceIndex = -1;
+            if (resourceId.Length > 0 && !content.Resources.TryIndexOf(resourceId, out resourceIndex))
+            {
+                continue;
+            }
+
+            simulation.RestoreEventEffect((EventEffectKind)kind, resourceIndex, multiplier, ticksLeft);
         }
     }
 

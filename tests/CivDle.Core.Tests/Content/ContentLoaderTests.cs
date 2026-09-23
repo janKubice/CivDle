@@ -1796,6 +1796,66 @@ public class ContentLoaderTests : IDisposable
 
     private static readonly string[] ScenarioKeys = { "scenario.test", "scenario.test.desc" };
 
+    // ----- dozvuky voleb v událostech -----
+
+    [Fact]
+    public void EventChoice_LoadsItsEffect()
+    {
+        WriteWorldWithEvent("""
+        { "id": "a", "effect": { "kind": "production", "resource": "food", "multiplier": 0.75, "seconds": 180 } }
+        """);
+
+        var content = Load();
+
+        var effect = content.Events[0].Choices[0].Effect;
+        Assert.NotNull(effect);
+        Assert.Equal(EventEffectKind.Production, effect!.Kind);
+        Assert.Equal(content.Resources.IndexOf("food"), effect.ResourceIndex);
+        Assert.Equal(0.75, effect.Multiplier);
+        Assert.Equal(180, effect.Seconds);
+    }
+
+    [Fact]
+    public void EventChoice_WithoutResource_AffectsEverything()
+    {
+        WriteWorldWithEvent("""{ "id": "a", "effect": { "kind": "production", "multiplier": 0.8, "seconds": 60 } }""");
+
+        Assert.Equal(-1, Load().Events[0].Choices[0].Effect!.ResourceIndex);
+    }
+
+    [Theory]
+    [InlineData("""{ "kind": "earthquake", "multiplier": 0.8, "seconds": 60 }""", "earthquake")]
+    [InlineData("""{ "kind": "production", "resource": "gold", "multiplier": 0.8, "seconds": 60 }""", "gold")]
+    [InlineData("""{ "kind": "growth", "resource": "food", "multiplier": 0.8, "seconds": 60 }""", "production")]
+    [InlineData("""{ "kind": "production", "multiplier": 0, "seconds": 60 }""", "multiplier")]
+    [InlineData("""{ "kind": "production", "multiplier": 0.8, "seconds": 0 }""", "seconds")]
+    public void EventChoice_WithABrokenEffect_Throws(string effectJson, string expected)
+    {
+        // Násobič nula by výrobu zastavil úplně a nekonečný efekt by nikdy
+        // neskončil — obojí je proti relaxačnímu tónu, takže to loader nepustí.
+        WriteWorldWithEvent($$"""{ "id": "a", "effect": {{effectJson}} }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
+    /// <summary>Minimální data + jedna událost s jedinou volbou (i s texty v jazycích).</summary>
+    private void WriteWorldWithEvent(string choiceJson)
+    {
+        WriteAllValid();
+        Write(Path.Combine("lang", "cs.json"), LangJson("cs", "Čeština", extraKeys: EventKeys));
+        Write(Path.Combine("lang", "en.json"), LangJson("en", "English", extraKeys: EventKeys));
+        Write("events.json", $$"""
+        {
+          "schemaVersion": 1,
+          "events": [ { "id": "test", "choices": [ {{choiceJson}} ] } ]
+        }
+        """);
+    }
+
+    private static readonly string[] EventKeys = { "event.test", "event.test.desc", "event.test.a" };
+
     // ----- pomůcky -----
 
     private GameContent Load() => new ContentLoader().LoadFrom(_tempDir);

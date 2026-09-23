@@ -206,6 +206,7 @@ public sealed class Simulation
         _resources = new double[content.Resources.Count];
         _storageCaps = new double[content.Resources.Count];
         Claim = new ConstructionClaim(content.Resources.Count);
+        EventEffects = new EventEffects(content.Resources.Count);
         _resourceProductionMult = new double[content.Resources.Count];
         Array.Fill(_resourceProductionMult, 1.0);
         for (int i = 0; i < _resources.Length; i++)
@@ -1248,6 +1249,70 @@ public sealed class Simulation
             _ledger.RecordConsumed(cost[i].ResourceIndex, cost[i].Amount, ConsumptionKind.Purchases);
         }
     }
+
+    // ----- události: volby a jejich dozvuky -----
+
+    /// <summary>
+    /// Běžící dočasné efekty voleb z událostí (ignorovaná povodeň, karavana,
+    /// která se usadila…). UI je jen čte; mění je <see cref="TryChooseEventOption"/>.
+    /// </summary>
+    public EventEffects EventEffects { get; }
+
+    /// <summary>Stačí zásoby na volbu v události? (UI podle toho volbu ztlumí.)</summary>
+    public bool CanChooseEventOption(int eventIndex, int choiceIndex) =>
+        TryGetEventChoice(eventIndex, choiceIndex, out var choice) && CanPay(choice.Cost);
+
+    /// <summary>
+    /// Příkaz hráče: vybrat volbu v události — zaplatit cenu, připsat zisk a
+    /// spustit dočasný efekt.
+    ///
+    /// <para>Dřív to obrazovka dělala sama přes <see cref="AddResource"/>. Dokud
+    /// šlo jen o přičtení a odečtení, stačilo to; efekt je ale stav simulace
+    /// (tiká, končí, ukládá se), takže celá volba patří sem.</para>
+    /// </summary>
+    /// <returns><c>false</c>, když volba neexistuje nebo na ni nejsou zásoby — pak se nestane nic.</returns>
+    public bool TryChooseEventOption(int eventIndex, int choiceIndex)
+    {
+        if (!TryGetEventChoice(eventIndex, choiceIndex, out var choice) || !CanPay(choice.Cost))
+        {
+            return false;
+        }
+
+        Pay(choice.Cost);
+        foreach (var gain in choice.Gain)
+        {
+            AddResource(gain.ResourceIndex, gain.Amount);
+        }
+
+        if (choice.Effect is { } effect)
+        {
+            EventEffects.Start(effect, TickCount);
+        }
+
+        return true;
+    }
+
+    private bool TryGetEventChoice(int eventIndex, int choiceIndex, out EventChoiceDef choice)
+    {
+        choice = null!;
+        if ((uint)eventIndex >= (uint)_content.Events.Count)
+        {
+            return false;
+        }
+
+        var choices = _content.Events[eventIndex].Choices;
+        if ((uint)choiceIndex >= (uint)choices.Count)
+        {
+            return false;
+        }
+
+        choice = choices[choiceIndex];
+        return true;
+    }
+
+    /// <summary>Obnoví běžící efekt události ze savu.</summary>
+    internal void RestoreEventEffect(EventEffectKind kind, int resourceIndex, double multiplier, long ticksLeft) =>
+        EventEffects.Restore(new ActiveEventEffect(kind, resourceIndex, multiplier, TickCount + Math.Max(1, ticksLeft)));
 
     // ----- víra: modlitby, požehnání a zásahy -----
 
@@ -3759,6 +3824,7 @@ public sealed class Simulation
     {
         TickCount++;
         TickBlessings(); // požehnání z modliteb dobíhají spolu se slavností
+        EventEffects.Expire(TickCount); // dozvuky voleb z událostí mají konec
         TickNpcTowns();  // objevené cizí město se postaví ze skutečných budov a ulic
         TickNpcCities(); // dodávky od sousedů a tiché srůstání obestavěných
         if (_boostTicksRemaining > 0)
@@ -8863,6 +8929,7 @@ public sealed class Simulation
         Population = _content.Gameplay.StartingPopulation;
         TickCount = 0;
         Claim.Clear(); // nový běh nemá na co šetřit — budova, na kterou se šetřilo, je pryč
+        EventEffects.Clear(); // povodeň ani karavana nepřežijí Vzestup — patřily starému městu
         _happinessSystem.Invalidate(); // rozpad spokojenosti patřil městu, které už nestojí
         SettlementsDirty = true;
         DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť

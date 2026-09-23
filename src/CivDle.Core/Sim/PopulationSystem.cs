@@ -50,7 +50,7 @@ internal sealed class PopulationSystem
                 ceiling,
                 sim.Population + perSecond * dt
                     * sim.Bonuses.GrowthMult * sim.HappinessGrowthFactor * sim.ElectionGrowthMult
-                    * sim.SeasonGrowthMult * sim.BlessedGrowthMult);
+                    * sim.SeasonGrowthMult * sim.BlessedGrowthMult * sim.EventEffects.GrowthMult);
         }
 
         // Dorazit na strop měřítka je ZPRÁVA, ne ticho. Bez ní hráč vidí jen to,

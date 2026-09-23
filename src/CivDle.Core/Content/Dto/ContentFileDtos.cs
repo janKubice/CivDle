@@ -605,7 +605,11 @@ public sealed record EventFileDto(int SchemaVersion, List<EventDto>? Events);
 public sealed record EventDto(string? Id, List<EventChoiceDto>? Choices, GoalConditionDto? Requires);
 
 /// <summary>Jedna volba události tak, jak leží v JSON.</summary>
-public sealed record EventChoiceDto(string? Id, Dictionary<string, int>? Cost, Dictionary<string, int>? Gain);
+public sealed record EventChoiceDto(
+    string? Id, Dictionary<string, int>? Cost, Dictionary<string, int>? Gain, EventEffectDto? Effect = null);
+
+/// <summary>Dočasný efekt volby tak, jak leží v JSON.</summary>
+public sealed record EventEffectDto(string? Kind, string? Resource, double Multiplier, double Seconds);
 
 /// <summary>Obsah souboru <c>data/achievements.json</c>.</summary>
 public sealed record AchievementFileDto(int SchemaVersion, List<AchievementDto>? Achievements);

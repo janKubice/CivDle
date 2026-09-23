@@ -3838,7 +3838,8 @@ public sealed class ContentLoader
 
                 var cost = ParseResourceAmounts(path, id, $"{choiceId}.cost", choiceDto.Cost, resources);
                 var gain = ParseResourceAmounts(path, id, $"{choiceId}.gain", choiceDto.Gain, resources);
-                choices.Add(new EventChoiceDef($"event.{id}.{choiceId}", cost, gain));
+                var effect = ParseEventEffect(path, $"{id}.{choiceId}", choiceDto.Effect, resources);
+                choices.Add(new EventChoiceDef($"event.{id}.{choiceId}", cost, gain, effect));
             }
 
             // Podmínka je volitelná — bez ní je událost dostupná od začátku.
@@ -3850,6 +3851,54 @@ public sealed class ContentLoader
         }
 
         return new DefRegistry<EventDef>(result, e => e.Id, "událost", allowEmpty: true);
+    }
+
+    /// <summary>
+    /// Dočasný efekt volby. Druh je behavior-ID (výroba / růst); u výroby smí
+    /// být surovina, bez ní platí pro všechny. Meze drží efekt měkký: nejhůř
+    /// desetina výroby, nejdéle hodina.
+    /// </summary>
+    private static EventEffectDef? ParseEventEffect(
+        string path, string owner, EventEffectDto? dto, DefRegistry<Resource> resources)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        var kind = dto.Kind switch
+        {
+            "production" => EventEffectKind.Production,
+            "growth" => EventEffectKind.Growth,
+            _ => throw new ContentLoadException(path,
+                $"Událost '{owner}': neznámý druh efektu '{dto.Kind}' (povolené: production, growth)."),
+        };
+
+        int resource = -1;
+        if (!string.IsNullOrEmpty(dto.Resource))
+        {
+            if (kind != EventEffectKind.Production)
+            {
+                throw new ContentLoadException(path, $"Událost '{owner}': surovinu smí mít jen efekt 'production'.");
+            }
+
+            if (!resources.TryIndexOf(dto.Resource, out resource))
+            {
+                throw new ContentLoadException(path, $"Událost '{owner}': neznámá surovina efektu '{dto.Resource}'.");
+            }
+        }
+
+        if (dto.Multiplier is < 0.1 or > 5)
+        {
+            throw new ContentLoadException(path, $"Událost '{owner}': 'multiplier' musí být 0.1–5, je {dto.Multiplier}.");
+        }
+
+        if (dto.Seconds is < 1 or > 3600)
+        {
+            throw new ContentLoadException(path, $"Událost '{owner}': 'seconds' musí být 1–3600, je {dto.Seconds}.");
+        }
+
+        return new EventEffectDef(kind, resource, dto.Multiplier, dto.Seconds);
     }
 
     /// <summary>
