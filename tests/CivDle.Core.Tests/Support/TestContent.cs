@@ -215,6 +215,30 @@ internal static class TestContent
         ServiceValue: serviceValue,
         UpkeepOrNull: new[] { new ResourceAmount(upkeepResource, upkeepAmount) });
 
+    /// <summary>
+    /// Budova, která z jedné suroviny dělá jinou (pila: dřevo → prkna) — pro testy
+    /// řetězců, plného skladu a přednosti stavby.
+    /// </summary>
+    public static BuildingDef Converter(
+        string id, int inputResource, int inputAmount, int outputResource, int outputAmount,
+        int timeTicks, int biomeCount = 2, int workerSlots = 1, int powerSupply = 0,
+        IReadOnlyList<ResourceAmount>? buildCost = null, bool autoBuild = false) => new(
+        id, "test", new RgbColor(160, 120, 80), 1, 1,
+        WorkerSlots: workerSlots, HousingCapacity: 0,
+        BuildCost: buildCost ?? Array.Empty<ResourceAmount>(),
+        Recipe: new Recipe(
+            new[] { new ResourceAmount(inputResource, inputAmount) },
+            new[] { new ResourceAmount(outputResource, outputAmount) },
+            timeTicks),
+        AllowedBiomes: Enumerable.Repeat(true, biomeCount).ToArray(),
+        StorageBonus: Array.Empty<ResourceAmount>(),
+        AutoBuild: autoBuild,
+        Buildable: true,
+        UpgradesToIndex: -1,
+        UpgradeCost: Array.Empty<ResourceAmount>(),
+        PowerSupply: powerSupply,
+        PowerDemand: 0);
+
     /// <summary>Budova, která z ničeho vyrábí zadanou surovinu — pro testy výroby.</summary>
     public static BuildingDef Producer(
         string id, int outputResource, int amount, int timeTicks, int biomeCount = 2, int workerSlots = 1) => new(

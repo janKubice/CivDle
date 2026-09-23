@@ -1811,6 +1811,7 @@
     "stall.missingInput": "Czeka na surowce wejściowe.",
     "stall.noTerrain": "W zasięgu nie ma już czego wydobywać — przenieś go albo zasadź nowe zasoby.",
     "stall.noWorkers": "Nie ma kto pracować — sprowadź więcej ludzi (domy i jedzenie) albo zburz coś innego.",
+    "stall.outputFull": "Magazyn jest pełny — budynek czeka, zamiast palić surowce na darmo. Zbuduj magazyn albo pozwól zużyć zapas.",
     "stats.buildings": "Budynki",
     "stats.covers": "Cały przebieg — {0}",
     "stats.empty": "Nie ma jeszcze czego rysować. Pobuduj chwilę i wróć.",

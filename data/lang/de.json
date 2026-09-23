@@ -1811,6 +1811,7 @@
     "stall.missingInput": "Wartet auf Eingangsrohstoffe.",
     "stall.noTerrain": "In Reichweite gibt es nichts mehr zu ernten — versetze sie oder pflanze neue Rohstoffe.",
     "stall.noWorkers": "Niemand da zum Arbeiten — hol mehr Leute (Wohnraum und Nahrung) oder reiß etwas anderes ab.",
+    "stall.outputFull": "Das Lager ist voll — das Gebäude wartet, statt seine Rohstoffe umsonst zu verbrauchen. Bau ein Lager oder lass den Vorrat aufbrauchen.",
     "stats.buildings": "Gebäude",
     "stats.covers": "Der ganze Lauf — {0}",
     "stats.empty": "Noch nichts zu zeichnen. Bau eine Weile und komm wieder.",

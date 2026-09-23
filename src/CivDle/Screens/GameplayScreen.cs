@@ -1465,6 +1465,7 @@ public sealed class GameplayScreen : IScreen
         BuildingStall.NoWorkers => "stall.noWorkers",
         BuildingStall.MissingInput => "stall.missingInput",
         BuildingStall.NoTerrain => "stall.noTerrain",
+        BuildingStall.OutputFull => "stall.outputFull",
         _ => null,
     };
 

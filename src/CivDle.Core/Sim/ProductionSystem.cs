@@ -172,6 +172,19 @@ internal sealed class ProductionSystem
                 continue;
             }
 
+            // Plný sklad zastaví jen výrobnu, která něco SPOTŘEBOVÁVÁ. Těžba
+            // z ničeho smí dál propadat (idle konvence, motivace stavět sklady),
+            // ale pila, která pálí dřevo na prkna do plného skladu, jen ničí
+            // surovinu, kterou město potřebuje jinde. Změřeno: knihovny žraly
+            // prkna na vědu, která padala do koše, pily žraly dřevo na prkna,
+            // která padala taky — a guvernér hodinu nesehnal pět dřev na dům.
+            if (IsBlockedByFullStorage(def, recipe, resources, storageCaps))
+            {
+                building.Progress = recipe.TimeTicks;
+                SetStall(ref building, def, BuildingStall.OutputFull);
+                continue;
+            }
+
             if (!HasInputs(resources, recipe))
             {
                 // Stall: cyklus je „hotový", ale čeká na vstupy — dokončí se hned,
@@ -339,6 +352,37 @@ internal sealed class ProductionSystem
 
         return workersLeft;
     }
+
+    /// <summary>
+    /// Nemá výrobna kam dát, co vyrobí? Platí jen pro recepty se vstupy
+    /// a jen když je plný <b>každý</b> výstup — klášter, který dělá víru
+    /// i vědu, pracuje dál, dokud se aspoň jedno z toho vejde.
+    ///
+    /// <para>Elektrárny výjimka: jejich skutečný výstup je proud, ne surovina
+    /// v receptu. Jaderná elektrárna s plným skladem vědy musí dál svítit.</para>
+    /// </summary>
+    internal static bool IsBlockedByFullStorage(
+        BuildingDef def, Recipe recipe, double[] resources, double[] storageCaps)
+    {
+        if (recipe.Inputs.Count == 0 || recipe.Outputs.Count == 0 || def.PowerSupply > 0)
+        {
+            return false;
+        }
+
+        for (int j = 0; j < recipe.Outputs.Count; j++)
+        {
+            int index = recipe.Outputs[j].ResourceIndex;
+            if (resources[index] < storageCaps[index] - FullEpsilon)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Tolerance „plného" skladu — výroba ořezává na strop přesně, jen pojistka proti zaokrouhlení.</summary>
+    private const double FullEpsilon = 1e-6;
 
     private static bool HasInputs(double[] resources, Recipe recipe)
     {

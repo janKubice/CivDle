@@ -1811,6 +1811,7 @@
     "stall.missingInput": "Waiting for input resources.",
     "stall.noTerrain": "Nothing left to harvest nearby — move it, or plant new resources.",
     "stall.noWorkers": "Nobody to work here — bring more people (housing and food) or demolish something else.",
+    "stall.outputFull": "Storage is full — the building waits instead of burning its inputs for nothing. Build storage or let the stock be used up.",
     "stats.buildings": "Buildings",
     "stats.covers": "The whole run — {0}",
     "stats.empty": "Nothing to plot yet. Build for a while and come back.",

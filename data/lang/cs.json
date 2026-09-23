@@ -1811,6 +1811,7 @@
     "stall.missingInput": "Čeká na vstupní suroviny.",
     "stall.noTerrain": "V dosahu už není co těžit — přesuň ji, nebo zasaď nové zdroje.",
     "stall.noWorkers": "Nemá kdo pracovat — přiveď víc lidí (bydlení a jídlo) nebo zbourej něco jiného.",
+    "stall.outputFull": "Sklad je plný — výrobna čeká a nepálí suroviny naprázdno. Postav sklad nebo nech zásobu spotřebovat.",
     "stats.buildings": "Budovy",
     "stats.covers": "Celý běh — {0}",
     "stats.empty": "Zatím není co kreslit. Chvíli stav a vrať se.",
