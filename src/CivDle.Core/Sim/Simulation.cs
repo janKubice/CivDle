@@ -1919,6 +1919,21 @@ public sealed class Simulation
         }
     }
 
+    /// <summary>
+    /// Rozpad spokojenosti spočítaný teď — podle něj se rozhoduje guvernér
+    /// (viz <c>HappinessSystem.FreshForGovernor</c>), UI čte <see cref="HappinessParts"/>.
+    /// </summary>
+    internal HappinessBreakdown HappinessForGovernor
+    {
+        get
+        {
+            var config = _content.Gameplay.Happiness;
+            return config.IsEnabled
+                ? _happinessSystem.FreshForGovernor(this, config)
+                : HappinessBreakdown.Perfect;
+        }
+    }
+
     /// <summary>Kde bydlí nejvíc lidí bez služby v dosahu (pro guvernéra).</summary>
     internal bool TryFindUnservedHome(out int x, out int y) => _happinessSystem.TryFindUnservedHome(this, out x, out y);
 

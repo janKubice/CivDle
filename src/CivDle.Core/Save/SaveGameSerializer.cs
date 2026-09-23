@@ -173,6 +173,14 @@ public sealed class SaveGameSerializer
     /// </summary>
     private const string SectionGovernorClaim = "governorclaim";
 
+    /// <summary>
+    /// Evidence toků (vyhlazené rychlosti). Dřív do savu nepatřila — byla to jen
+    /// informace pro hráče. Teď se podle ní rozhoduje guvernér („teče dřevo?"),
+    /// takže bez ní by se načtená hra rozešla s tou, která běžela dál. Starší
+    /// save sekci nemá a začne s prázdnou evidencí.
+    /// </summary>
+    private const string SectionLedger = "ledger";
+
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
     {
@@ -418,6 +426,8 @@ public sealed class SaveGameSerializer
         {
             WriteSection(writer, SectionGovernorClaim, w => WriteClaim(w, simulation));
         }
+
+        WriteSection(writer, SectionLedger, w => WriteLedger(w, simulation));
 
         if (simulation.SettlementPlans.Count > 0)
         {
@@ -987,6 +997,9 @@ public sealed class SaveGameSerializer
             case SectionGovernorClaim:
                 ReadClaim(section, content, simulation);
                 break;
+            case SectionLedger:
+                ReadLedger(section, content, simulation);
+                break;
             case SectionSettlementPlans:
                 ReadSettlementPlans(section, simulation);
                 break;
@@ -1139,6 +1152,47 @@ public sealed class SaveGameSerializer
         }
 
         writer.Write(simulation.WondersCompleted);
+    }
+
+    /// <summary>Evidence toků po surovinách (podle ID) — výroba, propad, spotřeba po druzích.</summary>
+    private static void WriteLedger(BinaryWriter writer, Simulation simulation)
+    {
+        var content = SimContent(simulation);
+        writer.Write(ResourceLedger.KindCount);
+        writer.Write(content.Resources.Count);
+        for (int i = 0; i < content.Resources.Count; i++)
+        {
+            var (produced, wasted, byKind) = simulation.Ledger.Export(i);
+            writer.Write(content.Resources[i].Id);
+            writer.Write(produced);
+            writer.Write(wasted);
+            foreach (double value in byKind)
+            {
+                writer.Write(value);
+            }
+        }
+    }
+
+    private static void ReadLedger(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        int kinds = ReadCount(reader, max: 64, what: "druhů spotřeby");
+        int count = ReadCount(reader, max: 10_000, what: "surovin v evidenci");
+        var byKind = new double[kinds];
+        for (int i = 0; i < count; i++)
+        {
+            string id = reader.ReadString();
+            double produced = reader.ReadDouble();
+            double wasted = reader.ReadDouble();
+            for (int k = 0; k < kinds; k++)
+            {
+                byKind[k] = reader.ReadDouble();
+            }
+
+            if (content.Resources.TryIndexOf(id, out int index))
+            {
+                simulation.Ledger.Import(index, produced, wasted, byKind);
+            }
+        }
     }
 
     /// <summary>Rezerva guvernéra: budova a suroviny podle ID, ať přežije přeskládání dat.</summary>

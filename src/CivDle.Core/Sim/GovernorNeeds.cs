@@ -257,7 +257,7 @@ public sealed class GovernorNeeds
             return false;
         }
 
-        return sim.HappinessParts.ServiceCoverage < ServiceCoverageFloor;
+        return sim.HappinessForGovernor.ServiceCoverage < ServiceCoverageFloor;
     }
 
     /// <summary>
@@ -266,7 +266,7 @@ public sealed class GovernorNeeds
     /// </summary>
     public bool ServicesLackUpkeepOnly(Simulation sim)
     {
-        var parts = sim.HappinessParts;
+        var parts = sim.HappinessForGovernor;
         return parts.ServiceCoverage < ServiceCoverageFloor && parts.ServiceReach >= ServiceCoverageFloor;
     }
 

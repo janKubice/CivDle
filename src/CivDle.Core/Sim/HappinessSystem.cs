@@ -75,6 +75,29 @@ internal sealed class HappinessSystem
     /// <summary>Zapomene poslední rozpad (nový běh po Vzestupu, načtená hra).</summary>
     public void Invalidate() => _hasLast = false;
 
+    private long _freshTick = -1;
+    private HappinessBreakdown _fresh;
+
+    /// <summary>
+    /// Rozpad pro guvernéra: spočítaný teď, bez placení údržby, jednou za tik.
+    ///
+    /// <para><b>Proč ne ten z posledního přepočtu jako UI:</b> guvernér se podle
+    /// něj rozhoduje, a rozhodnutí musí být čistou funkcí uloženého stavu — jinak
+    /// by se načtená hra rozešla s tou, která běžela dál (načtená by do dalšího
+    /// přepočtu žádný rozpad neměla). Spam knihoven, kvůli kterému se rozpad začal
+    /// cachovat, tady nehrozí: guvernér rozlišuje dosah a zaplacenou obsluhu.</para>
+    /// </summary>
+    public HappinessBreakdown FreshForGovernor(Simulation sim, HappinessConfig config)
+    {
+        if (_freshTick != sim.TickCount)
+        {
+            _fresh = Evaluate(sim, config, payUpkeep: false);
+            _freshTick = sim.TickCount;
+        }
+
+        return _fresh;
+    }
+
     /// <summary>
     /// Spočítá spokojenost rozepsanou na položky. <paramref name="payUpkeep"/> =
     /// false umožní se jen podívat, aniž by se tím strhly suroviny.
@@ -115,10 +138,16 @@ internal sealed class HappinessSystem
     public bool TryFindUnservedHome(Simulation sim, out int x, out int y)
     {
         x = y = 0;
-        if (!_content.Gameplay.Happiness.HasServiceReach)
+        var config = _content.Gameplay.Happiness;
+        if (!config.IsEnabled || !config.HasServiceReach)
         {
             return false;
         }
+
+        // Pole „kdo je bez služby" musí patřit tomuhle okamžiku, ne poslednímu
+        // přepočtu — kvůli determinismu po načtení (viz FreshForGovernor).
+        _freshTick = -1;
+        FreshForGovernor(sim, config);
 
         var buildings = sim.Buildings;
         int best = -1;

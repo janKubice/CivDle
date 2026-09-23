@@ -176,6 +176,37 @@ public sealed class ResourceLedger
     public double NetPerSecond(int resourceIndex) =>
         _produced[resourceIndex] - _consumed[resourceIndex];
 
+    /// <summary>
+    /// Vyhlazené hodnoty jedné suroviny pro save: výroba, propad a spotřeba po
+    /// druzích. Guvernér se podle evidence rozhoduje („teče to dřevo?"), takže
+    /// načtená hra ji musí mít stejnou — jinak by se rozešla s tou, co běžela dál.
+    /// </summary>
+    internal (double Produced, double Wasted, double[] ConsumedByKind) Export(int resourceIndex)
+    {
+        var byKind = new double[KindCount];
+        for (int k = 0; k < KindCount; k++)
+        {
+            byKind[k] = _consumedByKind[k][resourceIndex];
+        }
+
+        return (_produced[resourceIndex], _wasted[resourceIndex], byKind);
+    }
+
+    /// <summary>Obnoví vyhlazené hodnoty jedné suroviny ze savu.</summary>
+    internal void Import(int resourceIndex, double produced, double wasted, IReadOnlyList<double> consumedByKind)
+    {
+        _produced[resourceIndex] = produced;
+        _wasted[resourceIndex] = wasted;
+        double total = 0;
+        for (int k = 0; k < KindCount && k < consumedByKind.Count; k++)
+        {
+            _consumedByKind[k][resourceIndex] = consumedByKind[k];
+            total += consumedByKind[k];
+        }
+
+        _consumed[resourceIndex] = total;
+    }
+
     /// <summary>Vyprázdní evidenci — po Vzestupu je předchozí ekonomika nezajímavá.</summary>
     public void Reset()
     {
