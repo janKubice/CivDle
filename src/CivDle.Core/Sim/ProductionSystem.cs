@@ -34,6 +34,13 @@ internal sealed class ProductionSystem
     /// </summary>
     private int[] _assigned = Array.Empty<int>();
 
+    /// <summary>
+    /// Proč budova zrovna nemůže dokončit cyklus, i kdyby měla lidi
+    /// (<see cref="BuildingStall.None"/> = může). Počítá se na začátku tiku
+    /// před rozdělením dělníků; drží se mezi tiky kvůli hot path.
+    /// </summary>
+    private BuildingStall[] _blocked = Array.Empty<BuildingStall>();
+
     public ProductionSystem(GameContent content)
     {
         _content = content;
@@ -80,6 +87,7 @@ internal sealed class ProductionSystem
         if (_assigned.Length < buildings.Length)
         {
             Array.Resize(ref _assigned, Math.Max(buildings.Length, _assigned.Length * 2 + 16));
+            Array.Resize(ref _blocked, _assigned.Length);
         }
 
         sim.IdleBuildings = AssignWorkers(sim, buildings);
@@ -135,7 +143,11 @@ internal sealed class ProductionSystem
                 // Nejčastější tichá příčina „proč se nic neděje": budovu nemá kdo
                 // obsluhovat. Bez tohohle příznaku nedostala ani červený roh,
                 // protože se nikdy nedopracovala na konec cyklu.
-                SetStall(ref building, def, BuildingStall.NoWorkers);
+                //
+                // Jenže budova, která stojí na vstupu nebo plném skladu, dostává
+                // lidi až nakonec — a hlásit u ní „chybí lidé" by hráče poslalo
+                // stavět domy místo dřevorubce. Hlásí se skutečná příčina.
+                SetStall(ref building, def, _blocked[i] != BuildingStall.None ? _blocked[i] : BuildingStall.NoWorkers);
                 continue;
             }
 
@@ -256,8 +268,10 @@ internal sealed class ProductionSystem
     /// <summary>
     /// Rozdělí lidi mezi budovy a vrátí, kolik budov zůstalo úplně bez dělníka.
     ///
-    /// <para>Dvě kola: nejdřív budovy, jejichž surovina dochází (sklad pod prahem
-    /// <see cref="StaffingConfig.ScarcityThreshold"/>), pak zbytek v pořadí stavby.</para>
+    /// <para>Tři kola: nejdřív budovy, které můžou pracovat a jejichž surovina
+    /// dochází (sklad pod prahem <see cref="StaffingConfig.ScarcityThreshold"/>),
+    /// pak ostatní, které můžou pracovat, a nakonec ty, které by stejně stály
+    /// (bez vstupu, s plným skladem, rozestavěné).</para>
     ///
     /// <para>Proč takhle: dřív se obsazenost počítala globálně jako populace ÷
     /// všechna pracovní místa, takže každá další výrobna zpomalila i všechny
@@ -271,26 +285,108 @@ internal sealed class ProductionSystem
     private int AssignWorkers(Simulation sim, Span<BuildingInstance> buildings)
     {
         RefreshScarcity(sim);
+        ClassifyBlocked(sim, buildings);
 
         Array.Clear(_assigned, 0, buildings.Length);
         long workforce = (long)Math.Floor(sim.Population);
-        long workersLeft = AssignPass(buildings, workforce, scarceOnly: true);
-        workersLeft = AssignPass(buildings, workersLeft, scarceOnly: false);
+        long workersLeft = AssignPass(buildings, workforce, StaffingPass.ScarceReady);
+        workersLeft = AssignPass(buildings, workersLeft, StaffingPass.Ready);
+        workersLeft = AssignPass(buildings, workersLeft, StaffingPass.Blocked);
 
         // Kolik lidí opravdu pracuje — podle toho se opotřebovávají nástroje.
         // Tady je to zadarmo, jinde by se to muselo počítat znovu.
         sim.EmployedWorkers = workforce - workersLeft;
 
+        // „Prázdná" je jen budova, která by pracovala, kdyby měla lidi. Pila bez
+        // dřeva není prázdná, je hladová — a guvernér podle tohohle čísla
+        // usuzuje, jestli smí stavět další výrobny. Kdyby se sem počítala,
+        // přestal by stavět právě toho dřevorubce, který by ji nakrmil.
         int idle = 0;
         for (int i = 0; i < buildings.Length; i++)
         {
-            if (_defs[buildings[i].DefIndex].WorkerSlots > 0 && _assigned[i] == 0)
+            if (_defs[buildings[i].DefIndex].WorkerSlots > 0 && _assigned[i] == 0
+                && _blocked[i] == BuildingStall.None)
             {
                 idle++;
             }
         }
 
         return idle;
+    }
+
+    /// <summary>Kolo přidělování dělníků.</summary>
+    private enum StaffingPass
+    {
+        /// <summary>Budovy, které můžou pracovat a vyrábějí nedostatkovou surovinu.</summary>
+        ScarceReady,
+
+        /// <summary>Ostatní budovy, které můžou pracovat.</summary>
+        Ready,
+
+        /// <summary>Budovy, které by stejně stály (bez vstupu, plný sklad, staveniště) — jen zbytek.</summary>
+        Blocked,
+    }
+
+    /// <summary>
+    /// Jak často dostane budova, které došlo okolí, šanci zkusit to znovu.
+    /// Les dorůstá — kdyby se na ni už nikdy nedostali lidé, nikdy by to nezjistila.
+    /// </summary>
+    private const int TerrainRetryTicks = 50;
+
+    /// <summary>
+    /// Zjistí u každé budovy, jestli by s lidmi vůbec mohla dokončit cyklus.
+    ///
+    /// <para>Proč: dřív šli dělníci podle pořadí stavby a nedostatkovosti — a pila
+    /// bez dřeva (prkna jsou „nedostatková") dostala lidi přednostně, zatímco
+    /// dřevorubec, který by ji nakrmil, stál prázdný. Při málo lidech to byl
+    /// zámek navždy. Teď jdou lidé nejdřív tam, kde opravdu něco vznikne.</para>
+    /// </summary>
+    private void ClassifyBlocked(Simulation sim, Span<BuildingInstance> buildings)
+    {
+        var resources = sim.Resources;
+        var caps = sim.StorageCaps;
+        long tick = sim.TickCount;
+
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            ref readonly var building = ref buildings[i];
+            var def = _defs[building.DefIndex];
+
+            if (building.DisabledTicks > 0)
+            {
+                _blocked[i] = BuildingStall.Damaged;
+                continue;
+            }
+
+            if (!building.IsComplete)
+            {
+                _blocked[i] = BuildingStall.UnderConstruction;
+                continue;
+            }
+
+            if (def.Recipe is not { } recipe)
+            {
+                _blocked[i] = BuildingStall.None;
+                continue;
+            }
+
+            if (IsBlockedByFullStorage(def, recipe, resources, caps))
+            {
+                _blocked[i] = BuildingStall.OutputFull;
+            }
+            else if (!HasInputs(resources, recipe))
+            {
+                _blocked[i] = BuildingStall.MissingInput;
+            }
+            else if (def.HarvestsTerrain && building.OutOfResources && (tick + i) % TerrainRetryTicks != 0)
+            {
+                _blocked[i] = BuildingStall.NoTerrain;
+            }
+            else
+            {
+                _blocked[i] = BuildingStall.None;
+            }
+        }
     }
 
     /// <summary>
@@ -326,15 +422,24 @@ internal sealed class ProductionSystem
     }
 
     /// <summary>
-    /// Jedno kolo přidělování. <paramref name="scarceOnly"/> = ber jen budovy
-    /// vyrábějící nedostatkovou surovinu; druhé kolo pak dosype zbytek.
+    /// Jedno kolo přidělování. Kola jdou od budov, kde práce opravdu něco
+    /// vyrobí a je to potřeba, po ty, které by stejně stály — ty dostanou
+    /// jen to, co zbude.
     /// </summary>
-    private long AssignPass(Span<BuildingInstance> buildings, long workersLeft, bool scarceOnly)
+    private long AssignPass(Span<BuildingInstance> buildings, long workersLeft, StaffingPass pass)
     {
         for (int i = 0; i < buildings.Length && workersLeft > 0; i++)
         {
             int defIndex = buildings[i].DefIndex;
-            if (scarceOnly && !_defScarce[defIndex])
+            bool ready = _blocked[i] == BuildingStall.None;
+            bool take = pass switch
+            {
+                StaffingPass.ScarceReady => ready && _defScarce[defIndex],
+                StaffingPass.Ready => ready,
+                _ => !ready,
+            };
+
+            if (!take)
             {
                 continue;
             }
