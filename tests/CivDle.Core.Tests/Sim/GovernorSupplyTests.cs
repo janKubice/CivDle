@@ -17,7 +17,8 @@ namespace CivDle.Core.Tests.Sim;
 /// <item>k hladovým pilám přibývaly další pily místo dřevorubců,</item>
 /// <item>vykácený dřevorubec stál navždy, i když o kus dál rostl les,</item>
 /// <item>skála blíž k městu vyčerpala hledání dřív, než došlo na les,</item>
-/// <item>lidé bez práce dostávali další hladovou pilu místo dřevorubce.</item>
+/// <item>lidé bez práce dostávali další hladovou pilu místo dřevorubce,</item>
+/// <item>pekárna a mlýn vyrostly, i když obilné pole bylo za výzkumem.</item>
 /// </list>
 /// </summary>
 public class GovernorSupplyTests
@@ -31,6 +32,9 @@ public class GovernorSupplyTests
     private const int Planks = 2;
     private const int Ore = 3;
     private const int Metal = 4;
+    private const int Bread = 5;
+    private const int Flour = 6;
+    private const int Grain = 7;
 
     private const int LumberCamp = 0;
     private const int Sawmill = 1;
@@ -39,6 +43,8 @@ public class GovernorSupplyTests
     private const int Mine = 4;
     private const int Smelter = 5;
     private const int Kiln = 6;
+    private const int Mill = 7;
+    private const int Bakery = 8;
 
     /// <summary>Kde roste velký les (daleko od města).</summary>
     private static readonly (int MinX, int MinY, int MaxX, int MaxY) FarForest = (30, 30, 38, 38);
@@ -46,7 +52,7 @@ public class GovernorSupplyTests
     /// <summary>Skalnatý pás mezi městem a lesem (uzly rudy, dřevorubec tam nesmí).</summary>
     private static readonly (int MinX, int MinY, int MaxX, int MaxY) Rocks = (10, 10, 27, 27);
 
-    private static GameContent Content(bool renewableForest = false)
+    private static GameContent Content(bool renewableForest = false, bool breadChain = false)
     {
         var yield = new ClickYield(Wood, 1, Charges: 1, RegrowSeconds: renewableForest ? 30 : 0);
         var biomes = new[]
@@ -64,6 +70,9 @@ public class GovernorSupplyTests
             new Resource("planks", new RgbColor(1, 1, 1), StartAmount: 0, BaseStorage: 1000),
             new Resource("ore", new RgbColor(1, 1, 1), StartAmount: 0, BaseStorage: 1000),
             new Resource("metal", new RgbColor(1, 1, 1), StartAmount: 0, BaseStorage: 1000),
+            new Resource("bread", new RgbColor(1, 1, 1), StartAmount: 0, BaseStorage: 1000),
+            new Resource("flour", new RgbColor(1, 1, 1), StartAmount: 0, BaseStorage: 1000),
+            new Resource("grain", new RgbColor(1, 1, 1), StartAmount: 0, BaseStorage: 1000),
         };
 
         bool[] grassOnly = { false, true, false, false };
@@ -122,13 +131,45 @@ public class GovernorSupplyTests
             AutoBuild = new AutoBuildConfig(IntervalTicks: 5, SearchRadius: 6, PopulationHeadroom: 2),
         };
 
-        return TestContent.Build(
-            biomes, fallbackBiomeIndex: 1, resources,
-            new[] { lumberCamp, sawmill, house, slowCamp, mine, smelter, kiln }, gameplay);
+        var buildings = new List<BuildingDef> { lumberCamp, sawmill, house, slowCamp, mine, smelter, kiln };
+        if (breadChain)
+        {
+            // Chléb ← mouka ← obilí; obilné pole je „za výzkumem" (nestavitelné).
+            // Větší dům za chléb dělá z chleba stavební materiál — přesně to,
+            // co guvernéra ve hře dovedlo k pekárně.
+            buildings.Add(TestContent.Converter("mill", Grain, 3, Flour, 2, timeTicks: 5, biomeCount: 4,
+                buildCost: new[] { new ResourceAmount(Wood, 5) }, autoBuild: true) with
+            {
+                Category = "production",
+                AllowedBiomes = grassOnly,
+            });
+            buildings.Add(TestContent.Converter("bakery", Flour, 2, Bread, 3, timeTicks: 5, biomeCount: 4,
+                buildCost: new[] { new ResourceAmount(Wood, 5) }, autoBuild: true) with
+            {
+                Category = "production",
+                AllowedBiomes = grassOnly,
+            });
+            buildings.Add(TestContent.Producer("grain_field", Grain, 4, timeTicks: 5, biomeCount: 4) with
+            {
+                Category = "production",
+                AllowedBiomes = grassOnly,
+                Buildable = false,
+            });
+            buildings.Add(TestContent.SimpleBuilding("bread_house", 4, housing: 8) with
+            {
+                Category = "housing",
+                AllowedBiomes = grassOnly,
+                AutoBuild = true,
+                BuildCost = new[] { new ResourceAmount(Bread, 10) },
+            });
+        }
+
+        return TestContent.Build(biomes, fallbackBiomeIndex: 1, resources, buildings, gameplay);
     }
 
     /// <summary>Louka s lesem daleko od města; volitelně malý háj hned vedle a skála mezi.</summary>
-    private static Simulation World(bool grove = false, bool renewableForest = false, bool rocks = false)
+    private static Simulation World(
+        bool grove = false, bool renewableForest = false, bool rocks = false, bool breadChain = false)
     {
         var map = new WorldMap(48, 48);
         Array.Fill(map.BiomeIndices, Grass);
@@ -143,7 +184,7 @@ public class GovernorSupplyTests
             Paint(map, (8, 8, 9, 9));
         }
 
-        return new Simulation(Content(renewableForest), new GridTerrain(map), seed: 11);
+        return new Simulation(Content(renewableForest, breadChain), new GridTerrain(map), seed: 11);
     }
 
     private static void Paint(WorldMap map, (int MinX, int MinY, int MaxX, int MaxY) area, byte biome = Forest)
@@ -225,6 +266,41 @@ public class GovernorSupplyTests
 
         Assert.Equal(1, CountOf(sim, Sawmill));
         Assert.True(CountOf(sim, LumberCamp) > 0, "lidem bez práce nepřibyl dřevorubec");
+    }
+
+    [Fact]
+    public void ItDoesNotStartAChainItCannotFinish()
+    {
+        // Město chce bydlení; nejlepší dům stojí chléb. Guvernér by sháněl
+        // chléb → pekárna → mouka → mlýn → obilí, a obilné pole je za
+        // výzkumem: pekárna i mlýn by stály od prvního dne.
+        var sim = World(breadChain: true);
+        sim.TryPlaceBuildingFree(House, 2, 2);
+        sim.SetPopulationForTest(9); // strop 10 − rezerva 2 → chce další dům
+        sim.DebugSetResource(Wood, 200); // na pekárnu i mlýn by bylo
+
+        Run(sim, 200);
+
+        Assert.Equal(0, CountOf(sim, Bakery));
+        Assert.Equal(0, CountOf(sim, Mill));
+    }
+
+    [Fact]
+    public void AStuckChainNamesItsRoot_NotTheMiddle()
+    {
+        // Hráč postavil pekárnu sám. Guvernér ji nenakrmí — ale musí říct
+        // proč správně: chybí obilí (vyzkoumej pole), ne mouka (postav mlýn,
+        // který by stál taky).
+        var sim = World(breadChain: true);
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuildingFree(Bakery, 5, 5));
+        sim.DebugSetResource(Wood, 200);
+
+        Run(sim, 20);
+
+        Assert.Equal(GovernorActivity.Stuck, sim.GovernorStatus.Activity);
+        Assert.Equal(GovernorBlocker.NoProducer, sim.GovernorStatus.Blocker);
+        Assert.Equal(Grain, sim.GovernorStatus.ResourceIndex);
+        Assert.Equal(0, CountOf(sim, Mill));
     }
 
     [Fact]

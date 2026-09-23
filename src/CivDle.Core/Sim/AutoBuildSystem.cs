@@ -20,6 +20,7 @@ internal sealed class AutoBuildSystem
     private readonly GovernorNeeds _needs;
     private readonly BuildingCapability[] _capabilities;
     private readonly GovernorSites _sites;
+    private readonly GovernorChains _chains;
 
     /// <summary>Stavební materiály a jídlo (viz <see cref="Materials"/>) — předpočítané.</summary>
     private readonly int[] _materials;
@@ -34,6 +35,7 @@ internal sealed class AutoBuildSystem
         _needs = new GovernorNeeds(content);
         _capabilities = GovernorNeeds.Capabilities(content);
         _sites = new GovernorSites(content);
+        _chains = new GovernorChains(content, _capabilities);
         _materials = Materials(content);
 
         int radius = content.Gameplay.AutoBuild.SearchRadius;
@@ -167,6 +169,7 @@ internal sealed class AutoBuildSystem
         Span<CityNeed> needs = stackalloc CityNeed[GovernorNeeds.MaxNeeds];
         _claimedThisRound = false;
         _roundStatus = GovernorStatus.Idle;
+        _chains.BeginRound();
 
         for (int b = 0; b < budget; b++)
         {
@@ -364,7 +367,9 @@ internal sealed class AutoBuildSystem
         int count = RankProducers(sim, resource, producers);
         if (count == 0)
         {
-            SetStuck(sim, GovernorBlocker.NoProducer, forTarget, resource);
+            // Hlásí se kořen řetězu: „nemá čím vyrobit obilí" řekne hráči, co
+            // vyzkoumat; „nemá čím vyrobit mouku" by ho poslalo stavět mlýn.
+            SetStuck(sim, GovernorBlocker.NoProducer, forTarget, _chains.MissingRoot(sim, resource));
             return Outcome.Impossible;
         }
 
@@ -872,7 +877,7 @@ internal sealed class AutoBuildSystem
     /// lidé — na to rezerva nesáhne, takže kdyby snědli celý přítok, šetřilo by
     /// se donekonečna. (Výroba, topení, údržba i nástroje rezervu respektují.)
     /// </summary>
-    private static bool IsFlowing(Simulation sim, int resource)
+    internal static bool IsFlowing(Simulation sim, int resource)
     {
         var ledger = sim.Ledger;
         return ledger.ProducedPerSecond(resource) - ledger.UncontrolledPerSecond(resource) > FlowEpsilon;
@@ -910,7 +915,8 @@ internal sealed class AutoBuildSystem
             var capability = _capabilities[defIndex];
             if (!IsAllowedForSupply(sim, defIndex)
                 || !capability.Outputs.Contains(resource)
-                || capability.NeedsInputs.Contains(resource))
+                || capability.NeedsInputs.Contains(resource)
+                || !_chains.InputsObtainable(sim, defIndex)) // mlýn bez obilí by jen stál
             {
                 continue;
             }
@@ -965,28 +971,8 @@ internal sealed class AutoBuildSystem
         return true;
     }
 
-    /// <summary>
-    /// Smí guvernér tuhle budovu postavit, aby nakrmil řetězec? Kromě budov
-    /// s <c>autoBuild</c> i běžné výrobny (doly, huti, dílny) — ale ne divy,
-    /// podmořské stavby, bydlení ani služby: ty zůstávají hráčovou volbou.
-    /// </summary>
-    private bool IsAllowedForSupply(Simulation sim, int defIndex)
-    {
-        var def = _content.Buildings[defIndex];
-        if (!def.Buildable || !sim.IsBuildingUnlocked(defIndex) || def.Recipe is null)
-        {
-            return false;
-        }
-
-        if (def.AutoBuild)
-        {
-            return true;
-        }
-
-        return (def.Category == "production" || def.Category == "industry")
-            && !def.IsSubsea
-            && def.BuildTicks == 0;
-    }
+    /// <summary>Smí guvernér budovu postavit, aby nakrmil řetězec? (viz <see cref="GovernorChains"/>)</summary>
+    private bool IsAllowedForSupply(Simulation sim, int defIndex) => _chains.IsAllowedForSupply(sim, defIndex);
 
     /// <summary>
     /// Zapíše, že guvernér uvízl, a jednou za čas to řekne hráči. Stav pro UI se
@@ -1127,6 +1113,13 @@ internal sealed class AutoBuildSystem
             if (score <= 0 || IsPointlessNow(sim, defIndex, need))
             {
                 continue; // tuhle potřebu neřeší (nebo by ji stejně neobsloužil)
+            }
+
+            // Budova, jejíž vstup nikdo nevyrobí (pekárna, když je obilné pole
+            // za výzkumem), by stála od prvního dne.
+            if (!_chains.InputsObtainable(sim, defIndex))
+            {
+                continue;
             }
 
             int at = count++;
