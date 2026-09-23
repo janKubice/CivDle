@@ -43,6 +43,7 @@ internal sealed class SeasonSystem
         double available = resources[calendar.FuelResourceIndex];
         double burned = Math.Min(available, demand);
         resources[calendar.FuelResourceIndex] = available - burned;
+        sim.Ledger.RecordConsumed(calendar.FuelResourceIndex, burned, ConsumptionKind.Heating);
 
         // Netopí se „skoro dost" — buď je čím, nebo město mrzne a přestane růst.
         sim.HasFuelForHeating = burned >= demand - 1e-9;

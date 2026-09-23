@@ -3860,6 +3860,7 @@ public sealed class GameplayScreen : IScreen
         {
             text.Append('\n').Append(loc.Format("tip.resource.production", Flow(made)));
             text.Append('\n').Append(loc.Format("tip.resource.consumption", Flow(used)));
+            AppendConsumptionParts(text, ledger, resourceIndex);
             text.Append('\n').Append(loc.Format("tip.resource.net", Flow(made - used)));
         }
 
@@ -3881,6 +3882,41 @@ public sealed class GameplayScreen : IScreen
         }
 
         return text.ToString();
+    }
+
+    /// <summary>Lokalizační klíče druhů spotřeby — ve stejném pořadí jako <see cref="ConsumptionKind"/>.</summary>
+    private static readonly string[] ConsumptionKindKeys =
+    {
+        "tip.resource.use.recipes",
+        "tip.resource.use.purchases",
+        "tip.resource.use.people",
+        "tip.resource.use.heating",
+        "tip.resource.use.upkeep",
+        "tip.resource.use.tools",
+    };
+
+    /// <summary>
+    /// Rozepíše spotřebu na druhy. Samotné číslo „spotřeba 5/s" neřeklo, jestli
+    /// jídlo jedí lidé, nebo ho spolykala údržba trhů — a to jsou dvě různé rady.
+    /// Druh, který tvoří celou spotřebu, se nerozepisuje: řádek by jen opakoval číslo.
+    /// </summary>
+    private void AppendConsumptionParts(System.Text.StringBuilder text, ResourceLedger ledger, int resourceIndex)
+    {
+        var loc = _screens.Loc;
+        double total = ledger.ConsumedPerSecond(resourceIndex);
+        for (int kind = 0; kind < ConsumptionKindKeys.Length; kind++)
+        {
+            double part = ledger.ConsumedPerSecond(resourceIndex, (ConsumptionKind)kind);
+            if (part > 0.005 && part < total - 0.005)
+            {
+                text.Append('\n').Append(loc.Format(
+                    "tip.resource.usePart", loc[ConsumptionKindKeys[kind]], CivDle.Core.Numbers.Format(part)));
+            }
+            else if (part > 0.005)
+            {
+                text.Append(' ').Append(loc.Format("tip.resource.useOnly", loc[ConsumptionKindKeys[kind]]));
+            }
+        }
     }
 
     /// <summary>Popisek typu zóny: čím ji automat zaplňuje (z priority v datech).</summary>

@@ -24,6 +24,7 @@ internal sealed class PopulationSystem
         double demand = sim.Population * _config.FoodPerPersonPerSecond * dt;
         double eaten = Math.Min(food, demand);
         resources[_config.FoodResourceIndex] = food - eaten;
+        sim.Ledger.RecordConsumed(_config.FoodResourceIndex, eaten, ConsumptionKind.People);
 
         // Roste se jen s plným břichem a volnou kapacitou bydlení.
         // Trvalý bonus Vzestupu růst zrychluje.

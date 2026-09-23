@@ -1244,7 +1244,7 @@ public sealed class Simulation
             // Jediné místo, kudy procházejí VŠECHNY útraty (stavba, vylepšení,
             // sloučení, výzkum, silnice). Proto se spotřeba účtuje tady, ne
             // v devíti voláních — jinak by se na jedno vždycky zapomnělo.
-            _ledger.RecordConsumed(cost[i].ResourceIndex, cost[i].Amount);
+            _ledger.RecordConsumed(cost[i].ResourceIndex, cost[i].Amount, ConsumptionKind.Purchases);
         }
     }
 
@@ -2323,6 +2323,7 @@ public sealed class Simulation
 
         var reward = ContractReward(slot);
         _resources[def.DemandResourceIndex] -= _contractSlots[slot].DemandAmount;
+        _ledger.RecordConsumed(def.DemandResourceIndex, _contractSlots[slot].DemandAmount, ConsumptionKind.Purchases);
         for (int i = 0; i < reward.Count; i++)
         {
             AddResource(reward[i].ResourceIndex, reward[i].Amount);
@@ -3198,10 +3199,17 @@ public sealed class Simulation
     /// </summary>
     public void AddResource(int resourceIndex, double amount)
     {
-        _resources[resourceIndex] = Math.Clamp(_resources[resourceIndex] + amount, 0, _storageCaps[resourceIndex]);
+        double before = _resources[resourceIndex];
+        _resources[resourceIndex] = Math.Clamp(before + amount, 0, _storageCaps[resourceIndex]);
         if (amount > 0)
         {
             _resourceKnown[resourceIndex] = true; // získáním se surovina odemyká v UI
+        }
+        else
+        {
+            // Odběr mimo recepty (volba v události, modlitba, kláda na řece) je
+            // taky spotřeba — jinak by ji tooltip nevysvětlil.
+            _ledger.RecordConsumed(resourceIndex, before - _resources[resourceIndex], ConsumptionKind.Purchases);
         }
     }
 
@@ -8069,6 +8077,7 @@ public sealed class Simulation
         }
 
         _resources[resourceIndex] -= amount;
+        _ledger.RecordConsumed(resourceIndex, amount, ConsumptionKind.Purchases);
         if (_grandWork.Invest(resourceIndex, amount))
         {
             CompleteGrandWorkStage();

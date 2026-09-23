@@ -35,6 +35,8 @@ internal sealed class ToolsSystem
 
         // Do záporu se nikdy nejde: bez nástrojů se pracuje hůř (nulový bonus),
         // ale nikdo nedluží — soft pressure jako u jídla a paliva.
-        resources[index] = Math.Max(0, resources[index] - wear);
+        double before = resources[index];
+        resources[index] = Math.Max(0, before - wear);
+        sim.Ledger.RecordConsumed(index, before - resources[index], ConsumptionKind.Tools);
     }
 }

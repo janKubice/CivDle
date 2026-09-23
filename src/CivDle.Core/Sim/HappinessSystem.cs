@@ -118,6 +118,7 @@ internal sealed class HappinessSystem
                     for (int u = 0; u < def.Upkeep.Count; u++)
                     {
                         resources[def.Upkeep[u].ResourceIndex] -= def.Upkeep[u].Amount;
+                        sim.Ledger.RecordConsumed(def.Upkeep[u].ResourceIndex, def.Upkeep[u].Amount, ConsumptionKind.Upkeep);
                     }
                 }
             }

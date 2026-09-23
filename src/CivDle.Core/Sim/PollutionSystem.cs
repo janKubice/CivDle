@@ -97,7 +97,7 @@ internal sealed class PollutionSystem
             }
 
             var def = _content.Buildings[defIndex];
-            if (def.Pollution.IsCleaner && !TryPayUpkeep(resources, def.Upkeep))
+            if (def.Pollution.IsCleaner && !TryPayUpkeep(resources, def.Upkeep, sim.Ledger))
             {
                 continue; // vypnutá čistička nečistí (a hráč to na mapě uvidí)
             }
@@ -201,7 +201,7 @@ internal sealed class PollutionSystem
     /// Strhne údržbu, jde-li zaplatit celá. Půlka údržby by znamenala půlku
     /// čištění za plnou cenu — buď čistička jede, nebo stojí.
     /// </summary>
-    private static bool TryPayUpkeep(double[] resources, IReadOnlyList<ResourceAmount> upkeep)
+    private static bool TryPayUpkeep(double[] resources, IReadOnlyList<ResourceAmount> upkeep, ResourceLedger ledger)
     {
         for (int i = 0; i < upkeep.Count; i++)
         {
@@ -214,6 +214,7 @@ internal sealed class PollutionSystem
         for (int i = 0; i < upkeep.Count; i++)
         {
             resources[upkeep[i].ResourceIndex] -= upkeep[i].Amount;
+            ledger.RecordConsumed(upkeep[i].ResourceIndex, upkeep[i].Amount, ConsumptionKind.Upkeep);
         }
 
         return true;
