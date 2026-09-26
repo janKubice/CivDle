@@ -222,11 +222,21 @@ všech jazycích a každá výzva jméno odměny.
 
 ### A4. Kontrakty bez stropu
 
-* `maxScale` v `contracts.json` přestane být tvrdý strop: nad ním roste
-  požadavek pomaleji (měkký strop, parametr v datech).
-* Kontrakty na pozdním měřítku chtějí pozdní suroviny (elektronika, roboti,
-  nanomateriál) a jako odměnu nabízí i body Odkazu a kosmetiku, ne jen
-  suroviny, kterých je nadbytek.
+* `maxScale` v `contracts.json` už není tvrdý strop: nad ním roste nabídka
+  dál o `board.softGrowth` za zakázku (1,02 proti 1,06 pod stropem). Na hraně
+  se nic neskokuje — pomalý růst navazuje tam, kde rychlý skončil. Pojistka
+  proti přetečení (`ContractBoardConfig.NumericCeiling`, milion) není herní
+  strop, v praxi na ni nikdo nedosáhne. `softGrowth: 1` (nebo chybějící pole)
+  = dřívější tvrdý strop, starší data se chovají stejně.
+* Šest pozdních zakázek chce pozdní zboží — uran, uzliny ze dna, roboty,
+  počítače, elektroniku, nanomateriál — a odemykají se od 50 tisíc obyvatel,
+  první družice nebo tří megastruktur.
+* Čtyři z nich platí i **body Odkazu** (`legacyPoints`, 1–2 za zakázku).
+  Body se **neškálují**: suroviny má pozdní hra nadbytek a odměna v nich nic
+  neznamená, bod Odkazu je vzácný a znamená vždycky totéž. Loader pustí
+  nejvýš 10 bodů za zakázku; test hlídá, že body dávají jen zakázky
+  s podmínkou (za dřevo na zimu se Odkaz nedává).
+* Kosmetika jako odměna (styly čtvrtí) přijde s bodem B4.
 
 ### A5. Hotovo, když
 

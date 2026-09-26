@@ -1,11 +1,12 @@
 {
   "schemaVersion": 1,
-  "_comment": "Nastenka zakazek: kratka smycka mezi udalostmi (~10 min) a ukoly (desitky minut). Zakaznik chce surovinu do terminu a plati jinou. Mnozstvi i odmena rostou s poctem splnenych zakazek (board.scaleGrowth), takze stejna sablona plati i v pozdni hre. 'requires' hlida, aby osada nedostala objednavku na ocel.",
+  "_comment": "Nastenka zakazek: kratka smycka mezi udalostmi (~10 min) a ukoly (desitky minut). Zakaznik chce surovinu do terminu a plati jinou. Mnozstvi i odmena rostou s poctem splnenych zakazek (board.scaleGrowth), takze stejna sablona plati i v pozdni hre. 'requires' hlida, aby osada nedostala objednavku na ocel. Nad maxScale nabidka roste dal, jen pomaleji (board.softGrowth) - pozdni hra ma porad co delat. legacyPoints = pevne body Odkazu za odevzdani (neskaluji se).",
   "board": {
     "slots": 3,
     "restockSeconds": 40,
     "scaleGrowth": 1.06,
-    "maxScale": 40
+    "maxScale": 40,
+    "softGrowth": 1.02
   },
   "contracts": [
     {
@@ -224,6 +225,91 @@
         "building": "shrine",
         "target": 1
       }
+    },
+    {
+      "id": "uranium_contract",
+      "resource": "uranium",
+      "amount": 20,
+      "reward": {
+        "steel": 80,
+        "electronics": 20
+      },
+      "durationSeconds": 420,
+      "requires": {
+        "metric": "population",
+        "target": 50000
+      }
+    },
+    {
+      "id": "abyssal_haul",
+      "resource": "nodules",
+      "amount": 25,
+      "reward": {
+        "computer": 15,
+        "steel": 60
+      },
+      "durationSeconds": 420,
+      "requires": {
+        "metric": "population",
+        "target": 200000
+      }
+    },
+    {
+      "id": "megacity_supply",
+      "resource": "robot",
+      "amount": 20,
+      "reward": {
+        "nanomaterial": 40
+      },
+      "durationSeconds": 480,
+      "requires": {
+        "metric": "population",
+        "target": 1000000
+      },
+      "legacyPoints": 1
+    },
+    {
+      "id": "orbital_tender",
+      "resource": "computer",
+      "amount": 30,
+      "reward": {
+        "robot": 15
+      },
+      "durationSeconds": 480,
+      "requires": {
+        "metric": "satellites",
+        "target": 1
+      },
+      "legacyPoints": 1
+    },
+    {
+      "id": "planetary_census",
+      "resource": "electronics",
+      "amount": 80,
+      "reward": {
+        "computer": 30,
+        "robot": 10
+      },
+      "durationSeconds": 600,
+      "requires": {
+        "metric": "population",
+        "target": 100000000
+      },
+      "legacyPoints": 2
+    },
+    {
+      "id": "wonder_patron",
+      "resource": "nanomaterial",
+      "amount": 40,
+      "reward": {
+        "robot": 25
+      },
+      "durationSeconds": 600,
+      "requires": {
+        "metric": "megastructures",
+        "target": 3
+      },
+      "legacyPoints": 2
     }
   ]
 }

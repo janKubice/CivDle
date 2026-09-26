@@ -530,6 +530,32 @@ public class ContentLoaderTests : IDisposable
         Assert.Contains("scaleGrowth", ex.Message);
     }
 
+    [Theory]
+    [InlineData("\"softGrowth\": 0.9", "", "softGrowth")]
+    [InlineData("\"softGrowth\": 1.2", "", "softGrowth")]
+    [InlineData("\"softGrowth\": 1.02", ", \"legacyPoints\": 50", "legacyPoints")]
+    [InlineData("\"softGrowth\": 1.02", ", \"legacyPoints\": -1", "legacyPoints")]
+    public void LoadFrom_ContractSoftGrowthOrLegacyOutOfRange_Throws(string boardField, string contractField, string expected)
+    {
+        // Měkký strop, který zrychluje, a desítky bodů Odkazu za zakázku jsou
+        // překlepy — Odkaz by se tím rozpadl.
+        WriteAllValid();
+        Write("contracts.json", $$"""
+        {
+          "schemaVersion": 1,
+          "board": { "slots": 2, "restockSeconds": 30, "scaleGrowth": 1.06, "maxScale": 20, {{boardField}} },
+          "contracts": [
+            { "id": "ok", "resource": "wood", "amount": 20,
+              "reward": { "food": 10 }, "durationSeconds": 120 {{contractField}} }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
     [Fact]
     public void LoadFrom_WithoutContractsFile_LeavesBoardOff()
     {
@@ -1968,6 +1994,23 @@ public class ContentLoaderTests : IDisposable
 
         Assert.Equal(4, rules.HighUpkeepMult);
         Assert.Equal(ChallengeRulesConfig.Default.NightFoodMult, rules.NightFoodMult);
+    }
+
+    [Fact]
+    public void RealContracts_KeepGrowingPastTheCapAndPayLegacyLate()
+    {
+        var content = TestData.LoadRealContent();
+        var board = content.Contracts.Board;
+
+        Assert.True(board.SoftGrowth > 1.0, "nad stropem má nabídka dál růst");
+        Assert.Contains(content.Contracts.Contracts.All, c => c.LegacyPoints > 0);
+
+        // Body Odkazu jen za pozdní zakázky: kdo dostane Odkaz za dřevo na zimu,
+        // tomu se Odkaz rozpadne pod rukama.
+        foreach (var contract in content.Contracts.Contracts.All.Where(c => c.LegacyPoints > 0))
+        {
+            Assert.NotNull(contract.Requirement);
+        }
     }
 
     /// <summary>Minimální data + jeden scénář (i s jeho jménem a popisem v jazycích).</summary>

@@ -159,7 +159,7 @@ public sealed record DistrictTypeDto(
 public sealed record ContractsFileDto(int SchemaVersion, ContractBoardDto? Board, List<ContractDto>? Contracts);
 
 /// <summary>Nastavení nástěnky zakázek tak, jak leží v JSON.</summary>
-public sealed record ContractBoardDto(int Slots, double RestockSeconds, double ScaleGrowth, double MaxScale);
+public sealed record ContractBoardDto(int Slots, double RestockSeconds, double ScaleGrowth, double MaxScale, double? SoftGrowth = null);
 
 /// <summary>Jedna šablona zakázky tak, jak leží v JSON.</summary>
 public sealed record ContractDto(
@@ -168,7 +168,8 @@ public sealed record ContractDto(
     int Amount,
     Dictionary<string, int>? Reward,
     double DurationSeconds,
-    GoalConditionDto? Requires);
+    GoalConditionDto? Requires,
+    int LegacyPoints = 0);
 
 /// <summary>Obsah souboru <c>data/npc-cities.json</c>.</summary>
 public sealed record NpcCitiesFileDto(

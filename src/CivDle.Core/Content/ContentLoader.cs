@@ -1765,7 +1765,16 @@ public sealed class ContentLoader
                 ? (GoalCondition?)null
                 : ParseCondition(path, $"zakázka '{id}'", dto.Requires, resources, buildings, techs);
 
-            result.Add(new ContractDef(id, demandIndex, dto.Amount, reward, dto.DurationSeconds, requirement));
+            // Body Odkazu se neškálují a jsou vzácné — desítky za jednu zakázku
+            // by znehodnotily celý Odkaz. Nad 10 je to překlep.
+            if (dto.LegacyPoints is < 0 or > 10)
+            {
+                throw new ContentLoadException(path,
+                    $"Zakázka '{id}': 'legacyPoints' musí být 0–10, je {dto.LegacyPoints}.");
+            }
+
+            result.Add(new ContractDef(
+                id, demandIndex, dto.Amount, reward, dto.DurationSeconds, requirement, dto.LegacyPoints));
         }
 
         var boardDto = file.Board;
@@ -1798,8 +1807,17 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"'board.maxScale' musí být aspoň 1, je {boardDto.MaxScale}.");
         }
 
+        // Měkký růst nad stropem: pod 1 by nabídka zase klesala, nad scaleGrowth
+        // by „strop" zrychlil místo zpomalil.
+        double softGrowth = boardDto.SoftGrowth ?? 1.0;
+        if (softGrowth < 1.0 || softGrowth > boardDto.ScaleGrowth)
+        {
+            throw new ContentLoadException(path,
+                $"'board.softGrowth' musí být 1.0–scaleGrowth ({boardDto.ScaleGrowth}), je {softGrowth}.");
+        }
+
         var board = new ContractBoardConfig(
-            boardDto.Slots, boardDto.RestockSeconds, boardDto.ScaleGrowth, boardDto.MaxScale);
+            boardDto.Slots, boardDto.RestockSeconds, boardDto.ScaleGrowth, boardDto.MaxScale, softGrowth);
         return new ContractCatalog(board, new DefRegistry<ContractDef>(result, c => c.Id, "zakázka"));
     }
 

@@ -2552,6 +2552,9 @@ public sealed class Simulation
             AddResource(reward[i].ResourceIndex, reward[i].Amount);
         }
 
+        // Body Odkazu pevně, bez škálování — viz ContractDef.LegacyPoints.
+        _legacy.Earn(def.LegacyPoints);
+
         ContractsCompleted++;
         _contractSlots[slot] = ContractSlot.Empty(_content.Contracts.Board.RestockTicks);
         EnqueueNotification(new GameNotification(

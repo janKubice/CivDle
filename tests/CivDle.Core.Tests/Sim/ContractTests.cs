@@ -258,6 +258,61 @@ public class ContractTests
     // ----- „máš na to" — hlášení připravené zakázky -----
 
     /// <summary>Vyzvedne a vrátí všechna čekající oznámení.</summary>
+    // ----- pozdní hra: měkký strop a body Odkazu -----
+
+    [Fact]
+    public void AboveTheCapOrdersKeepGrowingOnlySlower()
+    {
+        // Dřív byl strop tvrdý: po ~60 zakázkách byla nabídka napořád stejná.
+        var board = new ContractBoardConfig(3, 10, ScaleGrowth: 1.06, MaxScale: 40, SoftGrowth: 1.02);
+
+        double atCap = board.ScaleAfter(64);
+        double later = board.ScaleAfter(164);
+
+        Assert.InRange(atCap, 40, 41.5); // na hraně žádný skok
+        Assert.True(later > atCap * 5, "nad stropem má nabídka dál růst");
+        Assert.True(later < Math.Pow(1.06, 164) / 20, "…ale mnohem pomaleji než pod ním");
+        Assert.True(board.ScaleAfter(100) > board.ScaleAfter(99)); // pořád roste
+    }
+
+    [Fact]
+    public void WithoutSoftGrowthTheOldCapStays()
+    {
+        var board = new ContractBoardConfig(3, 10, ScaleGrowth: 1.06, MaxScale: 40);
+
+        Assert.Equal(40, board.ScaleAfter(500));
+    }
+
+    [Fact]
+    public void ScaleNeverRunsAwayIntoNumbersThatOverflow()
+    {
+        var board = new ContractBoardConfig(3, 10, ScaleGrowth: 1.5, MaxScale: 40, SoftGrowth: 1.5);
+
+        Assert.Equal(ContractBoardConfig.NumericCeiling, board.ScaleAfter(100_000));
+    }
+
+    [Fact]
+    public void ALateOrderPaysLegacyPointsThatDoNotScale()
+    {
+        var defs = new[]
+        {
+            new ContractDef("patron", Wood, 20, new[] { new ResourceAmount(Food, 30) }, 10, LegacyPoints: 2),
+        };
+        var catalog = new ContractCatalog(
+            new ContractBoardConfig(1, 1, ScaleGrowth: 1.5, MaxScale: 40),
+            new DefRegistry<ContractDef>(defs, c => c.Id, "zakázka"));
+        var sim = NewSim(catalog, startingResources: 100_000);
+
+        for (int delivery = 0; delivery < 3; delivery++)
+        {
+            Tick(sim, 40);
+            Assert.True(sim.TryFulfilContract(FirstActive(sim)));
+        }
+
+        // Tři zakázky po dvou bodech; objednávka mezitím narostla, body ne.
+        Assert.Equal(6, sim.LegacyPoints);
+    }
+
     private static List<GameNotification> Drain(Simulation sim)
     {
         var notes = new List<GameNotification>();

@@ -56,7 +56,20 @@ public sealed class LegacySystem
             _config.Requirement.Target * Math.Pow(_config.RequirementGrowth, Depth),
             long.MaxValue / 2);
 
-    /// <summary>Ladicí přídavek bodů Odkazu (cheat menu; hra sama je jinudy nedává).</summary>
+    /// <summary>
+    /// Připíše vydělané body Odkazu (pozdní zakázky). Na rozdíl od
+    /// <see cref="Leave"/> neposouvá hloubku — hráč nic nezanechal, jen si body
+    /// vydělal.
+    /// </summary>
+    internal void Earn(long points)
+    {
+        if (points > 0)
+        {
+            Points = SaturatingAdd(Points, points);
+        }
+    }
+
+    /// <summary>Ladicí přídavek bodů Odkazu (cheat menu).</summary>
     internal void DebugGrant(long amount)
     {
         if (amount > 0)

@@ -196,6 +196,19 @@ public sealed class QuestsScreen : IScreen
     /// s velkým tlačítkem. Tichá věta mezi ostatními nestačila: hráč si
     /// splnitelné zakázky nevšiml.
     /// </summary>
+    /// <summary>
+    /// Odměna zakázky slovy: suroviny (škálované) a body Odkazu (pevné). Body
+    /// se píšou zvlášť — nejsou surovina a v pozdní hře jsou tím hlavním.
+    /// </summary>
+    private string RewardLine(int slot, ContractDef def)
+    {
+        var loc = _screens.Loc;
+        string resources = CostFormat.Line(_screens.Content, loc, _simulation.ContractReward(slot));
+        return def.LegacyPoints > 0
+            ? $"{resources}, {loc.Format("contract.legacyReward", def.LegacyPoints)}"
+            : resources;
+    }
+
     private Widget ContractRow(int slot, ContractDef def)
     {
         var loc = _screens.Loc;
@@ -226,8 +239,7 @@ public sealed class QuestsScreen : IScreen
 
         stack.Widgets.Add(new Label
         {
-            Text = loc.Format("contract.rewardLabel",
-                CostFormat.Line(content, loc, _simulation.ContractReward(slot))),
+            Text = loc.Format("contract.rewardLabel", RewardLine(slot, def)),
             TextColor = UiPalette.Good,
         });
 
@@ -249,7 +261,7 @@ public sealed class QuestsScreen : IScreen
             stack.Widgets.Add(UiFactory.MenuButton(loc["contract.deliver"], () =>
             {
                 // Text odměny se musí složit PŘED odevzdáním — pak už je slot prázdný.
-                string reward = CostFormat.Line(content, loc, _simulation.ContractReward(slot));
+                string reward = RewardLine(slot, def);
                 if (_simulation.TryFulfilContract(slot))
                 {
                     _paidLine = loc.Format("contract.paid", reward);
