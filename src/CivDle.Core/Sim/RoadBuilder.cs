@@ -22,7 +22,6 @@ namespace CivDle.Core.Sim;
 internal sealed class RoadBuilder
 {
     private readonly GameContent _content;
-    private readonly HashSet<long> _targets = new();
     private readonly HashSet<long> _visited = new();
     private readonly Dictionary<long, long> _cameFrom = new();
     private readonly Queue<long> _queue = new();
@@ -36,6 +35,9 @@ internal sealed class RoadBuilder
     /// nenajde, druhý pokus pravidlo pustí: napojení je důležitější než vzhled.
     /// </summary>
     private bool _avoidBlocks = true;
+
+    /// <summary>Budova, která se právě napojuje — její vlastní obvod cílem není.</summary>
+    private int _connecting = -1;
 
     public RoadBuilder(GameContent content)
     {
@@ -124,34 +126,14 @@ internal sealed class RoadBuilder
         }
     }
 
-    /// <summary>Připraví hledání cesty: cíle (silnice a napojené budovy) a starty (napojovaná budova).</summary>
+    /// <summary>Připraví hledání cesty: starty (obvod napojované budovy); cíle se poznají až při hledání (<see cref="IsTarget"/>).</summary>
     private void ResetSearch(Simulation sim, ReadOnlySpan<BuildingInstance> buildings, int index)
     {
-        _targets.Clear();
         _visited.Clear();
         _cameFrom.Clear();
         _queue.Clear();
         _waterRun.Clear();
-
-        foreach (var road in sim.RoadTiles)
-        {
-            _targets.Add(TileKey.Pack(road.X, road.Y));
-        }
-
-        // Cílem je jen to, co k síti opravdu vede: samotné silnice a budovy, které
-        // už napojené jsou. Kdyby se mířilo i na nenapojené, cesta by skončila
-        // u souseda ze stejného bloku — vznikl by kus dlažby mezi dvěma domy,
-        // který nikam nevede, a přesně tak město vypadat nemá.
-        //
-        // Dokud město žádnou silnici nemá, hlásí simulace všechny za napojené,
-        // takže první ulice se pořád táhne mezi dvěma vzdálenými domy.
-        for (int i = 0; i < buildings.Length; i++)
-        {
-            if (i != index && sim.IsBuildingConnected(i))
-            {
-                MarkPerimeter(sim, buildings[i], key => _targets.Add(key));
-            }
-        }
+        _connecting = index;
 
         MarkPerimeter(sim, buildings[index], key =>
         {
@@ -163,6 +145,40 @@ internal sealed class RoadBuilder
             }
         });
     }
+
+    /// <summary>
+    /// Je dlaždice cílem hledání? Cílem je jen to, co k síti opravdu vede:
+    /// samotná silnice, nebo průchozí dlaždice u budovy, která už napojená je.
+    /// Kdyby se mířilo i na nenapojené, cesta by skončila u souseda ze stejného
+    /// bloku — vznikl by kus dlažby mezi dvěma domy, který nikam nevede, a přesně
+    /// tak město vypadat nemá. Dokud město žádnou silnici nemá, hlásí simulace
+    /// všechny za napojené, takže první ulice se pořád táhne mezi dvěma
+    /// vzdálenými domy.
+    ///
+    /// <para><b>Proč se to zjišťuje až tady:</b> dřív se před každým napojením
+    /// sestavila množina všech silnic a obvodů všech napojených budov. Ve
+    /// velkém městě to byly statisíce položek pro každou budovu — v kole
+    /// guvernéra s desítkami staveb víc než celé hledání. Hledání přitom sáhne
+    /// jen na pár dlaždic kolem budovy. Obvod budovy jsou právě průchozí
+    /// dlaždice, které s ní sousedí hranou, takže stačí podívat se na čtyři
+    /// sousedy — výsledek je stejný.</para>
+    /// </summary>
+    private bool IsTarget(Simulation sim, long key)
+    {
+        int x = TileKey.X(key);
+        int y = TileKey.Y(key);
+        if (sim.IsRoad(x, y))
+        {
+            return true;
+        }
+
+        return (NextToConnected(sim, x + 1, y) || NextToConnected(sim, x - 1, y)
+                || NextToConnected(sim, x, y + 1) || NextToConnected(sim, x, y - 1))
+            && IsPassable(sim, x, y);
+    }
+
+    private bool NextToConnected(Simulation sim, int x, int y) =>
+        sim.TryGetBuildingAt(x, y, out int index) && index != _connecting && sim.IsBuildingConnected(index);
 
     /// <summary>Dotýká se půdorys budovy hranou jiné budovy? (Roh se nepočítá.)</summary>
     private bool TouchesAnotherBuilding(Simulation sim, in BuildingInstance building, int ownIndex)
@@ -200,7 +216,7 @@ internal sealed class RoadBuilder
         // Start může být rovnou cílem (budova u silnice/souseda) → cesta je jedna dlaždice.
         foreach (long key in _queue)
         {
-            if (_targets.Contains(key))
+            if (IsTarget(sim, key))
             {
                 return key;
             }
@@ -298,7 +314,7 @@ internal sealed class RoadBuilder
         _cameFrom[key] = from;
         _waterRun[key] = run;
 
-        if (_targets.Contains(key))
+        if (IsTarget(sim, key))
         {
             foundTarget = key;
             return true;
