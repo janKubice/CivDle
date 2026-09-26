@@ -3688,6 +3688,147 @@ public sealed class Simulation
     /// </summary>
     private const int MaxBlockHops = 2;
 
+    /// <summary>Fronta vlny napojení při dopočítávání (drží se mezi voláními, bez alokací).</summary>
+    private readonly Queue<int> _linkWave = new();
+
+    /// <summary>
+    /// Silnice přibyla: budovy, které se jí dotýkají, jsou napojené přímo a vlna
+    /// se od nich šíří dál — jen tam, kde zkrátí vzdálenost od ulice.
+    ///
+    /// <para><b>Proč ne plný přepočet:</b> po každé nové dlaždici se dřív
+    /// počítalo napojení celého města znovu, a guvernér v kole napojuje
+    /// desítky budov. Přidáním silnice (nebo budovy) se ale vzdálenosti můžou
+    /// jen <b>zkrátit</b> — a zkrácení stačí rozšířit od místa změny. Výsledek
+    /// je stejný jako u plného přepočtu (hlídá to test proti načtené hře).
+    /// Zbourání, přesun a vylepšení cache dál zahodí celou.</para>
+    /// </summary>
+    private void LinkAroundRoad(int x, int y)
+    {
+        if (_roadLinksDirty)
+        {
+            return; // přepočítá se celé, až se někdo zeptá
+        }
+
+        LinkDirectly(x + 1, y);
+        LinkDirectly(x - 1, y);
+        LinkDirectly(x, y + 1);
+        LinkDirectly(x, y - 1);
+        SpreadLinkWave();
+    }
+
+    private void LinkDirectly(int x, int y)
+    {
+        if (TryGetBuildingAt(x, y, out int index) && index < _buildingCount)
+        {
+            OfferLink(index, 0);
+        }
+    }
+
+    /// <summary>
+    /// Nová budova: napojená přímo, když se dotýká silnice, jinak o dům dál
+    /// než nejbližší napojený soused. Pak může sama zkrátit cestu sousedům.
+    /// </summary>
+    private void LinkNewBuilding(int index)
+    {
+        int needed = Math.Max(_buildings.Length, _buildingCount);
+        if (_roadLinked.Length < needed)
+        {
+            Array.Resize(ref _roadLinked, needed);
+            Array.Resize(ref _roadLinkHop, needed);
+        }
+
+        _roadLinked[index] = false;
+        _roadLinkHop[index] = 0;
+        if (TouchesRoad(_buildings[index]))
+        {
+            OfferLink(index, 0);
+        }
+        else
+        {
+            int best = NearestLinkedNeighbour(index);
+            if (best < MaxBlockHops)
+            {
+                OfferLink(index, best + 1);
+            }
+        }
+
+        SpreadLinkWave();
+    }
+
+    /// <summary>Napojí budovu na dané vzdálenosti, pokud je to blíž než dosud; pak ji pošle vlnou dál.</summary>
+    private void OfferLink(int index, int hop)
+    {
+        if (_roadLinked[index] && _roadLinkHop[index] <= hop)
+        {
+            return;
+        }
+
+        _roadLinked[index] = true;
+        _roadLinkHop[index] = (byte)hop;
+        _linkWave.Enqueue(index);
+    }
+
+    private void SpreadLinkWave()
+    {
+        while (_linkWave.Count > 0)
+        {
+            int index = _linkWave.Dequeue();
+            int hop = _roadLinkHop[index];
+            if (hop >= MaxBlockHops)
+            {
+                continue;
+            }
+
+            ref var building = ref _buildings[index];
+            var def = _content.Buildings[building.DefIndex];
+            for (int x = building.X; x < building.X + def.FootprintWidth; x++)
+            {
+                OfferNeighbour(index, x, building.Y - 1, hop + 1);
+                OfferNeighbour(index, x, building.Y + def.FootprintHeight, hop + 1);
+            }
+
+            for (int y = building.Y; y < building.Y + def.FootprintHeight; y++)
+            {
+                OfferNeighbour(index, building.X - 1, y, hop + 1);
+                OfferNeighbour(index, building.X + def.FootprintWidth, y, hop + 1);
+            }
+        }
+    }
+
+    private void OfferNeighbour(int from, int x, int y, int hop)
+    {
+        if (TryGetBuildingAt(x, y, out int index) && index != from && index < _buildingCount)
+        {
+            OfferLink(index, hop);
+        }
+    }
+
+    /// <summary>Nejmenší vzdálenost napojeného souseda (hranou); <see cref="MaxBlockHops"/> = žádný blízko.</summary>
+    private int NearestLinkedNeighbour(int index)
+    {
+        ref var building = ref _buildings[index];
+        var def = _content.Buildings[building.DefIndex];
+        int best = MaxBlockHops;
+        for (int x = building.X; x < building.X + def.FootprintWidth; x++)
+        {
+            best = Math.Min(best, LinkedHopAt(index, x, building.Y - 1));
+            best = Math.Min(best, LinkedHopAt(index, x, building.Y + def.FootprintHeight));
+        }
+
+        for (int y = building.Y; y < building.Y + def.FootprintHeight; y++)
+        {
+            best = Math.Min(best, LinkedHopAt(index, building.X - 1, y));
+            best = Math.Min(best, LinkedHopAt(index, building.X + def.FootprintWidth, y));
+        }
+
+        return best;
+    }
+
+    private int LinkedHopAt(int self, int x, int y) =>
+        TryGetBuildingAt(x, y, out int index) && index != self && index < _buildingCount && _roadLinked[index]
+            ? _roadLinkHop[index]
+            : MaxBlockHops;
+
     /// <summary>
     /// Rozšíří „napojeno" na blok dotýkajících se budov — ale jen na
     /// <see cref="MaxBlockHops"/> domů daleko.
@@ -3821,9 +3962,9 @@ public sealed class Simulation
             ApplyBuildingBonuses(def); // „zdarma" znamená bez ceny, ne okamžitě
         }
 
+        // Napojení na silnice si nová budova dopočítala sama (AddBuilding).
         SettlementsDirty = true;
         DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
-        _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
 
@@ -3862,7 +4003,7 @@ public sealed class Simulation
         if (_roads.Add(TileKey.Pack(x, y)))
         {
             _roadTiles.Add(new RoadTile(x, y));
-            _roadLinksDirty = true;
+            LinkAroundRoad(x, y);
             ClearGround(x, y, 1, 1); // co leželo v trase, tomu je konec
             ReportVisual(VisualEventKind.RoadBuilt, x, y);
         }
@@ -4589,9 +4730,11 @@ public sealed class Simulation
             PaveAndConnect(_buildingCount - 1, x, y);
         }
 
+        // Napojení na silnice dopočítaly AddBuilding a AddRoadTile samy —
+        // plný přepočet celého města po každé stavbě byl v kole guvernéra
+        // s desítkami staveb znatelná část jeho ceny.
         SettlementsDirty = true;
         DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
-        _roadLinksDirty = true;
         return PlacementResult.Ok;
     }
 
@@ -8216,7 +8359,9 @@ public sealed class Simulation
         // Cache napojení na silnice mluví o polích, která se právě mění — zneplatni
         // ji TADY, ne až po zavolání RoadBuilderu. Dřív to bylo až na konci
         // TryPlaceBuilding, takže se stihl někdo zeptat na napojení budovy, kterou
-        // cache ještě neznala, a sáhnout za konec pole (pád při stavbě).
+        // cache ještě neznala, a sáhnout za konec pole (pád při stavbě). Na konci
+        // se nová budova do cache dopočítá (LinkNewBuilding), když cache platila.
+        bool linksWereFresh = !_roadLinksDirty;
         _roadLinksDirty = true;
 
         _buildings[_buildingCount] = new BuildingInstance
@@ -8275,6 +8420,14 @@ public sealed class Simulation
             {
                 _occupancy[TileKey.Pack(tileX, tileY)] = _buildingCount;
             }
+        }
+
+        // Dotaz uprostřed přidávání mohl cache přepočítat (bez nové budovy) —
+        // i tak platí pro všechno ostatní, takže stačí dopočítat tuhle.
+        if (linksWereFresh || !_roadLinksDirty)
+        {
+            _roadLinksDirty = false;
+            LinkNewBuilding(_buildingCount - 1);
         }
     }
 
