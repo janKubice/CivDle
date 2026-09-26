@@ -233,13 +233,63 @@ public sealed class PoliciesScreen : IScreen
         return box;
     }
 
-    /// <summary>Kategorie, které vůbec připadají v úvahu — tedy ty s auto-stavitelnou budovou.</summary>
+    /// <summary>
+    /// Kategorie, které vůbec připadají v úvahu — ty, ve kterých guvernér
+    /// umí něco postavit. Vypínač kategorie, kde nic nestaví, by nedělal nic.
+    /// </summary>
     private IEnumerable<string> AutoBuildCategories() =>
-        _screens.Content.Buildings.All
-            .Where(b => b.AutoBuild)
-            .Select(b => b.Category)
+        Enumerable.Range(0, _screens.Content.Buildings.Count)
+            .Where(_simulation.GovernorConsiders)
+            .Select(i => _screens.Content.Buildings[i].Category)
             .Distinct()
             .OrderBy(c => c, StringComparer.Ordinal);
+
+    /// <summary>Kolik bodů plánu se ukáže — víc by z přehledu udělalo výpis.</summary>
+    private const int PlanLines = 3;
+
+    /// <summary>
+    /// Plán guvernéra: co město teď nejvíc potřebuje a čím to řeší.
+    ///
+    /// <para>Proč: stav („staví trh") říká, <em>co</em> guvernér dělá, ne
+    /// <em>proč</em>. Hráč, který viděl sklad vedle skladu, neměl jak poznat,
+    /// jestli je to úmysl, nebo chyba. Plán to říká jednou větou na cíl.</para>
+    /// </summary>
+    private void AddPlan(VerticalStackPanel box)
+    {
+        var loc = _screens.Loc;
+        var agenda = _simulation.GovernorAgenda;
+        box.Widgets.Add(new Label { Text = loc["governor.plan"], TextColor = UiPalette.Accent });
+        if (agenda.Count == 0)
+        {
+            box.Widgets.Add(new Label { Text = loc["governor.plan.none"], TextColor = UiPalette.TextDim, Wrap = true });
+            return;
+        }
+
+        for (int i = 0; i < agenda.Count && i < PlanLines; i++)
+        {
+            box.Widgets.Add(new Label
+            {
+                Text = "• " + GovernorPlanText.Line(_screens.Content, loc, agenda[i]),
+                TextColor = i == 0 ? UiPalette.TextBright : UiPalette.Text,
+                Wrap = true,
+            });
+        }
+    }
+
+    /// <summary>Přepínač „guvernér vybírá výzkum" — výchozí vypnutý, strom je hráčova volba.</summary>
+    private void AddResearchToggle(VerticalStackPanel box)
+    {
+        var loc = _screens.Loc;
+        bool on = _simulation.Plan.ChoosesResearch;
+        box.Widgets.Add(UiFactory.SmallButton(
+            loc.Format("governor.research", loc[on ? "common.on" : "common.off"]),
+            () =>
+            {
+                _simulation.Plan.SetChoosesResearch(!_simulation.Plan.ChoosesResearch);
+                BuildUi();
+            },
+            loc["governor.researchDesc"]));
+    }
 
     private static string FocusKey(GovernorFocus focus) =>
         $"governor.focus.{focus.ToString().ToLowerInvariant()}";
@@ -272,6 +322,9 @@ public sealed class PoliciesScreen : IScreen
             });
             box.Widgets.Add(new Label { Text = GovernorStatusText.Hint(loc, status), TextColor = UiPalette.TextDim, Wrap = true });
         }
+
+        AddPlan(box);
+        AddResearchToggle(box);
 
         if (!_simulation.IsGovernorUnlocked)
         {
