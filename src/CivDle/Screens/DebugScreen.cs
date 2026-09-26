@@ -204,8 +204,9 @@ public sealed class DebugScreen : IScreen
         }),
         new Section("Čas", new Lever[]
         {
-            new("Přetočit o hodinu", () => SkipTime(3600), InSmoke: false),
-            new("Přetočit o 8 hodin", () => SkipTime(8 * 3600), InSmoke: false),
+            new("Přetočit o hodinu", () => SkipTime(3600)),
+            new("Přetočit o 8 hodin", () => SkipTime(8 * 3600)),
+            new("Přetočit o 12 hodin", () => SkipTime(12 * 3600)),
             new("Další roční období", NextSeason),
             new("Svítání", () => SetTimeOfDay(Dawn, "svítání")),
             new("Poledne", () => SetTimeOfDay(Noon, "poledne")),
@@ -408,18 +409,61 @@ public sealed class DebugScreen : IScreen
     // ----- čas -----
 
     /// <summary>
-    /// Odtiká zadaný čas naráz. Je to ladicí tlačítko, takže si smí dovolit
-    /// zamrznout na okamžik obrazovku — hráč po tomhle nesahá. Víc než osm
-    /// hodin se nenabízí: dohon offline má strop dvanáct hodin a delší skok by
-    /// okno zamrazil na minuty.
+    /// Přetočí zadaný čas stejnou cestou jako dohánění offline času — po krocích
+    /// v <see cref="Update"/>, s postupem v řádku výsledku. Dřív se odtikalo
+    /// všechno naráz a u velkého města okno zamrzlo na desítky minut.
     /// </summary>
     private void SkipTime(double seconds)
     {
+        if (_skip is not null)
+        {
+            return; // jedno přetáčení stačí
+        }
+
         var now = DateTime.UtcNow;
-        var catchUp = new OfflineCatchUp(_simulation, now.AddSeconds(-seconds), now);
-        catchUp.Advance(catchUp.TotalTicks);
-        catchUp.Finish();
-        Report($"přetočeno o {seconds / 60:0} min ({catchUp.DoneTicks} tiků)");
+        _skip = new OfflineCatchUp(_simulation, now.AddSeconds(-seconds), now);
+        _skipSeconds = seconds;
+    }
+
+    /// <summary>Běžící přetáčení času (null = žádné).</summary>
+    private OfflineCatchUp? _skip;
+    private double _skipSeconds;
+    private readonly System.Diagnostics.Stopwatch _skipClock = new();
+
+    /// <summary>Kolik milisekund snímku smí přetáčení zabrat — zbytek patří oknu.</summary>
+    private const double SkipMillisPerFrame = 12.0;
+
+    private void AdvanceSkip()
+    {
+        if (_skip is null)
+        {
+            return;
+        }
+
+        _skipClock.Restart();
+        try
+        {
+            while (!_skip.IsDone && _skipClock.Elapsed.TotalMilliseconds < SkipMillisPerFrame)
+            {
+                _skip.Advance(1);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Přetáčení času selhalo: {ex}");
+            _skip.Skip();
+        }
+
+        if (!_skip.IsDone)
+        {
+            Report($"přetáčím o {_skipSeconds / 3600:0.#} h… {(int)Math.Round(_skip.Progress * 100)} %");
+            return;
+        }
+
+        _skip.Finish();
+        Report($"přetočeno o {_skipSeconds / 3600:0.#} h"
+            + (_skip.IsEstimated ? " (část odhadem po úsecích)" : string.Empty));
+        _skip = null;
     }
 
     private void SetTimeOfDay(double timeOfDay01, string name)
@@ -502,12 +546,20 @@ public sealed class DebugScreen : IScreen
                 }
             }
         }
+
+        // Přetáčení běží po krocích v Update; ve smoke se dotáhne do konce,
+        // ať projde i odhadovaná část dohánění nad skutečným městem.
+        while (_skip is not null)
+        {
+            AdvanceSkip();
+        }
     }
 
     public void Update(GameTime gameTime)
     {
         _input.Update();
-        if (_input.WasPressed(Keys.Escape))
+        AdvanceSkip();
+        if (_input.WasPressed(Keys.Escape) && _skip is null)
         {
             _screens.Pop();
         }

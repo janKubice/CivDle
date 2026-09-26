@@ -36,8 +36,16 @@ public sealed class LoadingScreen : IScreen
     /// </summary>
     private const double CatchUpMillisPerFrame = 6.0;
 
-    /// <summary>Kolik tiků se zkusí naráz, než se znovu kouknem na hodiny.</summary>
-    private const int CatchUpChunk = 250;
+    /// <summary>
+    /// Kolik kroků dohonu se udělá naráz, než se znovu kouknem na hodiny.
+    ///
+    /// <para>Bývalo to 250 tiků: u velkého města trval jeden tik desítky
+    /// milisekund, takže jedna dávka zabrala i minuty a okno mezitím nežilo —
+    /// přesně to, čemu měl časový rozpočet zabránit. Krok dohonu je teď krátký
+    /// (tik, skok, jedno kolo guvernéra, viz <see cref="OfflineCatchUp"/>)
+    /// a hodiny se kontrolují po každém.</para>
+    /// </summary>
+    private const int CatchUpChunk = 1;
 
     /// <summary>
     /// Jak rychle běží přehrávka kroniky za panelem. Rychleji než v přehrávači
@@ -163,9 +171,20 @@ public sealed class LoadingScreen : IScreen
         if (_catchUp is { IsDone: false })
         {
             _frameClock.Restart();
-            while (!_catchUp.IsDone && _frameClock.Elapsed.TotalMilliseconds < CatchUpMillisPerFrame)
+            try
             {
-                _catchUp.Advance(CatchUpChunk);
+                while (!_catchUp.IsDone && _frameClock.Elapsed.TotalMilliseconds < CatchUpMillisPerFrame)
+                {
+                    _catchUp.Advance(CatchUpChunk);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Chyba v některém systému uprostřed dohonu nesmí shodit celou
+                // hru: rozehraná partie platí, dohon se ukončí s tím, co se
+                // stihlo, a hráč pokračuje. Stopa jde do logu na opravu.
+                Console.Error.WriteLine($"Dohánění offline času selhalo: {ex}");
+                _catchUp.Skip();
             }
 
             _status.Text = _screens.Loc.Format(
