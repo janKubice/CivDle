@@ -10,16 +10,42 @@ namespace CivDle.Core.Content;
 /// <param name="Id">Stabilní ID (do savu i lokalizace).</param>
 /// <param name="Condition">Podmínka splnění (metrika ≥ práh).</param>
 /// <param name="Reward">Odměna v surovinách (smí být prázdná).</param>
+/// <param name="RetireWhen">
+/// Kdy úkol přestane dávat smysl a zavře se bez odměny; <c>null</c> = nikdy.
+/// <para><b>Proč:</b> úvodní úkoly („nasbírej ručně 10 kamene") za hráče
+/// udělala automatika jinak, než je úkol počítá, takže se nikdy nesplnily
+/// a na planetárním měřítku radily „Break Stone 0/10". Uzavření se
+/// <b>neukládá</b> — je to funkce stavu: kdo Odkazem začne znovu od vesnice,
+/// tomu se úvodní úkoly vrátí, protože zase dávají smysl.</para>
+/// </param>
+/// <param name="ActiveWhen">
+/// Od kdy je úkol vidět a počítá se; <c>null</c> = od začátku. Velké cíle
+/// pozdní hry (miliarda obyvatel…) by v první hodině jen strašily.
+/// </param>
+/// <param name="Group">Úvodní úkol, nebo Velký cíl pozdní hry (panel je nadepíše jinak).</param>
 public sealed record QuestDef(
     string Id,
     GoalCondition Condition,
-    IReadOnlyList<ResourceAmount> Reward)
+    IReadOnlyList<ResourceAmount> Reward,
+    GoalCondition? RetireWhen = null,
+    GoalCondition? ActiveWhen = null,
+    QuestGroup Group = QuestGroup.Start)
 {
     /// <summary>Lokalizační klíč jména úkolu.</summary>
     public string NameKey => $"quest.{Id}";
 
     /// <summary>Lokalizační klíč popisu úkolu.</summary>
     public string DescriptionKey => $"quest.{Id}.desc";
+}
+
+/// <summary>Skupina úkolu — podle ní panel píše „další krok", nebo „Velký cíl".</summary>
+public enum QuestGroup
+{
+    /// <summary>Úvodní a průběžné úkoly.</summary>
+    Start,
+
+    /// <summary>Velký cíl pozdní hry (dlouhý, s odměnou, která se dá ukázat).</summary>
+    Late,
 }
 
 /// <summary>

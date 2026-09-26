@@ -1949,6 +1949,31 @@ public class ContentLoaderTests : IDisposable
     private static readonly string[] EventKeys = { "event.test", "event.test.desc", "event.test.a" };
 
     [Theory]
+    [InlineData("retireWhen", "{ \"metric\": \"nesmysl\", \"target\": 1 }", "retireWhen")]
+    [InlineData("activeWhen", "{ \"metric\": \"nesmysl\", \"target\": 1 }", "activeWhen")]
+    [InlineData("group", "\"jinde\"", "skupina")]
+    public void Quest_BadRetireActiveOrGroup_Throws(string field, string value, string expected)
+    {
+        // Chybně napsaná podmínka uzavření by úkol tiše nechala viset navždy —
+        // přesně to, co pole má opravit. Proto spadne při startu.
+        WriteAllValid();
+        Write("quests.json", $$"""
+        {
+          "schemaVersion": 1,
+          "quests": [ { "id": "q", "condition": { "metric": "population", "target": 5 }, "{{field}}": {{value}} } ],
+          "dynamic": {
+            "condition": { "metric": "population", "target": 20 },
+            "targetGrowth": 1.5, "rewardGrowth": 1.5, "reward": { "food": 10 }
+          }
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
+    [Theory]
     [InlineData(0)]
     [InlineData(50_000)]
     public void Frontier_AttackerCeilingOutOfRange_Throws(int ceiling)

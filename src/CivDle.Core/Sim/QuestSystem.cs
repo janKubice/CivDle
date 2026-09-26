@@ -4,7 +4,8 @@ namespace CivDle.Core.Sim;
 
 /// <summary>
 /// Vyhodnocuje úkoly na nízké frekvenci (ne každý tik): splněné pevné úkoly
-/// označí, udělí odměnu a vyrobí oznámení; dynamický úkol se po splnění posune
+/// označí, udělí odměnu a vyrobí oznámení (jen úkoly, které běží — ne
+/// uzavřené ani ještě neviditelné, viz <see cref="Simulation.IsQuestActive"/>); dynamický úkol se po splnění posune
 /// na vyšší práh i odměnu (nekonečně). Stav (splněno, tier) drží simulace kvůli
 /// savu — systém jen řídí „jak".
 /// </summary>
@@ -35,7 +36,9 @@ internal sealed class QuestSystem
         var completed = sim.QuestsCompleted;
         for (int i = 0; i < quests.Count; i++)
         {
-            if (completed[i])
+            // Uzavřený (přerostlý) úkol se nesplní ani dodatečně — odměna za
+            // „nasbírej ručně 10 kamene" na planetárním měřítku by byla výsměch.
+            if (!sim.IsQuestActive(i))
             {
                 continue;
             }

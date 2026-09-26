@@ -61,22 +61,26 @@ automatika. Panel ho ukazuje jako „další krok" i na planetárním měřítku
 
 * V `quests.json` nové volitelné pole **`retireWhen`** — podmínka ve stejném
   tvaru jako `condition` (metrika, cíl). Když platí, úkol se **uzavře bez
-  odměny** a z panelu zmizí.
-* Výchozí pravidlo pro úvodní úkoly bez vlastního `retireWhen`: uzavřou se,
-  jakmile město dosáhne měřítka `city` (první Vzestup už proběhl, úvod
-  splnil účel). Hodnota je v datech (`quests.json` → `retireAtTier`), ne
-  v kódu.
-* Stav úkolu dostane třetí hodnotu: *splněno / probíhá / uzavřeno*. Ukládá se
-  v sekci `quests` savu; starý save bez stavu „uzavřeno" se načte jako dnes
-  a první vyhodnocení úkoly uzavře samo.
-* Kronika uzavřené úkoly nezmiňuje — nejsou úspěch ani prohra.
+  odměny** a z panelu zmizí. Pravidlo má každý úkol výslovně v datech (ruční
+  sběr a sázení po prvním Vzestupu, slučování a modlitba po druhém, setkání
+  s městy a první pomník po třetím) — žádné skryté výchozí pravidlo.
+* **Uzavření se neukládá** (změna proti prvnímu návrhu): je to funkce stavu
+  hry. Kdo Odkazem začne znovu od vesnice, tomu se úvodní úkoly vrátí,
+  protože zase dávají smysl — kdyby se stav ukládal, zůstaly by zavřené.
+  Save se tím nemění.
+* Pole **`activeWhen`** (od kdy je úkol vidět) a **`group`** (`start` / `late`)
+  slouží Velkým cílům z A2.
+* Obrazovka úkolů ukáže uzavřené úkoly šedě v sekci „Přerostlé"; kronika je
+  nezmiňuje — nejsou úspěch ani prohra.
 
-**Dotčeno:** `QuestSystem` (vyhodnocení `retireWhen` před `condition`),
-`QuestDef` + loader (validace metriky), sekce savu `quests`, panel úkolů v UI.
+**Dotčeno:** `QuestSystem` (vyhodnocuje jen běžící úkoly),
+`Simulation.IsQuestRetired` / `IsQuestActive`, `QuestDef` + loader (validace
+metriky a skupiny), panel cílů a obrazovka úkolů.
 
-**Testy:** úkol s `retireWhen` se uzavře a nevyplatí odměnu; úvodní úkol se
-uzavře po dosažení měřítka; uzavřený úkol přežije uložení a načtení; loader
-odmítne neznámou metriku v `retireWhen`.
+**Testy:** úkol s `retireWhen` se uzavře a nevyplatí odměnu; úkol se vrátí,
+když je město zase malé; skrytý Velký cíl se nesplní, dokud není vidět;
+loader odmítne neznámou metriku v `retireWhen`/`activeWhen` a neznámou
+skupinu.
 
 ### A2. Velké cíle pozdní hry
 

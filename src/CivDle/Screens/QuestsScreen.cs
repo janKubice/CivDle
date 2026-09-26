@@ -405,8 +405,26 @@ public sealed class QuestsScreen : IScreen
         list.Widgets.Add(Header(loc["panel.quests.active"]));
         for (int i = 0; i < content.Quests.Count; i++)
         {
-            if (!_simulation.IsQuestCompleted(i))
+            if (_simulation.IsQuestActive(i) && content.Quests[i].Group == QuestGroup.Start)
             {
+                var quest = content.Quests[i];
+                list.Widgets.Add(ActiveRow(loc[quest.NameKey], loc[quest.DescriptionKey], quest.Condition, quest.Reward));
+            }
+        }
+
+        // Velké cíle pozdní hry mají vlastní nadpis — jsou to dlouhé cíle
+        // s odměnou, kterou jde ukázat, ne další „postav první X".
+        bool anyLate = false;
+        for (int i = 0; i < content.Quests.Count; i++)
+        {
+            if (_simulation.IsQuestActive(i) && content.Quests[i].Group == QuestGroup.Late)
+            {
+                if (!anyLate)
+                {
+                    list.Widgets.Add(Header(loc["panel.quests.late"]));
+                    anyLate = true;
+                }
+
                 var quest = content.Quests[i];
                 list.Widgets.Add(ActiveRow(loc[quest.NameKey], loc[quest.DescriptionKey], quest.Condition, quest.Reward));
             }
@@ -432,6 +450,25 @@ public sealed class QuestsScreen : IScreen
                 }
 
                 list.Widgets.Add(CompletedRow(loc[content.Quests[i].NameKey]));
+            }
+        }
+
+        // Přerostlé: hra je za hráče udělala jinak (automatika), než je úkol
+        // počítá. Zobrazí se, ať nezmizí beze stopy, ale bez odměny a šedě.
+        bool anyRetired = false;
+        for (int i = 0; i < content.Quests.Count; i++)
+        {
+            if (_simulation.IsQuestRetired(i))
+            {
+                if (!anyRetired)
+                {
+                    var header = Header(loc["panel.quests.retired"]);
+                    header.Tooltip = loc["tip.questRetired"];
+                    list.Widgets.Add(header);
+                    anyRetired = true;
+                }
+
+                list.Widgets.Add(new Label { Text = "· " + loc[content.Quests[i].NameKey], TextColor = UiPalette.TextFaint });
             }
         }
     }

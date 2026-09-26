@@ -51,6 +51,75 @@ public class QuestTests
     }
 
     [Fact]
+    public void AnOutgrownQuest_ClosesWithoutReward()
+    {
+        // „Nasbírej ručně 10 zlata" (sklizeň) se nikdy nesplní, když surovinu
+        // dělá automatika — a jakmile je město dál, než úkol počítal, zavře se
+        // bez odměny a z panelu zmizí.
+        var outgrown = new QuestDef(
+            "gather_by_hand",
+            new GoalCondition(MetricKind.Harvested, 1, 10),
+            new[] { new ResourceAmount(1, 7) },
+            RetireWhen: new GoalCondition(MetricKind.Population, -1, 5));
+        var content = TestContent.Build(resources: FoodAndGold, quests: new[] { outgrown });
+
+        var sim = Run(content, 12);
+
+        Assert.True(sim.IsQuestRetired(0));
+        Assert.False(sim.IsQuestActive(0));
+        Assert.False(sim.IsQuestCompleted(0));
+        Assert.Equal(0, sim.GetResource(1));
+    }
+
+    [Fact]
+    public void AQuestComesBack_WhenTheCityIsSmallAgain()
+    {
+        // Uzavření se neukládá, počítá se ze stavu: kdo začne znovu od vesnice
+        // (Odkaz), tomu se úvodní úkol vrátí, protože zase dává smysl.
+        var quest = new QuestDef(
+            "gather_by_hand",
+            new GoalCondition(MetricKind.Harvested, 1, 10),
+            System.Array.Empty<ResourceAmount>(),
+            RetireWhen: new GoalCondition(MetricKind.Population, -1, 20));
+        var content = TestContent.Build(resources: FoodAndGold, quests: new[] { quest });
+        var sim = new Simulation(content, new UniformTerrain((byte)1));
+
+        sim.SetPopulationForTest(25);
+        Assert.True(sim.IsQuestRetired(0));
+
+        sim.SetPopulationForTest(5);
+        Assert.False(sim.IsQuestRetired(0));
+        Assert.True(sim.IsQuestActive(0));
+    }
+
+    [Fact]
+    public void AGreatGoal_StaysHidden_UntilItsTime()
+    {
+        // Velký cíl („miliarda obyvatel") by v první hodině jen strašil.
+        var late = new QuestDef(
+            "big_city",
+            new GoalCondition(MetricKind.Population, -1, 5),
+            new[] { new ResourceAmount(1, 3) },
+            ActiveWhen: new GoalCondition(MetricKind.Population, -1, 50),
+            Group: QuestGroup.Late);
+        var content = TestContent.Build(resources: FoodAndGold, quests: new[] { late });
+
+        var sim = Run(content, 12);
+
+        Assert.False(sim.IsQuestActive(0));
+        Assert.False(sim.IsQuestCompleted(0)); // skrytý cíl se ani nesplní
+
+        sim.SetPopulationForTest(60);
+        for (int i = 0; i < 12; i++)
+        {
+            sim.Tick();
+        }
+
+        Assert.True(sim.IsQuestCompleted(0));
+        Assert.Equal(3, sim.GetResource(1));
+    }
+
+    [Fact]
     public void DynamicQuest_AdvancesTier_WhenTargetReached()
     {
         var dynamic = new DynamicQuestConfig(

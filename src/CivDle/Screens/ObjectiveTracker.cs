@@ -140,10 +140,12 @@ internal sealed class ObjectiveTracker
         var loc = _screens.Loc;
         var content = _screens.Content;
 
+        // Jen úkoly, které běží: přerostlé úvodní úkoly („nasbírej ručně
+        // kámen" na planetárním měřítku) ani ještě skryté Velké cíle sem nepatří.
         var pending = new List<QuestDef>();
         for (int i = 0; i < content.Quests.Count && pending.Count <= MaxSideGoals; i++)
         {
-            if (!_simulation.IsQuestCompleted(i))
+            if (_simulation.IsQuestActive(i))
             {
                 pending.Add(content.Quests[i]);
             }
@@ -153,7 +155,8 @@ internal sealed class ObjectiveTracker
         if (!headlineTaken && pending.Count > 0)
         {
             var main = pending[0];
-            AddHeadline(loc[main.NameKey], loc[main.DescriptionKey], main.Condition, FocusHint.None, guide: false);
+            string caption = main.Group == QuestGroup.Late ? "hud.bigGoal" : "hud.objective";
+            AddHeadline(loc[main.NameKey], loc[main.DescriptionKey], main.Condition, FocusHint.None, guide: false, caption);
             firstSide = 1;
         }
 
@@ -233,14 +236,15 @@ internal sealed class ObjectiveTracker
         return true;
     }
 
-    private void AddHeadline(string name, string hint, GoalCondition condition, FocusHint focus, bool guide)
+    private void AddHeadline(
+        string name, string hint, GoalCondition condition, FocusHint focus, bool guide, string captionKey = "hud.objective")
     {
         var loc = _screens.Loc;
         var stack = new VerticalStackPanel { Spacing = 4 };
 
         stack.Widgets.Add(new Label
         {
-            Text = loc["hud.objective"],
+            Text = loc[captionKey],
             TextColor = UiFactory.Accent,
             Tooltip = loc["tip.objective"],
         });

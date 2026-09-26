@@ -3763,7 +3763,19 @@ public sealed class ContentLoader
 
             var condition = ParseCondition(path, $"úkol '{id}'", dto.Condition, resources, buildings, techs);
             var reward = ParseResourceAmounts(path, id, "reward", dto.Reward, resources);
-            quests.Add(new QuestDef(id, condition, reward));
+            GoalCondition? retire = dto.RetireWhen is null
+                ? null
+                : ParseCondition(path, $"úkol '{id}' (retireWhen)", dto.RetireWhen, resources, buildings, techs);
+            GoalCondition? active = dto.ActiveWhen is null
+                ? null
+                : ParseCondition(path, $"úkol '{id}' (activeWhen)", dto.ActiveWhen, resources, buildings, techs);
+            var group = (dto.Group ?? "start").Trim().ToLowerInvariant() switch
+            {
+                "start" => QuestGroup.Start,
+                "late" => QuestGroup.Late,
+                _ => throw new ContentLoadException(path, $"Úkol '{id}': neznámá skupina '{dto.Group}' (povoleno: start, late)."),
+            };
+            quests.Add(new QuestDef(id, condition, reward, retire, active, group));
         }
 
         if (file.Dynamic?.Condition is null)

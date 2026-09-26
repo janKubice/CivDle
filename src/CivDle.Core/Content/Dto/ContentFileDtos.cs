@@ -536,7 +536,13 @@ public sealed record QuestFileDto(
     DynamicQuestDto? Dynamic);
 
 /// <summary>Jeden pevný úkol tak, jak leží v JSON.</summary>
-public sealed record QuestDto(string? Id, GoalConditionDto? Condition, Dictionary<string, int>? Reward);
+public sealed record QuestDto(
+    string? Id,
+    GoalConditionDto? Condition,
+    Dictionary<string, int>? Reward,
+    GoalConditionDto? RetireWhen = null,
+    GoalConditionDto? ActiveWhen = null,
+    string? Group = null);
 
 /// <summary>Nastavení dynamických úkolů tak, jak leží v JSON.</summary>
 public sealed record DynamicQuestDto(

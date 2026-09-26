@@ -6350,6 +6350,25 @@ public sealed class Simulation
     /// <summary>Je pevný úkol splněný?</summary>
     public bool IsQuestCompleted(int questIndex) => _questsCompleted[questIndex];
 
+    /// <summary>
+    /// Přerostl hráč úkol? Počítá se ze stavu (viz <see cref="QuestDef.RetireWhen"/>),
+    /// neukládá se. Splněný úkol se za uzavřený nepovažuje.
+    /// </summary>
+    public bool IsQuestRetired(int questIndex) =>
+        !_questsCompleted[questIndex] && IsMet(_content.Quests[questIndex].RetireWhen, whenMissing: false);
+
+    /// <summary>
+    /// Běží úkol? Nesplněný, neuzavřený a už viditelný (<see cref="QuestDef.ActiveWhen"/>).
+    /// Jen takové úkoly systém vyhodnocuje a panel ukazuje.
+    /// </summary>
+    public bool IsQuestActive(int questIndex) =>
+        !_questsCompleted[questIndex]
+        && !IsQuestRetired(questIndex)
+        && IsMet(_content.Quests[questIndex].ActiveWhen, whenMissing: true);
+
+    private bool IsMet(GoalCondition? condition, bool whenMissing) =>
+        condition is { } c ? EvaluateMetric(c.Kind, c.Param) >= c.Target : whenMissing;
+
     /// <summary>Kolikátý dynamický úkol se plní (0 = první). Roste s hrou.</summary>
     public int DynamicQuestTier { get; internal set; }
 
