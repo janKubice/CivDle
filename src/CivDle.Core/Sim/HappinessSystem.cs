@@ -75,27 +75,121 @@ internal sealed class HappinessSystem
     /// <summary>Zapomene poslední rozpad (nový běh po Vzestupu, načtená hra).</summary>
     public void Invalidate() => _hasLast = false;
 
-    private long _freshTick = -1;
+    // Guvernérův pohled na obsluhu (viz FreshForGovernor): pro který okamžik
+    // platí pole _unserved/_unreached a součty z posledního přepočtu po dosahu.
+    private long _viewTick = -1;
+    private long _viewLayout;
+    private double _viewPopulation;
+    private int _viewCount;
     private HappinessBreakdown _fresh;
 
+    // Součty posledního přepočtu po dosahu — z nich se po přidání služby
+    // skládá nové pokrytí, aniž by se počítalo celé město znovu.
+    private bool _byReach;
+    private double _served, _reached, _housed, _free;
+
     /// <summary>
-    /// Rozpad pro guvernéra: spočítaný teď, bez placení údržby, jednou za tik.
+    /// Rozpad pro guvernéra: bez placení údržby, jednou za tik spočítaný celý
+    /// a pak už jen <b>dopočítávaný</b> o budovy, které guvernér v tomtéž tiku
+    /// přidal.
     ///
     /// <para><b>Proč ne ten z posledního přepočtu jako UI:</b> guvernér se podle
     /// něj rozhoduje, a rozhodnutí musí být čistou funkcí uloženého stavu — jinak
     /// by se načtená hra rozešla s tou, která běžela dál (načtená by do dalšího
     /// přepočtu žádný rozpad neměla). Spam knihoven, kvůli kterému se rozpad začal
     /// cachovat, tady nehrozí: guvernér rozlišuje dosah a zaplacenou obsluhu.</para>
+    ///
+    /// <para><b>Proč dopočítávat, a ne počítat znovu:</b> guvernér se ptá po
+    /// každé stavbě služby. Dřív to znamenalo celé město znovu — každá služba
+    /// projde domy ve svém okolí — a v kole s rozpočtem tisíců staveb to
+    /// u velkého města trvalo desítky minut; na tom zamrzalo přetočení času
+    /// i dohánění offline. Přidaná budova má nejvyšší index, takže ji plný
+    /// přepočet zpracuje jako poslední: stačí ji obsloužit ze zbytků, výsledek
+    /// je stejný (hlídá to test).</para>
+    ///
+    /// <para>Dvě zjednodušení platí do konce tiku, pak je plný přepočet srovná:
+    /// dům přidaný v tomtéž tiku je <b>prázdný</b> (lidé se do něj teprve
+    /// nastěhují — jinak by se musela přerozdělit celá populace a s ní celé
+    /// město), a údržba starších služeb se posuzuje podle stavu skladu na
+    /// začátku. Vylepšení se projeví taky až v dalším tiku. Zbourání, přesun
+    /// domu či služby a dostavba pohled zahodí (<see cref="Simulation.LayoutRevision"/>).</para>
     /// </summary>
     public HappinessBreakdown FreshForGovernor(Simulation sim, HappinessConfig config)
     {
-        if (_freshTick != sim.TickCount)
+        var buildings = sim.Buildings;
+        if (!ViewIsCurrent(sim))
         {
             _fresh = Evaluate(sim, config, payUpkeep: false);
-            _freshTick = sim.TickCount;
+            _viewTick = sim.TickCount;
+            _viewLayout = sim.LayoutRevision;
+            _viewPopulation = sim.Population;
+            _viewCount = buildings.Length;
+        }
+        else if (buildings.Length > _viewCount)
+        {
+            ExtendView(sim, config);
         }
 
         return _fresh;
+    }
+
+    private bool ViewIsCurrent(Simulation sim) =>
+        _viewTick == sim.TickCount
+        && _viewLayout == sim.LayoutRevision
+        && _viewPopulation.Equals(sim.Population)
+        && sim.Buildings.Length >= _viewCount;
+
+    /// <summary>
+    /// Dopočítá pohled o budovy přidané od posledního přepočtu (viz
+    /// <see cref="FreshForGovernor"/>). Bez pole po domech (malé město, obsluha
+    /// bez dosahu) je přepočet levný, takže se po nové službě či domě udělá celý.
+    /// </summary>
+    private void ExtendView(Simulation sim, HappinessConfig config)
+    {
+        var buildings = sim.Buildings;
+        int from = _viewCount;
+        _viewCount = buildings.Length;
+        EnsureArrays(buildings.Length);
+
+        bool changed = false;
+        for (int i = from; i < buildings.Length; i++)
+        {
+            var def = _content.Buildings[buildings[i].DefIndex];
+            bool counts = buildings[i].IsComplete && (def.ServiceValue > 0 || def.HousingCapacity > 0);
+            if (!_byReach)
+            {
+                changed |= counts;
+                continue;
+            }
+
+            // Nový dům je zatím prázdný (viz FreshForGovernor) — pole na jeho
+            // indexu může ale pamatovat budovu, která tu stála před zbouráním.
+            _unserved[i] = 0;
+            _unreached[i] = 0;
+            if (counts && def.ServiceValue > 0)
+            {
+                ServeFrom(sim, config, i, def, payUpkeep: false, ref _served, ref _reached);
+                changed = true;
+            }
+        }
+
+        if (!changed)
+        {
+            return;
+        }
+
+        if (!_byReach)
+        {
+            // Plný přepočet — pohled tím zanikne, tak se hned obnoví.
+            _fresh = Evaluate(sim, config, payUpkeep: false);
+            _viewTick = sim.TickCount;
+            _viewLayout = sim.LayoutRevision;
+            _viewPopulation = sim.Population;
+            return;
+        }
+
+        var (coverage, reach) = Ratios();
+        _fresh = Compose(sim, config, coverage, reach);
     }
 
     /// <summary>
@@ -107,7 +201,12 @@ internal sealed class HappinessSystem
         var (coverage, reach) = config.HasServiceReach
             ? CoverageByReach(sim, config, payUpkeep)
             : CoverageCitywide(sim, config, payUpkeep);
+        return Compose(sim, config, coverage, reach);
+    }
 
+    /// <summary>Složí rozpad z pokrytí službami a ze zbytku města (přelidnění, kouř, program).</summary>
+    private HappinessBreakdown Compose(Simulation sim, HappinessConfig config, double coverage, double reach)
+    {
         // Přelidnění: čím blíž je populace stropu bydlení, tím hůř se žije —
         // ale až nad prahem (viz HappinessConfig.CrowdingPenalty).
         double occupancy = sim.HousingCapacity <= 0
@@ -133,7 +232,9 @@ internal sealed class HappinessSystem
 
     /// <summary>
     /// Kde bydlí nejvíc lidí, ke kterým žádná služba nedosáhne — tam má guvernér
-    /// postavit trh. Platí pro poslední přepočet; bez dosahu služeb nic nevrací.
+    /// postavit trh. Platí pro guvernérův pohled (<see cref="FreshForGovernor"/>),
+    /// tedy včetně služeb, které v tomhle tiku už postavil; bez dosahu služeb
+    /// nic nevrací.
     /// </summary>
     public bool TryFindUnservedHome(Simulation sim, out int x, out int y)
     {
@@ -146,8 +247,11 @@ internal sealed class HappinessSystem
 
         // Pole „kdo je bez služby" musí patřit tomuhle okamžiku, ne poslednímu
         // přepočtu — kvůli determinismu po načtení (viz FreshForGovernor).
-        _freshTick = -1;
         FreshForGovernor(sim, config);
+        if (!_byReach)
+        {
+            return false; // malá vesnice nebo lidé v táboře: dosah nerozhoduje
+        }
 
         var buildings = sim.Buildings;
         int best = -1;
@@ -203,6 +307,9 @@ internal sealed class HappinessSystem
     /// </summary>
     private (double Coverage, double Reach) CoverageByReach(Simulation sim, HappinessConfig config, bool payUpkeep)
     {
+        // Pole se teď přepíšou — guvernérův pohled, pokud nějaký byl, tím končí.
+        _viewTick = -1;
+        _byReach = false;
         if (sim.Population <= config.FreePopulation)
         {
             Array.Clear(_unreached);
@@ -210,11 +317,7 @@ internal sealed class HappinessSystem
         }
 
         var buildings = sim.Buildings;
-        if (_unserved.Length < buildings.Length)
-        {
-            _unserved = new double[Math.Max(buildings.Length, _unserved.Length * 2 + 16)];
-            _unreached = new double[_unserved.Length];
-        }
+        EnsureArrays(buildings.Length);
 
         double totalWeight = 0;
         for (int i = 0; i < buildings.Length; i++)
@@ -243,37 +346,64 @@ internal sealed class HappinessSystem
             housed += people;
         }
 
-        var resources = sim.Resources;
-        int reachTiles = config.ServiceReachTiles;
         double served = 0, reached = 0;
         for (int i = 0; i < buildings.Length; i++)
         {
             var def = _content.Buildings[buildings[i].DefIndex];
-            if (def.ServiceValue <= 0 || !buildings[i].IsComplete)
+            if (def.ServiceValue > 0 && buildings[i].IsComplete)
             {
-                continue;
-            }
-
-            bool paid = PayUpkeep(sim, resources, def, payUpkeep);
-            double capacity = def.ServiceValue * config.PeoplePerServicePoint;
-
-            _nearby.Clear();
-            sim.BuildingsIn(
-                buildings[i].X - reachTiles, buildings[i].Y - reachTiles,
-                buildings[i].X + reachTiles, buildings[i].Y + reachTiles, _nearby);
-
-            reached += Serve(_unreached, capacity, buildings, buildings[i].X, buildings[i].Y, reachTiles);
-            if (paid)
-            {
-                served += Serve(_unserved, capacity, buildings, buildings[i].X, buildings[i].Y, reachTiles);
+                ServeFrom(sim, config, i, def, payUpkeep, ref served, ref reached);
             }
         }
 
         // Prvních pár lidí se obslouží samo (malá vesnice), dál rozhoduje dosah.
-        double free = Math.Min(config.FreePopulation, housed);
-        return (
-            Math.Clamp((served + free) / housed, 0.0, 1.0),
-            Math.Clamp((reached + free) / housed, 0.0, 1.0));
+        _served = served;
+        _reached = reached;
+        _housed = housed;
+        _free = Math.Min(config.FreePopulation, housed);
+        _byReach = true;
+        return Ratios();
+    }
+
+    private (double Coverage, double Reach) Ratios() => (
+        Math.Clamp((_served + _free) / _housed, 0.0, 1.0),
+        Math.Clamp((_reached + _free) / _housed, 0.0, 1.0));
+
+    /// <summary>
+    /// Jedna služba obslouží domy ve svém okolí: jednou jen se zaplacenou
+    /// údržbou (skutečnost), jednou bez ohledu na ni (dosah — rozdíl říká
+    /// „chybí suroviny na provoz", ne „chybí služby").
+    /// </summary>
+    private void ServeFrom(
+        Simulation sim, HappinessConfig config, int index, BuildingDef def, bool payUpkeep,
+        ref double served, ref double reached)
+    {
+        var buildings = sim.Buildings;
+        bool paid = PayUpkeep(sim, sim.Resources, def, payUpkeep);
+        double capacity = def.ServiceValue * config.PeoplePerServicePoint;
+        int reachTiles = config.ServiceReachTiles;
+        int x = buildings[index].X, y = buildings[index].Y;
+
+        _nearby.Clear();
+        sim.BuildingsIn(x - reachTiles, y - reachTiles, x + reachTiles, y + reachTiles, _nearby);
+
+        reached += Serve(_unreached, capacity, buildings, x, y, reachTiles);
+        if (paid)
+        {
+            served += Serve(_unserved, capacity, buildings, x, y, reachTiles);
+        }
+    }
+
+    private void EnsureArrays(int count)
+    {
+        if (_unserved.Length >= count)
+        {
+            return;
+        }
+
+        int size = Math.Max(count, _unserved.Length * 2 + 16);
+        Array.Resize(ref _unserved, size);
+        Array.Resize(ref _unreached, size);
     }
 
     /// <summary>

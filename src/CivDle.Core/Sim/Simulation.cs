@@ -1795,6 +1795,20 @@ public sealed class Simulation
     public long BuildingRevision { get; private set; }
 
     /// <summary>
+    /// Počítadlo změn zástavby, po kterých neplatí výsledky držené po indexech
+    /// budov: zbourání (swap-remove přečísluje poslední budovu), přesun domu
+    /// nebo služby, dostavba, nový běh. Přidání budovy na konec pole ho
+    /// <b>nemění</b> — to si čtenář dopočítá sám.
+    ///
+    /// <para>Existuje kvůli guvernérovi: po každé stavbě služby se ptá, kde
+    /// zůstali lidé bez obsluhy, a přepočítat kvůli tomu celé město byla
+    /// u velkého města hlavní cena kola (viz <c>HappinessSystem.FreshForGovernor</c>).
+    /// Přesun dřevorubce se nepočítá — o obsluhu nejde a guvernér jich
+    /// v jednom kole stěhuje hodně.</para>
+    /// </summary>
+    internal long LayoutRevision { get; private set; }
+
+    /// <summary>
     /// Podmořská síť: kam až od přístavů sahá moře, ve kterém se dá stavět.
     ///
     /// <para>Přepočítává se líně — teprve když se na ni někdo zeptá poté, co se
@@ -3517,6 +3531,7 @@ public sealed class Simulation
         // to musí poznat — jinak se dostavěná věc projeví až u příští stavby,
         // a u té poslední tedy nikdy.
         BuildingRevision++;
+        LayoutRevision++; // dostavěný dům nebo služba začne počítat
 
         // Rozestavěná elektrárna nedodává; dostavěná ano. Bez tohohle by se
         // proud objevil až při příští změně zástavby, tedy nikdy.
@@ -3561,6 +3576,7 @@ public sealed class Simulation
 
         building.BuildTicksRemaining = Math.Min(remainingTicks, def.BuildTicks);
         BuildingsUnderConstruction++;
+        LayoutRevision++; // z hotové budovy je zase staveniště
         RemoveBuildingBonuses(def); // obnova je připsala, staveniště je zase nemá
     }
 
@@ -7662,6 +7678,11 @@ public sealed class Simulation
 
         building.X = x;
         building.Y = y;
+        if (def.HousingCapacity > 0 || def.ServiceValue > 0)
+        {
+            LayoutRevision++; // lidé nebo obsluha jsou teď jinde
+        }
+
         // Na novém místě se okolí prohledá od začátku — kurzor i příznak „došlo"
         // patřily starému lesu. Bez toho by přestěhovaný dřevorubec hlásil prázdné
         // okolí, dokud by ho výroba náhodou nezkusila znovu.
@@ -8257,6 +8278,7 @@ public sealed class Simulation
     private void ForgetBuilding(int buildingIndex, BuildingDef def)
     {
         BuildingRevision++;
+        LayoutRevision++; // swap-remove přečísluje poslední budovu
         _buildingIndex.Remove(
             buildingIndex,
             _buildings[buildingIndex].X,
@@ -9294,6 +9316,7 @@ public sealed class Simulation
         _powerDirty = true;
         _subseaDirty = true; // bez přístavů nezůstane otevřená ani dlaždice moře
         _buildingCount = 0;
+        LayoutRevision++;
 
         Array.Clear(_techLevel);
         TechsResearched = 0; // nové měřítko se zkoumá od nuly, i cenami

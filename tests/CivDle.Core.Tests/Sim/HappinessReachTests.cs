@@ -159,6 +159,37 @@ public class HappinessReachTests
     }
 
     [Fact]
+    public void InOneRound_EveryMarketGoesWhereNobodyIsServedYet()
+    {
+        // Guvernér se po každé stavbě trhu ptá znovu, kde zůstali lidé bez
+        // služby — a odpověď si dopočítává, místo aby kvůli ní počítal celé
+        // město (to u velkého města zamrazilo přetočení času na desítky minut).
+        // Kdyby zapomněl na trh, který v tomtéž kole už postavil, dal by další
+        // vedle něj a stavěl by, dokud mu nedojde rozpočet.
+        var sim = GovernedWorld(woodForUpkeep: 1000);
+        int[] streets = { 0, 40, 80, 120 };
+        foreach (int x in streets)
+        {
+            sim.TryPlaceBuildingFree(House, x, 0);
+        }
+
+        sim.SetPopulationForTest(40); // 4 domy × 10 = plno, další bydlení nechce
+        sim.DebugBoostAutoBuild(50, 60); // rozpočet na desítky staveb v jednom kole
+
+        sim.Tick();
+
+        var markets = sim.Buildings.ToArray().Where(b => b.DefIndex == Market).ToArray();
+
+        // Trh unese 20 lidí, dům jich má 10: na 75 % pokrytí stačí tři ulice
+        // ze čtyř — víc trhů by znamenalo, že guvernér nevidí, co postavil.
+        Assert.Equal(3, markets.Length);
+        foreach (int x in streets)
+        {
+            Assert.True(markets.Count(m => Math.Abs(m.X - x) <= 5) <= 1, $"Ulice u x={x} dostala víc trhů.");
+        }
+    }
+
+    [Fact]
     public void WhenOnlyUpkeepIsMissing_NoMoreMarketsAreBuilt()
     {
         // Knihovna za knihovnou, které pak stály bez údržby taky — přesně tohle
