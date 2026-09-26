@@ -4256,8 +4256,8 @@ public sealed class Simulation
     ///
     /// <para>Pro odhadovanou část dohánění offline času: denní doba, období
     /// a dorůstání lesa se počítají z tiků, takže se posunou samy; odpočty
-    /// (slavnost, zrychlená stavba, staveniště) se tady odečtou naráz.
-    /// Suroviny a lidi sem nepatří — ty připisuje odhad zvlášť
+    /// (slavnost, zrychlená stavba, staveniště) se tady odečtou naráz a rozvrh
+    /// vln obrany se posune za skok. Suroviny a lidi sem nepatří — ty připisuje odhad zvlášť
     /// (<see cref="CreditEstimated"/>, <see cref="GrowPopulationEstimated"/>).</para>
     /// </summary>
     internal void JumpClock(long ticks)
@@ -4268,6 +4268,11 @@ public sealed class Simulation
         }
 
         TickCount += ticks;
+
+        // Bitva se za odhadnutý čas nesimuluje; vlny, které za něj měly přijít,
+        // se přeskočí (jako při zapnutí režimu v rozehrané hře). Jinak by první
+        // přesný tik po skoku posílal zmeškané vlny jednu za druhou.
+        _frontier.SkipToTick(TickCount);
         int step = (int)Math.Min(ticks, int.MaxValue);
         _boostTicksRemaining = Math.Max(0, _boostTicksRemaining - step);
         _boostCooldownRemaining = Math.Max(0, _boostCooldownRemaining - step);

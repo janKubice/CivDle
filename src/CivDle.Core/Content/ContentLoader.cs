@@ -954,6 +954,14 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, "'waveIntervalTicks' musí být kladný, jinak přijdou všechny vlny naráz.");
         }
 
+        // Strop živých útočníků drží tik i paměť v mezích (viz FrontierConfig).
+        // Nula nebo obří číslo by ho vyřadily, proto rozsah, ne jen kladnost.
+        int maxAlive = file.MaxAttackersAlive ?? FrontierConfig.DefaultMaxAttackersAlive;
+        if (maxAlive is < 1 or > 20_000)
+        {
+            throw new ContentLoadException(path, $"'maxAttackersAlive' musí být 1–20000, je {maxAlive}.");
+        }
+
         return new FrontierConfig(
             Math.Max(0, file.FirstWaveTick),
             file.WaveIntervalTicks,
@@ -961,7 +969,8 @@ public sealed class ContentLoader
             Math.Max(8, file.SpawnDistance),
             Math.Max(1, file.RepairTicks),
             attackers,
-            waves);
+            waves,
+            maxAlive);
     }
 
     /// <summary>

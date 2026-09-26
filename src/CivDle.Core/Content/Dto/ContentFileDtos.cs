@@ -828,7 +828,8 @@ public sealed record FrontierFileDto(
     int SpawnDistance,
     int RepairTicks,
     List<AttackerDto>? Attackers,
-    List<List<WaveEntryDto>>? Waves);
+    List<List<WaveEntryDto>>? Waves,
+    int? MaxAttackersAlive = null);
 
 /// <summary>Jeden druh útočníka tak, jak leží v JSON.</summary>
 public sealed record AttackerDto(

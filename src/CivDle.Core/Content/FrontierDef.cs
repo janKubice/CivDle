@@ -64,6 +64,12 @@ public readonly record struct WaveEntry(int AttackerIndex, int Count);
 /// <param name="RepairTicks">Za jak dlouho se poškozená budova sama opraví.</param>
 /// <param name="Attackers">Druhy útočníků.</param>
 /// <param name="Waves">Vzor vln; cyklí se dokola a sílí.</param>
+/// <param name="MaxAttackersAlive">
+/// Kolik útočníků smí být na mapě naráz. Vlny rostou geometricky a po pár
+/// hodinách by jich přišly miliony — tik i paměť by to položilo (přetáčení
+/// času na tom padalo). Nad stropem vlna sílí dál, jen ne počtem: přijde
+/// jich tolik, kolik se vejde, a úměrně odolnějších.
+/// </param>
 public sealed record FrontierConfig(
     int FirstWaveTick,
     int WaveIntervalTicks,
@@ -71,8 +77,12 @@ public sealed record FrontierConfig(
     int SpawnDistance,
     int RepairTicks,
     IReadOnlyList<AttackerDef> Attackers,
-    IReadOnlyList<IReadOnlyList<WaveEntry>> Waves)
+    IReadOnlyList<IReadOnlyList<WaveEntry>> Waves,
+    int MaxAttackersAlive = FrontierConfig.DefaultMaxAttackersAlive)
 {
+    /// <summary>Strop útočníků, když ho data neuvádějí.</summary>
+    public const int DefaultMaxAttackersAlive = 600;
+
     /// <summary>Hra bez obrany (starší data, mody).</summary>
     public static FrontierConfig Disabled { get; } = new(
         0, 0, 1.0, 0, 0, Array.Empty<AttackerDef>(), Array.Empty<IReadOnlyList<WaveEntry>>());
@@ -91,5 +101,12 @@ public sealed record FrontierConfig(
     /// desátá vlna má být znát, ne být totéž co první.
     /// </summary>
     public int CountInWave(int wave, WaveEntry entry) =>
-        Math.Max(1, (int)Math.Round(entry.Count * Math.Pow(StrengthGrowth, wave)));
+        (int)Math.Min(int.MaxValue, StrengthInWave(wave, entry));
+
+    /// <summary>
+    /// Totéž jako číslo s plovoucí čárkou: pozdní vlny se do <c>int</c> nevejdou
+    /// (1,18 na stou je patnáct milionů) a přetečení by z nich udělalo nesmysl.
+    /// </summary>
+    public double StrengthInWave(int wave, WaveEntry entry) =>
+        Math.Max(1, Math.Round(entry.Count * Math.Pow(StrengthGrowth, wave)));
 }

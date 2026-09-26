@@ -145,6 +145,54 @@ public class FrontierTests
     }
 
     [Fact]
+    public void AnEarlyWaveComesWhole()
+    {
+        var (sim, content) = Defended();
+        var wave = content.Frontier.WaveAt(0);
+
+        sim.Frontier.DebugForceWave(sim);
+
+        Assert.Equal(content.Frontier.CountInWave(0, wave[0]), sim.Frontier.Count);
+        Assert.All(sim.Frontier.Attackers.ToArray(),
+            a => Assert.Equal(content.Frontier.Attackers[a.TypeIndex].Health, a.Health));
+    }
+
+    [Fact]
+    public void ALateWaveStaysUnderTheCeiling_ButHitsHarder()
+    {
+        // Padesátá vlna by chtěla přes deset tisíc útočníků. Přijde jich tolik,
+        // kolik strop dovolí, a o to odolnějších — síla roste dál, počet ne.
+        var (sim, content) = Defended();
+        sim.Frontier.SkipToTick(content.Frontier.TickOfWave(50));
+
+        sim.Frontier.DebugForceWave(sim);
+        sim.Frontier.DebugForceWave(sim); // místo už není — nepřijde nikdo navíc
+
+        var attackers = sim.Frontier.Attackers.ToArray();
+        Assert.InRange(attackers.Length, 1, content.Frontier.MaxAttackersAlive);
+        int toughest = content.Frontier.Attackers.Max(a => a.Health);
+        Assert.Contains(attackers, a => a.Health > toughest);
+    }
+
+    [Fact]
+    public void ALongAbsenceInDefenceMode_DoesNotFloodTheMap()
+    {
+        // Přetočení dvanácti hodin v režimu obrany spadlo na nedostatku paměti:
+        // skok posunul hodiny, ale ne rozvrh vln, a přesné tiky po skoku pak
+        // posílaly zmeškané vlny jednu za druhou — každou větší.
+        var (sim, content) = Defended();
+        var now = new DateTime(2026, 9, 26, 12, 0, 0, DateTimeKind.Utc);
+        var catchUp = new OfflineCatchUp(sim, now.AddHours(-12), now);
+
+        catchUp.Advance(long.MaxValue);
+
+        Assert.True(catchUp.IsEstimated);
+        Assert.True(sim.Frontier.Count <= content.Frontier.MaxAttackersAlive, $"{sim.Frontier.Count} útočníků");
+        Assert.True(sim.Frontier.NextWaveTick >= sim.TickCount,
+            $"rozvrh zůstal pozadu: další vlna v tiku {sim.Frontier.NextWaveTick}, hodiny {sim.TickCount}");
+    }
+
+    [Fact]
     public void ATowerShootsAttackersDown()
     {
         var (sim, content) = Defended();

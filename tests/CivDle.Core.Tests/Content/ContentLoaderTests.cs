@@ -1948,6 +1948,33 @@ public class ContentLoaderTests : IDisposable
 
     private static readonly string[] EventKeys = { "event.test", "event.test.desc", "event.test.a" };
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(50_000)]
+    public void Frontier_AttackerCeilingOutOfRange_Throws(int ceiling)
+    {
+        // Strop útočníků drží tik i paměť v mezích; nula nebo obří číslo by ho
+        // tiše vyřadily a pozdní vlny by hru zase položily.
+        WriteAllValid();
+        Write("frontier.json", $$"""
+        {
+          "schemaVersion": 1,
+          "firstWaveTick": 100,
+          "waveIntervalTicks": 100,
+          "strengthGrowth": 1.1,
+          "spawnDistance": 20,
+          "repairTicks": 10,
+          "maxAttackersAlive": {{ceiling}},
+          "attackers": [ { "id": "raider", "health": 5, "speed": 0.1, "damage": 10, "attackIntervalTicks": 5 } ],
+          "waves": [ [ { "attacker": "raider", "count": 2 } ] ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("maxAttackersAlive", ex.Message);
+    }
+
     // ----- pomůcky -----
 
     private GameContent Load() => new ContentLoader().LoadFrom(_tempDir);

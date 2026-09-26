@@ -116,8 +116,9 @@ public sealed class FrontierSystem
     /// spustí v každém tiku jednu zmeškanou vlnu a za pár vteřin stojí na mapě
     /// sedmdesát útočníků naráz. Ve smoke běhu se to stalo hned napoprvé.</para>
     ///
-    /// <para>Dohánění při normálním běhu (i offline) tím netrpí: tam se tiká
-    /// po jednom a vlny chodí v pořadí, jak mají.</para>
+    /// <para>Totéž dělá skok v dohánění offline (<see cref="Simulation.JumpClock"/>):
+    /// odhadnutý čas bitvu nesimuluje, a kdyby rozvrh zůstal pozadu, první
+    /// přesný tik po skoku by poslal stovky zmeškaných vln za sebou.</para>
     /// </summary>
     public void SkipToTick(long tick)
     {
@@ -163,9 +164,12 @@ public sealed class FrontierSystem
         _killed = Math.Max(0, killed);
         _reachedCity = Math.Max(0, reachedCity);
 
-        EnsureCapacity(attackers.Length);
-        attackers.CopyTo(_attackers);
-        _count = attackers.Length;
+        // Save z doby před stropem mohl nést statisíce útočníků — načte se jich
+        // jen tolik, kolik strop dovolí, ať ho načtení hned neshodí.
+        int kept = Math.Min(attackers.Length, _config.MaxAttackersAlive);
+        EnsureCapacity(kept);
+        attackers[..kept].CopyTo(_attackers);
+        _count = kept;
     }
 
     private bool SpawnDueWave(Simulation sim)
@@ -179,27 +183,60 @@ public sealed class FrontierSystem
         return true;
     }
 
+    /// <summary>
+    /// Pošle vlnu. Vejde-li se pod strop (<see cref="FrontierConfig.MaxAttackersAlive"/>),
+    /// přijde celá, jak ji rozvrh chce. Nevejde-li se, přijde jich tolik, kolik
+    /// zbývá místa — každý druh úměrně — a o to odolnějších: síla vlny roste
+    /// dál, jen ne počtem entit v tikové smyčce.
+    ///
+    /// <para><b>Proč:</b> vlny rostou o 18 % každé čtyři minuty. Po pěti
+    /// hodinách v režimu obrany jich šly desítky tisíc, po sedmi miliony —
+    /// a přetáčení času (které zmeškané vlny posílá jednu za druhou) spadlo
+    /// na nedostatku paměti.</para>
+    /// </summary>
     private void SpawnDueWaveNow(Simulation sim)
     {
         var wave = _config.WaveAt(_nextWave);
+        double wanted = 0;
         for (int i = 0; i < wave.Count; i++)
         {
-            int count = _config.CountInWave(_nextWave, wave[i]);
+            wanted += _config.StrengthInWave(_nextWave, wave[i]);
+        }
+
+        int room = Math.Max(0, _config.MaxAttackersAlive - _count);
+        double share = wanted <= room ? 1.0 : room / wanted;
+        for (int i = 0; i < wave.Count && room > 0; i++)
+        {
+            double strength = _config.StrengthInWave(_nextWave, wave[i]);
+            int count = share >= 1.0 ? (int)strength : Math.Min(room, (int)Math.Floor(strength * share));
+            if (count <= 0)
+            {
+                continue;
+            }
+
+            // Pod stropem je poměr přesně 1 a zdraví se nemění.
+            double toughness = strength / count;
+            int health = (int)Math.Min(MaxHealth, Math.Round(_config.Attackers[wave[i].AttackerIndex].Health * toughness));
             for (int n = 0; n < count; n++)
             {
-                Spawn(sim, wave[i].AttackerIndex, n, count);
+                Spawn(sim, wave[i].AttackerIndex, health, n, count);
             }
+
+            room -= count;
         }
 
         _nextWave++;
     }
+
+    /// <summary>Strop zdraví jednoho útočníka — ať násobení v pozdních vlnách nepřeteče.</summary>
+    private const int MaxHealth = int.MaxValue / 4;
 
     /// <summary>
     /// Postaví útočníka na kruh kolem města. Úhel plyne z čísla vlny a pořadí —
     /// jedna vlna tedy přichází z jedné strany a ne ze všech naráz, což je
     /// čitelnější a dá se na to reagovat.
     /// </summary>
-    private void Spawn(Simulation sim, int typeIndex, int ordinal, int total)
+    private void Spawn(Simulation sim, int typeIndex, int health, int ordinal, int total)
     {
         EnsureCapacity(_count + 1);
 
@@ -210,7 +247,7 @@ public sealed class FrontierSystem
         ref var attacker = ref _attackers[_count++];
         attacker.X = (float)(sim.CityCenterX + Math.Cos(angle) * _config.SpawnDistance);
         attacker.Y = (float)(sim.CityCenterY + Math.Sin(angle) * _config.SpawnDistance);
-        attacker.Health = _config.Attackers[typeIndex].Health;
+        attacker.Health = health;
         attacker.TypeIndex = typeIndex;
         attacker.AttackCooldown = 0;
     }
