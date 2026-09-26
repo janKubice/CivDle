@@ -218,11 +218,7 @@ public sealed class SaveCompatibilityTests
         using var reader = new BinaryReader(new MemoryStream(sections), Encoding.UTF8);
         using var writer = new BinaryWriter(kept, Encoding.UTF8, leaveOpen: true);
 
-        // Metadata (čas, seed, dvě ID) leží před sekcemi — zkopírují se beze změny.
-        writer.Write(reader.ReadInt64());
-        writer.Write(reader.ReadInt64());
-        writer.Write(reader.ReadString());
-        writer.Write(reader.ReadString());
+        CopyMetadata(reader, writer);
 
         while (reader.BaseStream.Position < reader.BaseStream.Length)
         {
@@ -242,6 +238,54 @@ public sealed class SaveCompatibilityTests
         writer.Flush();
         return Recompress(header, kept.ToArray());
     }
+
+    /// <summary>
+    /// Metadata před sekcemi (formát 17): čas, seed, velikost, předvolba, svět,
+    /// výzva, pravidla světa. Zkopírují se beze změny; <paramref name="dropWorldId"/>
+    /// vynechá ID světa — tak vypadal formát 16.
+    /// </summary>
+    private static void CopyMetadata(BinaryReader reader, BinaryWriter writer, bool dropWorldId = false)
+    {
+        writer.Write(reader.ReadInt64());
+        writer.Write(reader.ReadInt64());
+        writer.Write(reader.ReadString());
+        writer.Write(reader.ReadString());
+        string world = reader.ReadString();
+        if (!dropWorldId)
+        {
+            writer.Write(world);
+        }
+
+        writer.Write(reader.ReadString()); // výzva
+        int rules = reader.ReadInt32();
+        writer.Write(rules);
+        for (int i = 0; i < rules; i++)
+        {
+            writer.Write(reader.ReadString());
+        }
+
+        writer.Write(reader.ReadString()); // biom pravidla
+    }
+
+    /// <summary>Předělá dnešní save na formát 16 (bez ID světa v hlavičce).</summary>
+    internal static byte[] DowngradeToV16(byte[] save)
+    {
+        var (header, body) = SplitSave(save);
+        var result = new MemoryStream();
+        using (var reader = new BinaryReader(new MemoryStream(body), Encoding.UTF8))
+        using (var writer = new BinaryWriter(result, Encoding.UTF8, leaveOpen: true))
+        {
+            CopyMetadata(reader, writer, dropWorldId: true);
+            writer.Write(reader.ReadBytes(body.Length));
+        }
+
+        BitConverter.GetBytes(16).CopyTo(header, 4);
+        return Recompress(header, result.ToArray());
+    }
+
+    /// <summary>Přilepí na konec těla sekci s daným obsahem (bez ohledu na formát).</summary>
+    internal static byte[] WithSection(byte[] save, string name, Action<BinaryWriter> body) =>
+        AppendSection(save, name, body);
 
     /// <summary>Rozdělí save na nekomprimovanou hlavičku a rozbalené tělo.</summary>
     private static (byte[] Header, byte[] Body) SplitSave(byte[] save)

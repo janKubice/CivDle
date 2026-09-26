@@ -257,18 +257,25 @@ public sealed class GameContent
         Clone(networks: new NetworkCatalog(NetworkCatalog.PowerType(Gameplay.Power), others));
 
     /// <summary>
+    /// Kopie obsahu s jiným profilem světa. Pro testy a nástroje — hra profil
+    /// čte z <c>data/worlds/&lt;id&gt;/world.json</c>.
+    /// </summary>
+    public GameContent WithWorld(WorldProfile world) => Clone(world: world);
+
+    /// <summary>
     /// Mělká kopie s vyměněnými částmi. Jediné místo, které vyjmenovává celý
     /// konstruktor — nová část obsahu se tak nemůže při kopii tiše ztratit.
     /// </summary>
     private GameContent Clone(
-        GameplayConfig? gameplay = null, FrontierConfig? frontier = null, NetworkCatalog? networks = null) => new(
+        GameplayConfig? gameplay = null, FrontierConfig? frontier = null, NetworkCatalog? networks = null,
+        WorldProfile? world = null) => new(
         Biomes, Resources, Buildings, Techs, Prestige, PrestigeUpgrades, Quests, QuestsDynamic,
         Achievements, Events, Eras, WorldGen, gameplay ?? Gameplay, Languages, SettlementNames, Decorations,
         Fauna, Devlog, ZoneTypes, Policies, AscensionTiers, Weather, Landmarks, Features, Ufo,
         Ambience, Terraform, Tutorial, Challenges, Contracts, Districts, SettlementRanks, Citizens, Elections, Milestones, Seasons, Faith, NpcCities, Vehicles, Mods, GrandWork, Legacy, LegacyUpgrades, Aircraft, Orbit, frontier ?? Frontier, Figures, Chronicle, Carillon, Scenarios, PointsOfInterest, Doctrines)
     {
         Networks = networks ?? Networks,
-        World = World,
+        World = world ?? World,
         Galaxy = Galaxy,
     };
 

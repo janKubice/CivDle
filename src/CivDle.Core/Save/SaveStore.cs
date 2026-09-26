@@ -122,7 +122,10 @@ public sealed class SaveStore
     }
 
     /// <summary>Uloží hru; false = zápis selhal (plný disk, práva…).</summary>
-    public bool TrySave(Simulation simulation, SaveMetadata metadata)
+    public bool TrySave(Simulation simulation, SaveMetadata metadata) => TrySave(simulation, metadata, null);
+
+    /// <summary>Uloží hru i s galaxií (ostatní světy, hodiny, loď); false = zápis selhal.</summary>
+    public bool TrySave(Simulation simulation, SaveMetadata metadata, Galaxy.GalaxyState? galaxy)
     {
         try
         {
@@ -135,7 +138,7 @@ public sealed class SaveStore
             var tempPath = _filePath + ".tmp";
             using (var stream = File.Create(tempPath))
             {
-                _serializer.Write(stream, simulation, metadata);
+                _serializer.Write(stream, simulation, metadata, galaxy);
             }
 
             File.Move(tempPath, _filePath, overwrite: true);
@@ -153,6 +156,16 @@ public sealed class SaveStore
     /// </summary>
     public LoadedGame? TryLoad(GameContent content, out string? error)
     {
+        var loaded = TryLoad(GalaxyContent.HomeOnly(content), out error);
+        return loaded is null ? null : new LoadedGame(loaded.Simulation, loaded.Metadata);
+    }
+
+    /// <summary>
+    /// Načte uloženou hru i s galaxií; <c>null</c> = save chybí nebo nejde
+    /// přečíst (<paramref name="error"/> nese detail).
+    /// </summary>
+    public LoadedSave? TryLoad(GalaxyContent galaxy, out string? error)
+    {
         error = null;
         if (!HasSave)
         {
@@ -162,8 +175,7 @@ public sealed class SaveStore
         try
         {
             using var stream = File.OpenRead(_filePath);
-            var (simulation, metadata) = _serializer.Read(stream, content);
-            return new LoadedGame(simulation, metadata);
+            return _serializer.Read(stream, galaxy);
         }
         catch (Exception ex) when (ex is SaveLoadException or IOException or UnauthorizedAccessException)
         {

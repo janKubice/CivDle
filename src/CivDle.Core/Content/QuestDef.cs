@@ -46,6 +46,16 @@ public enum QuestGroup
 
     /// <summary>Velký cíl pozdní hry (dlouhý, s odměnou, která se dá ukázat).</summary>
     Late,
+
+    /// <summary>
+    /// Hvězda světa galaxie (svety-design.md 2.6): splněná se počítá do
+    /// odemykání dalších světů. Hvězdy jsou obyčejné úkoly — panel, uložení
+    /// i vyhodnocení už existují, galaxie jen počítá splněné.
+    /// </summary>
+    Star,
+
+    /// <summary>Mistrovská hvězda (✦) — volitelná, těžká; počítá se jako hvězda.</summary>
+    StarMaster,
 }
 
 /// <summary>

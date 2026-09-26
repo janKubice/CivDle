@@ -10,6 +10,7 @@ Herní jádro bez závislosti na MonoGame. Drží se pravidla „simulace nezná
 | `World/` | Nekonečný terén jako čistá funkce (`ITerrain` / `ProceduralTerrain`) + řídké klíče dlaždic; `WorldMap` jen pro náhledy/testy. |
 | `Sim/` | Simulace s pevným krokem (10 Hz): budovy jako struktury v plochém poli, výroba se sklady, populace jako agregát, auto-stavba dle poptávky, auto-silnice a detekce osad; tech tree a vylepšování budov; Vzestup (prestige) s trvalými bonusy; úkoly a achievementy nad sdílenými metrikami (`GoalCondition`); oznámení (toasty) jako data. |
 | `Save/` | Binární verzovaný save v6 (gzip): terén se NEUKLÁDÁ (rekonstrukce z presetu+seedu), jen budovy, cesty, technologie, Vzestup (úroveň/body/upgrady) a úkoly; remap ID, poškozený soubor hru neshodí. |
+| `Galaxy/` | Druhá kapitola (svety-design.md 7.5–7.7): stav galaxie (`GalaxyState` — aktivní svět, záznamy ostatních se snímkem a souhrnem, hodiny odvozené z tiků aktivního světa, brána, kolonizační loď), souhrnná simulace neaktivních světů (`WorldSummary` + průběžný `FlowMeter`) a jejich zápis do savu (`GalaxyCodec`). V paměti žije vždy jen jedna `Simulation`. |
 | `Config/` | Uživatelská nastavení (jazyk, grafika, hlasitost) a účet-wide profil (odemčené achievementy) + jejich ukládání. Na rozdíl od obsahu ne-fail-fast: rozbitý soubor = výchozí hodnoty. |
 
 Tok dat: `data/*.json` → `ContentLoader` → `GameContent` (registry) → `MapGenerator`

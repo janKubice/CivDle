@@ -3749,6 +3749,13 @@ public sealed class Simulation
     /// <summary>Obsah, nad kterým simulace běží — pro serializaci savu (v rámci assembly).</summary>
     internal GameContent ContentRef => _content;
 
+    /// <summary>
+    /// Obsah světa, ve kterém tahle simulace běží. S galaxií už není jeden
+    /// obsah pro celou hru — kolonie má vlastní budovy i suroviny, a kdo drží
+    /// simulaci, musí umět zjistit, čemu rozumí (souhrn světa, obchod).
+    /// </summary>
+    public GameContent Content => _content;
+
     /// <summary>Osady k přepsání systémem detekce.</summary>
     internal List<Settlement> SettlementsMutable => _settlements;
 

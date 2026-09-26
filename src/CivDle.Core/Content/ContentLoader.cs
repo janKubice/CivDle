@@ -4438,7 +4438,9 @@ public sealed class ContentLoader
             {
                 "start" => QuestGroup.Start,
                 "late" => QuestGroup.Late,
-                _ => throw new ContentLoadException(path, $"Úkol '{id}': neznámá skupina '{dto.Group}' (povoleno: start, late)."),
+                "star" => QuestGroup.Star,
+                "master" => QuestGroup.StarMaster,
+                _ => throw new ContentLoadException(path, $"Úkol '{id}': neznámá skupina '{dto.Group}' (povoleno: start, late, star, master)."),
             };
             quests.Add(new QuestDef(id, condition, reward, retire, active, group));
         }

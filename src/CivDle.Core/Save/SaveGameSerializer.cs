@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Text;
 using CivDle.Core.Content;
+using CivDle.Core.Galaxy;
 using CivDle.Core.Sim;
 using CivDle.Core.World;
 
@@ -34,8 +35,21 @@ public sealed class SaveGameSerializer
     /// přidání sekce už kompatibilitu neruší. v15: + ID výzvy v hlavičce (svět
     /// výzvy se skládá jinak — zatopení, jeden biom — a čtečka to musí vědět
     /// dřív, než postaví terén). v16: + pravidla světa mimo výzvu (Nová hra+).
+    /// v17: + ID světa galaxie v hlavičce (kolonie má vlastní obsah i terén
+    /// a čtečka musí vědět, který, dřív než cokoli postaví) a sekce „galaxy".
     /// </summary>
-    public const int FormatVersion = 16;
+    public const int FormatVersion = 17;
+
+    /// <summary>První verze s ID světa v hlavičce.</summary>
+    private const int FirstWorldIdHeaderVersion = 17;
+
+    /// <summary>
+    /// Galaxie: ostatní světy (snímky a souhrny), hodiny, loď. Jen v hlavním
+    /// savu — snímek světa ji v sobě nemá. Na rozdíl od ostatních sekcí se
+    /// vadná galaxie <b>nepřeskakuje</b>: načíst hru bez kolonií a při příštím
+    /// uložení je přepsat by byla ztráta, kterou nic nevrátí.
+    /// </summary>
+    private const string SectionGalaxy = "galaxy";
 
     /// <summary>První verze s ID výzvy v hlavičce.</summary>
     private const int FirstScenarioHeaderVersion = 15;
@@ -206,7 +220,11 @@ public sealed class SaveGameSerializer
     private const string SectionDebug = "debug";
 
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
-    public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
+    /// <param name="stream">Kam psát.</param>
+    /// <param name="simulation">Aktivní svět (tělo savu).</param>
+    /// <param name="metadata">Seed, velikost a předvolba aktivního světa, čas uložení.</param>
+    /// <param name="galaxy">Stav galaxie; <c>null</c> = snímek jednoho světa bez galaxie.</param>
+    public void Write(Stream stream, Simulation simulation, SaveMetadata metadata, GalaxyState? galaxy = null)
     {
         using var header = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
         header.Write(Encoding.ASCII.GetBytes(Magic));
@@ -222,6 +240,7 @@ public sealed class SaveGameSerializer
         writer.Write(metadata.Seed);
         writer.Write(metadata.SizeId);
         writer.Write(metadata.PresetId);
+        writer.Write(simulation.Content.World.Id); // v17: který svět galaxie — před vším, co potřebuje obsah
         writer.Write(simulation.Scenario?.Id ?? string.Empty);
         WriteWorldRules(writer, simulation);
 
@@ -530,6 +549,10 @@ public sealed class SaveGameSerializer
         // Až po budovách: vklad patří staveništi, které už musí stát.
         WriteSection(writer, SectionProjects, w => WriteProjects(w, simulation));
         WriteSection(writer, SectionDistrictStyles, w => WriteDistrictStyles(w, simulation));
+        if (galaxy is not null)
+        {
+            WriteSection(writer, SectionGalaxy, w => GalaxyCodec.Write(w, galaxy));
+        }
     }
 
     /// <summary>
@@ -625,8 +648,22 @@ public sealed class SaveGameSerializer
         }
     }
 
-    /// <summary>Načte hru ze streamu a sestaví simulaci nad aktuálním obsahem.</summary>
+    /// <summary>
+    /// Načte hru ze streamu nad obsahem Domoviny (nástroje, testy, starší savy).
+    /// Save s kolonií jako aktivním světem touhle cestou nejde — potřebuje
+    /// obsah galaxie (<see cref="Read(Stream, GalaxyContent)"/>).
+    /// </summary>
     public (Simulation Simulation, SaveMetadata Metadata) Read(Stream stream, GameContent content)
+    {
+        var loaded = Read(stream, GalaxyContent.HomeOnly(content));
+        return (loaded.Simulation, loaded.Metadata);
+    }
+
+    /// <summary>
+    /// Načte hru ze streamu: aktivní svět (jeho obsah vybere podle ID světa
+    /// v hlavičce) a stav galaxie, pokud ho save nese.
+    /// </summary>
+    public LoadedSave Read(Stream stream, GalaxyContent galaxyContent)
     {
         try
         {
@@ -659,6 +696,18 @@ public sealed class SaveGameSerializer
             string presetId = reader.ReadString();
             var metadata = new SaveMetadata(seed, sizeId, presetId, savedAt);
 
+            // Starší savy galaxii neznají — jsou to vždy Domovina.
+            string worldId = version >= FirstWorldIdHeaderVersion ? reader.ReadString() : WorldScope.HomeId;
+            GameContent content;
+            try
+            {
+                content = galaxyContent.For(worldId);
+            }
+            catch (ContentLoadException ex)
+            {
+                throw new SaveLoadException($"Save patří světu '{worldId}', jehož data se nepodařilo načíst: {ex.Message}", ex);
+            }
+
             string scenarioId = version >= FirstScenarioHeaderVersion ? reader.ReadString() : string.Empty;
             int scenarioIndex = scenarioId.Length > 0 ? content.Scenarios.IndexOf(scenarioId) : -1;
             var worldRules = version >= FirstWorldRulesHeaderVersion ? ReadWorldRules(reader, content) : WorldRules.None;
@@ -684,13 +733,13 @@ public sealed class SaveGameSerializer
             else
             {
                 var preset = FindPreset(content, presetId);
-                var terrain = new ProceduralTerrain(content.Biomes, preset, seed);
-                simulation = new Simulation(content, terrain, seed);
+                simulation = new Simulation(content, WorldTerrain.Create(content, preset, seed), seed);
             }
 
+            byte[]? galaxyPayload = null;
             if (version >= FirstSectionedVersion)
             {
-                ReadSections(reader, content, simulation);
+                galaxyPayload = ReadSections(reader, content, simulation);
             }
             else
             {
@@ -698,7 +747,28 @@ public sealed class SaveGameSerializer
             }
 
             simulation.FinalizeLoad(); // bonusy Vzestupu → přepočet bydlení/skladů + politik
-            return (simulation, metadata);
+
+            GalaxyState? galaxy = null;
+            if (galaxyPayload is not null)
+            {
+                try
+                {
+                    using var galaxyReader = new BinaryReader(new MemoryStream(galaxyPayload), Encoding.UTF8);
+                    galaxy = GalaxyCodec.Read(galaxyReader);
+                }
+                catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException)
+                {
+                    throw new SaveLoadException("Galaxie v savu je poškozená — načtení by přišlo o kolonie.", ex);
+                }
+
+                if (galaxy.ActiveWorldId != worldId)
+                {
+                    throw new SaveLoadException(
+                        $"Save hlásí aktivní svět '{worldId}', galaxie '{galaxy.ActiveWorldId}' — soubor je poškozený.");
+                }
+            }
+
+            return new LoadedSave(simulation, metadata, galaxy);
         }
         catch (SaveLoadException)
         {
@@ -873,8 +943,10 @@ public sealed class SaveGameSerializer
     /// Projde sekce až do konce streamu. Neznámou sekci přeskočí (save z novější
     /// hry se stejným hlavním formátem), chybějící sekce prostě zůstane výchozí.
     /// </summary>
-    private static void ReadSections(BinaryReader reader, GameContent content, Simulation simulation)
+    /// <returns>Obsah sekce galaxie (čte ji volající, až je simulace hotová), nebo <c>null</c>.</returns>
+    private static byte[]? ReadSections(BinaryReader reader, GameContent content, Simulation simulation)
     {
+        byte[]? galaxy = null;
         while (true)
         {
             string name;
@@ -886,7 +958,7 @@ public sealed class SaveGameSerializer
             }
             catch (EndOfStreamException)
             {
-                return; // konec těla — všechny sekce přečtené
+                return galaxy; // konec těla — všechny sekce přečtené
             }
 
             if (length < 0)
@@ -898,6 +970,12 @@ public sealed class SaveGameSerializer
             if (payload.Length != length)
             {
                 throw new SaveLoadException($"Poškozená sekce '{name}' (neúplná data).");
+            }
+
+            if (name == SectionGalaxy)
+            {
+                galaxy = payload; // galaxie nepatří simulaci — přečte ji volající
+                continue;
             }
 
             using var section = new BinaryReader(new MemoryStream(payload), Encoding.UTF8);
