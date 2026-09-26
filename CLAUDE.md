@@ -12,6 +12,8 @@ Design je popsán v návrhových dokumentech — **přečti relevantní dokument
 - @docs/data-driven-content.md — jak je obsah v JSON (definice vs. instance)
 - @docs/mvp-roadmap.md — co stavět a v jakém pořadí
 - @docs/content-design.md, @docs/buildings-design.md, @docs/living-map.md, @docs/living-city.md, @docs/game-feel-wow.md, @docs/progression-prestige.md — obsah a mechaniky
+- @docs/endgame.md — pozdní hra: cíle, výzvy, růst do výšky, konec kapitoly (body A–C)
+- @docs/svety-design.md — druhá kapitola: galaxie a šest nových světů (bod D)
 
 ## Nejdůležitější pravidlo: data-oriented JÁDRO, čisté OOP KOLEM
 
