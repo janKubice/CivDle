@@ -184,6 +184,10 @@ public sealed class SmokeRun
             continued.Dispose();
         });
 
+        // Odkaz: stejná přestavba po koupi jako u Vzestupu, jen jiná vrstva.
+        // Běží až po savu — potřebuje Vzestup a ten by změnil, co se ukládá.
+        Check("odkaz: nákup po dávkách", () => LegacyRound(screens, sim, time));
+
         // Úvod do hry: čerstvý svět bez jediné budovy. Nálet, táborák, šipka,
         // průvodcem vybraná budova a velké nápisy — všechno se kreslí jen
         // v prvních minutách nové hry, kam se smoke jinak nedostane.
@@ -268,6 +272,23 @@ public sealed class SmokeRun
         Frames(ascension, time);
         ascension.BuyEverythingForSmoke();
         Frames(ascension, time);
+        screens.Pop();
+    }
+
+    /// <summary>Otevře Odkaz s milionem bodů a utratí je všemi dávkami.</summary>
+    private static void LegacyRound(ScreenManager screens, Simulation sim, GameTime time)
+    {
+        if (sim.AscensionLevel == 0)
+        {
+            sim.DebugGrantAscensionLevels(1); // Odkaz se nabízí až po prvním Vzestupu
+        }
+
+        sim.DebugGrantLegacyPoints(1_000_000);
+        var legacy = new LegacyScreen(screens, sim);
+        screens.Push(legacy);
+        Frames(legacy, time);
+        legacy.BuyEverythingForSmoke();
+        Frames(legacy, time);
         screens.Pop();
     }
 

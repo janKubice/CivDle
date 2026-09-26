@@ -8412,6 +8412,36 @@ public sealed class Simulation
     /// <summary>Lze upgrade Odkazu koupit?</summary>
     public PlacementResult CanBuyLegacyUpgrade(int upgradeIndex) => _legacy.CanBuy(upgradeIndex);
 
+    /// <summary>Kolik úrovní upgradu Odkazu (nejvýš <paramref name="max"/>) jde teď koupit po sobě.</summary>
+    public int AffordableLegacyLevels(int upgradeIndex, int max) => _legacy.AffordableLevels(upgradeIndex, max);
+
+    /// <summary>Součet cen dalších <paramref name="count"/> úrovní upgradu Odkazu.</summary>
+    public long LegacyBatchCost(int upgradeIndex, int count) => _legacy.BatchCost(upgradeIndex, count);
+
+    /// <summary>
+    /// Koupí až <paramref name="count"/> úrovní upgradu Odkazu naráz. Každá
+    /// úroveň za svou (rostoucí) cenu; bonusy se přepočítají jednou na konci,
+    /// ne po každé úrovni — „Max“ u padesáti úrovní by jinak padesátkrát
+    /// přepočítal celé město.
+    /// </summary>
+    /// <returns>Kolik úrovní se opravdu koupilo.</returns>
+    public int TryBuyLegacyUpgrades(int upgradeIndex, int count)
+    {
+        int bought = 0;
+        while (bought < count && _legacy.TryBuy(upgradeIndex))
+        {
+            bought++;
+        }
+
+        if (bought > 0)
+        {
+            RecomputeBonuses();
+            RecomputeDerivedState();
+        }
+
+        return bought;
+    }
+
     /// <summary>Koupí úroveň upgradu Odkazu a přepočítá bonusy.</summary>
     public PlacementResult TryBuyLegacyUpgrade(int upgradeIndex)
     {

@@ -35,16 +35,10 @@ public sealed class AscensionScreen : IScreen
     /// Kam byl seznam odscrollovaný. Po koupi se obrazovka staví znovu a bez
     /// tohohle skočila na začátek — hráč pak po každém nákupu hledal, kde byl.
     /// </summary>
-    private Point _scroll;
-
-    /// <summary>Scroller seznamu; drží se kvůli obnovení pozice po přestavbě.</summary>
-    private ScrollViewer? _list;
+    private readonly ScrollMemory _scroll = new();
 
     /// <summary>Kolik úrovní se kupuje jedním kliknutím.</summary>
-    private int _batch = 1;
-
-    /// <summary>Nabídka násobičů nákupu. „Max" bere, na co body stačí.</summary>
-    private static readonly int[] Batches = { 1, 5, 25, int.MaxValue };
+    private readonly PurchaseBatch _batch = new();
 
     /// <summary>Šířka panelu. Vzestup je hlavní progrese hry, ne poznámka pod čarou.</summary>
     private const int PanelWidth = 760;
@@ -96,12 +90,6 @@ public sealed class AscensionScreen : IScreen
     {
         var loc = _screens.Loc;
 
-        // Pozici si vezmi ze starého scrolleru dřív, než ho přestavíš.
-        if (_list is not null)
-        {
-            _scroll = _list.ScrollPosition;
-        }
-
         var layout = new VerticalStackPanel
         {
             Spacing = 10,
@@ -138,7 +126,7 @@ public sealed class AscensionScreen : IScreen
 
         layout.Widgets.Add(AscendAction());
 
-        layout.Widgets.Add(BatchPicker());
+        layout.Widgets.Add(_batch.Picker(loc, BuildUi));
 
         layout.Widgets.Add(InheritanceRow());
         layout.Widgets.Add(LegacyTeaser());
@@ -151,8 +139,7 @@ public sealed class AscensionScreen : IScreen
             list.Widgets.Add(UpgradeRow(i));
         }
 
-        _list = new ScrollViewer { Content = list, Height = 440, Width = PanelWidth - 20 };
-        layout.Widgets.Add(_list);
+        layout.Widgets.Add(_scroll.Track(new ScrollViewer { Content = list, Height = 440, Width = PanelWidth - 20 }));
 
         layout.Widgets.Add(UiFactory.MenuButton(loc["panel.close"], _screens.Pop));
 
@@ -163,22 +150,9 @@ public sealed class AscensionScreen : IScreen
         var root = new Panel();
         root.Widgets.Add(panel);
         _desktop = _screens.NewDesktop(root);
-
-        // Vrátit scroll až nad hotovým rozvržením — dřív scroller ještě nezná
-        // svou výšku a pozici by uřízl na nulu. Rozvržení se proto vynutí hned,
-        // ne až při prvním vykreslení: mezitím by hráč viděl jeden snímek
-        // seznamu odrolovaného nahoru a to je právě to škubnutí.
-        if (_list is not null)
-        {
-            _desktop.UpdateLayout();
-            _list.ScrollPosition = _scroll;
-        }
+        _scroll.Restore(_desktop);
     }
 
-    /// <summary>
-    /// Přepínač „kolik úrovní naráz". Kupovat po jedné je u opakovatelných
-    /// upgradů, kde hráč utrácí stovky bodů, jen klikání.
-    /// </summary>
     /// <summary>
     /// Co Vzestup přežije.
     ///
@@ -313,39 +287,6 @@ public sealed class AscensionScreen : IScreen
             () => _screens.Push(new LegacyScreen(_screens, _simulation))));
 
         return box;
-    }
-
-    private Widget BatchPicker()
-    {
-        var loc = _screens.Loc;
-        var row = new HorizontalStackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
-        row.Widgets.Add(new Label
-        {
-            Text = loc["prestige.batch"],
-            TextColor = UiPalette.Text,
-            VerticalAlignment = VerticalAlignment.Center,
-        });
-
-        foreach (int size in Batches)
-        {
-            int captured = size;
-            var button = UiFactory.SmallButton(
-                size == int.MaxValue ? loc["prestige.batchMax"] : "×" + size,
-                () =>
-                {
-                    _batch = captured;
-                    BuildUi();
-                });
-
-            if (size == _batch)
-            {
-                button.Background = new PanelBrush(UiPalette.PanelAccent);
-            }
-
-            row.Widgets.Add(button);
-        }
-
-        return row;
     }
 
     private Widget AscendAction()
@@ -612,10 +553,10 @@ public sealed class AscensionScreen : IScreen
         // Cena další úrovně, ne základní z dat — u opakovatelných roste. Při
         // dávce ukaž, kolik úrovní na body opravdu vyjde, a jejich součet:
         // „Koupit ×5" a pak koupit tři je horší než nic neslibovat.
-        int levels = _simulation.AffordableUpgradeLevels(upgradeIndex, _batch);
-        string label = levels > 1
-            ? loc.Format("prestige.buyMany", levels, Numbers.Format(_simulation.UpgradeBatchCost(upgradeIndex, levels)))
-            : loc.Format("prestige.buy", Numbers.Format(_simulation.UpgradeCost(upgradeIndex)));
+        int levels = _simulation.AffordableUpgradeLevels(upgradeIndex, _batch.Size);
+        string label = PurchaseBatch.BuyLabel(
+            loc, "prestige.buy", levels,
+            _simulation.UpgradeCost(upgradeIndex), _simulation.UpgradeBatchCost(upgradeIndex, levels));
 
         var button = new Button
         {
@@ -659,13 +600,13 @@ public sealed class AscensionScreen : IScreen
     }
 
     /// <summary>
-    /// Koupí až <see cref="_batch"/> úrovní jedním kliknutím. Každá úroveň se
+    /// Koupí až <see cref="PurchaseBatch.Size"/> úrovní jedním kliknutím. Každá úroveň se
     /// kupuje zvlášť a za svou (rostoucí) cenu — dávka šetří klikání, ne body.
     /// </summary>
     private void BuyBatch(int upgradeIndex)
     {
         int bought = 0;
-        while (bought < _batch && _simulation.TryBuyUpgrade(upgradeIndex) == PlacementResult.Ok)
+        while (bought < _batch.Size && _simulation.TryBuyUpgrade(upgradeIndex) == PlacementResult.Ok)
         {
             bought++;
         }
@@ -685,9 +626,9 @@ public sealed class AscensionScreen : IScreen
     /// </summary>
     internal void BuyEverythingForSmoke()
     {
-        foreach (int size in Batches)
+        foreach (int size in PurchaseBatch.Sizes)
         {
-            _batch = size;
+            _batch.Size = size;
             BuildUi();
             for (int i = 0; i < _screens.Content.PrestigeUpgrades.Count; i++)
             {

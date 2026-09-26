@@ -235,4 +235,77 @@ public class LegacyTests
         Assert.Equal(PlacementResult.Ok, sim.TryBuyLegacyUpgrade(0));
         Assert.Equal(4, sim.LegacyCost(0));
     }
+    [Fact]
+    public void ABatchBuysOnlyTheLevelsThePointsCover()
+    {
+        // Ceny rostou (1, 2, 4, 8 …), takže „kolik vyjde“ není prosté dělení.
+        // Tlačítko „Koupit ×5“ musí slíbit přesně tolik úrovní, kolik se koupí.
+        var content = TestContent.Build(
+            prestige: Prestige,
+            legacy: Legacy(),
+            legacyUpgrades: new[] { LegacyUpgrade("memory", "ascension_points_mult", 0.1, cost: 1, maxLevel: 10, costGrowth: 2.0) });
+
+        var sim = NewSim(content);
+        AscendTo(sim, 1);
+        sim.DebugGrantLegacyPoints(10);
+
+        Assert.Equal(3, sim.AffordableLegacyLevels(0, 5)); // 1 + 2 + 4 = 7 ≤ 10, další by stála 8
+        Assert.Equal(7, sim.LegacyBatchCost(0, 3));
+
+        Assert.Equal(3, sim.TryBuyLegacyUpgrades(0, 5));
+        Assert.Equal(3, sim.LegacyLevel(0));
+        Assert.Equal(3, sim.LegacyPoints);
+    }
+
+    [Fact]
+    public void ABatchStopsAtTheMaximumLevel()
+    {
+        var content = TestContent.Build(
+            prestige: Prestige,
+            legacy: Legacy(),
+            legacyUpgrades: new[] { LegacyUpgrade("memory", "ascension_points_mult", 0.1, maxLevel: 4) });
+
+        var sim = NewSim(content);
+        AscendTo(sim, 1);
+        sim.DebugGrantLegacyPoints(1_000_000);
+
+        Assert.Equal(4, sim.AffordableLegacyLevels(0, int.MaxValue));
+        Assert.Equal(4, sim.TryBuyLegacyUpgrades(0, int.MaxValue));
+        Assert.True(sim.IsLegacyUpgradeMaxed(0));
+        Assert.Equal(0, sim.AffordableLegacyLevels(0, 5));
+    }
+
+    [Fact]
+    public void BuyingABatchAppliesTheBonusLikeSingleLevels()
+    {
+        // Hromadný nákup přepočítá bonusy jednou na konci; výsledek musí být
+        // stejný, jako když se kupuje po jedné.
+        static PrestigeUpgradeDef Make() => LegacyUpgrade("memory", "ascension_points_mult", 1.0, maxLevel: 5);
+
+        var single = NewSim(TestContent.Build(prestige: Prestige, legacy: Legacy(), legacyUpgrades: new[] { Make() }));
+        var batch = NewSim(TestContent.Build(prestige: Prestige, legacy: Legacy(), legacyUpgrades: new[] { Make() }));
+        foreach (var sim in new[] { single, batch })
+        {
+            AscendTo(sim, 1);
+            sim.DebugGrantLegacyPoints(10);
+            sim.AddResource(Wood, AscendCost);
+        }
+
+        single.TryBuyLegacyUpgrade(0);
+        single.TryBuyLegacyUpgrade(0);
+        batch.TryBuyLegacyUpgrades(0, 2);
+
+        Assert.Equal(single.PendingAscensionPoints(), batch.PendingAscensionPoints());
+    }
+
+    [Fact]
+    public void CheatPointsDoNotOverflow()
+    {
+        var sim = NewSim(TestContent.Build(prestige: Prestige, legacy: Legacy()));
+
+        sim.DebugGrantLegacyPoints(long.MaxValue - 5);
+        sim.DebugGrantLegacyPoints(1_000_000_000);
+
+        Assert.Equal(long.MaxValue, sim.LegacyPoints);
+    }
 }

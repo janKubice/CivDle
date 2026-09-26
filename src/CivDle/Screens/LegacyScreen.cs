@@ -30,6 +30,16 @@ public sealed class LegacyScreen : IScreen
     /// <summary>Čeká tlačítko na potvrzení? (Nevratný krok na dvě kliknutí.)</summary>
     private bool _confirming;
 
+    /// <summary>
+    /// Kam byl seznam odrolovaný. Každá koupě staví panel znovu a seznam dřív
+    /// skočil na začátek — u dvaceti upgradů hráč po každém kliknutí hledal,
+    /// kde byl.
+    /// </summary>
+    private readonly ScrollMemory _scroll = new();
+
+    /// <summary>Kolik úrovní se kupuje jedním kliknutím (upgrady mají až 50 úrovní).</summary>
+    private readonly PurchaseBatch _batch = new();
+
     public LegacyScreen(ScreenManager screens, Simulation simulation)
     {
         _screens = screens;
@@ -114,6 +124,7 @@ public sealed class LegacyScreen : IScreen
         }
 
         layout.Widgets.Add(LeaveAction());
+        layout.Widgets.Add(_batch.Picker(loc, BuildUi));
 
         var list = new VerticalStackPanel { Spacing = 8 };
         var upgrades = _screens.Content.LegacyUpgrades;
@@ -122,7 +133,7 @@ public sealed class LegacyScreen : IScreen
             list.Widgets.Add(UpgradeRow(i));
         }
 
-        layout.Widgets.Add(new ScrollViewer { Content = list, Height = 300, Width = PanelWidth });
+        layout.Widgets.Add(_scroll.Track(new ScrollViewer { Content = list, Height = 300, Width = PanelWidth }));
         layout.Widgets.Add(UiFactory.MenuButton(loc["panel.close"], _screens.Pop));
         Finish(layout);
     }
@@ -141,6 +152,7 @@ public sealed class LegacyScreen : IScreen
         var root = new Panel();
         root.Widgets.Add(panel);
         _desktop = _screens.NewDesktop(root);
+        _scroll.Restore(_desktop);
     }
 
     private Label Note(string text, Color color) => new()
@@ -308,11 +320,16 @@ public sealed class LegacyScreen : IScreen
             return new Label { Text = loc["legacy.lockedUpgrade"], TextColor = UiPalette.TextDim };
         }
 
+        int levels = _simulation.AffordableLegacyLevels(upgradeIndex, _batch.Size);
+        string label = PurchaseBatch.BuyLabel(
+            loc, "legacy.buy", levels,
+            _simulation.LegacyCost(upgradeIndex), _simulation.LegacyBatchCost(upgradeIndex, levels));
+
         var button = new Button
         {
             Content = new Label
             {
-                Text = loc.Format("legacy.buy", Numbers.Format(_simulation.LegacyCost(upgradeIndex))),
+                Text = label,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
             },
@@ -321,13 +338,36 @@ public sealed class LegacyScreen : IScreen
             Background = new PanelBrush(UiPalette.Panel),
             Enabled = status == PlacementResult.Ok,
         };
-        button.Click += (_, _) =>
-        {
-            if (_simulation.TryBuyLegacyUpgrade(upgradeIndex) == PlacementResult.Ok)
-            {
-                BuildUi();
-            }
-        };
+        button.Click += (_, _) => BuyBatch(upgradeIndex);
         return button;
+    }
+
+    /// <summary>
+    /// Koupí až <see cref="PurchaseBatch.Size"/> úrovní jedním kliknutím —
+    /// každou za její (rostoucí) cenu. Dávka šetří klikání, ne body.
+    /// </summary>
+    private void BuyBatch(int upgradeIndex)
+    {
+        if (_simulation.TryBuyLegacyUpgrades(upgradeIndex, _batch.Size) > 0)
+        {
+            BuildUi();
+        }
+    }
+
+    /// <summary>
+    /// Smoke test: projede všechny dávky a za každou zkusí nakoupit všechno.
+    /// Přestavba po koupi je místo, kde UI padá — ať se to pozná tady.
+    /// </summary>
+    internal void BuyEverythingForSmoke()
+    {
+        foreach (int size in PurchaseBatch.Sizes)
+        {
+            _batch.Size = size;
+            BuildUi();
+            for (int i = 0; i < _screens.Content.LegacyUpgrades.Count; i++)
+            {
+                BuyBatch(i);
+            }
+        }
     }
 }

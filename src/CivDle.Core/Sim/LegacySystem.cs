@@ -56,16 +56,39 @@ public sealed class LegacySystem
             _config.Requirement.Target * Math.Pow(_config.RequirementGrowth, Depth),
             long.MaxValue / 2);
 
-    /// <summary>Kolik bodů Odkazu by teď zanechání Odkazu udělilo.</summary>
     /// <summary>Ladicí přídavek bodů Odkazu (cheat menu; hra sama je jinudy nedává).</summary>
     internal void DebugGrant(long amount)
     {
         if (amount > 0)
         {
-            Points += amount;
+            Points = SaturatingAdd(Points, amount);
         }
     }
 
+    /// <summary>
+    /// Ladicí posun hloubky Odkazu — na zkoušení prahů a bonusů, které se
+    /// odemykají až po několikátém Odkazu.
+    /// </summary>
+    internal void DebugDeepen(int levels)
+    {
+        if (levels > 0)
+        {
+            Depth += levels;
+        }
+    }
+
+    /// <summary>
+    /// Ladicí vykoupení všech upgradů na maximum, bez ohledu na body a prereky.
+    /// </summary>
+    internal void DebugMaxAll()
+    {
+        for (int i = 0; i < _levels.Length; i++)
+        {
+            _levels[i] = _upgrades[i].MaxLevel;
+        }
+    }
+
+    /// <summary>Kolik bodů Odkazu by teď zanechání Odkazu udělilo.</summary>
     public long PendingPoints(long metricValue)
     {
         if (metricValue <= 0 || _config.PointsDivisor <= 0)
@@ -101,6 +124,54 @@ public sealed class LegacySystem
         }
 
         return Points < Cost(upgradeIndex) ? PlacementResult.NotEnoughResources : PlacementResult.Ok;
+    }
+
+    /// <summary>
+    /// Kolik úrovní (nejvýš <paramref name="max"/>) jde teď koupit za body po
+    /// sobě. Každá úroveň stojí víc než předchozí, takže to není prosté dělení.
+    ///
+    /// <para>Proč to umí systém a ne UI: tlačítko „Koupit ×5“ musí ukázat, kolik
+    /// úrovní na body opravdu vyjde. Slíbit pět a koupit tři je horší než nic
+    /// neslibovat.</para>
+    /// </summary>
+    public int AffordableLevels(int upgradeIndex, int max)
+    {
+        if (max <= 0 || CanBuy(upgradeIndex) != PlacementResult.Ok)
+        {
+            return 0;
+        }
+
+        var upgrade = _upgrades[upgradeIndex];
+        int level = _levels[upgradeIndex];
+        long budget = Points;
+        int count = 0;
+        while (count < max && level + count < upgrade.MaxLevel)
+        {
+            long cost = upgrade.CostAtLevel(level + count);
+            if (cost > budget)
+            {
+                break;
+            }
+
+            budget -= cost;
+            count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>Součet cen dalších <paramref name="count"/> úrovní (bez ohledu na body).</summary>
+    public long BatchCost(int upgradeIndex, int count)
+    {
+        var upgrade = _upgrades[upgradeIndex];
+        int level = _levels[upgradeIndex];
+        long total = 0;
+        for (int i = 0; i < count && level + i < upgrade.MaxLevel; i++)
+        {
+            total = SaturatingAdd(total, upgrade.CostAtLevel(level + i));
+        }
+
+        return total;
     }
 
     /// <summary>Koupí úroveň upgradu. Vrací <c>true</c>, když se opravdu koupila.</summary>
@@ -171,5 +242,16 @@ public sealed class LegacySystem
                 yield return i;
             }
         }
+    }
+
+    /// <summary>
+    /// Součet, který nepřeteče. Body z cheat menu jdou do miliard a ceny
+    /// vysokých úrovní rostou exponenciálně — přetečení by z bohatého hráče
+    /// udělalo dlužníka.
+    /// </summary>
+    private static long SaturatingAdd(long a, long b)
+    {
+        long sum = a + b;
+        return b > 0 && sum < a ? long.MaxValue : sum;
     }
 }
