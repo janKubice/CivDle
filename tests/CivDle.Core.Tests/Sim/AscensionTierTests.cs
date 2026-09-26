@@ -16,7 +16,7 @@ public class AscensionTierTests
     private static ITerrain Grass() => new UniformTerrain(1);
 
     /// <summary>Obsah: „hut" (bydlení 100, volně stavitelná) + „spire" (megastruktura odemčená stupněm 1).</summary>
-    private static GameContent TierContent(double tier0Cap = 10, double tier1Cap = 1000)
+    private static GameContent TierContent(double tier0Cap = 10, double tier1Cap = 1000, bool hutUpgradesToSpire = false)
     {
         var biomes = new[] { TestContent.WaterBiome(), TestContent.LandBiome("grass") };
         var resources = new[] { new Resource("food", new RgbColor(200, 180, 60), StartAmount: 10000, BaseStorage: 100000) };
@@ -26,7 +26,7 @@ public class AscensionTierTests
             WorkerSlots: 0, HousingCapacity: 100,
             BuildCost: new[] { new ResourceAmount(0, 1) },
             Recipe: null, AllowedBiomes: mask, StorageBonus: System.Array.Empty<ResourceAmount>(),
-            AutoBuild: false, Buildable: true, UpgradesToIndex: -1,
+            AutoBuild: false, Buildable: true, UpgradesToIndex: hutUpgradesToSpire ? 1 : -1,
             UpgradeCost: System.Array.Empty<ResourceAmount>(), PowerSupply: 0, PowerDemand: 0);
         var spire = new BuildingDef(
             "spire", "megastructure", new RgbColor(150, 100, 220), 1, 1,
@@ -114,6 +114,44 @@ public class AscensionTierTests
 
         Assert.True(sim.IsBuildingBuildable(1));
         Assert.Equal(PlacementResult.Ok, sim.CanPlace(1, 2, 2));
+    }
+
+    [Fact]
+    public void AnUpgradeToATierGatedBuilding_WaitsForTheTierToo()
+    {
+        // Povýšení je jen jiná cesta k téže budově: Vertikální čtvrť nesmí jít
+        // povýšením z arkologie dřív, než by šla postavit.
+        var sim = new Simulation(TierContent(hutUpgradesToSpire: true), Grass());
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(0, 2, 2));
+        RunTicks(sim, 600);
+        int hut = sim.Buildings.Length - 1;
+        Assert.True(sim.Buildings[hut].IsComplete);
+
+        Assert.Equal(PlacementResult.NotUnlocked, sim.TryUpgradeBuilding(hut));
+        Assert.Equal(0, sim.Buildings[hut].DefIndex);
+
+        // Vzestup začíná novou éru na čisté mapě — chýše se staví znovu.
+        Assert.Equal(PlacementResult.Ok, sim.TryAscend());
+        Assert.Equal(-1, FindHut(sim));
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(0, 2, 2));
+        RunTicks(sim, 600);
+        hut = FindHut(sim);
+
+        Assert.Equal(PlacementResult.Ok, sim.TryUpgradeBuilding(hut));
+        Assert.Equal(1, sim.Buildings[hut].DefIndex);
+    }
+
+    private static int FindHut(Simulation sim)
+    {
+        for (int i = 0; i < sim.Buildings.Length; i++)
+        {
+            if (sim.Buildings[i].DefIndex == 0)
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     [Fact]

@@ -236,7 +236,7 @@ všech jazycích a každá výzva jméno odměny.
   neznamená, bod Odkazu je vzácný a znamená vždycky totéž. Loader pustí
   nejvýš 10 bodů za zakázku; test hlídá, že body dávají jen zakázky
   s podmínkou (za dřevo na zimu se Odkaz nedává).
-* Kosmetika jako odměna (styly čtvrtí) přijde s bodem B4.
+* Kosmetika jako odměna: styly čtvrtí (B4) odemykají výzvy a Velké cíle.
 
 ### A5. Hotovo, když
 
@@ -263,65 +263,82 @@ nové domy — a když není, stojí.
 
 ### B2. Zahušťování jako výchozí cesta
 
-* **Guvernér zahušťuje sám, když dojde místo.** Když potřeba bydlení nenajde
-  místo pro nový dům, zkusí nejdřív povýšit existující (dnešní `TryDensify`),
-  i bez politiky. Politika `dense_housing` zůstane — dělá z toho první volbu,
-  ne až poslední.
-* **Centrum města.** Každé sídlo má těžiště (`Settlement.CenterX/Y`). Budovy
-  bydlení v okruhu centra dostanou vyšší stupně dřív a vyšší `visualHeight`
-  (falešná výška, viz `plan-vylepseni.md` 8.5) — z centra vyroste panorama,
-  okraje zůstanou nízké. Poloměr a stupně podle hodnosti sídla jsou v datech
-  (`settlement-ranks.json`).
-* **Nový stupeň bydlení pro planetární měřítko:** „Vertikální čtvrť"
-  (3×3, arkologie nad arkologií) — `buildings.json`, odemyká ho měřítko
-  `planetary`. Bez něj hustota na konci nemá kam.
+* **Guvernér zahušťuje sám, když dojde místo.** Když potřeba bydlení
+  nenajde místo pro nový dům (`MeetNeed` vrátí „nemožné"), zkusí povýšit
+  existující dům (`TryDensify`) i bez politiky. Politika `dense_housing`
+  zůstala — dělá z povýšení první volbu, ne až poslední.
+* **Centrum první.** `TryDensify` bere domy podle vzdálenosti k těžišti
+  nejbližšího z osmi největších sídel (`Settlement.CenterX/Y`, bez LINQ
+  a bez alokací), takže vyšší stupně — a s nimi vyšší falešná výška — rostou
+  od centra ven a okraje zůstanou nízké. Oproti návrhu nejsou poloměry
+  a stupně podle hodnosti v datech: stačí pořadí podle vzdálenosti, a to se
+  chová dobře pro vesnici i pro megapoli bez dalších čísel k ladění.
+* Povýšení platí jen z rezervy nad nárokem guvernéra (`AutomationCanSpend`)
+  a ctí zámek měřítka (`IsLockedByScale`) — na nižším měřítku se na
+  Vertikální čtvrť nepovyšuje.
+* **Vertikální čtvrť** (`vertical_district`, 3×3, 450 lidí) — arkologie se
+  na ni povyšuje; odemyká ji měřítko `planetary`.
 
 ### B3. Nová zem z vody
 
-* **Nástroj „Zúrodnit mělčinu"** v `terraform.json`: mělká voda → souš
-  (dnes je tam zavlažení a vysušení bažiny, voda jako cíl, ne jako zdroj).
-* **Čerpací polder** — budova s `AutoTerraformSystem` (existuje): pomalu
-  vysouší mělčinu v okruhu, dlaždici za kolo. Odemyká ji Velký cíl A2.
-* **Megaprojekt „Vysušení jezera"** — stupňový projekt jako velké dílo:
-  cena roste, každý stupeň sníží hladinu vybraného jezera o pás dlaždic.
-  Viditelné (voda ustupuje, zůstává mokrá zem) a je to bezedný odběr
-  přebytků, kterých je na konci plno.
+* Nástroj **Zúrodnit mělčinu** (`reclaim` v `terraform.json`) a **čerpací
+  polder** (`polder_mill`, `AutoTerraformSystem`) už ve hře byly; zůstaly,
+  jak jsou.
+* **Vysušení jezera** (`lake_drain`) je projekt jako Hvězdná brána (C1):
+  12 stupňů za rostoucí ceny, každý dokončený stupeň spustí efekt z dat
+  (`onStage: drain_band`) — pás vody o poloměru `effectRadius` (18) kolem
+  stavby se změní na biom `effectBiome` (bažina). Voda ustupuje vidět a je to
+  bezedný odběr přebytků. Odemyká ho Velký cíl **Nová zem**
+  (`quest:great_reclaim`).
+* **Oprava cestou:** přepisy biomu (terraformace) dřív neviděl `CachedTerrain`
+  — stavění a sklizeň četly původní terén. Cache teď přepisy drží
+  (`CachedTerrain.Override`), takže zúrodněná mělčina je opravdu souš.
 
 ### B4. Město z výšky
 
-Dnes `DensityMap` peče hustotu jedním tónem — odtud béžová šachovnice.
+Dřív `DensityMap` pekla hustotu jedním tónem — odtud béžová šachovnice.
+Teď peče i „doplňky" (`BakeExtras`, render), pořád jen při změně zástavby,
+stylu nebo sítě silnic, nikdy za snímek:
 
-* **Čtvrti barvou a materiálem:** průmyslová, obytná, občanská, logistická,
-  energetická (`districts.json`, existují) dostanou na oddálení vlastní tón
-  a texturu střech.
-* **Výška stínem:** hustší buňky mají delší stín a světlejší hranu ze strany
-  slunce — z mapy je reliéf panoramatu.
-* **Centrum září:** v noci svítí centra sídel víc (`LightsRenderer`) — z výšky
-  je vidět, kde město žije.
-* **Hierarchie cest:** hlavní tahy mezi sídly se na oddálení kreslí širší
-  (dnes jsou všechny silnice stejné) — mapa dostane kostru.
-* **Landmarky jako ikony** na oddálení a **jména sídel velikostí podle hodnosti.**
-* **Styly čtvrtí** (odměny z A2/A3) — hráč přiřadí čtvrti styl, ten změní
-  paletu střech a doplňků. Kosmetika, ale dělá z plochy „moje město".
-
-Všechno se peče do textur jako dnes (výkon: žádná práce za snímek navíc).
+* **Čtvrti barvou:** buňka, kde převládá čtvrť, dostane její `mapColor`
+  (`districts.json`), nebo barvu zvoleného stylu.
+* **Výška stínem:** husté buňky vrhají stín na závětrnou stranu a mají
+  světlejší hranu ze strany slunce (vrstva reliéfu nad denní vrstvou).
+* **Centra září:** v noci svítí centra sídel víc — z výšky je vidět, kde
+  město žije.
+* **Hlavní tahy:** silnice mimo zástavbu se na oddálení kreslí jako tahy
+  (překreslení zpomalené na jednou za 90 snímků).
+* **Landmarky jako ikony** (divy a megastruktury, `CityScaleRenderer`)
+  a **jména sídel velikostí podle hodnosti**; malá sídla se při velkém
+  oddálení skryjí, když jich je víc než 12.
+* **Styly čtvrtí** (`districts.json` → `styles`): Cihlová, Bílé město,
+  Zahradní, Břidlicová, Srubová, Uličky, Lucerny, Zlacená. Každý styl platí
+  pro určité typy čtvrtí, mění barvu na mapě, tón budov (a Lucerny
+  i barvu nočních světel z výšky). Zdarma jsou čtyři, ostatní jsou odměny výzev
+  a Velkých cílů (`unlockedBy`: `challenge:hard_winter`, `challenge:no_roads`,
+  `challenge:eternal_night`, `quest:great_billion`). Styl se přiřazuje
+  **typu čtvrti** v Politikách (sekce Styly čtvrtí) a ukládá se (sekce
+  `districtStyles`). Loader odmítne neznámý typ čtvrti i neexistující odměnu.
+* **Regrese:** bez doplňků je pečení bajt po bajtu stejné jako dřív (test).
 
 ### B5. Velké dílo je vidět
 
-Jáma `great_pit` dnes s každým stupněm jen zdraží. Nově roste i na mapě:
-každých pár stupňů se zvětší, přibudou lešení, jeřáby, v noci světla, na
-vysokých stupních „Hvězdná studna" (odměna A2).
+Velké dílo (`great_pit`) roste i na mapě (`BuildingRenderer`): terasy
+s každým stupněm, od 3. stupně lešení, od 6. jeřáb, od 10. světla v noci,
+od 25. „Hvězdná studna" (sprite odměny A2).
 
 ### B6. Hotovo, když
 
 * Město na planetárním měřítku dál roste, i když souš je zastavěná
-  (zahušťováním a zúrodňováním), a populace se nezastaví na stropu bydlení.
-* Z oddálení jsou poznat centra, čtvrti a hlavní tahy (porovnat snímky před
-  a po).
-* Testy: guvernér zahušťuje bez politiky, když nenajde místo; polder mění
-  mělčinu na souš jen po dlaždici; vysušení jezera je deterministické
-  a přežije save; pečení mapy hustoty dává stejný výsledek jako dnes pro
-  město bez čtvrtí (regrese).
+  (zahušťováním a zúrodňováním), a populace se nezastaví na stropu bydlení. ✔
+* Z oddálení jsou poznat centra, čtvrti a hlavní tahy. ✔
+* Testy: guvernér zahušťuje bez politiky, když nenajde místo, a od centra;
+  zámek měřítka platí i pro povýšení; vysušení jezera je deterministické,
+  mění jen pás v poloměru a přežije save; terraformace mění stavění;
+  pečení mapy hustoty bez doplňků je stejné jako dřív; čtvrť nese barvu
+  čtvrti nebo stylu, husté buňky vrhají stín, tahy a zář center se kreslí;
+  styl nejde nastavit zamčený ani na cizí typ čtvrti a přežije save;
+  loader odmítne chybný styl. ✔
 
 **Odhad:** 4–6 dní (B2 den a půl, B3 den a půl, B4 dva dny, B5 půl dne).
 
