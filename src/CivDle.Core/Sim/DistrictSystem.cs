@@ -50,12 +50,26 @@ internal sealed class DistrictSystem
     /// <summary>Kategorie budovy podle indexu definice — ať se v cyklu nesahá na registr.</summary>
     private readonly string[] _categories;
 
-    private int[] _parent = Array.Empty<int>();
+    /// <summary>Hledání shluků přes prostorovou mřížku (dřív každá budova s každou — viz <see cref="FootprintClusters"/>).</summary>
+    private readonly FootprintClusters _finder;
+
+    /// <summary>Kandidáti jednoho druhu čtvrti (indexy budov).</summary>
     private int[] _members = Array.Empty<int>();
+
+    /// <summary>Který shluk patří ke kořeni (pozice kandidáta); −1 = zatím žádný.</summary>
+    private int[] _clusterOf = Array.Empty<int>();
+
+    /// <summary>
+    /// Shluky k opakovanému použití. Dřív vznikal nový objekt se seznamem pro
+    /// každý shluk při každém přepočtu — u velkého města stovky alokací za minutu.
+    /// </summary>
+    private readonly List<Cluster> _pool = new();
+    private int _pooled;
 
     public DistrictSystem(GameContent content)
     {
         _content = content;
+        _finder = new FootprintClusters(content);
         var defs = content.Buildings.All;
         _categories = new string[defs.Count];
         for (int i = 0; i < defs.Count; i++)
@@ -86,10 +100,11 @@ internal sealed class DistrictSystem
             return;
         }
 
-        if (_parent.Length < buildings.Length)
+        if (_members.Length < buildings.Length)
         {
-            _parent = new int[Math.Max(buildings.Length, 64)];
-            _members = new int[Math.Max(buildings.Length, 64)];
+            int size = Math.Max(buildings.Length, Math.Max(64, _members.Length * 2));
+            _members = new int[size];
+            _clusterOf = new int[size];
         }
 
         // Čistý štít: budova, která z čtvrti vypadla (zbourala se sousedka), musí
@@ -105,6 +120,7 @@ internal sealed class DistrictSystem
         // leží uvnitř druhé — a to je přesně to, co dělalo „rezidenční čtvrť
         // uprostřed obří průmyslové".
         _clusters.Clear();
+        _pooled = 0;
         var types = _content.Districts.Types;
         for (int typeIndex = 0; typeIndex < types.Count; typeIndex++)
         {
@@ -122,6 +138,9 @@ internal sealed class DistrictSystem
         public int MinX, MinY, MaxX, MaxY;
         public readonly List<int> Members = new();
         public bool Dropped;
+
+        /// <summary>Součet půdorysů členů — hustota shluku.</summary>
+        public long Footprint;
 
         public long Area => (long)(MaxX - MinX + 1) * (MaxY - MinY + 1);
     }
@@ -247,63 +266,45 @@ internal sealed class DistrictSystem
             return;
         }
 
-        for (int i = 0; i < count; i++)
-        {
-            _parent[i] = i;
-        }
-
-        // O(n²) nad kandidáty jednoho druhu. Běží zřídka a budov jsou stovky;
-        // stejná úvaha jako u osad.
-        for (int i = 0; i < count; i++)
-        {
-            for (int j = i + 1; j < count; j++)
-            {
-                if (FootprintGap(buildings[_members[i]], buildings[_members[j]]) <= type.ClusterDistance)
-                {
-                    Union(i, j);
-                }
-            }
-        }
-
         _ = sim;
-        for (int root = 0; root < count; root++)
+        _finder.Build(buildings, _members.AsSpan(0, count), type.ClusterDistance);
+
+        // Jeden průchod vzestupně: kořen je nejnižší pozice shluku, takže se
+        // shluk založí právě u svého kořene — pořadí shluků i členů je stejné,
+        // jako když se pro každý kořen procházelo celé pole.
+        int first = _pooled;
+        for (int i = 0; i < count; i++)
         {
-            if (Find(root) != root)
+            int root = _finder.Root(i);
+            Cluster cluster;
+            if (root == i)
             {
-                continue;
+                _clusterOf[i] = _pooled;
+                cluster = Rent(typeIndex);
+            }
+            else
+            {
+                cluster = _pool[_clusterOf[root]];
             }
 
-            var cluster = new Cluster
-            {
-                TypeIndex = typeIndex,
-                MinX = int.MaxValue,
-                MinY = int.MaxValue,
-                MaxX = int.MinValue,
-                MaxY = int.MinValue,
-            };
+            ref var building = ref buildings[_members[i]];
+            var def = _content.Buildings[building.DefIndex];
+            cluster.Members.Add(_members[i]);
+            cluster.Footprint += (long)def.FootprintWidth * def.FootprintHeight;
+            cluster.MinX = Math.Min(cluster.MinX, building.X);
+            cluster.MinY = Math.Min(cluster.MinY, building.Y);
+            cluster.MaxX = Math.Max(cluster.MaxX, building.X + def.FootprintWidth - 1);
+            cluster.MaxY = Math.Max(cluster.MaxY, building.Y + def.FootprintHeight - 1);
+        }
 
-            long footprint = 0;
-            for (int i = 0; i < count; i++)
-            {
-                if (Find(i) != root)
-                {
-                    continue;
-                }
-
-                ref var building = ref buildings[_members[i]];
-                var def = _content.Buildings[building.DefIndex];
-                cluster.Members.Add(_members[i]);
-                footprint += (long)def.FootprintWidth * def.FootprintHeight;
-                cluster.MinX = Math.Min(cluster.MinX, building.X);
-                cluster.MinY = Math.Min(cluster.MinY, building.Y);
-                cluster.MaxX = Math.Max(cluster.MaxX, building.X + def.FootprintWidth - 1);
-                cluster.MaxY = Math.Max(cluster.MaxY, building.Y + def.FootprintHeight - 1);
-            }
+        for (int c = first; c < _pooled; c++)
+        {
+            var cluster = _pool[c];
 
             // Řídký shluk není čtvrť, jen pár budov rozházených po okolí. Kdyby
             // se uznal, jeho obálka by pohltila půl města — i všechno, co v něm
             // stojí a s tou čtvrtí nemá nic společného.
-            if (cluster.Members.Count < type.MinBuildings || footprint < cluster.Area * MinDensity)
+            if (cluster.Members.Count < type.MinBuildings || cluster.Footprint < cluster.Area * MinDensity)
             {
                 continue;
             }
@@ -312,45 +313,23 @@ internal sealed class DistrictSystem
         }
     }
 
-    /// <summary>Čebyševova mezera mezi půdorysy (0 = dotýkají se nebo překrývají).</summary>
-    private int FootprintGap(in BuildingInstance a, in BuildingInstance b)
+    /// <summary>Vezme shluk z poolu (nebo založí nový) a vynuluje ho.</summary>
+    private Cluster Rent(int typeIndex)
     {
-        var defA = _content.Buildings[a.DefIndex];
-        var defB = _content.Buildings[b.DefIndex];
-
-        int gapX = Math.Max(0, Math.Max(a.X - (b.X + defB.FootprintWidth - 1), b.X - (a.X + defA.FootprintWidth - 1)) - 1);
-        int gapY = Math.Max(0, Math.Max(a.Y - (b.Y + defB.FootprintHeight - 1), b.Y - (a.Y + defA.FootprintHeight - 1)) - 1);
-        return Math.Max(gapX, gapY);
-    }
-
-    private int Find(int i)
-    {
-        while (_parent[i] != i)
+        if (_pooled == _pool.Count)
         {
-            _parent[i] = _parent[_parent[i]];
-            i = _parent[i];
+            _pool.Add(new Cluster());
         }
 
-        return i;
-    }
-
-    private void Union(int a, int b)
-    {
-        int rootA = Find(a);
-        int rootB = Find(b);
-        if (rootA == rootB)
-        {
-            return;
-        }
-
-        // Nižší kořen vyhrává → stabilní reprezentant (nejstarší budova shluku).
-        if (rootA < rootB)
-        {
-            _parent[rootB] = rootA;
-        }
-        else
-        {
-            _parent[rootA] = rootB;
-        }
+        var cluster = _pool[_pooled++];
+        cluster.TypeIndex = typeIndex;
+        cluster.MinX = int.MaxValue;
+        cluster.MinY = int.MaxValue;
+        cluster.MaxX = int.MinValue;
+        cluster.MaxY = int.MinValue;
+        cluster.Footprint = 0;
+        cluster.Dropped = false;
+        cluster.Members.Clear();
+        return cluster;
     }
 }

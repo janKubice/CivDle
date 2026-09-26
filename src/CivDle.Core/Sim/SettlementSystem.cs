@@ -22,17 +22,30 @@ public readonly record struct Settlement(
 /// nejvýš clusterDistance. Jméno určuje nejstarší budova shluku (nejnižší index)
 /// hashem se seedem — je stabilní, i když osada roste nebo se slučuje.
 /// Běží na nízké frekvenci a jen po změně zástavby (CLAUDE.md, výkon).
+///
+/// <para>Shluky hledá <see cref="FootprintClusters"/> přes prostorovou mřížku
+/// a součty se dělají jedním průchodem. Dřív to bylo porovnání každé budovy
+/// s každou a pak ještě průchod celým polem pro každý shluk: u města o 24 000
+/// budovách stál jeden přepočet skoro dvě sekundy a dohánění offline času
+/// kvůli tomu trvalo hodiny.</para>
 /// </summary>
 internal sealed class SettlementSystem
 {
     private readonly GameContent _content;
     private readonly long _seed;
-    private int[] _parent = Array.Empty<int>();
+    private readonly FootprintClusters _clusters;
+
+    // Pomocná pole po kořenech shluků; rostou s městem, jinak se nealokuje.
+    private int[] _all = Array.Empty<int>();
+    private int[] _count = Array.Empty<int>();
+    private float[] _sumX = Array.Empty<float>();
+    private float[] _sumY = Array.Empty<float>();
 
     public SettlementSystem(GameContent content, long seed)
     {
         _content = content;
         _seed = seed;
+        _clusters = new FootprintClusters(content);
     }
 
     public void Tick(Simulation sim)
@@ -52,66 +65,51 @@ internal sealed class SettlementSystem
         var buildings = sim.Buildings;
         var result = sim.SettlementsMutable;
         result.Clear();
-        if (buildings.Length == 0)
+        int n = buildings.Length;
+        if (n == 0)
         {
             return;
         }
 
-        if (_parent.Length < buildings.Length)
+        Ensure(n);
+        for (int i = 0; i < n; i++)
         {
-            _parent = new int[Math.Max(buildings.Length, 64)];
+            _all[i] = i;
+            _count[i] = 0;
+            _sumX[i] = 0f;
+            _sumY[i] = 0f;
         }
 
-        for (int i = 0; i < buildings.Length; i++)
+        _clusters.Build(buildings, _all.AsSpan(0, n), config.ClusterDistance);
+
+        // Agregace jedním průchodem po kořenech. Pořadí sčítání (vzestupně podle
+        // indexu) je stejné jako dřív, takže i těžiště vychází na bit stejně.
+        for (int i = 0; i < n; i++)
         {
-            _parent[i] = i;
+            int root = _clusters.Root(i);
+            var def = _content.Buildings[buildings[i].DefIndex];
+            _count[root]++;
+            _sumX[root] += buildings[i].X + def.FootprintWidth * 0.5f;
+            _sumY[root] += buildings[i].Y + def.FootprintHeight * 0.5f;
         }
 
-        // O(n²) stačí — běží zřídka a budov jsou stovky, ne miliony.
-        for (int i = 0; i < buildings.Length; i++)
+        for (int root = 0; root < n; root++)
         {
-            for (int j = i + 1; j < buildings.Length; j++)
-            {
-                if (FootprintGap(buildings[i], buildings[j]) <= config.ClusterDistance)
-                {
-                    Union(i, j);
-                }
-            }
-        }
-
-        // Agregace po kořenech: počet, těžiště, nejstarší budova (určuje jméno).
-        for (int root = 0; root < buildings.Length; root++)
-        {
-            if (Find(root) != root)
+            // Kořen je nejnižší index shluku = nejstarší budova (určuje jméno).
+            if (_clusters.Root(root) != root)
             {
                 continue;
             }
 
-            int count = 0;
-            int oldest = int.MaxValue;
-            float sumX = 0f;
-            float sumY = 0f;
-            for (int i = 0; i < buildings.Length; i++)
-            {
-                if (Find(i) != root)
-                {
-                    continue;
-                }
-
-                var def = _content.Buildings[buildings[i].DefIndex];
-                count++;
-                oldest = Math.Min(oldest, i);
-                sumX += buildings[i].X + def.FootprintWidth * 0.5f;
-                sumY += buildings[i].Y + def.FootprintHeight * 0.5f;
-            }
-
+            int count = _count[root];
             if (count < config.MinBuildings)
             {
                 continue;
             }
 
-            float centerX = sumX / count;
-            float centerY = sumY / count;
+            int oldest = root;
+            float centerX = _sumX[root] / count;
+            float centerY = _sumY[root] / count;
 
             // Sídlo vyrostlé na pohlceném cizím městě si nechá jeho jméno —
             // hráč dostal město, ne stavební parcelu. Až když tam žádné nebylo,
@@ -140,43 +138,17 @@ internal sealed class SettlementSystem
         }
     }
 
-    /// <summary>Čebyševova mezera mezi půdorysy (0 = dotýkají se nebo překrývají).</summary>
-    private int FootprintGap(in BuildingInstance a, in BuildingInstance b)
+    private void Ensure(int n)
     {
-        var defA = _content.Buildings[a.DefIndex];
-        var defB = _content.Buildings[b.DefIndex];
-
-        int gapX = Math.Max(0, Math.Max(a.X - (b.X + defB.FootprintWidth - 1), b.X - (a.X + defA.FootprintWidth - 1)) - 1);
-        int gapY = Math.Max(0, Math.Max(a.Y - (b.Y + defB.FootprintHeight - 1), b.Y - (a.Y + defA.FootprintHeight - 1)) - 1);
-        return Math.Max(gapX, gapY);
-    }
-
-    private int Find(int i)
-    {
-        while (_parent[i] != i)
+        if (_all.Length >= n)
         {
-            _parent[i] = _parent[_parent[i]];
-            i = _parent[i];
+            return;
         }
 
-        return i;
-    }
-
-    private void Union(int a, int b)
-    {
-        int rootA = Find(a);
-        int rootB = Find(b);
-        if (rootA != rootB)
-        {
-            // Nižší kořen vyhrává → stabilní reprezentant (nejstarší budova).
-            if (rootA < rootB)
-            {
-                _parent[rootB] = rootA;
-            }
-            else
-            {
-                _parent[rootA] = rootB;
-            }
-        }
+        int size = Math.Max(n, Math.Max(64, _all.Length * 2));
+        _all = new int[size];
+        _count = new int[size];
+        _sumX = new float[size];
+        _sumY = new float[size];
     }
 }
