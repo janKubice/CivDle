@@ -237,7 +237,18 @@ public sealed record GameplayFileDto(
     GoldenDto? Golden,
     SubseaDto? Subsea,
     PowerDto? Power,
-    double? PopulationFillRate = null);
+    double? PopulationFillRate = null,
+    OnboardingDto? Onboarding = null);
+
+/// <summary>Úvod do hry tak, jak leží v JSON.</summary>
+public sealed record OnboardingDto(List<long>? QuickStartSeeds, StartSiteDto? StartSite, FirstDayDto? FirstDay);
+
+/// <summary>Požadavky na místo startu tak, jak leží v JSON.</summary>
+public sealed record StartSiteDto(
+    int Radius, int SearchRadius, Dictionary<string, int>? Nodes, List<string>? Buildings);
+
+/// <summary>Pomalejší první den tak, jak leží v JSON.</summary>
+public sealed record FirstDayDto(double Seconds, double Until);
 
 /// <summary>Škálování cen výzkumu tak, jak leží v JSON.</summary>
 public sealed record ResearchDto(

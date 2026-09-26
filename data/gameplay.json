@@ -229,5 +229,16 @@
   },
   "power": {
     "range": 6
+  },
+  "onboarding": {
+    "_comment": "Úvod do hry. quickStartSeeds = prověřené světy pro tlačítko Hrát (z každého vyroste fungující město). startSite = co musí být na dohled od startu (radius v dlaždicích = první obrazovka). firstDay = první den do soumraku (until) trvá seconds sekund, ať první noc přijde až po pěti minutách.",
+    "quickStartSeeds": [20260728, 30313, 4242, 20260816, 99, 777001],
+    "startSite": {
+      "radius": 8,
+      "searchRadius": 120,
+      "nodes": { "wood": 6, "stone": 3 },
+      "buildings": ["house", "farm", "lumber_camp"]
+    },
+    "firstDay": { "seconds": 270, "until": 0.72 }
   }
 }

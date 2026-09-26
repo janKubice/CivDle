@@ -535,8 +535,12 @@ public sealed record GameplayConfig(
     GoldenConfig? GoldenOrNull = null,
     SubseaConfig? SubseaOrNull = null,
     PowerConfig? PowerOrNull = null,
-    double PopulationFillRate = 0.0)
+    double PopulationFillRate = 0.0,
+    OnboardingConfig? OnboardingOrNull = null)
 {
+    /// <summary>Úvod do hry (rychlý start, místo startu, první den); bez bloku v datech vypnutý.</summary>
+    public OnboardingConfig Onboarding => OnboardingOrNull ?? OnboardingConfig.Disabled;
+
     /// <summary>
     /// Kolik lidí za sekundu přibude, když je v bydlení <paramref name="freeHousing"/>
     /// volných míst (před násobiči spokojenosti, Vzestupu, období…).
@@ -592,6 +596,42 @@ public sealed record GameplayConfig(
 
     /// <summary>Nastavení svozu do skladu; chybí-li v datech, je vrstva vypnutá.</summary>
     public HaulConfig Haul => HaulOrNull ?? HaulConfig.Disabled;
+}
+
+/// <summary>
+/// Úvod do hry — prvních pět minut, kdy se rozhoduje, jestli hráč hru nezavře.
+///
+/// <para>Změřeno na demu: lidé odcházeli kolem druhé minuty. V té chvíli se
+/// sešlo několik věcí najednou — start na savaně, kde klik nic neudělá, došlé
+/// jídlo a první noc, která z vesnice o dvou domech udělala tmavou obrazovku.
+/// Tyhle hodnoty drží start tam, kde je co dělat, a první noc až jako oslavu
+/// po pěti minutách, ne jako tmu po dvou.</para>
+/// </summary>
+/// <param name="QuickStartSeeds">Prověřené světy pro „Hrát" (z každého vyroste fungující město).</param>
+/// <param name="StartRadius">„První obrazovka" v dlaždicích — co musí být na dohled od startu.</param>
+/// <param name="StartSearchRadius">Jak daleko od počátku se místo startu hledá.</param>
+/// <param name="StartNodes">Kolik uzlů které suroviny musí být na dohled (stromy na první klik, kámen).</param>
+/// <param name="StartBuildings">Budovy, pro které musí být na dohled vhodná půda (dům, farma).</param>
+/// <param name="FirstDaySeconds">Kolik sekund trvá první den až do soumraku; 0 = normální den.</param>
+/// <param name="FirstDayUntil">Denní doba (0–1), od které čas běží normálně (začátek soumraku).</param>
+public sealed record OnboardingConfig(
+    IReadOnlyList<long> QuickStartSeeds,
+    int StartRadius,
+    int StartSearchRadius,
+    IReadOnlyList<ResourceAmount> StartNodes,
+    IReadOnlyList<int> StartBuildings,
+    double FirstDaySeconds,
+    double FirstDayUntil)
+{
+    /// <summary>Bez úvodu: náhodný svět, start na první souši, normální první den.</summary>
+    public static OnboardingConfig Disabled { get; } = new(
+        Array.Empty<long>(), 0, 0, Array.Empty<ResourceAmount>(), Array.Empty<int>(), 0, 0);
+
+    /// <summary>Hledá se místo startu s tím, co je potřeba na dohled?</summary>
+    public bool HasStartSite => StartRadius > 0 && StartSearchRadius > 0;
+
+    /// <summary>Běží první den pomaleji?</summary>
+    public bool HasSlowFirstDay => FirstDaySeconds > 0;
 }
 
 /// <summary>

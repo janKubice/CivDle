@@ -34,22 +34,34 @@ public class DayNightTests
         var sim = NewSim(out var content);
         double dayTicks = Simulation.TicksPerSecond * content.Gameplay.DayNight.DayLengthSeconds;
 
-        // Půl dne tiků → čas se posune o 0.5.
+        // Za pomalým prvním dnem (úvod do hry) běží čas normálně: od jeho konce
+        // se měří dál.
+        var onboarding = content.Gameplay.Onboarding;
+        long slowTicks = (long)(onboarding.FirstDaySeconds * Simulation.TicksPerSecond);
+        for (long i = 0; i < slowTicks; i++)
+        {
+            sim.Tick();
+        }
+
+        double duskStart = onboarding.HasSlowFirstDay ? onboarding.FirstDayUntil : content.Gameplay.DayNight.StartTimeOfDay;
+        Assert.Equal(duskStart, sim.TimeOfDay01, precision: 6);
+
+        // Půl dne tiků → čas se posune o 0.5 a přeteče přes půlnoc do dalšího dne.
         for (int i = 0; i < (int)(dayTicks / 2); i++)
         {
             sim.Tick();
         }
 
-        Assert.Equal(0.82, sim.TimeOfDay01, precision: 6);
-        Assert.Equal(1, sim.DayNumber);
+        Assert.Equal(duskStart + 0.5 - 1.0, sim.TimeOfDay01, precision: 6);
+        Assert.Equal(2, sim.DayNumber);
 
-        // Druhá půlka dne → přetečení přes půlnoc a nový den.
+        // Druhá půlka → zase tentýž čas, pořád druhý den.
         for (int i = 0; i < (int)(dayTicks / 2); i++)
         {
             sim.Tick();
         }
 
-        Assert.Equal(0.32, sim.TimeOfDay01, precision: 6);
+        Assert.Equal(duskStart, sim.TimeOfDay01, precision: 6);
         Assert.Equal(2, sim.DayNumber);
     }
 }

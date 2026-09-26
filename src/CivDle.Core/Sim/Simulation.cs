@@ -1890,6 +1890,38 @@ public sealed class Simulation
     public double Population { get; internal set; }
 
     /// <summary>
+    /// Kolik dní uběhlo od půlnoci před startem (desetinně). Jediné místo, kde
+    /// se čas dne počítá — denní doba, číslo dne i roční období z něj jen čtou.
+    ///
+    /// <para><b>Pomalejší první den</b> (<see cref="OnboardingConfig.FirstDaySeconds"/>):
+    /// úsek od ranního startu do soumraku trvá déle. Dřív se stmívalo v 1:36
+    /// a ve 2:10 byla plná noc — vesnice o dvou domech byla v tu chvíli tmavá
+    /// obrazovka, přesně když lidi z dema odcházeli. Teď přijde první noc až
+    /// po pěti minutách, kdy už je co rozsvítit.</para>
+    ///
+    /// <para>Je to spojitá funkce tiků: nic dalšího se neukládá a načtená hra
+    /// má tentýž čas jako ta, která běžela dál.</para>
+    /// </summary>
+    private double ElapsedDays
+    {
+        get
+        {
+            var dayNight = _content.Gameplay.DayNight;
+            double seconds = TickCount / TicksPerSecond;
+            var onboarding = _content.Gameplay.Onboarding;
+            if (!onboarding.HasSlowFirstDay)
+            {
+                return dayNight.StartTimeOfDay + seconds / dayNight.DayLengthSeconds;
+            }
+
+            double slowSpan = onboarding.FirstDayUntil - dayNight.StartTimeOfDay;
+            return seconds < onboarding.FirstDaySeconds
+                ? dayNight.StartTimeOfDay + slowSpan * (seconds / onboarding.FirstDaySeconds)
+                : onboarding.FirstDayUntil + (seconds - onboarding.FirstDaySeconds) / dayNight.DayLengthSeconds;
+        }
+    }
+
+    /// <summary>
     /// Denní čas 0–1 (0 = půlnoc, 0.5 = poledne). Čistě odvozený z tiků —
     /// deterministický a v savu zadarmo (ukládá se jen TickCount).
     /// </summary>
@@ -1897,8 +1929,7 @@ public sealed class Simulation
     {
         get
         {
-            var dayNight = _content.Gameplay.DayNight;
-            double elapsedDays = dayNight.StartTimeOfDay + TickCount / (TicksPerSecond * dayNight.DayLengthSeconds);
+            double elapsedDays = ElapsedDays;
             return elapsedDays - Math.Floor(elapsedDays);
         }
     }
@@ -1930,8 +1961,7 @@ public sealed class Simulation
                 return 0;
             }
 
-            var dayNight = _content.Gameplay.DayNight;
-            double elapsedDays = dayNight.StartTimeOfDay + TickCount / (TicksPerSecond * dayNight.DayLengthSeconds);
+            double elapsedDays = ElapsedDays;
             double inSeason = elapsedDays % calendar.DaysPerSeason;
             return inSeason / calendar.DaysPerSeason;
         }
@@ -2543,8 +2573,7 @@ public sealed class Simulation
     {
         get
         {
-            var dayNight = _content.Gameplay.DayNight;
-            double elapsedDays = dayNight.StartTimeOfDay + TickCount / (TicksPerSecond * dayNight.DayLengthSeconds);
+            double elapsedDays = ElapsedDays;
             return (long)Math.Floor(elapsedDays) + 1;
         }
     }
@@ -4603,6 +4632,12 @@ public sealed class Simulation
         var yield = YieldAt(x, y);
         return yield is null ? 0 : _nodes.ChargesLeft(x, y, yield, TickCount);
     }
+
+    /// <summary>
+    /// Co na dlaždici roste k ručnímu sběru (index suroviny), nebo −1, když nic
+    /// nebo je vytěžená. Pro průvodce, který ukazuje na nejbližší strom.
+    /// </summary>
+    public int NodeResourceAt(int x, int y) => TryPeekNode(x, y, out int resource) ? resource : -1;
 
     /// <summary>Kolik sběrů uzel na dlaždici pojme, když je plný.</summary>
     public int NodeMaxCharges(int x, int y) => YieldAt(x, y)?.Charges ?? 0;

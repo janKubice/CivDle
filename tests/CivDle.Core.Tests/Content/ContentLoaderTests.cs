@@ -614,6 +614,48 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadFrom_Onboarding_IsParsed_AndMissingMeansOff()
+    {
+        WriteAllValid();
+        WriteGameplayWith("""
+          "onboarding": {
+            "quickStartSeeds": [42, 7],
+            "startSite": { "radius": 8, "searchRadius": 60, "nodes": { "wood": 6 }, "buildings": ["house"] },
+            "firstDay": { "seconds": 270, "until": 0.72 }
+          }
+        """);
+
+        var onboarding = Load().Gameplay.Onboarding;
+
+        Assert.Equal(new long[] { 42, 7 }, onboarding.QuickStartSeeds);
+        Assert.Equal(8, onboarding.StartRadius);
+        Assert.Equal(6, Assert.Single(onboarding.StartNodes).Amount);
+        Assert.Single(onboarding.StartBuildings);
+        Assert.Equal(270, onboarding.FirstDaySeconds);
+
+        WriteGameplayWith(string.Empty);
+        var off = Load().Gameplay.Onboarding;
+        Assert.False(off.HasStartSite);
+        Assert.False(off.HasSlowFirstDay);
+    }
+
+    [Theory]
+    [InlineData("""{ "startSite": { "radius": 8, "searchRadius": 60, "nodes": { "gold": 3 } } }""", "gold")]
+    [InlineData("""{ "startSite": { "radius": 8, "searchRadius": 60, "buildings": ["castle"] } }""", "castle")]
+    [InlineData("""{ "startSite": { "radius": 1, "searchRadius": 60 } }""", "radius")]
+    [InlineData("""{ "firstDay": { "seconds": 270, "until": 0.2 } }""", "until")]
+    public void LoadFrom_BrokenOnboarding_Throws(string block, string expected)
+    {
+        // Konec pomalého dne před ranním startem by znamenal čas, který jde pozpátku.
+        WriteAllValid();
+        WriteGameplayWith($"\"onboarding\": {block}");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
+    [Fact]
     public void LoadFrom_PopulationFillRateAboveOne_Throws()
     {
         // Nad jedna by se za sekundu nastěhovalo víc lidí, než je volných míst.

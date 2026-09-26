@@ -4249,7 +4249,91 @@ public sealed class ContentLoader
             golden,
             subsea,
             power,
-            file.PopulationFillRate ?? 0.0);
+            file.PopulationFillRate ?? 0.0,
+            ParseOnboarding(path, file.Onboarding, file.DayNight.StartTimeOfDay, resources, buildings));
+    }
+
+    /// <summary>
+    /// Úvod do hry. Chybí-li blok, je vypnutý — starší data i mody dostanou
+    /// náhodný svět a normální první den jako dřív.
+    /// </summary>
+    private static OnboardingConfig? ParseOnboarding(
+        string path, OnboardingDto? dto, double startTimeOfDay,
+        DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        var seeds = dto.QuickStartSeeds ?? new List<long>();
+
+        int radius = 0, search = 0;
+        var nodes = new List<ResourceAmount>();
+        var startBuildings = new List<int>();
+        if (dto.StartSite is { } site)
+        {
+            // Meze proti překlepu: „první obrazovka" přes čtyřicet dlaždic už
+            // první obrazovka není a hledání přes pět set je sekunda čekání.
+            if (site.Radius is < 2 or > 40)
+            {
+                throw new ContentLoadException(path, $"'onboarding.startSite.radius' musí být 2–40, je {site.Radius}.");
+            }
+
+            if (site.SearchRadius is < 0 or > 500)
+            {
+                throw new ContentLoadException(path, $"'onboarding.startSite.searchRadius' musí být 0–500, je {site.SearchRadius}.");
+            }
+
+            radius = site.Radius;
+            search = site.SearchRadius;
+            foreach (var (id, count) in site.Nodes ?? new Dictionary<string, int>())
+            {
+                if (!resources.TryIndexOf(id, out int index))
+                {
+                    throw new ContentLoadException(path, $"'onboarding.startSite.nodes' odkazuje na neznámou surovinu '{id}'.");
+                }
+
+                if (count < 1)
+                {
+                    throw new ContentLoadException(path, $"'onboarding.startSite.nodes.{id}' musí být aspoň 1, je {count}.");
+                }
+
+                nodes.Add(new ResourceAmount(index, count));
+            }
+
+            foreach (string id in site.Buildings ?? new List<string>())
+            {
+                if (!buildings.TryIndexOf(id, out int index))
+                {
+                    throw new ContentLoadException(path, $"'onboarding.startSite.buildings' odkazuje na neznámou budovu '{id}'.");
+                }
+
+                startBuildings.Add(index);
+            }
+        }
+
+        double seconds = 0, until = 0;
+        if (dto.FirstDay is { } firstDay)
+        {
+            if (firstDay.Seconds is < 0 or > 3600)
+            {
+                throw new ContentLoadException(path, $"'onboarding.firstDay.seconds' musí být 0–3600, je {firstDay.Seconds}.");
+            }
+
+            // Pomalý úsek jde od rána startu k soumraku téhož dne — konec musí
+            // ležet za startem, jinak by se čas musel vracet.
+            if (firstDay.Until <= startTimeOfDay || firstDay.Until >= 1)
+            {
+                throw new ContentLoadException(path,
+                    $"'onboarding.firstDay.until' musí být mezi startem dne ({startTimeOfDay}) a 1, je {firstDay.Until}.");
+            }
+
+            seconds = firstDay.Seconds;
+            until = firstDay.Until;
+        }
+
+        return new OnboardingConfig(seeds, radius, search, nodes, startBuildings, seconds, until);
     }
 
     /// <summary>
