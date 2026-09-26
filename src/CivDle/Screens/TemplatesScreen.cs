@@ -27,6 +27,9 @@ public sealed class TemplatesScreen : IScreen
     private readonly InputManager _input = new();
     private Desktop _desktop = null!;
 
+    /// <summary>Kam byl seznam odrolovaný — přestavba po kliknutí ho jinak vrátí nahoru.</summary>
+    private readonly ScrollMemory _scroll = new();
+
     /// <summary>Poslední hláška ke sdílení (zkopírováno / vloženo / nepovedlo se).</summary>
     private string _shareNote = string.Empty;
     private Color _shareColor = UiPalette.Text;
@@ -111,12 +114,12 @@ public sealed class TemplatesScreen : IScreen
         }
 
         // Seznam ve scrolleru: po dvaceti šablonách by okno přerostlo obrazovku.
-        layout.Widgets.Add(new ScrollViewer
+        layout.Widgets.Add(_scroll.Track(new ScrollViewer
         {
             Content = list,
             Width = PanelWidth - 10,
             Height = 320,
-        });
+        }));
 
         Finish(layout);
     }
@@ -242,6 +245,7 @@ public sealed class TemplatesScreen : IScreen
         var root = new Panel();
         root.Widgets.Add(panel);
         _desktop = _screens.NewDesktop(root);
+        _scroll.Restore(_desktop);
     }
 
     public void Update(GameTime gameTime)

@@ -30,6 +30,9 @@ public sealed class ModManagerScreen : IScreen
     private readonly ScreenManager _screens;
     private readonly InputManager _input = new();
     private Desktop _desktop = null!;
+
+    /// <summary>Kam byl seznam odrolovaný — přestavba po kliknutí ho jinak vrátí nahoru.</summary>
+    private readonly ScrollMemory _scroll = new();
     private IReadOnlyList<ModInspection> _mods = Array.Empty<ModInspection>();
 
     /// <summary>Změnil hráč něco, co se projeví až po restartu?</summary>
@@ -148,7 +151,7 @@ public sealed class ModManagerScreen : IScreen
                 list.Widgets.Add(ModRow(mod));
             }
 
-            layout.Widgets.Add(new ScrollViewer { Content = list, Height = 340, Width = PanelWidth });
+            layout.Widgets.Add(_scroll.Track(new ScrollViewer { Content = list, Height = 340, Width = PanelWidth }));
         }
 
         // Pořadí načítání je vidět dole, protože je to nejčastější zdroj
@@ -174,6 +177,7 @@ public sealed class ModManagerScreen : IScreen
         var root = new Panel();
         root.Widgets.Add(panel);
         _desktop = _screens.NewDesktop(root);
+        _scroll.Restore(_desktop);
     }
 
     private Widget ModRow(ModInspection mod)

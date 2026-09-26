@@ -31,6 +31,9 @@ public sealed class PrayerScreen : IScreen
     private readonly Action<int, int> _startTargeting;
 
     private Desktop _desktop = null!;
+
+    /// <summary>Kam byl seznam odrolovaný — přestavba po kliknutí ho jinak vrátí nahoru.</summary>
+    private readonly ScrollMemory _scroll = new();
     private int _strength = 1;
 
     public PrayerScreen(ScreenManager screens, Simulation simulation, Action<int, int> startTargeting)
@@ -107,7 +110,7 @@ public sealed class PrayerScreen : IScreen
             list.Widgets.Add(PrayerRow(loc, faith, i));
         }
 
-        layout.Widgets.Add(new ScrollViewer { Content = list, Height = 420, Width = 520 });
+        layout.Widgets.Add(_scroll.Track(new ScrollViewer { Content = list, Height = 420, Width = 520 }));
         layout.Widgets.Add(UiFactory.MenuButton(loc["panel.close"], _screens.Pop));
         Finish(layout);
     }
@@ -121,6 +124,7 @@ public sealed class PrayerScreen : IScreen
         var root = new Panel();
         root.Widgets.Add(panel);
         _desktop = _screens.NewDesktop(root);
+        _scroll.Restore(_desktop);
     }
 
     /// <summary>Volba síly — společná pro všechny modlitby, ať se nemusí opakovat u každé.</summary>

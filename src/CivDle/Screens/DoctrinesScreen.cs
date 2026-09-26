@@ -29,6 +29,9 @@ public sealed class DoctrinesScreen : IScreen
     private readonly InputManager _input = new();
     private Desktop _desktop = null!;
 
+    /// <summary>Kam byl seznam odrolovaný — přestavba po kliknutí ho jinak vrátí nahoru.</summary>
+    private readonly ScrollMemory _scroll = new();
+
     public DoctrinesScreen(ScreenManager screens, Simulation simulation)
     {
         _screens = screens;
@@ -95,7 +98,7 @@ public sealed class DoctrinesScreen : IScreen
             }
         }
 
-        layout.Widgets.Add(new ScrollViewer { Content = list, Width = PanelWidth - 10, Height = 380 });
+        layout.Widgets.Add(_scroll.Track(new ScrollViewer { Content = list, Width = PanelWidth - 10, Height = 380 }));
 
         // Věta o vracení bodů je tady schválně: bez ní vypadá volba jako past
         // a hráč si ji radši nechá „na potom", což znamená napořád.
@@ -116,6 +119,7 @@ public sealed class DoctrinesScreen : IScreen
         var root = new Panel();
         root.Widgets.Add(panel);
         _desktop = _screens.NewDesktop(root);
+        _scroll.Restore(_desktop);
     }
 
     private Widget Card(DoctrineDef doctrine, int index, bool showNodes)

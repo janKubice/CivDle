@@ -20,6 +20,9 @@ public sealed class PoliciesScreen : IScreen
     private readonly InputManager _input = new();
     private Desktop _desktop = null!;
 
+    /// <summary>Kam byl seznam odrolovaný — přestavba po kliknutí ho jinak vrátí nahoru.</summary>
+    private readonly ScrollMemory _scroll = new();
+
     public PoliciesScreen(ScreenManager screens, Simulation simulation)
     {
         _screens = screens;
@@ -78,7 +81,7 @@ public sealed class PoliciesScreen : IScreen
         };
         layout.Widgets.Add(new Label { Text = loc["policy.title"], HorizontalAlignment = HorizontalAlignment.Center });
         layout.Widgets.Add(GovernorSection());
-        layout.Widgets.Add(new ScrollViewer { Content = list, Height = 360, Width = 460 });
+        layout.Widgets.Add(_scroll.Track(new ScrollViewer { Content = list, Height = 360, Width = 460 }));
         layout.Widgets.Add(UiFactory.MenuButton(loc["panel.close"], _screens.Pop));
 
         var panel = UiFactory.DarkPanel(layout);
@@ -88,6 +91,7 @@ public sealed class PoliciesScreen : IScreen
         var root = new Panel();
         root.Widgets.Add(panel);
         _desktop = _screens.NewDesktop(root);
+        _scroll.Restore(_desktop);
     }
 
     /// <summary>

@@ -34,6 +34,9 @@ public sealed class ChainsScreen : IScreen
     private readonly InputManager _input = new();
     private Desktop _desktop = null!;
 
+    /// <summary>Kam byl seznam odrolovaný — přestavba po kliknutí ho jinak vrátí nahoru.</summary>
+    private readonly ScrollMemory _scroll = new();
+
     /// <summary>Kterou surovinu si hráč prohlíží; −1 = seznam.</summary>
     private int _selected = -1;
 
@@ -122,7 +125,7 @@ public sealed class ChainsScreen : IScreen
         int listHeight = Math.Clamp(viewportHeight - 260, 320, 760);
 
         var content = _selected < 0 ? ResourceList() : Detail(_selected);
-        layout.Widgets.Add(new ScrollViewer { Content = content, Width = PanelWidth - 10, Height = listHeight });
+        layout.Widgets.Add(_scroll.Track(new ScrollViewer { Content = content, Width = PanelWidth - 10, Height = listHeight }));
 
         var buttons = new HorizontalStackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
         if (_selected >= 0)
@@ -144,6 +147,7 @@ public sealed class ChainsScreen : IScreen
         var root = new Panel();
         root.Widgets.Add(panel);
         _desktop = _screens.NewDesktop(root);
+        _scroll.Restore(_desktop);
     }
 
     /// <summary>Všechny suroviny jako tlačítka.</summary>

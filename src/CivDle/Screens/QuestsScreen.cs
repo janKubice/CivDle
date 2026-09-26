@@ -23,6 +23,14 @@ public sealed class QuestsScreen : IScreen
     private Desktop _desktop = null!;
 
     /// <summary>
+    /// Kam byly oba seznamy odrolované (nástěnka zakázek, úkoly) — přestavba
+    /// po převzetí zakázky je jinak vrátí nahoru.
+    /// </summary>
+    private readonly ScrollMemory _boardScroll = new();
+
+    private readonly ScrollMemory _questScroll = new();
+
+    /// <summary>
     /// Potvrzení „Zaplaceno: …" po odevzdání zakázky. Toast ze simulace se ukáže
     /// až po zavření okna (sim stojí) — hráč ale potřebuje vidět výplatu HNED,
     /// jinak odevzdání působí, jako by se nic nestalo.
@@ -362,10 +370,10 @@ public sealed class QuestsScreen : IScreen
         var columns = new HorizontalStackPanel { Spacing = 20 };
         if (board.Widgets.Count > 0)
         {
-            columns.Widgets.Add(new ScrollViewer { Content = board, Height = listHeight, Width = 470 });
+            columns.Widgets.Add(_boardScroll.Track(new ScrollViewer { Content = board, Height = listHeight, Width = 470 }));
         }
 
-        columns.Widgets.Add(new ScrollViewer { Content = quests, Height = listHeight, Width = 470 });
+        columns.Widgets.Add(_questScroll.Track(new ScrollViewer { Content = quests, Height = listHeight, Width = 470 }));
 
         var layout = new VerticalStackPanel
         {
@@ -384,6 +392,8 @@ public sealed class QuestsScreen : IScreen
         var root = new Panel();
         root.Widgets.Add(panel);
         _desktop = _screens.NewDesktop(root);
+        _boardScroll.Restore(_desktop);
+        _questScroll.Restore(_desktop);
     }
 
     /// <summary>Úkoly: aktivní z dat, dynamický (roste s hrou) a splněné.</summary>

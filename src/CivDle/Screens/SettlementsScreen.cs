@@ -29,6 +29,9 @@ public sealed class SettlementsScreen : IScreen
 
     private Desktop _desktop = null!;
 
+    /// <summary>Kam byl seznam odrolovaný — přestavba po kliknutí ho jinak vrátí nahoru.</summary>
+    private readonly ScrollMemory _scroll = new();
+
     public SettlementsScreen(ScreenManager screens, Simulation simulation, Camera2D camera)
     {
         _screens = screens;
@@ -103,7 +106,7 @@ public sealed class SettlementsScreen : IScreen
 
         AddNpcCities(list);
 
-        var scroll = new ScrollViewer
+        var scroll = _scroll.Track(new ScrollViewer
         {
             Content = list,
             // Původních 340×360 bylo na seznam měst s diplomacií málo: karty se
@@ -111,7 +114,7 @@ public sealed class SettlementsScreen : IScreen
             // jak velký ten obsah je.
             Height = 560,
             Width = 660,
-        };
+        });
 
         var layout = new VerticalStackPanel
         {
@@ -134,6 +137,7 @@ public sealed class SettlementsScreen : IScreen
         var root = new Panel();
         root.Widgets.Add(panel);
         _desktop = _screens.NewDesktop(root);
+        _scroll.Restore(_desktop);
     }
 
     /// <summary>

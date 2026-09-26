@@ -29,6 +29,9 @@ public sealed class ControlsScreen : IScreen
     private readonly InputManager _input = new();
     private Desktop _desktop = null!;
 
+    /// <summary>Kam byl seznam odrolovaný — přestavba po kliknutí ho jinak vrátí nahoru.</summary>
+    private readonly ScrollMemory _scroll = new();
+
     /// <summary>Na kterou akci se právě čeká stisk; <c>null</c> = na žádnou.</summary>
     private GameAction? _waitingFor;
 
@@ -145,7 +148,7 @@ public sealed class ControlsScreen : IScreen
             });
         }
 
-        layout.Widgets.Add(new ScrollViewer { Content = list, Width = PanelWidth - 10, Height = 360 });
+        layout.Widgets.Add(_scroll.Track(new ScrollViewer { Content = list, Width = PanelWidth - 10, Height = 360 }));
 
         if (_note.Length > 0)
         {
@@ -175,6 +178,7 @@ public sealed class ControlsScreen : IScreen
         var root = new Panel();
         root.Widgets.Add(panel);
         _desktop = _screens.NewDesktop(root);
+        _scroll.Restore(_desktop);
     }
 
     private Widget Row(GameAction action)
