@@ -256,7 +256,17 @@ internal sealed class AutoBuildSystem
                     break;
                 }
 
-                acted = MeetNeed(sim, b, needs[n]) == Outcome.Built;
+                var outcome = MeetNeed(sim, b, needs[n]);
+                acted = outcome == Outcome.Built;
+
+                // Na nový dům není kde stavět (souš mezi jezery je zastavěná) —
+                // zahustit stávající, i bez politiky. Dřív tu guvernér prostě
+                // stál a populace se zasekla na stropu bydlení (endgame.md, B1).
+                // Při šetření ne: tam místo je, jen chybí suroviny.
+                if (!acted && outcome == Outcome.Impossible && needs[n].Need == CityNeed.Housing)
+                {
+                    acted = TryDensify(sim);
+                }
             }
 
             if (!acted)
@@ -1418,20 +1428,101 @@ internal sealed class AutoBuildSystem
         return false;
     }
 
-    /// <summary>Povýší první bydlení, které má vylepšení a hráč na něj má — hustota bez záboru místa.</summary>
+    /// <summary>
+    /// Povýší bydlení nejblíž centru sídla — hustota bez záboru místa.
+    ///
+    /// <para><b>Od centra ven.</b> Dřív se povyšovala první budova v poli, tedy
+    /// ta nejstarší kdekoli — a výšky vyrůstaly nahodile. Když se zahušťuje
+    /// od těžiště sídel, vyroste panorama tam, kde ho oko čeká: uprostřed
+    /// vysoko, na okrajích nízko (endgame.md, B2).</para>
+    ///
+    /// <para>Cena jde přes rezervu guvernéra jako každá jeho stavba.</para>
+    /// </summary>
     private bool TryDensify(Simulation sim)
     {
+        var centers = SettlementCenters(sim);
         var buildings = sim.Buildings;
+        int best = -1;
+        float bestDistance = float.MaxValue;
         for (int i = 0; i < buildings.Length; i++)
         {
-            if (_content.Buildings[buildings[i].DefIndex].HousingCapacity > 0
-                && sim.CanUpgrade(i) == PlacementResult.Ok)
+            var def = _content.Buildings[buildings[i].DefIndex];
+            if (def.HousingCapacity <= 0 || !def.HasUpgrade || !buildings[i].IsComplete)
             {
-                return sim.TryUpgradeBuilding(i) == PlacementResult.Ok;
+                continue;
+            }
+
+            float distance = NearestCenterDistance(centers, buildings[i].X, buildings[i].Y);
+            if (distance >= bestDistance
+                || sim.CanUpgrade(i) != PlacementResult.Ok
+                || !sim.AutomationCanSpend(def.UpgradeCost))
+            {
+                continue;
+            }
+
+            best = i;
+            bestDistance = distance;
+        }
+
+        return best >= 0 && sim.TryUpgradeBuilding(best) == PlacementResult.Ok;
+    }
+
+    /// <summary>Kolik největších sídel se bere jako centra (víc jich na výšky nepotřeba).</summary>
+    private const int DensifyCenters = 8;
+
+    private readonly List<(float X, float Y)> _centers = new(DensifyCenters + 1);
+    private readonly List<int> _centerSizes = new(DensifyCenters + 1);
+
+    /// <summary>Těžiště největších sídel; bez sídel počátek mapy (první tábor).</summary>
+    private List<(float X, float Y)> SettlementCenters(Simulation sim)
+    {
+        // Výběr největších bez LINQ: guvernér běží každých pár tiků a alokace
+        // za kolo by se nasčítaly.
+        _centers.Clear();
+        _centerSizes.Clear();
+        var settlements = sim.Settlements;
+        for (int i = 0; i < settlements.Count; i++)
+        {
+            int size = settlements[i].BuildingCount;
+            int at = _centerSizes.Count;
+            while (at > 0 && _centerSizes[at - 1] < size)
+            {
+                at--;
+            }
+
+            if (at >= DensifyCenters)
+            {
+                continue;
+            }
+
+            _centerSizes.Insert(at, size);
+            _centers.Insert(at, (settlements[i].CenterX, settlements[i].CenterY));
+            if (_centers.Count > DensifyCenters)
+            {
+                _centerSizes.RemoveAt(DensifyCenters);
+                _centers.RemoveAt(DensifyCenters);
             }
         }
 
-        return false;
+        if (_centers.Count == 0)
+        {
+            _centers.Add((0, 0));
+        }
+
+        return _centers;
+    }
+
+    private static float NearestCenterDistance(List<(float X, float Y)> centers, int x, int y)
+    {
+        float best = float.MaxValue;
+        for (int c = 0; c < centers.Count; c++)
+        {
+            float dx = x - centers[c].X;
+            float dy = y - centers[c].Y;
+            best = Math.Min(best, dx * dx + dy * dy);
+        }
+
+        return best;
     }
 
     /// <summary>

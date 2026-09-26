@@ -1678,7 +1678,13 @@
         "desert"
       ],
       "buildable": true,
-      "minSettlementRank": "large_city"
+      "minSettlementRank": "large_city",
+      "upgradesTo": "vertical_district",
+      "upgradeCost": {
+        "nanomaterial": 30,
+        "robot": 12,
+        "computer": 12
+      }
     },
     {
       "id": "fusion_plant",
@@ -5219,6 +5225,44 @@
               "uranium": 40000
             }
           }
+        ]
+      }
+    },
+    {
+      "id": "vertical_district",
+      "category": "housing",
+      "mapColor": "#6FA8C8",
+      "footprint": [
+        3,
+        3
+      ],
+      "housingCapacity": 450,
+      "buildCost": {
+        "nanomaterial": 45,
+        "robot": 20,
+        "computer": 20
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert"
+      ],
+      "minSettlementRank": "metropolis",
+      "visualHeight": 4,
+      "look": {
+        "shape": "tower",
+        "wall": "#9DB4C8",
+        "roof": "#4E6A86",
+        "accent": "#7FC88A",
+        "glow": "#CFE8FF",
+        "features": [
+          "windows",
+          "plants",
+          "antenna",
+          "glow"
         ]
       }
     }

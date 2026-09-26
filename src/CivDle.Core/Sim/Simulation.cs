@@ -3468,6 +3468,21 @@ public sealed class Simulation
         }
     }
 
+    /// <summary>Hlídá budovu stupeň měřítka, na který město ještě nedorostlo?</summary>
+    private bool IsLockedByScale(int defIndex)
+    {
+        var tiers = _content.AscensionTiers;
+        for (int i = 0; i < tiers.Count; i++)
+        {
+            if (tiers[i].Order > AscensionLevel && tiers[i].UnlockedBuildingIndices.Contains(defIndex))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Zamkne budovy hlídané stupněm měřítka a hned odemkne ty, na jejichž stupeň
     /// už úroveň Vzestupu dosáhla. Stejný princip jako u technologií — megastruktura
@@ -8018,6 +8033,14 @@ public sealed class Simulation
 
         var def = _content.Buildings[_buildings[buildingIndex].DefIndex];
         if (!def.HasUpgrade)
+        {
+            return PlacementResult.NotUnlocked;
+        }
+
+        // Stupeň, který odemyká měřítko (Vertikální čtvrť na planetárním), nejde
+        // ani povýšením, dokud město na měřítko nedoroste. Výzkum se tu záměrně
+        // nehlídá — vylepšení za výzkumem nikdy nečekala a cena je brzdí sama.
+        if (IsLockedByScale(def.UpgradesToIndex))
         {
             return PlacementResult.NotUnlocked;
         }

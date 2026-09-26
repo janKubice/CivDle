@@ -125,4 +125,67 @@ public class PolicyTests
 
         Assert.True(sim.Buildings.Length > 1, "bez hustoty se staví nové domy do šířky");
     }
+
+    // ----- zahušťování bez politiky (endgame.md, B2) -----
+
+    /// <summary>
+    /// Souš jen v pásu x = 1…<paramref name="length"/>, y = 2; všude jinde voda.
+    /// Mimo řádky a sloupce vyhrazené ulicím (každá šestá), kam guvernér nestaví.
+    /// </summary>
+    private sealed class StripTerrain(int length) : ITerrain
+    {
+        public byte BiomeAt(int x, int y) => (byte)(y == 2 && x >= 1 && x <= length ? 1 : 0);
+    }
+
+    [Fact]
+    public void WithoutThePolicy_NoRoomLeft_TheGovernorDensifies()
+    {
+        // Souš je zastavěná a politika vypnutá. Dřív tu guvernér stál
+        // a populace se zasekla na stropu bydlení.
+        var sim = new Simulation(DensityContent(), new StripTerrain(1));
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(0, 1, 2));
+
+        RunTicks(sim, 5);
+
+        Assert.Equal(1, sim.Buildings.Length);
+        Assert.Equal(1, sim.Buildings[0].DefIndex); // povýšený na manor
+    }
+
+    [Fact]
+    public void WithRoomLeft_TheGovernorStillBuildsNewHousesFirst()
+    {
+        // Bez politiky zůstává výchozí cesta stejná: dokud je místo, staví se.
+        var sim = new Simulation(DensityContent(), new StripTerrain(5));
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(0, 1, 2));
+
+        RunTicks(sim, 3);
+
+        Assert.True(sim.Buildings.Length > 1);
+        Assert.Equal(0, sim.Buildings[0].DefIndex);
+    }
+
+    [Fact]
+    public void TheCityDensifiesFromItsCentreOut()
+    {
+        var sim = new Simulation(DensityContent(), new StripTerrain(5));
+        for (int x = 1; x <= 5; x++)
+        {
+            Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(0, x, 2));
+        }
+
+        sim.SetPopulationForTest(sim.HousingCapacity); // plno — tlak na bydlení
+
+        // Až se povýší první dům, musí to být ten nejblíž těžišti.
+        for (int t = 0; t < 50 && !sim.Buildings.ToArray().Any(b => b.DefIndex == 1); t++)
+        {
+            sim.Tick();
+        }
+
+        var upgraded = sim.Buildings.ToArray().Single(b => b.DefIndex == 1);
+        float cx = sim.Settlements.Count > 0 ? sim.Settlements[0].CenterX : 0;
+        float cy = sim.Settlements.Count > 0 ? sim.Settlements[0].CenterY : 0;
+        float Distance(int x, int y) => (x - cx) * (x - cx) + (y - cy) * (y - cy);
+        float nearest = sim.Buildings.ToArray().Min(b => Distance(b.X, b.Y));
+        Assert.Equal(nearest, Distance(upgraded.X, upgraded.Y), 3);
+    }
 }

@@ -36,7 +36,8 @@
       "populationCap": 10000000000,
       "unlocks": [
         "particle_accelerator",
-        "fusion_beacon"
+        "fusion_beacon",
+        "vertical_district"
       ]
     }
   ]
