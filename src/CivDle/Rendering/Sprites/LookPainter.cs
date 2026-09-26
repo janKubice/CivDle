@@ -54,6 +54,7 @@ public static class LookPainter
             "channel" => Channel(f),
             "pool" => Pool(f),
             "platform" => Platform(f),
+            "plaza" => Plaza(f),
             "vortex" => Vortex(f),
             "ring" => Ring(f),
             "mirrors" => Mirrors(f),
@@ -658,6 +659,52 @@ public static class LookPainter
         return new Body(4, 7, 24, 24, 16, 7);
     }
 
+    /// <summary>
+    /// Sníh sedí na střeše, ne nad ní. U sedlové střechy (vrchol výš než hrana
+    /// zdi) je to čepice kolem hřebene; u ploché pruh po hraně. Dřív se kreslil
+    /// vždycky jako pruh ve výšce hřebene — nad sedlovou střechou visel ve vzduchu.
+    /// </summary>
+    private static void Snow(Frame f, Body b)
+    {
+        var snow = new Color(240, 246, 250);
+        float pitch = b.Y - b.TopY;
+        if (pitch > 3)
+        {
+            float capY = b.TopY + pitch * 0.45f;
+            float half = b.W * 0.5f * 0.45f + 1;
+            f.Tri(b.TopX - half, capY, b.TopX + half, capY, b.TopX, b.TopY - 0.5f, snow);
+            f.Circle(b.TopX - half * 0.6f, capY, 1.1f, snow);
+            f.Circle(b.TopX + half * 0.5f, capY + 0.3f, 0.9f, snow);
+            return;
+        }
+
+        f.Rect(b.X - 0.5f, b.Y - 1.2f, b.W + 1, 1.4f, snow);
+    }
+
+    /// <summary>Dlážděné náměstí s kašnou uprostřed — plocha pro lidi, ne stavba.</summary>
+    private static Body Plaza(Frame f)
+    {
+        var k = f.K;
+        f.Rect(1, 6, 30, 25, k.Wall);
+        for (float y = 9; y < 31; y += 4)
+        {
+            f.Rect(1, y, 30, 0.5f, k.WallDark); // spáry dlažby
+        }
+
+        for (float x = 5; x < 31; x += 6)
+        {
+            f.Rect(x, 6, 0.5f, 25, k.WallDark);
+        }
+
+        f.Rect(1, 6, 30, 1, k.WallLight);
+        f.Rect(1, 30, 30, 1, k.WallDark);
+        f.Circle(16, 18, 6, k.RoofDark); // obruba kašny
+        f.Circle(16, 18, 5, k.Roof);
+        f.Circle(16, 18, 3.5f, k.Accent); // voda
+        f.Circle(15, 17, 1.2f, Lighten(k.Accent, 0.35f));
+        return new Body(1, 6, 30, 25, 16, 6);
+    }
+
     private static Body Platform(Frame f)
     {
         var k = f.K;
@@ -835,8 +882,7 @@ public static class LookPainter
                 f.Circle(b.X + 1, 27.3f, 1.2f, new Color(126, 186, 98));
                 break;
             case "snow":
-                f.Rect(b.X - 1, b.TopY + 1, b.W + 2, 1.2f, new Color(240, 246, 250));
-                f.Circle(b.TopX, b.TopY + 1, 2.2f, new Color(240, 246, 250));
+                Snow(f, b);
                 break;
             case "pipes":
                 f.Rect(b.X - 2, b.Y + b.H * 0.5f, 2, 0.9f, k.AccentDark);

@@ -36,6 +36,7 @@ public sealed record BuildingLook(
         "hut", "house", "tower", "dome", "hall", "workshop", "tanks", "pit", "field", "grove",
         "stilts", "raft", "balloon", "mast", "column", "obelisk", "arch", "crystal", "bulb", "tree",
         "wall", "channel", "pool", "platform", "vortex", "ring", "mirrors", "pier", "rig", "pods",
+        "plaza",
     };
 
     /// <summary>Prvky, které malíř umí přikreslit k tvaru.</summary>
