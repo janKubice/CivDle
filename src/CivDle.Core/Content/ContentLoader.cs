@@ -1832,13 +1832,14 @@ public sealed class ContentLoader
             }
 
             var condition = ParseCondition(path, $"krok průvodce '{id}'", dto.Condition, resources, buildings, techs);
-            result.Add(new TutorialStepDef(id, condition, ParseFocus(path, id, dto.Focus, buildings)));
+            result.Add(new TutorialStepDef(id, condition, ParseFocus(path, id, dto.Focus, buildings, resources)));
         }
 
         return result;
     }
 
-    private static FocusHint ParseFocus(string path, string ownerId, FocusHintDto? dto, DefRegistry<BuildingDef> buildings)
+    private static FocusHint ParseFocus(
+        string path, string ownerId, FocusHintDto? dto, DefRegistry<BuildingDef> buildings, DefRegistry<Resource> resources)
     {
         if (dto is null)
         {
@@ -1862,6 +1863,14 @@ public sealed class ContentLoader
                 }
 
                 return new FocusHint(FocusKind.Build, buildingIndex, string.Empty);
+
+            case "harvest":
+                if (!resources.TryIndexOf(target, out _))
+                {
+                    throw new ContentLoadException(path, $"Krok průvodce '{ownerId}': 'focus.target' u 'harvest' musí být surovina, je '{target}'.");
+                }
+
+                return new FocusHint(FocusKind.Harvest, -1, target);
 
             case "tool":
             case "screen":
