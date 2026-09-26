@@ -74,7 +74,13 @@ public sealed record BuildingDto(
     List<BuildStageDto>? Stages = null,
     RaftDto? Raft = null,
     BuildingSoundDto? Sound = null,
-    int VisualHeight = 0);
+    int VisualHeight = 0,
+    string? UnlockedBy = null,
+    BuildingLookDto? Look = null);
+
+/// <summary>Vzhled budovy popsaný daty tak, jak leží v JSON.</summary>
+public sealed record BuildingLookDto(
+    string? Shape, string? Wall, string? Roof, string? Accent, string? Glow, List<string>? Features);
 
 /// <summary>Zvuk okolí budovy tak, jak leží v JSON.</summary>
 public sealed record BuildingSoundDto(string? Loop, double RadiusTiles, double Volume);
@@ -481,7 +487,8 @@ public sealed record GoalConditionDto(
     string? Resource,
     string? Building,
     string? Tech,
-    long Target);
+    long Target,
+    string? Rank = null);
 
 /// <summary>Obsah souboru <c>data/prestige.json</c> (Vzestup + trvalé upgrady).</summary>
 public sealed record PrestigeFileDto(

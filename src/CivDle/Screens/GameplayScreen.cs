@@ -2240,9 +2240,12 @@ public sealed class GameplayScreen : IScreen
             }
 
             // Splněný úkol / Vzestup mění seznam aktivních cílů — přestav sledovač.
+            // Velký cíl navíc odemyká pomník, a ten má být ve stavební nabídce
+            // hned, ne až po otevření jiné obrazovky.
             if (note.Kind is NotificationKind.QuestCompleted or NotificationKind.Ascended)
             {
                 _objectives.MarkDirty();
+                RefreshBuildMenu();
             }
 
             // Nový achievement → zapiš do účet-wide profilu (přežije i restart).

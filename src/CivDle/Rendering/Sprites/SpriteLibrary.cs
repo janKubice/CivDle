@@ -60,7 +60,7 @@ public sealed class SpriteLibrary : IDisposable
     /// barva byla dřív napsaná dvakrát, v datech i tady v kódu, a změna
     /// v datech pak přebarvila zvíře na minimapě, ale sprite ne.
     /// </param>
-    public SpriteLibrary(GraphicsDevice device, IReadOnlyList<FaunaDef> fauna)
+    public SpriteLibrary(GraphicsDevice device, IReadOnlyList<FaunaDef> fauna, IReadOnlyList<BuildingDef>? buildings = null)
     {
         _device = device;
         // Suroviny (ikony do HUD).
@@ -433,6 +433,41 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "fx.campfire", SpriteSize, Campfire);
         Add(device, "fx.arrow", SpriteSize, GuideArrow);
         Add(device, "fx.ring", SpriteSize, GuideRing);
+
+        AddLooks(device, buildings ?? Array.Empty<BuildingDef>());
+    }
+
+    /// <summary>
+    /// Budovy se vzhledem popsaným daty (<see cref="BuildingDef.Look"/>) dostanou
+    /// sprite od <see cref="LookPainter"/>. Ručně kreslený model má přednost —
+    /// vzhled z dat je pro budovy, které žádný nemají.
+    /// </summary>
+    private void AddLooks(GraphicsDevice device, IReadOnlyList<BuildingDef> buildings)
+    {
+        foreach (var def in buildings)
+        {
+            string id = $"building.{def.Id}";
+            if (def.Look is not { } look || _sprites.ContainsKey(id))
+            {
+                continue;
+            }
+
+            var (width, height) = LookCanvasSize(def);
+            AddTall(device, id, width, height, canvas => LookPainter.Paint(canvas, look));
+        }
+    }
+
+    /// <summary>
+    /// Plátno pro vzhled z dat: velikost podle půdorysu (32 / 64 / 96 px jako
+    /// ruční modely) a vysoké budovy vyšší o svou přerůstající výšku — ať mají
+    /// pixely čtvercové (viz <see cref="AddTall"/>).
+    /// </summary>
+    public static (int Width, int Height) LookCanvasSize(BuildingDef def)
+    {
+        int footprint = Math.Max(def.FootprintWidth, def.FootprintHeight);
+        int width = footprint >= 5 ? MegaSpriteSize : footprint >= 2 ? BigSpriteSize : SpriteSize;
+        int height = width * (def.FootprintHeight + def.VisualHeight) / Math.Max(1, def.FootprintHeight);
+        return (width, height);
     }
 
     /// <summary>Sprite podle ID, nebo <c>null</c>, když neexistuje.</summary>
@@ -497,7 +532,7 @@ public sealed class SpriteLibrary : IDisposable
     /// stínováním, takže by se objekt od pozadí neodlepil — což je celý
     /// důvod, proč obrys je.</para>
     /// </summary>
-    private const float OutlineStrength = 0.26f;
+    internal const float OutlineStrength = 0.26f;
 
     /// <summary>
     /// Které předpony obrys dostanou.

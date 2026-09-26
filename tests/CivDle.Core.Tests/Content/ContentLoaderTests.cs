@@ -1974,6 +1974,26 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Theory]
+    [InlineData("\"unlockedBy\": \"quest:neni\"", "neexistující")]
+    [InlineData("\"unlockedBy\": \"odmena\"", "unlockedBy")]
+    [InlineData("\"look\": { \"shape\": \"pagoda\", \"wall\": \"#FFFFFF\", \"roof\": \"#000000\", \"accent\": \"#FF0000\" }", "tvar")]
+    [InlineData("\"look\": { \"shape\": \"hut\", \"wall\": \"#FFFFFF\", \"roof\": \"#000000\", \"accent\": \"#FF0000\", \"features\": [\"disco\"] }", "prvek")]
+    public void Building_BadUnlockOrLook_Throws(string field, string expected)
+    {
+        // Pomník zamčený na neexistující cíl by zůstal zamčený navždy; tvar,
+        // který malíř neumí, by spadl až při startu grafiky. Obojí musí spadnout
+        // hned při načtení, se srozumitelnou hláškou.
+        WriteAllValid();
+        string buildings = File.ReadAllText(Path.Combine(_tempDir, "buildings.json"));
+        int first = buildings.IndexOf("\"id\"", StringComparison.Ordinal);
+        Write("buildings.json", buildings.Insert(first, field + ", "));
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
+    [Theory]
     [InlineData(0)]
     [InlineData(50_000)]
     public void Frontier_AttackerCeilingOutOfRange_Throws(int ceiling)

@@ -3219,10 +3219,47 @@ public sealed class Simulation
     /// <summary>Smí hráč budovu přímo postavit (odemčená a nemarkovaná jako jen-upgrade)?</summary>
     public bool IsBuildingBuildable(int defIndex) =>
         _buildingUnlocked[defIndex]
+        && IsRewardUnlocked(_content.Buildings[defIndex])
         && _content.Buildings[defIndex].Buildable
         // Věž ve hře bez útoků je past: hráč ji postaví, zaplatí za ni dělníky
         // a nikdy se nedozví, proč nic nedělá.
         && (!_content.Buildings[defIndex].IsArmed || FrontierDefense);
+
+    /// <summary>
+    /// Odemčení za Velký cíl nebo výzvu (<see cref="BuildingDef.UnlockedBy"/>).
+    /// Úkol se čte ze savu; výzvy platí pro hráče napříč hrami, takže je sem
+    /// předá hra z profilu (<see cref="SetProfileUnlocks"/>) — simulace profil
+    /// nezná a číst ho sama nemá.
+    /// </summary>
+    public bool IsRewardUnlocked(BuildingDef def)
+    {
+        if (def.UnlockedBy is not { } unlock)
+        {
+            return true;
+        }
+
+        if (unlock.StartsWith("quest:", StringComparison.Ordinal))
+        {
+            return _content.Quests.TryIndexOf(unlock["quest:".Length..], out int quest) && _questsCompleted[quest];
+        }
+
+        return _profileUnlocks.Contains(unlock);
+    }
+
+    private readonly HashSet<string> _profileUnlocks = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Odemčení z profilu hráče (dohrané výzvy, tvar <c>challenge:&lt;id&gt;</c>).
+    /// Volá hra po založení či načtení světa.
+    /// </summary>
+    public void SetProfileUnlocks(IEnumerable<string> unlocks)
+    {
+        _profileUnlocks.Clear();
+        foreach (string unlock in unlocks)
+        {
+            _profileUnlocks.Add(unlock);
+        }
+    }
 
     // ----- měřítko (stupně Vzestupu) -----
 
@@ -6306,8 +6343,54 @@ public sealed class Simulation
         MetricKind.Prayers => PrayerCount,
         MetricKind.CitiesJoined => CitiesJoined,
         MetricKind.Explored => Fog.ExploredChunks,
+        MetricKind.SettlementsOfRank => SettlementsOfRankAtLeast(param),
+        MetricKind.Megastructures => DistinctMegastructures(),
+        MetricKind.GrandWorkStage => GrandWorkStage,
+        MetricKind.Satellites => _orbit.TotalLaunched,
+        MetricKind.ContractsCompleted => ContractsCompleted,
+        MetricKind.AirQuality => (long)Math.Floor(100.0 * (1.0 - _content.Gameplay.Pollution.Severity(AirPollutionOverCity))),
+        MetricKind.DefenceWaves => FrontierDefense ? _frontier.NextWave : 0,
         _ => 0,
     };
+
+    private long SettlementsOfRankAtLeast(int rankIndex)
+    {
+        long count = 0;
+        foreach (var settlement in Settlements)
+        {
+            if (settlement.RankIndex >= rankIndex)
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    /// <summary>Kolik různých megastruktur stojí dostavěných (Velký cíl „Všechny megastruktury").</summary>
+    private long DistinctMegastructures()
+    {
+        long count = 0;
+        var buildings = _content.Buildings;
+        for (int d = 0; d < buildings.Count; d++)
+        {
+            if (buildings[d].Category != "megastructure")
+            {
+                continue;
+            }
+
+            for (int i = 0; i < _buildingCount; i++)
+            {
+                if (_buildings[i].DefIndex == d && _buildings[i].IsComplete)
+                {
+                    count++;
+                    break;
+                }
+            }
+        }
+
+        return count;
+    }
 
     /// <summary>Kolik budov daného typu ve městě stojí. Veřejné kvůli přehledům v UI.</summary>
     public long CountBuildingsOfType(int defIndex)

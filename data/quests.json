@@ -319,6 +319,116 @@
       "reward": {
         "science": 40
       }
+    },
+    {
+      "id": "great_billion",
+      "group": "late",
+      "condition": {
+        "metric": "population",
+        "target": 1000000000
+      },
+      "activeWhen": {
+        "metric": "ascension",
+        "target": 4
+      }
+    },
+    {
+      "id": "great_metropolises",
+      "group": "late",
+      "condition": {
+        "metric": "settlements",
+        "rank": "metropolis",
+        "target": 3
+      },
+      "activeWhen": {
+        "metric": "ascension",
+        "target": 2
+      }
+    },
+    {
+      "id": "great_reclaim",
+      "group": "late",
+      "condition": {
+        "metric": "terraformed",
+        "target": 2000
+      },
+      "activeWhen": {
+        "metric": "ascension",
+        "target": 2
+      }
+    },
+    {
+      "id": "great_megastructures",
+      "group": "late",
+      "condition": {
+        "metric": "megastructures",
+        "target": 7
+      },
+      "activeWhen": {
+        "metric": "ascension",
+        "target": 3
+      }
+    },
+    {
+      "id": "great_depth",
+      "group": "late",
+      "condition": {
+        "metric": "grandwork",
+        "target": 25
+      },
+      "activeWhen": {
+        "metric": "grandwork",
+        "target": 1
+      }
+    },
+    {
+      "id": "great_sky",
+      "group": "late",
+      "condition": {
+        "metric": "satellites",
+        "target": 5
+      },
+      "activeWhen": {
+        "metric": "building",
+        "building": "spaceport",
+        "target": 1
+      }
+    },
+    {
+      "id": "great_clean_air",
+      "group": "late",
+      "condition": {
+        "metric": "airquality",
+        "target": 95
+      },
+      "activeWhen": {
+        "metric": "population",
+        "target": 100000000
+      }
+    },
+    {
+      "id": "great_market",
+      "group": "late",
+      "condition": {
+        "metric": "contracts",
+        "target": 50
+      },
+      "activeWhen": {
+        "metric": "contracts",
+        "target": 5
+      }
+    },
+    {
+      "id": "great_defense",
+      "group": "late",
+      "condition": {
+        "metric": "waves",
+        "target": 100
+      },
+      "activeWhen": {
+        "metric": "waves",
+        "target": 1
+      }
     }
   ],
   "dynamic": {

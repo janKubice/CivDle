@@ -408,7 +408,7 @@ public sealed class QuestsScreen : IScreen
             if (_simulation.IsQuestActive(i) && content.Quests[i].Group == QuestGroup.Start)
             {
                 var quest = content.Quests[i];
-                list.Widgets.Add(ActiveRow(loc[quest.NameKey], loc[quest.DescriptionKey], quest.Condition, quest.Reward));
+                list.Widgets.Add(ActiveRow(loc[quest.NameKey], loc[quest.DescriptionKey], quest.Condition, quest.Reward, quest.Id));
             }
         }
 
@@ -426,7 +426,7 @@ public sealed class QuestsScreen : IScreen
                 }
 
                 var quest = content.Quests[i];
-                list.Widgets.Add(ActiveRow(loc[quest.NameKey], loc[quest.DescriptionKey], quest.Condition, quest.Reward));
+                list.Widgets.Add(ActiveRow(loc[quest.NameKey], loc[quest.DescriptionKey], quest.Condition, quest.Reward, quest.Id));
             }
         }
 
@@ -479,7 +479,8 @@ public sealed class QuestsScreen : IScreen
         TextColor = UiFactory.Accent,
     };
 
-    private Widget ActiveRow(string name, string desc, GoalCondition condition, IReadOnlyList<Core.Content.ResourceAmount> reward)
+    private Widget ActiveRow(
+        string name, string desc, GoalCondition condition, IReadOnlyList<Core.Content.ResourceAmount> reward, string? questId = null)
     {
         var loc = _screens.Loc;
         var content = _screens.Content;
@@ -506,6 +507,18 @@ public sealed class QuestsScreen : IScreen
                 Text = loc.Format("panel.reward", CostFormat.Line(content, loc, reward)),
                 TextColor = Color.Gray,
             });
+        }
+
+        // Velký cíl odměňuje pomníkem — hráč má vidět, za čím jde.
+        if (questId is not null)
+        {
+            foreach (var building in content.Buildings.All)
+            {
+                if (building.UnlockedBy == $"quest:{questId}")
+                {
+                    row.Widgets.Add(new Label { Text = loc.Format("panel.unlocks", loc[building.NameKey]), TextColor = UiPalette.Warn });
+                }
+            }
         }
 
         return row;

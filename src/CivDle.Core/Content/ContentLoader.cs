@@ -53,6 +53,7 @@ public sealed class ContentLoader
         // Žebříček sídel před budovami: budova může vyžadovat stupeň sídla,
         // takže loader musí znát ID stupňů dřív, než je začne překládat.
         var settlementRanks = LoadSettlementRanks(Path.Combine(dataDirectory, "settlement-ranks.json"));
+        _settlementRanks = settlementRanks; // podmínky „sídla dané hodnosti" (Velké cíle)
         // Teraformace se načítá až za technologiemi (odemyká se jimi), ale budovy
         // na ni musí umět odkázat indexem. Soubor se proto přečte jednou dopředu
         // a oběma stranám poslouží tentýž seznam — pořadí tak nemůže rozejít.
@@ -97,6 +98,7 @@ public sealed class ContentLoader
         var carillon = LoadCarillon(Path.Combine(dataDirectory, "carillon.json"), buildings);
         var scenarios = LoadScenarios(
             Path.Combine(dataDirectory, "scenarios.json"), resources, buildings, techs, worldGen);
+        CheckRewardUnlocks(Path.Combine(dataDirectory, "buildings.json"), buildings, quests, scenarios);
         var poi = LoadPointsOfInterest(Path.Combine(dataDirectory, "poi.json"), resources, biomes);
         var doctrines = LoadDoctrines(Path.Combine(dataDirectory, "doctrines.json"));
         var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit, figures, chronicle, scenarios, poi, doctrines);
@@ -684,7 +686,7 @@ public sealed class ContentLoader
     /// práh") a smí mít práh nula — „lidí klesne na nulu" je ta nejběžnější
     /// prohra a <see cref="ParseCondition"/> by ji odmítl.
     /// </summary>
-    private static GoalCondition? ParseFailCondition(
+    private GoalCondition? ParseFailCondition(
         string path, string id, GoalConditionDto? dto,
         DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
@@ -3069,7 +3071,9 @@ public sealed class ContentLoader
             stages,
             ParseRaft(path, id, dto.Raft, resources),
             ParseBuildingSound(path, id, dto.Sound),
-            ReadVisualHeight(path, id, dto.VisualHeight));
+            ReadVisualHeight(path, id, dto.VisualHeight),
+            ParseUnlockedBy(path, id, dto.UnlockedBy),
+            ParseLook(path, id, dto.Look));
     }
 
     /// <summary>
@@ -3935,11 +3939,11 @@ public sealed class ContentLoader
     /// Přeloží podmínku (metrika + práh + odkaz) z JSON na typovaný <see cref="GoalCondition"/>.
     /// Sdílené: Vzestup, úkoly, achievementy. Data říkají „co", kód „jak" — žádná logika v JSON.
     /// </summary>
-    private static GoalCondition ParseCondition(
+    private GoalCondition ParseCondition(
         string path, string owner, GoalConditionDto dto,
         DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
-        var (kind, param) = ParseMetric(path, owner, dto.Metric, dto.Resource, dto.Building, dto.Tech, resources, buildings, techs);
+        var (kind, param) = ParseMetric(path, owner, dto.Metric, dto.Resource, dto.Building, dto.Tech, resources, buildings, techs, dto.Rank);
 
         // Výzkum je binární (0/1) — bez explicitního prahu se bere 1.
         long target = kind == MetricKind.ResearchedTech && dto.Target <= 0 ? 1 : dto.Target;
@@ -3951,9 +3955,13 @@ public sealed class ContentLoader
         return new GoalCondition(kind, param, target);
     }
 
-    private static (MetricKind Kind, int Param) ParseMetric(
+    /// <summary>Žebříček hodností sídel — metrika „settlements" na něj odkazuje jménem.</summary>
+    private SettlementRankLadder _settlementRanks = SettlementRankLadder.Empty;
+
+    private (MetricKind Kind, int Param) ParseMetric(
         string path, string owner, string? metric, string? resource, string? building, string? tech,
-        DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
+        DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs,
+        string? rank = null)
     {
         switch ((metric ?? string.Empty).Trim().ToLowerInvariant())
         {
@@ -3973,8 +3981,29 @@ public sealed class ContentLoader
             case "resource": return (MetricKind.ResourceStock, ResolveRef(path, owner, "resource", resource, resources));
             case "building": return (MetricKind.BuildingOfType, ResolveRef(path, owner, "building", building, buildings));
             case "research": return (MetricKind.ResearchedTech, ResolveRef(path, owner, "tech", tech, techs));
+            case "settlements": return (MetricKind.SettlementsOfRank, ResolveRank(path, owner, rank));
+            case "megastructures": return (MetricKind.Megastructures, -1);
+            case "grandwork": return (MetricKind.GrandWorkStage, -1);
+            case "satellites": return (MetricKind.Satellites, -1);
+            case "contracts": return (MetricKind.ContractsCompleted, -1);
+            case "airquality": return (MetricKind.AirQuality, -1);
+            case "waves": return (MetricKind.DefenceWaves, -1);
             default: throw new ContentLoadException(path, $"{owner}: neznámá metrika '{metric}'.");
         }
+    }
+
+    private int ResolveRank(string path, string owner, string? rank)
+    {
+        var ranks = _settlementRanks.Ranks;
+        for (int i = 0; i < ranks.Count; i++)
+        {
+            if (string.Equals(ranks[i].Id, rank?.Trim(), StringComparison.Ordinal))
+            {
+                return i;
+            }
+        }
+
+        throw new ContentLoadException(path, $"{owner}: metrika 'settlements' vyžaduje platné 'rank', ale '{rank}' neexistuje.");
     }
 
     private static int ResolveRef<T>(string path, string owner, string field, string? id, DefRegistry<T> registry)
@@ -5808,6 +5837,88 @@ public sealed class ContentLoader
         }
 
         return id.Trim();
+    }
+
+    /// <summary>
+    /// <c>quest:&lt;id&gt;</c> nebo <c>challenge:&lt;id&gt;</c>. Že odkazovaný úkol
+    /// či výzva existuje, se ověří až po načtení všeho (<see cref="CheckRewardUnlocks"/>).
+    /// </summary>
+    private static string? ParseUnlockedBy(string path, string id, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        string trimmed = value.Trim();
+        if (!trimmed.StartsWith("quest:", StringComparison.Ordinal)
+            && !trimmed.StartsWith("challenge:", StringComparison.Ordinal))
+        {
+            throw new ContentLoadException(path, $"Budova '{id}': 'unlockedBy' musí být 'quest:<id>' nebo 'challenge:<id>', je '{value}'.");
+        }
+
+        return trimmed;
+    }
+
+    /// <summary>Vzhled z dat: tvar a prvky z katalogu, barvy jako #RRGGBB.</summary>
+    private static BuildingLook? ParseLook(string path, string id, BuildingLookDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        string shape = dto.Shape?.Trim() ?? string.Empty;
+        if (!BuildingLook.KnownShapes.Contains(shape))
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': neznámý tvar vzhledu '{dto.Shape}' (povoleno: {string.Join(", ", BuildingLook.KnownShapes.Order())}).");
+        }
+
+        var features = new List<string>();
+        foreach (string raw in dto.Features ?? new List<string>())
+        {
+            string feature = raw.Trim();
+            if (!BuildingLook.KnownFeatures.Contains(feature))
+            {
+                throw new ContentLoadException(path,
+                    $"Budova '{id}': neznámý prvek vzhledu '{raw}' (povoleno: {string.Join(", ", BuildingLook.KnownFeatures.Order())}).");
+            }
+
+            features.Add(feature);
+        }
+
+        return new BuildingLook(
+            shape,
+            ParseColor(path, dto.Wall, $"budova '{id}' (look.wall)"),
+            ParseColor(path, dto.Roof, $"budova '{id}' (look.roof)"),
+            ParseColor(path, dto.Accent, $"budova '{id}' (look.accent)"),
+            dto.Glow is null ? null : ParseColor(path, dto.Glow, $"budova '{id}' (look.glow)"),
+            features);
+    }
+
+    /// <summary>
+    /// Odkazy <c>unlockedBy</c> musí mířit na existující úkol či výzvu — jinak by
+    /// budova zůstala zamčená navždy a nikdo by nevěděl proč.
+    /// </summary>
+    private static void CheckRewardUnlocks(
+        string path, DefRegistry<BuildingDef> buildings, DefRegistry<QuestDef> quests, ScenarioCatalog scenarios)
+    {
+        foreach (var building in buildings.All)
+        {
+            if (building.UnlockedBy is not { } unlock)
+            {
+                continue;
+            }
+
+            bool known = unlock.StartsWith("quest:", StringComparison.Ordinal)
+                ? quests.TryIndexOf(unlock["quest:".Length..], out _)
+                : scenarios.IndexOf(unlock["challenge:".Length..]) >= 0;
+            if (!known)
+            {
+                throw new ContentLoadException(path, $"Budova '{building.Id}': 'unlockedBy' odkazuje na neexistující '{unlock}'.");
+            }
+        }
     }
 
     private static RgbColor ParseColor(string path, string? value, string owner)

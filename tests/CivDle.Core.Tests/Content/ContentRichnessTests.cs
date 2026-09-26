@@ -88,6 +88,13 @@ public class ContentRichnessTests
                 continue; // dostupná hned, nebo záměrně jen přes vylepšení
             }
 
+            // Odměna za Velký cíl nebo výzvu se odemyká splněním, ne výzkumem;
+            // že odkaz míří na existující cíl, hlídá loader (CheckRewardUnlocks).
+            if (def.IsRewardLocked && sim.IsBuildingUnlocked(i))
+            {
+                continue;
+            }
+
             Assert.True(reachable.Contains(i),
                 $"budova '{def.Id}' je zamčená, ale žádná technologie ani stupeň měřítka ji neodemyká");
         }

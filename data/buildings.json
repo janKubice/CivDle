@@ -4354,6 +4354,350 @@
       "buildable": false,
       "buildTicks": 400,
       "paving": 0.0
+    },
+    {
+      "id": "billion_pillar",
+      "category": "monument",
+      "mapColor": "#E8E2D4",
+      "footprint": [
+        2,
+        2
+      ],
+      "serviceValue": 60,
+      "buildCost": {
+        "nanomaterial": 600,
+        "robot": 300,
+        "steel": 1500
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "unlockedBy": "quest:great_billion",
+      "look": {
+        "shape": "column",
+        "wall": "#E8E2D4",
+        "roof": "#D4A94A",
+        "accent": "#F2D27A",
+        "glow": "#FFE9A8",
+        "features": [
+          "glow",
+          "lanterns"
+        ]
+      }
+    },
+    {
+      "id": "boulevard_arch",
+      "category": "monument",
+      "mapColor": "#C9BBA3",
+      "footprint": [
+        2,
+        2
+      ],
+      "serviceValue": 35,
+      "buildCost": {
+        "stone": 1500,
+        "steel": 400,
+        "bronze": 300
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "unlockedBy": "quest:great_metropolises",
+      "look": {
+        "shape": "arch",
+        "wall": "#C9BBA3",
+        "roof": "#8C6E4E",
+        "accent": "#D8B25A",
+        "features": [
+          "flag",
+          "lanterns"
+        ]
+      }
+    },
+    {
+      "id": "reclaimers_statue",
+      "category": "monument",
+      "mapColor": "#B7A98C",
+      "footprint": [
+        2,
+        2
+      ],
+      "serviceValue": 35,
+      "buildCost": {
+        "stone": 1200,
+        "food": 2000,
+        "tools": 300
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "unlockedBy": "quest:great_reclaim",
+      "look": {
+        "shape": "column",
+        "wall": "#B7A98C",
+        "roof": "#5E8A5A",
+        "accent": "#7FB36A",
+        "features": [
+          "plants",
+          "water"
+        ]
+      }
+    },
+    {
+      "id": "hall_of_wonders",
+      "category": "monument",
+      "mapColor": "#D9D2C2",
+      "footprint": [
+        3,
+        3
+      ],
+      "serviceValue": 80,
+      "buildCost": {
+        "nanomaterial": 900,
+        "computer": 300,
+        "steel": 2000
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "unlockedBy": "quest:great_megastructures",
+      "look": {
+        "shape": "hall",
+        "wall": "#D9D2C2",
+        "roof": "#5E6E8C",
+        "accent": "#C9A24A",
+        "glow": "#FFE4A0",
+        "features": [
+          "windows",
+          "flag",
+          "glow"
+        ]
+      }
+    },
+    {
+      "id": "star_well",
+      "category": "monument",
+      "mapColor": "#3E4452",
+      "footprint": [
+        3,
+        3
+      ],
+      "serviceValue": 50,
+      "buildCost": {
+        "nanomaterial": 500,
+        "machine_parts": 800,
+        "stone": 3000
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "unlockedBy": "quest:great_depth",
+      "look": {
+        "shape": "pool",
+        "wall": "#3E4452",
+        "roof": "#2A2F3A",
+        "accent": "#6FC8FF",
+        "glow": "#BFE8FF",
+        "features": [
+          "glow",
+          "lanterns"
+        ]
+      }
+    },
+    {
+      "id": "sky_lantern",
+      "category": "monument",
+      "mapColor": "#BFC8D6",
+      "footprint": [
+        2,
+        2
+      ],
+      "serviceValue": 45,
+      "buildCost": {
+        "electronics": 600,
+        "steel": 900,
+        "nanomaterial": 200
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "unlockedBy": "quest:great_sky",
+      "look": {
+        "shape": "column",
+        "wall": "#BFC8D6",
+        "roof": "#4B5D7A",
+        "accent": "#9FE0FF",
+        "glow": "#CFF4FF",
+        "features": [
+          "rings",
+          "glow",
+          "antenna"
+        ]
+      }
+    },
+    {
+      "id": "garden_tower",
+      "category": "monument",
+      "mapColor": "#A7B7A0",
+      "footprint": [
+        2,
+        2
+      ],
+      "visualHeight": 3,
+      "serviceValue": 55,
+      "buildCost": {
+        "steel": 1200,
+        "electronics": 300,
+        "food": 5000
+      },
+      "pollution": {
+        "air": -2.0,
+        "water": 0.0,
+        "soil": 0.0
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "unlockedBy": "quest:great_clean_air",
+      "look": {
+        "shape": "tower",
+        "wall": "#A7B7A0",
+        "roof": "#3F7A4A",
+        "accent": "#6DBA5E",
+        "features": [
+          "windows",
+          "plants",
+          "spire_top"
+        ]
+      }
+    },
+    {
+      "id": "merchant_column",
+      "category": "monument",
+      "mapColor": "#D6C08A",
+      "footprint": [
+        1,
+        1
+      ],
+      "serviceValue": 20,
+      "buildCost": {
+        "bronze": 400,
+        "stone": 600,
+        "tools": 200
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "unlockedBy": "quest:great_market",
+      "look": {
+        "shape": "obelisk",
+        "wall": "#D6C08A",
+        "roof": "#B8862E",
+        "accent": "#F0D37C",
+        "features": [
+          "flag"
+        ]
+      }
+    },
+    {
+      "id": "enduring_wall",
+      "category": "monument",
+      "mapColor": "#8C8478",
+      "footprint": [
+        3,
+        1
+      ],
+      "serviceValue": 30,
+      "buildCost": {
+        "stone": 2500,
+        "steel": 600
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "unlockedBy": "quest:great_defense",
+      "look": {
+        "shape": "wall",
+        "wall": "#8C8478",
+        "roof": "#6B6358",
+        "accent": "#B03A2E",
+        "features": [
+          "flag",
+          "lanterns"
+        ]
+      }
     }
   ]
 }

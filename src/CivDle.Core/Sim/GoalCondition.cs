@@ -54,6 +54,30 @@ public enum MetricKind
 
     /// <summary>Kolik kusů světa hráč odhalil z mlhy.</summary>
     Explored,
+
+    /// <summary>Kolik sídel má aspoň danou hodnost (<see cref="GoalCondition.Param"/> = index hodnosti).</summary>
+    SettlementsOfRank,
+
+    /// <summary>Kolik <b>různých</b> megastruktur stojí dostavěných.</summary>
+    Megastructures,
+
+    /// <summary>Stupeň velkého díla.</summary>
+    GrandWorkStage,
+
+    /// <summary>Kolik družic je na oběžné dráze.</summary>
+    Satellites,
+
+    /// <summary>Kolik kontraktů město v tomhle měřítku splnilo.</summary>
+    ContractsCompleted,
+
+    /// <summary>
+    /// Čistota vzduchu nad městem 0–100 (100 = žádný kouř). Obrácené
+    /// znečištění, protože podmínky jsou vždy „metrika ≥ práh".
+    /// </summary>
+    AirQuality,
+
+    /// <summary>Kolik vln obrany už přišlo (a město je přečkalo).</summary>
+    DefenceWaves,
 }
 
 /// <summary>

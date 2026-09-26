@@ -174,7 +174,7 @@ public sealed class CivDleGame : Game
         WhitePixel = new Texture2D(GraphicsDevice, 1, 1);
         WhitePixel.SetData(new[] { Color.White });
         SoftShadow = new SoftShadow(GraphicsDevice);
-        Sprites = new SpriteLibrary(GraphicsDevice, _content.Fauna);
+        Sprites = new SpriteLibrary(GraphicsDevice, _content.Fauna, _content.Buildings.All);
 
         // Obrázky z modů přebijí procedurální modely — bez toho by kreslítko
         // v tvůrci obsahu vyrábělo soubory, které nikdo nikdy neuvidí.

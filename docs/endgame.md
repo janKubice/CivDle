@@ -85,29 +85,55 @@ skupinu.
 ### A2. Velké cíle pozdní hry
 
 Místo úvodních úkolů dostane panel **Velké cíle** — dlouhé, viditelné,
-s odměnou, která se dá ukázat.
+s odměnou, která se dá ukázat: **pomníkem ve městě**.
 
-| Cíl | Metrika | Odměna |
-|---|---|---|
-| Miliarda | populace ≥ 1 000 000 000 | landmark „Sloup miliardy" |
-| Tři metropole | sídla s hodností `metropolis` ≥ 3 | styl čtvrti „Bulváry" |
-| Zúrodnit vodu | teraformované dlaždice ≥ 2 000 | budova „Čerpací polder" (viz B3) |
-| Všechny megastruktury | dostavěné megastruktury = všechny | titul v kronice |
-| Hloubka díla | stupeň velkého díla ≥ 25 | vzhled jámy „Hvězdná studna" |
-| Nebe nad městem | družice na oběžné dráze ≥ 5 | noční obloha s družicemi |
-| Město bez kouře | znečištění nad městem < 5 % při populaci ≥ 100M | styl čtvrti „Zahradní město" |
-| Věčný trh | 50 splněných kontraktů | slot kontraktu navíc |
-| Klid zbraní | 100 odražených vln obrany | landmark „Hradba vytrvalých" |
-| Otevřít bránu | dostavěná Hvězdná brána (C1) | závěrečná sekvence (C2) |
+| Cíl (`quests.json`, `group: late`) | Podmínka | Vidět od | Pomník |
+|---|---|---|---|
+| Miliarda | populace ≥ 1 000 000 000 | 4. Vzestup | Sloup miliardy |
+| Tři metropole | 3 sídla s hodností `metropolis` | 2. Vzestup | Brána bulvárů |
+| Nová zem | 2 000 přetvořených dlaždic | 2. Vzestup | Socha zúrodnitelů |
+| Sedm divů techniky | 7 různých dostavěných megastruktur | 3. Vzestup | Síň divů |
+| Hloubka díla | stupeň velkého díla 25 | první stupeň díla | Hvězdná studna |
+| Nebe nad městem | 5 družic na oběžné dráze | první kosmodrom | Nebeská lucerna |
+| Město bez kouře | čistota vzduchu nad městem ≥ 95 % | 100 milionů obyvatel | Zahradní věž (čistí vzduch) |
+| Věčný trh | 50 kontraktů v jednom měřítku | 5 kontraktů | Kupecký sloup |
+| Klid zbraní | 100 vln obrany | první vlna | Hradba vytrvalých |
+| Otevřít bránu | Hvězdná brána (C1) | — | závěrečná sekvence (bod C) |
 
-* Cíle jsou v `quests.json` v nové skupině `late` se stejnou strukturou jako
-  pevné úkoly; panel je ukáže, když jsou úvodní úkoly uzavřené.
-* **Nové metriky** (jen ty, které dnes chybí): počet sídel dané hodnosti,
-  počet dostavěných megastruktur, stupeň velkého díla, počet družic, počet
-  splněných kontraktů, znečištění nad městem. `TerraformedTiles` už existuje.
-* Odměny jsou **kosmetika a obsah**, ne další násobiče: landmark, styl čtvrti
-  (B4), vzhled, titul. Patří k savu, v němž byly získány; styly čtvrtí se
-  navíc zapíší do profilu (A3), aby se daly použít i jinde.
+* **Nové metriky** (`MetricKind`): sídla s aspoň danou hodností
+  (`settlements` + `rank`), různé dostavěné megastruktury (`megastructures`),
+  stupeň velkého díla (`grandwork`), družice (`satellites`), kontrakty
+  (`contracts`), čistota vzduchu 0–100 (`airquality` — obrácené znečištění,
+  protože podmínky jsou vždy „≥ práh") a vlny obrany (`waves`).
+* **Odměna = pomník.** Budova má v datech `unlockedBy: "quest:<id>"`; dokud
+  cíl nepadne, nedá se postavit (`Simulation.IsRewardUnlocked`). Loader
+  ověří, že odkazovaný cíl existuje. Obrazovka úkolů u cíle napíše, co
+  odemkne, a po splnění se stavební nabídka hned obnoví.
+* **Vzhled pomníků je z dat** (`look`: tvar, barvy, prvky) a kreslí ho
+  `LookPainter` — stejný systém potáhne budovy bodů B, C a D (viz 3.3 níž).
+* Oproti prvnímu návrhu: „Všechny megastruktury" je **sedm divů techniky**
+  (brána z bodu C přibude jako osmá a cíl by jinak přestal sedět); styly
+  čtvrtí jako odměna přijdou s bodem B4; tituly v kronice vypadly —
+  pomník je vidět, titul ne.
+
+### A2b. Vzhled budov z dat
+
+Sprity se kreslí v kódu a každá budova měla vlastní kresbu. Pro stovku nových
+budov (B, C, D) by to bylo pomalé a nejednotné, proto:
+
+* `BuildingLook` (jádro): **tvar** z pevného katalogu (30 tvarů — dům, věž,
+  kopule, síň, dílna, nádrže, jáma, pole, háj, kůly, vor, balon, stožár,
+  sloup, obelisk, oblouk, krystal, baňka, strom, zeď, kanál, bazén, plošina,
+  vír, prstenec, zrcadla, molo, vrtná věž, kapsle), **barvy** (zeď, střecha,
+  doplněk, světlo) a **prvky** (26 — okna, komín, anténa, vlajka, lucerny,
+  světla, rostliny, sníh, potrubí, plachty, solární panely, krystaly, pruhy,
+  prstence, střechy, pára, voda, písek, oblouky, úponky, rotor, blesk, lana).
+* `LookPainter` (render) z toho kreslí se společným rukopisem: světlo zleva
+  shora, okna, která v noci svítí, obrys a paleta jako ruční kresby.
+* Loader odmítne neznámý tvar či prvek; test v UI ověří, že malíř umí každý
+  tvar i prvek; test pokrytí spritů bere vzhled z dat jako vlastní model.
+* Náhled pro autora: `LOOK_PREVIEW_DIR=… dotnet test --filter LookPreview`
+  vykreslí všechny vzhledy do PNG bez grafické karty.
 
 ### A3. Výzvy s trvalou odměnou
 

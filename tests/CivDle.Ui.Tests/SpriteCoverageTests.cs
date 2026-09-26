@@ -21,6 +21,9 @@ public sealed class SpriteCoverageTests
         var registered = RegisteredIds("building");
         var content = LoadContent();
 
+        // Vzhled popsaný daty nakreslí LookPainter — i to je vlastní model.
+        registered.UnionWith(content.Buildings.All.Where(b => b.Look is not null).Select(b => b.Id));
+
         var missing = content.Buildings.All
             .Where(b => !registered.Contains(b.Id))
             .Select(b => b.Id)

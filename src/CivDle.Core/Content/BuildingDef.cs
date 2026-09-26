@@ -255,8 +255,27 @@ public sealed record BuildingDef(
     IReadOnlyList<BuildStage>? StagesOrNull = null,
     RaftRule? RaftOrNull = null,
     BuildingSound? SoundOrNull = null,
-    int VisualHeight = 0)
+    int VisualHeight = 0,
+    string? UnlockedBy = null,
+    BuildingLook? LookOrNull = null)
 {
+    /// <summary>
+    /// Vzhled popsaný daty (tvar, barvy, prvky); <c>null</c> = budova má ručně
+    /// kreslený sprite. Viz <see cref="BuildingLook"/>.
+    /// </summary>
+    public BuildingLook? Look => LookOrNull;
+
+    /// <summary>
+    /// Čím se budova odemyká mimo výzkum: <c>quest:&lt;id&gt;</c> (splněný Velký
+    /// cíl) nebo <c>challenge:&lt;id&gt;</c> (dohraná výzva — platí pro hráče
+    /// napříč hrami). <c>null</c> = jen výzkum a měřítko jako dosud.
+    ///
+    /// <para><b>Proč:</b> odměnou za dlouhý cíl má být něco, co jde ukázat —
+    /// pomník ve městě — ne další procento výroby, kterých je na konci hry
+    /// nadbytek.</para>
+    /// </summary>
+    public bool IsRewardLocked => UnlockedBy is not null;
+
     /// <summary>
     /// O kolik dlaždic budova přerůstá svůj půdorys směrem nahoru po obrazovce.
     ///
