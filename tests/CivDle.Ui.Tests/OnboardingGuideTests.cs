@@ -141,11 +141,28 @@ public class OnboardingGuideTests
         var guide = new OnboardingGuide(Content, sim, new PlayerProfile());
 
         sim.SetTutorialStepForTest(StepIndex("grow"));
-        guide.Update(1f, 0);
+        guide.Update(400f, 0);
         Assert.False(guide.TryTakeMoment(out _));
 
         sim.SetTutorialStepForTest(StepIndex("grow") + 1);
         guide.Update(1f, 0);
+        Assert.True(guide.TryTakeMoment(out var moment));
+        Assert.Equal(OnboardingMoment.SafeToClose, moment);
+    }
+
+    [Fact]
+    public void SafeToCloseNeverComesInTheFirstFiveMinutes()
+    {
+        // Změřeno: vesnice doroste za necelou minutu. „Klidně zavři" ve 40.
+        // vteřině by hráče poslalo pryč dřív, než hra začala.
+        var sim = NewGame();
+        var guide = new OnboardingGuide(Content, sim, new PlayerProfile());
+        sim.SetTutorialStepForTest(StepIndex("grow") + 1);
+
+        guide.Update(60f, 0);
+        Assert.False(guide.TryTakeMoment(out _));
+
+        guide.Update(250f, 0);
         Assert.True(guide.TryTakeMoment(out var moment));
         Assert.Equal(OnboardingMoment.SafeToClose, moment);
     }

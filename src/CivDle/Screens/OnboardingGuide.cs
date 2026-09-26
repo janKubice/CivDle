@@ -57,7 +57,7 @@ internal sealed class OnboardingGuide
     /// <summary>Jak daleko od startu se hledá strom nebo místo pro stavbu.</summary>
     private const int SearchRadius = 16;
 
-    /// <summary>Kdy nejpozději zaznít „klidně zavři", i když průvodce ještě běží (s hraní).</summary>
+    /// <summary>Kdy nejdřív smí zaznít „klidně zavři" (s hraní) — konec prvních pěti minut.</summary>
     private const float SafeToCloseAfterSeconds = 300f;
 
     /// <summary>Kolik budov musí stát, aby první noc bylo co rozsvítit.</summary>
@@ -140,8 +140,10 @@ internal sealed class OnboardingGuide
             Offer(OnboardingMoment.FirstNight);
         }
 
-        if (_simulation.TutorialStep >= _safeToCloseStep
-            || (_playSeconds >= SafeToCloseAfterSeconds && _simulation.Buildings.Length > 0))
+        // Obojí zároveň: až vesnice roste sama (jinak by hráč slibu nevěřil)
+        // a až po pěti minutách. Změřeno: vesnice doroste za necelou minutu —
+        // „klidně zavři" ve 40. vteřině by hráče z hry poslal dřív, než začala.
+        if (_simulation.TutorialStep >= _safeToCloseStep && _playSeconds >= SafeToCloseAfterSeconds)
         {
             Offer(OnboardingMoment.SafeToClose);
         }
