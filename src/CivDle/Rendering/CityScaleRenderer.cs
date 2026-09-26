@@ -25,12 +25,19 @@ public sealed class CityScaleRenderer : IDisposable
     private readonly SpriteFontBase _font;
     private readonly DensityMap _density;
 
-    public CityScaleRenderer(Texture2D whitePixel, SpriteFontBase font, GraphicsDevice device)
+    public CityScaleRenderer(
+        Texture2D whitePixel, SpriteFontBase font, GraphicsDevice device,
+        CivDle.Core.Content.GameContent? content = null, Sprites.SpriteLibrary? sprites = null)
     {
         _pixel = whitePixel;
         _font = font;
-        _density = new DensityMap(device);
+        _content = content;
+        _sprites = sprites;
+        _density = new DensityMap(device, content?.Districts);
     }
+
+    private readonly CivDle.Core.Content.GameContent? _content;
+    private readonly Sprites.SpriteLibrary? _sprites;
 
     /// <summary>Upečená mapa hustoty — kvůli diagnostice a testům.</summary>
     public DensityMap Density => _density;
@@ -45,7 +52,89 @@ public sealed class CityScaleRenderer : IDisposable
         SpriteBatch spriteBatch, Viewport viewport, Camera2D camera, Simulation simulation, float nightFactor = 0f)
     {
         _density.Draw(spriteBatch, camera, simulation, nightFactor);
+        DrawLandmarks(spriteBatch, viewport, camera, simulation);
         DrawPopulation(spriteBatch, viewport, simulation);
+    }
+
+    /// <summary>Velikost ikony landmarku na obrazovce (px) — stejná při každém oddálení.</summary>
+    private const int LandmarkIconSize = 26;
+
+    /// <summary>Po kolika snímcích se nejdřív smí přepočítat seznam landmarků.</summary>
+    private const int LandmarkRefreshFrames = 30;
+
+    private readonly List<(int DefIndex, Vector2 World)> _landmarks = new();
+    private long _landmarksRevision = -1;
+    private long _frame;
+    private long _landmarksFrame = -LandmarkRefreshFrames;
+
+    /// <summary>
+    /// Pomníky, divy a megastruktury jako ikony nad mapou z výšky (endgame.md,
+    /// B4). Při oddálení se budovy nekreslí vůbec — a právě ty, kterými se
+    /// hráč chlubí, by z mapy zmizely první. Ikona má pevnou velikost na
+    /// obrazovce, ať je čitelná při každém oddálení.
+    /// </summary>
+    private void DrawLandmarks(SpriteBatch spriteBatch, Viewport viewport, Camera2D camera, Simulation simulation)
+    {
+        if (_content is null || _sprites is null)
+        {
+            return;
+        }
+
+        _frame++;
+        if (simulation.BuildingRevision != _landmarksRevision && _frame - _landmarksFrame >= LandmarkRefreshFrames)
+        {
+            RebuildLandmarks(simulation);
+        }
+
+        if (_landmarks.Count == 0)
+        {
+            return;
+        }
+
+        spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+        foreach (var (defIndex, world) in _landmarks)
+        {
+            var screen = camera.WorldToScreen(world);
+            if (screen.X < -LandmarkIconSize || screen.Y < -LandmarkIconSize
+                || screen.X > viewport.Width + LandmarkIconSize || screen.Y > viewport.Height + LandmarkIconSize)
+            {
+                continue;
+            }
+
+            var sprite = _sprites.Get($"building.{_content.Buildings[defIndex].Id}");
+            if (sprite is null)
+            {
+                continue;
+            }
+
+            int height = LandmarkIconSize * sprite.Height / Math.Max(1, sprite.Width);
+            var rect = new Rectangle((int)screen.X - LandmarkIconSize / 2, (int)screen.Y - height + LandmarkIconSize / 3, LandmarkIconSize, height);
+            spriteBatch.Draw(_pixel, new Rectangle(rect.X + 2, rect.Bottom - 3, rect.Width - 4, 4), Color.Black * 0.35f);
+            spriteBatch.Draw(sprite, rect, Color.White);
+        }
+
+        spriteBatch.End();
+    }
+
+    private void RebuildLandmarks(Simulation simulation)
+    {
+        _landmarksRevision = simulation.BuildingRevision;
+        _landmarksFrame = _frame;
+        _landmarks.Clear();
+        var buildings = simulation.Buildings;
+        const int tile = TerrainRenderer.TileSize;
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            var def = _content!.Buildings[buildings[i].DefIndex];
+            if (!buildings[i].IsComplete || def.Category is not ("monument" or "megastructure"))
+            {
+                continue;
+            }
+
+            _landmarks.Add((buildings[i].DefIndex, new Vector2(
+                (buildings[i].X + def.FootprintWidth * 0.5f) * tile,
+                (buildings[i].Y + def.FootprintHeight * 0.5f) * tile)));
+        }
     }
 
     /// <summary>Velké číslo populace nahoře uprostřed — „koukni, jak je to velké".</summary>

@@ -35,7 +35,7 @@ public sealed class DensityMap : IDisposable
     public const int ChunkCells = 64;
 
     /// <summary>Kolik budov v buňce znamená plnou intenzitu.</summary>
-    private const int DenseCount = 10;
+    internal const int DenseCount = 10;
 
     /// <summary>
     /// Kolik kusů se drží v paměti. Nekonečná mapa znamená nekonečně kusů —
@@ -52,6 +52,9 @@ public sealed class DensityMap : IDisposable
         public Texture2D Day = null!;
         public Texture2D Night = null!;
 
+        /// <summary>Reliéf: světlá hrana a stín podle rozdílu hustoty se sousedem (výška stínem).</summary>
+        public Texture2D Relief = null!;
+
         /// <summary>Pro kterou podobu zástavby je upečený.</summary>
         public long Revision = -1;
 
@@ -65,13 +68,19 @@ public sealed class DensityMap : IDisposable
     /// <summary>Pracovní buffery — jeden na celý život mapy, žádná alokace za snímek.</summary>
     private readonly Color[] _dayPixels = new Color[ChunkCells * ChunkCells];
     private readonly Color[] _nightPixels = new Color[ChunkCells * ChunkCells];
+    private readonly BakeExtras _extras;
     private readonly int[] _counts = new int[ChunkCells * ChunkCells];
     private readonly List<int> _found = new();
     private readonly List<long> _evictable = new();
 
     private long _frame;
 
-    public DensityMap(GraphicsDevice device) => _device = device;
+    /// <param name="districts">Druhy čtvrtí a jejich styly — z nich jsou barvy čtvrtí z výšky.</param>
+    public DensityMap(GraphicsDevice device, CivDle.Core.Content.DistrictCatalog? districts = null)
+    {
+        _device = device;
+        _extras = new BakeExtras(districts ?? CivDle.Core.Content.DistrictCatalog.Empty);
+    }
 
     /// <summary>Kolik kusů mapy je zrovna upečených. Pro testy a diagnostiku.</summary>
     public int ChunkCount => _chunks.Count;
@@ -111,10 +120,9 @@ public sealed class DensityMap : IDisposable
                 }
 
                 LastChunksDrawn++;
-                spriteBatch.Draw(
-                    chunk.Day,
-                    new Rectangle(chunkX * chunkPixels, chunkY * chunkPixels, chunkPixels, chunkPixels),
-                    Color.White * (1f - night));
+                var area = new Rectangle(chunkX * chunkPixels, chunkY * chunkPixels, chunkPixels, chunkPixels);
+                spriteBatch.Draw(chunk.Day, area, Color.White * (1f - night));
+                spriteBatch.Draw(chunk.Relief, area, Color.White * (1f - night));
             }
         }
 
@@ -201,7 +209,8 @@ public sealed class DensityMap : IDisposable
         long key = TileKey.Pack(chunkX, chunkY);
         _chunks.TryGetValue(key, out var chunk);
 
-        if (chunk is not null && chunk.Revision == simulation.BuildingRevision)
+        long revision = BakeRevision(simulation);
+        if (chunk is not null && chunk.Revision == revision)
         {
             chunk.LastDrawn = _frame;
             return chunk;
@@ -222,7 +231,8 @@ public sealed class DensityMap : IDisposable
         chunk ??= NewChunk(key);
         chunk.Day.SetData(_dayPixels);
         chunk.Night.SetData(_nightPixels);
-        chunk.Revision = simulation.BuildingRevision;
+        chunk.Relief.SetData(_extras.Relief);
+        chunk.Revision = revision;
         chunk.LastDrawn = _frame;
         LastRebuilds++;
         return chunk;
@@ -234,6 +244,7 @@ public sealed class DensityMap : IDisposable
         {
             Day = new Texture2D(_device, ChunkCells, ChunkCells),
             Night = new Texture2D(_device, ChunkCells, ChunkCells),
+            Relief = new Texture2D(_device, ChunkCells, ChunkCells),
         };
 
         _chunks[key] = chunk;
@@ -242,7 +253,50 @@ public sealed class DensityMap : IDisposable
 
     /// <summary>Spočte hustotu v kusu mapy do pracovních bufferů této instance.</summary>
     private bool Bake(int chunkX, int chunkY, Simulation simulation)
-        => BakeInto(simulation, chunkX, chunkY, _counts, _dayPixels, _nightPixels, _found);
+        => BakeInto(simulation, chunkX, chunkY, _counts, _dayPixels, _nightPixels, _found, _extras);
+
+    /// <summary>
+    /// Revize, pro kterou je kus upečený: zástavba, styly čtvrtí a silnice.
+    /// Stačí, aby se změnila kterákoli — jinak by přebarvená čtvrť čekala na
+    /// příští stavbu.
+    /// </summary>
+    private long BakeRevision(Simulation simulation)
+    {
+        RefreshRoads(simulation);
+        return unchecked(simulation.BuildingRevision * 1_000_003L + simulation.StyleRevision * 7_919L + _extras.RoadVersion);
+    }
+
+    /// <summary>Po kolika snímcích se nejdřív smí přepočítat silnice (přestavba stojí průchod všemi).</summary>
+    private const int RoadRefreshFrames = 90;
+
+    private int _roadCountSeen = -1;
+    private long _roadRefreshedFrame = -RoadRefreshFrames;
+
+    /// <summary>
+    /// Kolik silnic je v které buňce — pro hlavní tahy mimo zástavbu. Přepočítá
+    /// se jen, když silnic přibylo nebo ubylo, a nejvýš jednou za pár vteřin:
+    /// ve velkém městě silnic přibývá pořád a průchod všemi každý snímek by
+    /// byl znát.
+    /// </summary>
+    private void RefreshRoads(Simulation simulation)
+    {
+        var roads = simulation.RoadTiles;
+        if (roads.Count == _roadCountSeen || _frame - _roadRefreshedFrame < RoadRefreshFrames)
+        {
+            return;
+        }
+
+        _roadCountSeen = roads.Count;
+        _roadRefreshedFrame = _frame;
+        _extras.RoadCells.Clear();
+        for (int i = 0; i < roads.Count; i++)
+        {
+            long cell = TileKey.Pack(FloorDiv(roads[i].X, CellTiles), FloorDiv(roads[i].Y, CellTiles));
+            _extras.RoadCells[cell] = _extras.RoadCells.GetValueOrDefault(cell) + 1;
+        }
+
+        _extras.RoadVersion++;
+    }
 
     /// <summary>
     /// Spočte hustotu v kusu mapy a upeče ji do dodaných bufferů. Vrací false,
@@ -263,8 +317,21 @@ public sealed class DensityMap : IDisposable
     public static bool BakeInto(
         Simulation simulation, int chunkX, int chunkY,
         int[] counts, Color[] dayPixels, Color[] nightPixels, List<int> scratch)
+        => BakeInto(simulation, chunkX, chunkY, counts, dayPixels, nightPixels, scratch, extras: null);
+
+    /// <summary>
+    /// Totéž jako základní pečení, a s <paramref name="extras"/> navíc „město
+    /// z výšky" (endgame.md, B4): čtvrti svou barvou (nebo barvou stylu),
+    /// reliéf podle rozdílu hustoty se sousedy, noční zář center sídel podle
+    /// hodnosti a hlavní tahy mimo zástavbu. Bez <paramref name="extras"/>
+    /// vyjde přesně to, co dřív — o to se opírá regresní test.
+    /// </summary>
+    public static bool BakeInto(
+        Simulation simulation, int chunkX, int chunkY,
+        int[] counts, Color[] dayPixels, Color[] nightPixels, List<int> scratch, BakeExtras? extras)
     {
         Array.Clear(counts);
+        extras?.Begin(simulation);
 
         int originCellX = chunkX * ChunkCells;
         int originCellY = chunkY * ChunkCells;
@@ -296,7 +363,13 @@ public sealed class DensityMap : IDisposable
             }
 
             counts[(cellY * ChunkCells) + cellX]++;
+            extras?.Vote((cellY * ChunkCells) + cellX, buildings[index].DistrictIndex);
             any = true;
+        }
+
+        if (extras is not null)
+        {
+            any |= extras.HasRoadsIn(originCellX, originCellY);
         }
 
         if (!any)
@@ -310,6 +383,7 @@ public sealed class DensityMap : IDisposable
             nightPixels[i] = NightColorFor(counts[i]);
         }
 
+        extras?.Finish(simulation, originCellX, originCellY, counts, dayPixels, nightPixels);
         return true;
     }
 
@@ -372,6 +446,7 @@ public sealed class DensityMap : IDisposable
     {
         chunk.Day.Dispose();
         chunk.Night.Dispose();
+        chunk.Relief.Dispose();
         _chunks.Remove(key);
     }
 
@@ -388,6 +463,7 @@ public sealed class DensityMap : IDisposable
         {
             chunk.Day.Dispose();
             chunk.Night.Dispose();
+            chunk.Relief.Dispose();
         }
 
         _chunks.Clear();

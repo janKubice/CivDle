@@ -568,7 +568,7 @@ public sealed class GameplayScreen : IScreen
         _might = new MightBanner(screens.WhitePixel, _popupFont, screens.Loc);
         _momentBanner = new MomentBanner(screens.WhitePixel, _popupFont);
         _toasts = new ToastRenderer(screens.WhitePixel, _popupFont);
-        _cityScale = new CityScaleRenderer(screens.WhitePixel, _popupFont, screens.GraphicsDevice);
+        _cityScale = new CityScaleRenderer(screens.WhitePixel, _popupFont, screens.GraphicsDevice, screens.Content, screens.Sprites);
         _districtRenderer = new DistrictRenderer(
             screens.WhitePixel, screens.Content, screens.Loc, _popupFont, screens.Sprites);
         _npcCityRenderer = new NpcCityRenderer(screens.WhitePixel, screens.Content, screens.Loc, _popupFont);
@@ -1572,13 +1572,23 @@ public sealed class GameplayScreen : IScreen
                 name = $"{name} · {loc[rank.NameKey]}";
             }
 
+            // Velikost jména podle hodnosti: metropole je z výšky vidět jako
+            // metropole, osada jako osada (endgame.md, B4). A malá sídla se
+            // při velkém oddálení schovají — z oběžné dráhy by byla jen šum.
+            int rankIndex = Math.Max(0, settlement.RankIndex);
+            if (_camera.Zoom < CityScaleRenderer.ThresholdZoom * 0.6f && rankIndex < 2 && settlements.Count > 12)
+            {
+                continue;
+            }
+
+            float scale = Math.Clamp(0.85f + 0.15f * rankIndex, 0.85f, 1.6f);
             var world = new Vector2(settlement.CenterX * TerrainRenderer.TileSize, settlement.CenterY * TerrainRenderer.TileSize);
             var screen = _camera.WorldToScreen(world);
-            var size = _popupFont.MeasureString(name);
+            var size = _popupFont.MeasureString(name) * scale;
             var position = new Vector2(screen.X - size.X * 0.5f, screen.Y - size.Y * 0.5f);
 
-            spriteBatch.DrawString(_popupFont, name, position + new Vector2(1f, 1f), Color.Black * 0.75f);
-            spriteBatch.DrawString(_popupFont, name, position, Color.White * 0.92f);
+            spriteBatch.DrawString(_popupFont, name, position + new Vector2(1f, 1f), Color.Black * 0.75f, scale: new Vector2(scale));
+            spriteBatch.DrawString(_popupFont, name, position, Color.White * 0.92f, scale: new Vector2(scale));
         }
 
         spriteBatch.End();

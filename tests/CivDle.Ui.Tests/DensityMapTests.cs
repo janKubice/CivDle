@@ -111,6 +111,170 @@ public class DensityMapTests
         Assert.NotEqual(before, sim.BuildingRevision);
     }
 
+    // ----- město z výšky (endgame.md, B4) -----
+
+    [Fact]
+    public void WithoutExtrasTheBakeIsExactlyWhatItWas()
+    {
+        // Regrese: základní pečení se rozšířením nezměnilo ani o pixel.
+        var (sim, house) = Scene();
+        for (int x = 0; x < 5; x++)
+        {
+            sim.TryPlaceBuildingFree(house, x, 1);
+        }
+
+        var (counts, day, night, scratch) = Buffers();
+        Assert.True(DensityMap.BakeInto(sim, 0, 0, counts, day, night, scratch));
+
+        for (int i = 0; i < counts.Length; i++)
+        {
+            Assert.Equal(DensityMap.DayColorFor(counts[i]), day[i]);
+            Assert.Equal(DensityMap.NightColorFor(counts[i]), night[i]);
+        }
+    }
+
+    [Fact]
+    public void ADistrictCellWearsItsDistrictColour_OrItsStyle()
+    {
+        var (sim, content) = ResidentialDistrict();
+        var extras = new BakeExtras(content.Districts);
+        var (counts, day, night, scratch) = Buffers();
+
+        Assert.True(DensityMap.BakeInto(sim, 0, 0, counts, day, night, scratch, extras));
+        int cell = BusiestCell(counts);
+        Assert.NotEqual(DensityMap.DayColorFor(counts[cell]), day[cell]);
+        var plain = day[cell];
+
+        int residential = content.Districts.Types.IndexOf("residential");
+        int brick = IndexOfStyle(content, "brick");
+        Assert.True(sim.SetDistrictStyle(residential, brick));
+        DensityMap.BakeInto(sim, 0, 0, counts, day, night, scratch, extras);
+
+        Assert.NotEqual(plain, day[cell]);
+    }
+
+    [Fact]
+    public void DenseCellsCastShadowOnTheirLeeSide()
+    {
+        var (sim, house) = Scene();
+        // Plná buňka (1,1); buňka (2,2) za ní ve směru od slunce je prázdná.
+        for (int y = 6; y < 12; y++)
+        {
+            for (int x = 6; x < 12; x++)
+            {
+                sim.TryPlaceBuildingFree(house, x, y);
+            }
+        }
+
+        var extras = new BakeExtras(CivDle.Core.Content.DistrictCatalog.Empty);
+        var (counts, day, night, scratch) = Buffers();
+        DensityMap.BakeInto(sim, 0, 0, counts, day, night, scratch, extras);
+
+        int dense = 1 * DensityMap.ChunkCells + 1;
+        int lee = 2 * DensityMap.ChunkCells + 2;
+        Assert.True(extras.Relief[dense].A > 0, "hustá buňka má mít světlou hranu");
+        Assert.True(extras.Relief[lee].A > 0 && extras.Relief[lee].R == 0, "za ní má ležet stín");
+    }
+
+    [Fact]
+    public void RoadsOutsideTheCityDrawTheArterials()
+    {
+        var (sim, house) = Scene();
+        sim.TryPlaceBuildingFree(house, 0, 0);
+        for (int x = 30; x < 60; x++)
+        {
+            sim.AddRoadTileForTest(x, 3);
+        }
+
+        var extras = new BakeExtras(CivDle.Core.Content.DistrictCatalog.Empty);
+        foreach (var tile in sim.RoadTiles)
+        {
+            long key = CivDle.Core.World.TileKey.Pack(DensityMap.FloorDiv(tile.X, DensityMap.CellTiles), DensityMap.FloorDiv(tile.Y, DensityMap.CellTiles));
+            extras.RoadCells[key] = extras.RoadCells.GetValueOrDefault(key) + 1;
+        }
+
+        var (counts, day, night, scratch) = Buffers();
+        DensityMap.BakeInto(sim, 0, 0, counts, day, night, scratch, extras);
+
+        Assert.Equal(0, counts[6]);
+        Assert.NotEqual(Color.Transparent, day[6]); // buňka x = 36…41 s cestou mimo zástavbu
+    }
+
+    [Fact]
+    public void SettlementCentresGlowAtNight()
+    {
+        var (sim, content) = ResidentialDistrict();
+        Assert.NotEmpty(sim.Settlements);
+        var (counts, day, night, scratch) = Buffers();
+        DensityMap.BakeInto(sim, 0, 0, counts, day, night, scratch);
+        var plain = (Color[])night.Clone();
+
+        DensityMap.BakeInto(sim, 0, 0, counts, day, night, scratch, new BakeExtras(content.Districts));
+
+        int brighter = 0;
+        for (int i = 0; i < night.Length; i++)
+        {
+            Assert.True(night[i].A >= plain[i].A);
+            if (night[i].A > plain[i].A)
+            {
+                brighter++;
+            }
+        }
+
+        Assert.True(brighter > 0, "střed sídla má v noci zářit víc");
+    }
+
+    /// <summary>Obytná čtvrť: blok domů, odtikáno, až ji systém čtvrtí i sídel najde.</summary>
+    private static (Simulation Sim, CivDle.Core.Content.GameContent Content) ResidentialDistrict()
+    {
+        var content = new ContentLoader().LoadFrom(Path.Combine(AppContext.BaseDirectory, "data"));
+        var sim = new Simulation(content, new UniformTerrain(content.Biomes.IndexOf("grassland")));
+        sim.SkipTutorial();
+        int house = content.Buildings.IndexOf("house");
+        for (int y = 1; y < 6; y++)
+        {
+            for (int x = 1; x < 6; x++)
+            {
+                sim.TryPlaceBuildingFree(house, x, y);
+            }
+        }
+
+        for (int i = 0; i < 200; i++)
+        {
+            sim.Tick();
+        }
+
+        Assert.NotEmpty(sim.Districts);
+        return (sim, content);
+    }
+
+    private static int BusiestCell(int[] counts)
+    {
+        int best = 0;
+        for (int i = 1; i < counts.Length; i++)
+        {
+            if (counts[i] > counts[best])
+            {
+                best = i;
+            }
+        }
+
+        return best;
+    }
+
+    private static int IndexOfStyle(CivDle.Core.Content.GameContent content, string id)
+    {
+        for (int i = 0; i < content.Districts.Styles.Count; i++)
+        {
+            if (content.Districts.Styles[i].Id == id)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
     private static (int[] Counts, Color[] Day, Color[] Night, List<int> Scratch) Buffers()
     {
         int cells = DensityMap.ChunkCells * DensityMap.ChunkCells;
