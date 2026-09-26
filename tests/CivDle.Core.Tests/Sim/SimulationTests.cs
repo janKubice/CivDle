@@ -132,6 +132,11 @@ public class SimulationTests
         int wood = content.Resources.IndexOf("wood");
 
         Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(content.Buildings.IndexOf("lumber_camp"), 1, 1));
+
+        // Plná sýpka: bez zdroje jídla by guvernér (správně) postavil lovce —
+        // ze dřeva, které tenhle test měří.
+        int food = content.Gameplay.FoodResourceIndex;
+        sim.DebugSetResource(food, sim.GetStorageCap(food));
         double woodAfterBuild = sim.GetResource(wood);
 
         // Populace 5 ≥ 2 sloty → plná obsazenost; recept: 2 dřeva / 40 tiků.

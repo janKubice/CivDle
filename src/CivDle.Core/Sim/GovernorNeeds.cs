@@ -185,6 +185,18 @@ public sealed class GovernorNeeds
         }
 
         int food = gameplay.FoodResourceIndex;
+
+        // Zásoba bez jediného zdroje je odpočet, ne klid. S větší startovní
+        // zásobou (úvod do hry) guvernér dřív utratil dřevo za domy, protože
+        // „na minutu jídla je" — a na farmu pak nezbylo nic. Plný sklad hlad
+        // není (stejná pojistka jako u bufferu níž): tam by farma jen vzala materiál.
+        double horizon = Math.Min(
+            perSecond * FoodSourceHorizonSeconds, sim.GetStorageCap(food) * FoodBufferMaxShareOfStorage);
+        if (sim.GetResource(food) < horizon && !HasFoodSource(sim, food))
+        {
+            return true;
+        }
+
         double buffer = Math.Min(perSecond * FoodBufferSeconds, sim.GetStorageCap(food) * FoodBufferMaxShareOfStorage);
         if (sim.GetResource(food) >= buffer)
         {
@@ -192,6 +204,33 @@ public sealed class GovernorNeeds
         }
 
         return sim.Ledger.NetPerSecond(food) <= perSecond * RisingShareOfConsumption;
+    }
+
+    /// <summary>Na jak dlouho musí zásoba vystačit, aby město bez zdroje jídla nemělo hlad (s).</summary>
+    private const double FoodSourceHorizonSeconds = 300;
+
+    /// <summary>Stojí (nebo se staví) aspoň jedna budova, která vyrábí jídlo?</summary>
+    private bool HasFoodSource(Simulation sim, int food)
+    {
+        var buildings = sim.Buildings;
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            var outputs = _content.Buildings[buildings[i].DefIndex].Recipe?.Outputs;
+            if (outputs is null)
+            {
+                continue;
+            }
+
+            for (int j = 0; j < outputs.Count; j++)
+            {
+                if (outputs[j].ResourceIndex == food)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
