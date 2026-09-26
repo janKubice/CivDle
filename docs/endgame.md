@@ -334,48 +334,74 @@ most do bodu D.
 
 ### C1. Hvězdná brána
 
-* Poslední megastruktura (`buildings.json`, kategorie `megastructure`),
-  odemyká ji měřítko `planetary` a všechny ostatní megastruktury.
-* Staví se **ve stupních** jako velké dílo — obrovský odběr přebytků, které
-  jinak propadají. Každý stupeň mění vzhled (`BuildStage` — fáze spritu podle
-  postupu stavby, existuje): základy, prstenec, výztuhy, aktivace.
-* Guvernér ji nestaví (divy a megastruktury zůstávají hráči, viz role
-  guvernéra).
+* Poslední megastruktura (`buildings.json`, `star_gate`, 7×7). Odemyká ji
+  výzkum **Teorie brány** (po Hvězdném inženýrství) a postavit ji jde až po
+  Velkém cíli **Sedm divů techniky** (`unlockedBy: quest:great_megastructures`).
+  Oproti návrhu ji neodemyká měřítko `planetary` přímo: odemčení měřítkem
+  znamená „hned postavitelné" a brána musí čekat i na divy; sedm divů stejně
+  vyžaduje planetární měřítko (dva z nich odemyká).
+* Staví se **ve stupních vkládáním** — nový druh stavby, **projekt**
+  (`project` v `buildings.json`, `ProjectRule`): staveniště, které
+  neposouvá čas, ale vklady hráče. Čtyři stupně (základy, prstenec, výztuhy,
+  aktivace) za miliony surovin: kámen a ocel, nanomateriál a roboti, počítače
+  s elektronikou a součástkami, věda s vírou a uranem.
+* **Jak to funguje:** postup se drží ve zbývajících tikách stavby
+  (1 000 „tiků" na stupeň), takže renderer, fáze spritu (`stage.foundation`,
+  `stage.frame`, `stage.gate_ring`, `stage.gate_struts`, pak hotová brána),
+  inspektor i save fungují jako u každé stavby — jen `ConstructionSystem`
+  a skok dohánění projekty přeskakují. Vklad bere jen nad rezervou guvernéra,
+  stupeň se nedokončí o haléř dřív, vklad rozestavěného stupně se ukládá
+  (sekce `projects`), zboření staveniště vklad zahodí.
+* Inspektor ukáže stupeň, co chybí, a tlačítko **Vložit přebytky**.
+* Dokončení spustí efekt z dat (`onComplete: gate_opened`) — brána otevřená,
+  Velký cíl **Otevřít bránu** splněný, achievement **Brána otevřena**
+  (metrika `project`). Týž mechanismus použije vysušení jezera (B3)
+  a Galaktický div (D).
+* Guvernér ji nestaví (`autoBuild: false`, divy zůstávají hráči).
 
 ### C2. Závěrečná sekvence
 
-Po aktivaci brány:
+Po otevření brány:
 
-1. Kamera se oddálí nad celé město, přijde noc, brána se rozsvítí.
-2. **Timelapse** civilizace od prvního domu (`TimelapseScreen`, existuje).
-3. **Kronika** jako ilustrovaný souhrn (`chronicle.json`, existuje): éry,
-   sídla, osobnosti, katastrofy, rekordy.
-4. **Statistiky:** herní čas, nejvyšší populace, postavené budovy, Vzestupy,
-   odražené vlny, splněné výzvy.
-5. **Titulky** se jmény sídel a osobností z téhle hry, hudba.
+1. Kamera se v noci oddálí nad celé město (průlet, 6 s; jen obraz — hra běží).
+2. **Timelapse** civilizace od prvního domu (`TimelapseScreen`).
+3. **Kronika** (`ChroniclePageScreen`).
+4. **Statistiky:** herní čas, nejvyšší populace, budovy, Vzestupy, divy,
+   zakázky, odražené vlny, dohrané výzvy.
+5. **Titulky** se jmény sídel a osobností z téhle hry.
+6. Volba: **pokračovat ve městě**, nebo **Nová hra+**.
 
-Sekvenci jde kdykoli pustit znovu z menu a uložit jako video (capture
-pipeline existuje).
+Stránky řídí `EndingScreen`; data jí dává `EndingSummary` (jádro), který
+**jen čte** — sekvence se dá pustit znovu z hlavního menu („Konec kapitoly",
+objeví se, až ji hráč jednou viděl) a nesmí na hru sáhnout. Escape přeskočí
+stránku. Uložení jako video (capture pipeline) zatím není.
 
 ### C3. Co potom
 
-* **Město zůstává.** Brána nic neresetuje; hra běží dál, Velké cíle i výzvy
-  zůstávají.
-* **Dokud D není hotové:** brána nabídne **Novou hru+** — nový svět se
-  zvoleným pravidlem výzvy (A3) a vším, co je v profilu (odměny výzev, styly,
-  rekordy). Hlavní město zůstane v savu.
-* **S bodem D:** brána je **start kolonizace** — z hlavního města se stane
-  první planeta galaxie. Konec první kapitoly je začátek druhé
-  (viz [`svety-design.md`](svety-design.md)).
+* **Město zůstává.** Brána nic neresetuje; hra běží dál.
+* **Nová hra+:** nový svět s volitelnými pravidly (stejná jako u výzev,
+  kromě `NoAscension` — volná hra bez Vzestupu by se zasekla) a vším, co je
+  v profilu (odměny výzev, achievementy, rekordy). Pravidla nese svět sám
+  (`WorldRules`) a save je ukládá v hlavičce (formát v16), takže zatopený
+  svět po načtení zůstane zatopený.
+* **Archiv měst:** hlavní slot savu je jeden, proto se město první kapitoly
+  před Novou hrou+ uloží a **zkopíruje do archivu** (`saves/archiv`). Když
+  archiv selže, nový svět se nezaloží. Z hlavního menu jde kterékoli
+  archivované město vrátit; to, co se hrálo, se samo archivuje — výměna nikdy
+  nic nesmaže. Archivované město se po návratu nedohání offline.
+* **S bodem D:** brána je start kolonizace — viz
+  [`svety-design.md`](svety-design.md).
 
 ### C4. Hotovo, když
 
-* Brána jde postavit, stupně jsou vidět, po aktivaci proběhne celá sekvence
-  a jde ji pustit znovu z menu.
-* Achievement „Brána otevřena" (Steam i profil).
-* Testy: brána se neodemkne bez podmínek; stupně jsou deterministické
-  a přežijí save; sekvence nemění stav hry (jen ho čte); Nová hra+ přenese
-  profil a nesáhne na původní save.
+* Brána jde postavit, stupně jsou vidět, po otevření proběhne celá sekvence
+  a jde ji pustit znovu z menu. ✔
+* Achievement „Brána otevřena" (profil; Steam přes stejný katalog). ✔
+* Testy (`ProjectTests`, `SaveArchiveTests`): projekt čas neposouvá (ani
+  dohánění offline), stupně po vkladech, rezerva guvernéra, zboření zahodí
+  vklad, rozestavěný stupeň i otevřená brána přežijí save, ladicí dostavba
+  jde stejnou cestou; souhrn konce jen čte; archiv nesmaže původní save,
+  výměna archivuje hrané město, pravidla Nové hry+ přežijí save.
 
 **Odhad:** 2–3 dny.
 

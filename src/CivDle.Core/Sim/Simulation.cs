@@ -1093,11 +1093,41 @@ public sealed class Simulation
         InScenario && ScenarioIndex < _content.Scenarios.Count ? _content.Scenarios[ScenarioIndex] : null;
 
     /// <summary>Platí v téhle hře zvláštní pravidlo scénáře?</summary>
-    public bool ScenarioRuleActive(ScenarioRule rule) => Scenario?.Has(rule) == true;
+    public bool ScenarioRuleActive(ScenarioRule rule) => Scenario?.Has(rule) == true || _worldRules.Has(rule);
+
+    private WorldRules _worldRules = WorldRules.None;
+
+    /// <summary>
+    /// Pravidla světa mimo výzvu (Nová hra+). U výzvy jsou pravidla v její
+    /// definici; tady je nese svět sám a save je ukládá v hlavičce.
+    /// </summary>
+    public WorldRules WorldRules => Scenario is { } scenario ? new WorldRules(scenario.Rules, scenario.BiomeIndex) : _worldRules;
+
+    /// <summary>Obnoví pravidla světa ze savu — bez zapínání obrany, tu save nese sám.</summary>
+    internal void RestoreWorldRules(WorldRules rules)
+    {
+        _worldRules = rules;
+        CacheScenarioRules();
+    }
+
+    /// <summary>
+    /// Založí volnou hru s pravidly světa (Nová hra+). Jen při zakládání světa
+    /// — pravidla uprostřed hry měnit nejde, stejně jako scénář.
+    /// </summary>
+    public void StartWithWorldRules(WorldRules rules)
+    {
+        _worldRules = rules;
+        CacheScenarioRules();
+        if (rules.Has(ScenarioRule.DefenceFromStart))
+        {
+            EnableFrontierDefense();
+        }
+    }
 
     // Pravidla, na která se ptá tiková smyčka (napojení na silnice u každé
     // budovy, údržba každé služby), se čtou z polí, ne z definice scénáře —
     // hledání v seznamu pravidel by stálo tisíce dotazů za tik.
+    private bool _noAutoBuildRule;
     private bool _noRoads;
     private bool _noResearch;
     private bool _nightWorld;
@@ -1105,6 +1135,7 @@ public sealed class Simulation
 
     private void CacheScenarioRules()
     {
+        _noAutoBuildRule = ScenarioRuleActive(ScenarioRule.NoAutoBuild);
         _noRoads = ScenarioRuleActive(ScenarioRule.NoRoads);
         _noResearch = ScenarioRuleActive(ScenarioRule.NoResearch);
         _nightWorld = ScenarioRuleActive(ScenarioRule.NightWorld);
@@ -4550,7 +4581,7 @@ public sealed class Simulation
         _populationSystem.Tick(this);
         // Scénář smí guvernérovi zakázat stavět. Kontrola je tady, ne uvnitř
         // auto-stavby: je to pravidlo běhu, ne vlastnost systému.
-        if (!ScenarioRuleActive(ScenarioRule.NoAutoBuild))
+        if (!_noAutoBuildRule)
         {
             _autoBuild.Tick(this);
         }
@@ -4680,7 +4711,7 @@ public sealed class Simulation
     /// (viz <c>OfflineCatchUp.PreciseTicksFor</c>).
     /// </summary>
     internal double GovernorBuildsPerTick =>
-        ScenarioRuleActive(ScenarioRule.NoAutoBuild) ? 0 : AutoBuildBudget / (double)Math.Max(1, AutoBuildInterval);
+        _noAutoBuildRule ? 0 : AutoBuildBudget / (double)Math.Max(1, AutoBuildInterval);
 
     /// <summary>
     /// Jedno kolo guvernéra mimo jeho interval — pro odhadovanou část dohánění,
@@ -4689,7 +4720,7 @@ public sealed class Simulation
     /// </summary>
     internal void RunGovernorRound(int budget)
     {
-        if (!ScenarioRuleActive(ScenarioRule.NoAutoBuild))
+        if (!_noAutoBuildRule)
         {
             _autoBuild.RunRound(this, budget);
         }

@@ -47,6 +47,80 @@ public sealed class SaveStore
     public SaveStore Sibling(string fileName) =>
         new(Path.Combine(Path.GetDirectoryName(_filePath) ?? ".", fileName));
 
+    /// <summary>Složka archivu měst (vedle savu).</summary>
+    public string ArchiveDirectory => Path.Combine(Path.GetDirectoryName(_filePath) ?? ".", "archiv");
+
+    /// <summary>
+    /// Zkopíruje rozehranou hru do archivu. Původní save zůstane — archiv je
+    /// pojistka, ne přesun: Nová hra+ pak hlavní slot přepíše, ale město první
+    /// kapitoly se neztratí (endgame.md, C3).
+    /// </summary>
+    /// <param name="label">Čitelná část jména souboru (jméno města); datum se přidá.</param>
+    /// <returns>Cesta k archivu, nebo <c>null</c>, když není co archivovat nebo zápis selhal.</returns>
+    public string? TryArchive(string label, DateTime nowUtc)
+    {
+        if (!HasSave)
+        {
+            return null;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(ArchiveDirectory);
+            string safe = new string(label.Where(c => char.IsLetterOrDigit(c) || c is '-' or '_').ToArray());
+            string name = $"{(safe.Length > 0 ? safe : "mesto")}-{nowUtc:yyyyMMdd-HHmmss}.civdle";
+            string path = Path.Combine(ArchiveDirectory, name);
+            File.Copy(_filePath, path, overwrite: true);
+            return path;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Archivovaná města, nejnovější první.</summary>
+    public IReadOnlyList<string> ArchivedFiles()
+    {
+        if (!Directory.Exists(ArchiveDirectory))
+        {
+            return Array.Empty<string>();
+        }
+
+        return Directory.GetFiles(ArchiveDirectory, "*.civdle")
+            .OrderByDescending(File.GetLastWriteTimeUtc)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Vrátí archivované město do hlavního slotu. Rozehraná hra se napřed sama
+    /// archivuje — výměna nikdy nic nesmaže.
+    /// </summary>
+    public bool TryRestoreFromArchive(string archivePath, DateTime nowUtc)
+    {
+        if (!File.Exists(archivePath))
+        {
+            return false;
+        }
+
+        try
+        {
+            TryArchive("predchozi", nowUtc);
+            string? directory = Path.GetDirectoryName(_filePath);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            File.Copy(archivePath, _filePath, overwrite: true);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>Uloží hru; false = zápis selhal (plný disk, práva…).</summary>
     public bool TrySave(Simulation simulation, SaveMetadata metadata)
     {

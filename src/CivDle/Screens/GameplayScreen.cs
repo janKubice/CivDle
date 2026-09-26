@@ -455,6 +455,15 @@ public sealed class GameplayScreen : IScreen
     /// <summary>Úvodní nálet kamery na novou hru; <c>null</c> = neběží.</summary>
     private IntroFlight? _intro;
 
+    /// <summary>Průlet nad městem po otevření brány; null = neběží.</summary>
+    private IntroFlight? _gateFlight;
+
+    /// <summary>
+    /// Denní doba pro kreslení. Během průletu po otevření brány je noc, ať
+    /// brána i město svítí — simulace se tím nemění, jen obraz.
+    /// </summary>
+    private double RenderTimeOfDay => _gateFlight is not null ? 0.0 : _simulation.TimeOfDay01;
+
     /// <summary>Ať rada „tady nic neroste" nevyskakuje u každého kliku.</summary>
     private float _missHintCooldown;
 
@@ -771,7 +780,12 @@ public sealed class GameplayScreen : IScreen
 
         bool mouseOverUi = _desktop.IsMouseOverGUI;
         UpdateIntro(dt);
-        UpdateCamera(dt, mouseOverUi);
+
+        // Průlet po otevření brány drží kameru, dokud nedoletí; hra mezitím běží.
+        if (!UpdateGateFlight(dt))
+        {
+            UpdateCamera(dt, mouseOverUi);
+        }
 
         // Modlitba čekající na cíl má přednost přede vším ostatním — hráč právě
         // ukazuje, kam má dopadnout. Musí se vyřídit DŘÍV než nástroje a laser:
@@ -901,7 +915,7 @@ public sealed class GameplayScreen : IScreen
         // dívat na to, co postavil.
         _mist.Draw(
             spriteBatch, _camera, _simulation.Terrain,
-            ValleyMistRenderer.Density(_simulation.TimeOfDay01));
+            ValleyMistRenderer.Density(RenderTimeOfDay));
 
         _urbanGround.Draw(spriteBatch, _camera); // zpevněná zem, aby zeleň zbyla jen v parcích
         _zoneRenderer.Draw(spriteBatch, _camera, _simulation); // tint zón na zemi, pod budovami
@@ -936,7 +950,7 @@ public sealed class GameplayScreen : IScreen
             _poiRenderer.Draw(spriteBatch, _camera, _simulation);
             _roadRenderer.Draw(spriteBatch, _camera, _simulation);
             // Provoz patří NAD silnici a POD budovy — auto má zajet za dům, ne přes něj.
-            _traffic.Draw(spriteBatch, _screens.Sprites, _screens.WhitePixel, _camera, DayNightCycle.NightFactor(_simulation.TimeOfDay01));
+            _traffic.Draw(spriteBatch, _screens.Sprites, _screens.WhitePixel, _camera, DayNightCycle.NightFactor(RenderTimeOfDay));
             _raftRenderer.Draw(spriteBatch, _camera, _simulation);
             // Stánky nad zemí, ale pod budovami: trh je dočasná věc na návsi,
             // ne stavba, a má zajít za dům jako každý jiný předmět na zemi.
@@ -969,7 +983,7 @@ public sealed class GameplayScreen : IScreen
             // V noci se z hustoty stane světelná mapa — město jako souhvězdí.
             _cityScale.Draw(
                 spriteBatch, _screens.GraphicsDevice.Viewport, _camera, _simulation,
-                DayNightCycle.NightFactor(_simulation.TimeOfDay01));
+                DayNightCycle.NightFactor(RenderTimeOfDay));
         }
 
         // Závoj zamoření nad městem, ale pod událostmi a efekty: špína leží
@@ -1008,7 +1022,7 @@ public sealed class GameplayScreen : IScreen
         // Tady svět končí. Období, denní doba i noc se složily do JEDNÉ barvy,
         // kterou se hotová scéna vynásobí — místo tří průhledných obdélníků
         // přes sebe. Násobení tvar zachová, závoj ho rozpouštěl.
-        double timeOfDay = _simulation.TimeOfDay01;
+        double timeOfDay = RenderTimeOfDay;
         var light = DayNightCycle.LightColor(
             timeOfDay, _screens.Content.Gameplay.DayNight, _simulation.CurrentSeason);
 
@@ -2268,6 +2282,10 @@ public sealed class GameplayScreen : IScreen
             else if (note.TitleKey == "toast.scenarioWon")
             {
                 RecordChallengeWin(announce: true);
+            }
+            else if (note.TitleKey == "toast.gateOpened" && !_captureMode)
+            {
+                StartGateFlight();
             }
         }
     }
@@ -4236,6 +4254,64 @@ public sealed class GameplayScreen : IScreen
             button.Background = new PanelBrush(affordable ? UiPalette.Panel : new Color(30, 34, 42, 170));
         }
     }
+
+    // ----- konec první kapitoly -----
+
+    /// <summary>
+    /// Brána je otevřená: kamera se v noci oddálí nad celé město a pak začne
+    /// závěrečná sekvence (endgame.md, C2). Průlet je jen obraz — simulace běží
+    /// dál a nic se nemění.
+    /// </summary>
+    private void StartGateFlight()
+    {
+        var target = GateCenter() ?? _camera.Position;
+        _gateFlight = new IntroFlight(
+            target, startOffset: _camera.Position - target, fromZoom: _camera.Zoom, toZoom: 0.3f, seconds: 6f);
+        _momentBanner.Show(
+            _screens.Loc["ending.gate.title"], _screens.Loc["ending.gate.subtitle"], UiPalette.Accent, seconds: 6f);
+    }
+
+    /// <summary>Posune průlet; vrací true, dokud drží kameru.</summary>
+    private bool UpdateGateFlight(float dt)
+    {
+        if (_gateFlight is not { } flight)
+        {
+            return false;
+        }
+
+        flight.Update(dt);
+        _camera.CenterOn(flight.Position, flight.Zoom);
+        if (!flight.IsDone)
+        {
+            return true;
+        }
+
+        _gateFlight = null;
+        _screens.Push(new EndingScreen(_screens, _simulation, replay: false, newGamePlus: OpenNewGamePlus));
+        return true;
+    }
+
+    /// <summary>Střed dokončené brány ve světových souřadnicích (null = brána nestojí).</summary>
+    private Vector2? GateCenter()
+    {
+        var buildings = _simulation.Buildings;
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            var def = _screens.Content.Buildings[buildings[i].DefIndex];
+            if (buildings[i].IsComplete && def.ProjectOrNull?.OnComplete == ProjectRule.GateOpened)
+            {
+                float tile = TerrainRenderer.TileSize;
+                return new Vector2(
+                    (buildings[i].X + def.FootprintWidth / 2f) * tile,
+                    (buildings[i].Y + def.FootprintHeight / 2f) * tile);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Nová hra+ z konce kapitoly (endgame.md, C3).</summary>
+    private void OpenNewGamePlus() => _screens.Push(new NewGamePlusScreen(_screens, _simulation, _info));
 
     // ----- úvod do hry -----
 

@@ -33,12 +33,15 @@ public sealed class SaveGameSerializer
     /// <b>v14: sekční formát</b> — od téhle verze se čísluje jen kvůli přehledu,
     /// přidání sekce už kompatibilitu neruší. v15: + ID výzvy v hlavičce (svět
     /// výzvy se skládá jinak — zatopení, jeden biom — a čtečka to musí vědět
-    /// dřív, než postaví terén).
+    /// dřív, než postaví terén). v16: + pravidla světa mimo výzvu (Nová hra+).
     /// </summary>
-    public const int FormatVersion = 15;
+    public const int FormatVersion = 16;
 
     /// <summary>První verze s ID výzvy v hlavičce.</summary>
     private const int FirstScenarioHeaderVersion = 15;
+
+    /// <summary>První verze s pravidly světa (Nová hra+) v hlavičce.</summary>
+    private const int FirstWorldRulesHeaderVersion = 16;
 
     /// <summary>První verze se sekčním tělem (starší se čtou lineárně).</summary>
     private const int FirstSectionedVersion = 14;
@@ -219,6 +222,7 @@ public sealed class SaveGameSerializer
         writer.Write(metadata.SizeId);
         writer.Write(metadata.PresetId);
         writer.Write(simulation.Scenario?.Id ?? string.Empty);
+        WriteWorldRules(writer, simulation);
 
         WriteSection(writer, SectionCore, w =>
         {
@@ -610,6 +614,7 @@ public sealed class SaveGameSerializer
 
             string scenarioId = version >= FirstScenarioHeaderVersion ? reader.ReadString() : string.Empty;
             int scenarioIndex = scenarioId.Length > 0 ? content.Scenarios.IndexOf(scenarioId) : -1;
+            var worldRules = version >= FirstWorldRulesHeaderVersion ? ReadWorldRules(reader, content) : WorldRules.None;
 
             // Terén se rekonstruuje z presetu + seedu — bit za bit stejný jako při
             // uložení. Svět výzvy skládá ScenarioWorld (přebitá čísla, zatopení,
@@ -620,6 +625,14 @@ public sealed class SaveGameSerializer
                 var scenario = content.Scenarios[scenarioIndex];
                 var scenarioContent = ScenarioWorld.ContentFor(content, scenario);
                 simulation = new Simulation(scenarioContent, ScenarioWorld.TerrainFor(scenarioContent, scenario), seed);
+            }
+            else if (!worldRules.IsEmpty)
+            {
+                // Nová hra+: svět s pravidly se skládá stejně jako při založení.
+                int presetIndex = IndexOfPreset(content, presetId);
+                var ruledContent = ScenarioWorld.ContentFor(content, worldRules);
+                simulation = new Simulation(ruledContent, ScenarioWorld.TerrainFor(ruledContent, presetIndex, worldRules, seed), seed);
+                simulation.RestoreWorldRules(worldRules);
             }
             else
             {
@@ -1163,6 +1176,57 @@ public sealed class SaveGameSerializer
         {
             ReadWorldChanges(reader, content, simulation);
         }
+    }
+
+    /// <summary>
+    /// Pravidla světa mimo výzvu (Nová hra+) — jménem, ne číslem výčtu, ať
+    /// přejmenování v kódu nezmění svět ve starém savu potichu. U výzvy se
+    /// nepíšou: ta je má v definici.
+    /// </summary>
+    private static void WriteWorldRules(BinaryWriter writer, Simulation simulation)
+    {
+        var rules = simulation.InScenario ? WorldRules.None : simulation.WorldRules;
+        writer.Write(rules.Rules.Count);
+        foreach (var rule in rules.Rules)
+        {
+            writer.Write(rule.ToString());
+        }
+
+        var biomes = SimContent(simulation).Biomes;
+        writer.Write(rules.BiomeIndex >= 0 && rules.BiomeIndex < biomes.Count ? biomes[rules.BiomeIndex].Id : string.Empty);
+    }
+
+    private static WorldRules ReadWorldRules(BinaryReader reader, GameContent content)
+    {
+        int count = reader.ReadInt32();
+        var rules = new List<ScenarioRule>(count);
+        for (int i = 0; i < count; i++)
+        {
+            // Pravidlo, které novější hra zná a tahle ne, se přeskočí — svět se
+            // načte bez něj, což je lepší než ho nenačíst vůbec.
+            if (Enum.TryParse<ScenarioRule>(reader.ReadString(), out var rule))
+            {
+                rules.Add(rule);
+            }
+        }
+
+        string biome = reader.ReadString();
+        int biomeIndex = biome.Length > 0 && content.Biomes.TryIndexOf(biome, out int index) ? index : -1;
+        return rules.Count == 0 ? WorldRules.None : new WorldRules(rules, biomeIndex);
+    }
+
+    private static int IndexOfPreset(GameContent content, string presetId)
+    {
+        var presets = content.WorldGen.Presets;
+        for (int i = 0; i < presets.Count; i++)
+        {
+            if (presets[i].Id == presetId)
+            {
+                return i;
+            }
+        }
+
+        throw new SaveLoadException($"Save používá typ světa '{presetId}', který v aktuálních datech neexistuje.");
     }
 
     private static TerrainPreset FindPreset(GameContent content, string presetId)

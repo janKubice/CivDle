@@ -174,6 +174,37 @@ public class ProjectTests
         Assert.True(gate.ProjectOrNull.Stages.Count >= 4);
     }
 
+    [Fact]
+    public void TheEndingSummaryOnlyReadsTheGame()
+    {
+        // Sekvence se dá pustit znovu z menu kolikrát chceš — nesmí na hru sáhnout.
+        var sim = NewSim();
+        int gate = PlaceGate(sim);
+        sim.TryInvestInProject(gate);
+        sim.TryInvestInProject(gate);
+        for (int i = 0; i < 50; i++)
+        {
+            sim.Tick();
+        }
+
+        long tick = sim.TickCount;
+        double wood = sim.GetResource(Wood);
+        int buildings = sim.Buildings.Length;
+        long revision = sim.BuildingRevision;
+
+        var summary = EndingSummary.Of(sim);
+        var again = EndingSummary.Of(sim);
+
+        Assert.Equal(tick, sim.TickCount);
+        Assert.Equal(wood, sim.GetResource(Wood));
+        Assert.Equal(buildings, sim.Buildings.Length);
+        Assert.Equal(revision, sim.BuildingRevision);
+        Assert.Equal(summary.Buildings, again.Buildings);
+        Assert.Equal(buildings, summary.Buildings);
+        Assert.Equal(tick / Simulation.TicksPerSecond, summary.GameSeconds, 6);
+        Assert.True(summary.WondersCompleted >= 1); // brána se počítá mezi divy
+    }
+
     // ----- pomocníci -----
 
     private static Simulation NewSim(double wood = 1000, double stone = 1000) => NewSim(wood, stone, out _);

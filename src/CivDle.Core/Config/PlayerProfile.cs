@@ -73,6 +73,12 @@ public sealed class PlayerProfile
     /// </summary>
     public List<string> WonChallenges { get; set; } = new();
 
+    /// <summary>
+    /// Viděl hráč konec první kapitoly (Hvězdná brána)? Od té chvíle jde
+    /// závěrečnou sekvenci pustit znovu z hlavního menu.
+    /// </summary>
+    public bool ChapterEndingSeen { get; set; }
+
     /// <summary>Zapíše výzvu jako dohranou; vrací false, když už byla.</summary>
     public bool MarkChallengeWon(string scenarioId)
     {

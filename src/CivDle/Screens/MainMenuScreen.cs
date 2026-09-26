@@ -141,6 +141,19 @@ public sealed class MainMenuScreen : IScreen
                 : UiFactory.MenuButton(loc["hud.mods"], () => _screens.Push(new ModManagerScreen(_screens))));
             buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.chronicle"], () => _screens.Push(new ChronicleScreen(_screens))));
 
+            // Konec kapitoly jde pustit znovu, až ho hráč jednou viděl — dřív by
+            // tlačítko prozradilo, že hra nějaký konec má, a lákalo by ho spěchat.
+            if (_screens.Profile.ChapterEndingSeen)
+            {
+                buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.ending"], ReplayEnding));
+            }
+
+            // Archiv měst (Nová hra+) jen tehdy, když v něm něco je.
+            if (_screens.Saves.ArchivedFiles().Count > 0)
+            {
+                buttons.Widgets.Add(UiFactory.MenuButton(loc["archive.title"], () => _screens.Push(new ArchiveScreen(_screens))));
+            }
+
             // Sbírka časosběrů se nabízí, až když v ní něco je — prázdná police
             // v hlavním menu by byla jen slib.
             if (_screens.Saves.Timelapses.ListFiles().Count > 0)
@@ -219,6 +232,23 @@ public sealed class MainMenuScreen : IScreen
         };
 
         return UiFactory.DarkPanel(scroll);
+    }
+
+    /// <summary>
+    /// Přehraje konec kapitoly nad uloženým městem. Bez dohánění offline času —
+    /// sekvence jen čte, a hra se tu ani nespouští.
+    /// </summary>
+    private void ReplayEnding()
+    {
+        var loaded = _screens.Saves.TryLoad(_screens.Content, out _);
+        if (loaded is null || !loaded.Simulation.IsGateOpened)
+        {
+            _statusText = _screens.Loc["menu.endingMissing"];
+            BuildUi();
+            return;
+        }
+
+        _screens.Push(new EndingScreen(_screens, loaded.Simulation, replay: true, newGamePlus: null));
     }
 
     private void ContinueGame()
