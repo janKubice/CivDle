@@ -41,6 +41,26 @@ internal static class UiFactory
     }
 
     /// <summary>
+    /// Hlavní tlačítko obrazovky — to jedno, na které má hráč kliknout. Větší
+    /// a v akcentní barvě, ať se v menu nehledá: první rozhodnutí ve hře má
+    /// být „hrát", ne výběr z osmi rovnocenných možností.
+    /// </summary>
+    public static Button PrimaryButton(string text, Action onClick, string? tooltip = null)
+    {
+        var button = new Button
+        {
+            Content = CenteredLabel(text),
+            Width = MenuButtonWidth,
+            Height = MenuButtonHeight + 18,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Background = new SolidBrush(UiPalette.PanelAccent),
+            Tooltip = tooltip,
+        };
+        button.Click += (_, _) => onClick();
+        return button;
+    }
+
+    /// <summary>
     /// Tlačítko zamčené demoverzí — vypadá jinak než tlačítko, na které hráč
     /// „ještě nedosáhl".
     ///

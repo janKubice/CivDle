@@ -1,5 +1,3 @@
-using CivDle.Core.Sim;
-using CivDle.Core.World;
 using CivDle.Core.WorldGen;
 using Microsoft.Xna.Framework;
 using Myra.Graphics2D.UI;
@@ -133,37 +131,6 @@ public sealed class NewGameScreen : IScreen
         _desktop = _screens.NewDesktop(UiFactory.MenuBackdrop(layout));
     }
 
-    private void StartGame()
-    {
-        var content = _screens.Content;
-        var preset = content.WorldGen.Presets[_presetIndex];
-        long seed = SeedUtil.Parse(_seedText);
-
-        // Nekonečný terén: žádné generování mapy dopředu — počítá se on-demand,
-        // takže „velikost světa" už nemá smysl. Do savu ukládáme jen ID pro
-        // zpětnou kompatibilitu (výchozí velikost z katalogu).
-        var terrain = new ProceduralTerrain(content.Biomes, preset, seed);
-        var simulation = new Simulation(content, terrain, seed);
-
-        // Volí se jen tady. Rozehraná hra režim nemění — viz Simulation.Sandbox.
-        if (_sandbox)
-        {
-            simulation.MarkAsSandbox();
-        }
-
-        // Pojistka, ne jen skrytý přepínač: kdyby se _frontier někdy nastavilo
-        // jinudy (načtené nastavení, klávesa, budoucí obrazovka), demo by se
-        // rozjelo s vlnami, které v něm být nemají.
-        if (_frontier && !Edition.IsDemo)
-        {
-            simulation.EnableFrontierDefense();
-        }
-        string sizeId = content.WorldGen.Sizes[content.WorldGen.DefaultSizeIndex].Id;
-        var info = new WorldInfo(seed, sizeId, preset.Id);
-
-        // Přes načítací obrazovku: skok z menu rovnou do rozehrané mapy působil
-        // jako záseknutí, hráč nestihl přepnout pozornost.
-        _screens.ReplaceAll(new LoadingScreen(
-            _screens, "loading.newWorld", _ => new GameplayScreen(_screens, simulation, info)));
-    }
+    private void StartGame() =>
+        WorldLauncher.Start(_screens, SeedUtil.Parse(_seedText), _presetIndex, _sandbox, _frontier);
 }
