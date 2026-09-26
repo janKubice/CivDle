@@ -26,6 +26,12 @@ public static class Program
             string dataPath = Argument(args, "--data") ?? Path.Combine(AppContext.BaseDirectory, "data");
             var content = new ContentLoader().LoadFrom(dataPath);
 
+            if (args.Contains("--challenges"))
+            {
+                PrintChallenges(content, Argument(args, "--challenges"));
+                return 0;
+            }
+
             if (args.Contains("--stress"))
             {
                 var sizes = new[] { 100, 1_000, 10_000, 50_000, 250_000 };
@@ -82,6 +88,27 @@ public static class Program
         Console.WriteLine("Rozpočet = podíl reálného času na simulaci (10 Hz → 100 ms na tik).");
     }
 
+    /// <summary>Tabulka výzev: jak dopadly v běhu bez hráče.</summary>
+    private static void PrintChallenges(GameContent content, string? only)
+    {
+        var run = new ChallengeRun(content);
+        Console.WriteLine($"{"výzva",-16} {"výsledek",-8} {"min",6} {"obyvatel",9} {"budov",6} {"souš",5}  cíl");
+        for (int i = 0; i < content.Scenarios.Count; i++)
+        {
+            var scenario = content.Scenarios[i];
+            if (only is not null && !only.StartsWith("--", StringComparison.Ordinal) && scenario.Id != only)
+            {
+                continue;
+            }
+
+            var result = run.Run(i);
+            string limit = scenario.HasTimeLimit ? $" za {scenario.TimeLimitSeconds / 60:0} min" : string.Empty;
+            Console.WriteLine(
+                $"{result.Id,-16} {result.Outcome,-8} {result.Minutes,6:0.0} {result.Population,9:0} {result.Buildings,6} {result.LandPercent,4}%  "
+                + $"{scenario.Goal.Kind} ≥ {scenario.Goal.Target}{limit}");
+        }
+    }
+
     private static void PrintUsage()
     {
         Console.WriteLine("""
@@ -93,6 +120,7 @@ public static class Program
               --sample-seconds N  jak často odečítat stav (výchozí 60)
               --csv SOUBOR  zapsat všechny odečty do CSV
               --data CESTA  složka s herními daty (výchozí data/ vedle binárky)
+              --challenges [ID]  projede výzvy s náhradním hráčem (všechny, nebo jednu)
 
             Smysl: balanc se dá MĚŘIT a porovnat před změnou a po ní, místo aby se
             odhadoval. Simulace je deterministická — stejný seed dá stejný výsledek.

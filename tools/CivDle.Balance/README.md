@@ -55,6 +55,20 @@ ve 150. minutě je na 335 obyvatelích.
 
 Zbývá otevřené: hodnota prahu 250 je pořád nastavená odhadem, jen už je dosažitelná.
 
+## Výzvy (`--challenges`)
+
+```bash
+dotnet run -c Release --project tools/CivDle.Balance -- --challenges
+dotnet run -c Release --project tools/CivDle.Balance -- --challenges no_roads
+```
+
+Projede výzvy (`scenarios.json`) s náhradním hráčem: prvních deset minut kliká
+na zdroje a staví úvodní budovy, pak nechá město guvernérovi a jen občas něco
+vyzkoumá. Vypíše, jestli výzvu vyhrál, kdy, a kolik je v okolí startu souše
+(kontrola pravidel, která mění svět). Cíl výzvy se tím dá nastavit tak, aby
+šel vyhrát — a ne odhadem. Výsledek je citlivý na drobné změny dat, proto
+cíle potřebují rezervu (viz `docs/endgame.md`, A3).
+
 ## Zátěžový režim (`--stress`)
 
 Balanční běh se do velkých čísel nedostane — náhradní hráč staví pomalu. Zátěžový
