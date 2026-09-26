@@ -364,7 +364,13 @@
         "mountains",
         "snow_peaks",
         "badlands",
-        "volcanic"
+        "volcanic",
+        "grassland",
+        "steppe",
+        "savanna",
+        "tundra",
+        "desert",
+        "beach"
       ],
       "upgradesTo": "mine",
       "upgradeCost": {
