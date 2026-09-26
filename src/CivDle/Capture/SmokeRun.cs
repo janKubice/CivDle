@@ -188,6 +188,10 @@ public sealed class SmokeRun
         // Běží až po savu — potřebuje Vzestup a ten by změnil, co se ukládá.
         Check("odkaz: nákup po dávkách", () => LegacyRound(screens, sim, time));
 
+        // Ladicí menu: každá páka jednou (po Odkazu — vykoupí všechno na max). Sahají hluboko do simulace (prestiž,
+        // kalendář, sklady) a spadnout mají tady, ne autorovi při natáčení.
+        Check("ladicí menu: všechny páky", () => DebugRound(screens, sim, time));
+
         // Úvod do hry: čerstvý svět bez jediné budovy. Nálet, táborák, šipka,
         // průvodcem vybraná budova a velké nápisy — všechno se kreslí jen
         // v prvních minutách nové hry, kam se smoke jinak nedostane.
@@ -272,6 +276,17 @@ public sealed class SmokeRun
         Frames(ascension, time);
         ascension.BuyEverythingForSmoke();
         Frames(ascension, time);
+        screens.Pop();
+    }
+
+    /// <summary>Otevře ladicí menu a zmáčkne každou páku, která nevede jinam.</summary>
+    private static void DebugRound(ScreenManager screens, Simulation sim, GameTime time)
+    {
+        var debug = new DebugScreen(screens, sim, new Rendering.Camera2D(), new CheatMode(), spawnGolden: () => { });
+        screens.Push(debug);
+        Frames(debug, time);
+        debug.PullEveryLeverForSmoke();
+        Frames(debug, time);
         screens.Pop();
     }
 

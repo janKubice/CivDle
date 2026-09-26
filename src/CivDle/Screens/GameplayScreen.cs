@@ -707,7 +707,8 @@ public sealed class GameplayScreen : IScreen
             && (_input.IsDown(Keys.LeftControl) || _input.IsDown(Keys.RightControl))
             && (_input.IsDown(Keys.LeftShift) || _input.IsDown(Keys.RightShift)))
         {
-            _screens.Push(new DebugScreen(_screens, _simulation, _camera, _cheats));
+            _screens.Push(new DebugScreen(
+                _screens, _simulation, _camera, _cheats, spawnGolden: () => _golden.ScheduleSoon(0.5f)));
             return;
         }
 

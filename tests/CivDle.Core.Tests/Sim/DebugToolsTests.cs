@@ -147,4 +147,115 @@ public class DebugToolsTests
 
         Assert.Equal(plainInterval, sim.AutoBuildInterval);
     }
+    [Fact]
+    public void AMillionOfEverythingFitsBecauseTheStoragesGrow()
+    {
+        // Bez zvětšení skladů by „+1 milion“ skončil na stropu 500 a tlačítko
+        // by vypadalo, že nic nedělá.
+        var sim = World();
+
+        sim.DebugGrantEveryResource(1_000_000);
+
+        Assert.True(sim.GetResource(0) >= 1_000_000, $"dřeva je {sim.GetResource(0)}");
+        Assert.True(sim.GetStorageCap(0) >= 1_000_000);
+    }
+
+    [Fact]
+    public void EmptyingStoragesLeavesNothing()
+    {
+        var sim = World();
+        sim.DebugFillStorages();
+
+        sim.DebugEmptyStorages();
+
+        Assert.Equal(0, sim.GetResource(0));
+    }
+
+    [Fact]
+    public void MaxingUpgradesBuysEveryLevelOfBothLayers()
+    {
+        var content = TestData.LoadRealContent();
+        var sim = new Simulation(content, new UniformTerrain((byte)1));
+
+        sim.DebugMaxPrestigeUpgrades();
+        sim.DebugMaxLegacyUpgrades();
+
+        for (int i = 0; i < content.PrestigeUpgrades.Count; i++)
+        {
+            Assert.True(sim.IsUpgradeMaxed(i), content.PrestigeUpgrades[i].Id);
+        }
+
+        for (int i = 0; i < content.LegacyUpgrades.Count; i++)
+        {
+            Assert.True(sim.IsLegacyUpgradeMaxed(i), content.LegacyUpgrades[i].Id);
+        }
+
+        Assert.True(sim.Bonuses.ProductionMult > 1.0, "vykoupené upgrady se nepromítly do bonusů");
+    }
+
+    [Fact]
+    public void DeepeningTheLegacyRaisesItsThreshold()
+    {
+        var sim = new Simulation(TestData.LoadRealContent(), new UniformTerrain((byte)1));
+        long before = sim.LegacyRequirement();
+
+        sim.DebugDeepenLegacy(3);
+
+        Assert.Equal(3, sim.LegacyDepth);
+        Assert.True(sim.LegacyRequirement() > before);
+    }
+
+    [Fact]
+    public void TheClockJumpsToTheAskedTimeOfDayWithoutTouchingTicks()
+    {
+        // Posouvá se kalendář, ne tiky: tiky řídí intervaly systémů a konce
+        // efektů, a ty se přetočením hodin hýbat nemají.
+        var sim = new Simulation(TestData.LoadRealContent(), new UniformTerrain((byte)1));
+        long ticks = sim.TickCount;
+
+        sim.DebugSetTimeOfDay(0.80);
+        Assert.Equal(0.80, sim.TimeOfDay01, 6);
+
+        sim.DebugSetTimeOfDay(0.25); // dozadu se nejde, jde se na zítřejší ráno
+        Assert.Equal(0.25, sim.TimeOfDay01, 6);
+        Assert.True(sim.DayNumber >= 2);
+        Assert.Equal(ticks, sim.TickCount);
+    }
+
+    [Fact]
+    public void SkippingASeasonLandsInTheNextOne()
+    {
+        var content = TestData.LoadRealContent();
+        Assert.True(content.Seasons.IsEnabled, "skutečná data mají mít roční období");
+        var sim = new Simulation(content, new UniformTerrain((byte)1));
+        int first = sim.CurrentSeasonIndex;
+
+        sim.DebugAdvanceSeason();
+
+        Assert.Equal((first + 1) % content.Seasons.Seasons.Count, sim.CurrentSeasonIndex);
+    }
+
+    [Fact]
+    public void APreparedSceneSurvivesSavingAndLoading()
+    {
+        // Zimní soumrak připravený na natáčení se po načtení nesmí vrátit na
+        // jarní poledne a milion prken se nesmí oříznout na běžný sklad.
+        var content = TestData.LoadRealContent();
+        var preset = content.WorldGen.Presets.Single(p => p.Id == "continents");
+        var sim = new Simulation(content, new ProceduralTerrain(content.Biomes, preset, 42), 42);
+        sim.DebugAdvanceSeason();
+        sim.DebugSetTimeOfDay(0.78);
+        sim.DebugGrantEveryResource(1_000_000);
+
+        using var stream = new MemoryStream();
+        var metadata = new CivDle.Core.Save.SaveMetadata(42, "medium", "continents", DateTime.UtcNow);
+        new CivDle.Core.Save.SaveGameSerializer().Write(stream, sim, metadata);
+        stream.Position = 0;
+        var (loaded, _) = new CivDle.Core.Save.SaveGameSerializer().Read(stream, content);
+
+        Assert.Equal(sim.CurrentSeasonIndex, loaded.CurrentSeasonIndex);
+        Assert.Equal(sim.TimeOfDay01, loaded.TimeOfDay01, 9);
+        int planks = content.Resources.IndexOf("planks");
+        Assert.Equal(sim.GetResource(planks), loaded.GetResource(planks));
+    }
 }

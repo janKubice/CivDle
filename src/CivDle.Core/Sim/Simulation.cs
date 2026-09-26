@@ -1902,7 +1902,10 @@ public sealed class Simulation
     /// <para>Je to spojitá funkce tiků: nic dalšího se neukládá a načtená hra
     /// má tentýž čas jako ta, která běžela dál.</para>
     /// </summary>
-    private double ElapsedDays
+    private double ElapsedDays => BaseElapsedDays + DebugDayShift;
+
+    /// <summary>Čas podle tiků, bez ladicího posunu (viz <see cref="ElapsedDays"/>).</summary>
+    private double BaseElapsedDays
     {
         get
         {
@@ -2729,8 +2732,125 @@ public sealed class Simulation
     {
         if (amount > 0)
         {
-            PrestigePoints += amount;
+            // Cheat menu dává i miliardy; přetečení by z bohatého hráče udělalo dlužníka.
+            PrestigePoints = PrestigePoints > long.MaxValue - amount ? long.MaxValue : PrestigePoints + amount;
         }
+    }
+
+    /// <summary>Ladicí: vykoupí všechny upgrady Vzestupu na maximum (bez bodů a prereků).</summary>
+    public void DebugMaxPrestigeUpgrades()
+    {
+        for (int i = 0; i < _upgradeLevels.Length; i++)
+        {
+            _upgradeLevels[i] = _content.PrestigeUpgrades[i].MaxLevel;
+        }
+
+        RecomputeBonuses();
+        RecomputeDerivedState();
+    }
+
+    /// <summary>Ladicí: vykoupí všechny upgrady Odkazu na maximum (bez bodů a prereků).</summary>
+    public void DebugMaxLegacyUpgrades()
+    {
+        _legacy.DebugMaxAll();
+        RecomputeBonuses();
+        RecomputeDerivedState();
+    }
+
+    /// <summary>
+    /// Ladicí: posune hloubku Odkazu (kolikrát byl zanechán). Práh dalšího
+    /// Odkazu roste s hloubkou — bez tohohle se dal vyzkoušet jen jeho první.
+    /// </summary>
+    public void DebugDeepenLegacy(int levels) => _legacy.DebugDeepen(levels);
+
+    /// <summary>
+    /// Ladicí násobič kapacity skladů nad bonusy Vzestupu. Ukládá se: připravená
+    /// scéna na natáčení se nesmí po načtení tiše oříznout na běžné sklady.
+    /// </summary>
+    public double DebugStorageMult { get; private set; } = 1.0;
+
+    /// <summary>Kapacita skladů = bonus Vzestupu × ladicí násobič.</summary>
+    private double StorageMultiplier => _bonuses.StorageMult * DebugStorageMult;
+
+    /// <summary>
+    /// Ladicí: přidá od každé suroviny <paramref name="amount"/> — a když se to
+    /// do skladů nevejde, sklady zvětší. Bez toho by „+1 milion“ skončil na
+    /// stropu skladu a tlačítko by nedělalo nic.
+    /// </summary>
+    public void DebugGrantEveryResource(double amount)
+    {
+        if (amount <= 0)
+        {
+            return;
+        }
+
+        double factor = 1.0;
+        for (int i = 0; i < _resources.Length; i++)
+        {
+            if (_storageCaps[i] > 0)
+            {
+                factor = Math.Max(factor, (_resources[i] + amount) / _storageCaps[i]);
+            }
+        }
+
+        if (factor > 1.0)
+        {
+            DebugStorageMult *= factor;
+            RecomputeDerivedState();
+        }
+
+        for (int i = 0; i < _resources.Length; i++)
+        {
+            AddResource(i, amount);
+        }
+    }
+
+    /// <summary>Ladicí: vyprázdní všechny sklady — na zkoušení nedostatku a guvernéra.</summary>
+    public void DebugEmptyStorages() => Array.Clear(_resources);
+
+    /// <summary>
+    /// Ladicí posun kalendáře ve dnech (cheat menu: denní doba, roční období).
+    ///
+    /// <para>Čas se jinak počítá čistě z tiků. Posunout tiky by ale pohnulo
+    /// vším, co na ně čeká (intervaly systémů, konce efektů), takže se posouvá
+    /// jen kalendář. Ukládá se, aby připravená zimní nebo soumraková scéna
+    /// přežila načtení.</para>
+    /// </summary>
+    public double DebugDayShift { get; private set; }
+
+    /// <summary>Ladicí: přetočí hodiny na danou denní dobu (0 = půlnoc, 0,5 = poledne), vždy dopředu.</summary>
+    public void DebugSetTimeOfDay(double timeOfDay01)
+    {
+        double delta = Math.Clamp(timeOfDay01, 0, 1) - TimeOfDay01;
+        DebugDayShift += delta < 0 ? delta + 1 : delta;
+    }
+
+    /// <summary>Ladicí: přeskočí na začátek dalšího ročního období (po celých dnech, denní doba zůstane).</summary>
+    public void DebugAdvanceSeason()
+    {
+        if (!_content.Seasons.IsEnabled)
+        {
+            return;
+        }
+
+        int start = CurrentSeasonIndex;
+        for (int day = 0; day < MaxSeasonSkipDays && CurrentSeasonIndex == start; day++)
+        {
+            DebugDayShift += 1;
+        }
+    }
+
+    /// <summary>Pojistka proti nekonečné smyčce, kdyby kalendář měl jediné období.</summary>
+    private const int MaxSeasonSkipDays = 1000;
+
+    /// <summary>
+    /// Obnoví ladicí stav ze savu. Kapacity skladů nepřepočítává — to udělá
+    /// <see cref="FinalizeLoad"/>, až budou načtené i budovy.
+    /// </summary>
+    internal void RestoreDebugState(double dayShift, double storageMult)
+    {
+        DebugDayShift = double.IsFinite(dayShift) ? Math.Max(0, dayShift) : 0;
+        DebugStorageMult = storageMult >= 1.0 && double.IsFinite(storageMult) ? storageMult : 1.0;
     }
 
     /// <summary>Aktuální trvalé násobiče z koupených upgradů Vzestupu (systémy je čtou).</summary>
@@ -7973,7 +8093,7 @@ public sealed class Simulation
         TotalPowerDemand += def.PowerDemand;
         for (int i = 0; i < def.StorageBonus.Count; i++)
         {
-            _storageCaps[def.StorageBonus[i].ResourceIndex] += def.StorageBonus[i].Amount * _bonuses.StorageMult;
+            _storageCaps[def.StorageBonus[i].ResourceIndex] += def.StorageBonus[i].Amount * StorageMultiplier;
         }
     }
 
@@ -8024,7 +8144,7 @@ public sealed class Simulation
         TotalPowerDemand -= def.PowerDemand;
         for (int i = 0; i < def.StorageBonus.Count; i++)
         {
-            _storageCaps[def.StorageBonus[i].ResourceIndex] -= def.StorageBonus[i].Amount * _bonuses.StorageMult;
+            _storageCaps[def.StorageBonus[i].ResourceIndex] -= def.StorageBonus[i].Amount * StorageMultiplier;
         }
 
         // Zbouraný (nebo vylepšený) sklad zmizel ze sběrných míst — svoz kolem
@@ -8963,7 +9083,7 @@ public sealed class Simulation
         TotalPowerDemand = 0;
         for (int i = 0; i < _storageCaps.Length; i++)
         {
-            _storageCaps[i] = _content.Resources[i].BaseStorage * _bonuses.StorageMult;
+            _storageCaps[i] = _content.Resources[i].BaseStorage * StorageMultiplier;
         }
 
         for (int i = 0; i < _buildingCount; i++)

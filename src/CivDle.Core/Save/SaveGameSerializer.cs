@@ -188,6 +188,13 @@ public sealed class SaveGameSerializer
     /// </summary>
     private const string SectionEventEffects = "eventeffects";
 
+    /// <summary>
+    /// Ladicí stav z cheat menu: posun kalendáře a zvětšení skladů. Zapisuje se
+    /// jen když je co zapsat a hned za jádro — před suroviny, aby se velké
+    /// zásoby z cheatu při načítání neořízly na běžné sklady.
+    /// </summary>
+    private const string SectionDebug = "debug";
+
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
     {
@@ -211,6 +218,15 @@ public sealed class SaveGameSerializer
             w.Write(simulation.TickCount);
             w.Write(simulation.Population);
         });
+        if (simulation.DebugDayShift > 0 || simulation.DebugStorageMult > 1.0)
+        {
+            WriteSection(writer, SectionDebug, w =>
+            {
+                w.Write(simulation.DebugDayShift);
+                w.Write(simulation.DebugStorageMult);
+            });
+        }
+
         WriteSection(writer, SectionResources, w => WriteResources(w, simulation));
         WriteSection(writer, SectionBuildings, w => WriteBuildings(w, simulation));
         WriteSection(writer, SectionRoads, w => WriteRoads(w, simulation));
@@ -1014,6 +1030,10 @@ public sealed class SaveGameSerializer
                 break;
             case SectionEventEffects:
                 ReadEventEffects(section, content, simulation);
+                break;
+            case SectionDebug:
+                double dayShift = section.ReadDouble();       // pořadí musí sedět se zápisem
+                simulation.RestoreDebugState(dayShift, section.ReadDouble());
                 break;
             case SectionSettlementPlans:
                 ReadSettlementPlans(section, simulation);
