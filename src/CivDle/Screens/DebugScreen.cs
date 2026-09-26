@@ -433,6 +433,13 @@ public sealed class DebugScreen : IScreen
     /// <summary>Kolik milisekund snímku smí přetáčení zabrat — zbytek patří oknu.</summary>
     private const double SkipMillisPerFrame = 12.0;
 
+    /// <summary>
+    /// Poslední pád přetáčení. Ve hře se jen vypíše a přetáčení skončí (menu
+    /// nesmí shodit hru), ale smoke ho musí ohlásit jako chybu — jinak by
+    /// prošel „OK" s pádem v logu, jak se to stalo s přeplněnou obranou.
+    /// </summary>
+    private Exception? _skipFailure;
+
     private void AdvanceSkip()
     {
         if (_skip is null)
@@ -451,6 +458,7 @@ public sealed class DebugScreen : IScreen
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Přetáčení času selhalo: {ex}");
+            _skipFailure = ex;
             _skip.Skip();
         }
 
@@ -552,6 +560,11 @@ public sealed class DebugScreen : IScreen
         while (_skip is not null)
         {
             AdvanceSkip();
+        }
+
+        if (_skipFailure is { } failure)
+        {
+            throw new InvalidOperationException("Přetáčení času v ladicím menu selhalo.", failure);
         }
     }
 
