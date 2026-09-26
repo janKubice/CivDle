@@ -296,7 +296,7 @@ public class GovernorGoalsTests
 
         Run(sim, 60);
 
-        var generator = Assert.Single(sim.Buildings.ToArray().Where(b => b.DefIndex == Generator));
+        var generator = Assert.Single(sim.Buildings.ToArray(), b => b.DefIndex == Generator);
         Assert.True(Math.Abs(generator.X - 12) <= 6 && Math.Abs(generator.Y - 12) <= 6);
         Assert.Equal(1.0, sim.PowerFactor, 6);
     }
