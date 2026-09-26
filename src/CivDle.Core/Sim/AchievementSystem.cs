@@ -13,7 +13,11 @@ internal sealed class AchievementSystem
     private const int CheckIntervalTicks = 10; // ~1× za sekundu
 
     private readonly GameContent _content;
-    private long _nextCheckTick;
+
+    // Rytmus kontrol se odvozuje z čísla tiku, ne z pole „příště v tiku X":
+    // to se neukládalo, takže načtená hra kontrolovala jinak než ta, která běžela
+    // dál, a odměny přicházely o pár tiků jindy (rozchod po načtení). A Vzestup
+    // nuluje tiky, pole ne — nový běh by čekal, než tiky dohoní starou hodnotu.
 
     public AchievementSystem(GameContent content)
     {
@@ -26,12 +30,10 @@ internal sealed class AchievementSystem
         // místě, kde achievement vzniká — kdyby se to řešilo až při zápisu do
         // profilu, hráči by v pískovišti vyskakovaly toasty za něco, co se mu
         // nikam nezapíše, a to je horší než mlčet.
-        if (sim.Sandbox || sim.TickCount < _nextCheckTick)
+        if (sim.Sandbox || sim.TickCount % CheckIntervalTicks != 0)
         {
             return;
         }
-
-        _nextCheckTick = sim.TickCount + CheckIntervalTicks;
 
         var achievements = _content.Achievements;
         var unlocked = sim.AchievementsUnlocked;

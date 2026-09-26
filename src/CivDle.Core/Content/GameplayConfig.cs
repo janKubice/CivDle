@@ -126,8 +126,29 @@ public sealed record HappinessConfig(
     double OvercrowdingPenalty,
     double PeoplePerServicePoint,
     double GrowthFloor,
-    double FreePopulation = 0)
+    double FreePopulation = 0,
+    double CrowdingThreshold = 0.0,
+    int ServiceReachTiles = 0)
 {
+    /// <summary>
+    /// Kolik ubere přelidnění při dané obsazenosti bydlení (0–1).
+    ///
+    /// <para><b>Až nad prahem.</b> Dřív se trestala obsazenost od nuly — a protože
+    /// populace vždycky doroste ke stropu bydlení, byl postih trvale skoro plný:
+    /// konstanta −0,24, se kterou hráč nemohl nic udělat. Nad prahem je to signál
+    /// „město se tlačí, stav" — a jde mu předejít stavbou dřív.</para>
+    /// </summary>
+    public double CrowdingPenalty(double occupancy)
+    {
+        double over = CrowdingThreshold <= 0
+            ? occupancy
+            : (occupancy - CrowdingThreshold) / (1.0 - CrowdingThreshold);
+        return Math.Clamp(over, 0.0, 1.0) * OvercrowdingPenalty;
+    }
+
+    /// <summary>Mají služby omezený dosah (0 = obslouží celé město odkudkoli)?</summary>
+    public bool HasServiceReach => ServiceReachTiles > 0;
+
     /// <summary>Vypnutá spokojenost — hra bez téhle vrstvy (výchozí pro starší data).</summary>
     public static HappinessConfig Disabled { get; } = new(0, 1.0, 0.0, 0.0, 0.0, 1.0);
 
@@ -513,8 +534,27 @@ public sealed record GameplayConfig(
     DemoConfig? DemoOrNull = null,
     GoldenConfig? GoldenOrNull = null,
     SubseaConfig? SubseaOrNull = null,
-    PowerConfig? PowerOrNull = null)
+    PowerConfig? PowerOrNull = null,
+    double PopulationFillRate = 0.0,
+    OnboardingConfig? OnboardingOrNull = null)
 {
+    /// <summary>Úvod do hry (rychlý start, místo startu, první den); bez bloku v datech vypnutý.</summary>
+    public OnboardingConfig Onboarding => OnboardingOrNull ?? OnboardingConfig.Disabled;
+
+    /// <summary>
+    /// Kolik lidí za sekundu přibude, když je v bydlení <paramref name="freeHousing"/>
+    /// volných míst (před násobiči spokojenosti, Vzestupu, období…).
+    ///
+    /// <para><b>Proč ne jen pevné číslo:</b> pevný přírůstek znamenal, že vesnice
+    /// i milionové město přibírají stejně lidí za sekundu — panelák pro čtyřicet
+    /// se plnil pět minut a mrakodrap celé hodiny. Podíl volného bydlení dělá
+    /// z nového bydlení událost, která je vidět hned, a z tempa růstu otázku
+    /// „stíhá se stavět", ne „kolik je hodin". Pevný základ zůstává, aby se
+    /// i malá vesnice pohnula.</para>
+    /// </summary>
+    public double GrowthPerSecond(double freeHousing) =>
+        PopulationGrowthPerSecond + PopulationFillRate * Math.Max(0.0, freeHousing);
+
     /// <summary>Meze demoverze; chybí-li v datech, platí výchozí.</summary>
     public DemoConfig Demo => DemoOrNull ?? DemoConfig.Default;
 
@@ -556,6 +596,42 @@ public sealed record GameplayConfig(
 
     /// <summary>Nastavení svozu do skladu; chybí-li v datech, je vrstva vypnutá.</summary>
     public HaulConfig Haul => HaulOrNull ?? HaulConfig.Disabled;
+}
+
+/// <summary>
+/// Úvod do hry — prvních pět minut, kdy se rozhoduje, jestli hráč hru nezavře.
+///
+/// <para>Změřeno na demu: lidé odcházeli kolem druhé minuty. V té chvíli se
+/// sešlo několik věcí najednou — start na savaně, kde klik nic neudělá, došlé
+/// jídlo a první noc, která z vesnice o dvou domech udělala tmavou obrazovku.
+/// Tyhle hodnoty drží start tam, kde je co dělat, a první noc až jako oslavu
+/// po pěti minutách, ne jako tmu po dvou.</para>
+/// </summary>
+/// <param name="QuickStartSeeds">Prověřené světy pro „Hrát" (z každého vyroste fungující město).</param>
+/// <param name="StartRadius">„První obrazovka" v dlaždicích — co musí být na dohled od startu.</param>
+/// <param name="StartSearchRadius">Jak daleko od počátku se místo startu hledá.</param>
+/// <param name="StartNodes">Kolik uzlů které suroviny musí být na dohled (stromy na první klik, kámen).</param>
+/// <param name="StartBuildings">Budovy, pro které musí být na dohled vhodná půda (dům, farma).</param>
+/// <param name="FirstDaySeconds">Kolik sekund trvá první den až do soumraku; 0 = normální den.</param>
+/// <param name="FirstDayUntil">Denní doba (0–1), od které čas běží normálně (začátek soumraku).</param>
+public sealed record OnboardingConfig(
+    IReadOnlyList<long> QuickStartSeeds,
+    int StartRadius,
+    int StartSearchRadius,
+    IReadOnlyList<ResourceAmount> StartNodes,
+    IReadOnlyList<int> StartBuildings,
+    double FirstDaySeconds,
+    double FirstDayUntil)
+{
+    /// <summary>Bez úvodu: náhodný svět, start na první souši, normální první den.</summary>
+    public static OnboardingConfig Disabled { get; } = new(
+        Array.Empty<long>(), 0, 0, Array.Empty<ResourceAmount>(), Array.Empty<int>(), 0, 0);
+
+    /// <summary>Hledá se místo startu s tím, co je potřeba na dohled?</summary>
+    public bool HasStartSite => StartRadius > 0 && StartSearchRadius > 0;
+
+    /// <summary>Běží první den pomaleji?</summary>
+    public bool HasSlowFirstDay => FirstDaySeconds > 0;
 }
 
 /// <summary>

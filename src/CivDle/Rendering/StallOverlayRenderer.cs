@@ -131,6 +131,8 @@ public sealed class StallOverlayRenderer
                 return NoTerrain;
             case BuildingStall.Damaged:
                 return Damaged;
+            case BuildingStall.OutputFull:
+                return StorageFull;
         }
 
         // Nedostatek proudu budovu nezastaví, jen ji zpomalí — proto to není

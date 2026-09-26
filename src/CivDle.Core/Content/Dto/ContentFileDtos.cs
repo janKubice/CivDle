@@ -236,7 +236,19 @@ public sealed record GameplayFileDto(
     DemoDto? Demo,
     GoldenDto? Golden,
     SubseaDto? Subsea,
-    PowerDto? Power);
+    PowerDto? Power,
+    double? PopulationFillRate = null,
+    OnboardingDto? Onboarding = null);
+
+/// <summary>Úvod do hry tak, jak leží v JSON.</summary>
+public sealed record OnboardingDto(List<long>? QuickStartSeeds, StartSiteDto? StartSite, FirstDayDto? FirstDay);
+
+/// <summary>Požadavky na místo startu tak, jak leží v JSON.</summary>
+public sealed record StartSiteDto(
+    int Radius, int SearchRadius, Dictionary<string, int>? Nodes, List<string>? Buildings);
+
+/// <summary>Pomalejší první den tak, jak leží v JSON.</summary>
+public sealed record FirstDayDto(double Seconds, double Until);
 
 /// <summary>Škálování cen výzkumu tak, jak leží v JSON.</summary>
 public sealed record ResearchDto(
@@ -312,7 +324,9 @@ public sealed record HappinessDto(
     double OvercrowdingPenalty,
     double PeoplePerServicePoint,
     double GrowthFloor,
-    double FreePopulation);
+    double FreePopulation,
+    double? CrowdingThreshold = null,
+    int? ServiceReachTiles = null);
 
 /// <summary>Nastavení slavnosti (dočasný boost) tak, jak leží v JSON.</summary>
 public sealed record BoostDto(int DurationSeconds, int CooldownSeconds, double Multiplier);
@@ -602,7 +616,11 @@ public sealed record EventFileDto(int SchemaVersion, List<EventDto>? Events);
 public sealed record EventDto(string? Id, List<EventChoiceDto>? Choices, GoalConditionDto? Requires);
 
 /// <summary>Jedna volba události tak, jak leží v JSON.</summary>
-public sealed record EventChoiceDto(string? Id, Dictionary<string, int>? Cost, Dictionary<string, int>? Gain);
+public sealed record EventChoiceDto(
+    string? Id, Dictionary<string, int>? Cost, Dictionary<string, int>? Gain, EventEffectDto? Effect = null);
+
+/// <summary>Dočasný efekt volby tak, jak leží v JSON.</summary>
+public sealed record EventEffectDto(string? Kind, string? Resource, double Multiplier, double Seconds);
 
 /// <summary>Obsah souboru <c>data/achievements.json</c>.</summary>
 public sealed record AchievementFileDto(int SchemaVersion, List<AchievementDto>? Achievements);

@@ -17,7 +17,11 @@ internal sealed class TutorialSystem
     private const int CheckIntervalTicks = 10; // ~1× za sekundu (10 Hz sim)
 
     private readonly GameContent _content;
-    private long _nextCheckTick;
+
+    // Rytmus kontrol se odvozuje z čísla tiku, ne z pole „příště v tiku X":
+    // to se neukládalo, takže načtená hra kontrolovala jinak než ta, která běžela
+    // dál, a odměny přicházely o pár tiků jindy (rozchod po načtení). A Vzestup
+    // nuluje tiky, pole ne — nový běh by čekal, než tiky dohoní starou hodnotu.
 
     public TutorialSystem(GameContent content)
     {
@@ -26,12 +30,10 @@ internal sealed class TutorialSystem
 
     public void Tick(Simulation sim)
     {
-        if (sim.TickCount < _nextCheckTick || sim.IsTutorialFinished)
+        if (sim.TickCount % CheckIntervalTicks != 0 || sim.IsTutorialFinished)
         {
             return;
         }
-
-        _nextCheckTick = sim.TickCount + CheckIntervalTicks;
 
         var steps = _content.Tutorial;
         int step = sim.TutorialStep;

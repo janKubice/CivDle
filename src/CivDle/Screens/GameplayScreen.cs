@@ -309,6 +309,14 @@ public sealed class GameplayScreen : IScreen
     private float[] _fullStorageCooldown = Array.Empty<float>();
     private Label _populationLabel = null!;
     private Label _idleLabel = null!;
+    private Label _eventEffectsLabel = null!;
+    private Label _governorLabel = null!;
+
+    // Guvernér hlásí stav jednou za kolo auto-stavby a mezi koly bývá „nic".
+    // Řádek proto drží poslední hlášení chvíli déle, jinak by blikal.
+    private GovernorStatus _shownGovernor = GovernorStatus.Idle;
+    private long _governorSeenTick;
+    private const long GovernorHoldTicks = (long)(Simulation.TicksPerSecond * 6);
     private Label _eraLabel = null!;
     private Label _eraNextLabel = null!;
     private Label _tierLabel = null!;
@@ -437,6 +445,28 @@ public sealed class GameplayScreen : IScreen
     private int _pendingPrayerStrength = 1;
     private int _knownBuildingCount;
 
+    // ----- úvod do hry (prvních pět minut) -----
+
+    /// <summary>Kde hra začíná, na co ukázat a kdy přijde který okamžik (viz OnboardingGuide).</summary>
+    private readonly OnboardingGuide _guide;
+    private readonly GuideRenderer _guideRenderer;
+    private readonly MomentBanner _momentBanner;
+
+    /// <summary>Úvodní nálet kamery na novou hru; <c>null</c> = neběží.</summary>
+    private IntroFlight? _intro;
+
+    /// <summary>Ať rada „tady nic neroste" nevyskakuje u každého kliku.</summary>
+    private float _missHintCooldown;
+
+    /// <summary>První zlatý úlovek po dorůstání vesnice je slíbený — jen jednou.</summary>
+    private bool _goldenPromised;
+
+    /// <summary>Budova, kterou průvodce sám vybral (−1 = žádná) — po kroku ji zase odebere.</summary>
+    private int _guideSelectedBuilding = -1;
+
+    /// <summary>Jak dlouho rada po kliku do prázdna mlčí (s).</summary>
+    private const float MissHintCooldownSeconds = 2.5f;
+
     /// <param name="offline">
     /// Hotový souhrn offline dohonu; <c>null</c> = nová hra nebo se nic nedohánělo.
     ///
@@ -463,6 +493,10 @@ public sealed class GameplayScreen : IScreen
                 _pendingIntros.Enqueue(new OfflineSummaryScreen(_screens, summary));
             }
         }
+
+        // Průvodce dřív než denní odměna: ta se během průvodce nedává.
+        _guide = new OnboardingGuide(screens.Content, simulation, screens.Profile);
+        _guideRenderer = new GuideRenderer(screens.Sprites, screens.WhitePixel, screens.Content);
 
         GrantDailyReward();
         screens.DisposeMenuBackground(); // pod hrou už netiká ukázkové město z menu
@@ -516,6 +550,7 @@ public sealed class GameplayScreen : IScreen
         // nesmí vytvářet dřív, než je načtený (jinak null uvnitř rendereru).
         _popupFont = Stylesheet.Current.LabelStyle.Font;
         _might = new MightBanner(screens.WhitePixel, _popupFont, screens.Loc);
+        _momentBanner = new MomentBanner(screens.WhitePixel, _popupFont);
         _toasts = new ToastRenderer(screens.WhitePixel, _popupFont);
         _cityScale = new CityScaleRenderer(screens.WhitePixel, _popupFont, screens.GraphicsDevice);
         _districtRenderer = new DistrictRenderer(
@@ -540,6 +575,20 @@ public sealed class GameplayScreen : IScreen
         _camera.SetViewport(viewport.Width, viewport.Height);
         _camera.CenterOn(FindStartFocus(), zoom: 2.2f);
         _knownBuildingCount = simulation.Buildings.Length; // načtená hra: bez juice za staré budovy
+
+        // Nová hra začíná náletem k táboráku a větou „tohle bude tvoje město".
+        // Načtená hra ne — hráč se vrací k rozdělané práci, ne na začátek.
+        if (simulation.TickCount == 0 && simulation.Buildings.Length == 0 && offline is null && !screens.IsToolRun)
+        {
+            StartIntro();
+        }
+
+        // Zavřít okno křížkem dřív neuložilo nic — jen autosave každé dvě minuty.
+        // Hra, která hráči říká „klidně zavři, vesnice poroste dál", musí uložit.
+        if (!screens.IsToolRun)
+        {
+            screens.Game.Exiting += OnGameExiting;
+        }
 
         _ratePrev = new double[_simulation.ResourceCount];
         _perSecond = new double[_simulation.ResourceCount];
@@ -713,6 +762,7 @@ public sealed class GameplayScreen : IScreen
         }
 
         bool mouseOverUi = _desktop.IsMouseOverGUI;
+        UpdateIntro(dt);
         UpdateCamera(dt, mouseOverUi);
 
         // Modlitba čekající na cíl má přednost přede vším ostatním — hráč právě
@@ -746,6 +796,7 @@ public sealed class GameplayScreen : IScreen
         _particles.Update(worldDt);
         _floatingText.Update(worldDt);
         LaunchFireworksForMilestones();
+        UpdateGuide(dt);
         _cityPulse.Update(worldDt, _simulation);
         _fireworks.Update(worldDt);
         _laser.Update(worldDt);
@@ -896,6 +947,9 @@ public sealed class GameplayScreen : IScreen
             _bubbles.Draw(spriteBatch, _camera);
             _caravans.Draw(spriteBatch, _camera);
             _golden.Draw(spriteBatch, _camera);
+            _guideRenderer.Draw(
+                spriteBatch, _camera, _guide,
+                showPointer: !_simulation.IsTutorialFinished, calm: _screens.Settings.ReduceMotion);
             _spectacles.Draw(spriteBatch, _screens.WhitePixel, _camera, _simulation);
             _festival.Draw(spriteBatch, _camera, _simulation);
             _fireworks.Draw(spriteBatch, _screens.WhitePixel, _camera);
@@ -1155,6 +1209,7 @@ public sealed class GameplayScreen : IScreen
         DrawSettlementLabels(spriteBatch);
         DrawTileTooltip(spriteBatch);
         _toasts.Draw(spriteBatch, _screens.GraphicsDevice.Viewport, ToastListTop());
+        _momentBanner.Draw(spriteBatch, _screens.GraphicsDevice.Viewport);
 
         // Kruhová nabídka nad vším ostatním kromě oslav — když je otevřená,
         // je to jediné, co hráč zrovna dělá.
@@ -1465,6 +1520,7 @@ public sealed class GameplayScreen : IScreen
         BuildingStall.NoWorkers => "stall.noWorkers",
         BuildingStall.MissingInput => "stall.missingInput",
         BuildingStall.NoTerrain => "stall.noTerrain",
+        BuildingStall.OutputFull => "stall.outputFull",
         _ => null,
     };
 
@@ -1510,6 +1566,7 @@ public sealed class GameplayScreen : IScreen
     {
         _screens.Loc.LanguageChanged -= BuildUi;
         _screens.UiSettingsChanged -= BuildUi;
+        _screens.Game.Exiting -= OnGameExiting;
         _composer.Dispose();
         _clouds.Dispose();
         _cloudLayer.Dispose();
@@ -1629,6 +1686,14 @@ public sealed class GameplayScreen : IScreen
         bool terraformed = false;
         for (int i = 0; i < queue.Count; i++)
         {
+            // První výroba bez kliku je háček úvodu — průvodce si ji vezme odtud,
+            // dřív než frontu vyprázdní pulz města.
+            if (queue[i].Kind == VisualEventKind.Produced && queue[i].ResourceIndex >= 0
+                && !_simulation.IsTutorialFinished)
+            {
+                _guide.OnProduced(queue[i].ResourceIndex);
+            }
+
             var center = new Vector2(
                 (queue[i].X + 0.5f) * TerrainRenderer.TileSize,
                 (queue[i].Y + 0.5f) * TerrainRenderer.TileSize);
@@ -1854,6 +1919,7 @@ public sealed class GameplayScreen : IScreen
 
         if (!_simulation.TryHarvest(tileX, tileY, out int resourceIndex, out int amount, out var outcome))
         {
+            OnHarvestMiss(tileX, tileY);
             return;
         }
 
@@ -1947,7 +2013,6 @@ public sealed class GameplayScreen : IScreen
     /// <summary>Najde poblíž počátku první suchou dlaždici, ať kamera nezačíná nad oceánem.</summary>
     private Vector2 FindStartFocus()
     {
-        var content = _screens.Content;
         var buildings = _simulation.Buildings;
         if (buildings.Length > 0)
         {
@@ -1955,26 +2020,10 @@ public sealed class GameplayScreen : IScreen
             return new Vector2((b.X + 0.5f) * TerrainRenderer.TileSize, (b.Y + 0.5f) * TerrainRenderer.TileSize);
         }
 
-        for (int radius = 0; radius < 300; radius++)
-        {
-            for (int y = -radius; y <= radius; y++)
-            {
-                for (int x = -radius; x <= radius; x++)
-                {
-                    if (Math.Max(Math.Abs(x), Math.Abs(y)) != radius)
-                    {
-                        continue;
-                    }
-
-                    if (!content.Biomes[_simulation.BiomeAt(x, y)].IsWater)
-                    {
-                        return new Vector2((x + 0.5f) * TerrainRenderer.TileSize, (y + 0.5f) * TerrainRenderer.TileSize);
-                    }
-                }
-            }
-        }
-
-        return Vector2.Zero;
+        // Místo startu vybírá průvodce: les, kámen a louka na první obrazovce
+        // (dřív první souš od počátku — často savana, kde klik nic neudělá).
+        var (startX, startY) = _guide.StartTile;
+        return new Vector2((startX + 0.5f) * TerrainRenderer.TileSize, (startY + 0.5f) * TerrainRenderer.TileSize);
     }
 
     /// <summary>
@@ -2049,6 +2098,20 @@ public sealed class GameplayScreen : IScreen
         if (Math.Abs(parts.Pollution) > 0.0005)
         {
             text += loc.Format("hud.happinessPollution", Points(parts.Pollution));
+        }
+
+        // Proč služby nestačí: buď na ně nedosáhnou (postav trh jinam), nebo
+        // nemají údržbu (chybí surovina). Dvě různé rady — řekne se ta pravá.
+        int unpaid = (int)Math.Round((parts.ServiceReach - parts.ServiceCoverage) * 100);
+        int outOfReach = (int)Math.Round((1.0 - parts.ServiceReach) * 100);
+        if (unpaid >= 5)
+        {
+            text += loc.Format("hud.happinessUnpaid", unpaid);
+        }
+
+        if (outOfReach >= 5)
+        {
+            text += loc.Format("hud.happinessOutOfReach", outOfReach);
         }
 
         return text;
@@ -2149,7 +2212,10 @@ public sealed class GameplayScreen : IScreen
         while (_simulation.TryDequeueNotification(out var note))
         {
             string subject = note.HasSubjectArg ? loc.Format(note.SubjectKey, note.SubjectArg) : loc[note.SubjectKey];
-            if (!_captureMode)
+
+            // Tichý start: během prvních kroků průvodce jen to, co k nim patří.
+            bool quiet = _guide.IsQuietStart && !OnboardingGuide.BelongsToStart(note.Kind);
+            if (!_captureMode && !quiet)
             {
                 _toasts.Add($"{loc[note.TitleKey]}: {subject}", NotificationColor(note.Kind));
                 _sounds.PlayChime(); // dobrá zpráva → příjemné cinknutí
@@ -2211,8 +2277,7 @@ public sealed class GameplayScreen : IScreen
         switch (decision.Cue)
         {
             case DirectorCue.Event when decision.EventIndex >= 0:
-                _screens.Push(new EventScreen(
-                    _screens, _simulation, _screens.Content.Events[decision.EventIndex]));
+                _screens.Push(new EventScreen(_screens, _simulation, decision.EventIndex));
                 break;
 
             case DirectorCue.Hint:
@@ -2321,6 +2386,14 @@ public sealed class GameplayScreen : IScreen
     /// <summary>Vyhodnotí a udělí denní odměnu (účet-wide, roste se sérií dní).</summary>
     private void GrantDailyReward()
     {
+        // Během průvodce ne. Okno „Denní odměna" bylo první, co nový hráč viděl
+        // — dřív než mapu. Odměna nepropadne: datum se nezapíše, takže přijde
+        // při dalším spuštění, až hráč ví, co s ní.
+        if (!_simulation.IsTutorialFinished)
+        {
+            return;
+        }
+
         var profile = _screens.Profile;
         var now = DateTime.UtcNow;
         var result = DailyReward.Evaluate(_screens.Content.Gameplay.DailyReward, profile.LastDailyRewardDate, profile.DailyStreak, now);
@@ -2460,6 +2533,7 @@ public sealed class GameplayScreen : IScreen
         NotificationKind.Ascended => UiPalette.Accent,
         NotificationKind.BuildingMilestone => UiPalette.TextBright, // barva ohňostroje
         NotificationKind.BuildingMerged => UiPalette.Text, // provozní zpráva, ne svátek
+        NotificationKind.GovernorStuck => UiPalette.Warn, // výzva k zásahu, ne oslava
         _ => UiPalette.Accent,
     };
 
@@ -2548,7 +2622,21 @@ public sealed class GameplayScreen : IScreen
             Tooltip = _screens.Loc["tip.idleBuildings"],
         };
         summaryRow.Widgets.Add(_idleLabel);
+
+        // Dozvuky voleb z událostí (ignorovaná povodeň, karavana…). Bez nich by
+        // hráč za tři minuty nevěděl, proč mu jídlo najednou přibývá pomaleji.
+        _eventEffectsLabel = new Label
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            Tooltip = _screens.Loc["tip.eventEffects"],
+        };
+        summaryRow.Widgets.Add(_eventEffectsLabel);
         resourceBar.Widgets.Add(summaryRow);
+
+        // Co guvernér dělá a proč případně stojí. Toast přijde jednou a zmizí;
+        // tenhle řádek visí, dokud stav trvá, a bublina radí, jak z toho ven.
+        _governorLabel = new Label { VerticalAlignment = VerticalAlignment.Center };
+        resourceBar.Widgets.Add(_governorLabel);
 
         // Lišta surovin roste s každou odemčenou surovinou a v pozdní hře
         // dolezla pod pravý panel se stavem světa. Má proto strop šířky
@@ -3859,6 +3947,7 @@ public sealed class GameplayScreen : IScreen
         {
             text.Append('\n').Append(loc.Format("tip.resource.production", Flow(made)));
             text.Append('\n').Append(loc.Format("tip.resource.consumption", Flow(used)));
+            AppendConsumptionParts(text, ledger, resourceIndex);
             text.Append('\n').Append(loc.Format("tip.resource.net", Flow(made - used)));
         }
 
@@ -3880,6 +3969,41 @@ public sealed class GameplayScreen : IScreen
         }
 
         return text.ToString();
+    }
+
+    /// <summary>Lokalizační klíče druhů spotřeby — ve stejném pořadí jako <see cref="ConsumptionKind"/>.</summary>
+    private static readonly string[] ConsumptionKindKeys =
+    {
+        "tip.resource.use.recipes",
+        "tip.resource.use.purchases",
+        "tip.resource.use.people",
+        "tip.resource.use.heating",
+        "tip.resource.use.upkeep",
+        "tip.resource.use.tools",
+    };
+
+    /// <summary>
+    /// Rozepíše spotřebu na druhy. Samotné číslo „spotřeba 5/s" neřeklo, jestli
+    /// jídlo jedí lidé, nebo ho spolykala údržba trhů — a to jsou dvě různé rady.
+    /// Druh, který tvoří celou spotřebu, se nerozepisuje: řádek by jen opakoval číslo.
+    /// </summary>
+    private void AppendConsumptionParts(System.Text.StringBuilder text, ResourceLedger ledger, int resourceIndex)
+    {
+        var loc = _screens.Loc;
+        double total = ledger.ConsumedPerSecond(resourceIndex);
+        for (int kind = 0; kind < ConsumptionKindKeys.Length; kind++)
+        {
+            double part = ledger.ConsumedPerSecond(resourceIndex, (ConsumptionKind)kind);
+            if (part > 0.005 && part < total - 0.005)
+            {
+                text.Append('\n').Append(loc.Format(
+                    "tip.resource.usePart", loc[ConsumptionKindKeys[kind]], CivDle.Core.Numbers.Format(part)));
+            }
+            else if (part > 0.005)
+            {
+                text.Append(' ').Append(loc.Format("tip.resource.useOnly", loc[ConsumptionKindKeys[kind]]));
+            }
+        }
     }
 
     /// <summary>Popisek typu zóny: čím ji automat zaplňuje (z priority v datech).</summary>
@@ -4067,6 +4191,163 @@ public sealed class GameplayScreen : IScreen
         }
     }
 
+    // ----- úvod do hry -----
+
+    /// <summary>Nálet kamery z výšky k táboráku a uvítací věta.</summary>
+    private void StartIntro()
+    {
+        var target = FindStartFocus();
+        float tile = TerrainRenderer.TileSize;
+        _intro = new IntroFlight(
+            target, startOffset: new Vector2(-18f * tile, 14f * tile), fromZoom: 0.7f, toZoom: 2.2f, seconds: 3.2f);
+        _camera.CenterOn(_intro.Position, _intro.Zoom);
+
+        var loc = _screens.Loc;
+        _momentBanner.Show(
+            loc["onboarding.welcome.title"], loc["onboarding.welcome.subtitle"], UiPalette.Accent, seconds: 6f);
+    }
+
+    /// <summary>
+    /// Posune nálet. Kdo sáhne na myš nebo klávesnici, převezme kameru hned —
+    /// úvod nesmí stát mezi hráčem a hrou.
+    /// </summary>
+    private void UpdateIntro(float dt)
+    {
+        if (_intro is not { } intro)
+        {
+            return;
+        }
+
+        bool tookOver = _input.WasLeftPressed || _input.IsRightDown || _input.IsMiddleDown
+            || _input.ScrollDelta != 0 || _input.AnyKeyPressed;
+        if (tookOver)
+        {
+            intro.Finish();
+        }
+        else
+        {
+            intro.Update(dt);
+        }
+
+        _camera.CenterOn(intro.Position, intro.Zoom);
+        if (intro.IsDone)
+        {
+            _intro = null;
+        }
+    }
+
+    /// <summary>Průvodce: ukazatel, automatický výběr budovy a velké okamžiky.</summary>
+    private void UpdateGuide(float dt)
+    {
+        _guideRenderer.Update(dt);
+        _momentBanner.Update(dt);
+        _missHintCooldown -= dt;
+        if (_simulation.IsTutorialFinished)
+        {
+            return;
+        }
+
+        _guide.Update(dt, DayNightCycle.NightFactor(_simulation.TimeOfDay01));
+        if (_guide.TryTakeStepChange(out var step))
+        {
+            OnGuideStep(step);
+        }
+
+        if (!_momentBanner.IsShowing && _guide.TryTakeMoment(out var moment))
+        {
+            ShowMoment(moment);
+        }
+    }
+
+    /// <summary>
+    /// Nový krok průvodce. Chce-li stavbu, budova se rovnou vybere — hráč jen
+    /// klikne na vyznačené místo a nemusí ji hledat v katalogu.
+    /// </summary>
+    private void OnGuideStep(TutorialStepDef step)
+    {
+        // Budovu, kterou vybral průvodce, po sobě i uklidí: jinak by po postavení
+        // dřevorubce zůstal nástroj aktivní a další klik na strom by místo sběru
+        // stavěl další tábor.
+        if (_guideSelectedBuilding >= 0 && _tools.SelectedBuilding == _guideSelectedBuilding)
+        {
+            _tools.ToggleBuilding(_guideSelectedBuilding);
+            SetBuildMenuOpen(false);
+        }
+
+        _guideSelectedBuilding = -1;
+        if (step.Focus.Kind == FocusKind.Build && _pendingPrayer < 0)
+        {
+            FocusOn(step.Focus);
+            _guideSelectedBuilding = _tools.SelectedBuilding == step.Focus.BuildingIndex ? step.Focus.BuildingIndex : -1;
+        }
+
+        // Vesnice dorůstá: první zlatý úlovek je zaručený a přijde brzy, ať si ho
+        // hráč všimne, dokud se ještě dívá na mapu (jinak přijde náhodně za minuty).
+        if (step.Id == "grow" && !_goldenPromised)
+        {
+            _goldenPromised = true;
+            _golden.ScheduleSoon(12f);
+        }
+    }
+
+    /// <summary>Velký okamžik: nápis přes obrazovku, cinknutí a jiskry u města.</summary>
+    private void ShowMoment(OnboardingMoment moment)
+    {
+        var loc = _screens.Loc;
+        switch (moment)
+        {
+            case OnboardingMoment.WorksAlone:
+                int resource = _guide.WorksAloneResource;
+                string subtitle = resource >= 0
+                    ? loc.Format("onboarding.worksAlone.subtitle", loc[_screens.Content.Resources[resource].NameKey])
+                    : loc["onboarding.worksAlone.subtitleAny"];
+                _momentBanner.Show(loc["onboarding.worksAlone.title"], subtitle, UiPalette.Good, seconds: 6.5f);
+                _fireworks.Burst(FindStartFocus(), HashCode.Combine(_simulation.TickCount, resource));
+                break;
+
+            case OnboardingMoment.FirstNight:
+                _momentBanner.Show(
+                    loc["onboarding.firstNight.title"], loc["onboarding.firstNight.subtitle"],
+                    UiPalette.Accent, seconds: 6f);
+                break;
+
+            default:
+                _momentBanner.Show(
+                    loc["onboarding.safeToClose.title"], loc["onboarding.safeToClose.subtitle"],
+                    UiPalette.TextBright, seconds: 7f);
+                break;
+        }
+
+        _sounds.PlayChime();
+        _screens.SaveProfile(); // viděný okamžik se nemá vrátit, ani když hra spadne
+    }
+
+    /// <summary>
+    /// Klik do prázdna během prvního kroku. Dřív se nestalo nic a hráč nevěděl,
+    /// jestli hra běží. Teď řekne „tady nic neroste" a šipka zablikne u stromu.
+    /// </summary>
+    private void OnHarvestMiss(int tileX, int tileY)
+    {
+        if (_missHintCooldown > 0f || _simulation.CurrentTutorialStep?.Focus.Kind != FocusKind.Harvest)
+        {
+            return;
+        }
+
+        _missHintCooldown = MissHintCooldownSeconds;
+        var at = new Vector2((tileX + 0.5f) * TerrainRenderer.TileSize, (tileY + 0.5f) * TerrainRenderer.TileSize);
+        _floatingText.Add(at, _screens.Loc["onboarding.miss"], UiPalette.TextBright);
+
+        var target = _guide.Target;
+        if (target.Kind == GuidePointer.Harvest)
+        {
+            var tree = new Vector2((target.X + 0.5f) * TerrainRenderer.TileSize, (target.Y + 0.5f) * TerrainRenderer.TileSize);
+            _particles.SpawnBurst(tree, UiPalette.TextBright, 14, 40f, 150f);
+        }
+    }
+
+    /// <summary>Zavření okna: uložit, ať slib „vesnice poroste dál" platí.</summary>
+    private void OnGameExiting(object? sender, EventArgs e) => SaveGame();
+
     /// <summary>
     /// Uloží hru na pozadí (autosave). Selhání se schválně nehlásí vyskakovacím
     /// oknem — je to tichá pojistka, ne akce hráče; ruční uložení v pauze dál
@@ -4180,12 +4461,30 @@ public sealed class GameplayScreen : IScreen
                 RecenterOnCity();
                 break;
 
+            case FocusKind.Harvest:
+                // Na strom, ne na „město" — na startu žádné není.
+                if (_guide.Target.Kind == GuidePointer.Harvest)
+                {
+                    var tree = new Vector2(
+                        (_guide.Target.X + 0.5f) * TerrainRenderer.TileSize,
+                        (_guide.Target.Y + 0.5f) * TerrainRenderer.TileSize);
+                    _camera.CenterOn(tree, MathF.Max(_camera.Zoom, 2.2f));
+                }
+                else
+                {
+                    RecenterOnCity();
+                }
+
+                break;
+
             case FocusKind.Build:
                 SetBuildMenuOpen(true);
                 _selectedCategory = _screens.Content.Buildings[focus.BuildingIndex].Category;
                 RefreshBuildMenu();
                 // Rovnou i vybrat: hráč tak jen klikne do mapy a je hotovo.
-                if (_simulation.IsBuildingBuildable(focus.BuildingIndex))
+                // Už vybranou budovu nechat — přepínač by ji naopak vypnul.
+                if (_simulation.IsBuildingBuildable(focus.BuildingIndex)
+                    && _tools.SelectedBuilding != focus.BuildingIndex)
                 {
                     _tools.ToggleBuilding(focus.BuildingIndex);
                 }
@@ -4435,6 +4734,30 @@ public sealed class GameplayScreen : IScreen
         }
     }
 
+    /// <summary>Řádek se stavem guvernéra (viz <see cref="GovernorStatusText"/>).</summary>
+    private void RefreshGovernorLine(Localization loc)
+    {
+        var status = _simulation.GovernorStatus;
+        long tick = _simulation.TickCount;
+        if (status.Activity != GovernorActivity.Idle)
+        {
+            _shownGovernor = status;
+            _governorSeenTick = tick;
+        }
+        else if (tick - _governorSeenTick > GovernorHoldTicks || tick < _governorSeenTick)
+        {
+            _shownGovernor = GovernorStatus.Idle; // „tick < seen": Vzestup vynuloval čas
+        }
+
+        string line = GovernorStatusText.Line(_screens.Content, loc, _shownGovernor);
+        _governorLabel.Visible = line.Length > 0;
+        _governorLabel.Text = line;
+        _governorLabel.Tooltip = GovernorStatusText.Hint(loc, _shownGovernor);
+        _governorLabel.TextColor = GovernorStatusText.NeedsPlayer(_shownGovernor)
+            ? UiPalette.Warn
+            : _shownGovernor.Activity == GovernorActivity.Building ? UiPalette.Good : UiPalette.TextDim;
+    }
+
     private void RefreshHudTexts()
     {
         var loc = _screens.Loc;
@@ -4519,6 +4842,12 @@ public sealed class GameplayScreen : IScreen
         _idleLabel.Text = _simulation.IdleBuildings > 0
             ? loc.Format("hud.idleBuildings", _simulation.IdleBuildings)
             : string.Empty;
+
+        RefreshGovernorLine(loc);
+
+        var eventEffects = _simulation.EventEffects.Active;
+        _eventEffectsLabel.Text = EventChoiceSummary.ActiveLine(_screens.Content, loc, eventEffects, _simulation.TickCount);
+        _eventEffectsLabel.TextColor = EventChoiceSummary.AnyPenalty(eventEffects) ? UiPalette.Warn : UiPalette.Good;
 
         _populationLabel.Text = loc.Format("hud.population",
             CivDle.Core.Numbers.Format(_simulation.Population), CivDle.Core.Numbers.Format(_simulation.HousingCapacity));
@@ -4886,6 +5215,15 @@ public sealed class GameplayScreen : IScreen
     /// </summary>
     /// <summary>Otevře správu šablon — pro smoke test, který na tlačítko nedosáhne.</summary>
     internal void OpenTemplatesForSmoke() => OpenTemplates();
+
+    /// <summary>Smoke: průvodce úvodu (co ukazuje a kam).</summary>
+    internal OnboardingGuide GuideForSmoke => _guide;
+
+    /// <summary>Smoke: úvodní nálet i s nápisem (v režimu nástroje se sám nespouští).</summary>
+    internal void StartIntroForSmoke() => StartIntro();
+
+    /// <summary>Smoke: velký okamžik úvodu, ať se nakreslí i bez pěti minut hraní.</summary>
+    internal void ShowMomentForSmoke(OnboardingMoment moment) => ShowMoment(moment);
 
     /// <summary>Napíše dotaz do hledání ve stavebním katalogu — smoke nemá klávesnici.</summary>
     internal int SearchBuildMenuForSmoke(string query)

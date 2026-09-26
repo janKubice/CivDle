@@ -26,6 +26,12 @@ public enum BuildingStall : byte
 
     /// <summary>Poškozená útokem — na chvíli mimo provoz, opraví se sama.</summary>
     Damaged,
+
+    /// <summary>
+    /// Sklad výstupu je plný — výrobna čeká a nespotřebovává vstupy, dokud se
+    /// neuvolní místo (nebo nepřibude sklad).
+    /// </summary>
+    OutputFull,
 }
 
 /// <summary>

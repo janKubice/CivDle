@@ -130,6 +130,26 @@ public sealed class InputManager
         };
     }
 
+    /// <summary>
+    /// Byla v tomto snímku nově stisknuta jakákoli klávesa? Pro „přeskoč to" —
+    /// úvodní nálet kamery končí čímkoli, čím hráč dá najevo, že chce hrát.
+    /// </summary>
+    public bool AnyKeyPressed
+    {
+        get
+        {
+            foreach (var key in _currentKeyboard.GetPressedKeys())
+            {
+                if (_previousKeyboard.IsKeyUp(key))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
     /// <summary>Pozice kurzoru v pixelech okna.</summary>
     public Point MousePosition => _currentMouse.Position;
 

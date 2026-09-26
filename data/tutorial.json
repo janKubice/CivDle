@@ -1,10 +1,11 @@
 {
   "schemaVersion": 1,
+  "_comment": "Pořadí je záměr: první klik (gather), první stavba (shelter), pak hned dřevorubec (automate) — výrobna, která pracuje bez kliku, je háček hry a má přijít do první minuty. Farma až po něm (startovního jídla je na pět minut).",
   "steps": [
-    { "id": "gather",    "condition": { "metric": "harvested", "resource": "wood", "target": 12 }, "focus": { "kind": "map" } },
+    { "id": "gather",    "condition": { "metric": "harvested", "resource": "wood", "target": 8 }, "focus": { "kind": "harvest", "target": "wood" } },
     { "id": "shelter",   "condition": { "metric": "building", "building": "house", "target": 1 },  "focus": { "kind": "build", "building": "house" } },
-    { "id": "feed",      "condition": { "metric": "building", "building": "farm", "target": 1 },   "focus": { "kind": "build", "building": "farm" } },
     { "id": "automate",  "condition": { "metric": "building", "building": "lumber_camp", "target": 1 }, "focus": { "kind": "build", "building": "lumber_camp" } },
+    { "id": "feed",      "condition": { "metric": "building", "building": "farm", "target": 1 },   "focus": { "kind": "build", "building": "farm" } },
     { "id": "grow",      "condition": { "metric": "population", "target": 12 },                    "focus": { "kind": "map" } },
     { "id": "research",  "condition": { "metric": "research", "tech": "milling" },                 "focus": { "kind": "screen", "target": "tech" } },
     { "id": "replant",   "condition": { "metric": "planted", "target": 3 },                        "focus": { "kind": "tool", "target": "plant" } },

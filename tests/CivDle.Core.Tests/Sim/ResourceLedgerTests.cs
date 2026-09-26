@@ -248,4 +248,60 @@ public class ResourceLedgerTests
             sim.Ledger.WastedPerSecond(wood) > 0,
             "dřevo přetékalo, ale propad se nikde neprojevil");
     }
+
+    [Fact]
+    public void TotalConsumptionIsTheSumOfItsKinds()
+    {
+        var ledger = new ResourceLedger(1);
+        for (int tick = 0; tick < 400; tick++)
+        {
+            ledger.RecordConsumed(0, 1, ConsumptionKind.People);
+            ledger.RecordConsumed(0, 2, ConsumptionKind.Upkeep);
+            ledger.EndTick(Tps);
+        }
+
+        Assert.Equal(10, ledger.ConsumedPerSecond(0, ConsumptionKind.People), 1);
+        Assert.Equal(20, ledger.ConsumedPerSecond(0, ConsumptionKind.Upkeep), 1);
+        Assert.Equal(30, ledger.ConsumedPerSecond(0), 1);
+    }
+
+    [Fact]
+    public void WhatPeopleEatIsConsumption()
+    {
+        // Tooltip jídla dřív ukazoval „spotřeba 0", zatímco ho lidé jedli
+        // a zásoba padala k nule — přesně na otázku „proč mi to ubývá" lhal.
+        var content = TestData.LoadRealContent();
+        var sim = new Simulation(content, new UniformTerrain(content.Biomes.IndexOf("forest")));
+        sim.SkipTutorial();
+        int food = content.Gameplay.FoodResourceIndex;
+        sim.DebugSetResource(food, sim.GetStorageCap(food));
+
+        for (int tick = 0; tick < 200; tick++)
+        {
+            sim.Tick();
+        }
+
+        double expected = sim.Population * content.Gameplay.FoodPerPersonPerSecond;
+        Assert.True(sim.Ledger.ConsumedPerSecond(food, ConsumptionKind.People) > expected * 0.5,
+            "jídlo snědené lidmi se do evidence nezapsalo");
+        Assert.True(sim.Ledger.NetPerSecond(food) < 0, "čistý tok jídla bez polí musí být záporný");
+    }
+
+    [Fact]
+    public void AnyWithdrawalOutsideRecipesCountsAsAPurchase()
+    {
+        // Volba v události, modlitba, kláda na řece — všechno bere přes AddResource.
+        var content = TestData.LoadRealContent();
+        var sim = new Simulation(content, new UniformTerrain(content.Biomes.IndexOf("forest")));
+        int wood = content.Resources.IndexOf("wood");
+        sim.DebugSetResource(wood, 100);
+
+        for (int tick = 0; tick < 200; tick++)
+        {
+            sim.AddResource(wood, -0.1);
+            sim.Tick();
+        }
+
+        Assert.True(sim.Ledger.ConsumedPerSecond(wood, ConsumptionKind.Purchases) > 0.5);
+    }
 }

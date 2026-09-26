@@ -266,7 +266,7 @@ public sealed class TechScreen : IScreen
             var color = researched ? ResearchedColor
                 : beyondDemo ? DemoLockedColor
                 : status == PlacementResult.Ok ? AvailableColor
-                : status == PlacementResult.NotEnoughResources ? UnaffordableColor
+                : status is PlacementResult.NotEnoughResources or PlacementResult.ExceedsStorage ? UnaffordableColor
                 : LockedColor;
 
             bool hovered = i == _hovered;
@@ -372,6 +372,7 @@ public sealed class TechScreen : IScreen
                     {
                         PlacementResult.Ok => loc["tech.canResearch"],
                         PlacementResult.NotUnlocked => loc.Format("tech.needs", PrerequisiteNames(_hovered)),
+                        PlacementResult.ExceedsStorage => StorageVerdict(_hovered),
                         _ => loc["tech.tooExpensive"],
                     };
 
@@ -397,9 +398,31 @@ public sealed class TechScreen : IScreen
                 loc[tech.NameKey], body,
                 researched ? UiPalette.Good
                     : status == PlacementResult.Ok ? UiPalette.TextBright
-                    : status == PlacementResult.NotEnoughResources ? UiPalette.Warn
+                    : status is PlacementResult.NotEnoughResources or PlacementResult.ExceedsStorage ? UiPalette.Warn
                     : UiPalette.Text);
         }
+    }
+
+    /// <summary>
+    /// „Víc, než se vejde do skladu" — s konkrétní surovinou a kapacitou, ať hráč
+    /// ví, jaký sklad postavit. Samotné „nemáš na to" ho nechávalo čekat na něco,
+    /// co nikdy nepřijde.
+    /// </summary>
+    private string StorageVerdict(int techIndex)
+    {
+        var loc = _screens.Loc;
+        var cost = _simulation.ScaledResearchCost(techIndex);
+        int resource = _simulation.ResourceBeyondStorage(cost);
+        if (resource < 0)
+        {
+            return loc["tech.tooExpensive"];
+        }
+
+        int needed = cost.First(c => c.ResourceIndex == resource).Amount;
+        return loc.Format("tech.needsStorage",
+            loc[_screens.Content.Resources[resource].NameKey],
+            CivDle.Core.Numbers.Format(needed),
+            CivDle.Core.Numbers.Format(_simulation.GetStorageCap(resource)));
     }
 
     /// <summary>Obdélníky už vysázených jmen — jen pro tenhle snímek.</summary>

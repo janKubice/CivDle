@@ -271,7 +271,8 @@ public class SandboxTests
         for (int i = 0; i < content.Techs.Count; i++)
         {
             if (sim.TechLevel(i) == 0
-                && sim.CanResearch(i) is PlacementResult.Ok or PlacementResult.NotEnoughResources)
+                && sim.CanResearch(i) is PlacementResult.Ok or PlacementResult.NotEnoughResources
+                    or PlacementResult.ExceedsStorage)
             {
                 return i;
             }

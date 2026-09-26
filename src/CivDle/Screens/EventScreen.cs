@@ -11,22 +11,25 @@ namespace CivDle.Screens;
 
 /// <summary>
 /// Náhodná událost s volbami (mikro-rozhodnutí) jako overlay: kupec, učenec,
-/// slavnost… Hráč vybere jednu možnost (cena se odečte, zisk přičte). Přidává
-/// agenci a variabilitu; nedostupná volba (chybí suroviny) je ztlumená. Simulace stojí.
+/// slavnost… Hráč vybere jednu možnost; co se pak stane (cena, zisk, dočasný
+/// dozvuk), řeší simulace — obrazovka jen ukáže předem, co která volba udělá.
+/// Nedostupná volba (chybí suroviny) je ztlumená. Simulace stojí.
 /// </summary>
 public sealed class EventScreen : IScreen
 {
     private readonly ScreenManager _screens;
     private readonly Simulation _simulation;
+    private readonly int _eventIndex;
     private readonly EventDef _event;
     private readonly InputManager _input = new();
     private Desktop _desktop = null!;
 
-    public EventScreen(ScreenManager screens, Simulation simulation, EventDef gameEvent)
+    public EventScreen(ScreenManager screens, Simulation simulation, int eventIndex)
     {
         _screens = screens;
         _simulation = simulation;
-        _event = gameEvent;
+        _eventIndex = eventIndex;
+        _event = screens.Content.Events[eventIndex];
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
         _screens.UiSettingsChanged += BuildUi;
@@ -80,9 +83,9 @@ public sealed class EventScreen : IScreen
             TextColor = Color.LightGray,
         });
 
-        foreach (var choice in _event.Choices)
+        for (int i = 0; i < _event.Choices.Count; i++)
         {
-            layout.Widgets.Add(ChoiceButton(choice));
+            layout.Widgets.Add(ChoiceButton(i));
         }
 
         var panel = UiFactory.DarkPanel(layout);
@@ -94,54 +97,52 @@ public sealed class EventScreen : IScreen
         _desktop = _screens.NewDesktop(root);
     }
 
-    private Widget ChoiceButton(EventChoiceDef choice)
+    private Widget ChoiceButton(int choiceIndex)
     {
         var loc = _screens.Loc;
+        var choice = _event.Choices[choiceIndex];
+        var content = new VerticalStackPanel
+        {
+            Spacing = 2,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        content.Widgets.Add(new Label
+        {
+            Text = loc[choice.LabelKey],
+            HorizontalAlignment = HorizontalAlignment.Center,
+        });
+
+        // Co volba udělá, pod popiskem — bez toho se hráč rozhoduje naslepo.
+        string summary = EventChoiceSummary.Line(_screens.Content, loc, choice);
+        if (summary.Length > 0)
+        {
+            content.Widgets.Add(new Label
+            {
+                Text = summary,
+                Wrap = true,
+                Width = 320,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextColor = Color.LightGray,
+            });
+        }
+
         var button = new Button
         {
-            Content = new Label
-            {
-                Text = loc[choice.LabelKey],
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-            },
+            Content = content,
             Width = 340,
             Padding = new Thickness(10, 6),
             HorizontalAlignment = HorizontalAlignment.Center,
             Background = new PanelBrush(UiPalette.Panel),
-            Enabled = CanAfford(choice),
+            Enabled = _simulation.CanChooseEventOption(_eventIndex, choiceIndex),
         };
         button.Click += (_, _) =>
         {
-            Apply(choice);
-            _screens.Pop();
+            if (_simulation.TryChooseEventOption(_eventIndex, choiceIndex))
+            {
+                _screens.Pop();
+            }
         };
         return button;
-    }
-
-    private bool CanAfford(EventChoiceDef choice)
-    {
-        foreach (var cost in choice.Cost)
-        {
-            if (_simulation.GetResource(cost.ResourceIndex) < cost.Amount)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private void Apply(EventChoiceDef choice)
-    {
-        foreach (var cost in choice.Cost)
-        {
-            _simulation.AddResource(cost.ResourceIndex, -cost.Amount);
-        }
-
-        foreach (var gain in choice.Gain)
-        {
-            _simulation.AddResource(gain.ResourceIndex, gain.Amount);
-        }
     }
 }

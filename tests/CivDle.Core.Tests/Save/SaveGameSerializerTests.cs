@@ -131,6 +131,40 @@ public class SaveGameSerializerTests
     }
 
     [Fact]
+    public void RoundTrip_KeepsRunningEventEffects()
+    {
+        // Ignorovaná povodeň nesmí zmizet uložením — jinak by se dal každý
+        // postih z události obejít načtením hry. A doběhnout musí přesně
+        // tolik, kolik mu zbývalo, jinak by se načtená hra rozešla s původní.
+        var (content, original) = PlayedGame();
+        int flood = content.Events.IndexOf("river_flood");
+        int moveOn = content.Events[flood].Choices.ToList().FindIndex(c => c.Effect is not null);
+        Assert.True(original.TryChooseEventOption(flood, moveOn));
+        for (int i = 0; i < 30; i++)
+        {
+            original.Tick();
+        }
+
+        using var stream = Saved(original, Metadata);
+        var (loaded, _) = new SaveGameSerializer().Read(stream, content);
+
+        var expected = Assert.Single(original.EventEffects.Active);
+        var actual = Assert.Single(loaded.EventEffects.Active);
+        Assert.Equal(expected, actual);
+
+        for (int i = 0; i < 100; i++)
+        {
+            original.Tick();
+            loaded.Tick();
+        }
+
+        for (int i = 0; i < content.Resources.Count; i++)
+        {
+            Assert.Equal(original.GetResource(i), loaded.GetResource(i));
+        }
+    }
+
+    [Fact]
     public void RoundTrip_PreservesZones()
     {
         // Zóna (save v9) se ukládá přes stabilní ID typu a musí se vrátit beze změny.

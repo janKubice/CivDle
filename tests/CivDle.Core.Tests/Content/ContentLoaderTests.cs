@@ -600,6 +600,125 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadFrom_PopulationFillRate_IsParsed_AndMissingMeansOldGrowth()
+    {
+        WriteAllValid();
+        WriteGameplayWith("""
+          "populationFillRate": 0.003,
+        """.TrimEnd().TrimEnd(','));
+
+        Assert.Equal(0.003, Load().Gameplay.PopulationFillRate, 6);
+
+        WriteGameplayWith(string.Empty);
+        Assert.Equal(0.0, Load().Gameplay.PopulationFillRate, 6);
+    }
+
+    [Fact]
+    public void LoadFrom_Onboarding_IsParsed_AndMissingMeansOff()
+    {
+        WriteAllValid();
+        WriteGameplayWith("""
+          "onboarding": {
+            "quickStartSeeds": [42, 7],
+            "startSite": { "radius": 8, "searchRadius": 60, "nodes": { "wood": 6 }, "buildings": ["house"] },
+            "firstDay": { "seconds": 270, "until": 0.72 }
+          }
+        """);
+
+        var onboarding = Load().Gameplay.Onboarding;
+
+        Assert.Equal(new long[] { 42, 7 }, onboarding.QuickStartSeeds);
+        Assert.Equal(8, onboarding.StartRadius);
+        Assert.Equal(6, Assert.Single(onboarding.StartNodes).Amount);
+        Assert.Single(onboarding.StartBuildings);
+        Assert.Equal(270, onboarding.FirstDaySeconds);
+
+        WriteGameplayWith(string.Empty);
+        var off = Load().Gameplay.Onboarding;
+        Assert.False(off.HasStartSite);
+        Assert.False(off.HasSlowFirstDay);
+    }
+
+    [Theory]
+    [InlineData("""{ "startSite": { "radius": 8, "searchRadius": 60, "nodes": { "gold": 3 } } }""", "gold")]
+    [InlineData("""{ "startSite": { "radius": 8, "searchRadius": 60, "buildings": ["castle"] } }""", "castle")]
+    [InlineData("""{ "startSite": { "radius": 1, "searchRadius": 60 } }""", "radius")]
+    [InlineData("""{ "firstDay": { "seconds": 270, "until": 0.2 } }""", "until")]
+    public void LoadFrom_BrokenOnboarding_Throws(string block, string expected)
+    {
+        // Konec pomalého dne před ranním startem by znamenal čas, který jde pozpátku.
+        WriteAllValid();
+        WriteGameplayWith($"\"onboarding\": {block}");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_PopulationFillRateAboveOne_Throws()
+    {
+        // Nad jedna by se za sekundu nastěhovalo víc lidí, než je volných míst.
+        WriteAllValid();
+        WriteGameplayWith("""
+          "populationFillRate": 1.5
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("populationFillRate", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_HappinessWithReachAndThreshold_ParsesThem()
+    {
+        WriteAllValid();
+        WriteGameplayWith("""
+          "happiness": { "intervalTicks": 50, "baseHappiness": 0.55, "serviceWeight": 0.45,
+                         "overcrowdingPenalty": 0.25, "peoplePerServicePoint": 12, "growthFloor": 0.15,
+                         "freePopulation": 25, "crowdingThreshold": 0.85, "serviceReachTiles": 14 }
+        """);
+
+        var happiness = Load().Gameplay.Happiness;
+
+        Assert.Equal(0.85, happiness.CrowdingThreshold, 6);
+        Assert.Equal(14, happiness.ServiceReachTiles);
+    }
+
+    [Fact]
+    public void LoadFrom_HappinessWithoutReach_KeepsTheOldCitywideServices()
+    {
+        // Starší data i mody bez nových polí se chovají jako dřív.
+        WriteAllValid();
+        WriteGameplayWith("""
+          "happiness": { "intervalTicks": 50, "baseHappiness": 0.55, "serviceWeight": 0.45,
+                         "overcrowdingPenalty": 0.25, "peoplePerServicePoint": 12, "growthFloor": 0.15,
+                         "freePopulation": 25 }
+        """);
+
+        var happiness = Load().Gameplay.Happiness;
+
+        Assert.False(happiness.HasServiceReach);
+        Assert.Equal(0.0, happiness.CrowdingThreshold, 6);
+    }
+
+    [Fact]
+    public void LoadFrom_CrowdingThresholdOfOne_Throws()
+    {
+        // Práh 1 by dělil nulou — přelidnění by nešlo spočítat.
+        WriteAllValid();
+        WriteGameplayWith("""
+          "happiness": { "intervalTicks": 50, "baseHappiness": 0.55, "serviceWeight": 0.45,
+                         "overcrowdingPenalty": 0.25, "peoplePerServicePoint": 12, "growthFloor": 0.15,
+                         "freePopulation": 25, "crowdingThreshold": 1.0 }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("crowdingThreshold", ex.Message);
+    }
+
+    [Fact]
     public void LoadFrom_PollutionSpreadAboveOne_Throws()
     {
         WriteAllValid();
@@ -1718,6 +1837,66 @@ public class ContentLoaderTests : IDisposable
     }
 
     private static readonly string[] ScenarioKeys = { "scenario.test", "scenario.test.desc" };
+
+    // ----- dozvuky voleb v událostech -----
+
+    [Fact]
+    public void EventChoice_LoadsItsEffect()
+    {
+        WriteWorldWithEvent("""
+        { "id": "a", "effect": { "kind": "production", "resource": "food", "multiplier": 0.75, "seconds": 180 } }
+        """);
+
+        var content = Load();
+
+        var effect = content.Events[0].Choices[0].Effect;
+        Assert.NotNull(effect);
+        Assert.Equal(EventEffectKind.Production, effect!.Kind);
+        Assert.Equal(content.Resources.IndexOf("food"), effect.ResourceIndex);
+        Assert.Equal(0.75, effect.Multiplier);
+        Assert.Equal(180, effect.Seconds);
+    }
+
+    [Fact]
+    public void EventChoice_WithoutResource_AffectsEverything()
+    {
+        WriteWorldWithEvent("""{ "id": "a", "effect": { "kind": "production", "multiplier": 0.8, "seconds": 60 } }""");
+
+        Assert.Equal(-1, Load().Events[0].Choices[0].Effect!.ResourceIndex);
+    }
+
+    [Theory]
+    [InlineData("""{ "kind": "earthquake", "multiplier": 0.8, "seconds": 60 }""", "earthquake")]
+    [InlineData("""{ "kind": "production", "resource": "gold", "multiplier": 0.8, "seconds": 60 }""", "gold")]
+    [InlineData("""{ "kind": "growth", "resource": "food", "multiplier": 0.8, "seconds": 60 }""", "production")]
+    [InlineData("""{ "kind": "production", "multiplier": 0, "seconds": 60 }""", "multiplier")]
+    [InlineData("""{ "kind": "production", "multiplier": 0.8, "seconds": 0 }""", "seconds")]
+    public void EventChoice_WithABrokenEffect_Throws(string effectJson, string expected)
+    {
+        // Násobič nula by výrobu zastavil úplně a nekonečný efekt by nikdy
+        // neskončil — obojí je proti relaxačnímu tónu, takže to loader nepustí.
+        WriteWorldWithEvent($$"""{ "id": "a", "effect": {{effectJson}} }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
+    /// <summary>Minimální data + jedna událost s jedinou volbou (i s texty v jazycích).</summary>
+    private void WriteWorldWithEvent(string choiceJson)
+    {
+        WriteAllValid();
+        Write(Path.Combine("lang", "cs.json"), LangJson("cs", "Čeština", extraKeys: EventKeys));
+        Write(Path.Combine("lang", "en.json"), LangJson("en", "English", extraKeys: EventKeys));
+        Write("events.json", $$"""
+        {
+          "schemaVersion": 1,
+          "events": [ { "id": "test", "choices": [ {{choiceJson}} ] } ]
+        }
+        """);
+    }
+
+    private static readonly string[] EventKeys = { "event.test", "event.test.desc", "event.test.a" };
 
     // ----- pomůcky -----
 

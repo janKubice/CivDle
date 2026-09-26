@@ -164,6 +164,30 @@ public sealed class SaveGameSerializer
     /// </summary>
     private const string SectionRafts = "rafts";
 
+    /// <summary>
+    /// Materiál, na který guvernér šetří (<see cref="ConstructionClaim"/>).
+    ///
+    /// <para>Ukládá se, protože o něm rozhoduje výroba v každém tiku: načtená hra
+    /// bez rezervy by pár sekund řezala dřevo, které původní hra držela na dům,
+    /// a rozešla by se s ní. Starší save sekci nemá = na nic se nešetří.</para>
+    /// </summary>
+    private const string SectionGovernorClaim = "governorclaim";
+
+    /// <summary>
+    /// Evidence toků (vyhlazené rychlosti). Dřív do savu nepatřila — byla to jen
+    /// informace pro hráče. Teď se podle ní rozhoduje guvernér („teče dřevo?"),
+    /// takže bez ní by se načtená hra rozešla s tou, která běžela dál. Starší
+    /// save sekci nemá a začne s prázdnou evidencí.
+    /// </summary>
+    private const string SectionLedger = "ledger";
+
+    /// <summary>
+    /// Běžící dozvuky voleb z událostí (<see cref="EventEffects"/>). Zbývající
+    /// čas se ukládá relativně, ne jako tik konce: efekt pak po načtení doběhne
+    /// přesně tolik, kolik mu zbývalo. Starší save sekci nemá = nic neběží.
+    /// </summary>
+    private const string SectionEventEffects = "eventeffects";
+
     /// <summary>Zapíše hru do streamu (hlavička nekomprimovaná, tělo gzip a sekční).</summary>
     public void Write(Stream stream, Simulation simulation, SaveMetadata metadata)
     {
@@ -403,6 +427,18 @@ public sealed class SaveGameSerializer
                     w.Write(logs[i].TicksLeft);
                 }
             });
+        }
+
+        if (simulation.Claim.IsActive)
+        {
+            WriteSection(writer, SectionGovernorClaim, w => WriteClaim(w, simulation));
+        }
+
+        WriteSection(writer, SectionLedger, w => WriteLedger(w, simulation));
+
+        if (simulation.EventEffects.Active.Count > 0)
+        {
+            WriteSection(writer, SectionEventEffects, w => WriteEventEffects(w, simulation));
         }
 
         if (simulation.SettlementPlans.Count > 0)
@@ -970,6 +1006,15 @@ public sealed class SaveGameSerializer
             case SectionRafts:
                 ReadRafts(section, simulation);
                 break;
+            case SectionGovernorClaim:
+                ReadClaim(section, content, simulation);
+                break;
+            case SectionLedger:
+                ReadLedger(section, content, simulation);
+                break;
+            case SectionEventEffects:
+                ReadEventEffects(section, content, simulation);
+                break;
             case SectionSettlementPlans:
                 ReadSettlementPlans(section, simulation);
                 break;
@@ -1122,6 +1167,137 @@ public sealed class SaveGameSerializer
         }
 
         writer.Write(simulation.WondersCompleted);
+    }
+
+    /// <summary>Evidence toků po surovinách (podle ID) — výroba, propad, spotřeba po druzích.</summary>
+    private static void WriteLedger(BinaryWriter writer, Simulation simulation)
+    {
+        var content = SimContent(simulation);
+        writer.Write(ResourceLedger.KindCount);
+        writer.Write(content.Resources.Count);
+        for (int i = 0; i < content.Resources.Count; i++)
+        {
+            var (produced, wasted, byKind) = simulation.Ledger.Export(i);
+            writer.Write(content.Resources[i].Id);
+            writer.Write(produced);
+            writer.Write(wasted);
+            foreach (double value in byKind)
+            {
+                writer.Write(value);
+            }
+        }
+    }
+
+    private static void ReadLedger(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        int kinds = ReadCount(reader, max: 64, what: "druhů spotřeby");
+        int count = ReadCount(reader, max: 10_000, what: "surovin v evidenci");
+        var byKind = new double[kinds];
+        for (int i = 0; i < count; i++)
+        {
+            string id = reader.ReadString();
+            double produced = reader.ReadDouble();
+            double wasted = reader.ReadDouble();
+            for (int k = 0; k < kinds; k++)
+            {
+                byKind[k] = reader.ReadDouble();
+            }
+
+            if (content.Resources.TryIndexOf(id, out int index))
+            {
+                simulation.Ledger.Import(index, produced, wasted, byKind);
+            }
+        }
+    }
+
+    /// <summary>Dozvuky událostí: druh, surovina podle ID („" = všechny), násobič, zbývající tiky.</summary>
+    private static void WriteEventEffects(BinaryWriter writer, Simulation simulation)
+    {
+        var content = SimContent(simulation);
+        var active = simulation.EventEffects.Active;
+        writer.Write(active.Count);
+        foreach (var effect in active)
+        {
+            writer.Write((int)effect.Kind);
+            writer.Write(effect.ResourceIndex >= 0 ? content.Resources[effect.ResourceIndex].Id : string.Empty);
+            writer.Write(effect.Multiplier);
+            writer.Write(EventEffects.TicksLeft(effect, simulation.TickCount));
+        }
+    }
+
+    private static void ReadEventEffects(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        int count = ReadCount(reader, max: 1_000, what: "efektů událostí");
+        for (int i = 0; i < count; i++)
+        {
+            int kind = reader.ReadInt32();
+            string resourceId = reader.ReadString();
+            double multiplier = reader.ReadDouble();
+            long ticksLeft = reader.ReadInt64();
+
+            // Neznámý druh (novější verze) nebo surovina, která z dat zmizela:
+            // efekt se zahodí. Dočasný dozvuk nestojí za rozbitý save.
+            if (!Enum.IsDefined(typeof(EventEffectKind), kind))
+            {
+                continue;
+            }
+
+            int resourceIndex = -1;
+            if (resourceId.Length > 0 && !content.Resources.TryIndexOf(resourceId, out resourceIndex))
+            {
+                continue;
+            }
+
+            simulation.RestoreEventEffect((EventEffectKind)kind, resourceIndex, multiplier, ticksLeft);
+        }
+    }
+
+    /// <summary>Rezerva guvernéra: budova a suroviny podle ID, ať přežije přeskládání dat.</summary>
+    private static void WriteClaim(BinaryWriter writer, Simulation simulation)
+    {
+        var content = SimContent(simulation);
+        var claim = simulation.Claim;
+        writer.Write(content.Buildings[claim.DefIndex].Id);
+        writer.Write(claim.SinceTick);
+
+        var held = new List<int>();
+        for (int i = 0; i < content.Resources.Count; i++)
+        {
+            if (claim.AmountOf(i) > 0)
+            {
+                held.Add(i);
+            }
+        }
+
+        writer.Write(held.Count);
+        foreach (int index in held)
+        {
+            writer.Write(content.Resources[index].Id);
+            writer.Write(claim.AmountOf(index));
+        }
+    }
+
+    private static void ReadClaim(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        string buildingId = reader.ReadString();
+        long since = reader.ReadInt64();
+        int count = ReadCount(reader, max: 10_000, what: "rezervovaných surovin");
+        var amounts = new List<(int ResourceIndex, double Amount)>(count);
+        for (int i = 0; i < count; i++)
+        {
+            string resourceId = reader.ReadString();
+            double amount = reader.ReadDouble();
+            if (content.Resources.TryIndexOf(resourceId, out int index))
+            {
+                amounts.Add((index, amount));
+            }
+        }
+
+        // Budova mohla z dat zmizet (mod, přejmenování) — pak se prostě nešetří.
+        if (content.Buildings.TryIndexOf(buildingId, out int defIndex))
+        {
+            simulation.Claim.Restore(defIndex, since, amounts);
+        }
     }
 
     private static void ReadConstruction(BinaryReader reader, Simulation simulation)

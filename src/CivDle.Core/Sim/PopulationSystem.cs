@@ -24,6 +24,7 @@ internal sealed class PopulationSystem
         double demand = sim.Population * _config.FoodPerPersonPerSecond * dt;
         double eaten = Math.Min(food, demand);
         resources[_config.FoodResourceIndex] = food - eaten;
+        sim.Ledger.RecordConsumed(_config.FoodResourceIndex, eaten, ConsumptionKind.People);
 
         // Roste se jen s plným břichem a volnou kapacitou bydlení.
         // Trvalý bonus Vzestupu růst zrychluje.
@@ -40,11 +41,16 @@ internal sealed class PopulationSystem
         {
             // Spokojenost je třetí brzda: nespokojené město roste pomalu (a při
             // nule stagnuje), ale nikdo neumírá — pořád soft pressure.
+            //
+            // Přírůstek = pevný základ + podíl volného bydlení (viz
+            // GameplayConfig.GrowthPerSecond): nový panelák se zaplní hned,
+            // ne tempem jednoho člověka za osm sekund.
+            double perSecond = _config.GrowthPerSecond(ceiling - sim.Population);
             sim.Population = Math.Min(
                 ceiling,
-                sim.Population + _config.PopulationGrowthPerSecond * dt
+                sim.Population + perSecond * dt
                     * sim.Bonuses.GrowthMult * sim.HappinessGrowthFactor * sim.ElectionGrowthMult
-                    * sim.SeasonGrowthMult * sim.BlessedGrowthMult);
+                    * sim.SeasonGrowthMult * sim.BlessedGrowthMult * sim.EventEffects.GrowthMult);
         }
 
         // Dorazit na strop měřítka je ZPRÁVA, ne ticho. Bez ní hráč vidí jen to,

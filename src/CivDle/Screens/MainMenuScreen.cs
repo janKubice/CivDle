@@ -6,9 +6,10 @@ using Myra.Graphics2D.UI;
 namespace CivDle.Screens;
 
 /// <summary>
-/// Hlavní menu nad živým městem na pozadí: velký animovaný titul, tlačítka
-/// (pokračovat / nová hra / nastavení / konec) a rolovací vývojový deník.
-/// Po změně jazyka se přestaví.
+/// Hlavní menu nad živým městem na pozadí: velký animovaný titul, jedno velké
+/// „Hrát" (pokračovat, nebo rychlý start na prověřeném světě), vlastní svět,
+/// nastavení a konec, a rolovací vývojový deník. Při první návštěvě bez savu
+/// jen to podstatné. Po změně jazyka se přestaví.
 /// </summary>
 public sealed class MainMenuScreen : IScreen
 {
@@ -93,12 +94,24 @@ public sealed class MainMenuScreen : IScreen
         }
 
         buttons.Widgets.Add(new Label { Text = " " });
-        if (_screens.Saves.HasSave)
+
+        // Jedno velké tlačítko, které hraje: pokračuje v rozehrané hře, nebo
+        // založí prověřený svět bez jediné otázky. Dřív chtěla nová hra nejdřív
+        // seed, typ světa a režim — rozhodování dřív, než hráč ví, o čem hra je.
+        bool hasSave = _screens.Saves.HasSave;
+        buttons.Widgets.Add(hasSave
+            ? UiFactory.PrimaryButton(loc["menu.continue"], ContinueGame)
+            : UiFactory.PrimaryButton(loc["menu.play"], () => WorldLauncher.QuickStart(_screens), loc["tip.play"]));
+
+        if (hasSave)
         {
-            buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.continue"], ContinueGame));
+            buttons.Widgets.Add(UiFactory.MenuButton(
+                loc["menu.newGame"], () => WorldLauncher.QuickStart(_screens), loc["tip.play"]));
         }
 
-        buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.newGame"], () => _screens.Push(new NewGameScreen(_screens))));
+        buttons.Widgets.Add(UiFactory.MenuButton(
+            loc["menu.customWorld"], () => _screens.Push(new NewGameScreen(_screens)), loc["tip.customWorld"]));
+
         // Scénáře hned pod novou hrou: je to druhý způsob, jak začít, ne
         // vedlejší obrazovka. V demu ne — demo je o tom ukázat jádro.
         if (!Edition.IsDemo && _screens.Content.Scenarios.IsEnabled)
@@ -107,29 +120,36 @@ public sealed class MainMenuScreen : IScreen
                 loc["scenarios.title"], () => _screens.Push(new ScenariosScreen(_screens))));
         }
 
-        buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.howto"], () => _screens.Push(new HowToPlayScreen(_screens, dimBackground: false))));
-        buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.controls"], () => _screens.Push(new ControlsScreen(_screens))));
-        buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.chains"], () => _screens.Push(new ChainsScreen(_screens))));
-        // Stav online funkcí dává smysl jen tam, kde nějaké jsou. Demo Workshop,
-        // žebříčky ani achievementy nemá, takže by ta obrazovka hlásila samé
-        // „nedostupné" — a to vypadá jako rozbitá hra, ne jako ukázka.
-        if (!Edition.IsDemo)
+        // Při úplně první návštěvě jen to podstatné: hrát, nastavení, konec.
+        // Návod, ovládání, řetězce, kronika a mody počkají, až bude hráč
+        // vědět, k čemu jsou — osm rovnocenných tlačítek je osm otázek navíc.
+        if (hasSave)
         {
-            buttons.Widgets.Add(UiFactory.MenuButton(
-                loc["menu.online"], () => _screens.Push(new OnlineStatusScreen(_screens))));
-        }
-        buttons.Widgets.Add(Edition.IsDemo
-            ? UiFactory.DemoLockedButton(loc["hud.mods"], loc["demo.locked"])
-            : UiFactory.MenuButton(loc["hud.mods"], () => _screens.Push(new ModManagerScreen(_screens))));
-        buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.chronicle"], () => _screens.Push(new ChronicleScreen(_screens))));
+            buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.howto"], () => _screens.Push(new HowToPlayScreen(_screens, dimBackground: false))));
+            buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.controls"], () => _screens.Push(new ControlsScreen(_screens))));
+            buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.chains"], () => _screens.Push(new ChainsScreen(_screens))));
+            // Stav online funkcí dává smysl jen tam, kde nějaké jsou. Demo Workshop,
+            // žebříčky ani achievementy nemá, takže by ta obrazovka hlásila samé
+            // „nedostupné" — a to vypadá jako rozbitá hra, ne jako ukázka.
+            if (!Edition.IsDemo)
+            {
+                buttons.Widgets.Add(UiFactory.MenuButton(
+                    loc["menu.online"], () => _screens.Push(new OnlineStatusScreen(_screens))));
+            }
+            buttons.Widgets.Add(Edition.IsDemo
+                ? UiFactory.DemoLockedButton(loc["hud.mods"], loc["demo.locked"])
+                : UiFactory.MenuButton(loc["hud.mods"], () => _screens.Push(new ModManagerScreen(_screens))));
+            buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.chronicle"], () => _screens.Push(new ChronicleScreen(_screens))));
 
-        // Sbírka časosběrů se nabízí, až když v ní něco je — prázdná police
-        // v hlavním menu by byla jen slib.
-        if (_screens.Saves.Timelapses.ListFiles().Count > 0)
-        {
-            buttons.Widgets.Add(UiFactory.MenuButton(
-                loc["timelapse.collection"], () => _screens.Push(new TimelapseListScreen(_screens))));
+            // Sbírka časosběrů se nabízí, až když v ní něco je — prázdná police
+            // v hlavním menu by byla jen slib.
+            if (_screens.Saves.Timelapses.ListFiles().Count > 0)
+            {
+                buttons.Widgets.Add(UiFactory.MenuButton(
+                    loc["timelapse.collection"], () => _screens.Push(new TimelapseListScreen(_screens))));
+            }
         }
+
         buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.settings"], () => _screens.Push(new SettingsScreen(_screens))));
         buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.quit"], _screens.ExitGame));
 

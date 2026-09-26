@@ -190,7 +190,9 @@ public class WildlifeTests
         var (fauna, sim, camera) = Wild("tundra");
         Run(fauna, sim, camera, seconds: 6);
 
-        var prey = fauna.CrittersForTests.Where(c => c.Shy).Select(c => c.Position).ToList();
+        // Kořist, ne jiná šelma: polární liška je plachá i dravá, a vlastního
+        // druhu se nebojí. Když byla náhodou první v poli, test padal.
+        var prey = fauna.CrittersForTests.Where(c => c.Shy && !c.Predator).Select(c => c.Position).ToList();
         Assert.NotEmpty(prey);
 
         Assert.True(fauna.SpawnPredatorForTests(sim, prey[0]), "do světa se nepodařilo vysadit dravce");

@@ -1832,13 +1832,14 @@ public sealed class ContentLoader
             }
 
             var condition = ParseCondition(path, $"krok průvodce '{id}'", dto.Condition, resources, buildings, techs);
-            result.Add(new TutorialStepDef(id, condition, ParseFocus(path, id, dto.Focus, buildings)));
+            result.Add(new TutorialStepDef(id, condition, ParseFocus(path, id, dto.Focus, buildings, resources)));
         }
 
         return result;
     }
 
-    private static FocusHint ParseFocus(string path, string ownerId, FocusHintDto? dto, DefRegistry<BuildingDef> buildings)
+    private static FocusHint ParseFocus(
+        string path, string ownerId, FocusHintDto? dto, DefRegistry<BuildingDef> buildings, DefRegistry<Resource> resources)
     {
         if (dto is null)
         {
@@ -1862,6 +1863,14 @@ public sealed class ContentLoader
                 }
 
                 return new FocusHint(FocusKind.Build, buildingIndex, string.Empty);
+
+            case "harvest":
+                if (!resources.TryIndexOf(target, out _))
+                {
+                    throw new ContentLoadException(path, $"Krok průvodce '{ownerId}': 'focus.target' u 'harvest' musí být surovina, je '{target}'.");
+                }
+
+                return new FocusHint(FocusKind.Harvest, -1, target);
 
             case "tool":
             case "screen":
@@ -3838,7 +3847,8 @@ public sealed class ContentLoader
 
                 var cost = ParseResourceAmounts(path, id, $"{choiceId}.cost", choiceDto.Cost, resources);
                 var gain = ParseResourceAmounts(path, id, $"{choiceId}.gain", choiceDto.Gain, resources);
-                choices.Add(new EventChoiceDef($"event.{id}.{choiceId}", cost, gain));
+                var effect = ParseEventEffect(path, $"{id}.{choiceId}", choiceDto.Effect, resources);
+                choices.Add(new EventChoiceDef($"event.{id}.{choiceId}", cost, gain, effect));
             }
 
             // Podmínka je volitelná — bez ní je událost dostupná od začátku.
@@ -3850,6 +3860,54 @@ public sealed class ContentLoader
         }
 
         return new DefRegistry<EventDef>(result, e => e.Id, "událost", allowEmpty: true);
+    }
+
+    /// <summary>
+    /// Dočasný efekt volby. Druh je behavior-ID (výroba / růst); u výroby smí
+    /// být surovina, bez ní platí pro všechny. Meze drží efekt měkký: nejhůř
+    /// desetina výroby, nejdéle hodina.
+    /// </summary>
+    private static EventEffectDef? ParseEventEffect(
+        string path, string owner, EventEffectDto? dto, DefRegistry<Resource> resources)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        var kind = dto.Kind switch
+        {
+            "production" => EventEffectKind.Production,
+            "growth" => EventEffectKind.Growth,
+            _ => throw new ContentLoadException(path,
+                $"Událost '{owner}': neznámý druh efektu '{dto.Kind}' (povolené: production, growth)."),
+        };
+
+        int resource = -1;
+        if (!string.IsNullOrEmpty(dto.Resource))
+        {
+            if (kind != EventEffectKind.Production)
+            {
+                throw new ContentLoadException(path, $"Událost '{owner}': surovinu smí mít jen efekt 'production'.");
+            }
+
+            if (!resources.TryIndexOf(dto.Resource, out resource))
+            {
+                throw new ContentLoadException(path, $"Událost '{owner}': neznámá surovina efektu '{dto.Resource}'.");
+            }
+        }
+
+        if (dto.Multiplier is < 0.1 or > 5)
+        {
+            throw new ContentLoadException(path, $"Událost '{owner}': 'multiplier' musí být 0.1–5, je {dto.Multiplier}.");
+        }
+
+        if (dto.Seconds is < 1 or > 3600)
+        {
+            throw new ContentLoadException(path, $"Událost '{owner}': 'seconds' musí být 1–3600, je {dto.Seconds}.");
+        }
+
+        return new EventEffectDef(kind, resource, dto.Multiplier, dto.Seconds);
     }
 
     /// <summary>
@@ -3963,6 +4021,13 @@ public sealed class ContentLoader
         if (file.FoodPerPersonPerSecond is < 0 or > 1_000)
         {
             throw new ContentLoadException(path, $"'foodPerPersonPerSecond' nesmí být záporný, je {file.FoodPerPersonPerSecond}.");
+        }
+
+        // Podíl volného bydlení za sekundu; nad jedna by se za sekundu nastěhovalo
+        // víc lidí, než je volných míst.
+        if (file.PopulationFillRate is < 0 or > 1)
+        {
+            throw new ContentLoadException(path, $"'populationFillRate' musí být 0–1, je {file.PopulationFillRate}.");
         }
 
         if (string.IsNullOrWhiteSpace(file.FoodResource))
@@ -4192,7 +4257,92 @@ public sealed class ContentLoader
             demo,
             golden,
             subsea,
-            power);
+            power,
+            file.PopulationFillRate ?? 0.0,
+            ParseOnboarding(path, file.Onboarding, file.DayNight.StartTimeOfDay, resources, buildings));
+    }
+
+    /// <summary>
+    /// Úvod do hry. Chybí-li blok, je vypnutý — starší data i mody dostanou
+    /// náhodný svět a normální první den jako dřív.
+    /// </summary>
+    private static OnboardingConfig? ParseOnboarding(
+        string path, OnboardingDto? dto, double startTimeOfDay,
+        DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        var seeds = dto.QuickStartSeeds ?? new List<long>();
+
+        int radius = 0, search = 0;
+        var nodes = new List<ResourceAmount>();
+        var startBuildings = new List<int>();
+        if (dto.StartSite is { } site)
+        {
+            // Meze proti překlepu: „první obrazovka" přes čtyřicet dlaždic už
+            // první obrazovka není a hledání přes pět set je sekunda čekání.
+            if (site.Radius is < 2 or > 40)
+            {
+                throw new ContentLoadException(path, $"'onboarding.startSite.radius' musí být 2–40, je {site.Radius}.");
+            }
+
+            if (site.SearchRadius is < 0 or > 500)
+            {
+                throw new ContentLoadException(path, $"'onboarding.startSite.searchRadius' musí být 0–500, je {site.SearchRadius}.");
+            }
+
+            radius = site.Radius;
+            search = site.SearchRadius;
+            foreach (var (id, count) in site.Nodes ?? new Dictionary<string, int>())
+            {
+                if (!resources.TryIndexOf(id, out int index))
+                {
+                    throw new ContentLoadException(path, $"'onboarding.startSite.nodes' odkazuje na neznámou surovinu '{id}'.");
+                }
+
+                if (count < 1)
+                {
+                    throw new ContentLoadException(path, $"'onboarding.startSite.nodes.{id}' musí být aspoň 1, je {count}.");
+                }
+
+                nodes.Add(new ResourceAmount(index, count));
+            }
+
+            foreach (string id in site.Buildings ?? new List<string>())
+            {
+                if (!buildings.TryIndexOf(id, out int index))
+                {
+                    throw new ContentLoadException(path, $"'onboarding.startSite.buildings' odkazuje na neznámou budovu '{id}'.");
+                }
+
+                startBuildings.Add(index);
+            }
+        }
+
+        double seconds = 0, until = 0;
+        if (dto.FirstDay is { } firstDay)
+        {
+            if (firstDay.Seconds is < 0 or > 3600)
+            {
+                throw new ContentLoadException(path, $"'onboarding.firstDay.seconds' musí být 0–3600, je {firstDay.Seconds}.");
+            }
+
+            // Pomalý úsek jde od rána startu k soumraku téhož dne — konec musí
+            // ležet za startem, jinak by se čas musel vracet.
+            if (firstDay.Until <= startTimeOfDay || firstDay.Until >= 1)
+            {
+                throw new ContentLoadException(path,
+                    $"'onboarding.firstDay.until' musí být mezi startem dne ({startTimeOfDay}) a 1, je {firstDay.Until}.");
+            }
+
+            seconds = firstDay.Seconds;
+            until = firstDay.Until;
+        }
+
+        return new OnboardingConfig(seeds, radius, search, nodes, startBuildings, seconds, until);
     }
 
     /// <summary>
@@ -4700,9 +4850,22 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"'happiness.freePopulation' nesmí být záporné, je {dto.FreePopulation}.");
         }
 
+        double threshold = dto.CrowdingThreshold ?? 0.0;
+        if (threshold is < 0 or >= 1)
+        {
+            throw new ContentLoadException(path, $"'happiness.crowdingThreshold' musí být 0 až pod 1, je {threshold}.");
+        }
+
+        int reach = dto.ServiceReachTiles ?? 0;
+        if (reach < 0)
+        {
+            throw new ContentLoadException(path, $"'happiness.serviceReachTiles' nesmí být záporné, je {reach}.");
+        }
+
         return new HappinessConfig(
             dto.IntervalTicks, dto.BaseHappiness, dto.ServiceWeight,
-            dto.OvercrowdingPenalty, dto.PeoplePerServicePoint, dto.GrowthFloor, dto.FreePopulation);
+            dto.OvercrowdingPenalty, dto.PeoplePerServicePoint, dto.GrowthFloor, dto.FreePopulation,
+            threshold, reach);
     }
 
     // ----- devlog (volitelný obsah menu) -----

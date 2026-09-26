@@ -205,6 +205,8 @@ public sealed class Simulation
 
         _resources = new double[content.Resources.Count];
         _storageCaps = new double[content.Resources.Count];
+        Claim = new ConstructionClaim(content.Resources.Count);
+        EventEffects = new EventEffects(content.Resources.Count);
         _resourceProductionMult = new double[content.Resources.Count];
         Array.Fill(_resourceProductionMult, 1.0);
         for (int i = 0; i < _resources.Length; i++)
@@ -1244,9 +1246,73 @@ public sealed class Simulation
             // Jediné místo, kudy procházejí VŠECHNY útraty (stavba, vylepšení,
             // sloučení, výzkum, silnice). Proto se spotřeba účtuje tady, ne
             // v devíti voláních — jinak by se na jedno vždycky zapomnělo.
-            _ledger.RecordConsumed(cost[i].ResourceIndex, cost[i].Amount);
+            _ledger.RecordConsumed(cost[i].ResourceIndex, cost[i].Amount, ConsumptionKind.Purchases);
         }
     }
+
+    // ----- události: volby a jejich dozvuky -----
+
+    /// <summary>
+    /// Běžící dočasné efekty voleb z událostí (ignorovaná povodeň, karavana,
+    /// která se usadila…). UI je jen čte; mění je <see cref="TryChooseEventOption"/>.
+    /// </summary>
+    public EventEffects EventEffects { get; }
+
+    /// <summary>Stačí zásoby na volbu v události? (UI podle toho volbu ztlumí.)</summary>
+    public bool CanChooseEventOption(int eventIndex, int choiceIndex) =>
+        TryGetEventChoice(eventIndex, choiceIndex, out var choice) && CanPay(choice.Cost);
+
+    /// <summary>
+    /// Příkaz hráče: vybrat volbu v události — zaplatit cenu, připsat zisk a
+    /// spustit dočasný efekt.
+    ///
+    /// <para>Dřív to obrazovka dělala sama přes <see cref="AddResource"/>. Dokud
+    /// šlo jen o přičtení a odečtení, stačilo to; efekt je ale stav simulace
+    /// (tiká, končí, ukládá se), takže celá volba patří sem.</para>
+    /// </summary>
+    /// <returns><c>false</c>, když volba neexistuje nebo na ni nejsou zásoby — pak se nestane nic.</returns>
+    public bool TryChooseEventOption(int eventIndex, int choiceIndex)
+    {
+        if (!TryGetEventChoice(eventIndex, choiceIndex, out var choice) || !CanPay(choice.Cost))
+        {
+            return false;
+        }
+
+        Pay(choice.Cost);
+        foreach (var gain in choice.Gain)
+        {
+            AddResource(gain.ResourceIndex, gain.Amount);
+        }
+
+        if (choice.Effect is { } effect)
+        {
+            EventEffects.Start(effect, TickCount);
+        }
+
+        return true;
+    }
+
+    private bool TryGetEventChoice(int eventIndex, int choiceIndex, out EventChoiceDef choice)
+    {
+        choice = null!;
+        if ((uint)eventIndex >= (uint)_content.Events.Count)
+        {
+            return false;
+        }
+
+        var choices = _content.Events[eventIndex].Choices;
+        if ((uint)choiceIndex >= (uint)choices.Count)
+        {
+            return false;
+        }
+
+        choice = choices[choiceIndex];
+        return true;
+    }
+
+    /// <summary>Obnoví běžící efekt události ze savu.</summary>
+    internal void RestoreEventEffect(EventEffectKind kind, int resourceIndex, double multiplier, long ticksLeft) =>
+        EventEffects.Restore(new ActiveEventEffect(kind, resourceIndex, multiplier, TickCount + Math.Max(1, ticksLeft)));
 
     // ----- víra: modlitby, požehnání a zásahy -----
 
@@ -1824,6 +1890,38 @@ public sealed class Simulation
     public double Population { get; internal set; }
 
     /// <summary>
+    /// Kolik dní uběhlo od půlnoci před startem (desetinně). Jediné místo, kde
+    /// se čas dne počítá — denní doba, číslo dne i roční období z něj jen čtou.
+    ///
+    /// <para><b>Pomalejší první den</b> (<see cref="OnboardingConfig.FirstDaySeconds"/>):
+    /// úsek od ranního startu do soumraku trvá déle. Dřív se stmívalo v 1:36
+    /// a ve 2:10 byla plná noc — vesnice o dvou domech byla v tu chvíli tmavá
+    /// obrazovka, přesně když lidi z dema odcházeli. Teď přijde první noc až
+    /// po pěti minutách, kdy už je co rozsvítit.</para>
+    ///
+    /// <para>Je to spojitá funkce tiků: nic dalšího se neukládá a načtená hra
+    /// má tentýž čas jako ta, která běžela dál.</para>
+    /// </summary>
+    private double ElapsedDays
+    {
+        get
+        {
+            var dayNight = _content.Gameplay.DayNight;
+            double seconds = TickCount / TicksPerSecond;
+            var onboarding = _content.Gameplay.Onboarding;
+            if (!onboarding.HasSlowFirstDay)
+            {
+                return dayNight.StartTimeOfDay + seconds / dayNight.DayLengthSeconds;
+            }
+
+            double slowSpan = onboarding.FirstDayUntil - dayNight.StartTimeOfDay;
+            return seconds < onboarding.FirstDaySeconds
+                ? dayNight.StartTimeOfDay + slowSpan * (seconds / onboarding.FirstDaySeconds)
+                : onboarding.FirstDayUntil + (seconds - onboarding.FirstDaySeconds) / dayNight.DayLengthSeconds;
+        }
+    }
+
+    /// <summary>
     /// Denní čas 0–1 (0 = půlnoc, 0.5 = poledne). Čistě odvozený z tiků —
     /// deterministický a v savu zadarmo (ukládá se jen TickCount).
     /// </summary>
@@ -1831,8 +1929,7 @@ public sealed class Simulation
     {
         get
         {
-            var dayNight = _content.Gameplay.DayNight;
-            double elapsedDays = dayNight.StartTimeOfDay + TickCount / (TicksPerSecond * dayNight.DayLengthSeconds);
+            double elapsedDays = ElapsedDays;
             return elapsedDays - Math.Floor(elapsedDays);
         }
     }
@@ -1864,8 +1961,7 @@ public sealed class Simulation
                 return 0;
             }
 
-            var dayNight = _content.Gameplay.DayNight;
-            double elapsedDays = dayNight.StartTimeOfDay + TickCount / (TicksPerSecond * dayNight.DayLengthSeconds);
+            double elapsedDays = ElapsedDays;
             double inSeason = elapsedDays % calendar.DaysPerSeason;
             return inSeason / calendar.DaysPerSeason;
         }
@@ -1903,9 +1999,20 @@ public sealed class Simulation
     public long EmployedWorkers { get; internal set; }
 
     /// <summary>
-    /// Rozpad spokojenosti na položky — kvůli čemu je zrovna taková. Počítá se
-    /// na vyžádání a bez placení údržby, takže se na něj UI může ptát, kdy chce,
-    /// aniž by tím sáhlo do hry.
+    /// Kolik z nich je u budov, které opravdu můžou pracovat. Zbytek „dělá"
+    /// v pile bez dřeva nebo v dílně s plným skladem — přidělení, ale bez práce.
+    ///
+    /// <para>Guvernér se podle tohohle čísla ptá, jestli mají lidé co dělat.
+    /// S <see cref="EmployedWorkers"/> to nešlo: lidé u hladových pil se
+    /// počítali jako zaměstnaní, takže guvernér nevěděl, že je potřeba dřevo,
+    /// a stavěl další pily, u kterých zase jen stáli.</para>
+    /// </summary>
+    public long ProductiveWorkers { get; internal set; }
+
+    /// <summary>
+    /// Rozpad spokojenosti na položky — kvůli čemu je zrovna taková. Je to rozpad
+    /// z posledního přepočtu, takže sedí s <see cref="Happiness"/> a UI se na něj
+    /// může ptát každý snímek, aniž by tím sáhlo do hry.
     /// </summary>
     public HappinessBreakdown HappinessParts
     {
@@ -1913,10 +2020,28 @@ public sealed class Simulation
         {
             var config = _content.Gameplay.Happiness;
             return config.IsEnabled
-                ? _happinessSystem.Evaluate(this, config, payUpkeep: false)
+                ? _happinessSystem.Current(this, config)
                 : HappinessBreakdown.Perfect;
         }
     }
+
+    /// <summary>
+    /// Rozpad spokojenosti spočítaný teď — podle něj se rozhoduje guvernér
+    /// (viz <c>HappinessSystem.FreshForGovernor</c>), UI čte <see cref="HappinessParts"/>.
+    /// </summary>
+    internal HappinessBreakdown HappinessForGovernor
+    {
+        get
+        {
+            var config = _content.Gameplay.Happiness;
+            return config.IsEnabled
+                ? _happinessSystem.FreshForGovernor(this, config)
+                : HappinessBreakdown.Perfect;
+        }
+    }
+
+    /// <summary>Kde bydlí nejvíc lidí bez služby v dosahu (pro guvernéra).</summary>
+    internal bool TryFindUnservedHome(out int x, out int y) => _happinessSystem.TryFindUnservedHome(this, out x, out y);
 
     /// <summary>
     /// Stopa průmyslu v krajině. Render i UI z ní čtou (zákal nad mapou, HUD);
@@ -2323,6 +2448,7 @@ public sealed class Simulation
 
         var reward = ContractReward(slot);
         _resources[def.DemandResourceIndex] -= _contractSlots[slot].DemandAmount;
+        _ledger.RecordConsumed(def.DemandResourceIndex, _contractSlots[slot].DemandAmount, ConsumptionKind.Purchases);
         for (int i = 0; i < reward.Count; i++)
         {
             AddResource(reward[i].ResourceIndex, reward[i].Amount);
@@ -2447,8 +2573,7 @@ public sealed class Simulation
     {
         get
         {
-            var dayNight = _content.Gameplay.DayNight;
-            double elapsedDays = dayNight.StartTimeOfDay + TickCount / (TicksPerSecond * dayNight.DayLengthSeconds);
+            double elapsedDays = ElapsedDays;
             return (long)Math.Floor(elapsedDays) + 1;
         }
     }
@@ -3198,10 +3323,17 @@ public sealed class Simulation
     /// </summary>
     public void AddResource(int resourceIndex, double amount)
     {
-        _resources[resourceIndex] = Math.Clamp(_resources[resourceIndex] + amount, 0, _storageCaps[resourceIndex]);
+        double before = _resources[resourceIndex];
+        _resources[resourceIndex] = Math.Clamp(before + amount, 0, _storageCaps[resourceIndex]);
         if (amount > 0)
         {
             _resourceKnown[resourceIndex] = true; // získáním se surovina odemyká v UI
+        }
+        else
+        {
+            // Odběr mimo recepty (volba v události, modlitba, kláda na řece) je
+            // taky spotřeba — jinak by ji tooltip nevysvětlil.
+            _ledger.RecordConsumed(resourceIndex, before - _resources[resourceIndex], ConsumptionKind.Purchases);
         }
     }
 
@@ -3560,6 +3692,13 @@ public sealed class Simulation
     /// </summary>
     public void SetPopulationForTest(double population) => Population = Math.Max(0, population);
 
+    /// <summary>Test hook: přeskočí průvodce rovnou na daný krok (testy úvodu v UI vrstvě).</summary>
+    public void SetTutorialStepForTest(int step) => TutorialStep = Math.Max(0, step);
+
+    /// <summary>Testovací háček: guvernér šetří na danou budovu (jako by se tak rozhodl sám).</summary>
+    public void SetClaimForTest(int defIndex) =>
+        Claim.Set(defIndex, _content.Buildings[defIndex].BuildCost, _storageCaps, TickCount);
+
     /// <summary>Označí dlaždici jako silnici (RoadBuilder, načtení savu). Duplicitní volání je no-op.</summary>
     /// <summary>
     /// Je na dlaždici most? Most je silnice vedoucí po vodě — odvozuje se z terénu,
@@ -3728,6 +3867,7 @@ public sealed class Simulation
     {
         TickCount++;
         TickBlessings(); // požehnání z modliteb dobíhají spolu se slavností
+        EventEffects.Expire(TickCount); // dozvuky voleb z událostí mají konec
         TickNpcTowns();  // objevené cizí město se postaví ze skutečných budov a ulic
         TickNpcCities(); // dodávky od sousedů a tiché srůstání obestavěných
         if (_boostTicksRemaining > 0)
@@ -4496,8 +4636,31 @@ public sealed class Simulation
         return yield is null ? 0 : _nodes.ChargesLeft(x, y, yield, TickCount);
     }
 
+    /// <summary>
+    /// Co na dlaždici roste k ručnímu sběru (index suroviny), nebo −1, když nic
+    /// nebo je vytěžená. Pro průvodce, který ukazuje na nejbližší strom.
+    /// </summary>
+    public int NodeResourceAt(int x, int y) => TryPeekNode(x, y, out int resource) ? resource : -1;
+
     /// <summary>Kolik sběrů uzel na dlaždici pojme, když je plný.</summary>
     public int NodeMaxCharges(int x, int y) => YieldAt(x, y)?.Charges ?? 0;
+
+    /// <summary>
+    /// Je na dlaždici co těžit, a co? Pro guvernéra, který hledá les nebo skálu
+    /// pro dřevorubce či lom — nic nespotřebuje, jen se podívá.
+    /// </summary>
+    internal bool TryPeekNode(int x, int y, out int resourceIndex)
+    {
+        var yield = YieldAt(x, y);
+        if (yield is null || _nodes.ChargesLeft(x, y, yield, TickCount) <= 0)
+        {
+            resourceIndex = -1;
+            return false;
+        }
+
+        resourceIndex = yield.ResourceIndex;
+        return true;
+    }
 
     /// <summary>Co dlaždice dává ručnímu sběru — zasazený uzel, landmark, nebo biom.</summary>
     private ClickYield? YieldAt(int x, int y)
@@ -4511,6 +4674,44 @@ public sealed class Simulation
         return landmark >= 0 && _content.Landmarks[landmark].IsHarvestable
             ? _content.Landmarks[landmark].ClickYield
             : _content.Biomes[Terrain.BiomeAt(x, y)].ClickYield;
+    }
+
+    /// <summary>
+    /// Ruční sběr, který dělají lidé bez práce na pokyn guvernéra — jediná cesta
+    /// ze zámku „na dřevorubce je potřeba dřevo, a dřevo neteče".
+    ///
+    /// <para>Jen základní výnos uzlu: kombo, krit, slavnost ani statistiky ručního
+    /// sběru sem nepatří — to je odměna za hráčovo klikání a guvernér mu ji nemá
+    /// brát.</para>
+    ///
+    /// <para>Do evidence toků se <b>nezapisuje</b>, a to schválně: guvernér podle
+    /// ní pozná, jestli surovina teče. Kdyby viděl nasbírané dřevo jako přítok,
+    /// přestal by sbírat a začal jen šetřit — a zámek by se vrátil. Sběr má
+    /// trvat jen do chvíle, kdy stojí první výrobna.</para>
+    /// </summary>
+    /// <returns>Kolik se nasbíralo (0 = tady nic, nebo plný sklad).</returns>
+    internal int GatherForGovernor(int x, int y)
+    {
+        if (_occupancy.ContainsKey(TileKey.Pack(x, y)))
+        {
+            return 0;
+        }
+
+        var yield = YieldAt(x, y);
+        if (yield is null)
+        {
+            return 0;
+        }
+
+        int index = yield.ResourceIndex;
+        if (_resources[index] + yield.Amount > _storageCaps[index] || !_nodes.TryConsume(x, y, yield, TickCount))
+        {
+            return 0;
+        }
+
+        _resources[index] += yield.Amount;
+        _resourceKnown[index] = true;
+        return yield.Amount;
     }
 
     /// <summary>Evidence vytěžených dlaždic — pro sav a testy.</summary>
@@ -5037,6 +5238,18 @@ public sealed class Simulation
     /// <summary>Surová rezerva pro save (bez ohledu na odemčení).</summary>
     internal double GovernorReserveRaw => _governorReserve;
 
+    /// <summary>
+    /// Materiál, na který guvernér zrovna šetří — výrobny ho nechají být
+    /// (viz <see cref="ConstructionClaim"/>).
+    /// </summary>
+    public ConstructionClaim Claim { get; }
+
+    /// <summary>
+    /// Co guvernér zrovna dělá a proč případně stojí. Odvozený stav (neukládá se),
+    /// přepočítá se v každém kole auto-stavby.
+    /// </summary>
+    public GovernorStatus GovernorStatus { get; internal set; } = GovernorStatus.Idle;
+
     /// <summary>Obnoví rezervu ze savu.</summary>
     internal void RestoreGovernorReserve(double fraction) => SetGovernorReserve(fraction);
 
@@ -5045,10 +5258,20 @@ public sealed class Simulation
     /// proti kapacitě skladu, ne proti aktuálnímu stavu — jinak by se rezerva
     /// sama snižovala tím, jak zásoby ubývají.
     /// </summary>
-    internal bool AutomationCanSpend(IReadOnlyList<ResourceAmount> cost)
+    internal bool AutomationCanSpend(IReadOnlyList<ResourceAmount> cost) => AutomationCanSpend(cost, forDefIndex: -1);
+
+    /// <summary>
+    /// Totéž, ale se zohledněním stavby, na kterou guvernér šetří: cokoli jiného
+    /// smí sáhnout jen na přebytek nad její rezervou. Sama stavba, pro kterou je
+    /// rezerva, si z ní brát smí — od toho tam je.
+    /// </summary>
+    /// <param name="cost">Cena.</param>
+    /// <param name="forDefIndex">Co se staví (−1 = nejde o budovu, třeba vylepšení).</param>
+    internal bool AutomationCanSpend(IReadOnlyList<ResourceAmount> cost, int forDefIndex)
     {
         double reserve = GovernorReserve;
-        if (reserve <= 0)
+        bool honourClaim = Claim.IsActive && Claim.DefIndex != forDefIndex;
+        if (reserve <= 0 && !honourClaim)
         {
             return true;
         }
@@ -5056,7 +5279,13 @@ public sealed class Simulation
         for (int i = 0; i < cost.Count; i++)
         {
             int index = cost[i].ResourceIndex;
-            if (_resources[index] - cost[i].Amount < _storageCaps[index] * reserve)
+            double floor = _storageCaps[index] * reserve;
+            if (honourClaim)
+            {
+                floor += Claim.AmountOf(index);
+            }
+
+            if (_resources[index] - cost[i].Amount < floor)
             {
                 return false;
             }
@@ -7221,6 +7450,11 @@ public sealed class Simulation
 
         building.X = x;
         building.Y = y;
+        // Na novém místě se okolí prohledá od začátku — kurzor i příznak „došlo"
+        // patřily starému lesu. Bez toho by přestěhovaný dřevorubec hlásil prázdné
+        // okolí, dokud by ho výroba náhodou nezkusila znovu.
+        building.HarvestCursor = 0;
+        building.OutOfResources = false;
         // Přesun mění biom pod budovou i její okolí → cachované násobiče jdou s ní.
         building.BiomeMult = (float)_content.Biomes[Terrain.BiomeAt(x, y)].Production;
         building.AdjacencyMult = (float)AdjacencyMultiplier(def, x, y);
@@ -7338,7 +7572,32 @@ public sealed class Simulation
             }
         }
 
+        // Cena roste s každou hotovou technologií — a dřív nebo později přeroste
+        // sklad. Pak „nemáš na to" lže: na to se nedá našetřit nikdy. Hráč viděl
+        // červenou cenu navždy a nevěděl, že chybí sklad, ne čas.
+        if (!Sandbox && ResourceBeyondStorage(ScaledResearchCost(techIndex)) >= 0)
+        {
+            return PlacementResult.ExceedsStorage;
+        }
+
         return CanPayResearch(tech, level) ? PlacementResult.Ok : PlacementResult.NotEnoughResources;
+    }
+
+    /// <summary>
+    /// Surovina, které cena chce víc, než se vejde do skladu; −1 = vejde se všechno.
+    /// UI podle ní hráči řekne, jaký sklad postavit.
+    /// </summary>
+    public int ResourceBeyondStorage(IReadOnlyList<ResourceAmount> cost)
+    {
+        for (int i = 0; i < cost.Count; i++)
+        {
+            if (cost[i].Amount > _storageCaps[cost[i].ResourceIndex] + 1e-9)
+            {
+                return cost[i].ResourceIndex;
+            }
+        }
+
+        return -1;
     }
 
     /// <summary>Nejvyšší podíl surovin, který jde přes Vzestup přenést.</summary>
@@ -8069,6 +8328,7 @@ public sealed class Simulation
         }
 
         _resources[resourceIndex] -= amount;
+        _ledger.RecordConsumed(resourceIndex, amount, ConsumptionKind.Purchases);
         if (_grandWork.Invest(resourceIndex, amount))
         {
             CompleteGrandWorkStage();
@@ -8755,6 +9015,9 @@ public sealed class Simulation
 
         Population = _content.Gameplay.StartingPopulation;
         TickCount = 0;
+        Claim.Clear(); // nový běh nemá na co šetřit — budova, na kterou se šetřilo, je pryč
+        EventEffects.Clear(); // povodeň ani karavana nepřežijí Vzestup — patřily starému městu
+        _happinessSystem.Invalidate(); // rozpad spokojenosti patřil městu, které už nestojí
         SettlementsDirty = true;
         DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;

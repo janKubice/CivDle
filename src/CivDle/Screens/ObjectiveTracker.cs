@@ -117,10 +117,18 @@ internal sealed class ObjectiveTracker
 
         if (_simulation.CurrentTutorialStep is { } step)
         {
-            AddHeadline(_screens.Loc[step.NameKey], _screens.Loc[step.HintKey], step.Condition, step.Focus, guide: true);
+            // Práh Vzestupu se do textu dosazuje: napsané číslo v jazycích se
+            // rozešlo s daty (text sliboval 150, práh byl 250).
+            string hint = _screens.Loc.Format(step.HintKey, _simulation.AscensionRequirement());
+            AddHeadline(_screens.Loc[step.NameKey], hint, step.Condition, step.Focus, guide: true);
+
+            // Dokud vede průvodce, je na panelu jen jeho krok. Vedlejší úkoly
+            // vedle něj mátly („průvodce chce 12 dřeva, úkol 15 — co teď?")
+            // a v prvních minutách je jedna jasná věc víc než tři rovnocenné.
+            return;
         }
 
-        AddQuests(headlineTaken: _simulation.CurrentTutorialStep is not null);
+        AddQuests(headlineTaken: false);
     }
 
     /// <summary>

@@ -19,8 +19,12 @@ public enum WindowMode
 /// </summary>
 public sealed record GameSettings
 {
-    /// <summary>ID jazyka z <c>data/lang</c>; neznámé spadne na první dostupný.</summary>
-    public string Language { get; init; } = "cs";
+    /// <summary>
+    /// ID jazyka z <c>data/lang</c>; neznámé spadne na první dostupný. Při prvním
+    /// spuštění ho hra vybere podle systému (<see cref="LanguagePicker"/>);
+    /// tahle výchozí hodnota platí jen pro rozbitý soubor nastavení.
+    /// </summary>
+    public string Language { get; init; } = LanguagePicker.Fallback;
 
     /// <summary>Šířka okna/rozlišení v pixelech.</summary>
     public int ResolutionWidth { get; init; } = 1280;

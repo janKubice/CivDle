@@ -22,6 +22,13 @@ public enum FocusKind
 
     /// <summary>Otevřít obrazovku (výzkum, úkoly, Vzestup…).</summary>
     Screen,
+
+    /// <summary>
+    /// Ukázat na nejbližší uzel suroviny k ručnímu sběru (strom, skálu).
+    /// „Vycentrovat město" u prvního kroku nepomohlo: na startu žádné město
+    /// není a hráč nevěděl, na co kliknout.
+    /// </summary>
+    Harvest,
 }
 
 /// <summary>
@@ -29,7 +36,10 @@ public enum FocusKind
 /// </summary>
 /// <param name="Kind">Druh cíle.</param>
 /// <param name="BuildingIndex">Index budovy pro <see cref="FocusKind.Build"/>, jinak −1.</param>
-/// <param name="Target">ID nástroje/obrazovky pro <see cref="FocusKind.Tool"/> a <see cref="FocusKind.Screen"/>.</param>
+/// <param name="Target">
+/// ID nástroje/obrazovky pro <see cref="FocusKind.Tool"/> a <see cref="FocusKind.Screen"/>;
+/// ID suroviny pro <see cref="FocusKind.Harvest"/>.
+/// </param>
 public readonly record struct FocusHint(FocusKind Kind, int BuildingIndex, string Target)
 {
     /// <summary>Nápověda, která nikam neukazuje.</summary>

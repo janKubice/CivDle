@@ -17,13 +17,19 @@ namespace CivDle.Core.Sim;
 /// <param name="Government">Kolik přidal nebo ubral zvolený program města.</param>
 /// <param name="ServiceCoverage">Jaká část poptávky po službách je pokrytá (0–1).</param>
 /// <param name="Pollution">Kolik ubral kouř nad městem (záporné číslo).</param>
+/// <param name="ServiceReach">
+/// Jaká část lidí by byla obsloužená, kdyby se zaplatila všechna údržba (0–1).
+/// Rozdíl proti <paramref name="ServiceCoverage"/> říká, jestli chybějí služby,
+/// nebo jen suroviny na jejich provoz — a to jsou dvě různé rady.
+/// </param>
 public readonly record struct HappinessBreakdown(
     double Base,
     double Services,
     double Crowding,
     double Government,
     double ServiceCoverage,
-    double Pollution = 0)
+    double Pollution = 0,
+    double ServiceReach = 1.0)
 {
     /// <summary>Výsledná spokojenost 0–1 — součet položek oříznutý do rozsahu.</summary>
     public double Total => Math.Clamp(Base + Services + Crowding + Government + Pollution, 0.0, 1.0);

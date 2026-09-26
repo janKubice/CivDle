@@ -29,6 +29,7 @@ public class StallOverlayTests
     [InlineData(BuildingStall.MissingInput, 1)]
     [InlineData(BuildingStall.NoWorkers, 2)]
     [InlineData(BuildingStall.NoTerrain, 3)]
+    [InlineData(BuildingStall.OutputFull, 4)] // simulací hlášený plný sklad = tatáž barva jako odhad z overlaye
     [InlineData(BuildingStall.UnderConstruction, 5)]
     public void EveryReasonHasItsOwnColour(BuildingStall stall, int legendSlot)
     {

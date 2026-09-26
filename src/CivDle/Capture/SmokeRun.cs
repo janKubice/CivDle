@@ -184,7 +184,63 @@ public sealed class SmokeRun
             continued.Dispose();
         });
 
+        // Úvod do hry: čerstvý svět bez jediné budovy. Nálet, táborák, šipka,
+        // průvodcem vybraná budova a velké nápisy — všechno se kreslí jen
+        // v prvních minutách nové hry, kam se smoke jinak nedostane.
+        Check("úvod: nová hra, nálet a táborák", () => OnboardingRound(screens, time));
+
         Console.WriteLine($"smoke OK ({_passed.Count} kroků): {string.Join(", ", _passed)}");
+    }
+
+    private static void OnboardingRound(ScreenManager screens, GameTime time)
+    {
+        var content = screens.Content;
+        long seed = content.Gameplay.Onboarding.QuickStartSeeds.Count > 0
+            ? content.Gameplay.Onboarding.QuickStartSeeds[0]
+            : 20260728;
+        var preset = content.WorldGen.Presets[content.WorldGen.DefaultPresetIndex];
+        var sim = new Simulation(content, new Core.World.ProceduralTerrain(content.Biomes, preset, seed), seed);
+        var screen = new GameplayScreen(screens, sim, new WorldInfo(seed, "medium", preset.Id));
+        try
+        {
+            screen.StartIntroForSmoke();
+            Frames(screen, time);
+
+            // Průvodce ukazuje na strom — sebrat z něj, jak by to udělal hráč.
+            var guide = screen.GuideForSmoke;
+            if (guide.Target.Kind != GuidePointer.Harvest)
+            {
+                throw new InvalidOperationException($"na startu průvodce neukazuje na strom, ale na {guide.Target.Kind}");
+            }
+
+            for (int i = 0; i < 20 && guide.Target.Kind == GuidePointer.Harvest; i++)
+            {
+                sim.TryHarvest(guide.Target.X, guide.Target.Y, out _, out _);
+                for (int t = 0; t < 12; t++)
+                {
+                    sim.Tick(); // průvodce kontroluje krok jednou za sekundu
+                }
+
+                Frames(screen, time);
+            }
+
+            // Krok se stavbou: průvodce vybral budovu a vyznačil místo — postavit tam.
+            if (guide.Target.Kind == GuidePointer.Build)
+            {
+                sim.TryPlaceBuilding(guide.Target.DefIndex, guide.Target.X, guide.Target.Y);
+                Frames(screen, time);
+            }
+
+            foreach (var moment in Enum.GetValues<OnboardingMoment>())
+            {
+                screen.ShowMomentForSmoke(moment);
+                Frames(screen, time);
+            }
+        }
+        finally
+        {
+            screen.Dispose();
+        }
     }
 
     private void Check(string what, Action action)
