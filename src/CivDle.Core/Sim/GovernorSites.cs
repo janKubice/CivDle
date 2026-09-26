@@ -63,7 +63,25 @@ internal sealed class GovernorSites
     /// <summary>Pomocný seznam ploch, které už někdo téhož druhu vytěžuje (drží se mezi voláními).</summary>
     private readonly List<(int X, int Y)> _covered = new();
 
+    /// <summary>
+    /// Od kterého kruhu hledat v tomhle kole místo pro daný typ a poloměr
+    /// (<see cref="TryFindAnySite(Simulation, int, int, out int, out int)"/>);
+    /// za poloměrem = v tomhle kole už nic.
+    ///
+    /// <para><b>Proč:</b> ve velkém městě je okolí středu zastavěné a hledání
+    /// prošlo tisíce plných dlaždic, než narazilo na volnou — pro každou stavbu
+    /// v kole znovu od prvního kruhu. S rozpočtem desítek staveb za kolo to
+    /// byla většina ceny kola (a s ní přetočení času). V rámci kola se zástavba
+    /// jen přidává, takže kruh, kde místo nebylo, ho nemá ani o stavbu později.
+    /// Výjimka (přestěhovaná těžba uvolní dlaždici uvnitř) se projeví až
+    /// v dalším kole — o kolo později, nikdy jinak.</para>
+    /// </summary>
+    private readonly Dictionary<long, int> _firstRing = new();
+
     public GovernorSites(GameContent content) => _content = content;
+
+    /// <summary>Nové kolo guvernéra: zástavba se mezitím mohla změnit, hledá se zase od středu.</summary>
+    public void BeginRound() => _firstRing.Clear();
 
     /// <summary>
     /// Najde místo pro budovu, která těží z okolí (dřevorubec, lom, lovci).
@@ -190,7 +208,9 @@ internal sealed class GovernorSites
         var def = _content.Buildings[defIndex];
         int centerX = sim.CityCenterX;
         int centerY = sim.CityCenterY;
-        for (int ring = 1; ring <= radius; ring++)
+        long key = ((long)defIndex << 32) | (uint)radius;
+        int first = _firstRing.TryGetValue(key, out int remembered) ? remembered : 1;
+        for (int ring = first; ring <= radius; ring++)
         {
             for (int i = 0; i < RingLength(ring); i++)
             {
@@ -199,11 +219,13 @@ internal sealed class GovernorSites
                 y = centerY + dy;
                 if (IsBuildable(sim, def, defIndex, x, y, ignoreBuilding: -1, forMove: false))
                 {
+                    _firstRing[key] = ring; // v tomhle kruhu ještě místo může být
                     return true;
                 }
             }
         }
 
+        _firstRing[key] = radius + 1;
         x = y = 0;
         return false;
     }
@@ -261,10 +283,15 @@ internal sealed class GovernorSites
 
     private bool IsBuildable(Simulation sim, BuildingDef def, int defIndex, int x, int y, int ignoreBuilding, bool forMove)
     {
+        // Ulice napřed: je to jen aritmetika, kdežto CanPlace u volné dlaždice
+        // počítá biom ze šumu — a vyhrazená ulice je volná skoro vždycky.
+        if (CityLayout.IsReservedForStreet(x, y))
+        {
+            return false;
+        }
+
         var result = forMove ? sim.CanMoveBuilding(ignoreBuilding, x, y) : sim.CanPlace(defIndex, x, y);
-        return result == PlacementResult.Ok
-            && !CityLayout.IsReservedForStreet(x, y)
-            && sim.PlanAt(x, y).AllowsCategory(def.Category);
+        return result == PlacementResult.Ok && sim.PlanAt(x, y).AllowsCategory(def.Category);
     }
 
     private int CountNodes(Simulation sim, BuildingDef def, int x, int y, int radius, int stride)

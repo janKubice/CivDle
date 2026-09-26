@@ -121,6 +121,8 @@ internal sealed class AutoBuildSystem
             return;
         }
 
+        _sites.BeginRound();
+
         // Guvernér: slučování bloků má vlastní přepínač i technologii. Mění
         // půdorys města, takže se nemá zapnout nepozorovaně s vylepšováním.
         if (sim.AutoMerge)
@@ -1456,6 +1458,14 @@ internal sealed class AutoBuildSystem
         {
             int x = anchorX + offsetX;
             int y = anchorY + offsetY;
+
+            // Ulice napřed: levná aritmetika, kdežto CanPlace u volné dlaždice
+            // počítá biom ze šumu (viz GovernorSites.IsBuildable).
+            if (CityLayout.IsReservedForStreet(x, y))
+            {
+                continue;
+            }
+
             var result = sim.CanPlace(defIndex, x, y);
             if (result == PlacementResult.NotEnoughResources)
             {
@@ -1463,7 +1473,7 @@ internal sealed class AutoBuildSystem
                 return false;
             }
 
-            if (result != PlacementResult.Ok || CityLayout.IsReservedForStreet(x, y))
+            if (result != PlacementResult.Ok)
             {
                 continue;
             }
