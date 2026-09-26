@@ -14,8 +14,9 @@ namespace CivDle.Core.Sim;
 /// trvá milisekundy — změřeno na 24 000 budovách: pět hodin dohánění. Proto:</para>
 /// <list type="number">
 /// <item><b>Přesně</b> se odtiká jen tolik tiků, kolik unese rozpočet
-/// (<see cref="PreciseTicksFor"/>): čím větší město, tím méně. Krátká
-/// nepřítomnost se tak spočítá celá a přesně.</item>
+/// (<see cref="PreciseTicksFor(int, double)"/>): čím větší město a čím
+/// rychleji staví guvernér, tím méně. Krátká nepřítomnost se tak spočítá
+/// celá a přesně.</item>
 /// <item><b>Zbytek po úsecích odhadem.</b> Každý úsek začne krátkým přesným
 /// oknem (nové budovy se rozjedou a evidence toků změří, co město teď
 /// vyrábí a spotřebovává), pak se přeskočí: suroviny přibudou podle
@@ -69,6 +70,21 @@ public sealed class OfflineCatchUp
 
     /// <summary>Nejvíc přesných tiků (1 h) — u malého města je to pár sekund výpočtu.</summary>
     public const long MaxPreciseTicks = 36_000;
+
+    /// <summary>
+    /// Kolik stojí jedna stavba guvernéra proti jednomu tiku stejně velkého
+    /// města (hledání místa, napojení silnicí, posouzení cílů). Změřeno na
+    /// 25 000 budovách s guvernérem na maximu (šest staveb za tik): tik stál
+    /// zhruba pětkrát víc než bez guvernéra.
+    /// </summary>
+    public const double GovernorBuildCost = 0.75;
+
+    /// <summary>
+    /// Nejkratší přesná část, když guvernér staví víc, než stojí tik sám:
+    /// úvodní okno a čtyři okna po šesti sekundách před skoky. Méně by už
+    /// nezměřilo, co město vyrábí.
+    /// </summary>
+    public const long MinGovernedPreciseTicks = 360;
 
     /// <summary>Kolik z přesného rozpočtu jde na úvodní okno; zbytek na okna mezi skoky.</summary>
     private const double FirstWindowShare = 1.0 / 3.0;
@@ -134,6 +150,9 @@ public sealed class OfflineCatchUp
     private int _roundBudget;
     private bool _finished;
 
+    /// <summary>Kolik staveb za tik guvernér zvládá (z bonusů, na začátku dohánění).</summary>
+    private readonly double _governorBuildsPerTick;
+
     /// <param name="savedAtUtc">Čas uložení hry.</param>
     /// <param name="nowUtc">Teď (předává volající — simulace hodiny nezná).</param>
     public OfflineCatchUp(Simulation simulation, DateTime savedAtUtc, DateTime nowUtc)
@@ -158,7 +177,8 @@ public sealed class OfflineCatchUp
         double wanted = CreditedSeconds * Simulation.TicksPerSecond * simulation.Bonuses.OfflineMult;
         TotalTicks = (long)Math.Min(Math.Max(0, wanted), MaxTicks);
 
-        long precise = PreciseTicksFor(_buildingsBefore);
+        _governorBuildsPerTick = simulation.GovernorBuildsPerTick;
+        long precise = PreciseTicksFor(_buildingsBefore, _governorBuildsPerTick);
         if (TotalTicks <= precise)
         {
             // Vejde se celé: přesně, tik po tiku, jako dřív.
@@ -230,6 +250,25 @@ public sealed class OfflineCatchUp
     /// </summary>
     public static long PreciseTicksFor(int buildings) =>
         Math.Clamp(WorkBudget / (Math.Max(0, buildings) + BaseCost), MinPreciseTicks, MaxPreciseTicks);
+
+    /// <summary>
+    /// Totéž, když guvernér staví <paramref name="governorBuildsPerTick"/>
+    /// budov za tik.
+    ///
+    /// <para><b>Proč:</b> rozpočet počítal tik jako práci úměrnou počtu budov.
+    /// Guvernér s vylepšeními ale staví i šest budov za tik a každá stavba
+    /// stojí zhruba tolik co tik sám — přesných 1 200 tiků u velkého města
+    /// pak trvalo přes minutu místo pár sekund. Dokud guvernér stojí méně
+    /// než tik (<see cref="GovernorBuildCost"/> × tempo ≤ 1), platí rozpočet
+    /// jako dřív; nad tím se přesná část úměrně zkrátí, nejvýš na
+    /// <see cref="MinGovernedPreciseTicks"/>. Zbytek času dopočítají skoky.</para>
+    /// </summary>
+    public static long PreciseTicksFor(int buildings, double governorBuildsPerTick)
+    {
+        long ticks = PreciseTicksFor(buildings);
+        double governor = GovernorBuildCost * Math.Max(0, governorBuildsPerTick);
+        return governor <= 1 ? ticks : Math.Max(Math.Min(ticks, MinGovernedPreciseTicks), (long)(ticks / governor));
+    }
 
     /// <summary>
     /// Udělá až <paramref name="steps"/> kroků práce: přesný tik, skok, nebo
@@ -339,7 +378,8 @@ public sealed class OfflineCatchUp
         // Okno se měří podle dnešní velikosti města, ne podle té při uložení:
         // guvernér za dohánění postaví i tisíce budov a tik se úměrně prodraží.
         // Kratší okno vrátí svůj zbytek do skoků, takže čas sedí dál.
-        long budget = (PreciseTicksFor(_simulation.Buildings.Length) - _firstTicks) / Math.Max(1, _segments);
+        long budget = (PreciseTicksFor(_simulation.Buildings.Length, _governorBuildsPerTick) - _firstTicks)
+            / Math.Max(1, _segments);
         _currentSettle = Math.Clamp(budget, MinSettleTicks, _settleTicks);
         _jumpTicksLeft += _settleTicks - _currentSettle;
 

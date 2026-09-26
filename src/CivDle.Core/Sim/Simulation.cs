@@ -4169,6 +4169,14 @@ public sealed class Simulation
     }
 
     /// <summary>
+    /// Kolik staveb za tik guvernér zvládá (rozpočet kola / interval); 0, když
+    /// scénář stavbu zakazuje. Dohánění offline podle toho krátí přesnou část
+    /// (viz <c>OfflineCatchUp.PreciseTicksFor</c>).
+    /// </summary>
+    internal double GovernorBuildsPerTick =>
+        ScenarioRuleActive(ScenarioRule.NoAutoBuild) ? 0 : AutoBuildBudget / (double)Math.Max(1, AutoBuildInterval);
+
+    /// <summary>
     /// Jedno kolo guvernéra mimo jeho interval — pro odhadovanou část dohánění,
     /// kde se tiky přeskočí, ale město má růst dál. Scénář, který guvernérovi
     /// stavbu zakazuje, platí i tady.

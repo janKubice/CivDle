@@ -209,6 +209,22 @@ public class OfflineCatchUpTests
     }
 
     [Fact]
+    public void AFastGovernorShortensThePrecisePart()
+    {
+        // Guvernér s vylepšeními staví i šest budov za tik a každá stavba stojí
+        // zhruba tolik co tik sám — 1 200 přesných tiků velkého města pak
+        // trvalo přes minutu. Běžné tempo (jedna stavba za interval) nemění nic.
+        long plain = OfflineCatchUp.PreciseTicksFor(24_000);
+        Assert.Equal(plain, OfflineCatchUp.PreciseTicksFor(24_000, 0));
+        Assert.Equal(plain, OfflineCatchUp.PreciseTicksFor(24_000, 1.0 / 60));
+
+        long fast = OfflineCatchUp.PreciseTicksFor(24_000, 6);
+        Assert.True(fast < plain / 3, $"{fast} přesných tiků při šesti stavbách za tik");
+        Assert.True(fast >= OfflineCatchUp.MinGovernedPreciseTicks);
+        Assert.Equal(OfflineCatchUp.MinGovernedPreciseTicks, OfflineCatchUp.PreciseTicksFor(10_000_000, 1_000));
+    }
+
+    [Fact]
     public void TheEstimateCreditsWhatTheCityReallyProduces()
     {
         // Odhad musí sedět na to, co by vyrobilo poctivé tikání — jinak by se
