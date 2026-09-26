@@ -39,7 +39,7 @@ public static class OfflineProgress
         // krátká pauza); hra ho pouští po dávkách přes OfflineCatchUp, aby
         // okno mezitím překreslovalo a dalo se přeskočit.
         var catchUp = new OfflineCatchUp(simulation, savedAtUtc, nowUtc);
-        catchUp.Advance(catchUp.TotalTicks);
+        catchUp.Advance(long.MaxValue);
         return catchUp.Finish();
     }
 }

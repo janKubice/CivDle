@@ -4078,6 +4078,79 @@ public sealed class Simulation
         _ledger.EndTick(TicksPerSecond);
     }
 
+    // ----- přeskok času při dohánění offline (viz OfflineCatchUp) -----
+
+    /// <summary>
+    /// Posune hodiny o <paramref name="ticks"/> bez odtikání systémů.
+    ///
+    /// <para>Pro odhadovanou část dohánění offline času: denní doba, období
+    /// a dorůstání lesa se počítají z tiků, takže se posunou samy; odpočty
+    /// (slavnost, zrychlená stavba, staveniště) se tady odečtou naráz.
+    /// Suroviny a lidi sem nepatří — ty připisuje odhad zvlášť
+    /// (<see cref="CreditEstimated"/>, <see cref="GrowPopulationEstimated"/>).</para>
+    /// </summary>
+    internal void JumpClock(long ticks)
+    {
+        if (ticks <= 0)
+        {
+            return;
+        }
+
+        TickCount += ticks;
+        int step = (int)Math.Min(ticks, int.MaxValue);
+        _boostTicksRemaining = Math.Max(0, _boostTicksRemaining - step);
+        _boostCooldownRemaining = Math.Max(0, _boostCooldownRemaining - step);
+        _debugBuildBoostTicks = Math.Max(0, _debugBuildBoostTicks - step);
+
+        if (BuildingsUnderConstruction == 0)
+        {
+            return;
+        }
+
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            if (_buildings[i].BuildTicksRemaining <= 0)
+            {
+                continue;
+            }
+
+            _buildings[i].BuildTicksRemaining -= step;
+            if (_buildings[i].BuildTicksRemaining <= 0)
+            {
+                _buildings[i].BuildTicksRemaining = 0;
+                CompleteConstruction(i, _content.Buildings[_buildings[i].DefIndex]);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Připíše odhadnutý přírůstek (či úbytek) suroviny mezi nulou a stropem
+    /// skladu. Do evidence toků se nezapisuje — ta má dál ukazovat, co město
+    /// opravdu vyrábí, ne skok z dohánění.
+    /// </summary>
+    internal void CreditEstimated(int resourceIndex, double amount) =>
+        _resources[resourceIndex] = Math.Clamp(_resources[resourceIndex] + amount, 0, _storageCaps[resourceIndex]);
+
+    /// <summary>Přidá odhadnutý přírůstek lidí — nejvýš po strop bydlení a měřítka.</summary>
+    internal void GrowPopulationEstimated(double amount)
+    {
+        double ceiling = Math.Max(Population, Math.Min(HousingCapacity, PopulationCap));
+        Population = Math.Min(Population + Math.Max(0, amount), ceiling);
+    }
+
+    /// <summary>
+    /// Jedno kolo guvernéra mimo jeho interval — pro odhadovanou část dohánění,
+    /// kde se tiky přeskočí, ale město má růst dál. Scénář, který guvernérovi
+    /// stavbu zakazuje, platí i tady.
+    /// </summary>
+    internal void RunGovernorRound(int budget)
+    {
+        if (!ScenarioRuleActive(ScenarioRule.NoAutoBuild))
+        {
+            _autoBuild.RunRound(this, budget);
+        }
+    }
+
     // ----- obrana (volitelný režim) -----
 
     /// <summary>

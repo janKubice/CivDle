@@ -104,6 +104,17 @@ internal sealed class AutoBuildSystem
             return;
         }
 
+        RunRound(sim, sim.AutoBuildBudget);
+    }
+
+    /// <summary>
+    /// Jedno kolo guvernéra: slučování, vylepšování, stavba a výzkum.
+    /// Normálně ho spouští <see cref="Tick"/> jednou za interval; dohánění
+    /// offline času ho volá přímo pro přeskočené úseky, s rozpočtem staveb
+    /// za celý úsek (<see cref="OfflineCatchUp"/>).
+    /// </summary>
+    public void RunRound(Simulation sim, int budget)
+    {
         // Bez zástavby není kde růst — první budovu musí položit hráč.
         if (sim.Buildings.Length == 0)
         {
@@ -130,8 +141,7 @@ internal sealed class AutoBuildSystem
         }
 
         // Politika „build_pace" i bonus autobuild_speed zvyšují počet akcí za
-        // interval (jinak 1 — pozvolný růst).
-        int budget = sim.AutoBuildBudget;
+        // interval (jinak 1 — pozvolný růst); rozpočet přichází parametrem.
 
         // Nad jednu stavbu se dláždí až po dávce, stejně jako u hromadné stavby
         // hráče: jinak by první ulice sebrala místo domu, který měl stát vedle,

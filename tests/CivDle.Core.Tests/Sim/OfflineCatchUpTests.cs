@@ -160,4 +160,183 @@ public class OfflineCatchUpTests
         Assert.True(catchUp.IsDone);
         Assert.False(catchUp.Finish().Worthwhile);
     }
+    // ----- odhadovaná část: dlouhá nepřítomnost -----
+
+    /// <summary>Pila bez dřevorubce: dřevo jen ubývá, prkna jen z toho, co je na skladě.</summary>
+    private static GameContent SawmillContent(double woodCap = 1_000_000)
+    {
+        var resources = new[]
+        {
+            new Resource("wood", new RgbColor(1, 1, 1), StartAmount: 300, BaseStorage: woodCap),
+            new Resource("planks", new RgbColor(1, 1, 1), StartAmount: 0, BaseStorage: 1_000_000),
+        };
+
+        var saw = TestContent.Converter("saw", 0, 3, 1, 1, timeTicks: 10, biomeCount: 2, workerSlots: 2);
+        return TestContent.Build(
+            biomes: new[] { TestContent.WaterBiome(), TestContent.LandBiome("grass") },
+            resources: resources,
+            buildings: new[] { saw });
+    }
+
+    private static OfflineCatchUp Run(Simulation sim, int hoursAway)
+    {
+        var now = new DateTime(2026, 8, 9, 12, 0, 0, DateTimeKind.Utc);
+        var catchUp = new OfflineCatchUp(sim, now.AddHours(-hoursAway), now);
+        catchUp.Advance(long.MaxValue);
+        return catchUp;
+    }
+
+    [Fact]
+    public void ALongAbsenceDoesBoundedWorkNoMatterHowLong()
+    {
+        // Tohle je ta chyba: dvanáct hodin se dřív tikalo tik po tiku a u velkého
+        // města to trvalo hodiny. Práce teď nesmí růst s délkou nepřítomnosti.
+        var sim = World(Content());
+        var catchUp = Run(sim, 12);
+
+        Assert.True(catchUp.IsEstimated);
+        Assert.True(catchUp.TotalWork < 60_000, $"práce {catchUp.TotalWork} kroků");
+        Assert.Equal(catchUp.TotalTicks, catchUp.DoneTicks); // přeskočený čas se započítá celý
+        Assert.Equal(OfflineProgress.MaxCreditedSeconds, catchUp.Finish().CreditedSeconds);
+    }
+
+    [Fact]
+    public void ABiggerCityGetsFewerPreciseTicks()
+    {
+        Assert.True(OfflineCatchUp.PreciseTicksFor(24_000) < OfflineCatchUp.PreciseTicksFor(1_500));
+        Assert.Equal(OfflineCatchUp.MaxPreciseTicks, OfflineCatchUp.PreciseTicksFor(10));
+        Assert.Equal(OfflineCatchUp.MinPreciseTicks, OfflineCatchUp.PreciseTicksFor(10_000_000));
+    }
+
+    [Fact]
+    public void TheEstimateCreditsWhatTheCityReallyProduces()
+    {
+        // Odhad musí sedět na to, co by vyrobilo poctivé tikání — jinak by se
+        // vyplatilo hru zavřít (nebo nevyplatilo).
+        var content = Content();
+        var estimated = World(content);
+        double before = estimated.GetResource(0);
+        Run(estimated, 3);
+
+        var exact = World(content);
+        for (long t = 0; t < 3 * 3600 * (long)Simulation.TicksPerSecond; t++)
+        {
+            exact.Tick();
+        }
+
+        double expected = exact.GetResource(0) - before;
+        double actual = estimated.GetResource(0) - before;
+        Assert.True(Math.Abs(actual - expected) <= expected * 0.05,
+            $"odhad {actual:0} dřeva, poctivě {expected:0}");
+        Assert.Equal(exact.TickCount, estimated.TickCount); // hodiny doběhly stejně daleko
+    }
+
+    [Fact]
+    public void AnInputThatRunsOutStopsTheOutput()
+    {
+        // Pila bez dřevorubce spotřebuje sklad a stojí. Odhad nesmí připisovat
+        // prkna z dřeva, které už není — skok skončí, když dřevo dojde.
+        var sim = World(SawmillContent());
+        sim.TryPlaceBuilding(0, 4, 4);
+
+        Run(sim, 12);
+
+        double planks = sim.GetResource(1);
+        Assert.InRange(planks, 90, 100 + 20); // 300 dřeva / 3 = 100 prken (+ nejvýš minuta skoku navíc)
+        Assert.Equal(0, sim.GetResource(0), 6);
+    }
+
+    [Fact]
+    public void NothingIsCreditedBeyondTheStorage()
+    {
+        var sim = World(Content());
+        var cap = sim.GetStorageCap(0);
+        Run(sim, 12);
+
+        Assert.True(sim.GetResource(0) <= cap);
+    }
+
+    [Fact]
+    public void TheEstimateIsDeterministic()
+    {
+        // Rozpočet se odvozuje z počtu budov, ne z hodin — stejný sav musí dát
+        // stejný výsledek na každém počítači.
+        var content = Content();
+        var a = World(content);
+        var b = World(content);
+
+        var summaryA = Run(a, 12).Finish();
+        var summaryB = Run(b, 12).Finish();
+
+        Assert.Equal(summaryA.ResourceGains, summaryB.ResourceGains);
+        Assert.Equal(a.TickCount, b.TickCount);
+    }
+
+    [Fact]
+    public void StepsStayShortSoTheWindowCanDraw()
+    {
+        // Jeden krok je přesný tik, skok, nebo jedno kolo guvernéra — nikdy
+        // celá hodina naráz. Načítací obrazovka pak hlídá čas po každém kroku.
+        var sim = World(Content());
+        var now = new DateTime(2026, 8, 9, 12, 0, 0, DateTimeKind.Utc);
+        var catchUp = new OfflineCatchUp(sim, now.AddHours(-12), now);
+
+        long steps = 0;
+        while (!catchUp.IsDone)
+        {
+            long ticksBefore = catchUp.DoneTicks;
+            catchUp.Advance(1);
+            steps++;
+            Assert.True(catchUp.Progress >= 0 && catchUp.Progress <= 1);
+            _ = ticksBefore;
+        }
+
+        Assert.True(steps < 60_000);
+        Assert.Equal(1.0, catchUp.Progress, 6);
+    }
+    [Fact]
+    public void RealContent_TheCityKeepsGrowingWhileItIsEstimated()
+    {
+        // Odhad nesmí z města udělat skanzen: guvernér v něm odehraje svá kola
+        // za celý přeskočený čas, takže po návratu stojí víc domů a víc lidí.
+        var content = TestData.LoadRealContent();
+        var preset = content.WorldGen.Presets.Single(p => p.Id == "continents");
+        var sim = new Simulation(content, new ProceduralTerrain(content.Biomes, preset, 20260728), 20260728);
+        var start = CivDle.Core.Sim.StartSiteFinder.Find(sim);
+        foreach (string id in new[] { "house", "farm", "lumber_camp", "house" })
+        {
+            PlaceNear(sim, content.Buildings.IndexOf(id), start.X, start.Y);
+        }
+
+        for (int i = 0; i < 600; i++)
+        {
+            sim.Tick();
+        }
+
+        var catchUp = Run(sim, 6);
+        var summary = catchUp.Finish();
+
+        Assert.True(catchUp.IsEstimated);
+        Assert.True(summary.BuildingsGain > 0, "za šest hodin guvernér nic nepostavil");
+        Assert.True(summary.PopulationGain > 0, "za šest hodin nepřibyl nikdo");
+        Assert.True(sim.Population <= Math.Max(sim.HousingCapacity, 1) + 1e-6);
+    }
+
+    private static void PlaceNear(Simulation sim, int defIndex, int x, int y)
+    {
+        for (int r = 1; r < 30; r++)
+        {
+            for (int dy = -r; dy <= r; dy++)
+            {
+                for (int dx = -r; dx <= r; dx++)
+                {
+                    if (Math.Max(Math.Abs(dx), Math.Abs(dy)) == r
+                        && sim.TryPlaceBuildingFree(defIndex, x + dx, y + dy) == PlacementResult.Ok)
+                    {
+                        return;
+                    }
+                }
+            }
+        }
+    }
 }

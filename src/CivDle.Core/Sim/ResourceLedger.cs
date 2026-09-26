@@ -75,6 +75,9 @@ public sealed class ResourceLedger
     private readonly double[][] _consumedByKindTick;
     private readonly double[][] _consumedByKind;
 
+    /// <summary>Průběžný součet čistého toku bez nákupů (viz <see cref="SteadyTotal"/>).</summary>
+    private readonly double[] _steadyTotal;
+
     public ResourceLedger(int resourceCount)
     {
         _producedTick = new double[resourceCount];
@@ -82,6 +85,7 @@ public sealed class ResourceLedger
         _produced = new double[resourceCount];
         _consumed = new double[resourceCount];
         _wasted = new double[resourceCount];
+        _steadyTotal = new double[resourceCount];
         _consumedByKindTick = new double[KindCount][];
         _consumedByKind = new double[KindCount][];
         for (int k = 0; k < KindCount; k++)
@@ -137,6 +141,18 @@ public sealed class ResourceLedger
     {
         for (int i = 0; i < _produced.Length; i++)
         {
+            // Součet dřív, než Roll tikové hodnoty vynuluje.
+            double steady = _producedTick[i] + _wastedTick[i];
+            for (int k = 0; k < KindCount; k++)
+            {
+                if (k != (int)ConsumptionKind.Purchases)
+                {
+                    steady -= _consumedByKindTick[k][i];
+                }
+            }
+
+            _steadyTotal[i] += steady;
+
             Roll(_produced, _producedTick, i, ticksPerSecond);
             Roll(_wasted, _wastedTick, i, ticksPerSecond);
 
@@ -153,6 +169,19 @@ public sealed class ResourceLedger
 
     /// <summary>Kolik se suroviny vyrobí za sekundu.</summary>
     public double ProducedPerSecond(int resourceIndex) => _produced[resourceIndex];
+
+    /// <summary>
+    /// Průběžný součet čistého toku <b>bez nákupů</b> od startu evidence: co se
+    /// vyrobilo (i do plného skladu) minus to, co spotřebovaly výroba, lidé,
+    /// topení, údržba a nástroje.
+    ///
+    /// <para>Proč součet, a ne vyhlazené <c>…PerSecond</c>: výroba chodí po
+    /// dávkách a vyhlazená hodnota kolísá podle toho, jak dávno byla poslední
+    /// dávka — změřeno 14 % nad skutečností. Rozdíl dvou součtů dělený délkou
+    /// okna je přesný průměr. Používá ho odhad při dohánění offline času;
+    /// nákupy tam dělá guvernér zvlášť, proto se nepočítají.</para>
+    /// </summary>
+    public double SteadyTotal(int resourceIndex) => _steadyTotal[resourceIndex];
 
     /// <summary>Kolik se jí za sekundu spotřebuje (všemi způsoby dohromady).</summary>
     public double ConsumedPerSecond(int resourceIndex) => _consumed[resourceIndex];
