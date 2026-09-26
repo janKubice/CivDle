@@ -5265,6 +5265,148 @@
           "glow"
         ]
       }
+    },
+    {
+      "id": "lake_drain",
+      "category": "civic",
+      "mapColor": "#5E7E8E",
+      "footprint": [
+        3,
+        3
+      ],
+      "serviceValue": 12,
+      "buildCost": {
+        "steel": 400,
+        "machine_parts": 200,
+        "stone": 2000
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "swamp",
+        "mangrove"
+      ],
+      "requiresAdjacentWater": true,
+      "stages": [
+        {
+          "atProgress": 0.0,
+          "sprite": "stage.foundation"
+        },
+        {
+          "atProgress": 0.1,
+          "sprite": "stage.frame"
+        },
+        {
+          "atProgress": 0.2,
+          "sprite": "building.lake_drain"
+        }
+      ],
+      "unlockedBy": "quest:great_reclaim",
+      "look": {
+        "shape": "tanks",
+        "wall": "#6E8C9C",
+        "roof": "#3E5A6A",
+        "accent": "#5AA8D0",
+        "glow": "#BFE6FF",
+        "features": [
+          "pipes",
+          "water",
+          "steam"
+        ]
+      },
+      "project": {
+        "onStage": "drain_band",
+        "radius": 18,
+        "toBiome": "swamp",
+        "stages": [
+          {
+            "cost": {
+              "stone": 50000,
+              "machine_parts": 5000
+            }
+          },
+          {
+            "cost": {
+              "stone": 80000,
+              "machine_parts": 8000
+            }
+          },
+          {
+            "cost": {
+              "stone": 130000,
+              "steel": 20000
+            }
+          },
+          {
+            "cost": {
+              "stone": 200000,
+              "steel": 32000
+            }
+          },
+          {
+            "cost": {
+              "stone": 320000,
+              "steel": 50000,
+              "electronics": 8000
+            }
+          },
+          {
+            "cost": {
+              "stone": 500000,
+              "steel": 80000,
+              "electronics": 13000
+            }
+          },
+          {
+            "cost": {
+              "stone": 800000,
+              "robot": 5000,
+              "electronics": 20000
+            }
+          },
+          {
+            "cost": {
+              "stone": 1300000,
+              "robot": 8000,
+              "computer": 12000
+            }
+          },
+          {
+            "cost": {
+              "stone": 2000000,
+              "robot": 13000,
+              "computer": 20000
+            }
+          },
+          {
+            "cost": {
+              "stone": 3200000,
+              "nanomaterial": 20000,
+              "computer": 32000
+            }
+          },
+          {
+            "cost": {
+              "stone": 5000000,
+              "nanomaterial": 32000,
+              "robot": 20000
+            }
+          },
+          {
+            "cost": {
+              "stone": 8000000,
+              "nanomaterial": 50000,
+              "robot": 32000
+            }
+          }
+        ]
+      }
     }
   ]
 }

@@ -58,6 +58,9 @@ public sealed class SpriteCoverageTests
         var content = LoadContent();
         var registered = AllRegisteredIds();
 
+        // Vzhled z dat registruje „building.<id>" — i na ten smí fáze ukázat.
+        registered.UnionWith(content.Buildings.All.Where(b => b.Look is not null).Select(b => $"building.{b.Id}"));
+
         var missing = content.Buildings.All
             .SelectMany(b => b.Stages.Select(stage => (Building: b.Id, stage.Sprite)))
             .Where(pair => !registered.Contains(pair.Sprite))

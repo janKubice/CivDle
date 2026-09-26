@@ -460,6 +460,8 @@
     "building.star_gate.desc": "Poslední megastruktura. Nestaví se časem, ale vším, co město vyrobí navíc — čtyři stupně od základů po aktivaci. Až se otevře, první kapitola civilizace skončí.",
     "building.vertical_district": "Vertikální čtvrť",
     "building.vertical_district.desc": "Čtvrť postavená na výšku — zahrady, ulice a byty nad sebou, arkologie nad arkologií. Odemyká ji planetární měřítko; guvernér ji staví od centra, když souš dojde.",
+    "building.lake_drain": "Vysoušení jezera",
+    "building.lake_drain.desc": "Čerpadla na břehu jezera. Každý stupeň, do kterého vložíš přebytky, vysuší pás břehu do osmnácti dlaždic — voda ustoupí a zůstane mokrá zem, kterou jde odvodnit a zastavět. Dvanáct stupňů, každý dražší.",
     "building.merchant_column": "Kupecký sloup",
     "building.merchant_column.desc": "Sloup, u kterého kupci stvrzují dohody. Stojí tam, kde město splnilo padesát zakázek.",
     "building.enduring_wall": "Hradba vytrvalých",

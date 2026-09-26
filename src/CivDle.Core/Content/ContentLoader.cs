@@ -3050,7 +3050,7 @@ public sealed class ContentLoader
 
         // Projekt se staví vkládáním, ne časem: jeho „doba stavby" je jen měřítko
         // postupu a dopočítá se ze stupňů. Zadaná doba by lhala.
-        var project = ParseProject(path, id, dto.Project, resources);
+        var project = ParseProject(path, id, dto.Project, resources, biomes);
         if (project is not null && dto.BuildTicks != 0)
         {
             throw new ContentLoadException(path,
@@ -3160,7 +3160,8 @@ public sealed class ContentLoader
     /// Stavba po stupních. Každý stupeň musí něco stát (stupeň zadarmo by se
     /// „postavil" sám kliknutím) a efekt dokončení musí kód znát.
     /// </summary>
-    private static ProjectRule? ParseProject(string path, string id, ProjectDto? dto, DefRegistry<Resource> resources)
+    private static ProjectRule? ParseProject(
+        string path, string id, ProjectDto? dto, DefRegistry<Resource> resources, BiomeRegistry biomes)
     {
         if (dto is null)
         {
@@ -3192,7 +3193,35 @@ public sealed class ContentLoader
                 + $"(známé: {string.Join(", ", ProjectRule.KnownEffects)}).");
         }
 
-        return new ProjectRule(stages, effect);
+        string? stageEffect = string.IsNullOrWhiteSpace(dto.OnStage) ? null : dto.OnStage.Trim();
+        int radius = 0, toBiome = -1;
+        if (stageEffect is not null)
+        {
+            if (!ProjectRule.KnownStageEffects.Contains(stageEffect))
+            {
+                throw new ContentLoadException(path,
+                    $"Budova '{id}': neznámý efekt stupně projektu '{dto.OnStage}' "
+                    + $"(známé: {string.Join(", ", ProjectRule.KnownStageEffects)}).");
+            }
+
+            // Vysušení potřebuje dosah i cíl: bez dosahu by nevysušilo nic, bez
+            // cíle by nevědělo, čím vodu nahradit — a voda za vodu není vysušení.
+            if (dto.Radius is < 1 or > 40)
+            {
+                throw new ContentLoadException(path, $"Budova '{id}': 'project.radius' musí být 1–40, je {dto.Radius}.");
+            }
+
+            if (string.IsNullOrWhiteSpace(dto.ToBiome) || !biomes.TryIndexOf(dto.ToBiome.Trim(), out toBiome)
+                || biomes[toBiome].IsWater)
+            {
+                throw new ContentLoadException(path,
+                    $"Budova '{id}': 'project.toBiome' musí být existující suchozemský biom, je '{dto.ToBiome}'.");
+            }
+
+            radius = dto.Radius;
+        }
+
+        return new ProjectRule(stages, effect, stageEffect, radius, toBiome);
     }
 
     /// <summary>

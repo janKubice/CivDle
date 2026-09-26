@@ -80,7 +80,8 @@ public sealed record BuildingDto(
     ProjectDto? Project = null);
 
 /// <summary>Stavba po stupních (projekt) tak, jak leží v JSON.</summary>
-public sealed record ProjectDto(List<ProjectStageDto>? Stages, string? OnComplete);
+public sealed record ProjectDto(
+    List<ProjectStageDto>? Stages, string? OnComplete, string? OnStage = null, int Radius = 0, string? ToBiome = null);
 
 /// <summary>Jeden stupeň projektu tak, jak leží v JSON.</summary>
 public sealed record ProjectStageDto(Dictionary<string, int>? Cost);

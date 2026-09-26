@@ -460,6 +460,8 @@
     "building.star_gate.desc": "Ostatnia megastruktura. Nie buduje się jej czasem, lecz wszystkim, co miasto wytworzy ponad potrzebę — cztery etapy od fundamentów po aktywację. Gdy się otworzy, pierwszy rozdział cywilizacji dobiegnie końca.",
     "building.vertical_district": "Dzielnica pionowa",
     "building.vertical_district.desc": "Dzielnica zbudowana w górę — ogrody, ulice i mieszkania jedne nad drugimi, arkologia na arkologii. Odblokowuje ją skala planetarna; zarządca buduje ją od centrum, gdy zabraknie lądu.",
+    "building.lake_drain": "Osuszanie jeziora",
+    "building.lake_drain.desc": "Pompy na brzegu jeziora. Każdy etap, w który włożysz nadwyżki, osusza pas brzegu w promieniu osiemnastu pól — woda cofa się i zostaje mokra ziemia, którą można odwodnić i zabudować. Dwanaście etapów, każdy droższy.",
     "building.merchant_column": "Kolumna kupców",
     "building.merchant_column.desc": "Kolumna, przy której kupcy przypieczętowują umowy — stanęła po pięćdziesięciu wykonanych zleceniach.",
     "building.enduring_wall": "Mur wytrwałych",

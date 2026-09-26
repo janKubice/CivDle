@@ -3884,6 +3884,7 @@ public sealed class Simulation
 
         Array.Clear(invested);
         building.BuildTicksRemaining = def.BuildTicks - stageStart - ProjectRule.UnitsPerStage;
+        ApplyProjectStageEffect(buildingIndex, def, project);
         if (building.BuildTicksRemaining > 0)
         {
             ReportVisual(VisualEventKind.BuildingUpgraded, building.X, building.Y);
@@ -3905,6 +3906,57 @@ public sealed class Simulation
         {
             GateOpenedAtTick = TickCount;
             EnqueueNotification(new GameNotification(NotificationKind.Milestone, "toast.gateOpened", def.NameKey));
+        }
+    }
+
+    /// <summary>Efekt dokončeného stupně (behavior-ID z dat).</summary>
+    private void ApplyProjectStageEffect(int buildingIndex, BuildingDef def, ProjectRule project)
+    {
+        if (project.OnStage == ProjectRule.DrainBand)
+        {
+            DrainBand(buildingIndex, def, project.EffectRadius, project.EffectBiomeIndex);
+        }
+    }
+
+    private readonly List<long> _drainScratch = new();
+
+    /// <summary>
+    /// Vysuší pás břehu: vodní dlaždice v dosahu, které sousedí se souší,
+    /// se změní v cílový biom (mokrou zem). Pás se sebere <b>celý napřed</b>
+    /// a teprve pak se mění — jinak by vysušená dlaždice během průchodu
+    /// udělala „břeh" i ze své sousedky a jeden stupeň by snědl celé jezero.
+    /// Průchod po řádcích, takže výsledek je deterministický.
+    /// </summary>
+    private void DrainBand(int buildingIndex, BuildingDef def, int radius, int toBiome)
+    {
+        if (radius <= 0 || toBiome < 0)
+        {
+            return;
+        }
+
+        var building = _buildings[buildingIndex];
+        int centerX = building.X + def.FootprintWidth / 2;
+        int centerY = building.Y + def.FootprintHeight / 2;
+        _drainScratch.Clear();
+        for (int y = centerY - radius; y <= centerY + radius; y++)
+        {
+            for (int x = centerX - radius; x <= centerX + radius; x++)
+            {
+                if (!IsWaterTile(x, y) || _occupancy.ContainsKey(TileKey.Pack(x, y)))
+                {
+                    continue;
+                }
+
+                if (!IsWaterTile(x - 1, y) || !IsWaterTile(x + 1, y) || !IsWaterTile(x, y - 1) || !IsWaterTile(x, y + 1))
+                {
+                    _drainScratch.Add(TileKey.Pack(x, y));
+                }
+            }
+        }
+
+        foreach (long tile in _drainScratch)
+        {
+            ApplyTerraform(toBiome, TileKey.X(tile), TileKey.Y(tile));
         }
     }
 

@@ -460,6 +460,8 @@
     "building.star_gate.desc": "Die letzte Megastruktur. Sie wird nicht mit Zeit gebaut, sondern mit allem, was die Stadt im Überfluss herstellt — vier Stufen vom Fundament bis zur Aktivierung. Wenn sie sich öffnet, endet das erste Kapitel deiner Zivilisation.",
     "building.vertical_district": "Vertikales Viertel",
     "building.vertical_district.desc": "Ein Viertel in die Höhe gebaut — Gärten, Straßen und Wohnungen übereinander, Arkologie auf Arkologie. Freigeschaltet im planetaren Maßstab; der Statthalter baut sie von der Mitte aus, wenn das Land ausgeht.",
+    "building.lake_drain": "Seetrockenlegung",
+    "building.lake_drain.desc": "Pumpen am Seeufer. Jede Stufe, in die du Überschüsse steckst, legt einen Uferstreifen im Umkreis von achtzehn Feldern trocken — das Wasser weicht und hinterlässt nassen Boden, den man entwässern und bebauen kann. Zwölf Stufen, jede teurer.",
     "building.merchant_column": "Kaufmannssäule",
     "building.merchant_column.desc": "Die Säule, an der Kaufleute ihre Geschäfte besiegeln — errichtet nach fünfzig erfüllten Aufträgen.",
     "building.enduring_wall": "Mauer der Standhaften",

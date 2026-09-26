@@ -460,6 +460,8 @@
     "building.star_gate.desc": "La última megaestructura. No se construye con tiempo, sino con todo lo que la ciudad produce de más: cuatro etapas desde los cimientos hasta la activación. Cuando se abra, terminará el primer capítulo de tu civilización.",
     "building.vertical_district": "Distrito vertical",
     "building.vertical_district.desc": "Un distrito construido hacia arriba: jardines, calles y viviendas apiladas, arcología sobre arcología. Se desbloquea a escala planetaria; el gobernador lo levanta desde el centro cuando se acaba el suelo.",
+    "building.lake_drain": "Desecación del lago",
+    "building.lake_drain.desc": "Bombas en la orilla del lago. Cada etapa que llenes con excedentes deseca una franja de orilla en dieciocho casillas: el agua retrocede y deja tierra húmeda que se puede drenar y edificar. Doce etapas, cada una más cara.",
     "building.merchant_column": "Columna de los mercaderes",
     "building.merchant_column.desc": "La columna donde los mercaderes sellan sus tratos, alzada tras cumplir cincuenta contratos.",
     "building.enduring_wall": "Muralla de los firmes",

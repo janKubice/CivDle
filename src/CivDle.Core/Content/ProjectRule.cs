@@ -24,8 +24,31 @@ public sealed record ProjectStage(IReadOnlyList<ResourceAmount> Cost);
 /// Behavior-ID toho, co se stane po dokončení (<see cref="KnownEffects"/>);
 /// <c>null</c> = nic zvláštního, budova prostě začne fungovat.
 /// </param>
-public sealed record ProjectRule(IReadOnlyList<ProjectStage> Stages, string? OnComplete)
+/// <param name="OnStage">
+/// Behavior-ID toho, co udělá <b>každý</b> dokončený stupeň
+/// (<see cref="KnownStageEffects"/>); <c>null</c> = nic.
+/// </param>
+/// <param name="EffectRadius">Dosah efektu stupně v dlaždicích (0 = efekt ho nemá).</param>
+/// <param name="EffectBiomeIndex">Biom, ve který efekt stupně mění krajinu; −1 = žádný.</param>
+public sealed record ProjectRule(
+    IReadOnlyList<ProjectStage> Stages,
+    string? OnComplete,
+    string? OnStage = null,
+    int EffectRadius = 0,
+    int EffectBiomeIndex = -1)
 {
+    /// <summary>
+    /// Efekt stupně „vysuš pás břehu": vodní dlaždice v dosahu, které sousedí
+    /// se souší, se změní v mokrou zem (vysušení jezera, endgame.md B3).
+    /// </summary>
+    public const string DrainBand = "drain_band";
+
+    /// <summary>Efekty stupně, které kód umí.</summary>
+    public static readonly IReadOnlySet<string> KnownStageEffects = new HashSet<string>(StringComparer.Ordinal)
+    {
+        DrainBand,
+    };
+
     /// <summary>Kolik „tiků stavby" připadá na stupeň — jen měřítko postupu, ne čas.</summary>
     public const int UnitsPerStage = 1000;
 
