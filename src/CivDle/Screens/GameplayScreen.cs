@@ -461,6 +461,9 @@ public sealed class GameplayScreen : IScreen
     /// <summary>První zlatý úlovek po dorůstání vesnice je slíbený — jen jednou.</summary>
     private bool _goldenPromised;
 
+    /// <summary>Budova, kterou průvodce sám vybral (−1 = žádná) — po kroku ji zase odebere.</summary>
+    private int _guideSelectedBuilding = -1;
+
     /// <summary>Jak dlouho rada po kliku do prázdna mlčí (s).</summary>
     private const float MissHintCooldownSeconds = 2.5f;
 
@@ -2209,7 +2212,10 @@ public sealed class GameplayScreen : IScreen
         while (_simulation.TryDequeueNotification(out var note))
         {
             string subject = note.HasSubjectArg ? loc.Format(note.SubjectKey, note.SubjectArg) : loc[note.SubjectKey];
-            if (!_captureMode)
+
+            // Tichý start: během prvních kroků průvodce jen to, co k nim patří.
+            bool quiet = _guide.IsQuietStart && !OnboardingGuide.BelongsToStart(note.Kind);
+            if (!_captureMode && !quiet)
             {
                 _toasts.Add($"{loc[note.TitleKey]}: {subject}", NotificationColor(note.Kind));
                 _sounds.PlayChime(); // dobrá zpráva → příjemné cinknutí
@@ -4259,9 +4265,20 @@ public sealed class GameplayScreen : IScreen
     /// </summary>
     private void OnGuideStep(TutorialStepDef step)
     {
+        // Budovu, kterou vybral průvodce, po sobě i uklidí: jinak by po postavení
+        // dřevorubce zůstal nástroj aktivní a další klik na strom by místo sběru
+        // stavěl další tábor.
+        if (_guideSelectedBuilding >= 0 && _tools.SelectedBuilding == _guideSelectedBuilding)
+        {
+            _tools.ToggleBuilding(_guideSelectedBuilding);
+            SetBuildMenuOpen(false);
+        }
+
+        _guideSelectedBuilding = -1;
         if (step.Focus.Kind == FocusKind.Build && _pendingPrayer < 0)
         {
             FocusOn(step.Focus);
+            _guideSelectedBuilding = _tools.SelectedBuilding == step.Focus.BuildingIndex ? step.Focus.BuildingIndex : -1;
         }
 
         // Vesnice dorůstá: první zlatý úlovek je zaručený a přijde brzy, ať si ho
@@ -4281,10 +4298,10 @@ public sealed class GameplayScreen : IScreen
         {
             case OnboardingMoment.WorksAlone:
                 int resource = _guide.WorksAloneResource;
-                string what = resource >= 0 ? loc[_screens.Content.Resources[resource].NameKey] : string.Empty;
-                _momentBanner.Show(
-                    loc["onboarding.worksAlone.title"], loc.Format("onboarding.worksAlone.subtitle", what),
-                    UiPalette.Good, seconds: 6.5f);
+                string subtitle = resource >= 0
+                    ? loc.Format("onboarding.worksAlone.subtitle", loc[_screens.Content.Resources[resource].NameKey])
+                    : loc["onboarding.worksAlone.subtitleAny"];
+                _momentBanner.Show(loc["onboarding.worksAlone.title"], subtitle, UiPalette.Good, seconds: 6.5f);
                 _fireworks.Burst(FindStartFocus(), HashCode.Combine(_simulation.TickCount, resource));
                 break;
 
@@ -4465,7 +4482,9 @@ public sealed class GameplayScreen : IScreen
                 _selectedCategory = _screens.Content.Buildings[focus.BuildingIndex].Category;
                 RefreshBuildMenu();
                 // Rovnou i vybrat: hráč tak jen klikne do mapy a je hotovo.
-                if (_simulation.IsBuildingBuildable(focus.BuildingIndex))
+                // Už vybranou budovu nechat — přepínač by ji naopak vypnul.
+                if (_simulation.IsBuildingBuildable(focus.BuildingIndex)
+                    && _tools.SelectedBuilding != focus.BuildingIndex)
                 {
                     _tools.ToggleBuilding(focus.BuildingIndex);
                 }
@@ -5196,6 +5215,15 @@ public sealed class GameplayScreen : IScreen
     /// </summary>
     /// <summary>Otevře správu šablon — pro smoke test, který na tlačítko nedosáhne.</summary>
     internal void OpenTemplatesForSmoke() => OpenTemplates();
+
+    /// <summary>Smoke: průvodce úvodu (co ukazuje a kam).</summary>
+    internal OnboardingGuide GuideForSmoke => _guide;
+
+    /// <summary>Smoke: úvodní nálet i s nápisem (v režimu nástroje se sám nespouští).</summary>
+    internal void StartIntroForSmoke() => StartIntro();
+
+    /// <summary>Smoke: velký okamžik úvodu, ať se nakreslí i bez pěti minut hraní.</summary>
+    internal void ShowMomentForSmoke(OnboardingMoment moment) => ShowMoment(moment);
 
     /// <summary>Napíše dotaz do hledání ve stavebním katalogu — smoke nemá klávesnici.</summary>
     internal int SearchBuildMenuForSmoke(string query)

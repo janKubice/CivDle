@@ -1417,6 +1417,7 @@
     "onboarding.welcome.subtitle": "Start with the tree the arrow points at.",
     "onboarding.worksAlone.title": "Your town works on its own now.",
     "onboarding.worksAlone.subtitle": "{0} keeps coming in without a single click. Keep building and the town grows by itself.",
+    "onboarding.worksAlone.subtitleAny": "Your buildings produce without a single click. Keep building and the town grows by itself.",
     "onboarding.firstNight.title": "The first night",
     "onboarding.firstNight.subtitle": "The windows light up. Your village lives on through the dark.",
     "onboarding.safeToClose.title": "Feel free to close the game.",

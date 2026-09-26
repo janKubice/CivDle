@@ -1417,6 +1417,7 @@
     "onboarding.welcome.subtitle": "Empieza por el árbol que señala la flecha.",
     "onboarding.worksAlone.title": "Tu pueblo ya trabaja solo.",
     "onboarding.worksAlone.subtitle": "{0} sigue llegando sin un solo clic. Sigue construyendo y el pueblo crecerá solo.",
+    "onboarding.worksAlone.subtitleAny": "Tus edificios producen sin un solo clic. Sigue construyendo y el pueblo crecerá solo.",
     "onboarding.firstNight.title": "La primera noche",
     "onboarding.firstNight.subtitle": "Las ventanas se encienden. Tu aldea sigue viva en la oscuridad.",
     "onboarding.safeToClose.title": "Puedes cerrar el juego tranquilamente.",

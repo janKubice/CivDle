@@ -1417,6 +1417,7 @@
     "onboarding.welcome.subtitle": "Začni stromem, na který ukazuje šipka.",
     "onboarding.worksAlone.title": "Město teď pracuje samo.",
     "onboarding.worksAlone.subtitle": "{0} přibývá bez tvého kliknutí. Stavěj dál a město poroste samo.",
+    "onboarding.worksAlone.subtitleAny": "Budovy vyrábějí bez tvého kliknutí. Stavěj dál a město poroste samo.",
     "onboarding.firstNight.title": "První noc",
     "onboarding.firstNight.subtitle": "Okna se rozsvěcují. Tvoje vesnice žije i ve tmě.",
     "onboarding.safeToClose.title": "Klidně hru zavři.",

@@ -96,6 +96,26 @@ internal sealed class OnboardingGuide
         }
     }
 
+    /// <summary>
+    /// Běží ještě tichý start? Dokud průvodce vede první kroky (do chvíle, kdy
+    /// vesnice roste sama), nemá hráče rušit nic, co s nimi nesouvisí.
+    /// Změřeno na snímcích: v prvních třech vteřinách vyskočily „výsledek voleb"
+    /// a dvě zakázky — přesně když měl hráč sledovat šipku na strom.
+    /// </summary>
+    public bool IsQuietStart => !_simulation.IsTutorialFinished && _simulation.TutorialStep < _safeToCloseStep;
+
+    /// <summary>
+    /// Smí se toto hlášení ukázat během tichého startu? Jen to, co patří
+    /// k prvním krokům: krok průvodce (milník), splněný úkol, achievement.
+    /// Zakázky, volby a prosby obyvatel počkají — nic se neztratí, jen se
+    /// neozývají.
+    /// </summary>
+    public static bool BelongsToStart(NotificationKind kind) => kind is NotificationKind.Milestone
+        or NotificationKind.QuestCompleted
+        or NotificationKind.AchievementUnlocked
+        or NotificationKind.BuildingMilestone
+        or NotificationKind.Ascended;
+
     /// <summary>Kde hra začíná (táborák, kamera, první dům).</summary>
     public (int X, int Y) StartTile { get; }
 

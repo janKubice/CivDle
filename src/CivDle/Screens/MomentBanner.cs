@@ -21,6 +21,9 @@ internal sealed class MomentBanner
     private const float FadeInSeconds = 0.6f;
     private const float FadeOutSeconds = 1.0f;
 
+    /// <summary>Nejmenší odstup od horního okraje — pod lištou surovin.</summary>
+    private const float TopMargin = 90f;
+
     private readonly Texture2D _pixel;
     private readonly SpriteFontBase _font;
 
@@ -77,7 +80,9 @@ internal sealed class MomentBanner
         float width = Math.Max(titleSize.X, subtitleSize.X) + 60f;
         float height = titleSize.Y + (_subtitle.Length > 0 ? subtitleSize.Y + 10f : 0f) + 28f;
         float x = (viewport.Width - width) * 0.5f;
-        float y = viewport.Height * 0.2f + rise;
+        // Těsně pod horní lištou surovin, ne ve třetině výšky: tam leží okolí
+        // táboráku a nápis by zakryl strom, na který zrovna ukazuje šipka.
+        float y = MathF.Max(TopMargin, viewport.Height * 0.085f) + rise;
 
         spriteBatch.Begin();
         spriteBatch.Draw(_pixel, new Rectangle((int)x, (int)y, (int)width, (int)height), new Color(12, 16, 24) * (0.78f * alpha));

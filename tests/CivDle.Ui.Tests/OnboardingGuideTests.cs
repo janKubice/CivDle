@@ -168,6 +168,35 @@ public class OnboardingGuideTests
     }
 
     [Fact]
+    public void TheQuietStartLastsUntilTheTownGrowsByItself()
+    {
+        // Zakázky a volby počkají, dokud hráč nezvládne první kroky.
+        var sim = NewGame();
+        var guide = new OnboardingGuide(Content, sim, new PlayerProfile());
+        Assert.True(guide.IsQuietStart);
+
+        sim.SetTutorialStepForTest(StepIndex("grow") + 1);
+        Assert.False(guide.IsQuietStart);
+
+        var skipped = NewGame();
+        skipped.SkipTutorial();
+        Assert.False(new OnboardingGuide(Content, skipped, new PlayerProfile()).IsQuietStart);
+    }
+
+    [Theory]
+    [InlineData(NotificationKind.Milestone, true)]        // krok průvodce
+    [InlineData(NotificationKind.QuestCompleted, true)]
+    [InlineData(NotificationKind.AchievementUnlocked, true)]
+    [InlineData(NotificationKind.WorldEvent, false)]      // „výsledek voleb" ve třetí vteřině
+    [InlineData(NotificationKind.ContractOffered, false)]
+    [InlineData(NotificationKind.ContractReady, false)]
+    [InlineData(NotificationKind.GovernorStuck, false)]
+    public void OnlyTheFirstStepsSpeakDuringTheQuietStart(NotificationKind kind, bool shown)
+    {
+        Assert.Equal(shown, OnboardingGuide.BelongsToStart(kind));
+    }
+
+    [Fact]
     public void TheFirstNightNeedsSomethingToLightUp()
     {
         // Tma nad táborákem není oslava. Až když stojí pár domů, je co rozsvítit.

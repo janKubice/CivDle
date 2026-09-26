@@ -1417,6 +1417,7 @@
     "onboarding.welcome.subtitle": "Zacznij od drzewa, na które wskazuje strzałka.",
     "onboarding.worksAlone.title": "Twoje miasto pracuje teraz samo.",
     "onboarding.worksAlone.subtitle": "{0} przybywa bez jednego kliknięcia. Buduj dalej, a miasto urośnie samo.",
+    "onboarding.worksAlone.subtitleAny": "Twoje budynki wytwarzają bez jednego kliknięcia. Buduj dalej, a miasto urośnie samo.",
     "onboarding.firstNight.title": "Pierwsza noc",
     "onboarding.firstNight.subtitle": "Okna się rozświetlają. Twoja wioska żyje także w ciemności.",
     "onboarding.safeToClose.title": "Śmiało możesz zamknąć grę.",
