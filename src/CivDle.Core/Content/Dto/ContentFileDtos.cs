@@ -245,7 +245,19 @@ public sealed record GameplayFileDto(
     PowerDto? Power,
     double? PopulationFillRate = null,
     OnboardingDto? Onboarding = null,
-    GovernorDto? Governor = null);
+    GovernorDto? Governor = null,
+    ChallengeRulesDto? ChallengeRules = null);
+
+/// <summary>Čísla pravidel výzev tak, jak leží v JSON (co chybí, je výchozí).</summary>
+public sealed record ChallengeRulesDto(
+    double? FloodSeaLevelRise,
+    int? OasisChunkTiles,
+    double? OasisShare,
+    int? DefenceFirstWaveTick,
+    double? DefenceWaveIntervalMult,
+    double? HighUpkeepMult,
+    double? NightFoodMult,
+    double? NightTimeOfDay);
 
 /// <summary>Guvernér jako plánovač cílů tak, jak leží v JSON.</summary>
 public sealed record GovernorDto(
@@ -601,7 +613,7 @@ public sealed record ZoneTypeDto(string? Id, string? MapColor, List<string>? Bui
 public sealed record PoliciesFileDto(int SchemaVersion, List<PolicyDto>? Policies);
 
 /// <summary>Jedna politika růstu tak, jak leží v JSON.</summary>
-public sealed record PolicyDto(string? Id, string? Effect, double Magnitude);
+public sealed record PolicyDto(string? Id, string? Effect, double Magnitude, string? UnlockedBy = null);
 
 /// <summary>Obsah souboru <c>data/features.json</c> (odemykatelné herní funkce).</summary>
 public sealed record FeaturesFileDto(int SchemaVersion, List<FeatureDto>? Features);
@@ -809,7 +821,8 @@ public sealed record ScenarioDto(
     GoalConditionDto? Goal,
     GoalConditionDto? FailBelow,
     double TimeLimitSeconds,
-    List<string>? Rules);
+    List<string>? Rules,
+    string? Biome = null);
 
 /// <summary>Přebití herních čísel scénářem. Co chybí, zůstane z gameplay.json.</summary>
 public sealed record GameplayOverrideDto(

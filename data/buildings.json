@@ -4698,6 +4698,436 @@
           "lanterns"
         ]
       }
+    },
+    {
+      "id": "founders_stone",
+      "category": "monument",
+      "mapColor": "#9A8F7A",
+      "footprint": [
+        1,
+        1
+      ],
+      "serviceValue": 10,
+      "buildCost": {
+        "stone": 60,
+        "wood": 20
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "unlockedBy": "challenge:first_thousand",
+      "look": {
+        "shape": "obelisk",
+        "wall": "#9A8F7A",
+        "roof": "#6F6656",
+        "accent": "#C9B27A",
+        "glow": "#FFD98A",
+        "features": [
+          "plants",
+          "lanterns"
+        ]
+      }
+    },
+    {
+      "id": "log_cabin",
+      "category": "housing",
+      "mapColor": "#7A5230",
+      "footprint": [
+        1,
+        1
+      ],
+      "housingCapacity": 8,
+      "buildCost": {
+        "wood": 14,
+        "planks": 4
+      },
+      "allowedBiomes": [
+        "forest",
+        "taiga",
+        "highlands",
+        "tundra",
+        "snow_peaks",
+        "glacier",
+        "grassland",
+        "steppe"
+      ],
+      "unlockedBy": "challenge:hard_winter",
+      "look": {
+        "shape": "hut",
+        "wall": "#7A5230",
+        "roof": "#5B3A22",
+        "accent": "#D9C7A0",
+        "features": [
+          "snow",
+          "chimney",
+          "windows"
+        ]
+      }
+    },
+    {
+      "id": "builders_guild",
+      "category": "civic",
+      "mapColor": "#8A6A45",
+      "footprint": [
+        2,
+        2
+      ],
+      "serviceValue": 6,
+      "buildCost": {
+        "planks": 60,
+        "stone": 40
+      },
+      "storage": {
+        "wood": 400,
+        "planks": 400,
+        "stone": 400
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "unlockedBy": "challenge:by_hand",
+      "look": {
+        "shape": "workshop",
+        "wall": "#8A6A45",
+        "roof": "#9C4A2E",
+        "accent": "#E0C080",
+        "features": [
+          "chimney",
+          "flag",
+          "windows"
+        ]
+      }
+    },
+    {
+      "id": "alley_house",
+      "category": "housing",
+      "mapColor": "#C8B89A",
+      "footprint": [
+        1,
+        1
+      ],
+      "housingCapacity": 12,
+      "buildCost": {
+        "planks": 10,
+        "stone": 10
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert"
+      ],
+      "paving": 0.0,
+      "unlockedBy": "challenge:no_roads",
+      "look": {
+        "shape": "house",
+        "wall": "#C8B89A",
+        "roof": "#8A5A3A",
+        "accent": "#6A8A4A",
+        "glow": "#FFD27A",
+        "features": [
+          "windows",
+          "plants",
+          "lanterns"
+        ]
+      }
+    },
+    {
+      "id": "stilt_house",
+      "category": "housing",
+      "mapColor": "#8C7250",
+      "footprint": [
+        1,
+        1
+      ],
+      "housingCapacity": 10,
+      "buildCost": {
+        "wood": 20,
+        "planks": 8
+      },
+      "allowedBiomes": [
+        "beach",
+        "swamp",
+        "mangrove"
+      ],
+      "requiresAdjacentWater": true,
+      "unlockedBy": "challenge:great_flood",
+      "look": {
+        "shape": "stilts",
+        "wall": "#8C7250",
+        "roof": "#B89A5A",
+        "accent": "#4A7A8C",
+        "features": [
+          "thatch_roof",
+          "water",
+          "ropes"
+        ]
+      }
+    },
+    {
+      "id": "desert_gate",
+      "category": "monument",
+      "mapColor": "#D9B779",
+      "footprint": [
+        3,
+        1
+      ],
+      "serviceValue": 20,
+      "buildCost": {
+        "stone": 300,
+        "bronze": 60
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "badlands"
+      ],
+      "unlockedBy": "challenge:only_sand",
+      "look": {
+        "shape": "arch",
+        "wall": "#D9B779",
+        "roof": "#B8894A",
+        "accent": "#3F7F9A",
+        "features": [
+          "stripes",
+          "flag",
+          "sand"
+        ]
+      }
+    },
+    {
+      "id": "castle_tower",
+      "category": "civic",
+      "mapColor": "#8D8A84",
+      "footprint": [
+        1,
+        1
+      ],
+      "workerSlots": 2,
+      "buildCost": {
+        "stone": 60,
+        "wood": 20
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "jungle",
+        "highlands"
+      ],
+      "defense": {
+        "range": 9,
+        "damage": 5,
+        "intervalTicks": 10
+      },
+      "paving": 0.0,
+      "unlockedBy": "challenge:on_the_walls",
+      "look": {
+        "shape": "tower",
+        "wall": "#8D8A84",
+        "roof": "#5D5A55",
+        "accent": "#A33A2A",
+        "glow": "#FFC46A",
+        "features": [
+          "flag",
+          "windows",
+          "lanterns"
+        ]
+      }
+    },
+    {
+      "id": "folk_school",
+      "category": "science",
+      "mapColor": "#D8CFB8",
+      "footprint": [
+        1,
+        1
+      ],
+      "workerSlots": 2,
+      "buildCost": {
+        "planks": 20,
+        "stone": 10
+      },
+      "recipe": {
+        "input": {
+          "food": 1
+        },
+        "output": {
+          "science": 2
+        },
+        "timeTicks": 60
+      },
+      "serviceValue": 5,
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "unlockedBy": "challenge:no_books",
+      "look": {
+        "shape": "house",
+        "wall": "#D8CFB8",
+        "roof": "#4E6F8A",
+        "accent": "#E8D27A",
+        "features": [
+          "windows",
+          "flag",
+          "chimney"
+        ]
+      }
+    },
+    {
+      "id": "lantern_square",
+      "category": "civic",
+      "mapColor": "#9A9080",
+      "footprint": [
+        2,
+        2
+      ],
+      "serviceValue": 14,
+      "buildCost": {
+        "stone": 80,
+        "planks": 40
+      },
+      "upkeep": {
+        "wood": 1
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "unlockedBy": "challenge:eternal_night",
+      "look": {
+        "shape": "plaza",
+        "wall": "#A39A88",
+        "roof": "#C9BFA8",
+        "accent": "#4A8AB0",
+        "glow": "#FFCF6A",
+        "features": [
+          "lanterns",
+          "plants"
+        ]
+      }
+    },
+    {
+      "id": "sprinters_clock",
+      "category": "monument",
+      "mapColor": "#B7A58A",
+      "footprint": [
+        1,
+        1
+      ],
+      "visualHeight": 2,
+      "serviceValue": 16,
+      "buildCost": {
+        "stone": 120,
+        "bronze": 30,
+        "tools": 20
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "unlockedBy": "challenge:sprint",
+      "look": {
+        "shape": "tower",
+        "wall": "#B7A58A",
+        "roof": "#3F5A78",
+        "accent": "#E6C34A",
+        "glow": "#FFE08A",
+        "features": [
+          "spire_top",
+          "windows",
+          "glow"
+        ]
+      }
+    },
+    {
+      "id": "hall_of_challenges",
+      "category": "monument",
+      "mapColor": "#E0D6C2",
+      "footprint": [
+        3,
+        3
+      ],
+      "serviceValue": 90,
+      "buildCost": {
+        "stone": 2000,
+        "bronze": 400,
+        "planks": 800
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "unlockedBy": "challenge:all",
+      "look": {
+        "shape": "hall",
+        "wall": "#E0D6C2",
+        "roof": "#7A2E3A",
+        "accent": "#D9B24A",
+        "glow": "#FFE3A0",
+        "features": [
+          "arches",
+          "flag",
+          "lanterns",
+          "dome_roof"
+        ]
+      }
     }
   ]
 }

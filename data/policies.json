@@ -3,6 +3,7 @@
   "policies": [
     { "id": "rapid_growth", "effect": "build_pace", "magnitude": 3 },
     { "id": "dense_housing", "effect": "housing_density", "magnitude": 0 },
-    { "id": "auto_expand", "effect": "auto_expand", "magnitude": 18 }
+    { "id": "auto_expand", "effect": "auto_expand", "magnitude": 18 },
+    { "id": "frugal_admin", "effect": "upkeep_discount", "magnitude": 40, "unlockedBy": "challenge:costly_upkeep" }
   ]
 }

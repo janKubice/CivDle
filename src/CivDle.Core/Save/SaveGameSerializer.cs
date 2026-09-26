@@ -31,9 +31,14 @@ public sealed class SaveGameSerializer
     /// Verze formátu. v6: + úkoly. v7: + skrýše. v8: + zasazené uzly. v9: + zóny.
     /// v10: + politiky. v11: + guvernér. v12: + známé suroviny. v13: + zásahy do světa.
     /// <b>v14: sekční formát</b> — od téhle verze se čísluje jen kvůli přehledu,
-    /// přidání sekce už kompatibilitu neruší.
+    /// přidání sekce už kompatibilitu neruší. v15: + ID výzvy v hlavičce (svět
+    /// výzvy se skládá jinak — zatopení, jeden biom — a čtečka to musí vědět
+    /// dřív, než postaví terén).
     /// </summary>
-    public const int FormatVersion = 14;
+    public const int FormatVersion = 15;
+
+    /// <summary>První verze s ID výzvy v hlavičce.</summary>
+    private const int FirstScenarioHeaderVersion = 15;
 
     /// <summary>První verze se sekčním tělem (starší se čtou lineárně).</summary>
     private const int FirstSectionedVersion = 14;
@@ -212,6 +217,7 @@ public sealed class SaveGameSerializer
         writer.Write(metadata.Seed);
         writer.Write(metadata.SizeId);
         writer.Write(metadata.PresetId);
+        writer.Write(simulation.Scenario?.Id ?? string.Empty);
 
         WriteSection(writer, SectionCore, w =>
         {
@@ -550,10 +556,25 @@ public sealed class SaveGameSerializer
             string presetId = reader.ReadString();
             var metadata = new SaveMetadata(seed, sizeId, presetId, savedAt);
 
-            // Terén se rekonstruuje z presetu + seedu — bit za bit stejný jako při uložení.
-            var preset = FindPreset(content, presetId);
-            var terrain = new ProceduralTerrain(content.Biomes, preset, seed);
-            var simulation = new Simulation(content, terrain, seed);
+            string scenarioId = version >= FirstScenarioHeaderVersion ? reader.ReadString() : string.Empty;
+            int scenarioIndex = scenarioId.Length > 0 ? content.Scenarios.IndexOf(scenarioId) : -1;
+
+            // Terén se rekonstruuje z presetu + seedu — bit za bit stejný jako při
+            // uložení. Svět výzvy skládá ScenarioWorld (přebitá čísla, zatopení,
+            // jeden biom), stejně jako při startu.
+            Simulation simulation;
+            if (scenarioIndex >= 0)
+            {
+                var scenario = content.Scenarios[scenarioIndex];
+                var scenarioContent = ScenarioWorld.ContentFor(content, scenario);
+                simulation = new Simulation(scenarioContent, ScenarioWorld.TerrainFor(scenarioContent, scenario), seed);
+            }
+            else
+            {
+                var preset = FindPreset(content, presetId);
+                var terrain = new ProceduralTerrain(content.Biomes, preset, seed);
+                simulation = new Simulation(content, terrain, seed);
+            }
 
             if (version >= FirstSectionedVersion)
             {

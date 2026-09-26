@@ -1872,6 +1872,104 @@ public class ContentLoaderTests : IDisposable
         Assert.Contains("scenario.test", ex.Message);
     }
 
+    [Theory]
+    [InlineData("\"rules\": [\"singleBiome\"]", "biome")]
+    [InlineData("\"biome\": \"grass\"", "singleBiome")]
+    [InlineData("\"rules\": [\"singleBiome\"], \"biome\": \"water\"", "voda")]
+    [InlineData("\"rules\": [\"singleBiome\"], \"biome\": \"lava\"", "lava")]
+    public void Scenario_BadSingleBiome_Throws(string fields, string expected)
+    {
+        // Pravidlo bez biomu neví, čím svět zaplnit; biom bez pravidla by tiše
+        // nic nedělal; voda jako souš nedává smysl. Všechno spadne při startu.
+        WriteWorldWithScenario($$"""
+        { "id": "test", "seed": 1, "goal": { "metric": "population", "target": 10 }, {{fields}} }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
+    [Fact]
+    public void Scenario_SingleBiome_LoadsTheBiome()
+    {
+        WriteWorldWithScenario("""
+        { "id": "test", "seed": 1, "goal": { "metric": "population", "target": 10 },
+          "rules": ["singleBiome", "noRoads", "floodedWorld", "defenceFromStart", "noResearch", "highUpkeep", "nightWorld"],
+          "biome": "grass" }
+        """);
+
+        var scenario = Load().Scenarios[0];
+
+        Assert.Equal(1, scenario.BiomeIndex);
+        Assert.True(scenario.Has(ScenarioRule.NightWorld));
+        Assert.Equal(7, scenario.Rules.Count);
+    }
+
+    [Fact]
+    public void Scenario_NamedAll_Throws()
+    {
+        // „all" je vyhrazené: challenge:all znamená „všechny výzvy" (odměna Mistra).
+        WriteWorldWithScenario("""{ "id": "all", "seed": 1, "goal": { "metric": "population", "target": 10 } }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("all", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("challenge:nope", "neexistující")]
+    [InlineData("tech:writing", "unlockedBy")]
+    public void Policy_BadUnlock_Throws(string unlock, string expected)
+    {
+        // Politika zamčená na výzvu, která neexistuje, by se nedala zapnout nikdy.
+        WriteAllValid();
+        Write("policies.json", $$"""
+        {
+          "schemaVersion": 1,
+          "policies": [ { "id": "frugal", "effect": "upkeep_discount", "magnitude": 40, "unlockedBy": "{{unlock}}" } ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
+    [Theory]
+    [InlineData("\"highUpkeepMult\": 0.5", "highUpkeepMult")]
+    [InlineData("\"nightFoodMult\": 0", "nightFoodMult")]
+    [InlineData("\"floodSeaLevelRise\": 0.7", "floodSeaLevelRise")]
+    [InlineData("\"oasisShare\": 0", "oasisShare")]
+    [InlineData("\"defenceWaveIntervalMult\": 2", "defenceWaveIntervalMult")]
+    public void ChallengeRules_OutOfRange_Throws(string field, string expected)
+    {
+        // „Drahý provoz", který zlevní, nebo noc, ve které nic neroste vůbec,
+        // jsou chyby v datech — ne výzvy.
+        WriteAllValid();
+        WriteGameplayWith($$"""
+          "challengeRules": { {{field}} }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
+    [Fact]
+    public void ChallengeRules_MissingFieldsKeepDefaults()
+    {
+        WriteAllValid();
+        WriteGameplayWith("""
+          "challengeRules": { "highUpkeepMult": 4 }
+        """);
+
+        var rules = Load().Gameplay.ChallengeRules;
+
+        Assert.Equal(4, rules.HighUpkeepMult);
+        Assert.Equal(ChallengeRulesConfig.Default.NightFoodMult, rules.NightFoodMult);
+    }
+
     /// <summary>Minimální data + jeden scénář (i s jeho jménem a popisem v jazycích).</summary>
     private void WriteWorldWithScenario(string scenarioJson)
     {

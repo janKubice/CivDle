@@ -40,6 +40,13 @@ public sealed class SaveStore
 
     private TimelapseStore? _timelapses;
 
+    /// <summary>
+    /// Druhý slot vedle tohohle (stejná složka, jiný soubor). Výzvy mají vlastní
+    /// slot: rozehraná výzva nesmí přepsat hlavní město — dřív to udělala.
+    /// </summary>
+    public SaveStore Sibling(string fileName) =>
+        new(Path.Combine(Path.GetDirectoryName(_filePath) ?? ".", fileName));
+
     /// <summary>Uloží hru; false = zápis selhal (plný disk, práva…).</summary>
     public bool TrySave(Simulation simulation, SaveMetadata metadata)
     {

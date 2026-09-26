@@ -15,8 +15,15 @@ namespace CivDle.Core.Content;
 /// <param name="Id">Stabilní ID.</param>
 /// <param name="Effect">Behavior-ID efektu (např. „build_pace", „housing_density").</param>
 /// <param name="Magnitude">Síla efektu (význam závisí na efektu; 0 = neškálované).</param>
-public sealed record GrowthPolicyDef(string Id, string Effect, double Magnitude)
+/// <param name="UnlockedBy">
+/// Odměna za výzvu nebo Velký cíl (<c>challenge:&lt;id&gt;</c>, <c>quest:&lt;id&gt;</c>);
+/// dokud chybí, politika se nedá zapnout. <c>null</c> = dostupná vždy.
+/// </param>
+public sealed record GrowthPolicyDef(string Id, string Effect, double Magnitude, string? UnlockedBy = null)
 {
+    /// <summary>Je politika odměnou, kterou si hráč musí nejdřív vysloužit?</summary>
+    public bool IsRewardLocked => UnlockedBy is not null;
+
     /// <summary>Lokalizační klíč jména politiky.</summary>
     public string NameKey => $"policy.{Id}";
 

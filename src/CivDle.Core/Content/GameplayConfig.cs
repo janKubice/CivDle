@@ -84,6 +84,35 @@ public sealed record DayNightConfig(
     double DuskAlpha);
 
 /// <summary>
+/// Čísla zvláštních pravidel výzev (<see cref="ScenarioRule"/>).
+///
+/// <para>Pravidlo je behavior-ID — <b>co</b> se děje, ví kód. <b>Jak moc</b>
+/// (o kolik stoupne moře, kolikrát dražší je údržba) je balanc, a ten patří do
+/// dat jako každé jiné číslo hry. Výzva tak jde doladit bez překladu.</para>
+/// </summary>
+/// <param name="FloodSeaLevelRise">O kolik se zvedne hladina moře (0–1 výšky) při <c>floodedWorld</c>.</param>
+/// <param name="OasisChunkTiles">Velikost čtverce oázy v dlaždicích při <c>singleBiome</c>.</param>
+/// <param name="OasisShare">Jaký podíl čtverců zůstane původní krajinou (oázy s lesem, polem, skálou).</param>
+/// <param name="DefenceFirstWaveTick">Kdy přijde první vlna při <c>defenceFromStart</c>.</param>
+/// <param name="DefenceWaveIntervalMult">Násobič rozestupu vln při <c>defenceFromStart</c> (&lt; 1 = častěji).</param>
+/// <param name="HighUpkeepMult">Násobič údržby služeb při <c>highUpkeep</c>.</param>
+/// <param name="NightFoodMult">Násobič výroby jídla při <c>nightWorld</c> (pole bez slunce).</param>
+/// <param name="NightTimeOfDay">Denní čas, na kterém věčná noc stojí (0 = půlnoc).</param>
+public sealed record ChallengeRulesConfig(
+    double FloodSeaLevelRise,
+    int OasisChunkTiles,
+    double OasisShare,
+    int DefenceFirstWaveTick,
+    double DefenceWaveIntervalMult,
+    double HighUpkeepMult,
+    double NightFoodMult,
+    double NightTimeOfDay)
+{
+    /// <summary>Výchozí čísla, když je <c>gameplay.json</c> neuvádí (starší data, mody).</summary>
+    public static ChallengeRulesConfig Default { get; } = new(0.12, 8, 0.2, 1200, 0.5, 2.0, 0.6, 0.0);
+}
+
+/// <summary>
 /// Globální parametry herní smyčky z <c>data/gameplay.json</c> — čísla balancu
 /// patří do dat, ne do kódu. Hodnoty „za sekundu" si systémy přepočítávají
 /// na tiky přes <c>Simulation.TicksPerSecond</c>.
@@ -537,8 +566,12 @@ public sealed record GameplayConfig(
     PowerConfig? PowerOrNull = null,
     double PopulationFillRate = 0.0,
     OnboardingConfig? OnboardingOrNull = null,
-    GovernorConfig? GovernorOrNull = null)
+    GovernorConfig? GovernorOrNull = null,
+    ChallengeRulesConfig? ChallengeRulesOrNull = null)
 {
+    /// <summary>Čísla zvláštních pravidel výzev (<c>challengeRules</c>); chybí-li blok, platí výchozí.</summary>
+    public ChallengeRulesConfig ChallengeRules => ChallengeRulesOrNull ?? ChallengeRulesConfig.Default;
+
     /// <summary>Úvod do hry (rychlý start, místo startu, první den); bez bloku v datech vypnutý.</summary>
     public OnboardingConfig Onboarding => OnboardingOrNull ?? OnboardingConfig.Disabled;
 

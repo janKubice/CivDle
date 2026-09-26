@@ -14,10 +14,7 @@
       "id": "hard_winter",
       "seed": 19470131,
       "preset": "islands",
-      "gameplay": {
-        "populationGrowthPerSecond": 0.05,
-        "foodPerPersonPerSecond": 0.09
-      },
+      "gameplay": { "populationGrowthPerSecond": 0.05, "foodPerPersonPerSecond": 0.09 },
       "startingResources": { "wood": 200, "food": 400 },
       "goal": { "metric": "population", "target": 300 },
       "failBelow": { "metric": "population", "target": 0 },
@@ -33,6 +30,80 @@
       "goal": { "metric": "buildings", "target": 120 },
       "timeLimitSeconds": 2400,
       "rules": ["noAutoBuild", "noAscension"]
+    },
+    {
+      "id": "no_roads",
+      "seed": 5150,
+      "preset": "continents",
+      "startingResources": { "wood": 150, "planks": 80, "stone": 80, "food": 250 },
+      "goal": { "metric": "population", "target": 800 },
+      "timeLimitSeconds": 3300,
+      "rules": ["noRoads", "noAscension"]
+    },
+    {
+      "id": "great_flood",
+      "seed": 1953,
+      "preset": "continents",
+      "startingResources": { "wood": 150, "planks": 80, "stone": 80, "food": 300 },
+      "goal": { "metric": "population", "target": 800 },
+      "timeLimitSeconds": 3600,
+      "rules": ["floodedWorld", "noAscension"]
+    },
+    {
+      "id": "only_sand",
+      "seed": 1935,
+      "preset": "pangaea",
+      "biome": "desert",
+      "startingResources": { "wood": 200, "planks": 100, "stone": 100, "food": 400 },
+      "goal": { "metric": "population", "target": 700 },
+      "timeLimitSeconds": 3600,
+      "rules": ["singleBiome", "noAscension"]
+    },
+    {
+      "id": "on_the_walls",
+      "seed": 1683,
+      "preset": "continents",
+      "startingResources": { "wood": 200, "planks": 100, "stone": 150, "food": 300 },
+      "goal": { "metric": "waves", "target": 20 },
+      "failBelow": { "metric": "population", "target": 0 },
+      "timeLimitSeconds": 0,
+      "rules": ["defenceFromStart", "noAscension"]
+    },
+    {
+      "id": "no_books",
+      "seed": 451,
+      "preset": "continents",
+      "startingResources": { "wood": 150, "planks": 80, "stone": 80, "food": 250 },
+      "goal": { "metric": "population", "target": 800 },
+      "timeLimitSeconds": 3000,
+      "rules": ["noResearch", "noAscension"]
+    },
+    {
+      "id": "costly_upkeep",
+      "seed": 1929,
+      "preset": "continents",
+      "startingResources": { "wood": 150, "planks": 80, "stone": 80, "food": 300 },
+      "goal": { "metric": "population", "target": 1000 },
+      "timeLimitSeconds": 3300,
+      "rules": ["highUpkeep", "noAscension"]
+    },
+    {
+      "id": "eternal_night",
+      "seed": 1816,
+      "preset": "continents",
+      "startingResources": { "wood": 150, "planks": 80, "stone": 80, "food": 400 },
+      "goal": { "metric": "population", "target": 1000 },
+      "timeLimitSeconds": 3300,
+      "rules": ["nightWorld", "noAscension"]
+    },
+    {
+      "id": "sprint",
+      "seed": 1936,
+      "preset": "pangaea",
+      "startingResources": { "wood": 150, "planks": 80, "stone": 80, "food": 250 },
+      "goal": { "metric": "population", "target": 400 },
+      "timeLimitSeconds": 1500,
+      "rules": ["noAscension"]
     }
   ]
 }

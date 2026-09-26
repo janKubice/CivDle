@@ -474,7 +474,11 @@ internal sealed class HappinessSystem
             return true;
         }
 
-        if (!CanPay(resources, sim.Claim.Amounts, def.Upkeep))
+        // Násobič údržby (výzva „Drahý provoz", politika „Úsporná správa")
+        // sahá na obojí — na to, jestli na údržbu je, i na to, kolik se strhne.
+        // Kdyby se zdražila jen platba, služba by „měla na to" a pak šla do mínusu.
+        double mult = sim.UpkeepMult;
+        if (!CanPay(resources, sim.Claim.Amounts, def.Upkeep, mult))
         {
             return false; // nezaplacená údržba = budova neslouží
         }
@@ -483,20 +487,21 @@ internal sealed class HappinessSystem
         {
             for (int u = 0; u < def.Upkeep.Count; u++)
             {
-                resources[def.Upkeep[u].ResourceIndex] -= def.Upkeep[u].Amount;
-                sim.Ledger.RecordConsumed(def.Upkeep[u].ResourceIndex, def.Upkeep[u].Amount, ConsumptionKind.Upkeep);
+                double amount = def.Upkeep[u].Amount * mult;
+                resources[def.Upkeep[u].ResourceIndex] -= amount;
+                sim.Ledger.RecordConsumed(def.Upkeep[u].ResourceIndex, amount, ConsumptionKind.Upkeep);
             }
         }
 
         return true;
     }
 
-    private static bool CanPay(double[] resources, double[] claimed, IReadOnlyList<ResourceAmount> upkeep)
+    private static bool CanPay(double[] resources, double[] claimed, IReadOnlyList<ResourceAmount> upkeep, double mult)
     {
         for (int i = 0; i < upkeep.Count; i++)
         {
             int index = upkeep[i].ResourceIndex;
-            if (resources[index] - claimed[index] < upkeep[i].Amount)
+            if (resources[index] - claimed[index] < upkeep[i].Amount * mult)
             {
                 return false;
             }

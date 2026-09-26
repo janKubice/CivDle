@@ -40,6 +40,11 @@ internal sealed class StreetGridPaver
     /// </summary>
     public bool PaveBlockAround(Simulation sim, int x, int y)
     {
+        if (!sim.RoadsAllowed)
+        {
+            return false; // výzva „Město bez cest"
+        }
+
         int left = CityLayout.BlockOrigin(x);
         int top = CityLayout.BlockOrigin(y);
         if (CountBuildings(sim, left, top) < MinBuildingsForStreets)

@@ -249,5 +249,16 @@
       "buildings": ["house", "farm", "lumber_camp"]
     },
     "firstDay": { "seconds": 270, "until": 0.72 }
+  },
+  "challengeRules": {
+    "_comment": "Čísla zvláštních pravidel výzev (scenarios.json → rules). Co pravidlo dělá, ví kód; tady je jen jak moc.",
+    "floodSeaLevelRise": 0.12,
+    "oasisChunkTiles": 8,
+    "oasisShare": 0.2,
+    "defenceFirstWaveTick": 1200,
+    "defenceWaveIntervalMult": 0.5,
+    "highUpkeepMult": 3.0,
+    "nightFoodMult": 0.5,
+    "nightTimeOfDay": 0.0
   }
 }

@@ -66,6 +66,25 @@ public sealed class PlayerProfile
     /// <summary>Kolik denních výzev už hráč splnil (celkem, napříč hrami).</summary>
     public int ChallengesCompleted { get; set; }
 
+    /// <summary>
+    /// ID dohraných výzev (scénářů). Odměna výzvy patří hráči, ne jednomu světu:
+    /// každá další hra z tohohle seznamu dostane klíče odemčení
+    /// (<see cref="Content.ChallengeRewards"/>). Proto profil, ne save.
+    /// </summary>
+    public List<string> WonChallenges { get; set; } = new();
+
+    /// <summary>Zapíše výzvu jako dohranou; vrací false, když už byla.</summary>
+    public bool MarkChallengeWon(string scenarioId)
+    {
+        if (WonChallenges.Contains(scenarioId))
+        {
+            return false;
+        }
+
+        WonChallenges.Add(scenarioId);
+        return true;
+    }
+
     /// <summary>Nejvíc sídel (osad, měst…) v jednom světě.</summary>
     public int BestSettlements { get; set; }
 

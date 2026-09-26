@@ -107,7 +107,8 @@ internal sealed class ProductionSystem
         // Roční období sahá jen na jídlo — zima podvazuje pole, ne hutě. Index
         // jídla i násobič se čtou jednou za tik, ne u každé budovy.
         int foodIndex = _content.Gameplay.FoodResourceIndex;
-        double seasonFoodMult = sim.SeasonFoodMult * sim.RainFoodMult; // déšť z modlitby jde na pole
+        // Déšť z modlitby jde na pole; věčná noc (výzva) je naopak podvazuje.
+        double seasonFoodMult = sim.SeasonFoodMult * sim.RainFoodMult * sim.NightFoodMult;
         double disconnectedMult = _content.Gameplay.Roads.DisconnectedProductionMult;
         for (int i = 0; i < buildings.Length; i++)
         {

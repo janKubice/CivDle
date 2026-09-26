@@ -657,6 +657,11 @@ public sealed class Simulation
             return DiplomacyResult.Ok;
         }
 
+        if (!RoadsAllowed)
+        {
+            return DiplomacyResult.NoRoute; // výzva „Město bez cest"
+        }
+
         if (!CanPay(_content.NpcCities.RoadCost))
         {
             return DiplomacyResult.NotEnoughResources;
@@ -1090,6 +1095,52 @@ public sealed class Simulation
     /// <summary>Platí v téhle hře zvláštní pravidlo scénáře?</summary>
     public bool ScenarioRuleActive(ScenarioRule rule) => Scenario?.Has(rule) == true;
 
+    // Pravidla, na která se ptá tiková smyčka (napojení na silnice u každé
+    // budovy, údržba každé služby), se čtou z polí, ne z definice scénáře —
+    // hledání v seznamu pravidel by stálo tisíce dotazů za tik.
+    private bool _noRoads;
+    private bool _noResearch;
+    private bool _nightWorld;
+    private bool _highUpkeep;
+
+    private void CacheScenarioRules()
+    {
+        _noRoads = ScenarioRuleActive(ScenarioRule.NoRoads);
+        _noResearch = ScenarioRuleActive(ScenarioRule.NoResearch);
+        _nightWorld = ScenarioRuleActive(ScenarioRule.NightWorld);
+        _highUpkeep = ScenarioRuleActive(ScenarioRule.HighUpkeep);
+        RecomputeUpkeepMult();
+    }
+
+    /// <summary>
+    /// Smí se ve hře stavět silnice? Výzva „Město bez cest" je zakáže hráči
+    /// i guvernérovi.
+    /// </summary>
+    public bool RoadsAllowed => !_noRoads;
+
+    /// <summary>Smí se ve hře zkoumat? Výzva „Bez knih" výzkum zakáže.</summary>
+    public bool ResearchAllowed => !_noResearch;
+
+    /// <summary>Stojí hra ve věčné noci (výzva „Věčná noc")?</summary>
+    public bool IsEternalNight => _nightWorld;
+
+    /// <summary>
+    /// Násobič výroby jídla ve věčné noci — pole bez slunce rodí méně. Mimo
+    /// výzvu 1.
+    /// </summary>
+    public double NightFoodMult => _nightWorld ? _content.Gameplay.ChallengeRules.NightFoodMult : 1.0;
+
+    /// <summary>
+    /// Násobič údržby služeb a čističek: výzva „Drahý provoz" ho zvedne,
+    /// politika „Úsporná správa" sníží. Počítá se při změně, ne za tik.
+    /// </summary>
+    public double UpkeepMult { get; private set; } = 1.0;
+
+    private double _policyUpkeepMult = 1.0;
+
+    private void RecomputeUpkeepMult() =>
+        UpkeepMult = (_highUpkeep ? _content.Gameplay.ChallengeRules.HighUpkeepMult : 1.0) * _policyUpkeepMult;
+
     /// <summary>
     /// Kolik sekund do konce; <see cref="double.PositiveInfinity"/> = bez limitu.
     /// </summary>
@@ -1120,11 +1171,19 @@ public sealed class Simulation
 
         ScenarioIndex = index;
         ScenarioResult = ScenarioOutcome.Running;
+        CacheScenarioRules();
 
         var starting = _content.Scenarios[index].StartingResources;
         for (int i = 0; i < starting.Count; i++)
         {
             AddResource(starting[i].ResourceIndex, starting[i].Amount);
+        }
+
+        // „Na hradbách": obrana od první minuty. Stav hry jako u volné hry
+        // s obranou — ukládá se a po načtení platí dál.
+        if (_content.Scenarios[index].Has(ScenarioRule.DefenceFromStart))
+        {
+            EnableFrontierDefense();
         }
     }
 
@@ -1135,6 +1194,7 @@ public sealed class Simulation
         {
             ScenarioIndex = index;
             ScenarioResult = outcome;
+            CacheScenarioRules();
         }
     }
 
@@ -1960,6 +2020,13 @@ public sealed class Simulation
     {
         get
         {
+            // Věčná noc stojí — dny (a s nimi roční období) ale běží dál,
+            // jen slunce nevyjde.
+            if (_nightWorld)
+            {
+                return _content.Gameplay.ChallengeRules.NightTimeOfDay;
+            }
+
             double elapsedDays = ElapsedDays;
             return elapsedDays - Math.Floor(elapsedDays);
         }
@@ -3231,9 +3298,15 @@ public sealed class Simulation
     /// předá hra z profilu (<see cref="SetProfileUnlocks"/>) — simulace profil
     /// nezná a číst ho sama nemá.
     /// </summary>
-    public bool IsRewardUnlocked(BuildingDef def)
+    public bool IsRewardUnlocked(BuildingDef def) => IsUnlockMet(def.UnlockedBy);
+
+    /// <summary>
+    /// Je splněný klíč odemčení (<c>quest:&lt;id&gt;</c>, <c>challenge:&lt;id&gt;</c>)?
+    /// <c>null</c> = nic se neodemyká, platí vždy.
+    /// </summary>
+    public bool IsUnlockMet(string? unlockKey)
     {
-        if (def.UnlockedBy is not { } unlock)
+        if (unlockKey is not { } unlock)
         {
             return true;
         }
@@ -3652,6 +3725,12 @@ public sealed class Simulation
     /// </summary>
     public bool IsBuildingConnected(int buildingIndex)
     {
+        // Město bez cest: svoz trpí všude, žádná budova napojená není.
+        if (_noRoads)
+        {
+            return false;
+        }
+
         if (_roads.Count == 0)
         {
             return true;
@@ -4076,6 +4155,11 @@ public sealed class Simulation
     /// <summary>Lze na dlaždici položit silnici? (Zastavěno, už silnice, nebo vysazený zdroj = ne.)</summary>
     public PlacementResult CanBuildRoad(int x, int y)
     {
+        if (_noRoads)
+        {
+            return PlacementResult.NotUnlocked;
+        }
+
         long tile = TileKey.Pack(x, y);
         if (_roads.Contains(tile))
         {
@@ -6098,10 +6182,27 @@ public sealed class Simulation
     /// <summary>Je politika zapnutá?</summary>
     public bool IsPolicyActive(int policyIndex) => _policiesActive[policyIndex];
 
-    /// <summary>Příkaz hráče: přepne politiku a přepočítá její vliv na růst; vrací nový stav.</summary>
+    /// <summary>
+    /// Smí se politika zapnout? Odměny za výzvy a Velké cíle
+    /// (<see cref="GrowthPolicyDef.UnlockedBy"/>) až po zasloužení.
+    /// </summary>
+    public bool IsPolicyAvailable(int policyIndex) =>
+        policyIndex >= 0 && policyIndex < _policiesActive.Length
+        && IsUnlockMet(_content.Policies[policyIndex].UnlockedBy);
+
+    /// <summary>
+    /// Příkaz hráče: přepne politiku a přepočítá její vliv na růst; vrací nový stav.
+    /// Zamčenou politiku zapnout nejde; vypnout ano vždycky — hráč nesmí zůstat
+    /// uvězněný v pravidle, které už neumí vrátit.
+    /// </summary>
     public bool TogglePolicy(int policyIndex)
     {
         if (policyIndex < 0 || policyIndex >= _policiesActive.Length)
+        {
+            return false;
+        }
+
+        if (!_policiesActive[policyIndex] && !IsPolicyAvailable(policyIndex))
         {
             return false;
         }
@@ -6142,6 +6243,7 @@ public sealed class Simulation
         bool preferDensity = false;
         bool autoExpand = false;
         int colonyDistance = DefaultColonyDistance;
+        double upkeepMult = 1.0;
         for (int i = 0; i < _policiesActive.Length; i++)
         {
             if (!_policiesActive[i])
@@ -6166,8 +6268,16 @@ public sealed class Simulation
                     }
 
                     break;
+                case "upkeep_discount":
+                    // Síla v procentech; strop 90 %, aby služby nikdy nebyly zadarmo
+                    // a údržba neztratila smysl úplně.
+                    upkeepMult *= 1.0 - Math.Clamp(policy.Magnitude, 0, 90) / 100.0;
+                    break;
             }
         }
+
+        _policyUpkeepMult = upkeepMult;
+        RecomputeUpkeepMult();
 
         BuildsPerInterval = buildsPerInterval;
         PreferHousingDensity = preferDensity;
@@ -8057,7 +8167,7 @@ public sealed class Simulation
     /// </summary>
     public PlacementResult CanResearch(int techIndex)
     {
-        if (IsTechBeyondDemo(techIndex))
+        if (_noResearch || IsTechBeyondDemo(techIndex))
         {
             return PlacementResult.NotUnlocked;
         }

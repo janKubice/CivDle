@@ -245,6 +245,16 @@ public sealed class GameContent
         Fauna, Devlog, ZoneTypes, Policies, AscensionTiers, Weather, Landmarks, Features, Ufo,
         Ambience, Terraform, Tutorial, Challenges, Contracts, Districts, SettlementRanks, Citizens, Elections, Milestones, Seasons, Faith, NpcCities, Vehicles, Mods, GrandWork, Legacy, LegacyUpgrades, Aircraft, Orbit, Frontier, Figures, Chronicle, Carillon, Scenarios, PointsOfInterest, Doctrines);
 
+    /// <summary>
+    /// Kopie obsahu s jiným nastavením obrany. Výzva „Na hradbách" potřebuje
+    /// častější vlny, aniž by se měnila data volné hry.
+    /// </summary>
+    public GameContent WithFrontier(FrontierConfig frontier) => new(
+        Biomes, Resources, Buildings, Techs, Prestige, PrestigeUpgrades, Quests, QuestsDynamic,
+        Achievements, Events, Eras, WorldGen, Gameplay, Languages, SettlementNames, Decorations,
+        Fauna, Devlog, ZoneTypes, Policies, AscensionTiers, Weather, Landmarks, Features, Ufo,
+        Ambience, Terraform, Tutorial, Challenges, Contracts, Districts, SettlementRanks, Citizens, Elections, Milestones, Seasons, Faith, NpcCities, Vehicles, Mods, GrandWork, Legacy, LegacyUpgrades, Aircraft, Orbit, frontier, Figures, Chronicle, Carillon, Scenarios, PointsOfInterest, Doctrines);
+
     /// <summary>Milníky postupu z <c>data/milestones.json</c> (smí být prázdné).</summary>
     public IReadOnlyList<MilestoneDef> Milestones { get; }
 

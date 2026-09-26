@@ -97,7 +97,7 @@ internal sealed class PollutionSystem
             }
 
             var def = _content.Buildings[defIndex];
-            if (def.Pollution.IsCleaner && !TryPayUpkeep(resources, sim.Claim.Amounts, def.Upkeep, sim.Ledger))
+            if (def.Pollution.IsCleaner && !TryPayUpkeep(resources, sim.Claim.Amounts, def.Upkeep, sim.UpkeepMult, sim.Ledger))
             {
                 continue; // vypnutá čistička nečistí (a hráč to na mapě uvidí)
             }
@@ -199,16 +199,17 @@ internal sealed class PollutionSystem
 
     /// <summary>
     /// Strhne údržbu, jde-li zaplatit celá. Půlka údržby by znamenala půlku
-    /// čištění za plnou cenu — buď čistička jede, nebo stojí.
+    /// čištění za plnou cenu — buď čistička jede, nebo stojí. Násobič údržby
+    /// (<see cref="Simulation.UpkeepMult"/>) platí stejně jako u služeb.
     /// </summary>
     private static bool TryPayUpkeep(
-        double[] resources, double[] claimed, IReadOnlyList<ResourceAmount> upkeep, ResourceLedger ledger)
+        double[] resources, double[] claimed, IReadOnlyList<ResourceAmount> upkeep, double mult, ResourceLedger ledger)
     {
         // Jen z přebytku nad rezervou guvernéra, stejně jako údržba služeb.
         for (int i = 0; i < upkeep.Count; i++)
         {
             int index = upkeep[i].ResourceIndex;
-            if (resources[index] - claimed[index] < upkeep[i].Amount)
+            if (resources[index] - claimed[index] < upkeep[i].Amount * mult)
             {
                 return false;
             }
@@ -216,8 +217,9 @@ internal sealed class PollutionSystem
 
         for (int i = 0; i < upkeep.Count; i++)
         {
-            resources[upkeep[i].ResourceIndex] -= upkeep[i].Amount;
-            ledger.RecordConsumed(upkeep[i].ResourceIndex, upkeep[i].Amount, ConsumptionKind.Upkeep);
+            double amount = upkeep[i].Amount * mult;
+            resources[upkeep[i].ResourceIndex] -= amount;
+            ledger.RecordConsumed(upkeep[i].ResourceIndex, amount, ConsumptionKind.Upkeep);
         }
 
         return true;

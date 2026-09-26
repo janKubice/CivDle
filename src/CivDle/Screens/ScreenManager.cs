@@ -40,8 +40,19 @@ public sealed class ScreenManager
     /// </summary>
     public IPlatformServices Platform { get; }
 
-    /// <summary>Úložiště uložené hry (jeden slot, MVP).</summary>
+    /// <summary>Úložiště hlavní hry (jeden slot).</summary>
     public SaveStore Saves { get; }
+
+    /// <summary>
+    /// Úložiště rozehrané výzvy — vedle hlavního savu, nikdy místo něj. Hráč,
+    /// který si odskočí na hodinovou výzvu, se musí vrátit do svého města.
+    /// </summary>
+    public SaveStore ChallengeSaves => _challengeSaves ??= Saves.Sibling("challenge.civdle");
+
+    private SaveStore? _challengeSaves;
+
+    /// <summary>Kam patří save téhle hry: výzva do svého slotu, volná hra do hlavního.</summary>
+    public SaveStore SavesFor(Core.Sim.Simulation simulation) => simulation.InScenario ? ChallengeSaves : Saves;
 
     /// <summary>
     /// Kamarádi ze Steamu — jména a obličeje pro karavany.

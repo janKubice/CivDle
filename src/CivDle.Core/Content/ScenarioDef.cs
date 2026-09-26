@@ -15,6 +15,33 @@ public enum ScenarioRule
 
     /// <summary>Vzestup je zakázaný — scénář je jeden běh, ne nekonečná spirála.</summary>
     NoAscension,
+
+    /// <summary>
+    /// Silnice se nestaví (ani hráč, ani guvernér) a každá budova výrobně jede
+    /// jako nenapojená — svoz trpí, město musí být kompaktní.
+    /// </summary>
+    NoRoads,
+
+    /// <summary>Generátor zvedne hladinu moře; souše je málo (<c>challengeRules.floodSeaLevelRise</c>).</summary>
+    FloodedWorld,
+
+    /// <summary>
+    /// Celá souš je jeden biom (<see cref="ScenarioDef.BiomeIndex"/>), jen řídké
+    /// oázy zůstanou původní krajinou — jinak by svět neměl dřevo ani pole.
+    /// </summary>
+    SingleBiome,
+
+    /// <summary>Obrana je zapnutá od první minuty a vlny chodí častěji.</summary>
+    DefenceFromStart,
+
+    /// <summary>Výzkum je zakázaný; hraje se jen s tím, co je odemčené od začátku.</summary>
+    NoResearch,
+
+    /// <summary>Údržba služeb je dražší (<c>challengeRules.highUpkeepMult</c>).</summary>
+    HighUpkeep,
+
+    /// <summary>Věčná noc: slunce nevyjde a pole bez něj dávají méně jídla.</summary>
+    NightWorld,
 }
 
 /// <summary>
@@ -79,6 +106,10 @@ public sealed record GameplayOverride(
 /// </param>
 /// <param name="TimeLimitSeconds">Časový limit v sekundách herního času; 0 = žádný.</param>
 /// <param name="Rules">Zvláštní pravidla navíc.</param>
+/// <param name="BiomeIndex">
+/// Biom souše pro <see cref="ScenarioRule.SingleBiome"/>; −1 = pravidlo neplatí.
+/// Loader hlídá, že jedno bez druhého nejde.
+/// </param>
 public sealed record ScenarioDef(
     string Id,
     long Seed,
@@ -88,7 +119,8 @@ public sealed record ScenarioDef(
     Sim.GoalCondition Goal,
     Sim.GoalCondition? FailBelow,
     double TimeLimitSeconds,
-    IReadOnlyList<ScenarioRule> Rules)
+    IReadOnlyList<ScenarioRule> Rules,
+    int BiomeIndex = -1)
 {
     /// <summary>Lokalizační klíč jména.</summary>
     public string NameKey => $"scenario.{Id}";

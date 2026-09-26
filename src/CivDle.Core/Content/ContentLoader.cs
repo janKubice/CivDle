@@ -97,8 +97,10 @@ public sealed class ContentLoader
         var chronicle = LoadChronicle(Path.Combine(dataDirectory, "chronicle.json"));
         var carillon = LoadCarillon(Path.Combine(dataDirectory, "carillon.json"), buildings);
         var scenarios = LoadScenarios(
-            Path.Combine(dataDirectory, "scenarios.json"), resources, buildings, techs, worldGen);
-        CheckRewardUnlocks(Path.Combine(dataDirectory, "buildings.json"), buildings, quests, scenarios);
+            Path.Combine(dataDirectory, "scenarios.json"), biomes, resources, buildings, techs, worldGen);
+        CheckRewardUnlocks(
+            Path.Combine(dataDirectory, "buildings.json"), Path.Combine(dataDirectory, "policies.json"),
+            buildings, policies, quests, scenarios);
         var poi = LoadPointsOfInterest(Path.Combine(dataDirectory, "poi.json"), resources, biomes);
         var doctrines = LoadDoctrines(Path.Combine(dataDirectory, "doctrines.json"));
         var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit, figures, chronicle, scenarios, poi, doctrines);
@@ -600,6 +602,7 @@ public sealed class ContentLoader
     /// </summary>
     private ScenarioCatalog LoadScenarios(
         string path,
+        BiomeRegistry biomes,
         DefRegistry<Resource> resources,
         DefRegistry<BuildingDef> buildings,
         DefRegistry<TechDef> techs,
@@ -666,6 +669,14 @@ public sealed class ContentLoader
                 rules.Add(rule);
             }
 
+            if (string.Equals(id, ChallengeRewards.AllChallengesId, StringComparison.Ordinal))
+            {
+                throw new ContentLoadException(
+                    path, $"Scénář se nesmí jmenovat '{id}' — to jméno znamená „všechny výzvy“ v 'unlockedBy'.");
+            }
+
+            int biome = ParseScenarioBiome(path, id, dto.Biome, rules.Contains(ScenarioRule.SingleBiome), biomes);
+
             scenarios.Add(new ScenarioDef(
                 id,
                 dto.Seed,
@@ -675,10 +686,48 @@ public sealed class ContentLoader
                 ParseCondition(path, $"scénář '{id}' (goal)", dto.Goal, resources, buildings, techs),
                 ParseFailCondition(path, id, dto.FailBelow, resources, buildings, techs),
                 dto.TimeLimitSeconds,
-                rules));
+                rules,
+                biome));
         }
 
         return new ScenarioCatalog(scenarios);
+    }
+
+    /// <summary>
+    /// Biom pro pravidlo <c>singleBiome</c>. Pravidlo bez biomu i biom bez
+    /// pravidla jsou chyba v datech: první by nevědělo, čím svět zaplnit, druhé
+    /// by tiše nic nedělalo. Voda jako „jediný biom" nedává smysl — na ní se
+    /// nedá stavět.
+    /// </summary>
+    private static int ParseScenarioBiome(string path, string id, string? biomeId, bool singleBiome, BiomeRegistry biomes)
+    {
+        bool hasBiome = !string.IsNullOrWhiteSpace(biomeId);
+        if (singleBiome != hasBiome)
+        {
+            throw new ContentLoadException(path, singleBiome
+                ? $"Scénář '{id}': pravidlo 'singleBiome' potřebuje pole 'biome'."
+                : $"Scénář '{id}': pole 'biome' platí jen s pravidlem 'singleBiome'.");
+        }
+
+        if (!hasBiome)
+        {
+            return -1;
+        }
+
+        for (int i = 0; i < biomes.Count; i++)
+        {
+            if (string.Equals(biomes[i].Id, biomeId!.Trim(), StringComparison.Ordinal))
+            {
+                if (biomes[i].IsWater)
+                {
+                    throw new ContentLoadException(path, $"Scénář '{id}': biom '{biomeId}' je voda, souš z něj být nemůže.");
+                }
+
+                return i;
+            }
+        }
+
+        throw new ContentLoadException(path, $"Scénář '{id}' odkazuje na neexistující biom '{biomeId}'.");
     }
 
     /// <summary>
@@ -2015,7 +2064,8 @@ public sealed class ContentLoader
 
             // Efekt se ZÁMĚRNĚ nevaliduje proti seznamu — neznámý se za běhu tiše ignoruje
             // (data smí předběhnout kód, konzistentní s behavior-ID hooky).
-            result.Add(new GrowthPolicyDef(id, dto.Effect.Trim(), dto.Magnitude));
+            result.Add(new GrowthPolicyDef(
+                id, dto.Effect.Trim(), dto.Magnitude, ParseUnlockedBy(path, $"Politika '{id}'", dto.UnlockedBy)));
         }
 
         return new DefRegistry<GrowthPolicyDef>(result, p => p.Id, "politika", allowEmpty: true);
@@ -3072,7 +3122,7 @@ public sealed class ContentLoader
             ParseRaft(path, id, dto.Raft, resources),
             ParseBuildingSound(path, id, dto.Sound),
             ReadVisualHeight(path, id, dto.VisualHeight),
-            ParseUnlockedBy(path, id, dto.UnlockedBy),
+            ParseUnlockedBy(path, $"Budova '{id}'", dto.UnlockedBy),
             ParseLook(path, id, dto.Look));
     }
 
@@ -4310,7 +4360,49 @@ public sealed class ContentLoader
             power,
             file.PopulationFillRate ?? 0.0,
             ParseOnboarding(path, file.Onboarding, file.DayNight.StartTimeOfDay, resources, buildings),
-            ParseGovernor(path, file.Governor, resources));
+            ParseGovernor(path, file.Governor, resources),
+            ParseChallengeRules(path, file.ChallengeRules));
+    }
+
+    /// <summary>
+    /// Čísla pravidel výzev. Chybějící pole = výchozí hodnota; nesmyslná hodnota
+    /// (moře nad horami, zlevnění „noci" nad den) spadne hned při startu.
+    /// </summary>
+    private static ChallengeRulesConfig? ParseChallengeRules(string path, ChallengeRulesDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        var d = ChallengeRulesConfig.Default;
+        var config = new ChallengeRulesConfig(
+            dto.FloodSeaLevelRise ?? d.FloodSeaLevelRise,
+            dto.OasisChunkTiles ?? d.OasisChunkTiles,
+            dto.OasisShare ?? d.OasisShare,
+            dto.DefenceFirstWaveTick ?? d.DefenceFirstWaveTick,
+            dto.DefenceWaveIntervalMult ?? d.DefenceWaveIntervalMult,
+            dto.HighUpkeepMult ?? d.HighUpkeepMult,
+            dto.NightFoodMult ?? d.NightFoodMult,
+            dto.NightTimeOfDay ?? d.NightTimeOfDay);
+
+        void Check(bool ok, string message)
+        {
+            if (!ok)
+            {
+                throw new ContentLoadException(path, $"challengeRules: {message}");
+            }
+        }
+
+        Check(config.FloodSeaLevelRise is >= 0 and < 0.5, $"'floodSeaLevelRise' musí být 0–0,5, je {config.FloodSeaLevelRise}.");
+        Check(config.OasisChunkTiles is >= 2 and <= 64, $"'oasisChunkTiles' musí být 2–64, je {config.OasisChunkTiles}.");
+        Check(config.OasisShare is > 0 and <= 1, $"'oasisShare' musí být v (0, 1], je {config.OasisShare}.");
+        Check(config.DefenceFirstWaveTick >= 0, $"'defenceFirstWaveTick' nesmí být záporné, je {config.DefenceFirstWaveTick}.");
+        Check(config.DefenceWaveIntervalMult is > 0 and <= 1, $"'defenceWaveIntervalMult' musí být v (0, 1], je {config.DefenceWaveIntervalMult}.");
+        Check(config.HighUpkeepMult >= 1, $"'highUpkeepMult' musí být aspoň 1, je {config.HighUpkeepMult}.");
+        Check(config.NightFoodMult is > 0 and <= 1, $"'nightFoodMult' musí být v (0, 1], je {config.NightFoodMult}.");
+        Check(config.NightTimeOfDay is >= 0 and < 1, $"'nightTimeOfDay' musí být 0–1, je {config.NightTimeOfDay}.");
+        return config;
     }
 
     /// <summary>
@@ -5843,7 +5935,7 @@ public sealed class ContentLoader
     /// <c>quest:&lt;id&gt;</c> nebo <c>challenge:&lt;id&gt;</c>. Že odkazovaný úkol
     /// či výzva existuje, se ověří až po načtení všeho (<see cref="CheckRewardUnlocks"/>).
     /// </summary>
-    private static string? ParseUnlockedBy(string path, string id, string? value)
+    private static string? ParseUnlockedBy(string path, string owner, string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
@@ -5854,7 +5946,7 @@ public sealed class ContentLoader
         if (!trimmed.StartsWith("quest:", StringComparison.Ordinal)
             && !trimmed.StartsWith("challenge:", StringComparison.Ordinal))
         {
-            throw new ContentLoadException(path, $"Budova '{id}': 'unlockedBy' musí být 'quest:<id>' nebo 'challenge:<id>', je '{value}'.");
+            throw new ContentLoadException(path, $"{owner}: 'unlockedBy' musí být 'quest:<id>' nebo 'challenge:<id>', je '{value}'.");
         }
 
         return trimmed;
@@ -5899,25 +5991,49 @@ public sealed class ContentLoader
 
     /// <summary>
     /// Odkazy <c>unlockedBy</c> musí mířit na existující úkol či výzvu — jinak by
-    /// budova zůstala zamčená navždy a nikdo by nevěděl proč.
+    /// budova či politika zůstala zamčená navždy a nikdo by nevěděl proč.
+    /// <c>challenge:all</c> je vyhrazený klíč „všechny výzvy" (odměna Mistra).
     /// </summary>
     private static void CheckRewardUnlocks(
-        string path, DefRegistry<BuildingDef> buildings, DefRegistry<QuestDef> quests, ScenarioCatalog scenarios)
+        string buildingsPath, string policiesPath,
+        DefRegistry<BuildingDef> buildings, DefRegistry<GrowthPolicyDef> policies,
+        DefRegistry<QuestDef> quests, ScenarioCatalog scenarios)
     {
         foreach (var building in buildings.All)
         {
-            if (building.UnlockedBy is not { } unlock)
-            {
-                continue;
-            }
+            CheckRewardUnlock(buildingsPath, $"Budova '{building.Id}'", building.UnlockedBy, quests, scenarios);
+        }
 
-            bool known = unlock.StartsWith("quest:", StringComparison.Ordinal)
-                ? quests.TryIndexOf(unlock["quest:".Length..], out _)
-                : scenarios.IndexOf(unlock["challenge:".Length..]) >= 0;
-            if (!known)
-            {
-                throw new ContentLoadException(path, $"Budova '{building.Id}': 'unlockedBy' odkazuje na neexistující '{unlock}'.");
-            }
+        foreach (var policy in policies.All)
+        {
+            CheckRewardUnlock(policiesPath, $"Politika '{policy.Id}'", policy.UnlockedBy, quests, scenarios);
+        }
+    }
+
+    private static void CheckRewardUnlock(
+        string path, string owner, string? unlock, DefRegistry<QuestDef> quests, ScenarioCatalog scenarios)
+    {
+        if (unlock is null)
+        {
+            return;
+        }
+
+        bool known;
+        if (unlock.StartsWith("quest:", StringComparison.Ordinal))
+        {
+            known = quests.TryIndexOf(unlock["quest:".Length..], out _);
+        }
+        else
+        {
+            string challenge = unlock[ChallengeRewards.Prefix.Length..];
+            known = challenge == ChallengeRewards.AllChallengesId
+                ? scenarios.Count > 0
+                : scenarios.IndexOf(challenge) >= 0;
+        }
+
+        if (!known)
+        {
+            throw new ContentLoadException(path, $"{owner}: 'unlockedBy' odkazuje na neexistující '{unlock}'.");
         }
     }
 

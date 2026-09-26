@@ -65,7 +65,7 @@ internal sealed class RoadBuilder
     public void ConnectBuilding(Simulation sim, int index)
     {
         var buildings = sim.Buildings;
-        if (buildings.Length <= 1 || index < 0 || index >= buildings.Length)
+        if (!sim.RoadsAllowed || buildings.Length <= 1 || index < 0 || index >= buildings.Length)
         {
             return;
         }

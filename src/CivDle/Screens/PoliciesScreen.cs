@@ -1,3 +1,4 @@
+using CivDle.Core.Content;
 using CivDle.Core.Sim;
 using CivDle.Input;
 using Microsoft.Xna.Framework;
@@ -509,11 +510,43 @@ public sealed class PoliciesScreen : IScreen
             TextColor = active ? UiPalette.Good : UiPalette.Text,
         });
         row.Widgets.Add(new Label { Text = loc[policy.DescriptionKey], TextColor = Color.LightGray, Wrap = true });
+
+        // Odměna za výzvu, kterou hráč ještě nemá: ukázat, ne schovat — ať ví,
+        // co ho čeká a kde si to vysloužit. Zapnout ale nejde.
+        if (!active && !_simulation.IsPolicyAvailable(index))
+        {
+            row.Widgets.Add(new Label
+            {
+                Text = loc.Format("policy.locked", LockedBy(policy.UnlockedBy)),
+                TextColor = UiPalette.Warn,
+                Wrap = true,
+            });
+            return row;
+        }
+
         row.Widgets.Add(UiFactory.SmallButton(active ? loc["policy.on"] : loc["policy.off"], () =>
         {
             _simulation.TogglePolicy(index);
             BuildUi(); // překresli, ať se přepínač i barva hned obnoví
         }));
         return row;
+    }
+
+    /// <summary>Jméno výzvy (či cíle), která politiku odemkne.</summary>
+    private string LockedBy(string? unlockKey)
+    {
+        var loc = _screens.Loc;
+        if (unlockKey is null)
+        {
+            return string.Empty;
+        }
+
+        if (unlockKey.StartsWith(ChallengeRewards.Prefix, StringComparison.Ordinal))
+        {
+            int scenario = _screens.Content.Scenarios.IndexOf(unlockKey[ChallengeRewards.Prefix.Length..]);
+            return scenario >= 0 ? loc[_screens.Content.Scenarios[scenario].NameKey] : loc["scenarios.title"];
+        }
+
+        return loc[$"quest.{unlockKey["quest:".Length..]}"];
     }
 }

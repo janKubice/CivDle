@@ -121,10 +121,10 @@ s odměnou, která se dá ukázat: **pomníkem ve městě**.
 Sprity se kreslí v kódu a každá budova měla vlastní kresbu. Pro stovku nových
 budov (B, C, D) by to bylo pomalé a nejednotné, proto:
 
-* `BuildingLook` (jádro): **tvar** z pevného katalogu (30 tvarů — dům, věž,
+* `BuildingLook` (jádro): **tvar** z pevného katalogu (31 tvarů — dům, věž,
   kopule, síň, dílna, nádrže, jáma, pole, háj, kůly, vor, balon, stožár,
   sloup, obelisk, oblouk, krystal, baňka, strom, zeď, kanál, bazén, plošina,
-  vír, prstenec, zrcadla, molo, vrtná věž, kapsle), **barvy** (zeď, střecha,
+  vír, prstenec, zrcadla, molo, vrtná věž, kapsle, náměstí), **barvy** (zeď, střecha,
   doplněk, světlo) a **prvky** (26 — okna, komín, anténa, vlajka, lucerny,
   světla, rostliny, sníh, potrubí, plachty, solární panely, krystaly, pruhy,
   prstence, střechy, pára, voda, písek, oblouky, úponky, rotor, blesk, lana).
@@ -137,47 +137,88 @@ budov (B, C, D) by to bylo pomalé a nejednotné, proto:
 
 ### A3. Výzvy s trvalou odměnou
 
-Scénáře dnes existují (`scenarios.json`: tři, pravidla `NoAutoBuild`,
-`NoAscension`), ale nic nedávají. Stanou se **Výzvami**: krátký běh s jiným
+Scénáře existovaly (`scenarios.json`: tři, pravidla `NoAutoBuild`,
+`NoAscension`), ale nic nedávaly. Jsou z nich **Výzvy**: krátký běh s jiným
 pravidlem a odměnou, která platí **pro hráče** — zapíše se do `PlayerProfile`
-(stejně jako achievementy) a projeví se v každé další hře.
+(`WonChallenges`, stejně jako achievementy) a projeví se v každé další hře.
 
-**Nová pravidla** (`ScenarioRule`, každé jako malé chování v kódu):
+**Nová pravidla** (`ScenarioRule`, každé jako malé chování v kódu; **jak
+moc** je v `gameplay.json` → `challengeRules`):
 
-| Pravidlo | Co dělá |
-|---|---|
-| `NoRoads` | silnice se nestaví, svoz trpí — město musí být kompaktní |
-| `FloodedWorld` | generátor zvedne hladinu moře; souše je málo |
-| `SingleBiome` | celý svět jeden biom (poušť, tundra) |
-| `DefenceFromStart` | obrana zapnutá od první minuty, vlny rychlejší |
-| `NoResearch` | výzkum zakázaný; jen to, co je odemčené od začátku |
-| `HighUpkeep` | údržba služeb dvojnásobná |
-| `NightWorld` | věčná noc — světla a spokojenost rozhodují |
-| `Timed` | cíl v časovém limitu (herní čas) |
+| Pravidlo | Co dělá | Číslo v datech |
+|---|---|---|
+| `NoRoads` | silnice nestaví hráč ani guvernér; každá dílna jede jako nenapojená | `roads.disconnectedProductionMult` |
+| `FloodedWorld` | generátor zvedne hladinu moře; souše je málo | `floodSeaLevelRise` |
+| `SingleBiome` | celá souš je jeden biom (`biome` ve scénáři), původní krajina jen v řídkých oázách | `oasisChunkTiles`, `oasisShare` |
+| `DefenceFromStart` | obrana od první minuty, vlny častěji | `defenceFirstWaveTick`, `defenceWaveIntervalMult` |
+| `NoResearch` | výzkum zakázaný; jen to, co je odemčené od začátku | — |
+| `HighUpkeep` | údržba služeb i čističek dražší | `highUpkeepMult` |
+| `NightWorld` | věčná noc (čas stojí, dny běží), pole rodí méně | `nightFoodMult`, `nightTimeOfDay` |
 
-**Dvanáct výzev** (návrh, doladí se hraním):
+Oproti návrhu: `Timed` vypadlo — časový limit už scénáře mají
+(`timeLimitSeconds`) a druhé pravidlo pro totéž by znamenalo dvě místa, kde
+se počítá konec. „Jen písek" má **oázy**: čistá poušť nemá dřevo, kámen ani
+pole, výzva by byla nevyhratelná, ne těžká.
 
-| Výzva | Pravidla | Cíl | Odměna do profilu |
+**Jedenáct výzev + Mistr.** Cíle jsou naměřené, ne odhadnuté:
+`civdle-balance --challenges` projede každou výzvu s náhradním hráčem, který
+prvních deset minut kliká a staví úvodní budovy a pak nechá město
+guvernérovi. Výsledek je citlivý i na drobnou změnu dat (jiné pořadí budov
+= jiná rozhodnutí guvernéra), proto mají cíle rezervu; kde bot končí těsně
+pod cílem (První tisícovka, Tvrdá zima, Sprint), je výzva pro aktivního
+hráče.
+
+| Výzva | Pravidla | Cíl / limit | Odměna do profilu |
 |---|---|---|---|
-| První tisícovka | `NoAscension` | 1 000 obyvatel | (dnešní scénář) landmark „Kámen zakladatelů" |
-| Krutá zima | `NoAscension` | 300 obyvatel | styl čtvrti „Srubová" |
-| Vlastníma rukama | `NoAutoBuild`, `NoAscension` | 120 budov | budova „Cech stavitelů" (+rychlost ruční stavby) |
-| Město bez cest | `NoRoads` | 5 000 obyvatel | styl čtvrti „Uličky" |
-| Potopa | `FloodedWorld` | 10 000 obyvatel | budova „Kůlový dům" do hlavní hry |
-| Jen písek | `SingleBiome:desert` | 3 000 obyvatel | landmark „Pouštní brána" |
-| Na hradbách | `DefenceFromStart` | přežít 20 vln | vzhled věží „Hradní" |
-| Bez knih | `NoResearch` | 2 000 obyvatel | budova „Lidová škola" |
-| Drahý provoz | `HighUpkeep` | spokojenost ≥ 80 % při 10 000 obyvatel | politika „Úsporná správa" |
-| Věčná noc | `NightWorld` | 5 000 obyvatel | noční paleta města „Lucerny" |
-| Sprint | `Timed` (60 min) | měřítko `city` | titul „Rychlík" v kronice |
-| Mistr | vše výše | všech 11 výzev | landmark „Síň výzev" |
+| První tisícovka | `NoAscension` | 1 000 obyvatel / 45 min | Kámen zakladatelů (pomník) |
+| Tvrdá zima | `NoAscension`, přebitá čísla | 300 obyvatel / 30 min | Srub (bydlení i v lese, tajze a na sněhu) |
+| Vlastníma rukama | `NoAutoBuild`, `NoAscension` | 120 budov / 40 min | Cech stavitelů (velké sklady stavebnin) |
+| Město bez cest | `NoRoads` | 800 obyvatel / 55 min | Dům v uličkách (hustší bydlení, nedláždí) |
+| Potopa | `FloodedWorld` | 800 obyvatel / 60 min | Kůlový dům (bydlení na pláži, v bažině, v mangrovech) |
+| Jen písek | `SingleBiome` (poušť) | 700 obyvatel / 60 min | Pouštní brána (pomník) |
+| Na hradbách | `DefenceFromStart` | přežít 20 vln | Hradní věž (silnější obranná věž) |
+| Bez knih | `NoResearch` | 800 obyvatel / 50 min | Lidová škola (věda z jídla) |
+| Drahý provoz | `HighUpkeep` (×3) | 1 000 obyvatel / 55 min | politika Úsporná správa (−40 % údržby) |
+| Věčná noc | `NightWorld` | 1 000 obyvatel / 55 min | Náměstí luceren (služba) |
+| Sprint | `NoAscension` | 400 obyvatel / 25 min | Hodiny rychlíků (pomník) |
+| Mistr | — | všech 11 výzev | Síň výzev (velký pomník) |
 
-* `scenarios.json` dostane pole `reward` s druhy `unlockBuilding`,
-  `landmark`, `districtStyle`, `policy`, `title`. Loader ověří, že odkaz
-  existuje (fail-fast).
-* **Budovy odemčené výzvou** jsou běžné budovy v `buildings.json` s příznakem
-  `unlockedBy: "challenge:<id>"`; hra je nabídne, jen když je profil má.
-* Výzvy se hrají jako samostatný save; hlavní hra se nemění.
+Všechny výzvy mají `NoAscension`: výzva je jeden běh. Strop bydlení prvního
+měřítka je 1 000 lidí, proto žádný cíl nad něj nejde.
+
+**Jak odměna funguje:**
+
+* Odměnu nese **obsah**, ne výzva: budova či politika má
+  `unlockedBy: "challenge:<id>"` (u politik nově, `GrowthPolicyDef.UnlockedBy`).
+  Jedno místo pravdy; loader ověří, že výzva existuje. Klíč
+  `challenge:all` je vyhrazený pro „všechny výzvy" (Mistr) — počítá ho
+  `ChallengeRewards` z dat, takže nová výzva ho automaticky posune.
+* Oproti návrhu: druhy `districtStyle` a `title` vypadly. Styly čtvrtí
+  přijdou s bodem B4 (odemknou se stejným `unlockedBy`), tituly nejsou vidět.
+  Každá odměna je tak něco, co jde postavit nebo zapnout.
+* Obrazovka výzev ukáže pravidla, odměnu, „✓ Dohráno" a řádek „Dohráno X
+  z 11. Za všechny: Síň výzev". Po výhře oslava vypíše, co se odemklo,
+  a stavební nabídka se hned obnoví. Zamčená politika je v Politikách vidět
+  s tím, kterou výzvou se odemyká.
+
+**Výzvy mají vlastní save** (`saves/challenge.civdle`). Dřív se scénář
+ukládal do jediného slotu a **přepsal hlavní město** — teď hlavní
+„Pokračovat" patří městu a do rozehrané výzvy se vrací z obrazovky výzev.
+Výzva se po návratu nedohání offline: běží na herní čas s limitem a prohrát
+ve spánku by byl opak toho, co idle hra slibuje.
+
+**Svět výzvy skládá `ScenarioWorld`** — při startu i při načtení savu. Save
+(formát v15) nese ID výzvy v hlavičce, protože zatopení a jeden biom mění
+terén a čtečka to musí vědět dřív, než ho postaví. Tím se opravila i starší
+chyba: přebitá herní čísla scénáře (Tvrdá zima) se po načtení ztrácela.
+
+**Testy:** každé pravidlo dělá, co slibuje, a mimo výzvu nic
+(`ChallengeRuleTests`); oázy jsou celé čtverce a závisí jen na seedu; svět
+výzvy je po načtení savu stejný; zamčená politika nejde zapnout a vypnout jde
+vždy; každá výzva v datech něco odemyká; loader odmítne pravidlo `singleBiome`
+bez biomu, biom bez pravidla, vodu jako souš, výzvu jménem `all`, neexistující
+odměnu politiky a nesmyslná čísla pravidel; v UI má každé pravidlo popis ve
+všech jazycích a každá výzva jméno odměny.
 
 ### A4. Kontrakty bez stropu
 

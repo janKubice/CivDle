@@ -484,6 +484,13 @@ public sealed class GameplayScreen : IScreen
         // Už odemčené achievementy z profilu, ať se v téhle hře nespouštějí znovu.
         _simulation.SeedUnlockedAchievements(screens.Profile.UnlockedAchievements);
 
+        // Odměny dohraných výzev platí v každé hře — simulace profil nezná,
+        // klíče jí předá obrazovka. A výzva vyhraná dřív, než se výhry
+        // zapisovaly (starší save), se zapíše teď.
+        RecordChallengeWin(announce: false);
+        _simulation.SetProfileUnlocks(
+            ChallengeRewards.UnlockKeys(screens.Content.Scenarios, screens.Profile.WonChallenges));
+
         // Offline postup je hotový; zbývá ho zaúčtovat a ukázat.
         if (offline is { } summary)
         {
@@ -2258,6 +2265,10 @@ public sealed class GameplayScreen : IScreen
                 _screens.Profile.ChallengesCompleted++;
                 _screens.SaveProfile();
             }
+            else if (note.TitleKey == "toast.scenarioWon")
+            {
+                RecordChallengeWin(announce: true);
+            }
         }
     }
 
@@ -2415,6 +2426,37 @@ public sealed class GameplayScreen : IScreen
         profile.DailyStreak = result.Streak;
         _screens.SaveProfile();
         _pendingIntros.Enqueue(new DailyRewardScreen(_screens, result.Streak, result.Reward));
+    }
+
+    /// <summary>
+    /// Vyhraná výzva → do profilu. Odměna (budova, politika) se tím odemkne
+    /// v každé další hře a hned i v téhle; hráč se to dozví oslavou se jmény
+    /// odměn, ne až náhodou ve stavební nabídce.
+    /// </summary>
+    private void RecordChallengeWin(bool announce)
+    {
+        if (_simulation.Scenario is not { } scenario || _simulation.ScenarioResult != ScenarioOutcome.Won)
+        {
+            return;
+        }
+
+        var profile = _screens.Profile;
+        if (!profile.MarkChallengeWon(scenario.Id))
+        {
+            return;
+        }
+
+        _screens.SaveProfile();
+        _simulation.SetProfileUnlocks(ChallengeRewards.UnlockKeys(_screens.Content.Scenarios, profile.WonChallenges));
+        if (announce)
+        {
+            RefreshBuildMenu();
+            var rewards = ChallengeRewardNames.Of(_screens.Content, _screens.Loc, scenario.Id, profile.WonChallenges);
+            if (!_captureMode && rewards.Length > 0)
+            {
+                _celebration.Show(_screens.Loc.Format("challenge.rewardUnlocked", rewards), UiPalette.TextBright);
+            }
+        }
     }
 
     /// <summary>Zapíše nově odemčené achievementy do profilu a uloží ho (účet-wide).</summary>
@@ -4360,7 +4402,7 @@ public sealed class GameplayScreen : IScreen
     private void SaveGame()
     {
         SyncChronicle();
-        _screens.Saves.TrySave(_simulation, new SaveMetadata(_info.Seed, _info.SizeId, _info.PresetId, DateTime.UtcNow));
+        _screens.SavesFor(_simulation).TrySave(_simulation, new SaveMetadata(_info.Seed, _info.SizeId, _info.PresetId, DateTime.UtcNow));
     }
 
     /// <summary>
