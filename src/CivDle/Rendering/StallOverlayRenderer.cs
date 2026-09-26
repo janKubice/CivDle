@@ -133,6 +133,8 @@ public sealed class StallOverlayRenderer
                 return Damaged;
             case BuildingStall.OutputFull:
                 return StorageFull;
+            case BuildingStall.NetworkShortage:
+                return NoPower; // zamrzlá / klesající: síť sem nedosáhne — stejná příčina jako tma
         }
 
         // Nedostatek proudu budovu nezastaví, jen ji zpomalí — proto to není

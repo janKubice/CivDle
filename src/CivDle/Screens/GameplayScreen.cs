@@ -1543,6 +1543,7 @@ public sealed class GameplayScreen : IScreen
         BuildingStall.MissingInput => "stall.missingInput",
         BuildingStall.NoTerrain => "stall.noTerrain",
         BuildingStall.OutputFull => "stall.outputFull",
+        BuildingStall.NetworkShortage => "stall.networkShortage",
         _ => null,
     };
 

@@ -2027,6 +2027,7 @@
     "stall.noTerrain": "W zasięgu nie ma już czego wydobywać — przenieś go albo zasadź nowe zasoby.",
     "stall.noWorkers": "Nie ma kto pracować — sprowadź więcej ludzi (domy i jedzenie) albo zburz coś innego.",
     "stall.outputFull": "Magazyn jest pełny — budynek czeka, zamiast palić surowce na darmo. Zbuduj magazyn albo pozwól zużyć zapas.",
+    "stall.networkShortage": "Nie sięga tu sieć, bez której budynek nie działa (ciepło, wypór) — wypadł i sam wróci, gdy sieć go obejmie. Zbuduj źródło lub przekaźnik bliżej.",
     "stats.buildings": "Budynki",
     "stats.covers": "Cały przebieg — {0}",
     "stats.empty": "Nie ma jeszcze czego rysować. Pobuduj chwilę i wróć.",

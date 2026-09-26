@@ -1111,6 +1111,18 @@ s typem sítě z dat**. Elektřina zůstane jedním z typů.
 * Guvernér: dnešní `PowerGoal` se zobecní na `NetworkGoal` — postaví zdroj
   nebo relé tam, kde síť chybí.
 
+> **Hotovo (D0.1).** `NetworkSystem` nahradil `PowerGridSystem`. Elektřina
+> zůstala, kde byla — dosah v `gameplay.json` (blok `power`), budovy ve
+> starých polích `powerSupply`/`powerDemand` — takže Domovina ani mody nic
+> nepoznají; regresní test porovná obecnou síť s původní implementací bit po
+> bitu na městě s devadesáti spotřebiči. Ostatní sítě jsou v `networks.json`
+> (`range`, `shortage`: `slowdown` = výroba × pokrytí, `cutoff` = pod
+> `cutoffBelow` budova vypadne se stavem „síť nedosáhne" a sama se vrátí)
+> a budovy je píšou do `networks: { "water": { "supply", "demand", "relay" } }`.
+> Relé doplní zbývající dosah na svůj; buňka dosažená později lépe se rozšíří
+> znovu. Stavy „zamrzlá/klesá" jsou zatím jeden stav `NetworkShortage` —
+> vzhled podle světa přijde s Mrazem a Nebesy.
+
 ### 7.3 Přírodní jevy
 
 Každé pravidlo světa je **chování za behavior-ID** (CLAUDE.md): třída

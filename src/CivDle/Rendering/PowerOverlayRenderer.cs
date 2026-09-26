@@ -22,7 +22,7 @@ namespace CivDle.Rendering;
 public sealed class PowerOverlayRenderer
 {
     private const int TileSize = TerrainRenderer.TileSize;
-    private const int CellSize = PowerGridSystem.CellSize;
+    private const int CellSize = NetworkSystem.CellSize;
 
     private const float FillAlpha = 0.30f;
     private const int Border = 2;
@@ -94,10 +94,10 @@ public sealed class PowerOverlayRenderer
         }
 
         var (min, max) = camera.VisibleWorldBounds();
-        int fromX = (int)Math.Floor(min.X / TileSize) >> PowerGridSystem.CellShift;
-        int toX = (int)Math.Ceiling(max.X / TileSize) >> PowerGridSystem.CellShift;
-        int fromY = (int)Math.Floor(min.Y / TileSize) >> PowerGridSystem.CellShift;
-        int toY = (int)Math.Ceiling(max.Y / TileSize) >> PowerGridSystem.CellShift;
+        int fromX = (int)Math.Floor(min.X / TileSize) >> NetworkSystem.CellShift;
+        int toX = (int)Math.Ceiling(max.X / TileSize) >> NetworkSystem.CellShift;
+        int fromY = (int)Math.Floor(min.Y / TileSize) >> NetworkSystem.CellShift;
+        int toY = (int)Math.Ceiling(max.Y / TileSize) >> NetworkSystem.CellShift;
 
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
 

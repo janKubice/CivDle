@@ -2027,6 +2027,7 @@
     "stall.noTerrain": "V dosahu už není co těžit — přesuň ji, nebo zasaď nové zdroje.",
     "stall.noWorkers": "Nemá kdo pracovat — přiveď víc lidí (bydlení a jídlo) nebo zbourej něco jiného.",
     "stall.outputFull": "Sklad je plný — výrobna čeká a nepálí suroviny naprázdno. Postav sklad nebo nech zásobu spotřebovat.",
+    "stall.networkShortage": "Sem nedosáhne síť, bez které budova nejede (teplo, vztlak) — vypadla a sama se vrátí, až ji síť pokryje. Postav zdroj nebo relé blíž.",
     "stats.buildings": "Budovy",
     "stats.covers": "Celý běh — {0}",
     "stats.empty": "Zatím není co kreslit. Chvíli stav a vrať se.",

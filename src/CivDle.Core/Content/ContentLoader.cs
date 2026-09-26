@@ -60,6 +60,10 @@ public sealed class ContentLoader
         string terraformPath = Path.Combine(dataDirectory, "terraform.json");
         var terraformFile = ReadTerraformFile(terraformPath);
         var terraformIds = TerraformIds(terraformPath, terraformFile);
+        // Druhy sítí před budovami: budova na síť odkazuje jménem a loader ho
+        // musí umět přeložit. Elektřina se přidá až s gameplay.json (její dosah
+        // leží tam), proto je tu zatím jen seznam ostatních.
+        _networkTypes = LoadNetworkTypes(Path.Combine(dataDirectory, "networks.json"));
         var buildings = LoadBuildings(
             Path.Combine(dataDirectory, "buildings.json"), biomes, resources, settlementRanks, terraformIds);
         var techs = LoadTech(Path.Combine(dataDirectory, "tech.json"), buildings, resources);
@@ -118,7 +122,130 @@ public sealed class ContentLoader
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
             worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, faith, npcCities, vehicles, mods,
             grandWork, legacy, legacyUpgrades, aircraft, orbit, frontier, figures, chronicle, carillon,
-            scenarios, poi, doctrines);
+            scenarios, poi, doctrines)
+        {
+            Networks = new NetworkCatalog(NetworkCatalog.PowerType(gameplay.Power), _networkTypes),
+        };
+    }
+
+    // ----- sítě -----
+
+    /// <summary>
+    /// Druhy sítí mimo elektřinu, v pořadí souboru (budovy na ně odkazují
+    /// jménem). Nastaví <see cref="LoadNetworkTypes"/>.
+    /// </summary>
+    private IReadOnlyList<NetworkTypeDef> _networkTypes = Array.Empty<NetworkTypeDef>();
+
+    /// <summary>
+    /// Druhy sítí z <c>networks.json</c>. Chybějící soubor není chyba — svět
+    /// bez vody a tepla (Domovina, starší mody) má jen elektřinu.
+    /// </summary>
+    private IReadOnlyList<NetworkTypeDef> LoadNetworkTypes(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return Array.Empty<NetworkTypeDef>();
+        }
+
+        var file = ReadFile<NetworksFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var result = new List<NetworkTypeDef>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var dto in file.Networks ?? new List<NetworkTypeDto>())
+        {
+            string id = RequireId(path, dto.Id, $"Síť na pozici {result.Count}");
+            if (id == NetworkTypeDef.PowerId)
+            {
+                throw new ContentLoadException(path,
+                    "Elektřina se nastavuje blokem 'power' v gameplay.json a u budov poli powerSupply/powerDemand — do networks.json nepatří.");
+            }
+
+            if (!seen.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID sítě '{id}'.");
+            }
+
+            // Stejný strop jako u elektřiny: dosah ve stovkách buněk je záplava
+            // přes půl světa při každém postaveném zdroji.
+            if (dto.Range is < 1 or > 64)
+            {
+                throw new ContentLoadException(path, $"Síť '{id}': 'range' musí být 1–64, je {dto.Range}.");
+            }
+
+            var shortage = dto.Shortage switch
+            {
+                null or "slowdown" => NetworkShortage.Slowdown,
+                "cutoff" => NetworkShortage.Cutoff,
+                _ => throw new ContentLoadException(path,
+                    $"Síť '{id}': neznámý 'shortage' '{dto.Shortage}' (slowdown nebo cutoff)."),
+            };
+
+            if (shortage == NetworkShortage.Cutoff && dto.CutoffBelow is <= 0 or > 1)
+            {
+                throw new ContentLoadException(path,
+                    $"Síť '{id}': 'cutoffBelow' musí být v (0, 1] — jinak by budova nevypadla nikdy, nebo vždycky.");
+            }
+
+            result.Add(new NetworkTypeDef(
+                id, dto.Range, shortage, shortage == NetworkShortage.Cutoff ? dto.CutoffBelow : 0,
+                ParseColor(path, dto.OverlayColor, $"Síť '{id}'")));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Sítě, které budova dodává, chce nebo přenáší. Elektřina tu nesmí být —
+    /// má svá stará pole a dvojí zápis by se rozešel.
+    /// </summary>
+    private IReadOnlyList<NetworkUse>? ParseNetworks(string path, string id, Dictionary<string, NetworkUseDto>? dto)
+    {
+        if (dto is null || dto.Count == 0)
+        {
+            return null;
+        }
+
+        var result = new List<NetworkUse>(dto.Count);
+        foreach (var (networkId, use) in dto)
+        {
+            if (networkId == NetworkTypeDef.PowerId)
+            {
+                throw new ContentLoadException(path,
+                    $"Budova '{id}': elektřina se píše do 'powerSupply'/'powerDemand', ne do 'networks'.");
+            }
+
+            int index = -1;
+            for (int i = 0; i < _networkTypes.Count; i++)
+            {
+                if (_networkTypes[i].Id == networkId)
+                {
+                    index = i + 1; // index 0 je elektřina
+                    break;
+                }
+            }
+
+            if (index < 0)
+            {
+                throw new ContentLoadException(path, $"Budova '{id}' odkazuje na neexistující síť '{networkId}'.");
+            }
+
+            if (use.Supply is < 0 or > 1_000_000 || use.Demand is < 0 or > 1_000_000 || use.Relay is < 0 or > 64)
+            {
+                throw new ContentLoadException(path,
+                    $"Budova '{id}', síť '{networkId}': supply a demand 0–1 000 000, relay 0–64.");
+            }
+
+            if (use.Supply == 0 && use.Demand == 0 && use.Relay == 0)
+            {
+                throw new ContentLoadException(path,
+                    $"Budova '{id}', síť '{networkId}': nic nedodává, nechce ani nepřenáší — překlep?");
+            }
+
+            result.Add(new NetworkUse(index, use.Supply, use.Demand, use.Relay));
+        }
+
+        return result;
     }
 
     // ----- cizí města -----
@@ -2892,7 +3019,7 @@ public sealed class ContentLoader
         return new DefRegistry<BuildingDef>(buildings, b => b.Id, "budova");
     }
 
-    private static BuildingDef ValidateBuilding(
+    private BuildingDef ValidateBuilding(
         string path, BuildingDto dto, int index, BiomeRegistry biomes, DefRegistry<Resource> resources,
         Dictionary<string, int> idToIndex, SettlementRankLadder ranks, IReadOnlyList<string> terraformIds)
     {
@@ -3196,7 +3323,8 @@ public sealed class ContentLoader
             ReadVisualHeight(path, id, dto.VisualHeight),
             ParseUnlockedBy(path, $"Budova '{id}'", dto.UnlockedBy),
             ParseLook(path, id, dto.Look),
-            project);
+            project,
+            ParseNetworks(path, id, dto.Networks));
     }
 
     /// <summary>

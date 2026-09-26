@@ -41,11 +41,85 @@ internal sealed class ProductionSystem
     /// </summary>
     private BuildingStall[] _blocked = Array.Empty<BuildingStall>();
 
+    /// <summary>
+    /// Mění stav téhle budovy síť? (Zdroj nebo relé v jakékoli síti.) Předpočítané,
+    /// ať tiková smyčka neprochází seznamy sítí u každé budovy.
+    /// </summary>
+    private readonly bool[] _defFeedsNetwork;
+
+    /// <summary>
+    /// Sítě mimo elektřinu, které budova chce, po druzích (prázdné pole = žádné).
+    /// Elektřinu řeší starší cesta přes <see cref="BuildingDef.NeedsPower"/>.
+    /// </summary>
+    private readonly int[][] _defNetworkDemands;
+
     public ProductionSystem(GameContent content)
     {
         _content = content;
         _defs = content.Buildings.All.ToArray();
         _defScarce = new bool[_defs.Length];
+        _defFeedsNetwork = new bool[_defs.Length];
+        _defNetworkDemands = new int[_defs.Length][];
+        for (int d = 0; d < _defs.Length; d++)
+        {
+            var networks = _defs[d].Networks;
+            _defFeedsNetwork[d] = _defs[d].PowerSupply > 0;
+            var demands = new List<int>();
+            for (int n = 0; n < networks.Count; n++)
+            {
+                if (networks[n].Supply > 0 || networks[n].RelayRange > 0)
+                {
+                    _defFeedsNetwork[d] = true;
+                }
+
+                if (networks[n].Demand > 0)
+                {
+                    demands.Add(networks[n].NetworkIndex);
+                }
+            }
+
+            _defNetworkDemands[d] = demands.ToArray();
+        }
+    }
+
+    /// <summary>
+    /// Tvrdý nedostatek sítě: chce budova síť, která pod prahem vypíná (teplo,
+    /// vztlak), a má jí méně? Vrací také násobič tempa z měkkých sítí (voda):
+    /// výroba zpomalí poměrně podle pokrytí, jako u proudu.
+    /// </summary>
+    private bool IsCutOff(Simulation sim, in BuildingInstance building, int defIndex, out float softPace)
+    {
+        softPace = 1f;
+        var demands = _defNetworkDemands[defIndex];
+        if (demands.Length == 0)
+        {
+            return false;
+        }
+
+        var networks = _content.Networks;
+        for (int n = 0; n < demands.Length; n++)
+        {
+            var type = networks[demands[n]];
+            if (!type.IsEnabled)
+            {
+                continue;
+            }
+
+            double coverage = sim.NetworkCoverageAt(demands[n], building.X, building.Y);
+            if (type.Shortage == NetworkShortage.Cutoff)
+            {
+                if (coverage < type.CutoffBelow)
+                {
+                    return true;
+                }
+            }
+            else
+            {
+                softPace *= (float)coverage;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -73,7 +147,7 @@ internal sealed class ProductionSystem
     /// </summary>
     private void SetStall(ref BuildingInstance building, BuildingDef def, BuildingStall stall)
     {
-        if (def.PowerSupply > 0 && building.Stall != stall)
+        if (building.Stall != stall && _defFeedsNetwork[building.DefIndex])
         {
             PowerPlantsChanged = true;
         }
@@ -134,6 +208,16 @@ internal sealed class ProductionSystem
                 continue; // staveniště nevyrábí, dokud nestojí
             }
 
+            // Zamrzlá (bez tepla) nebo klesající (bez vztlaku) budova vypadla
+            // celá — i dům a sklad, které nic nevyrábějí. Vrátí se sama, až
+            // síť dosáhne. Na Domovině žádná taková síť není, takže tu tahle
+            // větev stojí jednu kontrolu délky pole.
+            if (IsCutOff(sim, building, building.DefIndex, out float networkPace))
+            {
+                SetStall(ref building, def, BuildingStall.NetworkShortage);
+                continue;
+            }
+
             // A obsazenost taky. Elektrárna, přístav nebo bašta recept nemají,
             // ale bez lidí nefungují — a dokud to nikdo neřekl, tvářily se, že
             // jedou. Jaderná elektrárna tak sypala do sítě plný výkon s prázdnou
@@ -161,7 +245,7 @@ internal sealed class ProductionSystem
 
             // Budovy závislé na proudu zpomalí při nedostatečném pokrytí sítě
             // (spotřebují vstupy pomaleji — žádný tvrdý trest, jen míň výkonu).
-            float pace = staffing;
+            float pace = staffing * networkPace; // měkké sítě (voda) zpomalí jako proud
             if (def.NeedsPower)
             {
                 pace *= spatialPower ? (float)sim.PowerAt(building.X, building.Y) : powerFactor;

@@ -580,6 +580,87 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadFrom_WithoutNetworksFile_HasOnlyPower()
+    {
+        // Domovina a starší mody sítě mimo elektřinu nemají — nesmí to být chyba.
+        WriteAllValid();
+
+        var content = Load();
+
+        Assert.Equal(1, content.Networks.Count);
+        Assert.Equal(NetworkTypeDef.PowerId, content.Networks[NetworkCatalog.PowerIndex].Id);
+    }
+
+    [Fact]
+    public void LoadFrom_BuildingUsingANetwork_Resolves()
+    {
+        WriteAllValid();
+        Write("networks.json", """
+        { "schemaVersion": 1, "networks": [
+          { "id": "water", "range": 5, "shortage": "slowdown", "overlayColor": "#3FA7E0" },
+          { "id": "heat", "range": 4, "shortage": "cutoff", "cutoffBelow": 0.5, "overlayColor": "#F08A3C" } ] }
+        """);
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "house", "mapColor": "#B5651D", "footprint": [1, 1], "housingCapacity": 4,
+              "buildCost": { "wood": 10 }, "allowedBiomes": ["grass"],
+              "networks": { "heat": { "demand": 2 }, "water": { "relay": 3 } } }
+          ]
+        }
+        """);
+
+        var content = Load();
+        var house = content.Buildings[0];
+
+        Assert.Equal(3, content.Networks.Count);
+        Assert.Equal(2, house.DemandOf(content.Networks.IndexOf("heat")));
+        Assert.Equal(3, house.Networks.Single(n => n.NetworkIndex == content.Networks.IndexOf("water")).RelayRange);
+        Assert.Equal(NetworkShortage.Cutoff, content.Networks[content.Networks.IndexOf("heat")].Shortage);
+    }
+
+    [Theory]
+    [InlineData("\"power\": { \"demand\": 2 }", "powerSupply")]
+    [InlineData("\"lava\": { \"demand\": 2 }", "lava")]
+    [InlineData("\"water\": { }", "překlep")]
+    public void LoadFrom_BadBuildingNetwork_Throws(string field, string expected)
+    {
+        WriteAllValid();
+        Write("networks.json", """
+        { "schemaVersion": 1, "networks": [ { "id": "water", "range": 5, "overlayColor": "#3FA7E0" } ] }
+        """);
+        Write("buildings.json", $$"""
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "house", "mapColor": "#B5651D", "footprint": [1, 1], "housingCapacity": 4,
+              "buildCost": { "wood": 10 }, "allowedBiomes": ["grass"], "networks": { {{field}} } }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
+    [Theory]
+    [InlineData("{ \"id\": \"power\", \"range\": 5, \"overlayColor\": \"#FFFFFF\" }", "gameplay.json")]
+    [InlineData("{ \"id\": \"heat\", \"range\": 0, \"overlayColor\": \"#FFFFFF\" }", "range")]
+    [InlineData("{ \"id\": \"heat\", \"range\": 4, \"shortage\": \"cutoff\", \"overlayColor\": \"#FFFFFF\" }", "cutoffBelow")]
+    [InlineData("{ \"id\": \"heat\", \"range\": 4, \"shortage\": \"explode\", \"overlayColor\": \"#FFFFFF\" }", "explode")]
+    public void LoadFrom_BadNetworkType_Throws(string network, string expected)
+    {
+        WriteAllValid();
+        Write("networks.json", $$"""{ "schemaVersion": 1, "networks": [ {{network}} ] }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
+    [Fact]
     public void LoadFrom_WithoutContractsFile_LeavesBoardOff()
     {
         // Soubor je volitelný: starší data se musí načíst a hrát jako dřív.

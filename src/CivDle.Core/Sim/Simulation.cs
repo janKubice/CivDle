@@ -77,7 +77,7 @@ public sealed class Simulation
     /// Rozvod proudu po hrubé mřížce. Přepočítává se líně — až když se zeptá
     /// výroba poté, co se změnila zástavba.
     /// </summary>
-    private readonly PowerGridSystem _powerGrid = new();
+    private readonly NetworkSystem _networks = new();
 
     private bool _powerDirty = true;
     private readonly FrontierSystem _frontier;
@@ -3193,16 +3193,50 @@ public sealed class Simulation
         }
 
         RefreshPowerIfNeeded();
-        return _powerGrid.CoverageAt(x, y);
+        return _networks.CoverageAt(NetworkCatalog.PowerIndex, x, y);
     }
 
     /// <summary>Kolik výkonu do místa doteče (pro UI a testy).</summary>
     public double PowerSupplyAt(int x, int y)
     {
         RefreshPowerIfNeeded();
-        return _powerGrid.SupplyAt(x, y);
+        return _networks.SupplyAt(NetworkCatalog.PowerIndex, x, y);
     }
 
+    /// <summary>
+    /// Jak dobře je místo zásobené sítí daného druhu (voda, teplo, vztlak):
+    /// 1 = plně, 0 = nic. Elektřina má svou <see cref="PowerAt"/> — ta umí
+    /// i globální režim starších dat.
+    /// </summary>
+    public double NetworkCoverageAt(int network, int x, int y)
+    {
+        if (network == NetworkCatalog.PowerIndex)
+        {
+            return PowerAt(x, y);
+        }
+
+        RefreshPowerIfNeeded();
+        return _networks.CoverageAt(network, x, y);
+    }
+
+    /// <summary>Kolik výkonu sítě daného druhu do místa doteče (překryv, testy).</summary>
+    public double NetworkSupplyAt(int network, int x, int y)
+    {
+        RefreshPowerIfNeeded();
+        return _networks.SupplyAt(network, x, y);
+    }
+
+    /// <summary>Kolik ze sítě daného druhu místo chce (překryv, testy).</summary>
+    public double NetworkDemandAt(int network, int x, int y)
+    {
+        RefreshPowerIfNeeded();
+        return _networks.DemandAt(network, x, y);
+    }
+
+    /// <summary>
+    /// Přepočítá sítě, pokud se od posledního dotazu změnila zástavba nebo
+    /// stav některého zdroje. Jméno zůstalo z doby, kdy byla síť jen jedna.
+    /// </summary>
     private void RefreshPowerIfNeeded()
     {
         if (!_powerDirty)
@@ -3211,7 +3245,7 @@ public sealed class Simulation
         }
 
         _powerDirty = false;
-        _powerGrid.Rebuild(BuildingsMutable, _content);
+        _networks.Rebuild(BuildingsMutable, _content);
     }
 
     /// <summary>Postavené budovy (jen ke čtení; render z nich kreslí).</summary>
@@ -3761,7 +3795,7 @@ public sealed class Simulation
 
         // Rozestavěná elektrárna nedodává; dostavěná ano. Bez tohohle by se
         // proud objevil až při příští změně zástavby, tedy nikdy.
-        if (def.PowerSupply > 0 || def.PowerDemand > 0)
+        if (def.TouchesNetworks)
         {
             _powerDirty = true;
         }
@@ -8452,7 +8486,7 @@ public sealed class Simulation
         _buildingIndex.Remove(buildingIndex, building.X, building.Y, def.FootprintWidth, def.FootprintHeight);
         _buildingIndex.Add(buildingIndex, x, y, def.FootprintWidth, def.FootprintHeight);
 
-        if (def.PowerSupply > 0 || def.PowerDemand > 0)
+        if (def.TouchesNetworks)
         {
             _powerDirty = true; // přesunutá elektrárna svítí jinam
         }
@@ -9006,7 +9040,7 @@ public sealed class Simulation
         _buildingIndex.Add(_buildingCount, x, y, def.FootprintWidth, def.FootprintHeight);
         _buildingCount++;
 
-        if (def.PowerSupply > 0 || def.PowerDemand > 0)
+        if (def.TouchesNetworks)
         {
             _powerDirty = true;
         }
@@ -9081,7 +9115,7 @@ public sealed class Simulation
             def.FootprintWidth,
             def.FootprintHeight);
 
-        if (def.PowerSupply > 0 || def.PowerDemand > 0)
+        if (def.TouchesNetworks)
         {
             _powerDirty = true;
         }
@@ -10114,7 +10148,7 @@ public sealed class Simulation
         _relics.Clear();
         ExpeditionTicksLeft = 0;
         _buildingIndex.Clear();
-        _powerGrid.Clear();
+        _networks.Clear();
         _powerDirty = true;
         _subseaDirty = true; // bez přístavů nezůstane otevřená ani dlaždice moře
         _buildingCount = 0;

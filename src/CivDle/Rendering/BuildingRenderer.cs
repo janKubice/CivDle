@@ -693,6 +693,7 @@ public sealed class BuildingRenderer
         BuildingStall.MissingInput => new Color(240, 90, 80), // červená = chybí surovina
         BuildingStall.NoTerrain => new Color(150, 110, 220),  // fialová = došlo okolí
         BuildingStall.OutputFull => new Color(230, 208, 88),  // žlutá = plný sklad (jako v inspektoru)
+        BuildingStall.NetworkShortage => new Color(140, 200, 255), // ledově modrá = síť nedosáhne
         _ => Color.Transparent,
     };
 

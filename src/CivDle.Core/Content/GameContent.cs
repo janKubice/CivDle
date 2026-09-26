@@ -239,21 +239,48 @@ public sealed class GameContent
     /// a zátěž, které potřebují prozkoumat „co kdyby" (jiný růst, jiná startovní
     /// populace) nad ostrými daty, aniž by se ta data musela editovat.
     /// </summary>
-    public GameContent WithGameplay(GameplayConfig gameplay) => new(
-        Biomes, Resources, Buildings, Techs, Prestige, PrestigeUpgrades, Quests, QuestsDynamic,
-        Achievements, Events, Eras, WorldGen, gameplay, Languages, SettlementNames, Decorations,
-        Fauna, Devlog, ZoneTypes, Policies, AscensionTiers, Weather, Landmarks, Features, Ufo,
-        Ambience, Terraform, Tutorial, Challenges, Contracts, Districts, SettlementRanks, Citizens, Elections, Milestones, Seasons, Faith, NpcCities, Vehicles, Mods, GrandWork, Legacy, LegacyUpgrades, Aircraft, Orbit, Frontier, Figures, Chronicle, Carillon, Scenarios, PointsOfInterest, Doctrines);
+    public GameContent WithGameplay(GameplayConfig gameplay) =>
+        // Dosah elektřiny žije v gameplay.json — s novým nastavením ho síť musí převzít.
+        Clone(gameplay: gameplay, networks: Networks.WithPower(gameplay.Power));
 
     /// <summary>
     /// Kopie obsahu s jiným nastavením obrany. Výzva „Na hradbách" potřebuje
     /// častější vlny, aniž by se měnila data volné hry.
     /// </summary>
-    public GameContent WithFrontier(FrontierConfig frontier) => new(
+    public GameContent WithFrontier(FrontierConfig frontier) => Clone(frontier: frontier);
+
+    /// <summary>
+    /// Kopie obsahu s jinými sítěmi mimo elektřinu. Pro testy a nástroje —
+    /// hra sítě čte z <c>networks.json</c>.
+    /// </summary>
+    public GameContent WithNetworks(IReadOnlyList<NetworkTypeDef> others) =>
+        Clone(networks: new NetworkCatalog(NetworkCatalog.PowerType(Gameplay.Power), others));
+
+    /// <summary>
+    /// Mělká kopie s vyměněnými částmi. Jediné místo, které vyjmenovává celý
+    /// konstruktor — nová část obsahu se tak nemůže při kopii tiše ztratit.
+    /// </summary>
+    private GameContent Clone(
+        GameplayConfig? gameplay = null, FrontierConfig? frontier = null, NetworkCatalog? networks = null) => new(
         Biomes, Resources, Buildings, Techs, Prestige, PrestigeUpgrades, Quests, QuestsDynamic,
-        Achievements, Events, Eras, WorldGen, Gameplay, Languages, SettlementNames, Decorations,
+        Achievements, Events, Eras, WorldGen, gameplay ?? Gameplay, Languages, SettlementNames, Decorations,
         Fauna, Devlog, ZoneTypes, Policies, AscensionTiers, Weather, Landmarks, Features, Ufo,
-        Ambience, Terraform, Tutorial, Challenges, Contracts, Districts, SettlementRanks, Citizens, Elections, Milestones, Seasons, Faith, NpcCities, Vehicles, Mods, GrandWork, Legacy, LegacyUpgrades, Aircraft, Orbit, frontier, Figures, Chronicle, Carillon, Scenarios, PointsOfInterest, Doctrines);
+        Ambience, Terraform, Tutorial, Challenges, Contracts, Districts, SettlementRanks, Citizens, Elections, Milestones, Seasons, Faith, NpcCities, Vehicles, Mods, GrandWork, Legacy, LegacyUpgrades, Aircraft, Orbit, frontier ?? Frontier, Figures, Chronicle, Carillon, Scenarios, PointsOfInterest, Doctrines)
+    {
+        Networks = networks ?? Networks,
+    };
+
+    private NetworkCatalog? _networks;
+
+    /// <summary>
+    /// Druhy sítí (svety-design.md 7.2): index 0 elektřina z <c>gameplay.json</c>,
+    /// další z <c>networks.json</c>. Obsah bez souboru sítí má jen elektřinu.
+    /// </summary>
+    public NetworkCatalog Networks
+    {
+        get => _networks ??= NetworkCatalog.PowerOnly(Gameplay.Power);
+        init => _networks = value;
+    }
 
     /// <summary>Milníky postupu z <c>data/milestones.json</c> (smí být prázdné).</summary>
     public IReadOnlyList<MilestoneDef> Milestones { get; }

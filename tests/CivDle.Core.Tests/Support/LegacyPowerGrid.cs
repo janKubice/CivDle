@@ -1,25 +1,18 @@
 using CivDle.Core.Content;
+using CivDle.Core.Sim;
 using CivDle.Core.World;
 
-namespace CivDle.Core.Sim;
+namespace CivDle.Core.Tests.Support;
 
 /// <summary>
-/// Kam až dosáhne proud — a kolik ho tam zbývá.
+/// Původní rozvod proudu (<c>PowerGridSystem</c>) před zobecněním na
+/// <see cref="NetworkSystem"/>, zachovaný beze změny jako <b>referenční
+/// implementace</b> pro regresní test: elektřina přes obecnou síť musí dát
+/// na uloženém městě bit po bitu totéž co dřív (svety-design.md 7.2).
 ///
-/// <para><b>Co se tím mění:</b> energie byla jedno globální číslo. Elektrárna
-/// postavená kdekoli zásobovala všechno, takže „kam s ní" nebyla otázka.
-/// Teď má dosah, a tím se z ní stává rozhodnutí o místě — přesně to, na čem
-/// stojí celý žánr.</para>
-///
-/// <para><b>Žádné dráty.</b> Elektrárna zaplní svou buňku a šíří se do
-/// sousedních, dokud stačí výkon. Ušetří to hráči mikromanagement vedení
-/// a nám pathfinding; dosah je číslo z dat, ne nakreslená síť.</para>
-///
-/// <para><b>Hrubá mřížka a nízká frekvence.</b> Počítá se po buňkách 8×8
-/// dlaždic a jen když se zástavba změnila — CLAUDE.md: růstové systémy
-/// nejedou každý tik.</para>
+/// <para>Do hry nepatří — žije jen v testech.</para>
 /// </summary>
-public sealed class PowerGridSystem
+public sealed class LegacyPowerGrid
 {
     /// <summary>Hrana buňky v dlaždicích. Mocnina dvojky — posun místo dělení.</summary>
     public const int CellShift = 3;

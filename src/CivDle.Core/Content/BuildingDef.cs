@@ -258,10 +258,84 @@ public sealed record BuildingDef(
     int VisualHeight = 0,
     string? UnlockedBy = null,
     BuildingLook? LookOrNull = null,
-    ProjectRule? ProjectOrNull = null)
+    ProjectRule? ProjectOrNull = null,
+    IReadOnlyList<NetworkUse>? NetworksOrNull = null)
 {
     /// <summary>Staví se budova vkládáním surovin po stupních (<see cref="ProjectRule"/>)?</summary>
     public bool IsProject => ProjectOrNull is not null;
+
+    /// <summary>
+    /// Sítě mimo elektřinu (voda, teplo, vztlak), které budova dodává, chce
+    /// nebo přenáší. Elektřina zůstává ve starých polích
+    /// <see cref="PowerSupply"/> / <see cref="PowerDemand"/>.
+    /// </summary>
+    public IReadOnlyList<NetworkUse> Networks => NetworksOrNull ?? Array.Empty<NetworkUse>();
+
+    /// <summary>Sahá budova na nějakou síť (včetně elektřiny)? Pak její změna přepočítá sítě.</summary>
+    public bool TouchesNetworks => PowerSupply > 0 || PowerDemand > 0 || Networks.Count > 0;
+
+    /// <summary>Dodává budova do nějaké sítě (včetně elektřiny)?</summary>
+    public bool SuppliesNetwork
+    {
+        get
+        {
+            if (PowerSupply > 0)
+            {
+                return true;
+            }
+
+            var networks = Networks;
+            for (int i = 0; i < networks.Count; i++)
+            {
+                if (networks[i].Supply > 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>Kolik budova chce ze sítě daného druhu (elektřina = <see cref="PowerDemand"/>).</summary>
+    public int DemandOf(int networkIndex)
+    {
+        if (networkIndex == NetworkCatalog.PowerIndex)
+        {
+            return PowerDemand;
+        }
+
+        var networks = Networks;
+        for (int i = 0; i < networks.Count; i++)
+        {
+            if (networks[i].NetworkIndex == networkIndex)
+            {
+                return networks[i].Demand;
+            }
+        }
+
+        return 0;
+    }
+
+    /// <summary>Kolik budova do sítě daného druhu dodává (elektřina = <see cref="PowerSupply"/>).</summary>
+    public int SupplyOf(int networkIndex)
+    {
+        if (networkIndex == NetworkCatalog.PowerIndex)
+        {
+            return PowerSupply;
+        }
+
+        var networks = Networks;
+        for (int i = 0; i < networks.Count; i++)
+        {
+            if (networks[i].NetworkIndex == networkIndex)
+            {
+                return networks[i].Supply;
+            }
+        }
+
+        return 0;
+    }
 
     /// <summary>
     /// Vzhled popsaný daty (tvar, barvy, prvky); <c>null</c> = budova má ručně

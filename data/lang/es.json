@@ -2027,6 +2027,7 @@
     "stall.noTerrain": "Ya no queda nada que recolectar cerca — muévelo o planta nuevos recursos.",
     "stall.noWorkers": "No hay quien trabaje — trae más gente (vivienda y comida) o derriba otra cosa.",
     "stall.outputFull": "El almacén está lleno: el edificio espera en lugar de gastar sus insumos en vano. Construye almacenes o deja que se consuman las reservas.",
+    "stall.networkShortage": "Aquí no llega la red sin la que el edificio no funciona (calor, sustentación): se ha detenido y volverá solo cuando quede cubierto. Construye una fuente o un relé más cerca.",
     "stats.buildings": "Edificios",
     "stats.covers": "Toda la partida — {0}",
     "stats.empty": "Aún no hay nada que dibujar. Construye un rato y vuelve.",

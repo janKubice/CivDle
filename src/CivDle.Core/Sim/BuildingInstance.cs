@@ -32,6 +32,12 @@ public enum BuildingStall : byte
     /// neuvolní místo (nebo nepřibude sklad).
     /// </summary>
     OutputFull,
+
+    /// <summary>
+    /// Síť s tvrdým nedostatkem sem nedosáhne (zamrzlá bez tepla, klesající
+    /// plošina bez vztlaku) — vypadla a vrátí se sama, až pokrytí stoupne.
+    /// </summary>
+    NetworkShortage,
 }
 
 /// <summary>

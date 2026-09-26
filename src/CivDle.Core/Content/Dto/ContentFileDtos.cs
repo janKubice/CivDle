@@ -77,7 +77,18 @@ public sealed record BuildingDto(
     int VisualHeight = 0,
     string? UnlockedBy = null,
     BuildingLookDto? Look = null,
-    ProjectDto? Project = null);
+    ProjectDto? Project = null,
+    Dictionary<string, NetworkUseDto>? Networks = null);
+
+/// <summary>Jak budova používá jednu síť (voda, teplo, vztlak) tak, jak leží v JSON.</summary>
+public sealed record NetworkUseDto(int Supply, int Demand, int Relay);
+
+/// <summary>Obsah souboru <c>data/networks.json</c>.</summary>
+public sealed record NetworksFileDto(int SchemaVersion, List<NetworkTypeDto>? Networks);
+
+/// <summary>Jeden druh sítě tak, jak leží v JSON.</summary>
+public sealed record NetworkTypeDto(
+    string? Id, int Range, string? Shortage, double CutoffBelow, string? OverlayColor);
 
 /// <summary>Stavba po stupních (projekt) tak, jak leží v JSON.</summary>
 public sealed record ProjectDto(
