@@ -26,6 +26,13 @@ public sealed class SettingsStore
         _filePath = filePath;
     }
 
+    /// <summary>
+    /// Existuje uložené nastavení? Když ne, jde o první spuštění — a hra se
+    /// podle toho může rozhodnout jinak než výchozími hodnotami (třeba vybrat
+    /// jazyk podle systému).
+    /// </summary>
+    public bool Exists => File.Exists(_filePath);
+
     /// <summary>Načte nastavení; chybějící nebo nečitelný soubor = výchozí hodnoty.</summary>
     public GameSettings Load()
     {

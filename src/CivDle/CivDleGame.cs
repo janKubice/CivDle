@@ -101,6 +101,18 @@ public sealed class CivDleGame : Game
                 trailerDirectory, trailerPreview ? TrailerPreset.Preview : TrailerPreset.Full);
         _settingsStore = new SettingsStore(GetSettingsPath());
         Settings = _settingsStore.Load();
+
+        // První spuštění: jazyk podle systému, ne jazyk vývojáře. Hráč, který
+        // první obrazovce nerozumí, hru zavře dřív, než najde nastavení.
+        if (!_settingsStore.Exists)
+        {
+            var languages = content.Languages.All.Select(l => l.Id).ToList();
+            Settings = Settings with
+            {
+                Language = LanguagePicker.Pick(languages, System.Globalization.CultureInfo.CurrentUICulture),
+            };
+            _settingsStore.Save(Settings);
+        }
         _profileStore = new ProfileStore(GetProfilePath());
         Profile = _profileStore.Load();
 
