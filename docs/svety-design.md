@@ -1086,6 +1086,37 @@ Pohled (jako dnešní překryv proudu):
 pole `worlds` (seznam ID). **Chybí-li, obsah platí všude** (společný) —
 starý obsah tak funguje beze změny; svět si nechtěné zakáže sám.
 
+> **Hotovo (D0.2) — a jedna změna proti návrhu.** Každý svět má vlastní
+> `GameContent`: loader (`LoadFrom(dir, mods, worldId)`) vybere ze základních
+> souborů položky, které světu patří (`WorldScope`), a přeloží přes ně složku
+> `data/worlds/<id>/` stejným slévačem jako mody. Simulace, UI ani render se
+> tak nemusí nikde ptát „patří to sem?" — vidí jen obsah svého světa.
+>
+> *Změna:* u **obsahu** (budovy, suroviny, výzkum, úkoly, události, počasí,
+> fauna…) platí položka bez značky **jen pro Domovinu**, sdílí se až se
+> značkou `"worlds": ["*"]` (nebo seznamem světů). Návrh říkal opak („chybí-li,
+> platí všude"), ale pak by kolonie dostala Hvězdnou bránu, elektrárnu na uran
+> a všech 159 technologií Domoviny a každý svět by musel desítky věcí zakazovat.
+> Takhle se sdílí jen to, co se výslovně označí, a chybný odkaz spadne při
+> načtení. U **struktury** (biomy, velikosti map, politiky, čtvrti, éry,
+> vylepšení Vzestupu a Odkazu) platí položka bez značky všude.
+>
+> *Náhrady surovin:* `world.json` → `substitutes` (`"wood": "adobe"`) přejmenuje
+> suroviny ve sdílených položkách — sdílený sklad stojí na Duně cihly místo
+> dřeva. Když se dvě slijí do jedné, částky se sečtou.
+>
+> *Volitelné systémy* (zakázky, obrana, orbita, cizí města, průvodce…) svět
+> vypne v `world.json` → `withoutSystems`; loader je pak bere jako chybějící
+> soubor, přesně jako u starších dat.
+>
+> Galaxii (`data/worlds.json`: pořadí, odemčení, cena lodi v surovinách
+> Domoviny, vzhled planety) načítá jen Domovina; co je **na** světě
+> (přistávací modul, výbava, vývoz, přístav, předvolba terénu) nese
+> `data/worlds/<id>/world.json` a validuje se proti obsahu světa, včetně
+> kontroly rozjetelnosti (bez výzkumu musí jít postavit bydlení a vyrobit jídlo).
+> Kolonie se načítají líně (`GalaxyContent`); test načte všechny světy, takže
+> chyba v datech kolonie spadne už při vývoji.
+
 **Validace při načtení (fail-fast):**
 
 * každý odkaz na svět, síť, profil, jev existuje;

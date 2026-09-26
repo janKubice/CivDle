@@ -268,7 +268,22 @@ public sealed class GameContent
         Ambience, Terraform, Tutorial, Challenges, Contracts, Districts, SettlementRanks, Citizens, Elections, Milestones, Seasons, Faith, NpcCities, Vehicles, Mods, GrandWork, Legacy, LegacyUpgrades, Aircraft, Orbit, frontier ?? Frontier, Figures, Chronicle, Carillon, Scenarios, PointsOfInterest, Doctrines)
     {
         Networks = networks ?? Networks,
+        World = World,
+        Galaxy = Galaxy,
     };
+
+    /// <summary>
+    /// Svět, kterému tenhle obsah patří (svety-design.md 7.1): přistávací modul,
+    /// výbava, vývoz. Domovina má výchozí profil.
+    /// </summary>
+    public WorldProfile World { get; init; } = WorldProfile.Home;
+
+    /// <summary>
+    /// Světy galaxie z <c>data/worlds.json</c>. Nese je jen obsah Domoviny —
+    /// kolonie ho neznají (cena lodi je v surovinách Domoviny). Prázdný = hra
+    /// bez galaxie.
+    /// </summary>
+    public WorldCatalog Galaxy { get; init; } = WorldCatalog.Empty;
 
     private NetworkCatalog? _networks;
 

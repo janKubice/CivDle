@@ -936,3 +936,32 @@ public sealed record GoldenKindDto(
     double RewardFraction,
     int MinReward,
     bool GrantsFestival = false);
+
+/// <summary>Obsah souboru <c>data/worlds.json</c> — světy galaxie.</summary>
+public sealed record WorldsFileDto(int SchemaVersion, List<WorldDto>? Worlds);
+
+/// <summary>Jeden svět galaxie tak, jak leží v JSON.</summary>
+public sealed record WorldDto(
+    string? Id,
+    int Order,
+    int StarsRequired,
+    bool RequiresGate,
+    List<ProjectStageDto>? ColonyCost,
+    double ColonyCostGrowth,
+    string? Atmosphere,
+    PlanetLookDto? Planet);
+
+/// <summary>Vzhled planety na mapě galaxie tak, jak leží v JSON.</summary>
+public sealed record PlanetLookDto(
+    string? Surface, string? Accent, double Size, bool Bands, bool Ring, bool IceCaps);
+
+/// <summary>Obsah souboru <c>data/worlds/&lt;id&gt;/world.json</c> — svět o sobě.</summary>
+public sealed record WorldFileDto(
+    int SchemaVersion,
+    string? Preset,
+    string? LandingModule,
+    Dictionary<string, int>? StartingKit,
+    List<string>? Exports,
+    string? Port,
+    Dictionary<string, string>? Substitutes,
+    List<string>? WithoutSystems);

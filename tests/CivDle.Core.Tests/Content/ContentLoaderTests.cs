@@ -660,6 +660,211 @@ public class ContentLoaderTests : IDisposable
         Assert.Contains(expected, ex.Message);
     }
 
+    // ----- světy galaxie (svety-design.md 7.1) -----
+
+    [Fact]
+    public void LoadWorld_GetsItsOwnAndSharedContentOnly()
+    {
+        WriteDuneWorld();
+
+        var dune = LoadWorld("dune");
+        var home = Load();
+
+        Assert.Equal(new[] { "food", "adobe" }, dune.Resources.All.Select(r => r.Id));
+        Assert.Equal(new[] { "store", "landing", "hut" }, dune.Buildings.All.Select(b => b.Id));
+        Assert.Equal(new[] { "wood", "food" }, home.Resources.All.Select(r => r.Id));
+        Assert.Equal(new[] { "house", "store" }, home.Buildings.All.Select(b => b.Id));
+        Assert.True(home.World.IsHome);
+        Assert.Equal("dune", dune.World.Id);
+    }
+
+    [Fact]
+    public void LoadWorld_SharedBuildingPaysInTheWorldsMaterial()
+    {
+        WriteDuneWorld();
+
+        var dune = LoadWorld("dune");
+        var store = dune.Buildings[dune.Buildings.IndexOf("store")];
+
+        Assert.Equal(new[] { (dune.Resources.IndexOf("adobe"), 10) },
+            store.BuildCost.Select(c => (c.ResourceIndex, c.Amount)));
+    }
+
+    [Fact]
+    public void LoadWorld_ProfileResolvesAgainstTheWorldsContent()
+    {
+        WriteDuneWorld();
+
+        var dune = LoadWorld("dune");
+
+        Assert.Equal(dune.Buildings.IndexOf("landing"), dune.World.LandingModuleIndex);
+        Assert.Equal(new[] { dune.Resources.IndexOf("adobe") }, dune.World.ExportIndices);
+        Assert.Equal(50, dune.World.StartingKit.Single().Amount);
+        Assert.Equal(0, dune.World.PresetIndex);
+    }
+
+    [Fact]
+    public void LoadWorld_WithoutWorldFile_Throws()
+    {
+        WriteDuneWorld();
+        File.Delete(Path.Combine(_tempDir, "worlds", "dune", "world.json"));
+
+        var ex = Assert.Throws<ContentLoadException>(() => LoadWorld("dune"));
+
+        Assert.Contains("world.json", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("\"landingModule\": \"house\"", "přistávací modul")]   // budova Domoviny, ne Duny
+    [InlineData("\"startingKit\": { \"wood\": 5 }", "wood")]           // dřevo na Duně není
+    [InlineData("\"exports\": [\"wood\"]", "vývoz")]
+    [InlineData("\"withoutSystems\": [\"buildings\"]", "withoutSystems")]
+    [InlineData("\"preset\": \"mars\"", "mars")]
+    public void LoadWorld_BadWorldFile_Throws(string field, string expected)
+    {
+        WriteDuneWorld(extraWorldField: field);
+
+        var ex = Assert.Throws<ContentLoadException>(() => LoadWorld("dune"));
+
+        Assert.Contains(expected, ex.Message);
+    }
+
+    [Fact]
+    public void LoadWorld_ThatCannotFeedItself_Throws()
+    {
+        // Modul nevyrábí jídlo a nic jiného bez výzkumu taky ne: kolonie by
+        // po minutě vyhladověla. Musí to spadnout při načtení.
+        WriteDuneWorld(landingOutput: "adobe");
+
+        var ex = Assert.Throws<ContentLoadException>(() => LoadWorld("dune"));
+
+        Assert.Contains("rozjet", ex.Message);
+    }
+
+    [Fact]
+    public void LoadGalaxy_ReadsTheWorldsAndTheirColonyCost()
+    {
+        WriteDuneWorld();
+        WriteWorldsJson("""{ "wood": 500 }""");
+
+        var home = Load();
+
+        Assert.True(home.Galaxy.IsEnabled);
+        Assert.Equal(new[] { "home", "dune" }, home.Galaxy.Worlds.Select(w => w.Id));
+        var dune = home.Galaxy.Find("dune")!;
+        Assert.True(dune.RequiresGate);
+        Assert.Equal(500, dune.ColonyCost.Single().Cost.Single().Amount);
+    }
+
+    [Fact]
+    public void LoadGalaxy_ColonyCostIsPaidInHomeResources()
+    {
+        WriteDuneWorld();
+        WriteWorldsJson("""{ "adobe": 500 }"""); // cihla je surovina Duny, ne Domoviny
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("adobe", ex.Message);
+    }
+
+    [Fact]
+    public void LoadGalaxy_WorldWithoutNames_Throws()
+    {
+        WriteDuneWorld(worldNames: false);
+        WriteWorldsJson("""{ "wood": 500 }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("'world.", ex.Message); // karta světa by ukázala holý klíč
+    }
+
+    [Fact]
+    public void LoadGalaxy_WithoutWorldsFile_HasNoGalaxy()
+    {
+        WriteAllValid();
+
+        Assert.False(Load().Galaxy.IsEnabled);
+    }
+
+    private GameContent LoadWorld(string worldId) =>
+        new ContentLoader().LoadFrom(_tempDir, Array.Empty<CivDle.Core.Content.Mods.ModPackage>(), worldId);
+
+    /// <summary>
+    /// Malá Duna: jídlo sdílené, dřevo jen doma, cihla jen na Duně; sdílený
+    /// sklad stojí dřevo a Duna ho platí cihlou.
+    /// </summary>
+    private void WriteDuneWorld(
+        string? extraWorldField = null, string landingOutput = "food", bool worldNames = true)
+    {
+        WriteAllValid();
+        Write("resources.json", """
+        {
+          "schemaVersion": 1,
+          "resources": [
+            { "id": "wood", "mapColor": "#8B5A2B", "startAmount": 30, "baseStorage": 200 },
+            { "id": "food", "worlds": ["*"], "mapColor": "#E0B040", "startAmount": 20, "baseStorage": 150 }
+          ]
+        }
+        """);
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "house", "mapColor": "#B5651D", "footprint": [1, 1], "housingCapacity": 4,
+              "buildCost": { "wood": 10 }, "allowedBiomes": ["grass"] },
+            { "id": "store", "worlds": ["*"], "mapColor": "#806040", "footprint": [1, 1],
+              "buildCost": { "wood": 10 }, "allowedBiomes": ["grass"] }
+          ]
+        }
+        """);
+
+        string dir = Path.Combine(_tempDir, "worlds", "dune");
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "resources.json"), """
+        { "schemaVersion": 1, "resources": [
+          { "id": "adobe", "mapColor": "#C08050", "startAmount": 0, "baseStorage": 300 } ] }
+        """);
+        File.WriteAllText(Path.Combine(dir, "buildings.json"), $$"""
+        { "schemaVersion": 1, "buildings": [
+          { "id": "landing", "mapColor": "#C0C0C0", "footprint": [2, 2], "housingCapacity": 30,
+            "buildCost": { "adobe": 1 }, "allowedBiomes": ["grass"], "buildable": false,
+            "recipe": { "output": { "{{landingOutput}}": 1 }, "timeTicks": 20 } },
+          { "id": "hut", "mapColor": "#D09060", "footprint": [1, 1], "housingCapacity": 4,
+            "buildCost": { "adobe": 5 }, "allowedBiomes": ["grass"] } ] }
+        """);
+        string extra = extraWorldField is null ? string.Empty : "," + extraWorldField;
+        // Pozdější klíč v JSON přebije dřívější, takže vadné pole z testu vyhraje.
+        File.WriteAllText(Path.Combine(dir, "world.json"), $$"""
+        { "schemaVersion": 1, "preset": "p", "landingModule": "landing",
+          "startingKit": { "adobe": 50 }, "exports": ["adobe"],
+          "substitutes": { "wood": "adobe" } {{extra}} }
+        """);
+
+        var keys = new List<string>
+        {
+            "resource.adobe", "building.store", "building.store.desc",
+            "building.landing", "building.landing.desc", "building.hut", "building.hut.desc",
+        };
+        if (worldNames)
+        {
+            keys.AddRange(new[]
+            {
+                "world.home", "world.home.desc", "world.home.rule",
+                "world.dune", "world.dune.desc", "world.dune.rule",
+            });
+        }
+
+        Write(Path.Combine("lang", "cs.json"), LangJson("cs", "Čeština", extraKeys: keys));
+        Write(Path.Combine("lang", "en.json"), LangJson("en", "English", extraKeys: keys));
+    }
+
+    private void WriteWorldsJson(string colonyCost) => Write("worlds.json", $$"""
+        { "schemaVersion": 1, "worlds": [
+          { "id": "home", "order": 0, "planet": { "surface": "#4A7A3A", "accent": "#2E5D8A", "size": 1 } },
+          { "id": "dune", "order": 1, "requiresGate": true, "colonyCost": [ { "cost": {{colonyCost}} } ],
+            "colonyCostGrowth": 1.5, "planet": { "surface": "#D8A860", "accent": "#3FA7A0", "size": 0.8 } } ] }
+        """);
+
     [Fact]
     public void LoadFrom_WithoutContractsFile_LeavesBoardOff()
     {

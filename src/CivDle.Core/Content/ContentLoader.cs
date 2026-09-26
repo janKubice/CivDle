@@ -38,7 +38,16 @@ public sealed class ContentLoader
     /// Načte obsah a navrství na něj mody. Mod nemusí dodat celý soubor — stačí
     /// mu položka, kterou přidává nebo mění (viz <see cref="JsonOverlay"/>).
     /// </summary>
-    public GameContent LoadFrom(string dataDirectory, IReadOnlyList<ModPackage> mods)
+    public GameContent LoadFrom(string dataDirectory, IReadOnlyList<ModPackage> mods) =>
+        LoadFrom(dataDirectory, mods, WorldScope.HomeId);
+
+    /// <summary>
+    /// Načte obsah jednoho světa galaxie (svety-design.md 7.1): položky
+    /// základních souborů, které mu patří (<see cref="WorldScope"/>), přeložené
+    /// složkou <c>data/worlds/&lt;id&gt;/</c>. Každý svět se validuje sám za sebe
+    /// — chybný odkaz v kolonii spadne při načtení kolonie, ne za hodinu hraní.
+    /// </summary>
+    public GameContent LoadFrom(string dataDirectory, IReadOnlyList<ModPackage> mods, string worldId)
     {
         if (!Directory.Exists(dataDirectory))
         {
@@ -46,6 +55,11 @@ public sealed class ContentLoader
         }
 
         _mods = mods;
+        _dataDirectory = dataDirectory;
+        _worldId = worldId;
+        _worldFile = worldId == WorldScope.HomeId ? null : ReadWorldFile(dataDirectory, worldId);
+        _substitutes = _worldFile?.Substitutes ?? new Dictionary<string, string>();
+        _withoutSystems = new HashSet<string>(_worldFile?.WithoutSystems ?? new List<string>(), StringComparer.Ordinal);
 
         // Suroviny první — odkazují na ně biomy (clickYield) i budovy (ceny, recepty).
         var resources = LoadResources(Path.Combine(dataDirectory, "resources.json"));
@@ -118,6 +132,16 @@ public sealed class ContentLoader
         var npcCities = LoadNpcCities(Path.Combine(dataDirectory, "npc-cities.json"), resources, buildings, settlementNames);
         var grandWork = LoadGrandWork(Path.Combine(dataDirectory, "grandwork.json"), resources, buildings, techs);
 
+        // Galaxii zná jen Domovina: cena lodi se platí v jejích surovinách.
+        var galaxy = worldId == WorldScope.HomeId
+            ? LoadWorlds(Path.Combine(dataDirectory, "worlds.json"), resources)
+            : WorldCatalog.Empty;
+        CheckWorldNames(Path.Combine(dataDirectory, "lang"), languages, galaxy);
+        var world = _worldFile is null
+            ? WorldProfile.Home
+            : BuildWorldProfile(Path.Combine(dataDirectory, "worlds", worldId, "world.json"),
+                _worldFile, resources, buildings, techs, worldGen, gameplay);
+
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
             worldGen, gameplay, languages, settlementNames, decorations, fauna, devlog, zoneTypes, policies, tiers, weather, landmarks, features, ufo, ambience, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, faith, npcCities, vehicles, mods,
@@ -125,7 +149,325 @@ public sealed class ContentLoader
             scenarios, poi, doctrines)
         {
             Networks = new NetworkCatalog(NetworkCatalog.PowerType(gameplay.Power), _networkTypes),
+            World = world,
+            Galaxy = galaxy,
         };
+    }
+
+    /// <summary>
+    /// Každý svět galaxie musí mít jméno, popis a jednu větu o svém pravidle —
+    /// karta světa bez nich by ukázala holé klíče.
+    /// </summary>
+    private static void CheckWorldNames(string langDirectory, DefRegistry<LanguageDef> languages, WorldCatalog galaxy)
+    {
+        foreach (var language in languages.All)
+        {
+            foreach (var world in galaxy.Worlds)
+            {
+                foreach (string key in new[] { world.NameKey, world.DescriptionKey, world.RuleKey })
+                {
+                    if (!language.Strings.ContainsKey(key))
+                    {
+                        throw new ContentLoadException(langDirectory,
+                            $"Jazyk '{language.Id}' nemá klíč '{key}' (svět galaxie '{world.Id}').");
+                    }
+                }
+            }
+        }
+    }
+
+    // ----- světy galaxie -----
+
+    private string _dataDirectory = string.Empty;
+    private string _worldId = WorldScope.HomeId;
+    private WorldFileDto? _worldFile;
+    private IReadOnlyDictionary<string, string> _substitutes = new Dictionary<string, string>();
+    private HashSet<string> _withoutSystems = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Je soubor pro tenhle svět k dispozici? Základní soubor, nebo soubor
+    /// ze složky světa — a svět ho nesmí mít vypnutý (<c>withoutSystems</c>).
+    /// Volitelné mechaniky se tak dají v kolonii vypnout, aniž by se mazalo.
+    /// </summary>
+    private bool HasFile(string path)
+    {
+        if (_withoutSystems.Contains(Path.GetFileNameWithoutExtension(path)))
+        {
+            return false;
+        }
+
+        return File.Exists(path) || (WorldOverlayPath(path) is { } world && File.Exists(world));
+    }
+
+    /// <summary>Stejnojmenný soubor ve složce světa; <c>null</c> pro Domovinu.</summary>
+    private string? WorldOverlayPath(string path)
+    {
+        if (_worldId == WorldScope.HomeId || _dataDirectory.Length == 0)
+        {
+            return null;
+        }
+
+        string relative = Path.GetRelativePath(_dataDirectory, path);
+        return Path.Combine(_dataDirectory, "worlds", _worldId, relative);
+    }
+
+    /// <summary>
+    /// <c>world.json</c> světa. Čte se jako první — náhrady surovin a vypnuté
+    /// systémy mění, jak se čtou všechny ostatní soubory. Zbytek (přistávací
+    /// modul, výbava) se validuje až nad hotovým obsahem.
+    /// </summary>
+    private static WorldFileDto ReadWorldFile(string dataDirectory, string worldId)
+    {
+        string path = Path.Combine(dataDirectory, "worlds", worldId, "world.json");
+        if (!File.Exists(path))
+        {
+            throw new ContentLoadException(path, $"Svět '{worldId}' nemá world.json — bez něj se nedá založit.");
+        }
+
+        WorldFileDto file;
+        try
+        {
+            file = JsonSerializer.Deserialize<WorldFileDto>(File.ReadAllText(path), JsonOptions)
+                ?? throw new ContentLoadException(path, "Soubor obsahuje jen 'null'.");
+        }
+        catch (JsonException ex)
+        {
+            throw new ContentLoadException(path, $"Neplatný JSON: {ex.Message}");
+        }
+
+        CheckSchemaVersion(path, file.SchemaVersion);
+        foreach (string system in file.WithoutSystems ?? new List<string>())
+        {
+            if (!WorldProfile.OptionalSystems.Contains(system))
+            {
+                throw new ContentLoadException(path,
+                    $"'withoutSystems' obsahuje '{system}' — vypnout jde jen volitelné systémy: {string.Join(", ", WorldProfile.OptionalSystems.OrderBy(x => x))}.");
+            }
+        }
+
+        return file;
+    }
+
+    /// <summary>
+    /// Profil světa nad hotovým obsahem: všechny odkazy musí vést na obsah
+    /// <b>tohohle</b> světa. A svět musí jít rozjet (viz <see cref="CheckWorldStarts"/>).
+    /// </summary>
+    private static WorldProfile BuildWorldProfile(
+        string path, WorldFileDto dto, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings,
+        DefRegistry<TechDef> techs, WorldGenCatalog worldGen, GameplayConfig gameplay)
+    {
+        string worldId = Path.GetFileName(Path.GetDirectoryName(path) ?? string.Empty);
+
+        int preset = -1;
+        for (int i = 0; i < worldGen.Presets.Count; i++)
+        {
+            if (worldGen.Presets[i].Id == dto.Preset)
+            {
+                preset = i;
+            }
+        }
+
+        if (preset < 0)
+        {
+            throw new ContentLoadException(path, $"Svět '{worldId}': neznámá předvolba terénu '{dto.Preset}'.");
+        }
+
+        if (dto.LandingModule is null || !buildings.TryIndexOf(dto.LandingModule, out int landing))
+        {
+            throw new ContentLoadException(path, $"Svět '{worldId}': přistávací modul '{dto.LandingModule}' není budova tohoto světa.");
+        }
+
+        var kit = new List<ResourceAmount>();
+        foreach (var (id, amount) in dto.StartingKit ?? new Dictionary<string, int>())
+        {
+            if (!resources.TryIndexOf(id, out int resource))
+            {
+                throw new ContentLoadException(path, $"Svět '{worldId}': startovní výbava obsahuje neznámou surovinu '{id}'.");
+            }
+
+            if (amount <= 0)
+            {
+                throw new ContentLoadException(path, $"Svět '{worldId}': startovní výbava '{id}' musí být kladná.");
+            }
+
+            kit.Add(new ResourceAmount(resource, amount));
+        }
+
+        var exports = new List<int>();
+        foreach (string id in dto.Exports ?? new List<string>())
+        {
+            if (!resources.TryIndexOf(id, out int resource))
+            {
+                throw new ContentLoadException(path, $"Svět '{worldId}': vývoz '{id}' není surovina tohoto světa.");
+            }
+
+            exports.Add(resource);
+        }
+
+        int port = -1;
+        if (dto.Port is not null && !buildings.TryIndexOf(dto.Port, out port))
+        {
+            throw new ContentLoadException(path, $"Svět '{worldId}': přístav '{dto.Port}' není budova tohoto světa.");
+        }
+
+        var profile = new WorldProfile(
+            worldId, preset, landing, kit, exports, port,
+            dto.Substitutes ?? new Dictionary<string, string>(),
+            new HashSet<string>(dto.WithoutSystems ?? new List<string>(), StringComparer.Ordinal));
+        CheckWorldStarts(path, profile, resources, buildings, techs, gameplay);
+        return profile;
+    }
+
+    /// <summary>
+    /// Jde svět rozjet? S přistávacím modulem a startovní výbavou musí jít bez
+    /// výzkumu postavit bydlení a vyrobit jídlo (svety-design.md 7.1). Svět,
+    /// který to neumí, spadne při startu — jinak by kolonie uvízla po první
+    /// minutě a hráč by nevěděl proč.
+    ///
+    /// <para>Počítá se pevný bod: co mám (výbava + výroba modulu), z toho
+    /// postavím, co jde bez výzkumu, a to vyrábí další suroviny — dokud
+    /// přibývá.</para>
+    /// </summary>
+    private static void CheckWorldStarts(
+        string path, WorldProfile profile, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings,
+        DefRegistry<TechDef> techs, GameplayConfig gameplay)
+    {
+        var landing = buildings[profile.LandingModuleIndex];
+        if (landing.HousingCapacity <= 0)
+        {
+            throw new ContentLoadException(path,
+                $"Svět '{profile.Id}': přistávací modul '{landing.Id}' musí dát bydlení — kolonisté musí někde spát.");
+        }
+
+        var gated = new bool[buildings.Count];
+        foreach (var tech in techs.All)
+        {
+            foreach (int index in tech.UnlockedBuildingIndices)
+            {
+                gated[index] = true;
+            }
+        }
+
+        var have = new bool[resources.Count];
+        foreach (var item in profile.StartingKit)
+        {
+            have[item.ResourceIndex] = true;
+        }
+
+        void Produce(BuildingDef def)
+        {
+            if (def.Recipe is { } recipe && recipe.Inputs.All(input => have[input.ResourceIndex]))
+            {
+                foreach (var output in recipe.Outputs)
+                {
+                    have[output.ResourceIndex] = true;
+                }
+            }
+        }
+
+        Produce(landing);
+        var built = new bool[buildings.Count];
+        bool grew = true;
+        while (grew)
+        {
+            grew = false;
+            for (int i = 0; i < buildings.Count; i++)
+            {
+                var def = buildings[i];
+                if (built[i] || gated[i] || !def.Buildable || def.UnlockedBy is not null || def.IsProject
+                    || !def.BuildCost.All(cost => have[cost.ResourceIndex]))
+                {
+                    continue;
+                }
+
+                built[i] = true;
+                grew = true;
+                Produce(def);
+            }
+        }
+
+        bool housing = false;
+        for (int i = 0; i < buildings.Count; i++)
+        {
+            housing |= built[i] && buildings[i].HousingCapacity > 0;
+        }
+
+        if (!housing)
+        {
+            throw new ContentLoadException(path,
+                $"Svět '{profile.Id}' nejde rozjet: bez výzkumu se z výbavy a výroby modulu nedá postavit žádné bydlení.");
+        }
+
+        int food = gameplay.FoodResourceIndex;
+        if (food >= 0 && !have[food])
+        {
+            throw new ContentLoadException(path,
+                $"Svět '{profile.Id}' nejde rozjet: bez výzkumu se nedá vyrobit jídlo ('{resources[food].Id}').");
+        }
+    }
+
+    /// <summary>
+    /// Světy galaxie. Chybějící soubor = hra bez galaxie (starší data, mody).
+    /// Cena kolonizace se platí na Domovině, proto se validuje proti jejím surovinám.
+    /// </summary>
+    private WorldCatalog LoadWorlds(string path, DefRegistry<Resource> resources)
+    {
+        if (!File.Exists(path))
+        {
+            return WorldCatalog.Empty;
+        }
+
+        var file = ReadFile<WorldsFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+
+        var worlds = new List<WorldDef>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var dto in file.Worlds ?? new List<WorldDto>())
+        {
+            string id = RequireId(path, dto.Id, $"Svět na pozici {worlds.Count}");
+            if (!seen.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID světa '{id}'.");
+            }
+
+            bool home = id == WorldScope.HomeId;
+            if (!home && !Directory.Exists(Path.Combine(Path.GetDirectoryName(path) ?? ".", "worlds", id)))
+            {
+                throw new ContentLoadException(path, $"Svět '{id}' nemá složku data/worlds/{id}.");
+            }
+
+            var stages = new List<ProjectStage>();
+            foreach (var stage in dto.ColonyCost ?? new List<ProjectStageDto>())
+            {
+                stages.Add(new ProjectStage(ParseResourceAmounts(path, $"kolonizace {id}", "colonyCost", stage.Cost, resources)));
+            }
+
+            if (!home && stages.Count == 0)
+            {
+                throw new ContentLoadException(path, $"Svět '{id}': 'colonyCost' chybí — kolonizační loď zadarmo by nebyla projekt.");
+            }
+
+            if (!home && dto.ColonyCostGrowth < 1)
+            {
+                throw new ContentLoadException(path, $"Svět '{id}': 'colonyCostGrowth' musí být aspoň 1 (další kolonie nesmí zlevňovat).");
+            }
+
+            var planet = dto.Planet ?? new PlanetLookDto("#4A7A3A", "#2E5D8A", 1, false, false, false);
+            worlds.Add(new WorldDef(
+                id, dto.Order, Math.Max(0, dto.StarsRequired), dto.RequiresGate, stages,
+                Math.Max(1, dto.ColonyCostGrowth), dto.Atmosphere ?? id,
+                new PlanetLook(
+                    ParseColor(path, planet.Surface, $"Planeta '{id}'"),
+                    ParseColor(path, planet.Accent, $"Planeta '{id}'"),
+                    planet.Size > 0 ? planet.Size : 1, planet.Bands, planet.Ring, planet.IceCaps)));
+        }
+
+        if (worlds.Count > 0 && !seen.Contains(WorldScope.HomeId))
+        {
+            throw new ContentLoadException(path, "Galaxie musí obsahovat Domovinu ('home').");
+        }
+
+        return new WorldCatalog(worlds);
     }
 
     // ----- sítě -----
@@ -142,7 +484,7 @@ public sealed class ContentLoader
     /// </summary>
     private IReadOnlyList<NetworkTypeDef> LoadNetworkTypes(string path)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return Array.Empty<NetworkTypeDef>();
         }
@@ -258,7 +600,7 @@ public sealed class ContentLoader
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings,
         IReadOnlyList<string> settlementNames)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return NpcCityCatalog.Empty;
         }
@@ -382,7 +724,7 @@ public sealed class ContentLoader
     private FigureCatalog LoadFigures(
         string path, DefRegistry<BuildingDef> buildings, IReadOnlyList<MilestoneDef> milestones)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return FigureCatalog.Empty;
         }
@@ -471,7 +813,7 @@ public sealed class ContentLoader
     /// </summary>
     private DoctrineCatalog LoadDoctrines(string path)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return DoctrineCatalog.Empty;
         }
@@ -589,7 +931,7 @@ public sealed class ContentLoader
     private PoiCatalog LoadPointsOfInterest(
         string path, DefRegistry<Resource> resources, BiomeRegistry biomes)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return PoiCatalog.Empty;
         }
@@ -736,7 +1078,7 @@ public sealed class ContentLoader
         DefRegistry<TechDef> techs,
         WorldGenCatalog worldGen)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return ScenarioCatalog.Empty;
         }
@@ -938,7 +1280,7 @@ public sealed class ContentLoader
     /// </summary>
     private CarillonConfig LoadCarillon(string path, DefRegistry<BuildingDef> buildings)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return CarillonConfig.Disabled;
         }
@@ -991,7 +1333,7 @@ public sealed class ContentLoader
     /// </summary>
     private ChronicleCatalog LoadChronicle(string path)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return ChronicleCatalog.Empty;
         }
@@ -1045,7 +1387,7 @@ public sealed class ContentLoader
     /// </summary>
     private FrontierConfig LoadFrontier(string path)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return FrontierConfig.Disabled;
         }
@@ -1159,7 +1501,7 @@ public sealed class ContentLoader
     private OrbitCatalog LoadOrbit(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return OrbitCatalog.Empty;
         }
@@ -1250,7 +1592,7 @@ public sealed class ContentLoader
         DefRegistry<BuildingDef> buildings,
         DefRegistry<TechDef> techs)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return new GrandWorkConfig(Array.Empty<GrandWorkStage>(), 1.0, 0);
         }
@@ -1315,7 +1657,7 @@ public sealed class ContentLoader
 
     private FaithCatalog LoadFaith(string path, DefRegistry<Resource> resources)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return FaithCatalog.Empty;
         }
@@ -1368,7 +1710,7 @@ public sealed class ContentLoader
     /// </summary>
     private SeasonCalendar LoadSeasons(string path, DefRegistry<Resource> resources)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return SeasonCalendar.Disabled;
         }
@@ -1490,7 +1832,7 @@ public sealed class ContentLoader
     private IReadOnlyList<MilestoneDef> LoadMilestones(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return Array.Empty<MilestoneDef>();
         }
@@ -1528,7 +1870,7 @@ public sealed class ContentLoader
     /// </summary>
     private ElectionConfig LoadElections(string path)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return ElectionConfig.Disabled;
         }
@@ -1598,7 +1940,7 @@ public sealed class ContentLoader
     private CitizenCatalog LoadCitizens(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return CitizenCatalog.Empty;
         }
@@ -1679,7 +2021,7 @@ public sealed class ContentLoader
     /// </summary>
     private SettlementRankLadder LoadSettlementRanks(string path)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return SettlementRankLadder.Empty;
         }
@@ -1731,7 +2073,7 @@ public sealed class ContentLoader
     /// </summary>
     private DistrictCatalog LoadDistricts(string path, DefRegistry<BuildingDef> buildings)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return DistrictCatalog.Empty;
         }
@@ -1879,7 +2221,7 @@ public sealed class ContentLoader
     private ContractCatalog LoadContracts(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return ContractCatalog.Empty;
         }
@@ -1994,7 +2336,7 @@ public sealed class ContentLoader
     private ChallengeCatalog LoadChallenges(
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return ChallengeCatalog.Empty;
         }
@@ -2054,7 +2396,7 @@ public sealed class ContentLoader
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         // Průvodce je volitelný — bez souboru se hra prostě spustí bez vedení.
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return Array.Empty<TutorialStepDef>();
         }
@@ -2178,7 +2520,7 @@ public sealed class ContentLoader
     private DefRegistry<ZoneTypeDef> LoadZoneTypes(string path, DefRegistry<BuildingDef> buildings)
     {
         // Zóny jsou volitelný obsah — bez souboru je registr prázdný (žádná automatizace zón).
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return new DefRegistry<ZoneTypeDef>(Array.Empty<ZoneTypeDef>(), z => z.Id, "typ zóny", allowEmpty: true);
         }
@@ -2225,7 +2567,7 @@ public sealed class ContentLoader
     private DefRegistry<GrowthPolicyDef> LoadPolicies(string path)
     {
         // Politiky jsou volitelný obsah — bez souboru je registr prázdný (žádná stupeň-4 automatizace).
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return new DefRegistry<GrowthPolicyDef>(Array.Empty<GrowthPolicyDef>(), p => p.Id, "politika", allowEmpty: true);
         }
@@ -2265,7 +2607,7 @@ public sealed class ContentLoader
         string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings, DefRegistry<TechDef> techs)
     {
         // Volitelný obsah — bez souboru je vše dostupné od začátku (žádné gatování).
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return new DefRegistry<FeatureDef>(Array.Empty<FeatureDef>(), f => f.Id, "funkce", allowEmpty: true);
         }
@@ -2304,7 +2646,7 @@ public sealed class ContentLoader
     /// obsah; bez něj se krajina prostě přetvářet nedá.
     /// </summary>
     private TerraformFileDto? ReadTerraformFile(string path) =>
-        File.Exists(path) ? ReadFile<TerraformFileDto>(path) : null;
+        HasFile(path) ? ReadFile<TerraformFileDto>(path) : null;
 
     /// <summary>
     /// ID zásahů v pořadí, v jakém dostanou index. Budovy, které terén mění
@@ -2380,7 +2722,7 @@ public sealed class ContentLoader
         string path, BiomeRegistry biomes, DefRegistry<WeatherDef> weather)
     {
         // Volitelný obsah — bez souboru hraje jen hudba, hra běží dál.
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return Array.Empty<AmbienceDef>();
         }
@@ -2454,7 +2796,7 @@ public sealed class ContentLoader
     private UfoConfig LoadUfo(string path)
     {
         // Volitelný obsah — bez souboru UFO ve hře prostě není.
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return UfoConfig.Disabled;
         }
@@ -2520,7 +2862,7 @@ public sealed class ContentLoader
     private DefRegistry<LandmarkDef> LoadLandmarks(string path, BiomeRegistry biomes, DefRegistry<Resource> resources)
     {
         // Landmarky jsou volitelný obsah — bez souboru je mapa jen bez bodů zájmu.
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return new DefRegistry<LandmarkDef>(Array.Empty<LandmarkDef>(), l => l.Id, "landmark", allowEmpty: true);
         }
@@ -2603,7 +2945,7 @@ public sealed class ContentLoader
     private DefRegistry<WeatherDef> LoadWeather(string path, BiomeRegistry biomes)
     {
         // Počasí je volitelný obsah — bez souboru je registr prázdný (mapa bez počasí).
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return new DefRegistry<WeatherDef>(Array.Empty<WeatherDef>(), w => w.Id, "počasí", allowEmpty: true);
         }
@@ -2676,7 +3018,7 @@ public sealed class ContentLoader
     private DefRegistry<AscensionTierDef> LoadAscensionTiers(string path, DefRegistry<BuildingDef> buildings)
     {
         // Stupně měřítka jsou volitelný obsah — bez souboru je registr prázdný (žádný strop).
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return new DefRegistry<AscensionTierDef>(Array.Empty<AscensionTierDef>(), t => t.Id, "stupeň měřítka", allowEmpty: true);
         }
@@ -3751,7 +4093,7 @@ public sealed class ContentLoader
     private DefRegistry<TechDef> LoadTech(string path, DefRegistry<BuildingDef> buildings, DefRegistry<Resource> resources)
     {
         // Tech tree je volitelný — bez souboru je registr prázdný a vše je odemčené.
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return new DefRegistry<TechDef>(Array.Empty<TechDef>(), t => t.Id, "technologie", allowEmpty: true);
         }
@@ -4014,7 +4356,7 @@ public sealed class ContentLoader
     {
         var empty = new DefRegistry<PrestigeUpgradeDef>(
             Array.Empty<PrestigeUpgradeDef>(), u => u.Id, "upgrade Odkazu", allowEmpty: true);
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return (LegacyConfig.Disabled, empty);
         }
@@ -5370,7 +5712,7 @@ public sealed class ContentLoader
 
     private IReadOnlyList<DevlogEntry> LoadDevlog(string path)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return Array.Empty<DevlogEntry>(); // deník je volitelný — jeho absence hru neblokuje
         }
@@ -5566,7 +5908,7 @@ public sealed class ContentLoader
     /// </summary>
     private IReadOnlyList<AircraftDef> LoadAircraft(string path, DefRegistry<BuildingDef> buildings)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return Array.Empty<AircraftDef>();
         }
@@ -5624,7 +5966,7 @@ public sealed class ContentLoader
 
     private IReadOnlyList<VehicleDef> LoadVehicles(string path)
     {
-        if (!File.Exists(path))
+        if (!HasFile(path))
         {
             return Array.Empty<VehicleDef>();
         }
@@ -6342,13 +6684,25 @@ public sealed class ContentLoader
     /// </summary>
     private T ReadFile<T>(string path)
     {
-        if (!File.Exists(path))
+        // Svět: položky základního souboru, které mu patří (WorldScope), a přes
+        // ně složka světa stejným slévačem jako mody. Soubor, který má jen svět
+        // (networks.json na Duně), je sám sobě základem.
+        string? worldPath = WorldOverlayPath(path);
+        bool hasBase = File.Exists(path);
+        bool hasWorld = worldPath is not null && File.Exists(worldPath);
+        if (!hasBase && !hasWorld)
         {
             throw new ContentLoadException(path, "Soubor nenalezen.");
         }
 
-        string text = File.ReadAllText(path);
+        string text = hasBase
+            ? WorldScope.Filter(Path.GetFileName(path), File.ReadAllText(path), _worldId, _substitutes)
+            : File.ReadAllText(worldPath!);
         var overlays = OverlaysFor(path);
+        if (hasBase && hasWorld)
+        {
+            overlays.Insert(0, File.ReadAllText(worldPath!)); // svět pod mody: mod smí upravit i kolonii
+        }
 
         try
         {
