@@ -21,7 +21,9 @@ public sealed class Simulation
     private readonly GameContent _content;
     private readonly double[] _resources;
     private readonly double[] _storageCaps;
-    private readonly Dictionary<long, int> _occupancy = new(); // klíč dlaždice → index budovy + 1
+    // Klíč dlaždice → index budovy + 1. Po blocích, ne ve slovníku: hledání
+    // místa se ptá tisíckrát za stavbu, a to v sousedství (viz TileMap).
+    private readonly TileMap _occupancy = new();
     private readonly HashSet<long> _roads = new();
     private bool[] _roadLinked = Array.Empty<bool>(); // budova ↔ napojení na síť (cache)
 
@@ -176,6 +178,7 @@ public sealed class Simulation
     {
         _content = content;
         Terrain = terrain;
+        _cachedTerrain = new CachedTerrain(terrain);
         Seed = seed;
 
         // Budova je odemčená od startu, pokud ji žádná technologie nehlídá.
@@ -507,7 +510,7 @@ public sealed class Simulation
                     return false;
                 }
 
-                if (!def.IsBiomeAllowed(Terrain.BiomeAt(tileX, tileY)))
+                if (!def.IsBiomeAllowed(_cachedTerrain.BiomeAt(tileX, tileY)))
                 {
                     return false;
                 }
@@ -560,7 +563,7 @@ public sealed class Simulation
         !_occupancy.ContainsKey(TileKey.Pack(x, y))
         && !_roads.Contains(TileKey.Pack(x, y))
         && !_npcTowns.IsOccupied(x, y)
-        && !_content.Biomes[Terrain.BiomeAt(x, y)].IsWater;
+        && !_content.Biomes[_cachedTerrain.BiomeAt(x, y)].IsWater;
 
     /// <summary>Cesty mezi cizími městy v okolí — svět si žije i bez hráče.</summary>
     public IEnumerable<NpcCityLink> CityLinksNear(int tileX, int tileY, int radiusTiles) =>
@@ -1599,7 +1602,7 @@ public sealed class Simulation
 
                 if (WithinRadius(x, y, centerX, centerY, crater)
                     && craterBiomeIndex >= 0
-                    && !_content.Biomes[Terrain.BiomeAt(x, y)].IsWater)
+                    && !_content.Biomes[_cachedTerrain.BiomeAt(x, y)].IsWater)
                 {
                     SetBiomeOverride(x, y, (byte)craterBiomeIndex);
                 }
@@ -1619,7 +1622,7 @@ public sealed class Simulation
         {
             for (int x = centerX - radiusTiles; x <= centerX + radiusTiles; x++)
             {
-                if (!_content.Biomes[Terrain.BiomeAt(x, y)].IsWater && IsWaterNextTo(x, y))
+                if (!_content.Biomes[_cachedTerrain.BiomeAt(x, y)].IsWater && IsWaterNextTo(x, y))
                 {
                     SetBiomeOverride(x, y, (byte)FloodedBiomeIndex);
                 }
@@ -1848,10 +1851,10 @@ public sealed class Simulation
 
     /// <summary>Sousedí dlaždice s vodou? (Povodeň bere jen to, co stojí u ní.)</summary>
     private bool IsWaterNextTo(int x, int y) =>
-        _content.Biomes[Terrain.BiomeAt(x + 1, y)].IsWater
-        || _content.Biomes[Terrain.BiomeAt(x - 1, y)].IsWater
-        || _content.Biomes[Terrain.BiomeAt(x, y + 1)].IsWater
-        || _content.Biomes[Terrain.BiomeAt(x, y - 1)].IsWater;
+        _content.Biomes[_cachedTerrain.BiomeAt(x + 1, y)].IsWater
+        || _content.Biomes[_cachedTerrain.BiomeAt(x - 1, y)].IsWater
+        || _content.Biomes[_cachedTerrain.BiomeAt(x, y + 1)].IsWater
+        || _content.Biomes[_cachedTerrain.BiomeAt(x, y - 1)].IsWater;
 
     private static bool WithinRadius(int x, int y, int centerX, int centerY, int radius) =>
         Math.Abs(x - centerX) <= radius && Math.Abs(y - centerY) <= radius;
@@ -1893,6 +1896,17 @@ public sealed class Simulation
 
     /// <summary>Nekonečný terén, nad kterým simulace běží.</summary>
     public ITerrain Terrain { get; }
+
+    /// <summary>
+    /// Týž terén s pamětí biomů — ptá se přes něj simulace (hledání místa,
+    /// těžba, silnice), protože biom počítaný ze šumu byl ve velkém městě
+    /// znatelná část ceny kola. Jen pro simulační vlákno; render a nástroje
+    /// dostávají <see cref="Terrain"/>.
+    /// </summary>
+    private readonly CachedTerrain _cachedTerrain;
+
+    /// <summary>Biom vygenerovaného terénu (bez přepisů) přes paměť simulace.</summary>
+    internal byte TerrainBiomeAt(int x, int y) => _cachedTerrain.BiomeAt(x, y);
 
     /// <summary>Seed světa.</summary>
     public long Seed { get; }
@@ -3074,7 +3088,7 @@ public sealed class Simulation
     public byte BiomeAt(int x, int y) =>
         _biomeOverrides.TryGetValue(TileKey.Pack(x, y), out byte overridden)
             ? overridden
-            : Terrain.BiomeAt(x, y);
+            : _cachedTerrain.BiomeAt(x, y);
 
     /// <summary>
     /// Přepíše biom jedné dlaždice (terraformace — zatím jen UFO). Ukládá se jen
@@ -3841,7 +3855,7 @@ public sealed class Simulation
     /// takže se nikde neukládá a po načtení savu vyjde stejně. Pro render (jiný vzhled).
     /// </summary>
     public bool IsBridge(int x, int y) =>
-        IsRoad(x, y) && _content.Biomes[Terrain.BiomeAt(x, y)].IsWater;
+        IsRoad(x, y) && _content.Biomes[_cachedTerrain.BiomeAt(x, y)].IsWater;
 
     internal void AddRoadTile(int x, int y)
     {
@@ -3870,7 +3884,7 @@ public sealed class Simulation
             {
                 _plantedNodes.Remove(TileKey.Pack(tileX, tileY));
 
-                var yield = _content.Biomes[Terrain.BiomeAt(tileX, tileY)].ClickYield;
+                var yield = _content.Biomes[_cachedTerrain.BiomeAt(tileX, tileY)].ClickYield;
                 if (yield is { IsExhaustible: true })
                 {
                     _nodes.Deplete(tileX, tileY, TickCount);
@@ -3900,7 +3914,7 @@ public sealed class Simulation
         // na to, aby ho most překlenul. Dřív hráč vodní dlaždici nedláždil vůbec
         // a most se dal získat jen náhodou přes auto-silnice; přitom přemostit
         // říčku tažením je ta nejpřirozenější věc, kterou od nástroje čeká.
-        if (_content.Biomes[Terrain.BiomeAt(x, y)].IsWater && !CanBridge(x, y))
+        if (_content.Biomes[_cachedTerrain.BiomeAt(x, y)].IsWater && !CanBridge(x, y))
         {
             return PlacementResult.WrongBiome;
         }
@@ -3931,7 +3945,7 @@ public sealed class Simulation
             {
                 int tileX = x + stepX * i * sign;
                 int tileY = y + stepY * i * sign;
-                if (!_content.Biomes[Terrain.BiomeAt(tileX, tileY)].IsWater)
+                if (!_content.Biomes[_cachedTerrain.BiomeAt(tileX, tileY)].IsWater)
                 {
                     break;
                 }
@@ -4353,7 +4367,7 @@ public sealed class Simulation
                     return PlacementResult.Occupied;
                 }
 
-                if (!def.IsBiomeAllowed(Terrain.BiomeAt(tileX, tileY)))
+                if (!def.IsBiomeAllowed(_cachedTerrain.BiomeAt(tileX, tileY)))
                 {
                     return PlacementResult.WrongBiome;
                 }
@@ -4413,7 +4427,7 @@ public sealed class Simulation
         return false;
     }
 
-    private bool IsWaterTile(int x, int y) => _content.Biomes[Terrain.BiomeAt(x, y)].IsWater;
+    private bool IsWaterTile(int x, int y) => _content.Biomes[_cachedTerrain.BiomeAt(x, y)].IsWater;
 
     /// <summary>
     /// Kolik vyhovujících dlaždic má budova daného typu v okolí místa (x, y).
@@ -4466,7 +4480,7 @@ public sealed class Simulation
                     continue; // vlastní půdorys
                 }
 
-                if (rule.Counts(Terrain.BiomeAt(tileX, tileY)))
+                if (rule.Counts(_cachedTerrain.BiomeAt(tileX, tileY)))
                 {
                     count++;
                 }
@@ -4722,7 +4736,7 @@ public sealed class Simulation
     public PlacementResult CanPlant(int x, int y)
     {
         long tile = TileKey.Pack(x, y);
-        if (_content.Biomes[Terrain.BiomeAt(x, y)].IsWater)
+        if (_content.Biomes[_cachedTerrain.BiomeAt(x, y)].IsWater)
         {
             return PlacementResult.WrongBiome;
         }
@@ -4882,7 +4896,7 @@ public sealed class Simulation
         int landmark = LandmarkAt(x, y);
         return landmark >= 0 && _content.Landmarks[landmark].IsHarvestable
             ? _content.Landmarks[landmark].ClickYield
-            : _content.Biomes[Terrain.BiomeAt(x, y)].ClickYield;
+            : _content.Biomes[_cachedTerrain.BiomeAt(x, y)].ClickYield;
     }
 
     /// <summary>
@@ -5053,8 +5067,8 @@ public sealed class Simulation
     /// Bez budov padne na biom v počátku souřadnic.
     /// </summary>
     public int CityBiome => _buildingCount > 0
-        ? Terrain.BiomeAt(_buildings[0].X, _buildings[0].Y)
-        : Terrain.BiomeAt(0, 0);
+        ? _cachedTerrain.BiomeAt(_buildings[0].X, _buildings[0].Y)
+        : _cachedTerrain.BiomeAt(0, 0);
 
     /// <summary>Index aktuálního jevu počasí, nebo −1 (žádné počasí v datech / pro biom).</summary>
     public int CurrentWeatherIndex
@@ -6004,7 +6018,7 @@ public sealed class Simulation
                     return -1; // zástavba landmark překryje
                 }
 
-                biome = Terrain.BiomeAt(x, y);
+                biome = _cachedTerrain.BiomeAt(x, y);
             }
 
             if (landmarks[i].AppliesTo(biome))
@@ -6037,7 +6051,7 @@ public sealed class Simulation
     /// </summary>
     public bool IsDiscoveryTile(int x, int y)
     {
-        if (_content.Biomes[Terrain.BiomeAt(x, y)].IsWater)
+        if (_content.Biomes[_cachedTerrain.BiomeAt(x, y)].IsWater)
         {
             return false;
         }
@@ -6887,7 +6901,7 @@ public sealed class Simulation
         {
             for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
             {
-                if (!IsTileFree(tileX, tileY) || !def.IsBiomeAllowed(Terrain.BiomeAt(tileX, tileY)))
+                if (!IsTileFree(tileX, tileY) || !def.IsBiomeAllowed(_cachedTerrain.BiomeAt(tileX, tileY)))
                 {
                     return false;
                 }
@@ -7262,7 +7276,7 @@ public sealed class Simulation
         {
             for (int tileX = group.X; tileX < group.X + 2; tileX++)
             {
-                if (!target.IsBiomeAllowed(Terrain.BiomeAt(tileX, tileY)))
+                if (!target.IsBiomeAllowed(_cachedTerrain.BiomeAt(tileX, tileY)))
                 {
                     return PlacementResult.WrongBiome;
                 }
@@ -7412,7 +7426,7 @@ public sealed class Simulation
                     continue;
                 }
 
-                if (IsOccupied(tileX, tileY) || !target.IsBiomeAllowed(Terrain.BiomeAt(tileX, tileY)))
+                if (IsOccupied(tileX, tileY) || !target.IsBiomeAllowed(_cachedTerrain.BiomeAt(tileX, tileY)))
                 {
                     return false;
                 }
@@ -7632,7 +7646,7 @@ public sealed class Simulation
                     return PlacementResult.Occupied;
                 }
 
-                if (!def.IsBiomeAllowed(Terrain.BiomeAt(tileX, tileY)))
+                if (!def.IsBiomeAllowed(_cachedTerrain.BiomeAt(tileX, tileY)))
                 {
                     return PlacementResult.WrongBiome;
                 }
@@ -7689,7 +7703,7 @@ public sealed class Simulation
         building.HarvestCursor = 0;
         building.OutOfResources = false;
         // Přesun mění biom pod budovou i její okolí → cachované násobiče jdou s ní.
-        building.BiomeMult = (float)_content.Biomes[Terrain.BiomeAt(x, y)].Production;
+        building.BiomeMult = (float)_content.Biomes[_cachedTerrain.BiomeAt(x, y)].Production;
         building.AdjacencyMult = (float)AdjacencyMultiplier(def, x, y);
         building.HaulMult = (float)_haulSystem.MultiplierAt(x, y);
         building.PollutionMult = (float)_pollutionSystem.MultiplierAt(this, building.DefIndex, x, y);
@@ -8181,7 +8195,7 @@ public sealed class Simulation
 
         // Kronika: biom, na kterém město stavělo. Zaznamenává se tady, protože
         // tudy prochází i obnova ze savu — jinak by se po načtení zapomněl.
-        _settledBiomes[Terrain.BiomeAt(x, y)] = true;
+        _settledBiomes[_cachedTerrain.BiomeAt(x, y)] = true;
 
         // Co postavíš, na to i vidíš. Je to tady ze stejného důvodu jako řádek
         // výš: touhle cestou jde i obnova ze savu, takže i starý save (bez sekce
@@ -8205,7 +8219,7 @@ public sealed class Simulation
             Progress = progress,
             // Ekonomická identita biomu se cachuje při položení — v tikové smyčce
             // už se terén nevzorkuje (viz BuildingInstance.BiomeMult).
-            BiomeMult = (float)_content.Biomes[Terrain.BiomeAt(x, y)].Production,
+            BiomeMult = (float)_content.Biomes[_cachedTerrain.BiomeAt(x, y)].Production,
             AdjacencyMult = (float)AdjacencyMultiplier(def, x, y),
             HaulMult = (float)_haulSystem.MultiplierAt(x, y),
             // Čistá 1.0, ne 0 — jinak by nová budova nevyráběla nic, dokud kolem ní

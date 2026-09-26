@@ -46,7 +46,7 @@ public sealed class NpcTownSystem
     private int _count;
 
     /// <summary>Dlaždice zastavěné cizím městem → index budovy + 1.</summary>
-    private readonly Dictionary<long, int> _occupancy = new();
+    private readonly TileMap _occupancy = new(); // po blocích: ptá se na ni každé hledání místa (viz TileMap)
 
     private readonly List<RoadTile> _roadTiles = new();
     private readonly List<long> _roadOwners = new();   // souběžné pole k _roadTiles

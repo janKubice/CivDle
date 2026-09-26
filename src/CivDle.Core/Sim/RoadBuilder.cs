@@ -384,7 +384,7 @@ internal sealed class RoadBuilder
         !sim.IsOccupied(x, y) && !IsWater(sim, x, y);
 
     private bool IsWater(Simulation sim, int x, int y) =>
-        _content.Biomes[sim.Terrain.BiomeAt(x, y)].IsWater;
+        _content.Biomes[sim.TerrainBiomeAt(x, y)].IsWater;
 
     /// <summary>Zavolá akci pro každou průchozí dlaždici po obvodu půdorysu budovy.</summary>
     private void MarkPerimeter(Simulation sim, in BuildingInstance building, Action<long> action)
