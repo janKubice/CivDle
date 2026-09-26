@@ -136,6 +136,7 @@ public sealed class SaveGameSerializer
     /// </summary>
     private const string SectionScenario = "scenario";
     private const string SectionProjects = "projects";
+    private const string SectionDistrictStyles = "districtStyles";
 
     /// <summary>
     /// Anomálie: které už hráč vybral, co je na cestě a jaké relikvie přivezl.
@@ -528,6 +529,7 @@ public sealed class SaveGameSerializer
 
         // Až po budovách: vklad patří staveništi, které už musí stát.
         WriteSection(writer, SectionProjects, w => WriteProjects(w, simulation));
+        WriteSection(writer, SectionDistrictStyles, w => WriteDistrictStyles(w, simulation));
     }
 
     /// <summary>
@@ -553,6 +555,51 @@ public sealed class SaveGameSerializer
                     writer.Write(resources[r].Id);
                     writer.Write(invested[r]);
                 }
+            }
+        }
+    }
+
+    /// <summary>Styly čtvrtí jménem: druh čtvrti → styl.</summary>
+    private static void WriteDistrictStyles(BinaryWriter writer, Simulation simulation)
+    {
+        var districts = SimContent(simulation).Districts;
+        var chosen = new List<(string Type, string Style)>();
+        for (int t = 0; t < districts.Types.Count; t++)
+        {
+            int style = simulation.DistrictStyleOf(t);
+            if (style >= 0)
+            {
+                chosen.Add((districts.Types[t].Id, districts.Styles[style].Id));
+            }
+        }
+
+        writer.Write(chosen.Count);
+        foreach (var (type, style) in chosen)
+        {
+            writer.Write(type);
+            writer.Write(style);
+        }
+    }
+
+    private static void ReadDistrictStyles(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        int count = reader.ReadInt32();
+        for (int i = 0; i < count; i++)
+        {
+            string type = reader.ReadString();
+            string style = reader.ReadString();
+            int styleIndex = -1;
+            for (int s = 0; s < content.Districts.Styles.Count; s++)
+            {
+                if (content.Districts.Styles[s].Id == style)
+                {
+                    styleIndex = s;
+                }
+            }
+
+            if (content.Districts.Types.TryIndexOf(type, out int typeIndex) && styleIndex >= 0)
+            {
+                simulation.RestoreDistrictStyle(typeIndex, styleIndex);
             }
         }
     }
@@ -1140,6 +1187,9 @@ public sealed class SaveGameSerializer
                 break;
             case SectionProjects:
                 ReadProjects(section, content, simulation);
+                break;
+            case SectionDistrictStyles:
+                ReadDistrictStyles(section, content, simulation);
                 break;
             case SectionRuns:
                 simulation.PeakPopulation = section.ReadInt64();  // pořadí musí sedět se zápisem

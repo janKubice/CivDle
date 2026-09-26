@@ -74,6 +74,11 @@ public sealed class PoliciesScreen : IScreen
             list.Widgets.Add(Row(i));
         }
 
+        if (_screens.Content.Districts.Styles.Count > 0 && _screens.Content.Districts.Types.Count > 0)
+        {
+            list.Widgets.Add(StylesSection());
+        }
+
         var layout = new VerticalStackPanel
         {
             Spacing = 12,
@@ -487,6 +492,63 @@ public sealed class PoliciesScreen : IScreen
 
         box.Widgets.Add(steps);
         return box;
+    }
+
+    /// <summary>
+    /// Styly čtvrtí (endgame.md, B4): každému druhu čtvrti jeden styl.
+    /// „Změnit" projde dostupné styly, které druhu sedí, a vrátí se na výchozí.
+    /// Zamčené styly se v cyklu neobjeví — o nich říká popis sekce.
+    /// </summary>
+    private Widget StylesSection()
+    {
+        var loc = _screens.Loc;
+        var districts = _screens.Content.Districts;
+        var box = new VerticalStackPanel { Spacing = 4, Width = 436, Padding = new Thickness(12, 8), Background = new PanelBrush(UiPalette.Panel) };
+        box.Widgets.Add(new Label { Text = loc["styles.title"], TextColor = UiPalette.TextBright });
+        box.Widgets.Add(new Label { Text = loc["styles.desc"], TextColor = Color.LightGray, Wrap = true });
+
+        for (int t = 0; t < districts.Types.Count; t++)
+        {
+            int type = t;
+            int style = _simulation.DistrictStyleOf(type);
+            string styleName = style >= 0 ? loc[districts.Styles[style].NameKey] : loc["districtStyle.default"];
+            var row = new HorizontalStackPanel { Spacing = 8 };
+            row.Widgets.Add(new Label
+            {
+                Text = loc.Format("styles.row", loc[districts.Types[type].NameKey], styleName),
+                TextColor = UiPalette.Text,
+                Width = 300,
+            });
+            row.Widgets.Add(UiFactory.SmallButton(loc["styles.change"], () =>
+            {
+                _simulation.SetDistrictStyle(type, NextStyle(type, _simulation.DistrictStyleOf(type)));
+                BuildUi();
+            }));
+            box.Widgets.Add(row);
+        }
+
+        return box;
+    }
+
+    /// <summary>Další dostupný styl, který druhu čtvrti sedí; za posledním výchozí (−1).</summary>
+    private int NextStyle(int type, int current)
+    {
+        var styles = _screens.Content.Districts.Styles;
+        for (int step = 1; step <= styles.Count; step++)
+        {
+            int candidate = current + step;
+            if (candidate >= styles.Count)
+            {
+                return -1;
+            }
+
+            if (_simulation.IsDistrictStyleAvailable(candidate) && styles[candidate].FitsType(type))
+            {
+                return candidate;
+            }
+        }
+
+        return -1;
     }
 
     private Widget Row(int index)

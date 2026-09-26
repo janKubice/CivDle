@@ -62,6 +62,8 @@ public sealed class BuildingRenderer
         var (min, max) = camera.VisibleWorldBounds();
         _snow = (float)(simulation.CurrentSeason?.SnowCover ?? 0.0);
         _grandWorkStage = simulation.GrandWorkStage;
+        _districtsForStyle = simulation.Districts;
+        _styleSimulation = simulation;
         _snowCaps.Clear();
 
         // Zjednodušený režim: při oddálení jsou budovy pár pixelů velké, takže
@@ -456,7 +458,7 @@ public sealed class BuildingRenderer
         // Čím se tenhle konkrétní dům liší od sousedního stejného druhu.
         // Odvozeno z polohy, takže se to mezi snímky ani po zbourání souseda nemění.
         var look = BuildingVariation.For(building.X, building.Y, building.DefIndex);
-        var tint = BuildingVariation.Combine(ProsperityLook.Tint(prosperity), look.PaletteIndex);
+        var tint = StyleTint(building.DistrictIndex, BuildingVariation.Combine(ProsperityLook.Tint(prosperity), look.PaletteIndex));
 
         // Posun o pixel rozbije dokonalé řady. Až tady, aby stín zůstal podle
         // půdorysu — kdyby se posouval s budovou, přestal by ležet na zemi.
@@ -782,13 +784,32 @@ public sealed class BuildingRenderer
         DrawProgressBar(spriteBatch, bounds, progress);
     }
 
+    /// <summary>Čtvrti a hra pro nádech stylu (čte se jednou za Draw).</summary>
+    private IReadOnlyList<District> _districtsForStyle = Array.Empty<District>();
+    private Simulation? _styleSimulation;
+
     /// <summary>
-    /// Lešení: vodorovná patra a svislé stojky.
-    ///
-    /// <para>Samotné dvě vodorovné čáry vypadaly jako přeškrtnutá budova.
-    /// Teprve stojky z toho udělají konstrukci — mřížka je to, podle čeho oko
-    /// lešení pozná.</para>
+    /// Nádech stylu čtvrti (endgame.md, B4): budova ve čtvrti, jejímuž druhu
+    /// hráč přiřadil styl, dostane jeho tón. Jemně — násobí se s nádechem
+    /// prosperity, takže dům zůstane domem, jen „srubovým" nebo „cihlovým".
     /// </summary>
+    private Color StyleTint(int districtIndex, Color tint)
+    {
+        if (_styleSimulation is null || districtIndex < 0 || districtIndex >= _districtsForStyle.Count)
+        {
+            return tint;
+        }
+
+        int style = _styleSimulation.DistrictStyleOf(_districtsForStyle[districtIndex].TypeIndex);
+        if (style < 0 || style >= _content.Districts.Styles.Count)
+        {
+            return tint;
+        }
+
+        var styleTint = _content.Districts.Styles[style].Tint;
+        return new Color(tint.R * styleTint.R / 255, tint.G * styleTint.G / 255, tint.B * styleTint.B / 255, tint.A);
+    }
+
     /// <summary>Stupeň velkého díla pro tenhle snímek (čte se jednou za Draw).</summary>
     private int _grandWorkStage;
 
@@ -857,6 +878,13 @@ public sealed class BuildingRenderer
         }
     }
 
+    /// <summary>
+    /// Lešení: vodorovná patra a svislé stojky.
+    ///
+    /// <para>Samotné dvě vodorovné čáry vypadaly jako přeškrtnutá budova.
+    /// Teprve stojky z toho udělají konstrukci — mřížka je to, podle čeho oko
+    /// lešení pozná.</para>
+    /// </summary>
     private void DrawScaffolding(SpriteBatch spriteBatch, Rectangle bounds)
     {
         var scaffold = new Color(220, 190, 120) * 0.8f;

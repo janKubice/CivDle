@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "_comment": "Ctvrti (living-city.md §5): shluk budov stejneho razeni dostane jmeno, tvar na mape a synergii. Synergie neni zadarmo — pollutionMult je stinna stranka soustredeneho prumyslu. Kategorie odkazuji na 'category' v buildings.json.",
+  "_comment": "Ctvrti (living-city.md §5): shluk budov stejneho razeni dostane jmeno, tvar na mape a synergii. Synergie neni zadarmo — pollutionMult je stinna stranka soustredeneho prumyslu. Kategorie odkazuji na 'category' v buildings.json. Styly (styles) jsou kosmetika: hrac je prirazuje DRUHU ctvrti; mapColor = barva z vysky, tint = nadech budov, nightColor = barva svetel. unlockedBy = odmena vyzvy / Velkeho cile.",
   "districts": [
     {
       "id": "industrial",
@@ -72,6 +72,67 @@
       "mapColor": "#8A7A3A",
       "prop": "deco.transformer",
       "propDensity": 0.06
+    }
+  ],
+  "styles": [
+    {
+      "id": "brick",
+      "mapColor": "#A0533E",
+      "tint": "#F2D8CC"
+    },
+    {
+      "id": "whitewash",
+      "mapColor": "#D8D4C8",
+      "tint": "#FFFBF2"
+    },
+    {
+      "id": "garden",
+      "mapColor": "#5E8F4A",
+      "tint": "#E2F2D8",
+      "districts": [
+        "residential",
+        "civic"
+      ]
+    },
+    {
+      "id": "slate",
+      "mapColor": "#5A6270",
+      "tint": "#DCE0E8"
+    },
+    {
+      "id": "log",
+      "mapColor": "#7A5634",
+      "tint": "#EAD4B8",
+      "districts": [
+        "residential"
+      ],
+      "unlockedBy": "challenge:hard_winter"
+    },
+    {
+      "id": "alleys",
+      "mapColor": "#B89A6A",
+      "tint": "#F4E6CC",
+      "districts": [
+        "residential",
+        "civic"
+      ],
+      "unlockedBy": "challenge:no_roads"
+    },
+    {
+      "id": "lanterns",
+      "mapColor": "#6A4E7A",
+      "tint": "#F0E0F4",
+      "nightColor": "#FF9A4A",
+      "unlockedBy": "challenge:eternal_night"
+    },
+    {
+      "id": "gilded",
+      "mapColor": "#C8A04A",
+      "tint": "#FFF0C8",
+      "districts": [
+        "civic"
+      ],
+      "unlockedBy": "quest:great_billion"
     }
   ]
 }

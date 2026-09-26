@@ -148,7 +148,11 @@ public sealed record SettlementRanksFileDto(int SchemaVersion, List<SettlementRa
 public sealed record SettlementRankDto(string? Id, int MinBuildings);
 
 /// <summary>Obsah souboru <c>data/districts.json</c>.</summary>
-public sealed record DistrictsFileDto(int SchemaVersion, List<DistrictTypeDto>? Districts);
+public sealed record DistrictsFileDto(int SchemaVersion, List<DistrictTypeDto>? Districts, List<DistrictStyleDto>? Styles = null);
+
+/// <summary>Styl čtvrti tak, jak leží v JSON.</summary>
+public sealed record DistrictStyleDto(
+    string? Id, string? MapColor, string? Tint, string? NightColor, string? UnlockedBy, string[]? Districts);
 
 /// <summary>Jeden druh čtvrti tak, jak leží v JSON.</summary>
 public sealed record DistrictTypeDto(

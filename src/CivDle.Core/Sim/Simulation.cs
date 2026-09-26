@@ -2484,6 +2484,57 @@ public sealed class Simulation
     /// <summary>Rozpoznané čtvrti pro render a UI (odvozený stav, neukládá se).</summary>
     public IReadOnlyList<District> Districts => _districts;
 
+    // ----- styly čtvrtí (kosmetika, endgame.md B4) -----
+
+    private int[]? _districtStyles;
+
+    private int[] DistrictStyleSlots =>
+        _districtStyles ??= Enumerable.Repeat(-1, _content.Districts.Types.Count).ToArray();
+
+    /// <summary>Styl přiřazený druhu čtvrti; −1 = výchozí vzhled.</summary>
+    public int DistrictStyleOf(int typeIndex) =>
+        typeIndex >= 0 && typeIndex < DistrictStyleSlots.Length ? DistrictStyleSlots[typeIndex] : -1;
+
+    /// <summary>Má hráč styl k dispozici (odměny výzev a Velkých cílů až po zasloužení)?</summary>
+    public bool IsDistrictStyleAvailable(int styleIndex) =>
+        styleIndex >= 0 && styleIndex < _content.Districts.Styles.Count
+        && IsUnlockMet(_content.Districts.Styles[styleIndex].UnlockedBy);
+
+    /// <summary>
+    /// Příkaz hráče: přiřadí druhu čtvrti styl (−1 = zpět na výchozí). Jen
+    /// obraz — na simulaci nemá vliv, proto ho jde měnit kdykoli.
+    /// </summary>
+    public bool SetDistrictStyle(int typeIndex, int styleIndex)
+    {
+        if (typeIndex < 0 || typeIndex >= DistrictStyleSlots.Length)
+        {
+            return false;
+        }
+
+        if (styleIndex >= 0
+            && (!IsDistrictStyleAvailable(styleIndex) || !_content.Districts.Styles[styleIndex].FitsType(typeIndex)))
+        {
+            return false;
+        }
+
+        DistrictStyleSlots[typeIndex] = styleIndex;
+        StyleRevision++;
+        return true;
+    }
+
+    /// <summary>Mění se, když hráč přebarví čtvrti — render podle toho přepeče mapu z výšky.</summary>
+    public long StyleRevision { get; private set; }
+
+    /// <summary>Obnoví styl druhu čtvrti ze savu (bez kontroly odemčení — hráč si ho kdysi vybral).</summary>
+    internal void RestoreDistrictStyle(int typeIndex, int styleIndex)
+    {
+        if (typeIndex >= 0 && typeIndex < DistrictStyleSlots.Length && styleIndex < _content.Districts.Styles.Count)
+        {
+            DistrictStyleSlots[typeIndex] = styleIndex;
+            StyleRevision++;
+        }
+    }
+
     /// <summary>Čtvrti pro systémy simulace.</summary>
     internal List<District> DistrictsMutable => _districts;
 

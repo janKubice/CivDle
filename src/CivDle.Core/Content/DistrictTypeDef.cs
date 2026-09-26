@@ -76,8 +76,11 @@ public sealed record DistrictTypeDef(
 /// <summary>
 /// Druhy čtvrtí z dat. Prázdný katalog je legitimní stav (hra bez čtvrtí).
 /// </summary>
-public sealed record DistrictCatalog(DefRegistry<DistrictTypeDef> Types)
+public sealed record DistrictCatalog(DefRegistry<DistrictTypeDef> Types, IReadOnlyList<DistrictStyleDef>? StylesOrNull = null)
 {
+    /// <summary>Styly, které si hráč může čtvrtím přiřadit (kosmetika, endgame.md B4).</summary>
+    public IReadOnlyList<DistrictStyleDef> Styles => StylesOrNull ?? Array.Empty<DistrictStyleDef>();
+
     /// <summary>Prázdný katalog — pro starší data i pro testy, které čtvrti neřeší.</summary>
     public static DistrictCatalog Empty { get; } = new(
         new DefRegistry<DistrictTypeDef>(

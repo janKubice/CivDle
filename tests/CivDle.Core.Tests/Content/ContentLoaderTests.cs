@@ -556,6 +556,29 @@ public class ContentLoaderTests : IDisposable
         Assert.Contains(expected, ex.Message);
     }
 
+    [Theory]
+    [InlineData("\"districts\": [\"nowhere\"]", "nowhere")]
+    [InlineData("\"unlockedBy\": \"challenge:nope\"", "neexistující")]
+    [InlineData("\"unlockedBy\": \"tech:x\"", "unlockedBy")]
+    public void LoadFrom_BadDistrictStyle_Throws(string field, string expected)
+    {
+        WriteAllValid();
+        Write("districts.json", $$"""
+        {
+          "schemaVersion": 1,
+          "districts": [
+            { "id": "homes", "categories": ["other"], "minBuildings": 3, "clusterDistance": 2,
+              "synergyPerBuilding": 0, "synergyMax": 0, "pollutionMult": 1, "mapColor": "#806080" }
+          ],
+          "styles": [ { "id": "brick", "mapColor": "#A0533E", "tint": "#F2D8CC", {{field}} } ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
     [Fact]
     public void LoadFrom_WithoutContractsFile_LeavesBoardOff()
     {

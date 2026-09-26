@@ -100,7 +100,8 @@ public sealed class ContentLoader
             Path.Combine(dataDirectory, "scenarios.json"), biomes, resources, buildings, techs, worldGen);
         CheckRewardUnlocks(
             Path.Combine(dataDirectory, "buildings.json"), Path.Combine(dataDirectory, "policies.json"),
-            buildings, policies, quests, scenarios);
+            Path.Combine(dataDirectory, "districts.json"),
+            buildings, policies, districts, quests, scenarios);
         var poi = LoadPointsOfInterest(Path.Combine(dataDirectory, "poi.json"), resources, biomes);
         var doctrines = LoadDoctrines(Path.Combine(dataDirectory, "doctrines.json"));
         var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit, figures, chronicle, scenarios, poi, doctrines);
@@ -1699,7 +1700,49 @@ public sealed class ContentLoader
                 string.IsNullOrWhiteSpace(dto.Prop) ? null : dto.Prop.Trim(), dto.PropDensity));
         }
 
-        return new DistrictCatalog(new DefRegistry<DistrictTypeDef>(result, d => d.Id, "druh čtvrti"));
+        var types = new DefRegistry<DistrictTypeDef>(result, d => d.Id, "druh čtvrti");
+        return new DistrictCatalog(types, ParseDistrictStyles(path, file.Styles, types));
+    }
+
+    /// <summary>
+    /// Styly čtvrtí. Druhy čtvrtí, kterým styl patří, musí existovat; odměnu
+    /// (<c>unlockedBy</c>) ověří <see cref="CheckRewardUnlocks"/> až po načtení
+    /// úkolů a výzev.
+    /// </summary>
+    private static IReadOnlyList<DistrictStyleDef> ParseDistrictStyles(
+        string path, List<DistrictStyleDto>? dtos, DefRegistry<DistrictTypeDef> types)
+    {
+        var styles = new List<DistrictStyleDef>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var dto in dtos ?? new List<DistrictStyleDto>())
+        {
+            string id = RequireId(path, dto.Id, $"Styl čtvrti na pozici {styles.Count}");
+            if (!seen.Add(id))
+            {
+                throw new ContentLoadException(path, $"Styl čtvrti '{id}' je v datech dvakrát.");
+            }
+
+            var allowed = new List<int>();
+            foreach (string typeId in dto.Districts ?? Array.Empty<string>())
+            {
+                if (!types.TryIndexOf(typeId.Trim(), out int type))
+                {
+                    throw new ContentLoadException(path, $"Styl čtvrti '{id}' odkazuje na neexistující druh čtvrti '{typeId}'.");
+                }
+
+                allowed.Add(type);
+            }
+
+            styles.Add(new DistrictStyleDef(
+                id,
+                ParseColor(path, dto.MapColor, $"styl čtvrti '{id}' (mapColor)"),
+                ParseColor(path, dto.Tint, $"styl čtvrti '{id}' (tint)"),
+                dto.NightColor is null ? null : ParseColor(path, dto.NightColor, $"styl čtvrti '{id}' (nightColor)"),
+                ParseUnlockedBy(path, $"Styl čtvrti '{id}'", dto.UnlockedBy),
+                allowed));
+        }
+
+        return styles;
     }
 
     /// <summary>
@@ -5781,6 +5824,7 @@ public sealed class ContentLoader
         required.AddRange(challenges.Challenges.Select(c => c.DescriptionKey));
         required.AddRange(contracts.Contracts.All.Select(c => c.NameKey));
         required.AddRange(districts.Types.All.Select(d => d.NameKey));
+        required.AddRange(districts.Styles.Select(s => s.NameKey));
         required.AddRange(settlementRanks.Ranks.Select(r => r.NameKey));
         required.AddRange(citizens.Requests.All.Select(r => r.TextKey));
         required.AddRange(elections.Candidates.Select(c => c.NameKey));
@@ -6096,8 +6140,8 @@ public sealed class ContentLoader
     /// <c>challenge:all</c> je vyhrazený klíč „všechny výzvy" (odměna Mistra).
     /// </summary>
     private static void CheckRewardUnlocks(
-        string buildingsPath, string policiesPath,
-        DefRegistry<BuildingDef> buildings, DefRegistry<GrowthPolicyDef> policies,
+        string buildingsPath, string policiesPath, string districtsPath,
+        DefRegistry<BuildingDef> buildings, DefRegistry<GrowthPolicyDef> policies, DistrictCatalog districts,
         DefRegistry<QuestDef> quests, ScenarioCatalog scenarios)
     {
         foreach (var building in buildings.All)
@@ -6108,6 +6152,11 @@ public sealed class ContentLoader
         foreach (var policy in policies.All)
         {
             CheckRewardUnlock(policiesPath, $"Politika '{policy.Id}'", policy.UnlockedBy, quests, scenarios);
+        }
+
+        foreach (var style in districts.Styles)
+        {
+            CheckRewardUnlock(districtsPath, $"Styl čtvrti '{style.Id}'", style.UnlockedBy, quests, scenarios);
         }
     }
 
