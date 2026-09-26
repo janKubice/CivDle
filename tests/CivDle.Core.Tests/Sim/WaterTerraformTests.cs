@@ -142,6 +142,31 @@ public class WaterTerraformTests
     }
 
     [Fact]
+    public void ReclaimedLandCanBeBuiltOn()
+    {
+        // Nová zem z vody musí být zem i pro stavbu, ne jen pro obrázek —
+        // jinak zúrodnění mělčiny nic nepřidá (endgame.md, B3).
+        var content = WaterTools();
+        var sim = new Simulation(content, new UniformTerrain((byte)Water));
+        int reclaim = content.Terraform.IndexOf("reclaim");
+        Assert.Equal(PlacementResult.WrongBiome, sim.CanPlace(0, 10, 10));
+
+        Assert.Equal(PlacementResult.Ok, sim.TryTerraform(reclaim, 10, 10));
+
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuilding(0, 10, 10));
+    }
+
+    [Fact]
+    public void FloodedLandCannotBeBuiltOnAnyMore()
+    {
+        var content = WaterTools();
+        var sim = OnLand(content);
+        Assert.Equal(PlacementResult.Ok, sim.TryTerraform(content.Terraform.IndexOf("flood"), 10, 10));
+
+        Assert.Equal(PlacementResult.WrongBiome, sim.CanPlace(0, 10, 10));
+    }
+
+    [Fact]
     public void RepeatingTheSameToolOnTheSameTileIsRefused()
     {
         var content = WaterTools();

@@ -32,11 +32,35 @@ public sealed class CachedTerrain : ITerrain
     private const int RecentSide = 8;
 
     private readonly ITerrain _inner;
+    private readonly IReadOnlyDictionary<long, byte>? _overrides;
     private readonly Dictionary<long, byte[]> _chunks = new();
     private readonly long[] _recentKeys = new long[RecentSide * RecentSide];
     private readonly byte[]?[] _recent = new byte[]?[RecentSide * RecentSide];
 
     public CachedTerrain(ITerrain inner) => _inner = inner;
+
+    /// <param name="inner">Terén, ze kterého se biomy počítají.</param>
+    /// <param name="overrides">
+    /// Přetvořené dlaždice (klíč <see cref="TileKey"/>): mají přednost před
+    /// terénem. Bez nich by se na zúrodněné mělčině nedalo stavět — simulace
+    /// by pořád viděla vodu, ačkoli hráč viděl louku.
+    /// </param>
+    public CachedTerrain(ITerrain inner, IReadOnlyDictionary<long, byte> overrides)
+    {
+        _inner = inner;
+        _overrides = overrides;
+    }
+
+    /// <summary>
+    /// Dlaždice se právě přetvořila — přepíše zapamatovaný biom. Stačí jen
+    /// tady: kdyby se paměť mezitím vyprázdnila, přepis se při dalším dotazu
+    /// vezme ze slovníku přepisů.
+    /// </summary>
+    public void Override(int x, int y, byte biome)
+    {
+        byte[] chunk = ChunkAt(x >> Shift, y >> Shift);
+        chunk[((y & Mask) << Shift) | (x & Mask)] = biome == byte.MaxValue ? (byte)0 : (byte)(biome + 1);
+    }
 
     /// <summary>Kolik bloků je teď v paměti (pro testy a ladění).</summary>
     public int ChunkCount => _chunks.Count;
@@ -51,7 +75,9 @@ public sealed class CachedTerrain : ITerrain
             return (byte)(stored - 1);
         }
 
-        byte biome = _inner.BiomeAt(x, y);
+        byte biome = _overrides is not null && _overrides.TryGetValue(TileKey.Pack(x, y), out byte overridden)
+            ? overridden
+            : _inner.BiomeAt(x, y);
         if (biome != byte.MaxValue)
         {
             chunk[cell] = (byte)(biome + 1); // biom 255 se nevejde — ten se jen nepamatuje

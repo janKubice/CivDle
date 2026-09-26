@@ -178,7 +178,7 @@ public sealed class Simulation
     {
         _content = content;
         Terrain = terrain;
-        _cachedTerrain = new CachedTerrain(terrain);
+        _cachedTerrain = new CachedTerrain(terrain, _biomeOverrides);
         Seed = seed;
 
         // Budova je odemčená od startu, pokud ji žádná technologie nehlídá.
@@ -3186,10 +3186,7 @@ public sealed class Simulation
     /// </summary>
     public int TerrainRevision { get; private set; }
 
-    public byte BiomeAt(int x, int y) =>
-        _biomeOverrides.TryGetValue(TileKey.Pack(x, y), out byte overridden)
-            ? overridden
-            : _cachedTerrain.BiomeAt(x, y);
+    public byte BiomeAt(int x, int y) => _cachedTerrain.BiomeAt(x, y); // přepisy zná cache sama
 
     /// <summary>
     /// Přepíše biom jedné dlaždice (terraformace — zatím jen UFO). Ukládá se jen
@@ -3198,6 +3195,7 @@ public sealed class Simulation
     internal void SetBiomeOverride(int x, int y, byte biomeIndex)
     {
         _biomeOverrides[TileKey.Pack(x, y)] = biomeIndex;
+        _cachedTerrain.Override(x, y, biomeIndex);
 
         // Bez zvýšení revize by render dál kreslil starý biom z upečeného
         // chunku a terraformace by vypadala, že nic nedělá.
@@ -3303,7 +3301,11 @@ public sealed class Simulation
     internal IEnumerable<KeyValuePair<long, byte>> BiomeOverrides() => _biomeOverrides;
 
     /// <summary>Obnoví terraformovanou dlaždici z savu.</summary>
-    internal void RestoreBiomeOverride(long tile, byte biomeIndex) => _biomeOverrides[tile] = biomeIndex;
+    internal void RestoreBiomeOverride(long tile, byte biomeIndex)
+    {
+        _biomeOverrides[tile] = biomeIndex;
+        _cachedTerrain.Override(TileKey.X(tile), TileKey.Y(tile), biomeIndex);
+    }
 
     /// <summary>Poslední okno, jehož zásah UFO už proběhl (pro uložení).</summary>
     internal long LastUfoWindow => _lastUfoWindow;
