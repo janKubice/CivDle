@@ -84,7 +84,15 @@ public class RoadShapeTests
             sim.Tick();
         }
 
-        Assert.Equal(201, sim.Buildings.Length);
+        // Domů je přesně dvě stě; guvernér k tomu smí přistavět (sklady se tu
+        // plní až po strop, takže mu dává smysl přidat sklad) — o tom test není.
+        int houses = 0;
+        for (int i = 0; i < sim.Buildings.Length; i++)
+        {
+            houses += sim.Buildings[i].DefIndex == house ? 1 : 0;
+        }
+
+        Assert.Equal(200, houses);
         Assert.NotEmpty(sim.RoadTiles); // síť opravdu vznikla, test tedy testoval, co měl
 
         // A odpověď na „je napojená?" musí dávat smysl pro každou budovu, ne padat.

@@ -536,10 +536,14 @@ public sealed record GameplayConfig(
     SubseaConfig? SubseaOrNull = null,
     PowerConfig? PowerOrNull = null,
     double PopulationFillRate = 0.0,
-    OnboardingConfig? OnboardingOrNull = null)
+    OnboardingConfig? OnboardingOrNull = null,
+    GovernorConfig? GovernorOrNull = null)
 {
     /// <summary>Úvod do hry (rychlý start, místo startu, první den); bez bloku v datech vypnutý.</summary>
     public OnboardingConfig Onboarding => OnboardingOrNull ?? OnboardingConfig.Disabled;
+
+    /// <summary>Guvernér jako plánovač cílů; bez bloku v datech ten dosavadní.</summary>
+    public GovernorConfig Governor => GovernorOrNull ?? GovernorConfig.Classic;
 
     /// <summary>
     /// Kolik lidí za sekundu přibude, když je v bydlení <paramref name="freeHousing"/>

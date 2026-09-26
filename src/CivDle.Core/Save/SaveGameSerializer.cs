@@ -254,6 +254,9 @@ public sealed class SaveGameSerializer
             {
                 w.Write(category);
             }
+
+            // Výběr výzkumu guvernérem přibyl až za plánem; starší save ho nemá.
+            w.Write(plan.ChoosesResearch);
         });
         WriteSection(writer, SectionFog, w =>
         {
@@ -686,7 +689,8 @@ public sealed class SaveGameSerializer
             blocked.Add(reader.ReadString());
         }
 
-        simulation.RestorePlan(focus, blocked);
+        bool choosesResearch = reader.BaseStream.Position < reader.BaseStream.Length && reader.ReadBoolean();
+        simulation.RestorePlan(focus, blocked, choosesResearch);
     }
 
     private static void WriteChallenges(BinaryWriter writer, Simulation simulation)

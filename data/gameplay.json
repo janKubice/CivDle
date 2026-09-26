@@ -12,6 +12,15 @@
     "searchRadius": 6,
     "populationHeadroom": 2
   },
+  "governor": {
+    "_comment": "Guvernér jako plánovač cílů. buildsByRole: staví vše, co plní roli (sklady, školky, přístavy, elektrárny), ne jen autoBuild; divy, megastavby, podmoří a terraformace zůstávají hráči. Prahy: kdy je sklad plný, jak dlouho smí trvat další výzkum/modlitba, pod kolik uzlů se krajina obnovuje, pod jaké pokrytí proudem přibude elektrárna.",
+    "buildsByRole": true,
+    "storage": { "fullShare": 0.95 },
+    "knowledge": { "resource": "science", "minPopulation": 30, "targetMinutes": 6 },
+    "faith": { "resource": "faith", "minPopulation": 60, "targetMinutes": 8 },
+    "landscape": { "minNodes": 8 },
+    "power": { "minCoverage": 0.9 }
+  },
   "roads": {
     "mapColor": "#9A9284",
     "maxSearchDistance": 60,

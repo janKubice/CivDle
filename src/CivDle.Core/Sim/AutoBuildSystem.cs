@@ -10,7 +10,10 @@ namespace CivDle.Core.Sim;
 ///
 /// <para>Jedno kolo = zjistit, co město nejvíc potřebuje, a zkusit to pokrýt:</para>
 /// <list type="bullet">
-/// <item><see cref="GovernorNeeds"/> — co chybí (jídlo, vstupy, služby, bydlení, práce).</item>
+/// <item><see cref="GovernorGoals"/> — cíle seřazené podle naléhavosti: jídlo, vstupy,
+/// proud, sklady, služby, bydlení, krajina, věda, víra, práce (<see cref="IGovernorGoal"/>).</item>
+/// <item><see cref="GovernorRoles"/> — co smí stavět: podle role z dat, ne jen <c>autoBuild</c>.</item>
+/// <item><see cref="GovernorNeeds"/> — úvahy o základních potřebách (jídlo, vstupy, služby, bydlení, práce).</item>
 /// <item><see cref="GovernorChains"/> — dá se surovina vůbec sehnat? Nezačne řetěz,
 /// který nedotáhne (pekárna bez obilí).</item>
 /// <item><see cref="GovernorSites"/> — kam budovu dát (dřevorubce k lesu, služby
@@ -36,6 +39,18 @@ internal sealed class AutoBuildSystem
     private readonly BuildingCapability[] _capabilities;
     private readonly GovernorSites _sites;
     private readonly GovernorChains _chains;
+    private readonly GovernorRoles _roles;
+    private readonly GovernorGoals _goals;
+    private readonly GovernorMemory _memory = new();
+
+    /// <summary>Plán z posledního kola pro UI (přepisuje se na místě, nealokuje).</summary>
+    private readonly List<GovernorAgendaItem> _agenda = new(GovernorGoals.MaxGoals);
+
+    /// <summary>Surovina, na kterou se v tomhle kole nedalo našetřit kvůli skladu (−1 = žádná).</summary>
+    private int _beyondThisRound = -1;
+
+    /// <summary>Pomocné pole pro stavební materiály při stavbě podle rolí (drží se mezi koly).</summary>
+    private readonly bool[] _materialMask;
 
     /// <summary>Stavební materiály a jídlo (viz <see cref="Materials"/>) — předpočítané.</summary>
     private readonly int[] _materials;
@@ -50,8 +65,11 @@ internal sealed class AutoBuildSystem
         _needs = new GovernorNeeds(content);
         _capabilities = GovernorNeeds.Capabilities(content);
         _sites = new GovernorSites(content);
-        _chains = new GovernorChains(content, _capabilities);
+        _roles = new GovernorRoles(content);
+        _chains = new GovernorChains(content, _capabilities, _roles);
+        _goals = new GovernorGoals(content, _needs, _capabilities, _roles, _memory);
         _materials = Materials(content);
+        _materialMask = new bool[content.Resources.Count];
 
         int radius = content.Gameplay.AutoBuild.SearchRadius;
         var offsets = new List<(int X, int Y)>();
@@ -73,6 +91,9 @@ internal sealed class AutoBuildSystem
         });
         _searchOffsets = offsets.ToArray();
     }
+
+    /// <summary>Plán z posledního kola: aktivní cíle od nejnaléhavějšího (pro UI).</summary>
+    public IReadOnlyList<GovernorAgendaItem> Agenda => _agenda;
 
     public void Tick(Simulation sim)
     {
@@ -132,6 +153,11 @@ internal sealed class AutoBuildSystem
                 sim.EndBatchPlacement();
             }
         }
+
+        // Až po stavbě: stavba má na suroviny přednost (na co se šetří, výzkum
+        // nevezme), a jedna technologie za interval je tempo, u kterého hráč
+        // ještě vidí, co se odemklo.
+        GovernorResearch.TryResearchNext(sim);
     }
 
     /// <summary>Jak dopadl pokus pokrýt jednu potřebu.</summary>
@@ -182,9 +208,10 @@ internal sealed class AutoBuildSystem
     {
         // Mimo cyklus: stackalloc uvnitř by při vyšším rozpočtu staveb narůstal
         // po každé otáčce (CA2014).
-        Span<CityNeed> needs = stackalloc CityNeed[GovernorNeeds.MaxNeeds];
+        Span<GoalAssessment> needs = stackalloc GoalAssessment[GovernorGoals.MaxGoals];
         _claimedThisRound = false;
         _gatheredThisRound = false;
+        _beyondThisRound = -1;
         _roundStatus = GovernorStatus.Idle;
         _chains.BeginRound();
 
@@ -193,7 +220,12 @@ internal sealed class AutoBuildSystem
             // Co město doopravdy potřebuje. Dřív se tady stál jen dotaz na tlak
             // bydlení — a protože značku 'autoBuild' měla jediná budova (chalupa),
             // rostla populace, kterou nikdo nekrmil ani neobsluhoval.
-            int needCount = _needs.AssessAll(sim, needs);
+            int needCount = _goals.AssessAll(sim, needs);
+            if (b == 0)
+            {
+                PublishAgenda(needs[..needCount]);
+            }
+
             if (needCount == 0)
             {
                 break;
@@ -206,7 +238,7 @@ internal sealed class AutoBuildSystem
             {
                 // Politika „housing_density": u tlaku na bydlení nejdřív povýšit
                 // existující domy (víc lidí na stejném místě) místo stavby dalších.
-                if (needs[n] == CityNeed.Housing && sim.PreferHousingDensity && TryDensify(sim))
+                if (needs[n].Need == CityNeed.Housing && sim.PreferHousingDensity && TryDensify(sim))
                 {
                     acted = true;
                     break;
@@ -228,7 +260,18 @@ internal sealed class AutoBuildSystem
             sim.Claim.Clear();
         }
 
+        // Co se v tomhle kole nevešlo do skladu, rozhodne o skladech v příštím.
+        _memory.BeyondStorage = _beyondThisRound;
         sim.GovernorStatus = _roundStatus;
+    }
+
+    private void PublishAgenda(ReadOnlySpan<GoalAssessment> needs)
+    {
+        _agenda.Clear();
+        foreach (var need in needs)
+        {
+            _agenda.Add(new GovernorAgendaItem(need.Need, need.Urgency, need.Resource));
+        }
     }
 
     /// <summary>
@@ -236,8 +279,10 @@ internal sealed class AutoBuildSystem
     /// je; když není na žádnou, zjistit proč a začít to řešit (šetřit, postavit
     /// výrobnu chybějící suroviny, přestěhovat vytěženou).
     /// </summary>
-    private Outcome MeetNeed(Simulation sim, int nonce, CityNeed need)
+    private Outcome MeetNeed(Simulation sim, int nonce, in GoalAssessment goal)
     {
+        var need = goal.Need;
+
         // Deterministická „náhoda": hash (seed, tik, pořadí v dávce) — žádný stav k ukládání.
         var rng = new SplitMix64(unchecked(
             (ulong)_seed ^ ((ulong)sim.TickCount * 0x9E3779B97F4A7C15UL) ^ ((ulong)nonce * 0xBF58476D1CE4E5B9UL)));
@@ -248,8 +293,7 @@ internal sealed class AutoBuildSystem
         // vedle dvaceti hladových (přesně to se dřív dělo).
         if (need == CityNeed.Inputs)
         {
-            int dried = _needs.DriedUpInput(sim);
-            return dried >= 0 ? SecureResource(sim, dried, forTarget: -1, depth: 0, ref rng) : Outcome.Impossible;
+            return goal.Resource >= 0 ? SecureResource(sim, goal.Resource, forTarget: -1, depth: 0, ref rng) : Outcome.Impossible;
         }
 
         if (need == CityNeed.Jobs)
@@ -267,15 +311,20 @@ internal sealed class AutoBuildSystem
         }
 
         Span<int> ranked = stackalloc int[_content.Buildings.Count];
-        int count = RankCandidates(sim, need, ranked);
+        int count = RankCandidates(sim, goal, ranked);
         if (count == 0)
         {
             return Outcome.Impossible;
         }
 
+        // Školka má smysl jen u vytěženého lesa a elektrárna u továrny bez
+        // proudu. Když se k nim nevejdou, jinde by jen stály — a guvernér by
+        // příští kolo stavěl další, protože potřeba by trvala (změřeno: tři sta
+        // školek rozesetých po městě).
+        bool anchorOnly = goal.Anchor >= 0 && need is CityNeed.Landscape or CityNeed.Power;
         for (int i = 0; i < count; i++)
         {
-            if (TryPlace(sim, ranked[i], ref rng))
+            if (TryPlace(sim, ranked[i], ref rng, anchor: goal.Anchor, anchorOnly: anchorOnly))
             {
                 return Outcome.Built;
             }
@@ -285,10 +334,21 @@ internal sealed class AutoBuildSystem
         // kandidát, na kterého se dá vůbec kdy našetřit.
         for (int i = 0; i < count; i++)
         {
-            if (FitsInStorage(sim, ranked[i]))
+            if (!FitsInStorage(sim, ranked[i]))
             {
-                return Pursue(sim, ranked[i], depth: 0, ref rng);
+                RememberBeyondStorage(sim, ranked[i]);
+                continue;
             }
+
+            // Školka, na kterou je, ale u lesa pro ni není místo: to hráče
+            // nevyrušuje. Obnova krajiny je dlouhodobá péče, ne překážka růstu,
+            // a hlášení „nemá kam postavit" by chodilo každých pět minut.
+            if (anchorOnly && _needs.MissingBuildMaterial(sim, ranked[i]) < 0)
+            {
+                return Outcome.Impossible;
+            }
+
+            return Pursue(sim, ranked[i], depth: 0, ref rng);
         }
 
         return Outcome.Impossible;
@@ -411,6 +471,7 @@ internal sealed class AutoBuildSystem
         {
             if (!FitsInStorage(sim, producers[i]))
             {
+                RememberBeyondStorage(sim, producers[i]);
                 continue;
             }
 
@@ -521,7 +582,13 @@ internal sealed class AutoBuildSystem
     /// rezerva na farmu držela dřevo, ze kterého by se postavil dřevorubec,
     /// a farma se šetřila půl hodiny.
     /// </param>
-    private bool TryPlace(Simulation sim, int defIndex, ref SplitMix64 rng, bool servesClaim = false)
+    /// <param name="anchor">
+    /// Budova, u které cíl chce stavět (sklad u výrobny, školka u vytěženého
+    /// lesa, elektrárna u továrny bez proudu); −1 = kdekoli.
+    /// </param>
+    /// <param name="anchorOnly">Jen u kotvy, nikde jinde (viz <see cref="MeetNeed"/>).</param>
+    private bool TryPlace(
+        Simulation sim, int defIndex, ref SplitMix64 rng, bool servesClaim = false, int anchor = -1, bool anchorOnly = false)
     {
         var def = _content.Buildings[defIndex];
 
@@ -538,6 +605,15 @@ internal sealed class AutoBuildSystem
             placed = _sites.TryFindHarvestSite(sim, defIndex, ignoreBuilding: -1, forMove: false, out int x, out int y)
                 && sim.TryPlaceBuilding(defIndex, x, y) == PlacementResult.Ok;
         }
+        else if (anchor >= 0 && anchor < sim.Buildings.Length
+            && TryBuildNear(sim, defIndex, sim.Buildings[anchor].X, sim.Buildings[anchor].Y))
+        {
+            placed = true;
+        }
+        else if (anchorOnly)
+        {
+            placed = false;
+        }
         else if (def.ServiceValue > 0 && sim.TryFindUnservedHome(out int homeX, out int homeY)
             && TryBuildNear(sim, defIndex, homeX, homeY))
         {
@@ -546,8 +622,11 @@ internal sealed class AutoBuildSystem
         }
         else
         {
+            // Přístav nebo rybárna potřebují břeh, a ten bývá dál než okraj
+            // zástavby — hledá se proto v širším kruhu.
+            int radius = def.NeedsWaterAccess ? GovernorSites.ShoreSearchRadius : GovernorSites.AnySiteRadius;
             placed = TryAtAnchors(sim, defIndex, ref rng)
-                || (_sites.TryFindAnySite(sim, defIndex, out int x, out int y)
+                || (_sites.TryFindAnySite(sim, defIndex, radius, out int x, out int y)
                     && sim.TryPlaceBuilding(defIndex, x, y) == PlacementResult.Ok);
         }
 
@@ -629,8 +708,8 @@ internal sealed class AutoBuildSystem
         }
 
         // Materiály seřazené podle naplnění skladu (nejprázdnější první).
-        Span<int> order = stackalloc int[_materials.Length];
-        _materials.CopyTo(order);
+        Span<int> order = stackalloc int[_content.Resources.Count];
+        order = order[..CurrentMaterials(sim, order)];
         for (int i = 1; i < order.Length; i++)
         {
             int current = order[i];
@@ -658,6 +737,54 @@ internal sealed class AutoBuildSystem
 
     /// <summary>Plný sklad nepotřebuje další výrobnu, ani když jsou lidi bez práce.</summary>
     private const double JobsFillCeiling = 0.8;
+
+    /// <summary>
+    /// Stavební materiály, o které se má guvernér starat, když jsou lidé bez
+    /// práce. Při stavbě podle rolí to jsou ceny všeho, co smí a může postavit
+    /// <b>teď</b> (bronz na školu, nástroje na rybárnu) — ne jen sedmnácti
+    /// budov se značkou <c>autoBuild</c>; jinak by se k pozdějším budovám
+    /// nedostal, protože by na ně nikdy nebyl materiál.
+    /// </summary>
+    /// <returns>Kolik indexů zapsal do <paramref name="into"/>.</returns>
+    private int CurrentMaterials(Simulation sim, Span<int> into)
+    {
+        if (!_roles.BuildsByRole)
+        {
+            _materials.CopyTo(into);
+            return _materials.Length;
+        }
+
+        Array.Clear(_materialMask);
+        int food = _content.Gameplay.FoodResourceIndex;
+        if (food >= 0)
+        {
+            _materialMask[food] = true;
+        }
+
+        for (int d = 0; d < _content.Buildings.Count; d++)
+        {
+            if (!_roles.MayBuild(sim, d))
+            {
+                continue;
+            }
+
+            foreach (var cost in _content.Buildings[d].BuildCost)
+            {
+                _materialMask[cost.ResourceIndex] = true;
+            }
+        }
+
+        int count = 0;
+        for (int r = 0; r < _materialMask.Length; r++)
+        {
+            if (_materialMask[r])
+            {
+                into[count++] = r;
+            }
+        }
+
+        return count;
+    }
 
     private static double FillOf(Simulation sim, int resource)
     {
@@ -717,7 +844,7 @@ internal sealed class AutoBuildSystem
     /// <param name="sim">Simulace.</param>
     /// <param name="resource">Čeho má být víc.</param>
     /// <param name="rng">Deterministická náhoda kola.</param>
-    /// <param name="ownInitiative">Jen budovy se značkou autoBuild (guvernérova vlastní iniciativa).</param>
+    /// <param name="ownInitiative">Jen budovy, které guvernér smí stavět sám (<see cref="GovernorRoles.MayBuild"/>).</param>
     /// <param name="depth">Kolikáté patro řetězu (výrobna vstupu se hledá jen jednou).</param>
     private bool TryAddProducer(
         Simulation sim, int resource, ref SplitMix64 rng, bool ownInitiative = false, int depth = 0)
@@ -726,7 +853,7 @@ internal sealed class AutoBuildSystem
         int count = RankProducers(sim, resource, producers);
         for (int i = 0; i < count; i++)
         {
-            if (ownInitiative && !_content.Buildings[producers[i]].AutoBuild)
+            if (ownInitiative && !_roles.MayBuild(sim, producers[i]))
             {
                 continue;
             }
@@ -934,6 +1061,29 @@ internal sealed class AutoBuildSystem
         return ledger.ProducedPerSecond(resource) - ledger.UncontrolledPerSecond(resource) > FlowEpsilon;
     }
 
+    /// <summary>
+    /// Zapamatuje si surovinu, kvůli které se na budovu nedá našetřit (cena
+    /// přerostla sklad). Příští kolo z ní cíl <see cref="StorageGoal"/> pozná,
+    /// jaký sklad postavit — dřív se taková budova jen tiše přeskočila.
+    /// </summary>
+    private void RememberBeyondStorage(Simulation sim, int defIndex)
+    {
+        if (_beyondThisRound >= 0)
+        {
+            return; // stačí jedna za kolo; další přijde na řadu po postavení skladu
+        }
+
+        var cost = _content.Buildings[defIndex].BuildCost;
+        for (int i = 0; i < cost.Count; i++)
+        {
+            if (cost[i].Amount > sim.GetStorageCap(cost[i].ResourceIndex))
+            {
+                _beyondThisRound = cost[i].ResourceIndex;
+                return;
+            }
+        }
+    }
+
     /// <summary>Vejde se cena do skladu? Když ne, našetřit se na ni nedá nikdy.</summary>
     private static bool FitsInStorage(Simulation sim, int defIndex)
     {
@@ -987,6 +1137,13 @@ internal sealed class AutoBuildSystem
             if (def.AutoBuild)
             {
                 score += 10; // návrhář ji guvernérovi svěřil sám
+            }
+
+            // Výkonnější výrobna má přednost: když výzkum odemkne lepší důl,
+            // má se stavět ten, ne dál ten první.
+            if (_roles.BuildsByRole)
+            {
+                score += (int)Math.Min(30, _roles.RateOf(defIndex, resource) * 10);
             }
 
             if (!def.Pollution.IsNeutral)
@@ -1130,37 +1287,40 @@ internal sealed class AutoBuildSystem
     /// neví, kam se bude stavět — kontrola je až u konkrétní dlaždice
     /// v <see cref="TryBuildNear"/>.</para>
     /// </summary>
-    private bool IsAllowed(Simulation sim, int defIndex)
+    private bool IsAllowed(Simulation sim, int defIndex, CityNeed need) => need switch
     {
-        var def = _content.Buildings[defIndex];
-        return def.AutoBuild && sim.IsBuildingUnlocked(defIndex);
-    }
+        // Vyschlý vstup smí guvernér dokrmit i výrobnou, kterou by sám od
+        // sebe nestavěl (důl k huti, kterou postavil hráč).
+        CityNeed.Inputs => IsAllowedForSupply(sim, defIndex),
+
+        // Bydlení roste povyšováním menších domů (viz GovernorRoles).
+        CityNeed.Housing => _roles.MayBuildHousing(sim, defIndex),
+        _ => _roles.MayBuild(sim, defIndex),
+    };
 
     /// <summary>
-    /// Seřadí auto-stavitelné budovy podle toho, jak dobře pokrývají danou
-    /// potřebu (nejlepší první). Vrací, kolik jich do výběru vůbec patří.
+    /// Seřadí budovy, které guvernér smí postavit, podle toho, jak dobře
+    /// pokrývají daný cíl (nejlepší první; skóre dává cíl sám,
+    /// <see cref="IGovernorGoal.Score"/>). Vrací, kolik jich do výběru vůbec patří.
     ///
     /// <para>Insertion sort nad desítkami definic, jednou za interval — proti
     /// alokaci seznamu a komparátoru je to levnější a čitelnější.</para>
     /// </summary>
-    private int RankCandidates(Simulation sim, CityNeed need, Span<int> ranked)
+    private int RankCandidates(Simulation sim, in GoalAssessment goal, Span<int> ranked)
     {
         Span<int> scores = stackalloc int[_content.Buildings.Count];
         int count = 0;
-        int missingInput = need == CityNeed.Inputs ? _needs.DriedUpInput(sim) : -1;
+        var need = goal.Need;
+        var scorer = _goals.For(need);
 
         for (int defIndex = 0; defIndex < _content.Buildings.Count; defIndex++)
         {
-            // Vyschlý vstup smí guvernér dokrmit i výrobnou, kterou by sám od
-            // sebe nestavěl (důl k huti, kterou postavil hráč). Ostatní potřeby
-            // jsou jeho vlastní iniciativa a drží se značky autoBuild.
-            bool allowed = need == CityNeed.Inputs ? IsAllowedForSupply(sim, defIndex) : IsAllowed(sim, defIndex);
-            if (!allowed)
+            if (!IsAllowed(sim, defIndex, need))
             {
                 continue;
             }
 
-            int score = ScoreFor(defIndex, need, missingInput);
+            int score = scorer.Score(sim, defIndex, goal);
             if (score <= 0 || IsPointlessNow(sim, defIndex, need))
             {
                 continue; // tuhle potřebu neřeší (nebo by ji stejně neobsloužil)
@@ -1186,39 +1346,6 @@ internal sealed class AutoBuildSystem
         }
 
         return count;
-    }
-
-    /// <summary>
-    /// Jak dobře budova pokrývá potřebu. 0 = vůbec, takže se nepostaví — díky
-    /// tomu se z guvernéra nestane stavitel všeho, co je zrovna k mání.
-    /// </summary>
-    private int ScoreFor(int defIndex, CityNeed need, int missingInput)
-    {
-        var capability = _capabilities[defIndex];
-        switch (need)
-        {
-            case CityNeed.Food:
-                return capability.ProducesFood ? 100 : 0;
-
-            case CityNeed.Inputs:
-                // Budova, která chybějící surovinu vyrábí — a sama ji nepotřebuje,
-                // jinak by se postavila jen další hladový krk ve stejném řetězci.
-                if (missingInput < 0 || !capability.Outputs.Contains(missingInput))
-                {
-                    return 0;
-                }
-
-                return capability.NeedsInputs.Contains(missingInput) ? 0 : 90;
-
-            case CityNeed.Services:
-                return capability.Services;
-
-            case CityNeed.Housing:
-                return capability.Housing;
-
-            default:
-                return 0;
-        }
     }
 
     /// <summary>

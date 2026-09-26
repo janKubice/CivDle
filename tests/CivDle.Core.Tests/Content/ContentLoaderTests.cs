@@ -656,6 +656,56 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadFrom_Governor_IsParsed_AndMissingMeansTheClassicGovernor()
+    {
+        WriteAllValid();
+        WriteGameplayWith("""
+          "governor": {
+            "buildsByRole": true,
+            "storage": { "fullShare": 0.9 },
+            "knowledge": { "resource": "wood", "minPopulation": 30, "targetMinutes": 5 },
+            "landscape": { "minNodes": 6 },
+            "power": { "minCoverage": 0.8 }
+          }
+        """);
+
+        var governor = Load().Gameplay.Governor;
+
+        Assert.True(governor.BuildsByRole);
+        Assert.Equal(0.9, governor.Storage.FullShare, 6);
+        Assert.True(governor.Knowledge.IsEnabled);
+        Assert.Equal(300, governor.Knowledge.TargetSeconds, 6);
+        Assert.False(governor.Faith.IsEnabled); // chybějící cíl je vypnutý, ne výchozí
+        Assert.Equal(6, governor.Landscape.MinNodes);
+        Assert.Equal(0.8, governor.Power.MinCoverage, 6);
+
+        // Bez bloku guvernér zůstane, jaký byl: jen autoBuild, žádné nové cíle.
+        WriteGameplayWith(string.Empty);
+        var classic = Load().Gameplay.Governor;
+        Assert.False(classic.BuildsByRole);
+        Assert.False(classic.Storage.IsEnabled);
+        Assert.False(classic.Knowledge.IsEnabled);
+    }
+
+    [Theory]
+    [InlineData("""{ "knowledge": { "resource": "mana", "minPopulation": 0, "targetMinutes": 5 } }""", "mana")]
+    [InlineData("""{ "storage": { "fullShare": 0.2 } }""", "fullShare")]
+    [InlineData("""{ "faith": { "resource": "food", "minPopulation": 0, "targetMinutes": 0.1 } }""", "targetMinutes")]
+    [InlineData("""{ "landscape": { "minNodes": 0 } }""", "minNodes")]
+    [InlineData("""{ "power": { "minCoverage": 1.5 } }""", "minCoverage")]
+    public void LoadFrom_BrokenGovernor_Throws(string block, string expected)
+    {
+        // Překlep v datech guvernéra má spadnout při startu se jménem pole,
+        // ne tiše vypnout cíl, o kterém si autor myslí, že běží.
+        WriteAllValid();
+        WriteGameplayWith($"\"governor\": {block}");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
+    [Fact]
     public void LoadFrom_PopulationFillRateAboveOne_Throws()
     {
         // Nad jedna by se za sekundu nastěhovalo víc lidí, než je volných míst.

@@ -238,7 +238,29 @@ public sealed record GameplayFileDto(
     SubseaDto? Subsea,
     PowerDto? Power,
     double? PopulationFillRate = null,
-    OnboardingDto? Onboarding = null);
+    OnboardingDto? Onboarding = null,
+    GovernorDto? Governor = null);
+
+/// <summary>Guvernér jako plánovač cílů tak, jak leží v JSON.</summary>
+public sealed record GovernorDto(
+    bool? BuildsByRole,
+    GovernorStorageDto? Storage,
+    GovernorSupplyDto? Knowledge,
+    GovernorSupplyDto? Faith,
+    GovernorLandscapeDto? Landscape,
+    GovernorPowerDto? Power);
+
+/// <summary>Kdy stavět sklady.</summary>
+public sealed record GovernorStorageDto(double FullShare);
+
+/// <summary>Stálý přísun suroviny (věda, víra).</summary>
+public sealed record GovernorSupplyDto(string? Resource, double MinPopulation, double TargetMinutes);
+
+/// <summary>Kdy vracet krajinu.</summary>
+public sealed record GovernorLandscapeDto(int MinNodes);
+
+/// <summary>Kdy stavět elektrárny.</summary>
+public sealed record GovernorPowerDto(double MinCoverage);
 
 /// <summary>Úvod do hry tak, jak leží v JSON.</summary>
 public sealed record OnboardingDto(List<long>? QuickStartSeeds, StartSiteDto? StartSite, FirstDayDto? FirstDay);

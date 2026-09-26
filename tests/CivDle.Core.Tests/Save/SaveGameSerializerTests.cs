@@ -165,6 +165,20 @@ public class SaveGameSerializerTests
     }
 
     [Fact]
+    public void RoundTrip_KeepsTheGovernorResearchChoice()
+    {
+        // Hráč, který nechal výzkum na guvernérovi, by po načtení našel strom
+        // zase stát — a nevěděl by proč.
+        var (content, original) = PlayedGame();
+        original.Plan.SetChoosesResearch(true);
+
+        using var stream = Saved(original, Metadata);
+        var (loaded, _) = new SaveGameSerializer().Read(stream, content);
+
+        Assert.True(loaded.Plan.ChoosesResearch);
+    }
+
+    [Fact]
     public void RoundTrip_PreservesZones()
     {
         // Zóna (save v9) se ukládá přes stabilní ID typu a musí se vrátit beze změny.

@@ -2,7 +2,11 @@ using CivDle.Core.Content;
 
 namespace CivDle.Core.Sim;
 
-/// <summary>Co městu zrovna nejvíc chybí. Pořadí = naléhavost.</summary>
+/// <summary>
+/// Co městu chybí. Prvních šest hodnot jsou základní potřeby (pořadí =
+/// dosavadní naléhavost); ostatní přibyly s plánovačem cílů a jejich
+/// naléhavost se počítá (viz <see cref="GoalAssessment.Urgency"/>).
+/// </summary>
 public enum CityNeed
 {
     /// <summary>Nic akutního — město si vystačí.</summary>
@@ -26,6 +30,21 @@ public enum CityNeed
     /// nezastaví, jen se nevyužije potenciál.
     /// </summary>
     Jobs,
+
+    /// <summary>Budovy závislé na proudu stojí nebo jedou na půl plynu.</summary>
+    Power,
+
+    /// <summary>Sklad je plný (výroba přetéká) nebo se do něj nevejde cena další stavby či výzkumu.</summary>
+    Storage,
+
+    /// <summary>Kolem těžby je vytěženo — krajinu je potřeba obnovit (lesní školka).</summary>
+    Landscape,
+
+    /// <summary>Na další výzkum by se čekalo moc dlouho — chybí knihovny a školy.</summary>
+    Knowledge,
+
+    /// <summary>Na modlitbu by se čekalo moc dlouho — chybí svatyně a chrámy.</summary>
+    Faith,
 }
 
 /// <summary>

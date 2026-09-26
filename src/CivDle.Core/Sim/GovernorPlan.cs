@@ -58,6 +58,16 @@ public sealed class GovernorPlan
     public void SetFocus(GovernorFocus focus) => Focus = focus;
 
     /// <summary>
+    /// Vybírá guvernér i výzkum? Výchozí je <b>ne</b>: klikání na uzly stromu
+    /// je v první hře rozhodování, kudy se vydat, a to automatika brát nemá.
+    /// Kdo nechává město guvernérovi úplně, si ho zapne.
+    /// </summary>
+    public bool ChoosesResearch { get; private set; }
+
+    /// <summary>Příkaz hráče: zapne nebo vypne výběr výzkumu guvernérem.</summary>
+    public void SetChoosesResearch(bool enabled) => ChoosesResearch = enabled;
+
+    /// <summary>
     /// Násobič rozpočtu na <b>stavbu</b>. Vyvážený plán = 1,0, tedy přesně to,
     /// co hra dělala předtím.
     /// </summary>
@@ -106,9 +116,10 @@ public sealed class GovernorPlan
     public IReadOnlyCollection<string> BlockedCategories => _blockedCategories;
 
     /// <summary>Obnoví plán ze savu.</summary>
-    internal void Restore(GovernorFocus focus, IEnumerable<string> blocked)
+    internal void Restore(GovernorFocus focus, IEnumerable<string> blocked, bool choosesResearch = false)
     {
         Focus = focus;
+        ChoosesResearch = choosesResearch;
         _blockedCategories.Clear();
         foreach (string category in blocked)
         {

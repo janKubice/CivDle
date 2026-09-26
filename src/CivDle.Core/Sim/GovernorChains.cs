@@ -30,12 +30,14 @@ internal sealed class GovernorChains
 
     private readonly GameContent _content;
     private readonly BuildingCapability[] _capabilities;
+    private readonly GovernorRoles _roles;
     private readonly byte[] _state;
 
-    public GovernorChains(GameContent content, BuildingCapability[] capabilities)
+    public GovernorChains(GameContent content, BuildingCapability[] capabilities, GovernorRoles roles)
     {
         _content = content;
         _capabilities = capabilities;
+        _roles = roles;
         _state = new byte[content.Resources.Count];
     }
 
@@ -44,8 +46,9 @@ internal sealed class GovernorChains
 
     /// <summary>
     /// Smí guvernér tuhle budovu postavit, aby nakrmil řetězec? Kromě budov
-    /// s <c>autoBuild</c> i běžné výrobny (doly, huti, dílny) — ale ne divy,
-    /// podmořské stavby, bydlení ani služby: ty zůstávají hráčovou volbou.
+    /// s <c>autoBuild</c> i běžné výrobny (doly, huti, dílny) — ale ne divy
+    /// a podmořské stavby. Při stavbě podle rolí (<see cref="GovernorRoles"/>)
+    /// cokoli, co něco vyrábí a není hráčovým rozhodnutím.
     /// </summary>
     public bool IsAllowedForSupply(Simulation sim, int defIndex)
     {
@@ -55,7 +58,7 @@ internal sealed class GovernorChains
             return false;
         }
 
-        if (def.AutoBuild)
+        if (def.AutoBuild || _roles.MayBuildForSupply(defIndex))
         {
             return true;
         }

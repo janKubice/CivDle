@@ -5370,6 +5370,13 @@ public sealed class Simulation
     /// </summary>
     public GovernorStatus GovernorStatus { get; internal set; } = GovernorStatus.Idle;
 
+    /// <summary>
+    /// Plán guvernéra z posledního kola: co město potřebuje, od nejnaléhavějšího
+    /// (pro UI). Hru neovlivňuje a neukládá se — po načtení se naplní během
+    /// jednoho kola guvernéra.
+    /// </summary>
+    public IReadOnlyList<GovernorAgendaItem> GovernorAgenda => _autoBuild.Agenda;
+
     /// <summary>Obnoví rezervu ze savu.</summary>
     internal void RestoreGovernorReserve(double fraction) => SetGovernorReserve(fraction);
 
@@ -5594,8 +5601,20 @@ public sealed class Simulation
     }
 
     /// <summary>Obnoví plán guvernéra ze savu.</summary>
-    internal void RestorePlan(GovernorFocus focus, IEnumerable<string> blockedCategories) =>
-        Plan.Restore(focus, blockedCategories);
+    internal void RestorePlan(GovernorFocus focus, IEnumerable<string> blockedCategories, bool choosesResearch = false) =>
+        Plan.Restore(focus, blockedCategories, choosesResearch);
+
+    /// <summary>
+    /// Připadá budova pro guvernéra vůbec v úvahu (bez ohledu na odemčení)?
+    /// UI z toho skládá přepínače kategorií — kategorie, ve které guvernér
+    /// nic postavit nemůže, by byla vypínač, který nic nedělá.
+    /// </summary>
+    public bool GovernorConsiders(int defIndex)
+    {
+        var def = _content.Buildings[defIndex];
+        return def.AutoBuild
+            || (_content.Gameplay.Governor.BuildsByRole && def.Buildable && !GovernorRoles.IsPlayersDecision(def));
+    }
 
     /// <summary>ID technologie, po které umí guvernér i slučovat bloky (data-driven odkaz).</summary>
     public const string GovernorMergeTechId = "urban_planning";
@@ -7834,6 +7853,65 @@ public sealed class Simulation
 
     /// <summary>Kolik technologií obsah nabízí.</summary>
     public int TechCount => _content.Techs.Count;
+
+    /// <summary>
+    /// Technologie, která je „na řadě": nejlevnější nehotová, na kterou má město
+    /// předpoklady (bez ohledu na to, jestli na ni teď má). Guvernér z ní pozná,
+    /// kolik vědy bude potřeba a jestli se cena vůbec vejde do skladu.
+    /// </summary>
+    /// <param name="resourceIndex">Jen technologie, které tuhle surovinu stojí; −1 = libovolné.</param>
+    /// <returns>Index technologie; −1 = žádná.</returns>
+    internal int CheapestOpenTech(int resourceIndex = -1)
+    {
+        int best = -1;
+        double bestCost = double.MaxValue;
+        for (int t = 0; t < _techLevel.Length; t++)
+        {
+            var tech = _content.Techs[t];
+            if (_techLevel[t] >= tech.MaxLevel || IsTechBeyondDemo(t) || !PrerequisitesMet(tech)
+                || (resourceIndex >= 0 && ResearchCostOf(t, resourceIndex) <= 0))
+            {
+                continue;
+            }
+
+            double cost = TotalResearchCost(t);
+            if (cost < bestCost)
+            {
+                bestCost = cost;
+                best = t;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>Kolik suroviny stojí další úroveň technologie (po škálování); 0 = nestojí.</summary>
+    internal int ResearchCostOf(int techIndex, int resourceIndex)
+    {
+        var cost = _content.Techs[techIndex].Cost;
+        for (int i = 0; i < cost.Count; i++)
+        {
+            if (cost[i].ResourceIndex == resourceIndex)
+            {
+                return ResearchCost(cost[i].Amount, _techLevel[techIndex]);
+            }
+        }
+
+        return 0;
+    }
+
+    private bool PrerequisitesMet(TechDef tech)
+    {
+        foreach (int prereq in tech.PrerequisiteIndices)
+        {
+            if (_techLevel[prereq] == 0)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     /// <summary>
     /// Kolik surovin dohromady stojí další úroveň technologie. Slouží

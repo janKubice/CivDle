@@ -43,7 +43,14 @@ internal sealed class GovernorSites
     private const int MaxClusterAttempts = 24;
 
     /// <summary>Jak daleko od středu města se hledá místo pro ostatní budovy.</summary>
-    private const int AnySiteRadius = 28;
+    public const int AnySiteRadius = 28;
+
+    /// <summary>
+    /// Jak daleko se hledá břeh pro přístav či rybárnu. Širší než pro ostatní:
+    /// město na louce má moře často za dvacátou dlaždicí, a „nemá kam dát
+    /// přístav" by bylo horší než kratší svoz.
+    /// </summary>
+    public const int ShoreSearchRadius = 48;
 
     /// <summary>Uzel, který dává přesně to, co budova vyrábí, se počítá dvakrát.</summary>
     private const int MatchingNodeWeight = 2;
@@ -174,12 +181,16 @@ internal sealed class GovernorSites
     /// nezakazuje. Záloha pro vše, co se nevešlo kolem zástavby (pole na louce
     /// za městem, rybárna na pláži).
     /// </summary>
-    public bool TryFindAnySite(Simulation sim, int defIndex, out int x, out int y)
+    public bool TryFindAnySite(Simulation sim, int defIndex, out int x, out int y) =>
+        TryFindAnySite(sim, defIndex, AnySiteRadius, out x, out y);
+
+    /// <summary>Totéž v daném poloměru (břeh se hledá dál než louka).</summary>
+    public bool TryFindAnySite(Simulation sim, int defIndex, int radius, out int x, out int y)
     {
         var def = _content.Buildings[defIndex];
         int centerX = sim.CityCenterX;
         int centerY = sim.CityCenterY;
-        for (int ring = 1; ring <= AnySiteRadius; ring++)
+        for (int ring = 1; ring <= radius; ring++)
         {
             for (int i = 0; i < RingLength(ring); i++)
             {

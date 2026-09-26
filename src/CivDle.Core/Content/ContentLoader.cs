@@ -4259,7 +4259,91 @@ public sealed class ContentLoader
             subsea,
             power,
             file.PopulationFillRate ?? 0.0,
-            ParseOnboarding(path, file.Onboarding, file.DayNight.StartTimeOfDay, resources, buildings));
+            ParseOnboarding(path, file.Onboarding, file.DayNight.StartTimeOfDay, resources, buildings),
+            ParseGovernor(path, file.Governor, resources));
+    }
+
+    /// <summary>
+    /// Guvernér jako plánovač cílů. Chybí-li blok, zůstane dosavadní guvernér
+    /// (jen <c>autoBuild</c>, pět základních potřeb) — starší data i mody se
+    /// chovají jako dřív. Chybí-li jen část bloku, je vypnutý jen ten cíl.
+    /// </summary>
+    private static GovernorConfig? ParseGovernor(string path, GovernorDto? dto, DefRegistry<Resource> resources)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        var storage = StorageGoalConfig.Off;
+        if (dto.Storage is { } s)
+        {
+            // Pod polovinu by „plný sklad" hlásil každý rozjetý sklad; nad jedničku by nenastal nikdy.
+            if (s.FullShare is < 0.5 or > 1.0)
+            {
+                throw new ContentLoadException(path, $"'governor.storage.fullShare' musí být 0,5–1, je {s.FullShare}.");
+            }
+
+            storage = new StorageGoalConfig(s.FullShare);
+        }
+
+        var landscape = LandscapeGoalConfig.Off;
+        if (dto.Landscape is { } l)
+        {
+            if (l.MinNodes is < 1 or > 200)
+            {
+                throw new ContentLoadException(path, $"'governor.landscape.minNodes' musí být 1–200, je {l.MinNodes}.");
+            }
+
+            landscape = new LandscapeGoalConfig(l.MinNodes);
+        }
+
+        var power = PowerGoalConfig.Off;
+        if (dto.Power is { } p)
+        {
+            if (p.MinCoverage is < 0.1 or > 1.0)
+            {
+                throw new ContentLoadException(path, $"'governor.power.minCoverage' musí být 0,1–1, je {p.MinCoverage}.");
+            }
+
+            power = new PowerGoalConfig(p.MinCoverage);
+        }
+
+        return new GovernorConfig(
+            dto.BuildsByRole ?? false,
+            storage,
+            ParseSupplyGoal(path, "knowledge", dto.Knowledge, resources),
+            ParseSupplyGoal(path, "faith", dto.Faith, resources),
+            landscape,
+            power);
+    }
+
+    private static SupplyGoalConfig ParseSupplyGoal(
+        string path, string name, GovernorSupplyDto? dto, DefRegistry<Resource> resources)
+    {
+        if (dto is null)
+        {
+            return SupplyGoalConfig.Off;
+        }
+
+        if (!resources.TryIndexOf(dto.Resource?.Trim() ?? string.Empty, out int index))
+        {
+            throw new ContentLoadException(path, $"'governor.{name}.resource' odkazuje na neznámou surovinu '{dto.Resource}'.");
+        }
+
+        if (dto.MinPopulation is < 0 or > 1e9)
+        {
+            throw new ContentLoadException(path, $"'governor.{name}.minPopulation' musí být 0–1e9, je {dto.MinPopulation}.");
+        }
+
+        // Pod půl minuty by guvernér stavěl knihovnu za knihovnou; přes deset
+        // hodin by cíl nenastal nikdy.
+        if (dto.TargetMinutes is < 0.5 or > 600)
+        {
+            throw new ContentLoadException(path, $"'governor.{name}.targetMinutes' musí být 0,5–600, je {dto.TargetMinutes}.");
+        }
+
+        return new SupplyGoalConfig(index, dto.MinPopulation, dto.TargetMinutes * 60);
     }
 
     /// <summary>
