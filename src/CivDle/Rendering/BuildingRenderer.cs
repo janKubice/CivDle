@@ -61,6 +61,7 @@ public sealed class BuildingRenderer
     {
         var (min, max) = camera.VisibleWorldBounds();
         _snow = (float)(simulation.CurrentSeason?.SnowCover ?? 0.0);
+        _grandWorkStage = simulation.GrandWorkStage;
         _snowCaps.Clear();
 
         // Zjednodušený režim: při oddálení jsou budovy pár pixelů velké, takže
@@ -491,6 +492,11 @@ public sealed class BuildingRenderer
 
         DrawExtra(spriteBatch, look.Extra, body);
 
+        if (building.DefIndex == _content.GrandWork.BuildingIndex && _grandWorkStage > 0)
+        {
+            DrawGrandWorkGrowth(spriteBatch, bounds, _grandWorkStage);
+        }
+
         if (showsProsperity)
         {
             DrawProsperityDetail(spriteBatch, ornamentSeed, prosperity, bounds);
@@ -783,6 +789,74 @@ public sealed class BuildingRenderer
     /// Teprve stojky z toho udělají konstrukci — mřížka je to, podle čeho oko
     /// lešení pozná.</para>
     /// </summary>
+    /// <summary>Stupeň velkého díla pro tenhle snímek (čte se jednou za Draw).</summary>
+    private int _grandWorkStage;
+
+    /// <summary>
+    /// Jáma velkého díla roste se stupni (endgame.md, B5): kolem ní přibývají
+    /// terasy vykopané země, od třetího stupně lešení, od šestého jeřáb, od
+    /// desátého světla po okraji a od pětadvacátého uprostřed září Hvězdná
+    /// studna. Dřív s každým stupněm jen zdražila — hráč vkládal miliony
+    /// a na mapě se nic nepohnulo.
+    ///
+    /// <para>Jen obraz: kreslí se přes okolí, na obsazenost dlaždic ani na
+    /// simulaci nesahá.</para>
+    /// </summary>
+    private void DrawGrandWorkGrowth(SpriteBatch spriteBatch, Rectangle bounds, int stage)
+    {
+        var earth = new Color(122, 96, 66);
+        int terraces = Math.Min(4, 1 + stage / 3);
+        int step = Math.Max(2, bounds.Width / 8);
+        for (int t = 1; t <= terraces; t++)
+        {
+            var ring = new Rectangle(bounds.X - t * step, bounds.Y - t * step, bounds.Width + 2 * t * step, bounds.Height + 2 * t * step);
+            var shade = earth * (0.55f - 0.1f * t);
+            spriteBatch.Draw(_pixel, new Rectangle(ring.X, ring.Y, ring.Width, 2), shade);
+            spriteBatch.Draw(_pixel, new Rectangle(ring.X, ring.Bottom - 2, ring.Width, 2), shade);
+            spriteBatch.Draw(_pixel, new Rectangle(ring.X, ring.Y, 2, ring.Height), shade);
+            spriteBatch.Draw(_pixel, new Rectangle(ring.Right - 2, ring.Y, 2, ring.Height), shade);
+        }
+
+        if (stage >= 3)
+        {
+            DrawScaffolding(spriteBatch, bounds);
+        }
+
+        if (stage >= 6)
+        {
+            // Jeřáb jako u staveniště: velké dílo se staví pořád.
+            var crane = new Rectangle(bounds.Right - bounds.Width / 3, bounds.Y, bounds.Width / 3, bounds.Height);
+            float phase = _time * 0.5f + bounds.X * 0.02f;
+            int reach = (int)(MathF.Sin(phase) * bounds.Width * 0.6f);
+            var steel = new Color(228, 176, 70);
+            spriteBatch.Draw(_pixel, new Rectangle(crane.X, bounds.Y - bounds.Height / 2, 2, bounds.Height + bounds.Height / 2), steel);
+            spriteBatch.Draw(_pixel, new Rectangle(Math.Min(crane.X, crane.X + reach), bounds.Y - bounds.Height / 2 + 2, Math.Abs(reach) + 2, 2), steel);
+        }
+
+        if (stage >= 10)
+        {
+            // Světla po okraji — v noci z dálky vidět, kde se kope.
+            var lamp = new Color(255, 214, 140);
+            int outer = terraces * step;
+            for (int i = 0; i < 8; i++)
+            {
+                float angle = i * MathF.Tau / 8f;
+                int x = bounds.Center.X + (int)(MathF.Cos(angle) * (bounds.Width / 2 + outer));
+                int y = bounds.Center.Y + (int)(MathF.Sin(angle) * (bounds.Height / 2 + outer));
+                spriteBatch.Draw(_pixel, new Rectangle(x - 1, y - 1, 3, 3), lamp);
+            }
+        }
+
+        if (stage >= 25 && _sprites.Get("building.star_well") is { } well)
+        {
+            // Hvězdná studna: dno jámy začne svítit (odměna Velkého cíle Hloubka díla).
+            float pulse = 0.75f + 0.25f * MathF.Sin(_time * 1.3f);
+            var core = new Rectangle(
+                bounds.X + bounds.Width / 4, bounds.Y + bounds.Height / 4, bounds.Width / 2, bounds.Height / 2);
+            spriteBatch.Draw(well, core, Color.White * pulse);
+        }
+    }
+
     private void DrawScaffolding(SpriteBatch spriteBatch, Rectangle bounds)
     {
         var scaffold = new Color(220, 190, 120) * 0.8f;
