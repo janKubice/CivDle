@@ -54,6 +54,12 @@ public sealed class ScreenManager
     /// <summary>Herní aplikace (kvůli ukončení a přístupu ke grafice).</summary>
     public CivDleGame Game { get; }
 
+    /// <summary>
+    /// Běží hra jako nástroj (snímky do obchodu, trailer, smoke test)? Pak hraje
+    /// připravené město, ne hráčovo — a nic z něj nesmí přepsat hráčův save.
+    /// </summary>
+    public bool IsToolRun { get; init; }
+
     /// <summary>Načtený herní obsah — obrazovky ho jen čtou.</summary>
     public GameContent Content { get; }
 

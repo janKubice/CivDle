@@ -39,6 +39,19 @@ public sealed class GoldenSpawnSystem
         _nextSpawnTimer = (float)content.Gameplay.Golden.MaxGapSeconds;
     }
 
+    /// <summary>
+    /// Pošle další zlatý úlovek nejpozději za <paramref name="seconds"/> sekund.
+    /// Pro úvod: první úlovek má přijít, dokud se hráč ještě dívá na mapu —
+    /// náhodně by přišel za minuty, kdy už kouká jinam.
+    /// </summary>
+    public void ScheduleSoon(float seconds)
+    {
+        if (!_active)
+        {
+            _nextSpawnTimer = MathF.Min(_nextSpawnTimer, seconds);
+        }
+    }
+
     public void Update(float dt, Camera2D camera, Simulation simulation)
     {
         if (_active)

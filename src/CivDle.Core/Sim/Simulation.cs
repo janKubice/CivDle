@@ -3692,6 +3692,9 @@ public sealed class Simulation
     /// </summary>
     public void SetPopulationForTest(double population) => Population = Math.Max(0, population);
 
+    /// <summary>Test hook: přeskočí průvodce rovnou na daný krok (testy úvodu v UI vrstvě).</summary>
+    public void SetTutorialStepForTest(int step) => TutorialStep = Math.Max(0, step);
+
     /// <summary>Testovací háček: guvernér šetří na danou budovu (jako by se tak rozhodl sám).</summary>
     public void SetClaimForTest(int defIndex) =>
         Claim.Set(defIndex, _content.Buildings[defIndex].BuildCost, _storageCaps, TickCount);

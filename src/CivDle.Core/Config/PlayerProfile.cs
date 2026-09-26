@@ -24,6 +24,28 @@ public sealed class PlayerProfile
     /// </summary>
     public Dictionary<string, string> KeyBindings { get; set; } = new();
 
+    /// <summary>
+    /// Velké okamžiky úvodu, které hráč už viděl („město pracuje samo", „první
+    /// noc", „klidně hru zavři"). Patří k hráči, ne k savu: podruhé by stejná
+    /// oslava v nové hře byla jen překážka.
+    /// </summary>
+    public List<string> SeenOnboardingMoments { get; set; } = new();
+
+    /// <summary>Viděl hráč už tenhle okamžik úvodu?</summary>
+    public bool HasSeenMoment(string id) => SeenOnboardingMoments.Contains(id);
+
+    /// <summary>Zapíše okamžik úvodu jako viděný; vrací false, když už byl.</summary>
+    public bool MarkMomentSeen(string id)
+    {
+        if (SeenOnboardingMoments.Contains(id))
+        {
+            return false;
+        }
+
+        SeenOnboardingMoments.Add(id);
+        return true;
+    }
+
     /// <summary>Datum posledního vyzvednutí denní odměny (UTC, formát <c>yyyy-MM-dd</c>); prázdné = nikdy.</summary>
     public string LastDailyRewardDate { get; set; } = string.Empty;
 

@@ -427,6 +427,12 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "fx.shadow", SpriteSize, Shadow);
         Add(device, "fx.bubble", SpriteSize, Bubble);   // sběrná bublina nad budovou
         Add(device, "fx.golden", SpriteSize, Golden);   // zlatý spawn (klikni!)
+
+        // Průvodce prvními minutami: táborák na místě startu, šipka a kroužek
+        // nad tím, na co má hráč kliknout.
+        Add(device, "fx.campfire", SpriteSize, Campfire);
+        Add(device, "fx.arrow", SpriteSize, GuideArrow);
+        Add(device, "fx.ring", SpriteSize, GuideRing);
     }
 
     /// <summary>Sprite podle ID, nebo <c>null</c>, když neexistuje.</summary>
@@ -642,6 +648,59 @@ public sealed class SpriteLibrary : IDisposable
         canvas.FillTriangle(cx, cy - r, cx - r * 0.68f, cy, cx + r * 0.68f, cy, gold);
         canvas.FillTriangle(cx, cy + r, cx - r * 0.68f, cy, cx + r * 0.68f, cy, gold);
         canvas.FillCircle(cx - r * 0.18f, cy - r * 0.18f, r * 0.13f, Color.White);
+    }
+
+    /// <summary>Táborák: kruh kamenů, zkřížená polena a plamen — „tady začíná tvoje město".</summary>
+    private static void Campfire(PixelCanvas canvas)
+    {
+        float cx = canvas.Width * 0.5f, cy = canvas.Height * 0.62f, r = canvas.Width * 0.3f;
+        var stone = new Color(128, 124, 116);
+        for (int i = 0; i < 8; i++)
+        {
+            float angle = i * MathF.Tau / 8f;
+            canvas.FillCircle(cx + MathF.Cos(angle) * r, cy + MathF.Sin(angle) * r * 0.55f, canvas.Width * 0.06f, stone);
+        }
+
+        var log = new Color(110, 72, 40);
+        canvas.FillRect((int)(cx - r * 0.8f), (int)(cy - 1), (int)(r * 1.6f), 3, log);
+        canvas.FillRect((int)(cx - 1), (int)(cy - r * 0.45f), 3, (int)(r * 0.9f), log);
+
+        // Plamen: tři vrstvy od rudé po žlutou, ať je vidět i zdálky.
+        canvas.FillTriangle(cx, cy - r * 1.35f, cx - r * 0.55f, cy, cx + r * 0.55f, cy, new Color(214, 84, 36));
+        canvas.FillTriangle(cx, cy - r * 1.05f, cx - r * 0.36f, cy, cx + r * 0.36f, cy, new Color(246, 150, 48));
+        canvas.FillTriangle(cx, cy - r * 0.7f, cx - r * 0.18f, cy, cx + r * 0.18f, cy, new Color(255, 226, 120));
+    }
+
+    /// <summary>Šipka dolů s tmavým okrajem — čitelná na trávě, v lese i na sněhu.</summary>
+    private static void GuideArrow(PixelCanvas canvas)
+    {
+        float cx = canvas.Width * 0.5f;
+        float w = canvas.Width, h = canvas.Height;
+        var outline = new Color(40, 28, 12);
+        var fill = new Color(255, 214, 90);
+        canvas.FillRect((int)(cx - w * 0.14f), (int)(h * 0.04f), (int)(w * 0.28f), (int)(h * 0.5f), outline);
+        canvas.FillTriangle(cx, h * 0.98f, cx - w * 0.44f, h * 0.46f, cx + w * 0.44f, h * 0.46f, outline);
+        canvas.FillRect((int)(cx - w * 0.08f), (int)(h * 0.08f), (int)(w * 0.16f), (int)(h * 0.44f), fill);
+        canvas.FillTriangle(cx, h * 0.88f, cx - w * 0.33f, h * 0.51f, cx + w * 0.33f, h * 0.51f, fill);
+    }
+
+    /// <summary>Tenký světlý kroužek — kreslí se pulzující kolem cíle.</summary>
+    private static void GuideRing(PixelCanvas canvas)
+    {
+        float cx = canvas.Width * 0.5f, cy = canvas.Height * 0.5f;
+        float outer = canvas.Width * 0.48f, inner = canvas.Width * 0.38f;
+        for (int y = 0; y < canvas.Height; y++)
+        {
+            for (int x = 0; x < canvas.Width; x++)
+            {
+                float dx = x + 0.5f - cx, dy = y + 0.5f - cy;
+                float d = MathF.Sqrt(dx * dx + dy * dy);
+                if (d <= outer && d >= inner)
+                {
+                    canvas.Blend(x, y, new Color(255, 236, 160, 230));
+                }
+            }
+        }
     }
 
     /// <summary>Měkký kruhový stín (černá s radiálním doběhem alfy) — kreslí se zploštělý pod objekt.</summary>

@@ -230,7 +230,7 @@ public sealed class CivDleGame : Game
         _steam = storeMode ? null : Platform.SteamPlatformServices.TryCreate(local);
         IPlatformServices platform = (IPlatformServices?)_steam ?? local;
 
-        var screens = new ScreenManager(this, content, localization, saves, platform);
+        var screens = new ScreenManager(this, content, localization, saves, platform) { IsToolRun = storeMode };
 
         // Kamarádi se načtou jednou při startu, ne při každé karavaně. Bez
         // Steamu se nenačte nikdo a karavany jezdí dál — jen bez jmen.
