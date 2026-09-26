@@ -5128,6 +5128,99 @@
           "dome_roof"
         ]
       }
+    },
+    {
+      "id": "star_gate",
+      "category": "megastructure",
+      "mapColor": "#7FD8FF",
+      "footprint": [
+        7,
+        7
+      ],
+      "serviceValue": 200,
+      "buildCost": {
+        "steel": 2000,
+        "nanomaterial": 800,
+        "computer": 600
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "minSettlementRank": "metropolis",
+      "spectacle": {
+        "effect": "ring_pulse",
+        "intervalSeconds": 8
+      },
+      "stages": [
+        {
+          "atProgress": 0.0,
+          "sprite": "stage.foundation"
+        },
+        {
+          "atProgress": 0.25,
+          "sprite": "stage.frame"
+        },
+        {
+          "atProgress": 0.5,
+          "sprite": "stage.gate_ring"
+        },
+        {
+          "atProgress": 0.75,
+          "sprite": "stage.gate_struts"
+        }
+      ],
+      "unlockedBy": "quest:great_megastructures",
+      "look": {
+        "shape": "ring",
+        "wall": "#5A6A86",
+        "roof": "#8FB8E8",
+        "accent": "#E0F4FF",
+        "glow": "#9EE8FF",
+        "features": [
+          "glow",
+          "rings",
+          "spark"
+        ]
+      },
+      "project": {
+        "onComplete": "gate_opened",
+        "stages": [
+          {
+            "cost": {
+              "stone": 4000000,
+              "steel": 1500000
+            }
+          },
+          {
+            "cost": {
+              "nanomaterial": 400000,
+              "robot": 150000
+            }
+          },
+          {
+            "cost": {
+              "computer": 300000,
+              "electronics": 600000,
+              "machine_parts": 500000
+            }
+          },
+          {
+            "cost": {
+              "science": 4000000,
+              "faith": 800000,
+              "uranium": 40000
+            }
+          }
+        ]
+      }
     }
   ]
 }

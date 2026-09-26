@@ -429,6 +429,19 @@
         "metric": "waves",
         "target": 1
       }
+    },
+    {
+      "id": "open_the_gate",
+      "group": "late",
+      "condition": {
+        "metric": "project",
+        "building": "star_gate",
+        "target": 1
+      },
+      "activeWhen": {
+        "metric": "megastructures",
+        "target": 7
+      }
     }
   ],
   "dynamic": {

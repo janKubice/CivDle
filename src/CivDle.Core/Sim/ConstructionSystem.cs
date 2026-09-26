@@ -27,7 +27,9 @@ internal sealed class ConstructionSystem
 
     public void Tick(Simulation sim)
     {
-        if (sim.BuildingsUnderConstruction == 0 || sim.TickCount % IntervalTicks != 0)
+        // Projekty (stavby po stupních) čas neposouvá — stojí jako staveniště,
+        // dokud hráč nevloží. Když jiné stavby nejsou, nemá smysl pole procházet.
+        if (sim.BuildingsUnderConstruction <= sim.ProjectSiteCount || sim.TickCount % IntervalTicks != 0)
         {
             return;
         }
@@ -36,7 +38,7 @@ internal sealed class ConstructionSystem
         for (int i = 0; i < buildings.Length; i++)
         {
             ref var building = ref buildings[i];
-            if (building.IsComplete)
+            if (building.IsComplete || _content.Buildings[building.DefIndex].IsProject)
             {
                 continue;
             }

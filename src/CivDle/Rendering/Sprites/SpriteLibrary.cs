@@ -435,6 +435,28 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "fx.ring", SpriteSize, GuideRing);
 
         AddLooks(device, buildings ?? Array.Empty<BuildingDef>());
+        AddGateStages(device, buildings ?? Array.Empty<BuildingDef>());
+    }
+
+    /// <summary>
+    /// Mezifáze Hvězdné brány: prstenec bez světla („stage.gate_ring"), pak
+    /// prstenec s výztuhami („stage.gate_struts"). Kreslí je týž malíř jako
+    /// hotovou bránu, jen bez svítících prvků — brána tak roste do sebe sama,
+    /// ne z obecného lešení do cizího obrázku. Bez brány v datech se nekreslí.
+    /// </summary>
+    private void AddGateStages(GraphicsDevice device, IReadOnlyList<BuildingDef> buildings)
+    {
+        var gate = buildings.FirstOrDefault(b => b.Id == "star_gate");
+        if (gate?.Look is not { } look)
+        {
+            return;
+        }
+
+        var (width, height) = LookCanvasSize(gate);
+        var dark = look with { Glow = look.Wall, Features = Array.Empty<string>() };
+        AddTall(device, "stage.gate_ring", width, height, canvas => LookPainter.Paint(canvas, dark));
+        var struts = look with { Glow = look.Wall, Features = new[] { "rings" } };
+        AddTall(device, "stage.gate_struts", width, height, canvas => LookPainter.Paint(canvas, struts));
     }
 
     /// <summary>

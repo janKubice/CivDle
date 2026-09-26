@@ -3048,6 +3048,17 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"Budova '{id}': 'buildTicks' musí být 0–1000000, je {dto.BuildTicks}.");
         }
 
+        // Projekt se staví vkládáním, ne časem: jeho „doba stavby" je jen měřítko
+        // postupu a dopočítá se ze stupňů. Zadaná doba by lhala.
+        var project = ParseProject(path, id, dto.Project, resources);
+        if (project is not null && dto.BuildTicks != 0)
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}' je projekt (staví se vkládáním po stupních) — 'buildTicks' vynech, dopočítá se.");
+        }
+
+        int buildTicks = project?.TotalUnits ?? dto.BuildTicks;
+
         int terraformAction = ParseTerraformAction(path, id, dto, terraformIds);
 
         // Fáze stavby: obsah, ne mechanika. Validují se přísně, protože chyba
@@ -3056,7 +3067,7 @@ public sealed class ContentLoader
         IReadOnlyList<BuildStage>? stages = null;
         if (dto.Stages is { Count: > 0 })
         {
-            if (dto.BuildTicks <= 0)
+            if (buildTicks <= 0)
             {
                 throw new ContentLoadException(path,
                     $"Budova '{id}' má 'stages', ale staví se okamžitě ('buildTicks' je 0) — fáze by nikdo neviděl.");
@@ -3124,7 +3135,7 @@ public sealed class ContentLoader
             dto.WorkerSlots, dto.HousingCapacity, buildCost, recipe, mask,
             storageBonus, dto.AutoBuild, dto.Buildable ?? true, upgradesToIndex, upgradeCost,
             dto.PowerSupply, dto.PowerDemand, dto.RequiresAdjacentWater,
-            dto.ServiceValue, upkeep, mergesToIndex, mergeCost, adjacency, dto.BuildTicks,
+            dto.ServiceValue, upkeep, mergesToIndex, mergeCost, adjacency, buildTicks,
             dto.TerrainHarvestRadius, pollution, ParseMinSettlementRank(path, id, dto.MinSettlementRank, ranks),
             ParseMilestones(path, id, dto.Milestones),
             ParseSpectacle(path, id, dto.Spectacle),
@@ -3141,7 +3152,47 @@ public sealed class ContentLoader
             ParseBuildingSound(path, id, dto.Sound),
             ReadVisualHeight(path, id, dto.VisualHeight),
             ParseUnlockedBy(path, $"Budova '{id}'", dto.UnlockedBy),
-            ParseLook(path, id, dto.Look));
+            ParseLook(path, id, dto.Look),
+            project);
+    }
+
+    /// <summary>
+    /// Stavba po stupních. Každý stupeň musí něco stát (stupeň zadarmo by se
+    /// „postavil" sám kliknutím) a efekt dokončení musí kód znát.
+    /// </summary>
+    private static ProjectRule? ParseProject(string path, string id, ProjectDto? dto, DefRegistry<Resource> resources)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (dto.Stages is not { Count: > 0 } || dto.Stages.Count > 50)
+        {
+            throw new ContentLoadException(path, $"Budova '{id}': projekt musí mít 1–50 stupňů ('project.stages').");
+        }
+
+        var stages = new List<ProjectStage>(dto.Stages.Count);
+        for (int i = 0; i < dto.Stages.Count; i++)
+        {
+            var cost = ParseResourceAmounts(path, id, $"project.stages[{i}].cost", dto.Stages[i].Cost, resources);
+            if (cost.Count == 0)
+            {
+                throw new ContentLoadException(path, $"Budova '{id}': stupeň projektu {i + 1} nic nestojí.");
+            }
+
+            stages.Add(new ProjectStage(cost));
+        }
+
+        string? effect = string.IsNullOrWhiteSpace(dto.OnComplete) ? null : dto.OnComplete.Trim();
+        if (effect is not null && !ProjectRule.KnownEffects.Contains(effect))
+        {
+            throw new ContentLoadException(path,
+                $"Budova '{id}': neznámý efekt dokončení projektu '{dto.OnComplete}' "
+                + $"(známé: {string.Join(", ", ProjectRule.KnownEffects)}).");
+        }
+
+        return new ProjectRule(stages, effect);
     }
 
     /// <summary>
@@ -4056,6 +4107,9 @@ public sealed class ContentLoader
             case "contracts": return (MetricKind.ContractsCompleted, -1);
             case "airquality": return (MetricKind.AirQuality, -1);
             case "waves": return (MetricKind.DefenceWaves, -1);
+            case "project":
+                return (MetricKind.ProjectsCompleted,
+                    string.IsNullOrWhiteSpace(building) ? -1 : ResolveRef(path, owner, "building", building, buildings));
             default: throw new ContentLoadException(path, $"{owner}: neznámá metrika '{metric}'.");
         }
     }

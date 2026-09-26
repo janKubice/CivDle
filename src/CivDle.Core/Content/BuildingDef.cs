@@ -257,8 +257,12 @@ public sealed record BuildingDef(
     BuildingSound? SoundOrNull = null,
     int VisualHeight = 0,
     string? UnlockedBy = null,
-    BuildingLook? LookOrNull = null)
+    BuildingLook? LookOrNull = null,
+    ProjectRule? ProjectOrNull = null)
 {
+    /// <summary>Staví se budova vkládáním surovin po stupních (<see cref="ProjectRule"/>)?</summary>
+    public bool IsProject => ProjectOrNull is not null;
+
     /// <summary>
     /// Vzhled popsaný daty (tvar, barvy, prvky); <c>null</c> = budova má ručně
     /// kreslený sprite. Viz <see cref="BuildingLook"/>.

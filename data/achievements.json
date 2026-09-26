@@ -724,6 +724,14 @@
         "metric": "cities",
         "target": 35
       }
+    },
+    {
+      "id": "gate_opened",
+      "condition": {
+        "metric": "project",
+        "building": "star_gate",
+        "target": 1
+      }
     }
   ]
 }

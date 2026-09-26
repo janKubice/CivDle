@@ -78,6 +78,12 @@ public enum MetricKind
 
     /// <summary>Kolik vln obrany už přišlo (a město je přečkalo).</summary>
     DefenceWaves,
+
+    /// <summary>
+    /// Kolik dokončených projektů (staveb po stupních) stojí; s parametrem jen
+    /// daného typu budovy (Hvězdná brána).
+    /// </summary>
+    ProjectsCompleted,
 }
 
 /// <summary>

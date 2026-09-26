@@ -3669,12 +3669,242 @@ public sealed class Simulation
 
         ApplyBuildingBonuses(def);
         WondersCompleted++;
+        if (def.IsProject)
+        {
+            FinishProject(buildingIndex, def);
+        }
+
         SettlementsDirty = true;
         DistrictsDirty = true; // změna zástavby může vytvořit i rozpadnout čtvrť
         _roadLinksDirty = true;
         ReportVisual(VisualEventKind.BuildingUpgraded, _buildings[buildingIndex].X, _buildings[buildingIndex].Y);
         EnqueueNotification(new GameNotification(NotificationKind.Milestone, "toast.wonderDone", def.NameKey));
     }
+
+    // ----- projekty (stavba vkládáním po stupních) -----
+
+    /// <summary>
+    /// Vklad do rozestavěného stupně každého projektu, podle dlaždice budovy.
+    /// Klíč je poloha, ne index: index se při bourání jiných budov přečísluje,
+    /// poloha ne. Stupeň sám se v něm nedrží — je odvozený ze zbývajících tiků
+    /// stavby, které už simulace ukládá (viz <see cref="ProjectRule"/>).
+    /// </summary>
+    private readonly Dictionary<long, double[]> _projectInvested = new();
+
+    /// <summary>Kolik staveniš projektů stojí (čas je neposouvá, stavba je přeskočí).</summary>
+    public int ProjectSiteCount { get; private set; }
+
+    /// <summary>Tik, kdy se otevřela Hvězdná brána; −1 = ještě ne.</summary>
+    public long GateOpenedAtTick { get; private set; } = -1;
+
+    /// <summary>Je Hvězdná brána otevřená (konec první kapitoly)?</summary>
+    public bool IsGateOpened => GateOpenedAtTick >= 0;
+
+    /// <summary>Je budova rozestavěný projekt, do kterého jde vkládat?</summary>
+    public bool IsProjectSite(int buildingIndex) =>
+        buildingIndex >= 0 && buildingIndex < _buildingCount
+        && !_buildings[buildingIndex].IsComplete
+        && _content.Buildings[_buildings[buildingIndex].DefIndex].IsProject;
+
+    /// <summary>Kolikátý stupeň projektu se staví (od nuly).</summary>
+    public int ProjectStageIndex(int buildingIndex)
+    {
+        var def = _content.Buildings[_buildings[buildingIndex].DefIndex];
+        if (def.ProjectOrNull is not { } project)
+        {
+            return 0;
+        }
+
+        if (_buildings[buildingIndex].IsComplete)
+        {
+            return project.Stages.Count;
+        }
+
+        int done = def.BuildTicks - _buildings[buildingIndex].BuildTicksRemaining;
+        return Math.Clamp(done / ProjectRule.UnitsPerStage, 0, project.Stages.Count - 1);
+    }
+
+    /// <summary>Co stojí rozestavěný stupeň projektu (prázdné, když budova projekt není).</summary>
+    public IReadOnlyList<ResourceAmount> ProjectStageCost(int buildingIndex)
+    {
+        if (!IsProjectSite(buildingIndex))
+        {
+            return Array.Empty<ResourceAmount>();
+        }
+
+        var project = _content.Buildings[_buildings[buildingIndex].DefIndex].ProjectOrNull!;
+        return project.Stages[ProjectStageIndex(buildingIndex)].Cost;
+    }
+
+    /// <summary>Kolik dané suroviny už je v rozestavěném stupni.</summary>
+    public double ProjectInvested(int buildingIndex, int resourceIndex) =>
+        _projectInvested.TryGetValue(ProjectKey(buildingIndex), out var invested) ? invested[resourceIndex] : 0;
+
+    /// <summary>Postup rozestavěného stupně 0–1 (průměr přes suroviny stupně).</summary>
+    public double ProjectStageProgress01(int buildingIndex)
+    {
+        var cost = ProjectStageCost(buildingIndex);
+        if (cost.Count == 0)
+        {
+            return IsProjectSite(buildingIndex) ? 0 : 1;
+        }
+
+        double sum = 0;
+        for (int i = 0; i < cost.Count; i++)
+        {
+            sum += Math.Clamp(ProjectInvested(buildingIndex, cost[i].ResourceIndex) / cost[i].Amount, 0, 1);
+        }
+
+        return sum / cost.Count;
+    }
+
+    /// <summary>
+    /// Příkaz hráče: vloží do rozestavěného stupně, co jde — z každé potřebné
+    /// suroviny nejvýš to, co stupni chybí, a jen z toho, co je nad rezervou
+    /// guvernéra (stejně jako údržba: šetří-li se na farmu, brána počká).
+    ///
+    /// <para>Ruční akce, ne automatika — stejně jako velké dílo. Automatický
+    /// odběr by z brány udělal neviditelnou daň; takhle je každý stupeň
+    /// rozhodnutí a jeho dopad je vidět.</para>
+    /// </summary>
+    /// <returns>Kolik surovin (součet) se vložilo; 0 = nic.</returns>
+    public double TryInvestInProject(int buildingIndex)
+    {
+        if (!IsProjectSite(buildingIndex))
+        {
+            return 0;
+        }
+
+        var def = _content.Buildings[_buildings[buildingIndex].DefIndex];
+        var project = def.ProjectOrNull!;
+        int stage = ProjectStageIndex(buildingIndex);
+        var cost = project.Stages[stage].Cost;
+        long key = ProjectKey(buildingIndex);
+        if (!_projectInvested.TryGetValue(key, out var invested))
+        {
+            invested = new double[_resources.Length];
+            _projectInvested[key] = invested;
+        }
+
+        double total = 0;
+        for (int i = 0; i < cost.Count; i++)
+        {
+            int resource = cost[i].ResourceIndex;
+            double missing = cost[i].Amount - invested[resource];
+            double available = Sandbox ? missing : _resources[resource] - Claim.Amounts[resource];
+            double put = Math.Min(missing, available);
+            if (put <= 0)
+            {
+                continue;
+            }
+
+            if (!Sandbox)
+            {
+                _resources[resource] -= put;
+                _ledger.RecordConsumed(resource, put, ConsumptionKind.Purchases);
+            }
+
+            invested[resource] += put;
+            total += put;
+        }
+
+        if (total > 0)
+        {
+            AdvanceProject(buildingIndex, def, project, stage, invested);
+        }
+
+        return total;
+    }
+
+    /// <summary>
+    /// Promítne vklad do postupu staveniště. Uvnitř stupně roste postup se
+    /// vkladem (ať fáze spritu a lišta ukazují, jak daleko to je), ale na
+    /// další stupeň se přeskočí až po zaplacení celého — jednotka postupu
+    /// navíc by jinak stupeň „dokončila" o haléř dřív.
+    /// </summary>
+    private void AdvanceProject(int buildingIndex, BuildingDef def, ProjectRule project, int stage, double[] invested)
+    {
+        double progress = ProjectStageProgress01(buildingIndex);
+        ref var building = ref _buildings[buildingIndex];
+        int stageStart = stage * ProjectRule.UnitsPerStage;
+        if (progress < 1.0 - 1e-9)
+        {
+            int within = Math.Min(ProjectRule.UnitsPerStage - 1, (int)(progress * ProjectRule.UnitsPerStage));
+            building.BuildTicksRemaining = def.BuildTicks - stageStart - within;
+            return;
+        }
+
+        Array.Clear(invested);
+        building.BuildTicksRemaining = def.BuildTicks - stageStart - ProjectRule.UnitsPerStage;
+        if (building.BuildTicksRemaining > 0)
+        {
+            ReportVisual(VisualEventKind.BuildingUpgraded, building.X, building.Y);
+            EnqueueNotification(new GameNotification(NotificationKind.Milestone, "toast.projectStage", def.NameKey));
+            return;
+        }
+
+        building.BuildTicksRemaining = 0;
+        CompleteConstruction(buildingIndex, def);
+    }
+
+    /// <summary>Projekt je dokončený — úklid a jeho efekt (behavior-ID z dat).</summary>
+    private void FinishProject(int buildingIndex, BuildingDef def)
+    {
+        ProjectSiteCount = Math.Max(0, ProjectSiteCount - 1);
+        _projectInvested.Remove(ProjectKey(buildingIndex));
+
+        if (def.ProjectOrNull?.OnComplete == ProjectRule.GateOpened && !IsGateOpened)
+        {
+            GateOpenedAtTick = TickCount;
+            EnqueueNotification(new GameNotification(NotificationKind.Milestone, "toast.gateOpened", def.NameKey));
+        }
+    }
+
+    private long ProjectKey(int buildingIndex) => TileKey.Pack(_buildings[buildingIndex].X, _buildings[buildingIndex].Y);
+
+    /// <summary>Kolik dokončených projektů (daného typu, nebo všech při −1) stojí.</summary>
+    private long CompletedProjects(int defIndex)
+    {
+        long count = 0;
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            int d = _buildings[i].DefIndex;
+            if (_buildings[i].IsComplete && _content.Buildings[d].IsProject && (defIndex < 0 || d == defIndex))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    /// <summary>Vklady rozestavěných projektů pro save: poloha a vklad po surovinách.</summary>
+    internal IEnumerable<(int X, int Y, double[] Invested)> ProjectInvestments()
+    {
+        foreach (var (key, invested) in _projectInvested)
+        {
+            yield return (TileKey.X(key), TileKey.Y(key), invested);
+        }
+    }
+
+    /// <summary>Obnoví vklad projektu ze savu (poloha budovy, surovina, množství).</summary>
+    internal void RestoreProjectInvestment(int x, int y, int resourceIndex, double amount)
+    {
+        long key = TileKey.Pack(x, y);
+        if (!_projectInvested.TryGetValue(key, out var invested))
+        {
+            invested = new double[_resources.Length];
+            _projectInvested[key] = invested;
+        }
+
+        if (resourceIndex >= 0 && resourceIndex < invested.Length)
+        {
+            invested[resourceIndex] = amount;
+        }
+    }
+
+    /// <summary>Obnoví otevření brány ze savu.</summary>
+    internal void RestoreGateOpened(long tick) => GateOpenedAtTick = tick;
 
     /// <summary>Kolik divů světa už město dostavělo (metrika pro cíle a achievementy).</summary>
     public long WondersCompleted { get; internal set; }
@@ -3703,6 +3933,11 @@ public sealed class Simulation
 
         building.BuildTicksRemaining = Math.Min(remainingTicks, def.BuildTicks);
         BuildingsUnderConstruction++;
+        if (def.IsProject)
+        {
+            ProjectSiteCount++;
+        }
+
         LayoutRevision++; // z hotové budovy je zase staveniště
         RemoveBuildingBonuses(def); // obnova je připsala, staveniště je zase nemá
     }
@@ -4409,7 +4644,8 @@ public sealed class Simulation
 
         for (int i = 0; i < _buildingCount; i++)
         {
-            if (_buildings[i].BuildTicksRemaining <= 0)
+            // Projekt čas neposouvá ani ve skoku — jen vklady hráče.
+            if (_buildings[i].BuildTicksRemaining <= 0 || _content.Buildings[_buildings[i].DefIndex].IsProject)
             {
                 continue;
             }
@@ -6463,6 +6699,7 @@ public sealed class Simulation
         MetricKind.ContractsCompleted => ContractsCompleted,
         MetricKind.AirQuality => (long)Math.Floor(100.0 * (1.0 - _content.Gameplay.Pollution.Severity(AirPollutionOverCity))),
         MetricKind.DefenceWaves => FrontierDefense ? _frontier.NextWave : 0,
+        MetricKind.ProjectsCompleted => CompletedProjects(param),
         _ => 0,
     };
 
@@ -8625,6 +8862,10 @@ public sealed class Simulation
         if (asConstructionSite && def.TakesTimeToBuild)
         {
             BuildingsUnderConstruction++;
+            if (def.IsProject)
+            {
+                ProjectSiteCount++;
+            }
         }
 
         // Nový sklad mění svoz i budovám, které stojí dávno — ty se přepočítají
@@ -8701,6 +8942,13 @@ public sealed class Simulation
         }
 
         BuildingsUnderConstruction = Math.Max(0, BuildingsUnderConstruction - 1);
+
+        // Zbořené staveniště projektu: vklad je pryč, jako u každé stavby.
+        if (def.IsProject)
+        {
+            ProjectSiteCount = Math.Max(0, ProjectSiteCount - 1);
+            _projectInvested.Remove(TileKey.Pack(_buildings[buildingIndex].X, _buildings[buildingIndex].Y));
+        }
     }
 
     /// <summary>Odebere globální bonusy budovy (vylepšení nahrazuje starou úroveň novou).</summary>

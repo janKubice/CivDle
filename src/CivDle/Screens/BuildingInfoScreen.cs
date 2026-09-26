@@ -1,3 +1,4 @@
+using CivDle.Core.Content;
 using CivDle.Core.Sim;
 using CivDle.Input;
 using CivDle.Rendering;
@@ -66,6 +67,68 @@ public sealed class BuildingInfoScreen : IScreen
         _screens.UiSettingsChanged -= BuildUi;
     }
 
+    /// <summary>
+    /// Staveniště projektu (Hvězdná brána): stupeň, co mu chybí, a tlačítko
+    /// „Vložit". Čas tu neplatí, proto se neukazuje zbývající doba — jen to,
+    /// kolik čeho ještě chybí. Vklad bere jen z toho, co je nad rezervou
+    /// guvernéra (simulace to hlídá).
+    /// </summary>
+    private void AddProjectSection(VerticalStackPanel layout, BuildingDef def)
+    {
+        var loc = _screens.Loc;
+        var content = _screens.Content;
+        int stageCount = def.ProjectOrNull!.Stages.Count;
+        int stage = _simulation.ProjectStageIndex(_buildingIndex);
+
+        layout.Widgets.Add(new Label
+        {
+            Text = loc.Format("project.stage", stage + 1, stageCount,
+                (int)Math.Round(_simulation.ProjectStageProgress01(_buildingIndex) * 100)),
+            TextColor = UiPalette.TextBright,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        });
+
+        var missing = new List<ResourceAmount>();
+        foreach (var cost in _simulation.ProjectStageCost(_buildingIndex))
+        {
+            double left = cost.Amount - _simulation.ProjectInvested(_buildingIndex, cost.ResourceIndex);
+            if (left > 0.5)
+            {
+                missing.Add(new ResourceAmount(cost.ResourceIndex, (int)Math.Ceiling(Math.Min(left, int.MaxValue))));
+            }
+        }
+
+        layout.Widgets.Add(new Label
+        {
+            Text = loc.Format("project.missing", CostFormat.Line(content, loc, missing)),
+            TextColor = Color.LightGray,
+            Wrap = true,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        });
+
+        layout.Widgets.Add(UiFactory.MenuButton(loc["project.invest"], () =>
+        {
+            double invested = _simulation.TryInvestInProject(_buildingIndex);
+            _projectNote = invested > 0
+                ? loc.Format("project.invested", CivDle.Core.Numbers.Format(invested))
+                : loc["project.nothingToInvest"];
+            BuildUi(); // stupeň, chybějící suroviny i fáze se změnily
+        }));
+
+        if (_projectNote is { } note)
+        {
+            layout.Widgets.Add(new Label
+            {
+                Text = note,
+                TextColor = UiPalette.Accent,
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+        }
+    }
+
+    /// <summary>Výsledek posledního vkladu (jen pro tuhle obrazovku, nikam se neukládá).</summary>
+    private string? _projectNote;
+
     private void BuildUi()
     {
         var loc = _screens.Loc;
@@ -133,7 +196,11 @@ public sealed class BuildingInfoScreen : IScreen
 
         // Rozestavěný div: postup a zbývající čas. Dokud se staví, nemá smysl
         // nabízet vylepšení ani mluvit o výrobě — ještě nic nedělá.
-        if (!instance.IsComplete)
+        if (!instance.IsComplete && _simulation.IsProjectSite(_buildingIndex))
+        {
+            AddProjectSection(layout, def);
+        }
+        else if (!instance.IsComplete)
         {
             double progress = _simulation.ConstructionProgress01(_buildingIndex);
             layout.Widgets.Add(new Label

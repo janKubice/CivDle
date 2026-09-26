@@ -132,6 +132,7 @@ public sealed class SaveGameSerializer
     /// načtením — přesně to, co dělá zadání bezcenným.</para>
     /// </summary>
     private const string SectionScenario = "scenario";
+    private const string SectionProjects = "projects";
 
     /// <summary>
     /// Anomálie: které už hráč vybral, co je na cestě a jaké relikvie přivezl.
@@ -519,6 +520,57 @@ public sealed class SaveGameSerializer
                 w.Write(simulation.Scenario!.Id);
                 w.Write((int)simulation.ScenarioResult);
             });
+        }
+
+        // Až po budovách: vklad patří staveništi, které už musí stát.
+        WriteSection(writer, SectionProjects, w => WriteProjects(w, simulation));
+    }
+
+    /// <summary>
+    /// Projekty (stavby po stupních): otevření brány a vklady rozestavěných
+    /// stupňů. Suroviny jménem — pořadí v datech se mezi verzemi mění.
+    /// </summary>
+    private static void WriteProjects(BinaryWriter writer, Simulation simulation)
+    {
+        writer.Write(simulation.GateOpenedAtTick);
+        var resources = SimContent(simulation).Resources;
+        var projects = simulation.ProjectInvestments().ToList();
+        writer.Write(projects.Count);
+        foreach (var (x, y, invested) in projects)
+        {
+            writer.Write(x);
+            writer.Write(y);
+            int nonZero = invested.Count(amount => amount > 0);
+            writer.Write(nonZero);
+            for (int r = 0; r < invested.Length; r++)
+            {
+                if (invested[r] > 0)
+                {
+                    writer.Write(resources[r].Id);
+                    writer.Write(invested[r]);
+                }
+            }
+        }
+    }
+
+    private static void ReadProjects(BinaryReader reader, GameContent content, Simulation simulation)
+    {
+        simulation.RestoreGateOpened(reader.ReadInt64());
+        int count = reader.ReadInt32();
+        for (int i = 0; i < count; i++)
+        {
+            int x = reader.ReadInt32();
+            int y = reader.ReadInt32();
+            int entries = reader.ReadInt32();
+            for (int e = 0; e < entries; e++)
+            {
+                string id = reader.ReadString();
+                double amount = reader.ReadDouble();
+                if (content.Resources.TryIndexOf(id, out int resource))
+                {
+                    simulation.RestoreProjectInvestment(x, y, resource, amount);
+                }
+            }
         }
     }
 
@@ -1072,6 +1124,9 @@ public sealed class SaveGameSerializer
             case SectionScenario:
                 int scenarioIndex = content.Scenarios.IndexOf(section.ReadString());
                 simulation.RestoreScenario(scenarioIndex, (ScenarioOutcome)section.ReadInt32());
+                break;
+            case SectionProjects:
+                ReadProjects(section, content, simulation);
                 break;
             case SectionRuns:
                 simulation.PeakPopulation = section.ReadInt64();  // pořadí musí sedět se zápisem

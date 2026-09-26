@@ -76,7 +76,14 @@ public sealed record BuildingDto(
     BuildingSoundDto? Sound = null,
     int VisualHeight = 0,
     string? UnlockedBy = null,
-    BuildingLookDto? Look = null);
+    BuildingLookDto? Look = null,
+    ProjectDto? Project = null);
+
+/// <summary>Stavba po stupních (projekt) tak, jak leží v JSON.</summary>
+public sealed record ProjectDto(List<ProjectStageDto>? Stages, string? OnComplete);
+
+/// <summary>Jeden stupeň projektu tak, jak leží v JSON.</summary>
+public sealed record ProjectStageDto(Dictionary<string, int>? Cost);
 
 /// <summary>Vzhled budovy popsaný daty tak, jak leží v JSON.</summary>
 public sealed record BuildingLookDto(

@@ -86,10 +86,16 @@ public class GreatGoalsTests
     public void RealContent_EveryGreatGoal_HasAMonument()
     {
         // Velký cíl bez pomníku by byl jen další procento — přesně to, co
-        // pozdní hra nepotřebuje.
+        // pozdní hra nepotřebuje. Jediná výjimka je cíl, jehož odměnou je
+        // dokončený projekt sám (Otevřít bránu → konec kapitoly).
         var content = TestData.LoadRealContent();
         foreach (var quest in content.Quests.All.Where(q => q.Group == QuestGroup.Late))
         {
+            if (quest.Condition.Kind == MetricKind.ProjectsCompleted)
+            {
+                continue;
+            }
+
             Assert.Contains(content.Buildings.All, b => b.UnlockedBy == $"quest:{quest.Id}");
         }
     }

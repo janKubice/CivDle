@@ -2064,6 +2064,20 @@
       "unlocks": [
         "fusion_beacon"
       ]
+    },
+    {
+      "id": "gate_theory",
+      "cost": {
+        "nanomaterial": 400,
+        "computer": 300,
+        "science": 6000
+      },
+      "prerequisites": [
+        "stellar_engineering"
+      ],
+      "unlocks": [
+        "star_gate"
+      ]
     }
   ]
 }
