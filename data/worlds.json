@@ -49,6 +49,19 @@
       ],
       "colonyCostGrowth": 1.6,
       "planet": { "surface": "#2FA0B8", "accent": "#E8D8A8", "size": 0.95 }
+    },
+    {
+      "id": "forge",
+      "order": 4,
+      "starsRequired": 6,
+      "colonyCost": [
+        { "cost": { "steel": 1500000, "machine_parts": 600000 } },
+        { "cost": { "electronics": 400000, "computer": 200000, "tools": 1500000 } },
+        { "cost": { "food": 12000000, "robot": 120000 } },
+        { "cost": { "nanomaterial": 250000, "science": 4000000 } }
+      ],
+      "colonyCostGrowth": 1.6,
+      "planet": { "surface": "#3A3434", "accent": "#FF7A2A", "size": 0.9 }
     }
   ]
 }

@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Předvolba terénu Výhně: mladý hornatý svět se sopečnými svahy. Průduchy leží na sopečných a horských svazích nad nížinami (láva teče dolů k městu), fumaroly v jejich okolí; nížiny pokrývá popel (popelová pláň místo pouště, stepi, savany a louky).",
+  "presets": [
+    {
+      "id": "forge",
+      "seaLevel": 0.36,
+      "fallbackBiome": "steppe",
+      "elevationNoise": {
+        "frequency": 1.7,
+        "octaves": 5,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      },
+      "moistureNoise": {
+        "frequency": 2.2,
+        "octaves": 3,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      },
+      "riverNoise": {
+        "frequency": 0.7,
+        "octaves": 2,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      },
+      "riverWidth": 0.004,
+      "riverMaxElevation": 0.5,
+      "temperatureNoise": {
+        "frequency": 0.6,
+        "octaves": 3,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      },
+      "temperatureBandTiles": 2400,
+      "temperatureLapse": 0.2,
+      "riverBiome": "shallow_water",
+      "temperatureShift": 0.15,
+      "moistureShift": -0.15,
+      "patches": [
+        {
+          "biome": "lava_vent",
+          "on": [
+            "volcanic",
+            "mountains",
+            "highlands",
+            "badlands"
+          ],
+          "threshold": 0.78,
+          "noise": {
+            "frequency": 5.0,
+            "octaves": 2,
+            "persistence": 0.5,
+            "lacunarity": 2.0
+          }
+        },
+        {
+          "biome": "fumarole",
+          "on": [
+            "volcanic",
+            "badlands",
+            "highlands",
+            "mountains"
+          ],
+          "threshold": 0.74,
+          "noise": {
+            "frequency": 3.8,
+            "octaves": 2,
+            "persistence": 0.5,
+            "lacunarity": 2.0
+          }
+        },
+        {
+          "biome": "ash_plain",
+          "on": [
+            "desert",
+            "steppe",
+            "savanna",
+            "grassland"
+          ],
+          "threshold": 0.001,
+          "noise": {
+            "frequency": 1.0,
+            "octaves": 2,
+            "persistence": 0.5,
+            "lacunarity": 2.0
+          }
+        }
+      ]
+    }
+  ]
+}

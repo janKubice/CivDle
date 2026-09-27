@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Výheň — sopečný svět (svety-design.md 4.4). Náhrady: sdílené budovy Domoviny tu stojí čedič místo dřeva, prken a kamene, obsidián místo bronzu a vzácné zeminy místo železa.",
+  "preset": "forge",
+  "atmosphere": "forge",
+  "landingModule": "forge_lander",
+  "startingKit": {
+    "basalt": 160,
+    "sulfur": 60,
+    "food": 220,
+    "tools": 20
+  },
+  "exports": [
+    "rare_earths"
+  ],
+  "port": "ore_exchange",
+  "substitutes": {
+    "wood": "basalt",
+    "planks": "basalt",
+    "stone": "basalt",
+    "bronze": "obsidian",
+    "iron": "rare_earths"
+  },
+  "withoutSystems": [
+    "npc-cities",
+    "figures",
+    "doctrines",
+    "poi",
+    "scenarios",
+    "carillon",
+    "frontier",
+    "orbit",
+    "grandwork",
+    "faith",
+    "citizens",
+    "contracts",
+    "challenges",
+    "tutorial",
+    "milestones",
+    "features",
+    "landmarks",
+    "seasons"
+  ]
+}

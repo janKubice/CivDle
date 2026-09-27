@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Suroviny Výhně. Sklo se tu nevyrábí — věž nad lávou ho chce z Duny (importOnly).",
+  "resources": [
+    {
+      "id": "basalt",
+      "mapColor": "#4A4644",
+      "startAmount": 0,
+      "baseStorage": 300
+    },
+    {
+      "id": "sulfur",
+      "mapColor": "#E0C840",
+      "startAmount": 0,
+      "baseStorage": 250
+    },
+    {
+      "id": "obsidian",
+      "mapColor": "#2A2436",
+      "startAmount": 0,
+      "baseStorage": 150
+    },
+    {
+      "id": "rare_earth_ore",
+      "mapColor": "#8A6A9A",
+      "startAmount": 0,
+      "baseStorage": 200
+    },
+    {
+      "id": "rare_earths",
+      "mapColor": "#B890E0",
+      "startAmount": 0,
+      "baseStorage": 120
+    },
+    {
+      "id": "pyrocrete",
+      "mapColor": "#7A7474",
+      "startAmount": 0,
+      "baseStorage": 200
+    },
+    {
+      "id": "glass",
+      "mapColor": "#9FD8E0",
+      "startAmount": 0,
+      "baseStorage": 100,
+      "importOnly": true
+    }
+  ]
+}

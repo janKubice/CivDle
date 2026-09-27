@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Události Výhně. Probuzení vedlejšího průduchu je volba — erupce samy chodí z rozvrhu jevu.",
+  "events": [
+    {
+      "id": "forge_side_vent",
+      "choices": [
+        {
+          "id": "study",
+          "gain": {
+            "science": 40
+          }
+        },
+        {
+          "id": "mine",
+          "gain": {
+            "sulfur": 50
+          }
+        }
+      ]
+    },
+    {
+      "id": "forge_new_island",
+      "choices": [
+        {
+          "id": "quarry",
+          "gain": {
+            "basalt": 80
+          }
+        },
+        {
+          "id": "admire",
+          "effect": {
+            "kind": "growth",
+            "multiplier": 1.1,
+            "seconds": 90
+          }
+        }
+      ]
+    },
+    {
+      "id": "forge_sulfur_rain",
+      "choices": [
+        {
+          "id": "shelter",
+          "cost": {
+            "food": 40
+          }
+        },
+        {
+          "id": "endure",
+          "effect": {
+            "kind": "production",
+            "multiplier": 0.85,
+            "seconds": 150
+          }
+        }
+      ]
+    },
+    {
+      "id": "forge_rich_vein",
+      "requires": {
+        "metric": "research",
+        "tech": "rare_earths",
+        "target": 1
+      },
+      "choices": [
+        {
+          "id": "dig",
+          "gain": {
+            "rare_earth_ore": 60
+          }
+        },
+        {
+          "id": "leave"
+        }
+      ]
+    },
+    {
+      "id": "forge_steam_clouds",
+      "choices": [
+        {
+          "id": "watch",
+          "effect": {
+            "kind": "growth",
+            "multiplier": 1.2,
+            "seconds": 120
+          }
+        },
+        {
+          "id": "work",
+          "gain": {
+            "basalt": 40
+          }
+        }
+      ]
+    }
+  ]
+}

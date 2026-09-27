@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Zvláštní dlaždice Výhně. Průduchy, fumaroly a popelové pláně (místo pouště, stepi, savany a louky) pokládají záplaty předvolby 'forge'. Čedičové pole je ztuhlá láva — nová zem po erupci, úrodná pro popelové farmy.",
+  "biomes": [
+    {
+      "id": "lava_vent",
+      "mapColor": "#3A1E14",
+      "colorVariation": 0.05,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        1.0
+      ],
+      "natural": false,
+      "productionMult": 0.5
+    },
+    {
+      "id": "fumarole",
+      "mapColor": "#C8B040",
+      "colorVariation": 0.08,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        1.0
+      ],
+      "natural": false,
+      "productionMult": 0.8,
+      "clickYield": {
+        "resource": "sulfur",
+        "amount": 1,
+        "charges": 12,
+        "regrowSeconds": 480
+      }
+    },
+    {
+      "id": "ash_plain",
+      "mapColor": "#5A524E",
+      "colorVariation": 0.07,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        1.0
+      ],
+      "natural": false,
+      "productionMult": 0.9
+    },
+    {
+      "id": "basalt_field",
+      "mapColor": "#3E3A3A",
+      "colorVariation": 0.06,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        1.0
+      ],
+      "natural": false,
+      "productionMult": 1.0,
+      "clickYield": {
+        "resource": "basalt",
+        "amount": 2,
+        "charges": 10,
+        "regrowSeconds": 600
+      }
+    }
+  ]
+}

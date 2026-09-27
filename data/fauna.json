@@ -145,6 +145,7 @@
     },
     {
       "id": "eagle",
+      "worlds": ["home", "forge"],
       "predator": true,
       "biomes": [
         "mountains",
@@ -172,6 +173,7 @@
     },
     {
       "id": "ash_moth",
+      "worlds": ["home", "forge"],
       "biomes": [
         "volcanic"
       ],
@@ -260,6 +262,7 @@
     },
     {
       "id": "ibex",
+      "worlds": ["home", "forge"],
       "biomes": [
         "mountains",
         "highlands",
@@ -284,6 +287,7 @@
     },
     {
       "id": "crow",
+      "worlds": ["home", "forge"],
       "biomes": [
         "fallout",
         "badlands"

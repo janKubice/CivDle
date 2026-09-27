@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Úkoly Výhně: úvodní kroky kolonie (hráze, seismograf, žárobeton, popelová pole) a hvězdy světa (svety-design.md 2.6). ★★ = pět erupcí, které nic nezalily, ✦ = 300 dlaždic nové země z lávy.",
+  "quests": [
+    {
+      "id": "forge_first_walls",
+      "condition": {
+        "metric": "building",
+        "building": "lava_wall",
+        "target": 3
+      },
+      "reward": {
+        "basalt": 40
+      }
+    },
+    {
+      "id": "forge_seismograph",
+      "condition": {
+        "metric": "building",
+        "building": "seismograph",
+        "target": 1
+      },
+      "reward": {
+        "sulfur": 40
+      }
+    },
+    {
+      "id": "forge_pyrocrete",
+      "condition": {
+        "metric": "resource",
+        "resource": "pyrocrete",
+        "target": 30
+      },
+      "reward": {
+        "basalt": 80
+      }
+    },
+    {
+      "id": "forge_ash_fields",
+      "condition": {
+        "metric": "building",
+        "building": "ash_farm",
+        "target": 4
+      },
+      "reward": {
+        "sulfur": 30
+      }
+    },
+    {
+      "id": "forge_star_settled",
+      "group": "star",
+      "condition": {
+        "metric": "population",
+        "target": 5000
+      }
+    },
+    {
+      "id": "forge_star_calm",
+      "group": "star",
+      "condition": {
+        "metric": "calmhazards",
+        "target": 5
+      }
+    },
+    {
+      "id": "forge_star_wonder",
+      "group": "star",
+      "condition": {
+        "metric": "building",
+        "building": "world_anvil",
+        "target": 1
+      }
+    },
+    {
+      "id": "forge_star_master",
+      "group": "master",
+      "condition": {
+        "metric": "lavaland",
+        "target": 300
+      }
+    }
+  ]
+}

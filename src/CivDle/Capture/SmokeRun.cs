@@ -2,6 +2,7 @@ using CivDle.Core.Save;
 using CivDle.Core.Content;
 using CivDle.Core.Galaxy;
 using CivDle.Core.Sim;
+using CivDle.Core.World;
 using CivDle.Screens;
 using Microsoft.Xna.Framework;
 
@@ -359,6 +360,7 @@ public sealed class SmokeRun
 
             VisitColony(screens, session, time, "frost");
             VisitColony(screens, session, time, "archipelago");
+            VisitColony(screens, session, time, "forge", untilLava: true);
         }
         finally
         {
@@ -370,8 +372,11 @@ public sealed class SmokeRun
     /// Další kolonie z Domoviny: hotová loď, přistání na prvním nabízeném
     /// místě, pět minut guvernéra, fotka (sníh roztátý kolem tepla, příliv na
     /// mělčinách…) a návrat domů. Hvězdy se neřeší — odemčení testuje jádro.
+    /// Na Výhni (<paramref name="untilLava"/>) se čeká na první erupci, až láva
+    /// kus doteče, a fotka míří na její čelo.
     /// </summary>
-    private static void VisitColony(ScreenManager screens, GalaxySession session, GameTime time, string worldId)
+    private static void VisitColony(ScreenManager screens, GalaxySession session, GameTime time, string worldId,
+        bool untilLava = false)
     {
         var world = session.Contents.Catalog.Find(worldId);
         if (world is null)
@@ -387,14 +392,23 @@ public sealed class SmokeRun
         try
         {
             colony.Plan.SetChoosesResearch(true);
-            for (int i = 0; i < 3_000; i++)
+            int ticks = untilLava ? (int)(20 * 60 * Simulation.TicksPerSecond) : 3_000;
+            for (int i = 0; i < ticks; i++)
             {
                 colony.Tick();
                 session.Update();
+                if (i >= 3_000 && untilLava && colony.ActiveLava.Front >= 12)
+                {
+                    break;
+                }
             }
 
             Frames(screen, time);
-            PhotoAt(screens, colony, colony.LandingX + 1, colony.LandingY + 1, $"civdle-smoke-{world.Id}");
+            var (lava, front) = colony.ActiveLava;
+            var (photoX, photoY) = front > 0
+                ? (TileKey.X(lava[front]), TileKey.Y(lava[front]))
+                : (colony.LandingX + 1, colony.LandingY + 1);
+            PhotoAt(screens, colony, photoX, photoY, $"civdle-smoke-{world.Id}");
         }
         finally
         {

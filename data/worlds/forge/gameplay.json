@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Nastavení Výhně nad gameplay.json Domoviny. Kolonisté přiletí rovnou do modulu (30 lidí), guvernér staví svižněji — kolonie má být druhá vesnice, ne první (svety-design.md 3.3).",
+  "planting": {
+    "species": [
+      {
+        "id": "basalt_cairn",
+        "cost": {
+          "food": 6
+        },
+        "resource": "basalt",
+        "amount": 2
+      }
+    ]
+  },
+  "onboarding": {
+    "startSite": {
+      "nodes": {
+        "basalt": 3
+      },
+      "buildings": [
+        "basalt_hut",
+        "basalt_quarry",
+        "ash_farm"
+      ]
+    }
+  },
+  "demo": {
+    "techs": []
+  },
+  "startingPopulation": 30,
+  "populationFillRate": 0.0045,
+  "autoBuild": {
+    "intervalTicks": 40
+  }
+}

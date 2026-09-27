@@ -1,0 +1,1255 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Budovy Výhně (svety-design.md 4.4) a úpravy sdílených budov Domoviny. 'lava': wall = hráz (láva neprojde), channel = kanál (láva teče korytem); 'shelter' před erupcí = v okruhu láva nic nezalije; 'forecasts' = ukáže dráhu příští lávy.",
+  "buildings": [
+    {
+      "id": "warehouse",
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ]
+    },
+    {
+      "id": "granary",
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ]
+    },
+    {
+      "id": "depot",
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ]
+    },
+    {
+      "id": "market",
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ]
+    },
+    {
+      "id": "library",
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ]
+    },
+    {
+      "id": "school",
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ]
+    },
+    {
+      "id": "university",
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ]
+    },
+    {
+      "id": "shrine",
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ]
+    },
+    {
+      "id": "temple",
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ]
+    },
+    {
+      "id": "toolmaker",
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ]
+    },
+    {
+      "id": "great_warehouse",
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ],
+      "upgradesTo": null
+    },
+    {
+      "id": "forge_lander",
+      "category": "housing",
+      "_comment_trade": "Modul drží spojení s lodí na oběžné dráze: malá kapacita tras hned od přistání.",
+      "tradeCapacity": 0.5,
+      "mapColor": "#8A8480",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "basalt": 1
+      },
+      "housingCapacity": 30,
+      "buildable": false,
+      "workerSlots": 2,
+      "recipe": {
+        "output": {
+          "food": 2,
+          "basalt": 1
+        },
+        "timeTicks": 60
+      },
+      "powerSupply": 4,
+      "storage": {
+        "basalt": 200,
+        "sulfur": 150,
+        "food": 200,
+        "obsidian": 60,
+        "rare_earth_ore": 80,
+        "rare_earths": 40,
+        "pyrocrete": 80
+      },
+      "visualHeight": 1,
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ],
+      "look": {
+        "shape": "dome",
+        "wall": "#8A8480",
+        "roof": "#5A5450",
+        "accent": "#E8843A",
+        "features": [
+          "windows",
+          "antenna",
+          "glow"
+        ],
+        "glow": "#FFC080"
+      }
+    },
+    {
+      "id": "basalt_hut",
+      "category": "housing",
+      "mapColor": "#5A5654",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "basalt": 5
+      },
+      "housingCapacity": 6,
+      "autoBuild": true,
+      "mergesTo": "terrace_house",
+      "mergeCost": {
+        "basalt": 20,
+        "pyrocrete": 6
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ],
+      "look": {
+        "shape": "hut",
+        "wall": "#5A5654",
+        "roof": "#3A3634",
+        "accent": "#C87838",
+        "features": [
+          "flat_roof",
+          "windows"
+        ],
+        "glow": "#FFC070"
+      }
+    },
+    {
+      "id": "pyrocrete_dome",
+      "category": "housing",
+      "mapColor": "#7A7474",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "pyrocrete": 8,
+        "basalt": 4
+      },
+      "housingCapacity": 12,
+      "autoBuild": true,
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ],
+      "look": {
+        "shape": "dome",
+        "wall": "#7A7474",
+        "roof": "#5A5454",
+        "accent": "#C87838",
+        "features": [
+          "dome_roof",
+          "windows",
+          "pipes"
+        ],
+        "glow": "#FFC070"
+      }
+    },
+    {
+      "id": "terrace_house",
+      "category": "housing",
+      "_comment": "Stupňovité terasy na svazích — tam, kam se jinak nic nevejde.",
+      "mapColor": "#6A625C",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "basalt": 30,
+        "pyrocrete": 10
+      },
+      "housingCapacity": 36,
+      "autoBuild": true,
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain",
+        "mountains",
+        "volcanic"
+      ],
+      "look": {
+        "shape": "hall",
+        "wall": "#6A625C",
+        "roof": "#8A5A3A",
+        "accent": "#C87838",
+        "features": [
+          "windows",
+          "flat_roof",
+          "plants"
+        ],
+        "glow": "#FFC070"
+      }
+    },
+    {
+      "id": "lava_view_tower",
+      "category": "housing",
+      "_comment": "Luxus: chce vzácné zeminy a sklo z Duny (dovoz). Bez skla ji guvernér nestaví.",
+      "mapColor": "#4A4450",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "pyrocrete": 60,
+        "rare_earths": 20,
+        "glass": 12
+      },
+      "housingCapacity": 100,
+      "autoBuild": true,
+      "serviceValue": 3,
+      "visualHeight": 2,
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ],
+      "look": {
+        "shape": "tower",
+        "wall": "#4A4450",
+        "roof": "#2A2430",
+        "accent": "#FF8A3A",
+        "features": [
+          "windows",
+          "glow",
+          "spire_top"
+        ],
+        "glow": "#FFB060"
+      }
+    },
+    {
+      "id": "seismograph",
+      "category": "civic",
+      "_comment": "Seismická stanice: na mapě ukáže, kudy poteče příští láva.",
+      "mapColor": "#A89878",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "basalt": 15,
+        "sulfur": 5
+      },
+      "workerSlots": 1,
+      "forecasts": true,
+      "serviceValue": 2,
+      "autoBuild": true,
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ],
+      "look": {
+        "shape": "mast",
+        "wall": "#A89878",
+        "roof": "#6A5A48",
+        "accent": "#E8843A",
+        "features": [
+          "antenna",
+          "glow"
+        ],
+        "glow": "#FFB060"
+      }
+    },
+    {
+      "id": "lava_wall",
+      "category": "civic",
+      "_comment": "Hráz: láva jí neprojde. Guvernér ji staví na předpovězenou dráhu před město.",
+      "mapColor": "#5A5654",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "basalt": 6
+      },
+      "lava": "wall",
+      "allowedBiomes": [
+        "basalt_field",
+        "volcanic",
+        "mountains",
+        "badlands",
+        "highlands",
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ],
+      "look": {
+        "shape": "wall",
+        "wall": "#5A5654",
+        "roof": "#3A3634",
+        "accent": "#8A8480",
+        "features": [
+          "stripes"
+        ]
+      }
+    },
+    {
+      "id": "lava_channel",
+      "category": "civic",
+      "_comment": "Kanál: láva do něj steče, teče korytem a na jeho konci se zastaví. Staví ho hráč.",
+      "mapColor": "#6A4A38",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "pyrocrete": 4
+      },
+      "lava": "channel",
+      "allowedBiomes": [
+        "basalt_field",
+        "volcanic",
+        "mountains",
+        "badlands",
+        "highlands",
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ],
+      "look": {
+        "shape": "channel",
+        "wall": "#6A625C",
+        "roof": "#3A3634",
+        "accent": "#FF8A3A",
+        "features": [
+          "glow"
+        ],
+        "glow": "#FFB060"
+      }
+    },
+    {
+      "id": "quench_tower",
+      "category": "civic",
+      "_comment": "Chladicí věž: mlha z trysek zchladí lávu v okruhu, budovy v něm láva nezalije.",
+      "mapColor": "#8AA0B0",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "pyrocrete": 20,
+        "basalt": 10
+      },
+      "workerSlots": 2,
+      "lava": "wall",
+      "shelter": {
+        "eruption": 5
+      },
+      "allowedBiomes": [
+        "basalt_field",
+        "volcanic",
+        "mountains",
+        "badlands",
+        "highlands",
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ],
+      "look": {
+        "shape": "tower",
+        "wall": "#8AA0B0",
+        "roof": "#5A6A7A",
+        "accent": "#E8F4F8",
+        "features": [
+          "steam",
+          "pipes"
+        ]
+      }
+    },
+    {
+      "id": "basalt_quarry",
+      "category": "production",
+      "mapColor": "#4A4644",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "basalt": 4
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "basalt": 2
+        },
+        "timeTicks": 40
+      },
+      "allowedBiomes": [
+        "basalt_field",
+        "volcanic",
+        "mountains",
+        "badlands",
+        "highlands",
+        "steppe",
+        "savanna",
+        "grassland"
+      ],
+      "adjacency": {
+        "biomes": [
+          "basalt_field",
+          "volcanic"
+        ],
+        "radius": 2,
+        "perTile": 0.04,
+        "max": 0.4
+      },
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "pit",
+        "wall": "#4A4644",
+        "roof": "#2A2624",
+        "accent": "#8A8480",
+        "features": [
+          "stripes"
+        ]
+      }
+    },
+    {
+      "id": "sulfur_mine",
+      "category": "production",
+      "mapColor": "#E0C840",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "basalt": 8
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "sulfur": 2
+        },
+        "timeTicks": 50
+      },
+      "allowedBiomes": [
+        "fumarole",
+        "volcanic",
+        "badlands",
+        "highlands",
+        "basalt_field"
+      ],
+      "adjacency": {
+        "biomes": [
+          "fumarole"
+        ],
+        "radius": 2,
+        "perTile": 0.08,
+        "max": 0.8
+      },
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "pit",
+        "wall": "#C8B040",
+        "roof": "#8A7A30",
+        "accent": "#E0C840",
+        "features": [
+          "steam"
+        ]
+      }
+    },
+    {
+      "id": "rare_earth_mine",
+      "category": "production",
+      "mapColor": "#8A6A9A",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "basalt": 20,
+        "pyrocrete": 6
+      },
+      "workerSlots": 3,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "rare_earth_ore": 1
+        },
+        "timeTicks": 50
+      },
+      "allowedBiomes": [
+        "mountains",
+        "volcanic",
+        "badlands",
+        "highlands",
+        "basalt_field"
+      ],
+      "adjacency": {
+        "biomes": [
+          "volcanic",
+          "mountains"
+        ],
+        "radius": 2,
+        "perTile": 0.04,
+        "max": 0.5
+      },
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "rig",
+        "wall": "#6A5A7A",
+        "roof": "#4A3A5A",
+        "accent": "#B890E0",
+        "features": [
+          "ropes",
+          "crystals"
+        ]
+      }
+    },
+    {
+      "id": "obsidian_workshop",
+      "category": "production",
+      "mapColor": "#2A2436",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "basalt": 16,
+        "sulfur": 4
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "basalt": 2
+        },
+        "output": {
+          "obsidian": 1
+        },
+        "timeTicks": 55
+      },
+      "allowedBiomes": [
+        "basalt_field",
+        "volcanic",
+        "mountains",
+        "badlands",
+        "highlands",
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ],
+      "adjacency": {
+        "biomes": [
+          "lava_vent",
+          "basalt_field"
+        ],
+        "radius": 3,
+        "perTile": 0.05,
+        "max": 0.5
+      },
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "workshop",
+        "wall": "#3A3446",
+        "roof": "#2A2436",
+        "accent": "#FF8A3A",
+        "features": [
+          "chimney",
+          "glow"
+        ],
+        "glow": "#FFB060"
+      }
+    },
+    {
+      "id": "rare_earth_refinery",
+      "category": "production",
+      "mapColor": "#B890E0",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "basalt": 40,
+        "pyrocrete": 20
+      },
+      "workerSlots": 4,
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "rare_earth_ore": 2
+        },
+        "output": {
+          "rare_earths": 1
+        },
+        "timeTicks": 70
+      },
+      "powerDemand": 4,
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "tanks",
+        "wall": "#6A6470",
+        "roof": "#4A4450",
+        "accent": "#B890E0",
+        "features": [
+          "pipes",
+          "glow",
+          "chimney"
+        ],
+        "glow": "#D8B8FF"
+      }
+    },
+    {
+      "id": "pyrocrete_mixer",
+      "category": "production",
+      "mapColor": "#7A7474",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "basalt": 16,
+        "sulfur": 6
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "basalt": 2,
+          "sulfur": 1
+        },
+        "output": {
+          "pyrocrete": 1
+        },
+        "timeTicks": 60
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "tanks",
+        "wall": "#7A7474",
+        "roof": "#5A5454",
+        "accent": "#E0C840",
+        "features": [
+          "rotor",
+          "pipes"
+        ]
+      }
+    },
+    {
+      "id": "ash_farm",
+      "category": "production",
+      "_comment": "Popelová farma: jídlo; na čedičovém poli po erupci (úrodný popel) rodí až dvakrát tolik.",
+      "mapColor": "#5A6A3A",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "basalt": 10
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "food": 5
+        },
+        "timeTicks": 50
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ],
+      "adjacency": {
+        "biomes": [
+          "basalt_field"
+        ],
+        "radius": 2,
+        "perTile": 0.08,
+        "max": 1.0
+      },
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "field",
+        "wall": "#3E3A3A",
+        "roof": "#5A8A3A",
+        "accent": "#8FBF5A",
+        "features": [
+          "plants"
+        ]
+      }
+    },
+    {
+      "id": "geothermal_plant",
+      "category": "power",
+      "mapColor": "#8A9AA0",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "basalt": 30,
+        "sulfur": 10
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "powerSupply": 10,
+      "allowedBiomes": [
+        "fumarole",
+        "volcanic",
+        "basalt_field",
+        "badlands",
+        "highlands",
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ],
+      "look": {
+        "shape": "tanks",
+        "wall": "#8A9AA0",
+        "roof": "#5A6A70",
+        "accent": "#E8F4F8",
+        "features": [
+          "steam",
+          "pipes"
+        ]
+      }
+    },
+    {
+      "id": "magma_tap",
+      "category": "power",
+      "_comment": "Magmatický reaktor: obří proud z lávového podloží u průduchů.",
+      "mapColor": "#8A3A20",
+      "footprint": [
+        3,
+        3
+      ],
+      "buildCost": {
+        "pyrocrete": 80,
+        "rare_earths": 20,
+        "basalt": 60
+      },
+      "workerSlots": 5,
+      "autoBuild": true,
+      "powerSupply": 40,
+      "lava": "wall",
+      "allowedBiomes": [
+        "volcanic",
+        "basalt_field",
+        "mountains",
+        "badlands"
+      ],
+      "look": {
+        "shape": "rig",
+        "wall": "#5A4A44",
+        "roof": "#3A2A24",
+        "accent": "#FF6A20",
+        "features": [
+          "glow",
+          "pipes",
+          "steam"
+        ],
+        "glow": "#FF9A40"
+      }
+    },
+    {
+      "id": "forge_smithy",
+      "category": "civic",
+      "_comment": "Kovárna výhně: z obsidiánu kove nástroje a lidé k ní rádi chodí.",
+      "mapColor": "#8A5A3A",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "basalt": 20,
+        "obsidian": 6
+      },
+      "workerSlots": 2,
+      "serviceValue": 5,
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "obsidian": 1
+        },
+        "output": {
+          "tools": 2
+        },
+        "timeTicks": 60
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ],
+      "look": {
+        "shape": "workshop",
+        "wall": "#8A5A3A",
+        "roof": "#5A3A24",
+        "accent": "#FF8A3A",
+        "features": [
+          "chimney",
+          "glow",
+          "spark"
+        ],
+        "glow": "#FFB060"
+      }
+    },
+    {
+      "id": "volcanic_baths",
+      "category": "civic",
+      "mapColor": "#8AC0B8",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "basalt": 20,
+        "sulfur": 8
+      },
+      "serviceValue": 9,
+      "autoBuild": true,
+      "upkeep": {
+        "sulfur": 1
+      },
+      "allowedBiomes": [
+        "fumarole",
+        "volcanic",
+        "badlands",
+        "highlands",
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ],
+      "look": {
+        "shape": "pool",
+        "wall": "#6A625C",
+        "roof": "#4A4444",
+        "accent": "#8AC0B8",
+        "features": [
+          "steam",
+          "water"
+        ]
+      }
+    },
+    {
+      "id": "ore_exchange",
+      "category": "civic",
+      "tradeCapacity": 3,
+      "mapColor": "#9A8A6A",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "basalt": 80,
+        "pyrocrete": 30,
+        "rare_earths": 10
+      },
+      "housingCapacity": 4,
+      "workerSlots": 4,
+      "serviceValue": 5,
+      "upkeep": {
+        "food": 2
+      },
+      "storage": {
+        "rare_earths": 200,
+        "rare_earth_ore": 200,
+        "glass": 120,
+        "basalt": 200,
+        "food": 200
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ],
+      "look": {
+        "shape": "hall",
+        "wall": "#9A8A6A",
+        "roof": "#6A5A48",
+        "accent": "#B890E0",
+        "features": [
+          "ropes",
+          "flag",
+          "arches"
+        ],
+        "glow": "#FFD27A"
+      }
+    },
+    {
+      "id": "world_anvil",
+      "category": "megastructure",
+      "_comment": "Kovadlina světa: zkrotí hlavní průduch — v širokém okruhu láva nic nezalije a obří výheň dává proud.",
+      "mapColor": "#3A3440",
+      "footprint": [
+        5,
+        5
+      ],
+      "buildCost": {
+        "pyrocrete": 4000,
+        "rare_earths": 800,
+        "obsidian": 1200,
+        "basalt": 3000
+      },
+      "serviceValue": 40,
+      "buildTicks": 3000,
+      "visualHeight": 2,
+      "powerSupply": 60,
+      "lava": "wall",
+      "shelter": {
+        "eruption": 24
+      },
+      "allowedBiomes": [
+        "basalt_field",
+        "volcanic",
+        "mountains",
+        "badlands",
+        "highlands",
+        "grassland",
+        "steppe",
+        "savanna",
+        "badlands",
+        "highlands",
+        "forest",
+        "basalt_field",
+        "beach",
+        "desert",
+        "jungle",
+        "ash_plain"
+      ],
+      "look": {
+        "shape": "column",
+        "wall": "#3A3440",
+        "roof": "#2A2430",
+        "accent": "#FF8A3A",
+        "features": [
+          "glow",
+          "spark",
+          "rings",
+          "pipes"
+        ],
+        "glow": "#FFB060"
+      }
+    }
+  ]
+}

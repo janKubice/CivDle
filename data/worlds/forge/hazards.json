@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Erupce Výhně (svety-design.md 4.4). Láva vyteče z průduchu nejblíž městu a teče z kopce; hráz ji zastaví, kanál odvede, chladicí věž kryje okolí. Ztuhlá dráha je nová čedičová zem. První do deseti minut, s varováním.",
+  "hazards": [
+    {
+      "id": "eruption",
+      "behavior": "eruptions",
+      "firstAfterSeconds": 540,
+      "intervalSeconds": 780,
+      "intervalJitter": 0.3,
+      "warningSeconds": 75,
+      "flowSeconds": 40,
+      "flowLength": 40,
+      "lavaSeconds": 150,
+      "ventBiome": "lava_vent",
+      "crustBiome": "basalt_field",
+      "searchRadius": 48,
+      "weather": "ashfall",
+      "solarDim": 0.7,
+      "minBuildings": 5
+    }
+  ]
+}

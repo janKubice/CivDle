@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Výzkum Výhně (svety-design.md 4.4) a úpravy sdílené větve Domoviny: sdílené technologie tu nemají předpoklady, které na Výhni neexistují.",
+  "techs": [
+    {
+      "id": "writing",
+      "prerequisites": []
+    },
+    {
+      "id": "trade",
+      "prerequisites": [],
+      "unlocks": [
+        "market"
+      ]
+    },
+    {
+      "id": "tools",
+      "prerequisites": []
+    },
+    {
+      "id": "warehousing",
+      "prerequisites": [
+        "trade"
+      ]
+    },
+    {
+      "id": "apprenticeships",
+      "prerequisites": [
+        "schooling"
+      ]
+    },
+    {
+      "id": "public_works",
+      "prerequisites": [
+        "trade"
+      ]
+    },
+    {
+      "id": "vulcanology",
+      "cost": {
+        "basalt": 50,
+        "sulfur": 20
+      },
+      "unlocks": [
+        "seismograph"
+      ]
+    },
+    {
+      "id": "pyrocrete",
+      "cost": {
+        "basalt": 60,
+        "sulfur": 30,
+        "science": 20
+      },
+      "unlocks": [
+        "pyrocrete_mixer",
+        "pyrocrete_dome"
+      ]
+    },
+    {
+      "id": "lava_channels",
+      "cost": {
+        "pyrocrete": 30,
+        "science": 40
+      },
+      "prerequisites": [
+        "pyrocrete",
+        "vulcanology"
+      ],
+      "unlocks": [
+        "lava_channel"
+      ]
+    },
+    {
+      "id": "quenching",
+      "cost": {
+        "pyrocrete": 40,
+        "science": 50
+      },
+      "prerequisites": [
+        "lava_channels"
+      ],
+      "unlocks": [
+        "quench_tower"
+      ]
+    },
+    {
+      "id": "terraces",
+      "cost": {
+        "basalt": 100,
+        "pyrocrete": 20,
+        "science": 30
+      },
+      "prerequisites": [
+        "pyrocrete"
+      ],
+      "unlocks": [
+        "terrace_house"
+      ]
+    },
+    {
+      "id": "obsidian",
+      "cost": {
+        "basalt": 80,
+        "science": 30
+      },
+      "prerequisites": [
+        "vulcanology"
+      ],
+      "unlocks": [
+        "obsidian_workshop",
+        "forge_smithy"
+      ]
+    },
+    {
+      "id": "rare_earths",
+      "cost": {
+        "obsidian": 30,
+        "pyrocrete": 30,
+        "science": 60
+      },
+      "prerequisites": [
+        "obsidian",
+        "pyrocrete"
+      ],
+      "unlocks": [
+        "rare_earth_mine",
+        "rare_earth_refinery",
+        "ore_exchange"
+      ]
+    },
+    {
+      "id": "geothermal",
+      "cost": {
+        "basalt": 100,
+        "sulfur": 40,
+        "science": 40
+      },
+      "prerequisites": [
+        "vulcanology"
+      ],
+      "unlocks": [
+        "geothermal_plant",
+        "volcanic_baths"
+      ]
+    },
+    {
+      "id": "magma_power",
+      "cost": {
+        "rare_earths": 40,
+        "pyrocrete": 80,
+        "science": 100
+      },
+      "prerequisites": [
+        "geothermal",
+        "rare_earths"
+      ],
+      "unlocks": [
+        "magma_tap",
+        "lava_view_tower"
+      ]
+    },
+    {
+      "id": "world_anvil",
+      "cost": {
+        "rare_earths": 300,
+        "obsidian": 200,
+        "science": 1200
+      },
+      "prerequisites": [
+        "magma_power",
+        "quenching"
+      ],
+      "unlocks": [
+        "world_anvil"
+      ]
+    }
+  ]
+}

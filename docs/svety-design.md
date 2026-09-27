@@ -825,6 +825,37 @@ světla · dlaždice fumarol v generátoru.
 
 **Odhad:** 7–8 dní (nejsložitější simulace po Nebesích).
 
+> **Hotovo (D3.1–D3.2) — Výheň je hratelná.** `data/worlds/forge/`: přistávací
+> modul a 21 budov z tabulky, 10 technologií, 6 surovin, průduchy, fumaroly,
+> popelová pláň a čedičové pole, erupce, 5 událostí, fauna, 7 vylepšení
+> Vzestupu a hvězdy.
+> * **Erupce** jsou jev `eruptions`: rozvrh ze seedu, varování, pak láva
+>   z průduchu nejblíž městu teče po spádu (`LavaFlow` — čistá funkce povrchu,
+>   stejná pro simulaci i výběr místa přistání). Hráz (`lava: wall`) ji
+>   zastaví, kanál (`lava: channel`) odvede korytem, budova v cestě vypadne
+>   (stav „zalitá") a sama se vrátí. Ztuhlá dráha je nová čedičová zem
+>   (metrika `lavaland`), na které popelové farmy rodí víc.
+> * **Předpověď:** kudy poteče příští láva, je spočitatelné — seismická
+>   stanice ji ukáže na mapě čárkovaně a guvernér podle ní staví hráze
+>   (`LavaGoal`) dřív, než láva přijde. Na okraj kráteru (3 dlaždice od
+>   průduchu) guvernér nestaví nic kromě hrází — tam by budovu nic neochránilo.
+> * **Chladicí věž** je hráz, která navíc kryje okolí (`shelter` před erupcí):
+>   v jejím okruhu láva nic nezalije. Kovadlina světa je totéž ve velkém
+>   (okruh 24) a k tomu elektrárna.
+> * **Místo přistání** se na světě s erupcemi vybírá „pod sopkou": dráha lávy
+>   z nejbližšího průduchu vede 5–14 dlaždic od modulu — první erupce
+>   do deseti minut je vidět, ale modul nezalije.
+> * **Oproti návrhu:** ★★ je pět erupcí bez zalité budovy celkem, ne za
+>   sebou, a počítají se jen erupce, jejichž láva k městu dotekla (láva
+>   tekoucí z kopce na druhou stranu pravidlo nezvládla, jen minula).
+>   Chladicí věž lávu netuhne rychleji, ale kryje okolí. Vrstva popela,
+>   magmatický reaktor II a sirný déšť jako mechanika zatím nejsou (sirný
+>   déšť je událost s volbou). Věž nad lávou chce sklo z Duny místo perel.
+> * **Hands-off** (`ForgeColonyTests`): guvernér sám dojde k ★ za 79–88 minut
+>   a hrází lávu od města. Cestou se opravilo přistání všech kolonií: střed
+>   města zůstal do prvního přepočtu na počátku mapy a guvernér postavil
+>   první lom sto dlaždic od modulu.
+
 ---
 
 ### 4.5 Nebesa — plynný obr (`gas_giant`)

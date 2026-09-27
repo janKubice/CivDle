@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Zvěř Výhně: popelové můry nad lávou, orli, kozorožci na svazích, vrány na čedičových polích — sdílená s Domovinou (značka worlds).",
+  "fauna": [
+    {
+      "id": "ash_moth",
+      "biomes": [
+        "volcanic",
+        "basalt_field",
+        "fumarole"
+      ]
+    },
+    {
+      "id": "eagle",
+      "biomes": [
+        "mountains",
+        "badlands",
+        "highlands"
+      ]
+    },
+    {
+      "id": "ibex",
+      "biomes": [
+        "mountains",
+        "highlands",
+        "volcanic"
+      ]
+    },
+    {
+      "id": "crow",
+      "biomes": [
+        "badlands",
+        "basalt_field",
+        "ash_plain"
+      ]
+    }
+  ]
+}
