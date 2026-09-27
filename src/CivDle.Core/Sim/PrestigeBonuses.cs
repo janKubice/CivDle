@@ -28,6 +28,10 @@ namespace CivDle.Core.Sim;
 /// výnosu, který mezitím zastínila jedna továrna. S tímhle bonusem má smysl
 /// si občas kliknout i s městem o milionu lidí.</para>
 /// </param>
+/// <param name="NetworkSupplyMult">Násobič výkonu zdrojů sítí světa (voda, teplo; ne proud).</param>
+/// <param name="NetworkDemandMult">Dělitel poptávky po sítích světa (úsporné zavlažování).</param>
+/// <param name="NetworkRangeBonus">O kolik buněk dál sítě světa dosáhnou.</param>
+/// <param name="HazardResistance">Dělitel doby, na kterou přírodní jev budovu vyřadí.</param>
 public readonly record struct PrestigeBonuses(
     double ProductionMult,
     double HarvestMult,
@@ -51,7 +55,11 @@ public readonly record struct PrestigeBonuses(
     double KeptRoads = 0.0,
     double KeptResourceShare = 0.0,
     double KeptWonders = 0.0,
-    double KeepsHistory = 0.0)
+    double KeepsHistory = 0.0,
+    double NetworkSupplyMult = 1.0,
+    double NetworkDemandMult = 1.0,
+    double NetworkRangeBonus = 0.0,
+    double HazardResistance = 1.0)
 {
     /// <summary>Neutrální bonusy (vše 1.0 / 0) — žádné upgrady.</summary>
     public static PrestigeBonuses None { get; } = new(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0);

@@ -59,7 +59,7 @@ public sealed class NetworkSystem
     /// nejde. Volá se jen po změně zástavby.</para>
     /// </summary>
     public void Rebuild(ReadOnlySpan<BuildingInstance> buildings, GameContent content) =>
-        Rebuild(buildings, content, NetworkLight.Noon, null, 0);
+        Rebuild(buildings, content, NetworkLight.Noon, null, 0, NetworkBoost.None);
 
     /// <summary>
     /// Přepočet se světlem (časované zdroje) a terénem (přírodní zdroje).
@@ -69,9 +69,10 @@ public sealed class NetworkSystem
     /// <param name="light">Denní čas a ztlumení slunce.</param>
     /// <param name="biomeAt">Biom na dlaždici (včetně přepisů); <c>null</c> = bez přírodních zdrojů.</param>
     /// <param name="terrainRevision">Verze terénu — po změně se zapomenou součty přírodních zdrojů.</param>
+    /// <param name="boost">Vylepšení sítí světa ze Vzestupu (na proud se nevztahují).</param>
     public void Rebuild(
         ReadOnlySpan<BuildingInstance> buildings, GameContent content, in NetworkLight light,
-        Func<int, int, byte>? biomeAt, int terrainRevision)
+        Func<int, int, byte>? biomeAt, int terrainRevision, in NetworkBoost boost)
     {
         var networks = content.Networks;
         if (_grids.Length != networks.Count)
@@ -94,9 +95,10 @@ public sealed class NetworkSystem
         for (int n = 0; n < _grids.Length; n++)
         {
             var type = networks[n];
-            int range = type.IsEnabled ? type.Range : 0;
-            _grids[n].Rebuild(buildings, content, n, range, light, biomeAt, terrainRevision);
-            _steadyGrids?[n].Rebuild(buildings, content, n, range, steady, biomeAt, terrainRevision);
+            var own = n == NetworkCatalog.PowerIndex ? NetworkBoost.None : boost;
+            int range = type.IsEnabled ? type.Range + own.RangeBonus : 0;
+            _grids[n].Rebuild(buildings, content, n, range, light, biomeAt, terrainRevision, own);
+            _steadyGrids?[n].Rebuild(buildings, content, n, range, steady, biomeAt, terrainRevision, own);
         }
 
         Revision++;
@@ -207,7 +209,7 @@ public sealed class NetworkSystem
 
         public void Rebuild(
             ReadOnlySpan<BuildingInstance> buildings, GameContent content, int network, int range,
-            in NetworkLight light, Func<int, int, byte>? biomeAt, int terrainRevision)
+            in NetworkLight light, Func<int, int, byte>? biomeAt, int terrainRevision, in NetworkBoost boost)
         {
             Clear();
             if (range <= 0)
@@ -234,7 +236,7 @@ public sealed class NetworkSystem
                 int demand = def.DemandOf(network);
                 if (demand > 0)
                 {
-                    _demand[cell] = _demand.GetValueOrDefault(cell) + demand;
+                    _demand[cell] = _demand.GetValueOrDefault(cell) + demand / boost.DemandMult;
                 }
 
                 int relay = RelayOf(def, network);
@@ -255,7 +257,7 @@ public sealed class NetworkSystem
                 int supply = def.SupplyOf(network);
                 if (supply > 0 && NetworkSystem.IsDelivering(buildings[i]))
                 {
-                    double power = supply * light.FactorFor(def.SupplyTime);
+                    double power = supply * light.FactorFor(def.SupplyTime) * boost.SupplyMult;
                     if (power > 0)
                     {
                         Spread(CellOf(buildings[i].X, buildings[i].Y), power, Math.Min(range, MaxRange));
@@ -266,7 +268,7 @@ public sealed class NetworkSystem
             var sources = content.Networks[network].TerrainSources;
             if (sources.Count > 0 && biomeAt is not null)
             {
-                SpreadTerrain(sources, biomeAt, terrainRevision, Math.Min(range, MaxRange));
+                SpreadTerrain(sources, biomeAt, terrainRevision, Math.Min(range, MaxRange), boost.SupplyMult);
             }
         }
 
@@ -276,7 +278,8 @@ public sealed class NetworkSystem
         /// komu dodávat.
         /// </summary>
         private void SpreadTerrain(
-            IReadOnlyList<TerrainSource> sources, Func<int, int, byte> biomeAt, int terrainRevision, int range)
+            IReadOnlyList<TerrainSource> sources, Func<int, int, byte> biomeAt, int terrainRevision, int range,
+            double supplyMult)
         {
             if (terrainRevision != _terrainRevision)
             {
@@ -309,7 +312,7 @@ public sealed class NetworkSystem
 
                 if (supply > 0)
                 {
-                    Spread(cell, supply, range);
+                    Spread(cell, supply * supplyMult, range);
                 }
             }
         }

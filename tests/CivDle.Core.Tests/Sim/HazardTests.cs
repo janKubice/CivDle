@@ -200,6 +200,23 @@ public class HazardTests
     }
 
     [Fact]
+    public void SturdierFencesMeanShorterBurial()
+    {
+        var sim = World(resistance: true);
+        sim.DebugGrantPrestigePoints(100);
+        Assert.Equal(PlacementResult.Ok, sim.TryBuyUpgrade(0)); // zasypání ÷ 2
+        int hut = Place(sim, Hut, 0, 0);
+        for (int i = 0; i < 4; i++)
+        {
+            Place(sim, Hut, 40 + i * 2, 0);
+        }
+
+        Run(sim, seconds: 32);
+        Assert.True(sim.Buildings[hut].DisabledTicks > 0);
+        Assert.True(sim.Buildings[hut].DisabledTicks <= 15 * Simulation.TicksPerSecond, "zasypání má trvat nejvýš polovinu");
+    }
+
+    [Fact]
     public void TheHomeworldHasNoHazards()
     {
         var content = TestData.LoadRealContent();
@@ -212,7 +229,7 @@ public class HazardTests
 
     // ----- svět -----
 
-    private static Simulation World(long seed = 1, double jitter = 0, bool governor = false)
+    private static Simulation World(long seed = 1, double jitter = 0, bool governor = false, bool resistance = false)
     {
         var biomes = new[] { TestContent.WaterBiome(), TestContent.LandBiome("sand") };
         var resources = new[] { new Resource("food", new RgbColor(200, 180, 60), 0, BaseStorage: 1_000) };
@@ -251,7 +268,11 @@ public class HazardTests
             };
         }
 
-        var content = TestContent.Build(biomes, 1, resources, buildings, gameplay, weather: weather)
+        var upgrades = resistance
+            ? new[] { new PrestigeUpgradeDef("sturdy", "hazard_resistance", 1.0, 1, Array.Empty<int>(), 1) }
+            : null;
+        var content = TestContent.Build(biomes, 1, resources, buildings, gameplay, weather: weather, prestigeUpgrades: upgrades,
+                prestige: new PrestigeConfig(new GoalCondition(MetricKind.Population, -1, 5), MetricKind.Population, -1, 5))
             .WithNetworks(new[] { new NetworkTypeDef("water", 2, NetworkShortage.Slowdown, 0, new RgbColor(60, 160, 230)) })
             .WithHazards(new HazardCatalog(new[]
             {

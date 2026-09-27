@@ -573,7 +573,8 @@ public sealed record PrestigeUpgradeDto(
     int Cost,
     string[]? Prerequisites,
     int MaxLevel,
-    double CostGrowth);
+    double CostGrowth,
+    string? TargetResource = null);
 
 /// <summary>Obsah souboru <c>data/legacy.json</c> (Odkaz — druhá prestižní vrstva).</summary>
 public sealed record LegacyFileDto(

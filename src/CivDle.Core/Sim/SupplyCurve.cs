@@ -55,6 +55,19 @@ public static class SupplyCurve
 }
 
 /// <summary>
+/// Vylepšení sítí světa ze Vzestupu (úsporné zavlažování, hlubší studny).
+/// Proud se jimi neřídí — ten má svá vylepšení Domoviny.
+/// </summary>
+/// <param name="SupplyMult">Násobič výkonu zdrojů.</param>
+/// <param name="DemandMult">Dělitel poptávky.</param>
+/// <param name="RangeBonus">O kolik buněk dál síť dosáhne.</param>
+public readonly record struct NetworkBoost(double SupplyMult, double DemandMult, int RangeBonus)
+{
+    /// <summary>Bez vylepšení.</summary>
+    public static NetworkBoost None => new(1.0, 1.0, 0);
+}
+
+/// <summary>
 /// Světlo, za kterého se síť počítá: denní čas, nebo celodenní průměr (pohled
 /// guvernéra), a ztlumení slunce bouří.
 /// </summary>

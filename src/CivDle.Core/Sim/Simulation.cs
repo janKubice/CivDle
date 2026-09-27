@@ -3268,7 +3268,8 @@ public sealed partial class Simulation
         _powerDirty = false;
         _networks.Rebuild(
             BuildingsMutable, _content, new NetworkLight(TimeOfDay01, false, SolarDim),
-            _biomeAtForNetworks, TerrainRevision);
+            _biomeAtForNetworks, TerrainRevision,
+            new NetworkBoost(_bonuses.NetworkSupplyMult, _bonuses.NetworkDemandMult, (int)_bonuses.NetworkRangeBonus));
     }
 
     /// <summary>
@@ -10091,7 +10092,12 @@ public sealed partial class Simulation
         double critChance = 0.0, jackpot = 0.0, research = 0.0, autoResearch = 0.0;
         double keptTechs = 0.0, keptBuildings = 0.0, keepsMap = 0.0;
         double keptRoads = 0.0, keptResources = 0.0, keptWonders = 0.0, keepsHistory = 0.0;
+        double networkSupply = 1.0, networkDemand = 1.0, networkRange = 0.0, hazardResistance = 1.0;
 
+        // Cílené efekty jdou do vlastního pole; bez toho by „+5 % dřeva"
+        // zvedlo i výrobu oceli. Plní se napřed, protože do něj sahá
+        // Vzestup (sklářští mistři na Duně) i výzkum.
+        Array.Fill(_resourceProductionMult, 1.0);
         for (int i = 0; i < _upgradeLevels.Length; i++)
         {
             if (_upgradeLevels[i] <= 0)
@@ -10100,6 +10106,12 @@ public sealed partial class Simulation
             }
 
             var upgrade = _content.PrestigeUpgrades[i];
+            if (upgrade.IsTargeted)
+            {
+                _resourceProductionMult[upgrade.TargetResourceIndex] *= upgrade.MultiplierAtLevel(_upgradeLevels[i]);
+                continue;
+            }
+
             Scale(upgrade.Effect, upgrade.MultiplierAtLevel(_upgradeLevels[i]), upgrade.Magnitude * _upgradeLevels[i]);
         }
 
@@ -10180,9 +10192,6 @@ public sealed partial class Simulation
         double techStorage = 1.0, techOffline = 1.0, techDiscovery = 1.0, techFestival = 1.0, techAutoBuild = 1.0;
         double techCombo = 1.0, techResearchSpeed = 1.0;
 
-        // Cílené efekty jdou do vlastního pole; bez toho by „+5 % dřeva"
-        // zvedlo i výrobu oceli.
-        Array.Fill(_resourceProductionMult, 1.0);
         for (int i = 0; i < _techLevel.Length; i++)
         {
             if (_techLevel[i] == 0)
@@ -10250,7 +10259,14 @@ public sealed partial class Simulation
             // změnu čísla nahoře a přestal by být rozhodnutím.
             Math.Min(keptResources, MaxKeptResourceShare),
             keptWonders,
-            keepsHistory);
+            keepsHistory,
+            networkSupply,
+            networkDemand,
+            networkRange,
+            hazardResistance);
+
+        // Vzestup mohl změnit výkon, poptávku nebo dosah sítí světa.
+        _powerDirty = true;
 
         // Násobičové efekty se skládají mocninou; ty, které se sčítají do
         // pravděpodobnosti (kritický sběr) nebo do slevy, přirozeně součtem.
@@ -10287,6 +10303,12 @@ public sealed partial class Simulation
                 case "keep_resources": keptResources += sum; break;
                 case "keep_wonders": keptWonders += sum; break;
                 case "keep_history": keepsHistory += sum; break;
+
+                // Světy galaxie: síť a přírodní jevy. Dosah je POČET buněk.
+                case "network_supply": networkSupply *= multiplier; break;
+                case "network_demand": networkDemand *= multiplier; break;
+                case "network_range": networkRange += sum; break;
+                case "hazard_resistance": hazardResistance *= multiplier; break;
             }
         }
     }

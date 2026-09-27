@@ -250,7 +250,8 @@ internal sealed class HazardSystem
 
         var buildings = sim.BuildingsMutable;
         CollectShelters(buildings, hazard);
-        int buryTicks = (int)Math.Ceiling(rule.BurySeconds * Simulation.TicksPerSecond);
+        // Odolnost ze Vzestupu (pevné větrolamy) zkrátí, jak dlouho budova leží.
+        int buryTicks = (int)Math.Ceiling(rule.BurySeconds * Simulation.TicksPerSecond / sim.Bonuses.HazardResistance);
         for (int i = 0; i < buildings.Length; i++)
         {
             ref var building = ref buildings[i];

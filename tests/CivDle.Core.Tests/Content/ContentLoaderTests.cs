@@ -697,6 +697,19 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadFrom_TargetedUpgradeOnlyForProduction_Throws()
+    {
+        WriteAllValid();
+        string prestige = File.ReadAllText(Path.Combine(_tempDir, "prestige.json"));
+        Write("prestige.json", prestige.Replace("\"upgrades\": []",
+            "\"upgrades\": [ { \"id\": \"x\", \"effect\": \"growth_mult\", \"magnitude\": 0.1, \"cost\": 1, \"targetResource\": \"wood\" } ]"));
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("targetResource", ex.Message);
+    }
+
+    [Fact]
     public void LoadFrom_UnknownSupplyTime_Throws()
     {
         WriteAllValid();

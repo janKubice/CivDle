@@ -4515,6 +4515,10 @@ public sealed class ContentLoader
         "production_mult", "harvest_mult", "growth_mult", "housing_mult", "storage_mult", "start_resources", "offline_mult",
         "crit_chance", "jackpot_chance", "discovery_luck", "festival_power", "research_discount", "autobuild_speed",
         "combo_power", "research_speed",
+
+        // Světy galaxie (svety-design.md 2.6): vylepšení Vzestupu, která sahají
+        // na pravidlo světa — síť (voda, teplo, vztlak) a přírodní jevy.
+        "network_supply", "network_demand", "network_range", "hazard_resistance",
     };
 
     /// <summary>
@@ -4561,7 +4565,7 @@ public sealed class ContentLoader
             path, "ascension.points", points.Metric, points.Resource, building: null, tech: null, resources, buildings, techs);
 
         var upgrades = ParsePermanentUpgrades(
-            path, file.Upgrades, KnownPrestigeEffects, keyPrefix: "prestige", what: "Upgrade Vzestupu");
+            path, file.Upgrades, KnownPrestigeEffects, keyPrefix: "prestige", what: "Upgrade Vzestupu", resources);
 
         // Bez zadaného růstu se práh nemění (zpětně kompatibilní starší data).
         double requirementGrowth = file.Ascension.RequirementGrowth <= 0 ? 1.0 : file.Ascension.RequirementGrowth;
@@ -4593,7 +4597,8 @@ public sealed class ContentLoader
         List<PrestigeUpgradeDto>? dtoList,
         HashSet<string> knownEffects,
         string keyPrefix,
-        string what)
+        string what,
+        DefRegistry<Resource> resources)
     {
         var dtos = dtoList ?? new List<PrestigeUpgradeDto>();
         var idToIndex = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -4657,7 +4662,18 @@ public sealed class ContentLoader
                 throw new ContentLoadException(path, $"Upgrade '{id}': 'costGrowth' musí být 1–10, je {costGrowth}.");
             }
 
-            upgrades.Add(new PrestigeUpgradeDef(id, effect, dto.Magnitude, dto.Cost, prereqs, maxLevel, costGrowth, keyPrefix));
+            // Cílit jde jen výrobu: „+8 % skla" dává smysl, „+8 % růstu skla" ne.
+            int target = -1;
+            if (dto.TargetResource is not null)
+            {
+                if (effect != "production_mult" || !resources.TryIndexOf(dto.TargetResource.Trim(), out target))
+                {
+                    throw new ContentLoadException(path,
+                        $"Upgrade '{id}': 'targetResource' musí být existující surovina a jde jen s efektem production_mult.");
+                }
+            }
+
+            upgrades.Add(new PrestigeUpgradeDef(id, effect, dto.Magnitude, dto.Cost, prereqs, maxLevel, costGrowth, keyPrefix, target));
         }
 
         return upgrades;
@@ -4710,7 +4726,7 @@ public sealed class ContentLoader
         }
 
         var upgrades = ParsePermanentUpgrades(
-            path, file.Upgrades, KnownLegacyEffects, keyPrefix: "legacy", what: "Upgrade Odkazu");
+            path, file.Upgrades, KnownLegacyEffects, keyPrefix: "legacy", what: "Upgrade Odkazu", resources);
 
         var config = new LegacyConfig(
             requirement, requirementGrowth, pointsMetric, pointsParam, points.Divisor, pointsExponent);

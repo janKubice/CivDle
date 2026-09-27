@@ -65,8 +65,15 @@ public sealed record PrestigeUpgradeDef(
     IReadOnlyList<int> PrerequisiteIndices,
     int MaxLevel = 1,
     double CostGrowth = 1.0,
-    string KeyPrefix = "prestige")
+    string KeyPrefix = "prestige",
+    int TargetResourceIndex = -1)
 {
+    /// <summary>
+    /// Míří upgrade jen na jednu surovinu? (<c>production_mult</c> s
+    /// <c>targetResource</c>: „sklářští mistři" zrychlí sklárny, ne všechno.)
+    /// </summary>
+    public bool IsTargeted => TargetResourceIndex >= 0;
+
     /// <summary>Dá se kupovat opakovaně?</summary>
     public bool IsRepeatable => MaxLevel > 1;
 
