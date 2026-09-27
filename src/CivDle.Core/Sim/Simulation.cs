@@ -3585,6 +3585,17 @@ public sealed partial class Simulation
     /// <summary>Kolik dlaždic hráč přetvořil (metrika pro úkoly a achievementy).</summary>
     public long TerraformedTiles { get; internal set; }
 
+    /// <summary>
+    /// Flóra (Xeno) dorostla na dlaždici: přepis terénu — ukládá se s ním,
+    /// render ho uvidí přes <see cref="TerrainRevision"/>. Do přetvořených
+    /// dlaždic se nepočítá (to je hvězda hráče, ne flóry).
+    /// </summary>
+    internal void OvergrowWithFlora(int x, int y, int bloomBiomeIndex)
+    {
+        _nodes.Deplete(x, y, TickCount); // pod flórou nezůstane strom ani žíla
+        SetBiomeOverride(x, y, (byte)bloomBiomeIndex);
+    }
+
     /// <summary>Terraformované dlaždice (pro uložení).</summary>
     internal IEnumerable<KeyValuePair<long, byte>> BiomeOverrides() => _biomeOverrides;
 

@@ -2260,6 +2260,7 @@
     "resource.sulfur": "Sulfur",
     "stall.buried": "Buried by sand. People will dig it out by themselves — next time a sand fence nearby will protect it.",
     "stall.flooded": "It stands on a tidal flat without stilts and the tide has flooded it. It comes back on its own at ebb — build on stilts on the flats.",
+    "stall.overgrown": "The flora has wrapped it. People will cut it free and it comes back on its own — next time a pruner or a Tree of Life nearby will protect it.",
     "stall.scorched": "Lava has flooded it. Once the crust cools, people will get it running again — next time a wall across the lava's path will protect it.",
     "stall.struck": "A storm band struck it. It will come back on its own — next time a storm shield nearby will protect it.",
     "styles.title": "District styles",

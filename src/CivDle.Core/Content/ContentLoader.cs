@@ -4054,7 +4054,8 @@ public sealed class ContentLoader
             dto.Stilted,
             ReadFerryReach(path, id, dto.FerryReach),
             ParseLavaRole(path, id, dto.Lava),
-            dto.Forecasts);
+            dto.Forecasts,
+            ParseFloraRole(path, id, dto.Flora));
     }
 
     /// <summary>Co budova dělá s lávou: nic, <c>wall</c> (hráz), <c>channel</c> (kanál).</summary>
@@ -4064,6 +4065,14 @@ public sealed class ContentLoader
         "wall" => LavaRole.Wall,
         "channel" => LavaRole.Channel,
         _ => throw new ContentLoadException(path, $"Budova '{id}': neznámé 'lava' '{value}' (wall, channel)."),
+    };
+
+    private static FloraRole ParseFloraRole(string path, string id, string? value) => value?.Trim() switch
+    {
+        null or "" => FloraRole.None,
+        "pruner" => FloraRole.Pruner,
+        "barrier" => FloraRole.Barrier,
+        _ => throw new ContentLoadException(path, $"Budova '{id}': neznámé 'flora' '{value}' (pruner, barrier)."),
     };
 
     /// <summary>Dosah přístaviště trajektu: 0 = není přístaviště, nejvýš 24 dlaždic.</summary>
@@ -4156,8 +4165,16 @@ public sealed class ContentLoader
                 "weather_burial" => HazardBehavior.WeatherBurial,
                 "tides" => HazardBehavior.Tides,
                 "eruptions" => HazardBehavior.Eruptions,
-                _ => throw new ContentLoadException(path, $"{owner}: neznámé chování '{dto.Behavior}' (známé: weather_burial, tides, eruptions)."),
+                "flora_spread" => HazardBehavior.FloraSpread,
+                _ => throw new ContentLoadException(path,
+                    $"{owner}: neznámé chování '{dto.Behavior}' (známé: weather_burial, tides, eruptions, flora_spread)."),
             };
+
+            if (behavior == HazardBehavior.FloraSpread)
+            {
+                result.Add(new HazardDef(id, behavior, null, Flora: ParseFlora(path, owner, dto, biomes)));
+                continue;
+            }
 
             if (behavior == HazardBehavior.Tides)
             {
@@ -4227,7 +4244,65 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, "Svět smí mít nejvýš jedny erupce (průduchy sdílí jeden rozvrh).");
         }
 
+        if (result.Count(h => h.Behavior == HazardBehavior.FloraSpread) > 1)
+        {
+            throw new ContentLoadException(path, "Svět smí mít nejvýš jedno šíření flóry (flóra je jedna).");
+        }
+
         return new HazardCatalog(result);
+    }
+
+    /// <summary>
+    /// Šíření flóry: tepy aspoň po 10 s, hnízdo a flóra jsou existující biomy
+    /// souše, flóra roste jen na vyjmenované biomy souše, šance 0–1, dosah
+    /// 8–200 dlaždic, obalení 1–3 600 s.
+    /// </summary>
+    private static FloraRule ParseFlora(string path, string owner, HazardDto dto, BiomeRegistry biomes)
+    {
+        if (dto.IntervalSeconds < 10 || dto.FirstAfterSeconds < 0 || dto.WarningSeconds < 0
+            || dto.WarningSeconds + FloraRule.PulseSeconds >= dto.IntervalSeconds)
+        {
+            throw new ContentLoadException(path,
+                $"{owner}: 'intervalSeconds' aspoň 10, 'firstAfterSeconds' a 'warningSeconds' nezáporné a tep s varováním se vejde do rozestupu.");
+        }
+
+        if (dto.SpreadChance is <= 0 or > 1 || dto.ActiveRadius is < 8 or > 200 || dto.WrapSeconds is < 1 or > 3600 || dto.MinBuildings < 0)
+        {
+            throw new ContentLoadException(path,
+                $"{owner}: 'spreadChance' (0, 1], 'activeRadius' 8–200, 'wrapSeconds' 1–3600, 'minBuildings' nezáporné.");
+        }
+
+        int Land(string field, string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value) || !biomes.TryIndexOf(value.Trim(), out int index)
+                || biomes[index].IsWater || biomes[index].HasNoGround)
+            {
+                throw new ContentLoadException(path, $"{owner}: '{field}' '{value}' musí být existující biom souše.");
+            }
+
+            return index;
+        }
+
+        int nest = Land("nestBiome", dto.NestBiome);
+        int bloom = Land("bloomBiome", dto.BloomBiome);
+        if (dto.SpreadOn is not { Count: > 0 })
+        {
+            throw new ContentLoadException(path, $"{owner}: chybí 'spreadOn' — na čem flóra roste.");
+        }
+
+        var spreadOn = new bool[biomes.Count];
+        foreach (string id in dto.SpreadOn)
+        {
+            spreadOn[Land("spreadOn", id)] = true;
+        }
+
+        if (spreadOn[bloom] || spreadOn[nest])
+        {
+            throw new ContentLoadException(path, $"{owner}: 'spreadOn' nesmí obsahovat flóru ani hnízdo — ty už flórou jsou.");
+        }
+
+        return new FloraRule(dto.FirstAfterSeconds, dto.IntervalSeconds, dto.WarningSeconds, nest, bloom, spreadOn,
+            dto.SpreadChance, dto.ActiveRadius, dto.WrapSeconds, dto.MinBuildings);
     }
 
     /// <summary>

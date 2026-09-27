@@ -78,6 +78,7 @@ public sealed class GameplayScreen : IScreen
     private readonly HazardRenderer _hazardRenderer;
     private readonly NetworkGroundRenderer _networkGround;
     private readonly CloudSeaRenderer _cloudSea;
+    private readonly FloraRenderer _flora;
     private readonly TideRenderer _tide;
     private readonly LavaRenderer _lava;
 
@@ -564,6 +565,7 @@ public sealed class GameplayScreen : IScreen
         _hazardRenderer = new HazardRenderer(screens.WhitePixel, screens.Content);
         _networkGround = new NetworkGroundRenderer(screens.WhitePixel, screens.Content);
         _cloudSea = new CloudSeaRenderer(screens.WhitePixel, screens.Content);
+        _flora = new FloraRenderer(screens.WhitePixel, screens.Content);
         _tide = new TideRenderer(screens.WhitePixel, screens.Content);
         _lava = new LavaRenderer(screens.WhitePixel, screens.Content);
         _pollutionRenderer = new PollutionRenderer(screens.WhitePixel, screens.Content);
@@ -907,6 +909,7 @@ public sealed class GameplayScreen : IScreen
         _atmosphere.Update(worldDt, _screens.Content.Atmosphere, moteMin, moteMax, WindDirectionX, WindDirectionY);
         _hazardRenderer.Update(dt);
         _cloudSea.Update(dt);
+        _flora.Update(dt);
         _tide.Update(dt);
         _lava.Update(dt);
         }
@@ -972,6 +975,7 @@ public sealed class GameplayScreen : IScreen
         // město v poušti je oáza a má zelenat i mezi domy. Pod vším, co stojí.
         _networkGround.Draw(spriteBatch, _camera, _simulation);
         _cloudSea.Draw(spriteBatch, _camera, _simulation);
+        _flora.Draw(spriteBatch, _camera, _simulation);
         _tide.Draw(spriteBatch, _camera, _simulation);
         _lava.Draw(spriteBatch, _camera, _simulation);
         _zoneRenderer.Draw(spriteBatch, _camera, _simulation); // tint zón na zemi, pod budovami
@@ -2258,9 +2262,9 @@ public sealed class GameplayScreen : IScreen
 
         var hazard = _screens.Content.Hazards.Hazards[view.HazardIndex];
         string name = loc[hazard.NameKey];
-        if (hazard.Eruption is not null)
+        if (hazard.Eruption is not null || hazard.Flora is not null)
         {
-            // Erupce nepřichází „od západu" — duní průduch u města.
+            // Erupce ani tep flóry nepřichází „od západu" — duní průduch, dýchá flóra.
             _hazardLabel.Text = view.Phase == HazardPhase.Warning
                 ? loc.Format("hud.hazard.soon", name, (int)Math.Ceiling(view.SecondsToStart))
                 : loc.Format("hud.hazard.active", name);

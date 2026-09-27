@@ -24,6 +24,25 @@ public enum HazardBehavior
     /// terénu, vyřadí budovy v cestě a ztuhne v novou zem (Výheň).
     /// </summary>
     Eruptions,
+
+    /// <summary>
+    /// <c>flora_spread</c>: flóra v pravidelných tepech roste z hnízd na volnou
+    /// zem a obaluje budovy na okraji města (Xeno).
+    /// </summary>
+    FloraSpread,
+}
+
+/// <summary>Co dělá budova s flórou (Xeno): nic, prořezávač, bariéra.</summary>
+public enum FloraRole
+{
+    /// <summary>Flóra ji obalí, když k ní doroste (a budova vypadne).</summary>
+    None,
+
+    /// <summary>Prořezávač: v jeho okruhu flóra neroste (a nikoho neobalí).</summary>
+    Pruner,
+
+    /// <summary>Bariéra: přes její dlaždici flóra neproroste a ji samu neobalí.</summary>
+    Barrier,
 }
 
 /// <summary>
@@ -206,10 +225,12 @@ public sealed record TideRule(double PeriodSeconds, int FloodBiomeIndex, double 
 /// <param name="Burial">Parametry zasypávání; <c>null</c> u jiných chování.</param>
 /// <param name="Tide">Parametry přílivu; <c>null</c> u jiných chování.</param>
 /// <param name="Eruption">Parametry erupcí; <c>null</c> u jiných chování.</param>
-public sealed record HazardDef(string Id, HazardBehavior Behavior, BurialRule? Burial, TideRule? Tide = null, EruptionRule? Eruption = null)
+public sealed record HazardDef(
+    string Id, HazardBehavior Behavior, BurialRule? Burial, TideRule? Tide = null, EruptionRule? Eruption = null,
+    FloraRule? Flora = null)
 {
-    /// <summary>Rozvrh jevu, který chodí v dávkách (bouře, erupce); <c>null</c> u přílivu.</summary>
-    public IHazardSchedule? Schedule => (IHazardSchedule?)Burial ?? Eruption;
+    /// <summary>Rozvrh jevu, který chodí v dávkách (bouře, erupce, tepy flóry); <c>null</c> u přílivu.</summary>
+    public IHazardSchedule? Schedule => (IHazardSchedule?)Burial ?? (IHazardSchedule?)Eruption ?? Flora;
 
     /// <summary>Jméno jevu.</summary>
     public string NameKey => $"hazard.{Id}";
@@ -232,6 +253,52 @@ public sealed record HazardDef(string Id, HazardBehavior Behavior, BurialRule? B
         : new[] { NameKey, WarningKey, PassedKey };
 }
 
+/// <summary>
+/// Šíření flóry (<see cref="HazardBehavior.FloraSpread"/>, Xeno). Flóra je
+/// terén: dlaždice se přepíše na biom <paramref name="BloomBiomeIndex"/>
+/// (ukládá se s terénem). Každý tep (rozvrh jako u bouří, bez posunu) zkusí
+/// každá dlaždice flóry a každé hnízdo v okolí města obrůst sousední dlaždici
+/// — se šancí <paramref name="SpreadChance"/> podle hashe seedu, tepu
+/// a dlaždice, takže stejný save roste stejně.
+/// </summary>
+/// <param name="FirstAfterSeconds">Kdy přijde první tep.</param>
+/// <param name="IntervalSeconds">Rozestup tepů.</param>
+/// <param name="WarningSeconds">Jak dlouho předem hra ukazuje, že tep přijde.</param>
+/// <param name="NestBiomeIndex">Hnízdo — odsud flóra roste vždycky.</param>
+/// <param name="BloomBiomeIndex">Biom flóry (na něj se dlaždice přepíše).</param>
+/// <param name="SpreadOn">Na které biomy smí flóra dorůst (maska podle indexu).</param>
+/// <param name="SpreadChance">Šance, že dlaždice flóry obroste souseda v jednom tepu (0–1).</param>
+/// <param name="ActiveRadius">Jak daleko od středu města flóra roste (dál se nic nepočítá).</param>
+/// <param name="WrapSeconds">Na jak dlouho obalená budova vypadne, než ji lidé odstřihnou.</param>
+/// <param name="MinBuildings">Od kolika budov se tep počítá do statistiky.</param>
+public sealed record FloraRule(
+    double FirstAfterSeconds,
+    double IntervalSeconds,
+    double WarningSeconds,
+    int NestBiomeIndex,
+    int BloomBiomeIndex,
+    bool[] SpreadOn,
+    double SpreadChance,
+    int ActiveRadius,
+    double WrapSeconds,
+    int MinBuildings) : IHazardSchedule
+{
+    /// <summary>Tepy chodí pravidelně — flóra dýchá, nebouří.</summary>
+    public double IntervalJitter => 0;
+
+    /// <summary>Tep je krátký okamžik růstu.</summary>
+    public double DurationSeconds => PulseSeconds;
+
+    /// <summary>Jak dlouho „trvá" tep (pro HUD a rozvrh).</summary>
+    public const double PulseSeconds = 3;
+
+    /// <summary>Tep nemá vlastní počasí.</summary>
+    public int WeatherIndex => -1;
+
+    /// <summary>Slunci tep nebere.</summary>
+    public double SolarDim => 1;
+}
+
 /// <summary>Ochrana před jevem: budova chrání okruh (větrolam před pískem).</summary>
 /// <param name="HazardIndex">Index jevu v <see cref="HazardCatalog"/>.</param>
 /// <param name="Radius">Poloměr ochrany v dlaždicích.</param>
@@ -246,7 +313,18 @@ public sealed class HazardCatalog
     {
         _hazards = hazards.ToList();
         BurialIsStorm = _hazards.Exists(h => h.Burial is { Look: BurialLook.Storm });
+        FloraIndex = _hazards.FindIndex(h => h.Flora is not null);
     }
+
+    /// <summary>Index šíření flóry; −1 = svět flóru nemá.</summary>
+    public int FloraIndex { get; }
+
+    /// <summary>
+    /// Jak se na tomhle světě hlásí budova vyřazená jevem na čas (v savu je
+    /// to vždy „zasypání"): blesk na Nebesích, flóra na Xenu, jinak kopeček.
+    /// </summary>
+    public Sim.BuildingStall BurialStall =>
+        BurialIsStorm ? Sim.BuildingStall.Struck : FloraIndex >= 0 ? Sim.BuildingStall.Overgrown : Sim.BuildingStall.Buried;
 
     /// <summary>Svět bez přírodních jevů (Domovina).</summary>
     public static HazardCatalog Empty { get; } = new(Array.Empty<HazardDef>());

@@ -90,9 +90,16 @@ public static class SceneLight
     /// <para>Skvrna schválně přesahuje šířku budovy jen málo a leží <b>hlavně
     /// pod ní</b>: stín, který je větší než objekt, čte oko jako druhý objekt.</para>
     /// </summary>
-    public static Rectangle ShadowRect(Rectangle bounds, int footprintTiles)
+    public static Rectangle ShadowRect(Rectangle bounds, int footprintTiles) => ShadowRect(bounds, footprintTiles, mirrored: false);
+
+    /// <summary>
+    /// Stín od druhého slunce (Xeno): stejná skvrna, ale na opačnou stranu —
+    /// druhé slunce svítí zprava, stín padá doleva dolů.
+    /// </summary>
+    public static Rectangle ShadowRect(Rectangle bounds, int footprintTiles, bool mirrored)
     {
         float length = LengthFor(footprintTiles);
+        float directionX = mirrored ? -DirectionX : DirectionX;
 
         int width = bounds.Width + (int)MathF.Round(length);
         int height = Math.Max(3, (int)MathF.Round(bounds.Width * Flatness));
@@ -100,7 +107,7 @@ public static class SceneLight
         // Střed skvrny sedí na spodní hraně budovy a odtud se posune po směru
         // světla. Kdyby seděl na středu budovy, vypadala by budova, že se
         // vznáší nad vlastním stínem.
-        float centerX = bounds.X + bounds.Width * 0.5f + length * DirectionX;
+        float centerX = bounds.X + bounds.Width * 0.5f + length * directionX;
         float centerY = bounds.Bottom + length * DirectionY * 0.5f;
 
         return new Rectangle(

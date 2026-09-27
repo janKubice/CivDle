@@ -276,7 +276,8 @@ public sealed record BuildingDef(
     bool Stilted = false,
     int FerryReach = 0,
     LavaRole LavaRole = LavaRole.None,
-    bool Forecasts = false)
+    bool Forecasts = false,
+    FloraRole FloraRole = FloraRole.None)
 {
     /// <summary>
     /// Přístaviště trajektu (Souostroví): budovy do <see cref="FerryReach"/>

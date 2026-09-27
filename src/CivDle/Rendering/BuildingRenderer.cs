@@ -27,7 +27,17 @@ public sealed class BuildingRenderer
         _shadow = shadow;
         _content = content;
         _sprites = sprites;
+
+        // Druhé slunce (Xeno): stín na druhou stranu, zabarvený doplňkem jeho
+        // světla — teplé slunce dává studený stín a naopak.
+        if (content.Atmosphere.SecondSun is { } sun)
+        {
+            _secondShadow = Color.Lerp(SceneLight.ShadowColor, new Color(255 - sun.R, 255 - sun.G, 255 - sun.B), 0.35f);
+        }
     }
+
+    /// <summary>Barva stínu druhého slunce; <c>null</c> = svět má jedno slunce.</summary>
+    private readonly Color? _secondShadow;
 
     /// <summary>Posun animací (létající balon). Jediný stav rendereru.</summary>
     private float _time;
@@ -600,6 +610,10 @@ public sealed class BuildingRenderer
             spriteBatch,
             SceneLight.ShadowRect(bounds, footprintTiles),
             SceneLight.ShadowColor * SceneLight.ShadowAlpha);
+        if (_secondShadow is { } second)
+        {
+            _shadow.Draw(spriteBatch, SceneLight.ShadowRect(bounds, footprintTiles, mirrored: true), second * (SceneLight.ShadowAlpha * 0.6f));
+        }
     }
 
     /// <summary>

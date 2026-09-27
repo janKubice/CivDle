@@ -77,6 +77,12 @@ internal sealed class HazardSystem
     // Ochrany před lávou (chladicí věž) — sbírají se každou sekundu erupce.
     private readonly List<(int X, int Y, int RadiusSquared)> _lavaShelters = new();
 
+    // Flóra: ochrany (prořezávač, Strom života — nic neobalí), prořezávače
+    // (neroste) a dlaždice, na které tep doroste — jen se čistí, žádné alokace.
+    private readonly List<(int X, int Y, int RadiusSquared)> _floraShelters = new();
+    private readonly List<(int X, int Y, int RadiusSquared)> _pruners = new();
+    private readonly List<long> _growth = new();
+
     // Ochrany před přílivem (chrám přílivu) — drží se mezi koly, čte je i render.
     private readonly List<(int X, int Y, int RadiusSquared)> _tideShelters = new();
 
@@ -168,8 +174,145 @@ internal sealed class HazardSystem
             {
                 TickEruption(sim, h, eruption, now);
             }
+            else if (hazards[h].Flora is { } flora)
+            {
+                TickFlora(sim, h, flora, now);
+            }
         }
     }
+
+    // ----- flóra -----
+
+    /// <summary>
+    /// Tep flóry (Xeno): jednou za rozestup flóra doroste o dlaždici od
+    /// každé dlaždice flóry a hnízda v okolí města (se šancí z hashe — stejný
+    /// save roste stejně). Kam doroste budova, tu obalí; prořezávač šíření
+    /// v okruhu zastaví, Strom života (ochrana bez prořezávání) ho nechá
+    /// růst, ale nic neobalí, bariéra flóru nepustí přes svou dlaždici
+    /// a cesty flóra neprorůstá. Roste se naráz po skenu — jeden tep = jeden
+    /// prstenec, ne lavina.
+    /// </summary>
+    private void TickFlora(Simulation sim, int hazard, FloraRule rule, double now)
+    {
+        var state = _states[hazard];
+        var (phase, pulse) = PhaseAt(hazard, rule, now);
+        if (state.ActiveStorm >= 0 && (phase != HazardPhase.Active || pulse != state.ActiveStorm))
+        {
+            Finish(sim, hazard, state, quietWhenCalm: true);
+        }
+
+        if (phase != HazardPhase.Active || state.ActiveStorm == pulse)
+        {
+            return; // tep už proběhl (i po načtení savu uprostřed tepu)
+        }
+
+        state.ActiveStorm = pulse;
+        state.WarnedStorm = pulse;
+        state.Buried = 0;
+        state.CityStood = Grow(sim, hazard, rule, state, pulse) && sim.Buildings.Length >= rule.MinBuildings;
+    }
+
+    /// <returns>Dorostla flóra k nějaké budově (tep „šel na město")?</returns>
+    private bool Grow(Simulation sim, int hazard, FloraRule rule, BurialState state, int pulse)
+    {
+        var buildings = sim.BuildingsMutable;
+        _floraShelters.Clear();
+        _pruners.Clear();
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            if (!buildings[i].IsComplete)
+            {
+                continue;
+            }
+
+            var def = _content.Buildings[buildings[i].DefIndex];
+            int radius = def.ShelterRadius(hazard);
+            if (radius > 0)
+            {
+                _floraShelters.Add((buildings[i].X, buildings[i].Y, radius * radius));
+                if (def.FloraRole == FloraRole.Pruner)
+                {
+                    _pruners.Add((buildings[i].X, buildings[i].Y, radius * radius));
+                }
+            }
+        }
+
+        int wrapTicks = (int)Math.Ceiling(rule.WrapSeconds * Simulation.TicksPerSecond / sim.Bonuses.HazardResistance);
+        int cx = sim.CityCenterX;
+        int cy = sim.CityCenterY;
+        int r = rule.ActiveRadius;
+        bool touched = false;
+        _growth.Clear();
+        ReadOnlySpan<int> offsets = stackalloc int[] { 1, 0, -1, 0, 0, 1, 0, -1 };
+        for (int y = cy - r; y <= cy + r; y++)
+        {
+            for (int x = cx - r; x <= cx + r; x++)
+            {
+                byte biome = sim.BiomeAt(x, y);
+                if (biome != rule.BloomBiomeIndex && biome != rule.NestBiomeIndex)
+                {
+                    continue;
+                }
+
+                for (int k = 0; k < offsets.Length; k += 2)
+                {
+                    int nx = x + offsets[k];
+                    int ny = y + offsets[k + 1];
+                    if (Math.Abs(nx - cx) > r || Math.Abs(ny - cy) > r || TileUnit(hazard, pulse, nx, ny) >= rule.SpreadChance)
+                    {
+                        continue;
+                    }
+
+                    if (sim.TryGetBuildingAt(nx, ny, out int index))
+                    {
+                        touched = true;
+                        Wrap(sim, ref buildings[index], wrapTicks, state);
+                        continue;
+                    }
+
+                    if (sim.IsRoad(nx, ny) || !rule.SpreadOn[sim.BiomeAt(nx, ny)] || IsIn(_pruners, nx, ny))
+                    {
+                        continue; // cestu, cizí biom ani okolí prořezávače flóra neprorůstá
+                    }
+
+                    _growth.Add(World.TileKey.Pack(nx, ny));
+                }
+            }
+        }
+
+        foreach (long tile in _growth)
+        {
+            sim.OvergrowWithFlora(World.TileKey.X(tile), World.TileKey.Y(tile), rule.BloomBiomeIndex);
+        }
+
+        return touched;
+    }
+
+    /// <summary>
+    /// Flóra dorostla k budově: obalí ji, pokud to není bariéra či prořezávač
+    /// a pokud nestojí v ochraně (prořezávač, Strom života).
+    /// </summary>
+    private void Wrap(Simulation sim, ref BuildingInstance building, int wrapTicks, BurialState state)
+    {
+        var def = _content.Buildings[building.DefIndex];
+        if (!building.IsComplete || def.FloraRole != FloraRole.None || IsIn(_floraShelters, building.X, building.Y))
+        {
+            return;
+        }
+
+        if (building.DisabledTicks <= 0 || building.DisabledCause != DisableCause.Burial)
+        {
+            state.Buried++; // budova přes víc dlaždic se počítá jednou
+        }
+
+        building.DisabledTicks = Math.Max(building.DisabledTicks, wrapTicks);
+        building.DisabledCause = DisableCause.Burial;
+        sim.MarkDisabled();
+    }
+
+    /// <summary>Deterministické 0–1 pro dlaždici v daném tepu (rozhoduje, jestli flóra doroste).</summary>
+    private double TileUnit(int hazard, int pulse, int x, int y) =>
+        Unit(hazard, pulse, unchecked((ulong)x * 0x632BE59BD9B4E019UL ^ (ulong)y * 0x85157AF5UL));
 
     // ----- erupce -----
 
@@ -762,8 +905,11 @@ internal sealed class HazardSystem
         return false;
     }
 
-    /// <summary>Bouře přešla: statistika a zpráva hráči.</summary>
-    private void Finish(Simulation sim, int hazard, BurialState state)
+    /// <summary>
+    /// Bouře přešla: statistika a zpráva hráči. Tep flóry chodí každou půlminutu
+    /// — ten se hlásí (<paramref name="quietWhenCalm"/>), jen když něco obalil.
+    /// </summary>
+    private void Finish(Simulation sim, int hazard, BurialState state, bool quietWhenCalm = false)
     {
         var def = _content.Hazards.Hazards[hazard];
         if (state.CityStood)
@@ -775,9 +921,13 @@ internal sealed class HazardSystem
             }
         }
 
-        sim.EnqueueNotification(state.Buried == 0
-            ? new GameNotification(NotificationKind.Hazard, def.PassedKey, "hazard.calm")
-            : new GameNotification(NotificationKind.Hazard, def.PassedKey, "hazard.buried", state.Buried));
+        if (state.Buried > 0 || !quietWhenCalm)
+        {
+            sim.EnqueueNotification(state.Buried == 0
+                ? new GameNotification(NotificationKind.Hazard, def.PassedKey, "hazard.calm")
+                : new GameNotification(NotificationKind.Hazard, def.PassedKey, "hazard.buried", state.Buried));
+        }
+
         state.ActiveStorm = -1;
         state.Buried = 0;
     }

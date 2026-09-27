@@ -978,6 +978,25 @@ public class ContentLoaderTests : IDisposable
         Assert.Contains(expected, ex.Message);
     }
 
+    [Theory]
+    [InlineData("\"nestBiome\": \"lava\", \"bloomBiome\": \"grass\", \"spreadOn\": [\"grass\"], \"spreadChance\": 0.5", "nestBiome")]
+    [InlineData("\"nestBiome\": \"grass\", \"bloomBiome\": \"water\", \"spreadOn\": [\"grass\"], \"spreadChance\": 0.5", "bloomBiome")]
+    [InlineData("\"nestBiome\": \"grass\", \"bloomBiome\": \"grass\", \"spreadOn\": [\"grass\"], \"spreadChance\": 2", "spreadChance")]
+    [InlineData("\"nestBiome\": \"grass\", \"bloomBiome\": \"grass\", \"spreadOn\": [\"grass\"], \"spreadChance\": 0.5", "spreadOn")]
+    public void LoadFrom_BadFlora_Throws(string fields, string expected)
+    {
+        WriteAllValid();
+        Write("hazards.json", $$"""
+        { "schemaVersion": 1, "hazards": [ { "id": "flora", "behavior": "flora_spread",
+          "firstAfterSeconds": 60, "intervalSeconds": 30, "warningSeconds": 10,
+          "activeRadius": 40, "wrapSeconds": 60, {{fields}} } ] }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
     [Fact]
     public void LoadFrom_ShelterFromAnUnknownHazard_Throws()
     {

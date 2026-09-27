@@ -50,6 +50,9 @@ public enum BuildingStall : byte
 
     /// <summary>Zasáhl ji bouřkový pás (Nebesa) — jiskří, sama se vrátí.</summary>
     Struck,
+
+    /// <summary>Obalila ji flóra (Xeno) — lidé ji odstřihnou, sama se vrátí.</summary>
+    Overgrown,
 }
 
 /// <summary>Proč je budova mimo provoz (<see cref="BuildingInstance.DisabledTicks"/>).</summary>
@@ -72,14 +75,13 @@ public enum DisableCause : byte
 public static class DisableCauses
 {
     /// <summary>
-    /// Jak se výpadek z dané příčiny hlásí hráči. Zásah bouře je v savu vždy
-    /// „zasypání"; na světě s bouřkovými pásy (<paramref name="stormWorld"/>)
-    /// je to zásah bleskem, ne kopeček písku.
+    /// Jak se výpadek z dané příčiny hlásí hráči. Zásah jevu, který budovu
+    /// vyřadí na čas, je v savu vždy „zasypání"; jak vypadá, říká svět
+    /// (<paramref name="burialStall"/>: písek, blesk, flóra).
     /// </summary>
-    public static BuildingStall StallOf(DisableCause cause, bool stormWorld = false) => cause switch
+    public static BuildingStall StallOf(DisableCause cause, BuildingStall burialStall = BuildingStall.Buried) => cause switch
     {
-        DisableCause.Burial when stormWorld => BuildingStall.Struck,
-        DisableCause.Burial => BuildingStall.Buried,
+        DisableCause.Burial => burialStall,
         DisableCause.Flood => BuildingStall.Flooded,
         DisableCause.Lava => BuildingStall.Scorched,
         _ => BuildingStall.Damaged,

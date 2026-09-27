@@ -2260,6 +2260,7 @@
     "resource.sulfur": "Azufre",
     "stall.buried": "Sepultado por la arena. La gente lo desenterrará sola; la próxima vez lo protegerá un cortavientos cercano.",
     "stall.flooded": "Está sin pilotes en una llanura mareal y la marea la ha inundado. Volverá sola con la bajamar: en las llanuras se construye sobre pilotes.",
+    "stall.overgrown": "La flora la ha envuelto. La gente la liberará y volverá sola; la próxima vez la protegerá un podador o un Árbol de la Vida cercano.",
     "stall.scorched": "La lava la ha cubierto. Cuando la costra se enfríe, la gente la pondrá en marcha de nuevo; la próxima vez la protegerá un dique en el camino de la lava.",
     "stall.struck": "La ha alcanzado una franja de tormenta. Volverá sola; la próxima vez la protegerá un escudo de tormenta cercano.",
     "styles.title": "Estilos de distrito",

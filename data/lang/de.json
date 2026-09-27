@@ -2260,6 +2260,7 @@
     "resource.sulfur": "Schwefel",
     "stall.buried": "Vom Sand verschüttet. Die Leute graben es selbst aus — beim nächsten Mal schützt es ein Sandzaun in der Nähe.",
     "stall.flooded": "Steht ohne Pfähle im Watt und die Flut hat sie überschwemmt. Bei Ebbe läuft sie von selbst wieder — ins Watt gehören Pfahlbauten.",
+    "stall.overgrown": "Die Flora hat sie umschlungen. Die Leute schneiden sie frei und sie kehrt von selbst zurück — nächstes Mal schützt sie ein Beschneider oder ein Lebensbaum in der Nähe.",
     "stall.scorched": "Lava hat sie überflutet. Sobald die Kruste abkühlt, bringen die Leute sie wieder in Gang — nächstes Mal schützt sie ein Damm auf dem Lavaweg.",
     "stall.struck": "Ein Sturmband hat sie getroffen. Sie kommt von selbst zurück — nächstes Mal schützt sie ein Sturmschild in der Nähe.",
     "styles.title": "Viertelstile",

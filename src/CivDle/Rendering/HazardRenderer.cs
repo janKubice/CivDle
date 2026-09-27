@@ -39,6 +39,8 @@ public sealed class HazardRenderer
     private static readonly Color Lightning = new(236, 226, 255);
     private static readonly Color Soot = new(34, 30, 44);
     private static readonly Color CloudWisp = new(246, 236, 220);
+    private static readonly Color Vine = new(126, 70, 170);
+    private static readonly Color VineGlow = new(96, 240, 220);
 
     /// <summary>Čím jsou zasypané budovy zasypané (z dat jevu: písek, sníh…) a jeho stín a světlo.</summary>
     private readonly Color _mound;
@@ -58,6 +60,9 @@ public sealed class HazardRenderer
 
     /// <summary>Vyřazuje tu bouře bleskem (bouřkový pás), ne zasypáním?</summary>
     private readonly bool _storm;
+
+    /// <summary>Vyřazuje tu budovy flóra (Xeno) — úponky přes střechu?</summary>
+    private readonly bool _flora;
 
     /// <summary>Indexy budov ve výřezu — jeden seznam na celý život.</summary>
     private readonly List<int> _visible = new();
@@ -85,6 +90,7 @@ public sealed class HazardRenderer
         }
 
         _storm = content.Hazards.BurialIsStorm;
+        _flora = content.Hazards.FloraIndex >= 0;
         if (_storm)
         {
             _mound = StormCloud;
@@ -172,6 +178,12 @@ public sealed class HazardRenderer
             if (_storm)
             {
                 DrawStruck(spriteBatch, buildings[i]);
+                continue;
+            }
+
+            if (_flora)
+            {
+                DrawOvergrown(spriteBatch, buildings[i]);
                 continue;
             }
 
@@ -276,6 +288,40 @@ public sealed class HazardRenderer
             int sy = py + 1 + (int)(Hash(building.Y + k, building.X * 3) * Math.Max(1, height / 2));
             spriteBatch.Draw(_pixel, new Rectangle(sx, sy, 2, 1), Lightning);
             spriteBatch.Draw(_pixel, new Rectangle(sx + 1, sy + 1, 1, 2), Lightning * 0.7f);
+        }
+    }
+
+    /// <summary>
+    /// Budovu obalila flóra (Xeno): fialové úponky přes střechu a stěny,
+    /// sem tam svítící pupen, a budova zhasne. Nic se nerozbilo — lidé ji
+    /// odstřihnou.
+    /// </summary>
+    private void DrawOvergrown(SpriteBatch spriteBatch, in BuildingInstance building)
+    {
+        var def = _content.Buildings[building.DefIndex];
+        int px = building.X * TileSize;
+        int py = building.Y * TileSize;
+        int width = def.FootprintWidth * TileSize;
+        int height = def.FootprintHeight * TileSize;
+        spriteBatch.Draw(_pixel, new Rectangle(px, py, width, height), Soot * 0.3f);
+
+        // Úponky: svislé klikaté pruhy od střechy dolů, délka a poloha z hashe.
+        for (int x = 1; x < width - 1; x += 3)
+        {
+            float h = Hash(building.X * 131 + x, building.Y * 7);
+            int length = height / 3 + (int)(h * height * 2 / 3);
+            int sway = (int)MathF.Round(MathF.Sin(_time * 0.7f + h * 6f));
+            for (int y = 0; y < length; y += 2)
+            {
+                int offset = ((y / 2) % 2 == 0 ? 0 : 1) + sway;
+                spriteBatch.Draw(_pixel, new Rectangle(px + x + offset, py + y, 1, 2), Vine);
+            }
+
+            if (h > 0.6f)
+            {
+                float glow = 0.5f + 0.5f * MathF.Sin(_time * 1.6f + h * 11f);
+                spriteBatch.Draw(_pixel, new Rectangle(px + x + sway, py + length, 2, 2), VineGlow * glow);
+            }
         }
     }
 
