@@ -127,6 +127,51 @@ public class GovernorWorldTests
         Assert.True(workshops > 2, $"jen {workshops} dílen, i když elektrárna jde postavit");
     }
 
+    [Fact]
+    public void TheGovernorDoesNotSaveForImportedGoods()
+    {
+        // Lagunová vila chce sklo z Duny. Guvernér ho nevyrobí ani nezajistí
+        // (trasy zakládá hráč) — dřív se na ni zasekl s hlášením „nemá čím
+        // vyrobit sklo" a hráč hledal sklárnu, která na tom světě není.
+        var biomes = new[] { TestContent.WaterBiome(), TestContent.LandBiome("sand") };
+        var resources = new[]
+        {
+            new Resource("food", new RgbColor(200, 180, 60), 0, BaseStorage: 10_000),
+            new Resource("glass", new RgbColor(150, 210, 220), 0, BaseStorage: 10_000, ImportOnly: true),
+        };
+        var villa = new BuildingDef(
+            "villa", "housing", new RgbColor(1, 1, 1), 1, 1,
+            WorkerSlots: 0, HousingCapacity: 50, BuildCost: new[] { new ResourceAmount(Glass, 10) },
+            Recipe: null, AllowedBiomes: new[] { false, true }, StorageBonus: Array.Empty<ResourceAmount>(),
+            AutoBuild: true, Buildable: true, UpgradesToIndex: -1,
+            UpgradeCost: Array.Empty<ResourceAmount>(), PowerSupply: 0, PowerDemand: 0);
+        var gameplay = TestContent.DefaultGameplay with
+        {
+            FoodPerPersonPerSecond = 0,
+            PopulationGrowthPerSecond = 0,
+            StartingPopulation = 60,
+            AutoBuild = new AutoBuildConfig(IntervalTicks: 5, SearchRadius: 6, PopulationHeadroom: 2),
+            GovernorOrNull = new GovernorConfig(
+                true, StorageGoalConfig.Off, SupplyGoalConfig.Off, SupplyGoalConfig.Off,
+                LandscapeGoalConfig.Off, PowerGoalConfig.Off),
+        };
+        var content = TestContent.Build(biomes, 1, resources, new[] { villa }, gameplay);
+        var sim = new Simulation(content, new UniformTerrain(1), seed: 5);
+        Assert.Equal(PlacementResult.Ok, sim.TryPlaceBuildingFree(0, 0, 0));
+        sim.DebugCompleteConstruction();
+
+        for (int i = 0; i < 300; i++)
+        {
+            sim.Tick();
+            Assert.False(sim.Claim.IsActive, "guvernér šetří na stavbu z dováženého zboží");
+            Assert.NotEqual(GovernorBlocker.NoProducer, sim.GovernorStatus.Blocker); // „nemá čím vyrobit sklo" by hráče mátlo
+        }
+
+        sim.DebugSetResource(Glass, 20); // trasa sklo přivezla — teď vila dává smysl
+        Run(sim, 60);
+        Assert.True(sim.Buildings.Length > 1, "se sklem na skladě má guvernér vilu postavit");
+    }
+
     private const int PoweredLander = 1;
     private const int PoweredWorkshop = 2;
 

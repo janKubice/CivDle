@@ -1335,6 +1335,11 @@ internal sealed class AutoBuildSystem
     /// </summary>
     private bool IsPointlessNow(Simulation sim, int defIndex, CityNeed need)
     {
+        if (LacksImport(sim, _content.Buildings[defIndex]))
+        {
+            return true;
+        }
+
         if (need == CityNeed.Food)
         {
             // Hlad se řeší i bez volných lidí — ale jen dokud všechna pole
@@ -1369,6 +1374,26 @@ internal sealed class AutoBuildSystem
         // lidi navíc, je další výrobna přesně to, co potřebuje.
         return sim.IdleBuildings > 0
             && sim.TotalWorkerSlots + slots > sim.Population * WorkerSlotsPerPerson;
+    }
+
+    /// <summary>
+    /// Chce stavba dovážené zboží (sklo z Duny na lagunovou vilu), které ve
+    /// skladu není? Guvernér ho nevyrobí ani nezajistí — trasy zakládá hráč —
+    /// takže by na stavbu čekal navždy a přes ni by nepostavil nic jiného.
+    /// Dovoz je bonus, ne blokáda (svety-design.md 3.3).
+    /// </summary>
+    private static bool LacksImport(Simulation sim, BuildingDef def)
+    {
+        var cost = def.BuildCost;
+        for (int i = 0; i < cost.Count; i++)
+        {
+            if (sim.Content.Resources[cost[i].ResourceIndex].ImportOnly && sim.GetResource(cost[i].ResourceIndex) < cost[i].Amount)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
