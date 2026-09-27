@@ -13,7 +13,7 @@ public readonly record struct RoadTile(int X, int Y);
 /// Tik orchestruje systémy; příkazy hráče vstupují přes veřejné metody —
 /// render stav jen čte. Deterministické: žádná náhoda, žádné alokace za tik.
 /// </summary>
-public sealed class Simulation
+public sealed partial class Simulation
 {
     /// <summary>Frekvence simulace dle tech-stack.md (10–20 Hz stačí, render běží vlastním tempem).</summary>
     public const double TicksPerSecond = 10.0;
@@ -3926,28 +3926,7 @@ public sealed class Simulation
             _projectInvested[key] = invested;
         }
 
-        double total = 0;
-        for (int i = 0; i < cost.Count; i++)
-        {
-            int resource = cost[i].ResourceIndex;
-            double missing = cost[i].Amount - invested[resource];
-            double available = Sandbox ? missing : _resources[resource] - Claim.Amounts[resource];
-            double put = Math.Min(missing, available);
-            if (put <= 0)
-            {
-                continue;
-            }
-
-            if (!Sandbox)
-            {
-                _resources[resource] -= put;
-                _ledger.RecordConsumed(resource, put, ConsumptionKind.Purchases);
-            }
-
-            invested[resource] += put;
-            total += put;
-        }
-
+        double total = InvestSurplus(cost, invested);
         if (total > 0)
         {
             AdvanceProject(buildingIndex, def, project, stage, invested);
@@ -9822,6 +9801,7 @@ public sealed class Simulation
         // technologie se nevrátila, by stála, ale hráč by ji neuměl postavit
         // znovu. Takhle sedí zděděné město na znalostech, které k němu patří.
         LastInheritedTechs = LegacyInheritance.GrantTechs(this, InheritedTechs);
+        RelandAfterReset(); // kolonie: modul a výbava znovu, jinak by nová éra neměla kde bydlet
         LastInheritedBuildings = LegacyInheritance.Restore(this, _inheritedBuildings);
         LastInheritedRoads = LegacyInheritance.RestoreRoads(this, _inheritedRoads);
         LegacyInheritance.RestoreResources(this, _inheritedResources, InheritedResourceShare);

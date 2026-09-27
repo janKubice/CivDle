@@ -35,6 +35,12 @@ public sealed class WorldRecord
     /// <summary>Seed terénu a „náhody" světa.</summary>
     public long Seed { get; }
 
+    /// <summary>Předvolba terénu (ID) — bez ní se snímek nedá načíst, terén se neukládá.</summary>
+    public string PresetId { get; set; } = string.Empty;
+
+    /// <summary>Velikost světa (ID) — metadata snímku, jako u savu.</summary>
+    public string SizeId { get; set; } = string.Empty;
+
     /// <summary>Kdy byla kolonie založena (galaktické sekundy).</summary>
     public double FoundedAtSeconds { get; set; }
 

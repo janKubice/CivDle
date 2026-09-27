@@ -40,6 +40,8 @@ public static class GalaxyCodec
         {
             writer.Write(record.WorldId);
             writer.Write(record.Seed);
+            writer.Write(record.PresetId);
+            writer.Write(record.SizeId);
             writer.Write(record.FoundedAtSeconds);
             writer.Write(record.LeftAtSeconds);
             writer.Write(record.LandingX);
@@ -107,6 +109,8 @@ public static class GalaxyCodec
         {
             var record = new WorldRecord(reader.ReadString(), reader.ReadInt64())
             {
+                PresetId = reader.ReadString(),
+                SizeId = reader.ReadString(),
                 FoundedAtSeconds = reader.ReadDouble(),
                 LeftAtSeconds = reader.ReadDouble(),
                 LandingX = reader.ReadInt32(),

@@ -150,6 +150,12 @@ public sealed class SaveGameSerializer
     /// </summary>
     private const string SectionScenario = "scenario";
     private const string SectionProjects = "projects";
+
+    /// <summary>
+    /// Místo přistání kolonie. Vlastní sekce: Domovina ji nemá a načte se
+    /// jako svět, který nepřistával — přesně to, čím je.
+    /// </summary>
+    private const string SectionLanding = "landing";
     private const string SectionDistrictStyles = "districtStyles";
 
     /// <summary>
@@ -549,6 +555,15 @@ public sealed class SaveGameSerializer
         // Až po budovách: vklad patří staveništi, které už musí stát.
         WriteSection(writer, SectionProjects, w => WriteProjects(w, simulation));
         WriteSection(writer, SectionDistrictStyles, w => WriteDistrictStyles(w, simulation));
+        if (simulation.HasLanded)
+        {
+            WriteSection(writer, SectionLanding, w =>
+            {
+                w.Write(simulation.LandingX);
+                w.Write(simulation.LandingY);
+            });
+        }
+
         if (galaxy is not null)
         {
             WriteSection(writer, SectionGalaxy, w => GalaxyCodec.Write(w, galaxy));
@@ -1177,6 +1192,7 @@ public sealed class SaveGameSerializer
             case SectionPrestige: ReadPrestige(section, content, simulation); break;
             case SectionGrandWork: ReadGrandWork(section, content, simulation); break;
             case SectionLegacy: ReadLegacy(section, content, simulation); break;
+            case SectionLanding: simulation.RestoreLanding(section.ReadInt32(), section.ReadInt32()); break;
             case SectionQuests: ReadQuests(section, content, simulation); break;
             case SectionDiscoveries: ReadDiscoveries(section, simulation); break;
             case SectionPlanted: ReadPlanted(section, content, simulation); break;

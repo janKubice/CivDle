@@ -42,6 +42,20 @@ public sealed class GalaxyContent
     public WorldCatalog Catalog => Home.Galaxy;
 
     /// <summary>
+    /// Předá už hotový obsah světa (testy, nástroje) — pak se ze složky dat
+    /// nenačítá. Svět musí být v katalogu galaxie.
+    /// </summary>
+    public void Preload(GameContent world)
+    {
+        if (Catalog.Find(world.World.Id) is null)
+        {
+            throw new ArgumentException($"Svět '{world.World.Id}' není v galaxii.", nameof(world));
+        }
+
+        _worlds[world.World.Id] = world;
+    }
+
+    /// <summary>
     /// Obsah světa; poprvé se načte ze složky dat.
     /// </summary>
     /// <exception cref="ContentLoadException">Data světa jsou chybná.</exception>

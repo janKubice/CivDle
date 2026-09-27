@@ -263,12 +263,18 @@ public sealed class GameContent
     public GameContent WithWorld(WorldProfile world) => Clone(world: world);
 
     /// <summary>
+    /// Kopie obsahu s jiným katalogem světů galaxie. Pro testy a nástroje —
+    /// hra katalog čte z <c>data/worlds.json</c>.
+    /// </summary>
+    public GameContent WithGalaxy(WorldCatalog galaxy) => Clone(galaxy: galaxy);
+
+    /// <summary>
     /// Mělká kopie s vyměněnými částmi. Jediné místo, které vyjmenovává celý
     /// konstruktor — nová část obsahu se tak nemůže při kopii tiše ztratit.
     /// </summary>
     private GameContent Clone(
         GameplayConfig? gameplay = null, FrontierConfig? frontier = null, NetworkCatalog? networks = null,
-        WorldProfile? world = null) => new(
+        WorldProfile? world = null, WorldCatalog? galaxy = null) => new(
         Biomes, Resources, Buildings, Techs, Prestige, PrestigeUpgrades, Quests, QuestsDynamic,
         Achievements, Events, Eras, WorldGen, gameplay ?? Gameplay, Languages, SettlementNames, Decorations,
         Fauna, Devlog, ZoneTypes, Policies, AscensionTiers, Weather, Landmarks, Features, Ufo,
@@ -276,7 +282,7 @@ public sealed class GameContent
     {
         Networks = networks ?? Networks,
         World = world ?? World,
-        Galaxy = Galaxy,
+        Galaxy = galaxy ?? Galaxy,
     };
 
     /// <summary>
