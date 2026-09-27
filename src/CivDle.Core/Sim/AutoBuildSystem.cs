@@ -1739,9 +1739,10 @@ internal sealed class AutoBuildSystem
             }
 
             // Háj bez vody neurodí: budova s tvrdým prahem sítě jen tam, kam síť teče.
-            // Dům bez kůlů nepatří na přílivovou mělčinu — půl dne by stál ve vodě.
+            // Dům bez kůlů nepatří na přílivovou mělčinu — půl dne by stál ve vodě —
+            // a nic kromě hráze na okraj kráteru.
             if (!GovernorSites.NetworkAllows(sim, _content.Buildings[defIndex], x, y)
-                || !GovernorSites.TideAllows(sim, _content.Buildings[defIndex], x, y))
+                || !GovernorSites.HazardsAllow(sim, _content.Buildings[defIndex], x, y))
             {
                 continue;
             }

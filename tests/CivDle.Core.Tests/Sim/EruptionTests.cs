@@ -17,6 +17,7 @@ public class EruptionTests
     private const int Hut = 0;
     private const int Wall = 1;
     private const int Channel = 2;
+    private const int Quench = 3;
 
     private const int Water = 0;
     private const int Land = 1;
@@ -83,6 +84,21 @@ public class EruptionTests
     }
 
     [Fact]
+    public void LavaThatMissesTheCityDoesNotCountAsWeathered()
+    {
+        // ★★ Výhně je „erupce bez zalité budovy" — láva, která teče na druhou
+        // stranu, pravidlo nezvládla, jen ho minula.
+        var sim = World();
+        Place(sim, Hut, 8, 12);
+
+        Run(sim, seconds: 32);
+
+        Assert.True(sim.LavaLandTiles > 20, "láva tekla");
+        Assert.Equal(0, sim.HazardsWeathered);
+        Assert.Equal(0, sim.CalmHazards);
+    }
+
+    [Fact]
     public void AChannelLeadsTheLavaAwayAndItStopsAtTheEnd()
     {
         var sim = World();
@@ -117,6 +133,34 @@ public class EruptionTests
     }
 
     [Fact]
+    public void TheGovernorKeepsHousesOffTheCraterLip()
+    {
+        // Mezi průduch a budovu na okraji kráteru se hráz nevejde — takový dům
+        // by nic neochránilo. Guvernér staví dál; hráz smí i ke kráteru.
+        var sim = World(governor: true, houses: true);
+        Place(sim, Hut, 4, 4);
+
+        Run(sim, seconds: 60);
+
+        var huts = sim.Buildings.ToArray().Where(b => b.DefIndex == Hut).ToList();
+        Assert.True(huts.Count >= 5, $"guvernér postavil jen {huts.Count} domů");
+        Assert.DoesNotContain(huts, b => Math.Abs(b.X) <= 3 && Math.Abs(b.Y) <= 3);
+    }
+
+    [Fact]
+    public void AQuenchTowerKeepsTheLavaOffItsNeighbours()
+    {
+        var sim = World();
+        Place(sim, Quench, 9, 3);
+        int hut = Place(sim, Hut, 8, 0);
+
+        Run(sim, seconds: 32);
+
+        Assert.Equal(0, sim.Buildings[hut].DisabledTicks);
+        Assert.Equal(Crust, sim.BiomeAt(7, 0)); // láva tekla kolem, jen nic nezalila
+    }
+
+    [Fact]
     public void NewLandAndScorchedBuildingsSurviveASave()
     {
         var sim = World();
@@ -145,7 +189,7 @@ public class EruptionTests
         public float ElevationAt(int x, int y) => 0.8f - 0.01f * Math.Clamp(x, -10, 40) + 0.005f * Math.Abs(y);
     }
 
-    private static Simulation World(bool governor = false)
+    private static Simulation World(bool governor = false, bool houses = false)
     {
         var biomes = new[]
         {
@@ -154,20 +198,25 @@ public class EruptionTests
         var resources = new[] { new Resource("food", new RgbColor(200, 180, 60), 0, BaseStorage: 1_000) };
         var ground = new[] { false, true, false, true };
 
-        BuildingDef Def(string id, LavaRole role = LavaRole.None) => new(
+        BuildingDef Def(string id, LavaRole role = LavaRole.None, Shelter[]? shelters = null) => new(
             id, "test", new RgbColor(1, 1, 1), 1, 1,
             WorkerSlots: 0, HousingCapacity: role == LavaRole.None ? 2 : 0, BuildCost: Array.Empty<ResourceAmount>(),
             Recipe: null, AllowedBiomes: ground, StorageBonus: Array.Empty<ResourceAmount>(),
-            AutoBuild: false, Buildable: true, UpgradesToIndex: -1,
-            UpgradeCost: Array.Empty<ResourceAmount>(), PowerSupply: 0, PowerDemand: 0, LavaRole: role);
+            AutoBuild: houses && role == LavaRole.None && shelters is null, Buildable: true, UpgradesToIndex: -1,
+            UpgradeCost: Array.Empty<ResourceAmount>(), PowerSupply: 0, PowerDemand: 0, SheltersOrNull: shelters, LavaRole: role);
 
-        var buildings = new[] { Def("hut"), Def("lava_wall", LavaRole.Wall), Def("lava_channel", LavaRole.Channel) };
+        var buildings = new[]
+        {
+            Def("hut"), Def("lava_wall", LavaRole.Wall), Def("lava_channel", LavaRole.Channel),
+            Def("quench_tower", LavaRole.Wall, new[] { new Shelter(0, 4) }),
+        };
 
         var gameplay = TestContent.DefaultGameplay with { FoodPerPersonPerSecond = 0, PopulationGrowthPerSecond = 0 };
         if (governor)
         {
             gameplay = gameplay with
             {
+                StartingPopulation = houses ? 60 : gameplay.StartingPopulation,
                 AutoBuild = new AutoBuildConfig(IntervalTicks: 5, SearchRadius: 6, PopulationHeadroom: 2),
                 GovernorOrNull = new GovernorConfig(
                     true, StorageGoalConfig.Off, SupplyGoalConfig.Off, SupplyGoalConfig.Off,

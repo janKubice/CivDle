@@ -74,6 +74,9 @@ internal sealed class HazardSystem
     // Ochrany kolem budovy (x, y, r²) — plní se jednou za sekundu bouře.
     private readonly List<(int X, int Y, int RadiusSquared)> _shelters = new();
 
+    // Ochrany před lávou (chladicí věž) — sbírají se každou sekundu erupce.
+    private readonly List<(int X, int Y, int RadiusSquared)> _lavaShelters = new();
+
     // Ochrany před přílivem (chrám přílivu) — drží se mezi koly, čte je i render.
     private readonly List<(int X, int Y, int RadiusSquared)> _tideShelters = new();
 
@@ -84,6 +87,7 @@ internal sealed class HazardSystem
     private readonly List<long> _predicted = new();
     private long _predictedLayout = long.MinValue;
     private int _predictedTerrain = int.MinValue;
+    private (int X, int Y) _predictedCenter = (int.MinValue, int.MinValue);
     private long _predictedTick = -1_000_000; // „dávno" — bez přetečení při odečtu
 
     /// <summary>Poslední ztuhlá láva (jen vzhled: kůra chvíli dohasíná).</summary>
@@ -125,7 +129,10 @@ internal sealed class HazardSystem
     /// <summary>Kolik jevů přešlo, aniž by něco zasypaly (a město už stálo).</summary>
     public int Calm { get; private set; }
 
-    /// <summary>Kolik jevů přešlo přes stojící město.</summary>
+    /// <summary>
+    /// Kolik jevů přešlo přes stojící město. Erupce jen ty, jejichž láva
+    /// k městu dotekla (<see cref="ThreatensCity"/>).
+    /// </summary>
     public int Weathered { get; private set; }
 
     /// <summary>Stav jednoho jevu pro save.</summary>
@@ -215,6 +222,10 @@ internal sealed class HazardSystem
         int front = Math.Min(path.Count - 1, (int)Math.Ceiling(progress * (path.Count - 1)));
         int reached = (int)state.Radius;
         int lavaTicks = (int)Math.Ceiling(rule.LavaSeconds * Simulation.TicksPerSecond / sim.Bonuses.HazardResistance);
+
+        // Chladicí věž a Kovadlina světa: v jejich okruhu láva budovy
+        // nezalije (mlha a kanály ji zchladí dřív).
+        CollectShelters(sim.BuildingsMutable, hazard, _lavaShelters);
         for (int i = reached + 1; i <= front; i++)
         {
             Scorch(sim, path[i], lavaTicks, state);
@@ -230,18 +241,49 @@ internal sealed class HazardSystem
         state.WarnedStorm = eruption;
         state.Buried = 0;
         state.Radius = 0;
-        state.CityStood = sim.Buildings.Length >= rule.MinBuildings;
+        state.CityStood = false;
         path.Clear();
         if (FindVent(sim, rule, out int ventX, out int ventY))
         {
             state.CenterX = ventX;
             state.CenterY = ventY;
             TracePath(sim, rule, ventX, ventY, path);
+            state.CityStood = sim.Buildings.Length >= rule.MinBuildings && ThreatensCity(sim, path);
         }
         else
         {
             state.Radius = -1; // v dosahu města žádný průduch — tahle erupce ho mine
         }
+    }
+
+    /// <summary>Jak blízko budovy musí láva dotéct, aby erupce „šla na město".</summary>
+    private const int ThreatTiles = 2;
+
+    /// <summary>
+    /// Erupce jde na město, když láva doteče k budově (i k hrázi, která ji
+    /// zastavila). Jen taková se počítá do statistik a hvězd: láva, která
+    /// teče z kopce na druhou stranu, není zvládnuté pravidlo světa.
+    /// Jednou za erupci, ne za tik.
+    /// </summary>
+    private static bool ThreatensCity(Simulation sim, List<long> path)
+    {
+        for (int i = 1; i < path.Count; i++)
+        {
+            int x = TileKey.X(path[i]);
+            int y = TileKey.Y(path[i]);
+            for (int dy = -ThreatTiles; dy <= ThreatTiles; dy++)
+            {
+                for (int dx = -ThreatTiles; dx <= ThreatTiles; dx++)
+                {
+                    if (sim.TryGetBuildingAt(x + dx, y + dy, out _))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Láva dotekla na dlaždici: budova na ní (kromě hráze a kanálu) vypadne.</summary>
@@ -253,9 +295,10 @@ internal sealed class HazardSystem
         }
 
         ref var building = ref sim.BuildingsMutable[index];
-        if (!building.IsComplete || _content.Buildings[building.DefIndex].LavaRole != LavaRole.None)
+        if (!building.IsComplete || _content.Buildings[building.DefIndex].LavaRole != LavaRole.None
+            || IsIn(_lavaShelters, building.X, building.Y))
         {
-            return; // staveniště láva jen zalije; hráz a kanál jsou na ni stavěné
+            return; // staveniště láva jen zalije; hráz a kanál jsou na ni stavěné; v závětří chladicí věže nic
         }
 
         if (building.DisabledTicks <= 0 || building.DisabledCause != DisableCause.Lava)
@@ -327,96 +370,42 @@ internal sealed class HazardSystem
         return best != long.MaxValue;
     }
 
-    /// <summary>
-    /// Dráha lávy z průduchu: vždy na nejnižšího souseda, kde ještě nebyla.
-    /// Hrází neprojde, do kanálu steče (je „hlubší" než cokoli kolem), korytem
-    /// teče dál, i kdyby mírně stoupalo, a na jeho konci se zastaví. Jinak do
-    /// kopce jen o <see cref="EruptionRule.SpreadTolerance"/>; u moře ztuhne
-    /// v novou zem a dál neteče.
-    /// </summary>
-    internal static void TracePath(Simulation sim, EruptionRule rule, int ventX, int ventY, List<long> path)
+    /// <summary>Dráha lávy z průduchu přes zástavbu, jak je teď (viz <see cref="LavaFlow.Trace"/>).</summary>
+    internal static void TracePath(Simulation sim, EruptionRule rule, int ventX, int ventY, List<long> path) =>
+        LavaFlow.Trace(new CityLavaGround(sim, rule), rule.FlowLength, ventX, ventY, path);
+
+    /// <summary>Povrch se zástavbou: hráz = zeď, kanál = koryto, ztuhlá láva o kus výš.</summary>
+    private readonly struct CityLavaGround : ILavaGround
     {
-        path.Clear();
-        int x = ventX;
-        int y = ventY;
-        path.Add(TileKey.Pack(x, y));
-        double here = sim.ElevationAt(x, y);
-        bool inChannel = false;
-        for (int step = 0; step < rule.FlowLength; step++)
+        private readonly Simulation _sim;
+        private readonly int _crust;
+
+        public CityLavaGround(Simulation sim, EruptionRule rule)
         {
-            double best = double.MaxValue;
-            int bestX = 0;
-            int bestY = 0;
-            for (int dy = -1; dy <= 1; dy++)
+            _sim = sim;
+            _crust = rule.CrustBiomeIndex;
+        }
+
+        public double FlowHeight(int x, int y)
+        {
+            if (_sim.TryGetBuildingAt(x, y, out int index))
             {
-                for (int dx = -1; dx <= 1; dx++)
+                var role = _sim.Content.Buildings[_sim.Buildings[index].DefIndex].LavaRole;
+                if (role == LavaRole.Wall)
                 {
-                    if (dx == 0 && dy == 0)
-                    {
-                        continue;
-                    }
+                    return LavaFlow.Wall;
+                }
 
-                    int nx = x + dx;
-                    int ny = y + dy;
-                    long key = TileKey.Pack(nx, ny);
-                    if (path.Contains(key))
-                    {
-                        continue;
-                    }
-
-                    double height = FlowHeight(sim, rule, nx, ny);
-                    if (height < best)
-                    {
-                        best = height;
-                        bestX = nx;
-                        bestY = ny;
-                    }
+                if (role == LavaRole.Channel)
+                {
+                    return _sim.ElevationAt(x, y) - 1.0;
                 }
             }
 
-            bool intoChannel = best < ChannelFloor;
-            if (best == double.MaxValue || (best > here + EruptionRule.SpreadTolerance && !(inChannel && intoChannel)))
-            {
-                break; // zahrazeno, nebo prohlubeň, ze které láva nevyteče
-            }
-
-            x = bestX;
-            y = bestY;
-            here = best;
-            inChannel = intoChannel;
-            path.Add(TileKey.Pack(x, y));
-            if (sim.IsWaterAt(x, y))
-            {
-                break; // láva se potkala s mořem: pára, nová zem, konec
-            }
-        }
-    }
-
-    /// <summary>
-    /// Terén má výšku 0–1 a kanál je o celou výšku hlouběji — koryto je
-    /// tedy všechno pod nulou.
-    /// </summary>
-    private const double ChannelFloor = 0.0;
-
-    /// <summary>Jak „nízko" je dlaždice pro lávu: hráz = zeď, kanál = koryto, ztuhlá láva o kus výš.</summary>
-    private static double FlowHeight(Simulation sim, EruptionRule rule, int x, int y)
-    {
-        if (sim.TryGetBuildingAt(x, y, out int index))
-        {
-            var role = sim.Content.Buildings[sim.Buildings[index].DefIndex].LavaRole;
-            if (role == LavaRole.Wall)
-            {
-                return double.MaxValue;
-            }
-
-            if (role == LavaRole.Channel)
-            {
-                return sim.ElevationAt(x, y) - 1.0;
-            }
+            return LavaFlow.TerrainHeight(_sim.ElevationAt(x, y), _sim.BiomeAt(x, y) == _crust);
         }
 
-        double height = sim.ElevationAt(x, y);
-        return sim.BiomeAt(x, y) == rule.CrustBiomeIndex ? height + EruptionRule.CrustRise : height;
+        public bool IsWater(int x, int y) => _sim.IsWaterAt(x, y);
     }
 
     /// <summary>
@@ -435,11 +424,15 @@ internal sealed class HazardSystem
 
         // Revize budov (ne rozložení): hráz staveniště drží lávu už rozestavěná
         // a předpověď ji musí vidět hned — jinak by guvernér stavěl hráz za hrází.
-        bool stale = sim.BuildingRevision != _predictedLayout || sim.TerrainRevision != _predictedTerrain;
+        // Střed města rozhoduje, ze kterého průduchu láva poteče.
+        var center = (sim.CityCenterX, sim.CityCenterY);
+        bool stale = sim.BuildingRevision != _predictedLayout || sim.TerrainRevision != _predictedTerrain
+            || center != _predictedCenter;
         if (stale && sim.TickCount - _predictedTick >= Simulation.TicksPerSecond / 2)
         {
             _predictedLayout = sim.BuildingRevision;
             _predictedTerrain = sim.TerrainRevision;
+            _predictedCenter = center;
             _predictedTick = sim.TickCount;
             var rule = _content.Hazards.Hazards[hazard].Eruption!;
             if (FindVent(sim, rule, out int ventX, out int ventY))

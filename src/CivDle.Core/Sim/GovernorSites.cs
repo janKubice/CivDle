@@ -292,8 +292,12 @@ internal sealed class GovernorSites
 
         var result = forMove ? sim.CanMoveBuilding(ignoreBuilding, x, y) : sim.CanPlace(defIndex, x, y);
         return result == PlacementResult.Ok && sim.PlanAt(x, y).AllowsCategory(def.Category) && NetworkAllows(sim, def, x, y)
-            && TideAllows(sim, def, x, y);
+            && HazardsAllow(sim, def, x, y);
     }
+
+    /// <summary>Místo, kam přírodní jevy světa budovu nepustí (příliv, okraj kráteru).</summary>
+    public static bool HazardsAllow(Simulation sim, BuildingDef def, int x, int y) =>
+        TideAllows(sim, def, x, y) && LavaAllows(sim, def, x, y);
 
     /// <summary>
     /// Budova bez kůlů nepatří na přílivovou mělčinu — půl dne by stála pod
@@ -311,6 +315,39 @@ internal sealed class GovernorSites
             for (int dx = 0; dx < def.FootprintWidth; dx++)
             {
                 if (sim.TideHeightAt(x + dx, y + dy) < 1.0)
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Jak daleko od průduchu guvernér nestaví (okraj kráteru).</summary>
+    private const int VentClearance = 3;
+
+    /// <summary>
+    /// Na okraj kráteru guvernér nestaví: láva z průduchu teče hned první
+    /// dlaždicí a mezi průduch a budovu se hráz nevejde — takovou budovu nic
+    /// neochrání. Dál od průduchu staví i do dráhy lávy; tam ji zahradí
+    /// (<see cref="LavaGoal"/>). Hráz, kanál a magmatický reaktor ke kráteru
+    /// patří. Hráč stavět smí všude.
+    /// </summary>
+    public static bool LavaAllows(Simulation sim, BuildingDef def, int x, int y)
+    {
+        var hazards = sim.Content.Hazards;
+        if (hazards.EruptionIndex < 0 || def.LavaRole != LavaRole.None)
+        {
+            return true;
+        }
+
+        int vent = hazards.Hazards[hazards.EruptionIndex].Eruption!.VentBiomeIndex;
+        for (int dy = -VentClearance; dy < def.FootprintHeight + VentClearance; dy++)
+        {
+            for (int dx = -VentClearance; dx < def.FootprintWidth + VentClearance; dx++)
+            {
+                if (sim.BiomeAt(x + dx, y + dy) == vent)
                 {
                     return false;
                 }

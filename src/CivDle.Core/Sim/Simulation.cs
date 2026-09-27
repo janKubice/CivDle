@@ -5218,7 +5218,7 @@ public sealed partial class Simulation
     /// <summary>Co se právě děje s přírodním jevem (pro render a HUD).</summary>
     public HazardView CurrentHazard => _hazards.View(TickCount);
 
-    /// <summary>Kolik bouří přešlo přes stojící město.</summary>
+    /// <summary>Kolik bouří přešlo přes stojící město (erupcí, které k městu dotekly).</summary>
     public int HazardsWeathered => _hazards.Weathered;
 
     /// <summary>Kolik z nich nic nezasypalo.</summary>

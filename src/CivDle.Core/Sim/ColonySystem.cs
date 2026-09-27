@@ -122,7 +122,7 @@ internal sealed class ColonySystem
                     }
 
                     if (sim.CanPlace(defIndex, x, y) == PlacementResult.Ok
-                        && GovernorSites.TideAllows(sim, sim.Content.Buildings[defIndex], x, y)
+                        && GovernorSites.HazardsAllow(sim, sim.Content.Buildings[defIndex], x, y)
                         && sim.TryPlaceBuilding(defIndex, x, y) == PlacementResult.Ok)
                     {
                         sim.EnqueueColonyFounded();
