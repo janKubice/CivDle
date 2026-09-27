@@ -84,6 +84,9 @@ public sealed partial class Simulation
     /// <summary>Má obsah zdroj, který dodává jen ve dne nebo jen v noci? (Jinak se schod dne nehlídá.)</summary>
     private readonly bool _hasTimedSupply;
 
+    /// <summary>Má obsah přístaviště trajektu? (Jinak se jejich seznam ani nesbírá.)</summary>
+    private readonly bool _hasFerryDocks;
+
     /// <summary>Schod dne, se kterým se síť naposledy počítala (<see cref="SupplyCurve.Phase"/>).</summary>
     private int _supplyPhase = int.MinValue;
 
@@ -205,6 +208,7 @@ public sealed partial class Simulation
         _cachedTerrain = new CachedTerrain(terrain, _biomeOverrides);
         Seed = seed;
         _hasTimedSupply = NetworkSystem.HasTimedSupply(content);
+        _hasFerryDocks = content.Buildings.All.Any(b => b.IsFerryDock);
         _biomeAtForNetworks = BiomeAt;
 
         // Budova je odemčená od startu, pokud ji žádná technologie nehlídá.
@@ -4364,6 +4368,7 @@ public sealed partial class Simulation
         }
 
         _roadLinksDirty = false;
+        CollectFerryDocks();
 
         // Podle POČTU budov, ne jen podle kapacity pole — occupancy umí vrátit
         // index kterékoli žijící budovy a ten musí do cache vždycky padnout.
@@ -4653,7 +4658,48 @@ public sealed partial class Simulation
             }
         }
 
+        return IsServedByFerry(building.X, building.Y);
+    }
+
+    /// <summary>Hotová přístaviště trajektu (x, y, dosah²) — plní se s přepočtem napojení.</summary>
+    private readonly List<(int X, int Y, int ReachSquared)> _ferryDocks = new();
+
+    /// <summary>
+    /// Obslouží budovu trajekt? Na Souostroví silnice přes vodu nevede —
+    /// ostrov s přístavištěm odváží zboží loď (svety-design.md 4.3).
+    /// </summary>
+    private bool IsServedByFerry(int x, int y)
+    {
+        foreach (var (dockX, dockY, reachSquared) in _ferryDocks)
+        {
+            int dx = x - dockX;
+            int dy = y - dockY;
+            if (dx * dx + dy * dy <= reachSquared)
+            {
+                return true;
+            }
+        }
+
         return false;
+    }
+
+    /// <summary>Znovu posbírá hotová přístaviště (jen na světě, který je má).</summary>
+    private void CollectFerryDocks()
+    {
+        _ferryDocks.Clear();
+        if (!_hasFerryDocks)
+        {
+            return;
+        }
+
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            var def = _content.Buildings[_buildings[i].DefIndex];
+            if (def.IsFerryDock && _buildings[i].IsComplete)
+            {
+                _ferryDocks.Add((_buildings[i].X, _buildings[i].Y, def.FerryReach * def.FerryReach));
+            }
+        }
     }
 
     /// <summary>
@@ -5177,6 +5223,47 @@ public sealed partial class Simulation
 
     /// <summary>Kolik z nich nic nezasypalo.</summary>
     public int CalmHazards => _hazards.Calm;
+
+    /// <summary>Má svět příliv (Souostroví)?</summary>
+    public bool HasTides => _hazards.Tide is not null;
+
+    /// <summary>Index přílivu v katalogu jevů (jméno a hlášky); −1 = svět příliv nemá.</summary>
+    public int TideHazardIndex => _hazards.TideIndex;
+
+    /// <summary>Hladina přílivu 0 (odliv) – 1 (nejvyšší příliv); 0 na světě bez přílivu.</summary>
+    public double TideLevel => _hazards.Tide is { } tide ? tide.LevelAt(TickCount / TicksPerSecond) : 0;
+
+    /// <summary>Stoupá teď hladina?</summary>
+    public bool TideRising => _hazards.Tide is { } tide && tide.IsRising(TickCount / TicksPerSecond);
+
+    /// <summary>
+    /// Výška přílivové mělčiny 0–1 (0 = zaplaví první, 1 = jen nejvyšší příliv);
+    /// mimo mělčinu 1. Počítá se z výšky terénu, která je čistá funkce souřadnic —
+    /// proto se pamatuje, render se na ni ptá každý snímek.
+    /// </summary>
+    public double TideHeightAt(int x, int y)
+    {
+        if (_hazards.Tide is not { } tide || BiomeAt(x, y) != tide.FloodBiomeIndex)
+        {
+            return 1.0;
+        }
+
+        long key = TileKey.Pack(x, y);
+        if (!_tideHeights.TryGetValue(key, out float height))
+        {
+            height = (float)tide.HeightOf(_cachedTerrain.ElevationAt(x, y), _hazards.SeaLevel);
+            _tideHeights[key] = height;
+        }
+
+        return height;
+    }
+
+    /// <summary>Je dlaždice teď pod přílivem (render, UI)?</summary>
+    public bool IsFloodedAt(int x, int y) =>
+        _hazards.Tide is { } tide && _hazards.IsFlooded(this, tide, x, y, TideLevel);
+
+    /// <summary>Paměť výšek přílivových mělčin (jen dlaždice, na které se někdo ptal).</summary>
+    private readonly Dictionary<long, float> _tideHeights = new();
 
     /// <summary>
     /// Kolik polárních nocí město přečkalo bez jediné zamrzlé budovy (★★ Mrazu).
@@ -9438,6 +9525,11 @@ public sealed partial class Simulation
     /// <summary>Globální bonusy budovy: bydlení, pracovní místa, kapacita skladů (× bonusy Vzestupu).</summary>
     private void ApplyBuildingBonuses(BuildingDef def)
     {
+        if (def.IsFerryDock)
+        {
+            _roadLinksDirty = true; // nové přístaviště napojí celé okolí
+        }
+
         HousingCapacity += def.HousingCapacity * _bonuses.HousingMult;
         TotalWorkerSlots += def.WorkerSlots;
         TotalPowerSupply += def.PowerSupply;
@@ -9497,6 +9589,11 @@ public sealed partial class Simulation
     /// <summary>Odebere globální bonusy budovy (vylepšení nahrazuje starou úroveň novou).</summary>
     private void RemoveBuildingBonuses(BuildingDef def)
     {
+        if (def.IsFerryDock)
+        {
+            _roadLinksDirty = true; // bez přístaviště okolí o napojení přijde
+        }
+
         HousingCapacity -= def.HousingCapacity * _bonuses.HousingMult;
         TotalWorkerSlots -= def.WorkerSlots;
         TotalPowerSupply -= def.PowerSupply;

@@ -56,6 +56,11 @@ public readonly record struct HazardView(
 /// odpočet jako po zásahu v režimu obrany) a lidé ji sami vyhrabou. Nic se
 /// nezboří.</para>
 ///
+/// <para><b>Příliv</b> (Souostroví) je taky funkce času: hladina stoupá
+/// a klesá v cyklu, dlaždice přílivové mělčiny je pod vodou, když hladina
+/// přesáhne její výšku (z výšky terénu). Budova bez kůlů na zaplavené
+/// dlaždici vypadne a s odlivem se sama vrátí; nic se neukládá.</para>
+///
 /// <para>Běží jednou za sekundu, a jen na světě, který jev má. Bez alokací
 /// v tiku — seznam ochran se jen čistí.</para>
 /// </summary>
@@ -68,6 +73,15 @@ internal sealed class HazardSystem
     // Ochrany kolem budovy (x, y, r²) — plní se jednou za sekundu bouře.
     private readonly List<(int X, int Y, int RadiusSquared)> _shelters = new();
 
+    // Ochrany před přílivem (chrám přílivu) — drží se mezi koly, čte je i render.
+    private readonly List<(int X, int Y, int RadiusSquared)> _tideShelters = new();
+
+    /// <summary>Příliv světa; −1 = svět příliv nemá.</summary>
+    private readonly int _tide;
+
+    /// <summary>Hladina moře světa (výška terénu, kde začíná souš).</summary>
+    private readonly double _seaLevel;
+
     public HazardSystem(GameContent content, long seed)
     {
         _content = content;
@@ -77,7 +91,20 @@ internal sealed class HazardSystem
         {
             _states[i] = new BurialState();
         }
+
+        _tide = content.Hazards.TideIndex;
+        int preset = content.World.PresetIndex;
+        _seaLevel = preset >= 0 ? content.WorldGen.Presets[preset].SeaLevel : 0.5;
     }
+
+    /// <summary>Pravidlo přílivu světa; <c>null</c> = svět příliv nemá.</summary>
+    public TideRule? Tide => _tide >= 0 ? _content.Hazards.Hazards[_tide].Tide : null;
+
+    /// <summary>Index přílivu v katalogu jevů; −1 = žádný.</summary>
+    public int TideIndex => _tide;
+
+    /// <summary>Hladina moře světa (pro výšku mělčin).</summary>
+    public double SeaLevel => _seaLevel;
 
     /// <summary>Kolik jevů přešlo, aniž by něco zasypaly (a město už stálo).</summary>
     public int Calm { get; private set; }
@@ -110,8 +137,75 @@ internal sealed class HazardSystem
             {
                 TickBurial(sim, h, rule, now);
             }
+            else if (hazards[h].Tide is { } tide)
+            {
+                TickTide(sim, h, tide, now);
+            }
         }
     }
+
+    // ----- příliv -----
+
+    /// <summary>
+    /// Jednou za sekundu: budovy bez kůlů, pod kterými je teď voda, vypadnou
+    /// do příští kontroly. S odlivem už je nikdo neobnoví a samy se vrátí.
+    /// </summary>
+    private void TickTide(Simulation sim, int hazard, TideRule rule, double now)
+    {
+        double level = rule.LevelAt(now);
+        var buildings = sim.BuildingsMutable;
+        CollectShelters(buildings, hazard, _tideShelters);
+        int floodTicks = (int)Simulation.TicksPerSecond + 2; // přesah přes příští kontrolu
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            ref var building = ref buildings[i];
+            if (!building.IsComplete)
+            {
+                continue;
+            }
+
+            var def = _content.Buildings[building.DefIndex];
+            if (def.Stilted || (building.DisabledTicks > 0 && building.DisabledCause != DisableCause.Flood))
+            {
+                continue; // kůly příliv podteče; zasypanou či poškozenou nechá, čím je
+            }
+
+            if (!IsFootprintFlooded(sim, rule, building.X, building.Y, def, level))
+            {
+                continue;
+            }
+
+            building.DisabledTicks = Math.Max(building.DisabledTicks, floodTicks);
+            building.DisabledCause = DisableCause.Flood;
+            sim.MarkDisabled();
+        }
+    }
+
+    /// <summary>Stojí některá dlaždice budovy pod přílivem?</summary>
+    private bool IsFootprintFlooded(Simulation sim, TideRule rule, int x, int y, BuildingDef def, double level)
+    {
+        for (int dy = 0; dy < def.FootprintHeight; dy++)
+        {
+            for (int dx = 0; dx < def.FootprintWidth; dx++)
+            {
+                if (IsFlooded(sim, rule, x + dx, y + dy, level))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Je dlaždice teď pod přílivem? Jen přílivová mělčina, jen když hladina
+    /// přesáhla její výšku a nechrání ji chrám přílivu.
+    /// </summary>
+    public bool IsFlooded(Simulation sim, TideRule rule, int x, int y, double level) =>
+        sim.BiomeAt(x, y) == rule.FloodBiomeIndex
+        && sim.TideHeightAt(x, y) < level
+        && !IsIn(_tideShelters, x, y);
 
     /// <summary>Co se právě děje (první jev, který varuje nebo běží).</summary>
     public HazardView View(long tickCount)
@@ -249,7 +343,7 @@ internal sealed class HazardSystem
         double half = rule.BandTiles / 2.0;
 
         var buildings = sim.BuildingsMutable;
-        CollectShelters(buildings, hazard);
+        CollectShelters(buildings, hazard, _shelters);
         // Odolnost ze Vzestupu (pevné větrolamy) zkrátí, jak dlouho budova leží.
         int buryTicks = (int)Math.Ceiling(rule.BurySeconds * Simulation.TicksPerSecond / sim.Bonuses.HazardResistance);
         for (int i = 0; i < buildings.Length; i++)
@@ -264,9 +358,10 @@ internal sealed class HazardSystem
             double centerX = building.X + def.FootprintWidth / 2.0;
             double centerY = building.Y + def.FootprintHeight / 2.0;
             double along = (centerX - state.CenterX) * moveX + (centerY - state.CenterY) * moveY;
-            if (Math.Abs(along - band) > half || IsSheltered(building.X, building.Y))
+            if (Math.Abs(along - band) > half || IsIn(_shelters, building.X, building.Y)
+                || (rule.CoastTiles > 0 && !IsNearWater(sim, building.X, building.Y, def, rule.CoastTiles)))
             {
-                continue;
+                continue; // mimo pás, v závětří — nebo příboj a budova je daleko od vody
             }
 
             building.DisabledTicks = Math.Max(building.DisabledTicks, buryTicks);
@@ -276,9 +371,9 @@ internal sealed class HazardSystem
         }
     }
 
-    private void CollectShelters(ReadOnlySpan<BuildingInstance> buildings, int hazard)
+    private void CollectShelters(ReadOnlySpan<BuildingInstance> buildings, int hazard, List<(int X, int Y, int RadiusSquared)> shelters)
     {
-        _shelters.Clear();
+        shelters.Clear();
         for (int i = 0; i < buildings.Length; i++)
         {
             if (!buildings[i].IsComplete)
@@ -289,20 +384,37 @@ internal sealed class HazardSystem
             int radius = _content.Buildings[buildings[i].DefIndex].ShelterRadius(hazard);
             if (radius > 0)
             {
-                _shelters.Add((buildings[i].X, buildings[i].Y, radius * radius));
+                shelters.Add((buildings[i].X, buildings[i].Y, radius * radius));
             }
         }
     }
 
-    private bool IsSheltered(int x, int y)
+    private static bool IsIn(List<(int X, int Y, int RadiusSquared)> shelters, int x, int y)
     {
-        foreach (var (shelterX, shelterY, radiusSquared) in _shelters)
+        foreach (var (shelterX, shelterY, radiusSquared) in shelters)
         {
             int dx = x - shelterX;
             int dy = y - shelterY;
             if (dx * dx + dy * dy <= radiusSquared)
             {
                 return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Má budova do <paramref name="reach"/> dlaždic vodu (příboj bije jen pobřeží)?</summary>
+    private static bool IsNearWater(Simulation sim, int x, int y, BuildingDef def, int reach)
+    {
+        for (int ty = y - reach; ty < y + def.FootprintHeight + reach; ty++)
+        {
+            for (int tx = x - reach; tx < x + def.FootprintWidth + reach; tx++)
+            {
+                if (sim.IsWaterAt(tx, ty))
+                {
+                    return true;
+                }
             }
         }
 

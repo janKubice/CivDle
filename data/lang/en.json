@@ -1928,6 +1928,7 @@
     "resource.sand": "Sand",
     "resource.spice": "Spice",
     "stall.buried": "Buried by sand. People will dig it out by themselves — next time a sand fence nearby will protect it.",
+    "stall.flooded": "It stands on a tidal flat without stilts and the tide has flooded it. It comes back on its own at ebb — build on stilts on the flats.",
     "styles.title": "District styles",
     "styles.desc": "How districts look up close and from above. Looks only — no effect on play. More styles unlock through challenges and Great Goals.",
     "styles.row": "{0}: {1}",

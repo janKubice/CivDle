@@ -103,7 +103,7 @@ public sealed class ContentLoader
         var policies = LoadPolicies(Path.Combine(dataDirectory, "policies.json"));
         var tiers = LoadAscensionTiers(Path.Combine(dataDirectory, "ascension-tiers.json"), buildings);
         var weather = LoadWeather(Path.Combine(dataDirectory, "weather.json"), biomes);
-        var hazards = LoadHazards(hazardsPath, hazardsFile, weather);
+        var hazards = LoadHazards(hazardsPath, hazardsFile, weather, biomes);
         var landmarks = LoadLandmarks(Path.Combine(dataDirectory, "landmarks.json"), biomes, resources);
         var features = LoadFeatures(Path.Combine(dataDirectory, "features.json"), resources, buildings, techs);
         var ufo = LoadUfo(Path.Combine(dataDirectory, "ufo.json"));
@@ -4003,7 +4003,20 @@ public sealed class ContentLoader
             ParseNetworks(path, id, dto.Networks),
             ParseSupplyTime(path, id, dto.SupplyTime),
             ParseShelters(path, id, dto.Shelter),
-            ReadTradeCapacity(path, id, dto.TradeCapacity));
+            ReadTradeCapacity(path, id, dto.TradeCapacity),
+            dto.Stilted,
+            ReadFerryReach(path, id, dto.FerryReach));
+    }
+
+    /// <summary>Dosah přístaviště trajektu: 0 = není přístaviště, nejvýš 24 dlaždic.</summary>
+    private static int ReadFerryReach(string path, string id, int reach)
+    {
+        if (reach is < 0 or > 24)
+        {
+            throw new ContentLoadException(path, $"Budova '{id}': 'ferryReach' musí být 0–24, je {reach}.");
+        }
+
+        return reach;
     }
 
     /// <summary>Kapacita přístavu (jednotek za sekundu): 0 = není přístav, nejvýš milion.</summary>
@@ -4061,7 +4074,7 @@ public sealed class ContentLoader
     /// jevy mají; Domovina žádné. Rozvrh musí dávat smysl: bouře kratší než
     /// rozestup, varování před ní, zasypání na rozumnou dobu.
     /// </summary>
-    private static HazardCatalog LoadHazards(string path, HazardsFileDto? file, DefRegistry<WeatherDef> weather)
+    private static HazardCatalog LoadHazards(string path, HazardsFileDto? file, DefRegistry<WeatherDef> weather, BiomeRegistry biomes)
     {
         if (file is null)
         {
@@ -4083,8 +4096,20 @@ public sealed class ContentLoader
             var behavior = dto.Behavior?.Trim() switch
             {
                 "weather_burial" => HazardBehavior.WeatherBurial,
-                _ => throw new ContentLoadException(path, $"{owner}: neznámé chování '{dto.Behavior}' (známé: weather_burial)."),
+                "tides" => HazardBehavior.Tides,
+                _ => throw new ContentLoadException(path, $"{owner}: neznámé chování '{dto.Behavior}' (známé: weather_burial, tides)."),
             };
+
+            if (behavior == HazardBehavior.Tides)
+            {
+                result.Add(new HazardDef(id, behavior, null, ParseTide(path, owner, dto, biomes)));
+                continue;
+            }
+
+            if (dto.CoastTiles is < 0 or > 8)
+            {
+                throw new ContentLoadException(path, $"{owner}: 'coastTiles' musí být 0–8, je {dto.CoastTiles}.");
+            }
 
             if (dto.IntervalSeconds < 60 || dto.FirstAfterSeconds < 0)
             {
@@ -4116,10 +4141,45 @@ public sealed class ContentLoader
 
             result.Add(new HazardDef(id, behavior, new BurialRule(
                 dto.FirstAfterSeconds, dto.IntervalSeconds, dto.IntervalJitter, dto.WarningSeconds, dto.SweepSeconds,
-                dto.BandTiles, dto.BurySeconds, weatherIndex, dto.SolarDim, dto.MinBuildings)));
+                dto.BandTiles, dto.BurySeconds, weatherIndex, dto.SolarDim, dto.MinBuildings, dto.CoastTiles,
+                dto.MoundColor is null ? null : ParseColor(path, dto.MoundColor, $"{owner} ('moundColor')"))));
+        }
+
+        if (result.Count(h => h.Behavior == HazardBehavior.Tides) > 1)
+        {
+            throw new ContentLoadException(path, "Svět smí mít nejvýš jeden příliv (hladina moře je jedna).");
         }
 
         return new HazardCatalog(result);
+    }
+
+    /// <summary>
+    /// Příliv: perioda 60–7 200 s, zaplavovaný biom je souš (voda už pod vodou
+    /// je) a rozsah výšek vůči hladině moře je rostoucí dvojice v ±0,3.
+    /// </summary>
+    private static TideRule ParseTide(string path, string owner, HazardDto dto, BiomeRegistry biomes)
+    {
+        if (dto.PeriodSeconds is < 60 or > 7200)
+        {
+            throw new ContentLoadException(path, $"{owner}: 'periodSeconds' musí být 60–7 200, je {dto.PeriodSeconds}.");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.FloodBiome) || !biomes.TryIndexOf(dto.FloodBiome.Trim(), out int biome))
+        {
+            throw new ContentLoadException(path, $"{owner}: 'floodBiome' '{dto.FloodBiome}' neexistuje.");
+        }
+
+        if (biomes[biome].IsWater)
+        {
+            throw new ContentLoadException(path, $"{owner}: 'floodBiome' '{dto.FloodBiome}' je voda — příliv zaplavuje souš.");
+        }
+
+        if (dto.FloodRange is not { Count: 2 } range || range[0] >= range[1] || range[0] < -0.3 || range[1] > 0.3)
+        {
+            throw new ContentLoadException(path, $"{owner}: 'floodRange' musí být [nízko, vysoko] vůči hladině moře v rozmezí ±0,3.");
+        }
+
+        return new TideRule(dto.PeriodSeconds, biome, range[0], range[1]);
     }
 
     /// <summary>

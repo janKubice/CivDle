@@ -291,7 +291,33 @@ internal sealed class GovernorSites
         }
 
         var result = forMove ? sim.CanMoveBuilding(ignoreBuilding, x, y) : sim.CanPlace(defIndex, x, y);
-        return result == PlacementResult.Ok && sim.PlanAt(x, y).AllowsCategory(def.Category) && NetworkAllows(sim, def, x, y);
+        return result == PlacementResult.Ok && sim.PlanAt(x, y).AllowsCategory(def.Category) && NetworkAllows(sim, def, x, y)
+            && TideAllows(sim, def, x, y);
+    }
+
+    /// <summary>
+    /// Budova bez kůlů nepatří na přílivovou mělčinu — půl dne by stála pod
+    /// vodou. Hráč tam stavět smí (a vidí, co se stane); guvernér ne.
+    /// </summary>
+    public static bool TideAllows(Simulation sim, BuildingDef def, int x, int y)
+    {
+        if (def.Stilted || !sim.HasTides)
+        {
+            return true;
+        }
+
+        for (int dy = 0; dy < def.FootprintHeight; dy++)
+        {
+            for (int dx = 0; dx < def.FootprintWidth; dx++)
+            {
+                if (sim.TideHeightAt(x + dx, y + dy) < 1.0)
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     /// <summary>

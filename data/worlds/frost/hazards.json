@@ -14,7 +14,8 @@
       "burySeconds": 120,
       "weather": "blizzard",
       "solarDim": 0.5,
-      "minBuildings": 5
+      "minBuildings": 5,
+      "moundColor": "#EEF4FA"
     }
   ]
 }

@@ -386,9 +386,11 @@ public sealed class SaveGameSerializer
             // to pár čísel a starší save je prostě nemá.
             var buildings = simulation.Buildings;
             int damaged = 0;
+            // Zaplavené příliv nepotřebuje: hladina je funkce času a po načtení
+            // je příští kontrola (do sekundy) zaplaví znovu, se správnou příčinou.
             for (int i = 0; i < buildings.Length; i++)
             {
-                if (buildings[i].DisabledTicks > 0)
+                if (buildings[i].DisabledTicks > 0 && buildings[i].DisabledCause != DisableCause.Flood)
                 {
                     damaged++;
                 }
@@ -397,7 +399,7 @@ public sealed class SaveGameSerializer
             w.Write(damaged);
             for (int i = 0; i < buildings.Length; i++)
             {
-                if (buildings[i].DisabledTicks > 0)
+                if (buildings[i].DisabledTicks > 0 && buildings[i].DisabledCause != DisableCause.Flood)
                 {
                     w.Write(i);
                     w.Write(buildings[i].DisabledTicks);

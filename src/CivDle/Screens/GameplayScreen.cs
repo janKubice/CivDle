@@ -77,6 +77,7 @@ public sealed class GameplayScreen : IScreen
     private readonly FrontierRenderer _frontierRenderer;
     private readonly HazardRenderer _hazardRenderer;
     private readonly NetworkGroundRenderer _networkGround;
+    private readonly TideRenderer _tide;
 
     /// <summary>
     /// Jak moc je vidět dosah podmořské sítě (0–1). Rozsvěcí se samo, když má
@@ -560,6 +561,7 @@ public sealed class GameplayScreen : IScreen
         _frontierRenderer = new FrontierRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
         _hazardRenderer = new HazardRenderer(screens.WhitePixel, screens.Content);
         _networkGround = new NetworkGroundRenderer(screens.WhitePixel, screens.Content);
+        _tide = new TideRenderer(screens.WhitePixel, screens.Content);
         _pollutionRenderer = new PollutionRenderer(screens.WhitePixel, screens.Content);
         _stallOverlay = new StallOverlayRenderer(screens.WhitePixel, screens.Content);
         _landmarkRenderer = new LandmarkRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
@@ -900,6 +902,7 @@ public sealed class GameplayScreen : IScreen
         // Nezávisle na období: na Mrazu v létě sněží taky.
         _atmosphere.Update(worldDt, _screens.Content.Atmosphere, moteMin, moteMax, WindDirectionX, WindDirectionY);
         _hazardRenderer.Update(dt);
+        _tide.Update(dt);
         }
 
         // Cheaty se udržují herním časem: v pauze se nic nedosypává a záběr,
@@ -962,6 +965,7 @@ public sealed class GameplayScreen : IScreen
         // Stopa sítě na zemi (zelená poušť kolem vody) nad zpevněnou zemí:
         // město v poušti je oáza a má zelenat i mezi domy. Pod vším, co stojí.
         _networkGround.Draw(spriteBatch, _camera, _simulation);
+        _tide.Draw(spriteBatch, _camera, _simulation);
         _zoneRenderer.Draw(spriteBatch, _camera, _simulation); // tint zón na zemi, pod budovami
         // Dosah podmořské sítě patří nad vodu, ale pod všechno ostatní —
         // je to informace o ploše, ne o tom, co na ní stojí.
@@ -1599,6 +1603,7 @@ public sealed class GameplayScreen : IScreen
         BuildingStall.OutputFull => "stall.outputFull",
         BuildingStall.NetworkShortage => "stall.networkShortage",
         BuildingStall.Buried => "stall.buried",
+        BuildingStall.Flooded => "stall.flooded",
         _ => null,
     };
 
@@ -2228,7 +2233,17 @@ public sealed class GameplayScreen : IScreen
         var view = _simulation.CurrentHazard;
         if (view.HazardIndex < 0)
         {
-            _hazardLabel.Text = string.Empty;
+            // Mimo bouři hlásí svět s přílivem hladinu: „Příliv stoupá (63 %)".
+            int tide = _simulation.TideHazardIndex;
+            if (tide < 0)
+            {
+                _hazardLabel.Text = string.Empty;
+                return;
+            }
+
+            var def = _screens.Content.Hazards.Hazards[tide];
+            _hazardLabel.Text = loc.Format(_simulation.TideRising ? def.RisingKey : def.EbbingKey,
+                (int)Math.Round(_simulation.TideLevel * 100));
             return;
         }
 

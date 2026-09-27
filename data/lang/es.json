@@ -1928,6 +1928,7 @@
     "resource.sand": "Arena",
     "resource.spice": "Especias",
     "stall.buried": "Sepultado por la arena. La gente lo desenterrará sola; la próxima vez lo protegerá un cortavientos cercano.",
+    "stall.flooded": "Está sin pilotes en una llanura mareal y la marea la ha inundado. Volverá sola con la bajamar: en las llanuras se construye sobre pilotes.",
     "styles.title": "Estilos de distrito",
     "styles.desc": "Cómo se ven los distritos de cerca y desde arriba. Solo aspecto: no afecta al juego. Más estilos se desbloquean con desafíos y Grandes metas.",
     "styles.row": "{0}: {1}",

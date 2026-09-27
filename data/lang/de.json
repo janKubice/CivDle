@@ -1928,6 +1928,7 @@
     "resource.sand": "Sand",
     "resource.spice": "Gewürz",
     "stall.buried": "Vom Sand verschüttet. Die Leute graben es selbst aus — beim nächsten Mal schützt es ein Sandzaun in der Nähe.",
+    "stall.flooded": "Steht ohne Pfähle im Watt und die Flut hat sie überschwemmt. Bei Ebbe läuft sie von selbst wieder — ins Watt gehören Pfahlbauten.",
     "styles.title": "Viertelstile",
     "styles.desc": "Wie Viertel aus der Nähe und von oben aussehen. Nur Optik — ohne Einfluss aufs Spiel. Weitere Stile schalten Herausforderungen und Große Ziele frei.",
     "styles.row": "{0}: {1}",

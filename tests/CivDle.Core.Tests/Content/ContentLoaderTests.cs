@@ -670,6 +670,74 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Theory]
+    [InlineData("\"floodBiome\": \"grass\", \"floodRange\": [-0.05, 0.05], \"periodSeconds\": 10", "periodSeconds")]
+    [InlineData("\"floodBiome\": \"lava\", \"floodRange\": [-0.05, 0.05], \"periodSeconds\": 600", "floodBiome")]
+    [InlineData("\"floodBiome\": \"water\", \"floodRange\": [-0.05, 0.05], \"periodSeconds\": 600", "voda")]
+    [InlineData("\"floodBiome\": \"grass\", \"floodRange\": [0.05, -0.05], \"periodSeconds\": 600", "floodRange")]
+    [InlineData("\"floodBiome\": \"grass\", \"periodSeconds\": 600", "floodRange")]
+    public void LoadFrom_BadTide_Throws(string fields, string expected)
+    {
+        // Příliv (Souostroví): perioda, zaplavovaný biom (souš) a rozsah výšek.
+        WriteAllValid();
+        Write("hazards.json", $$"""{ "schemaVersion": 1, "hazards": [ { "id": "tide", "behavior": "tides", {{fields}} } ] }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_TideStiltsAndFerry_Resolve()
+    {
+        WriteAllValid();
+        Write("hazards.json", """
+            { "schemaVersion": 1, "hazards": [
+              { "id": "tide", "behavior": "tides", "periodSeconds": 600, "floodBiome": "grass", "floodRange": [-0.03, 0.02] } ] }
+            """);
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "house", "mapColor": "#B5651D", "footprint": [1, 1], "housingCapacity": 4,
+              "buildCost": { "wood": 10 }, "allowedBiomes": ["grass"], "stilted": true, "ferryReach": 8 }
+          ]
+        }
+        """);
+        var keys = new[] { "hazard.tide", "hazard.tide.rising", "hazard.tide.ebbing", "hazard.calm", "hazard.buried" }
+            .Concat(Enumerable.Range(0, 8).Select(d => $"hazard.from.{d}")).ToArray();
+        Write(Path.Combine("lang", "cs.json"), LangJson("cs", "Čeština", extraKeys: keys));
+        Write(Path.Combine("lang", "en.json"), LangJson("en", "English", extraKeys: keys));
+
+        var content = Load();
+
+        var tide = Assert.Single(content.Hazards.Hazards).Tide!;
+        Assert.Equal(600, tide.PeriodSeconds);
+        Assert.Equal(content.Biomes.IndexOf("grass"), tide.FloodBiomeIndex);
+        Assert.Equal(0, content.Hazards.TideIndex);
+        Assert.True(content.Buildings[0].Stilted);
+        Assert.Equal(8, content.Buildings[0].FerryReach);
+    }
+
+    [Fact]
+    public void LoadFrom_FerryReachOutOfRange_Throws()
+    {
+        WriteAllValid();
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "house", "mapColor": "#B5651D", "footprint": [1, 1], "housingCapacity": 4,
+              "buildCost": { "wood": 10 }, "allowedBiomes": ["grass"], "ferryReach": 40 }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("ferryReach", ex.Message);
+    }
+
+    [Theory]
     [InlineData("\"daylight\": 0.01", "daylight")]
     [InlineData("\"daylight\": 1.0", "daylight")]
     [InlineData("\"networkDemand\": { \"steam\": 1.5 }", "steam")]
@@ -828,6 +896,8 @@ public class ContentLoaderTests : IDisposable
     [InlineData("\"sweepSeconds\": 700", "sweepSeconds")]
     [InlineData("\"intervalSeconds\": 10", "intervalSeconds")]
     [InlineData("\"weather\": \"acid_rain\"", "acid_rain")]
+    [InlineData("\"coastTiles\": 12", "coastTiles")]
+    [InlineData("\"moundColor\": \"snow\"", "moundColor")]
     public void LoadFrom_BadHazard_Throws(string field, string expected)
     {
         WriteAllValid();

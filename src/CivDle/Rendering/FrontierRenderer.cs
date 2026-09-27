@@ -126,8 +126,8 @@ public sealed class FrontierRenderer
         for (int slot = 0; slot < _visible.Count; slot++)
         {
             int i = _visible[slot];
-            // Zasypané kreslí HazardRenderer (kopeček písku), ne šrafování zásahu.
-            if (i >= buildings.Length || buildings[i].DisabledTicks <= 0 || buildings[i].DisabledCause == DisableCause.Burial)
+            // Zasypané a zaplavené kreslí HazardRenderer (kopeček písku, voda), ne šrafování zásahu.
+            if (i >= buildings.Length || buildings[i].DisabledTicks <= 0 || buildings[i].DisabledCause != DisableCause.Attack)
             {
                 continue;
             }

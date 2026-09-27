@@ -214,6 +214,11 @@ public sealed record RaftRule(
 /// </param>
 /// <param name="MergesToIndex">Index budovy, na kterou se sloučí blok 2×2 stejných; −1 = neslučuje se.</param>
 /// <param name="MergeCostOrNull">Cena sloučení (nad rámec už postavených budov).</param>
+/// <param name="Stilted">
+/// Stojí na kůlech (Souostroví): příliv pod ní proteče a budova jede dál.
+/// Bez kůlů vypadne, když přílivová mělčina pod ní zmizí pod vodou.
+/// </param>
+/// <param name="FerryReach">Dosah přístaviště trajektu (viz <see cref="IsFerryDock"/>); 0 = není.</param>
 public sealed record BuildingDef(
     string Id,
     string Category,
@@ -262,8 +267,17 @@ public sealed record BuildingDef(
     IReadOnlyList<NetworkUse>? NetworksOrNull = null,
     SupplyTime SupplyTime = SupplyTime.Always,
     IReadOnlyList<Shelter>? SheltersOrNull = null,
-    double TradeCapacity = 0)
+    double TradeCapacity = 0,
+    bool Stilted = false,
+    int FerryReach = 0)
 {
+    /// <summary>
+    /// Přístaviště trajektu (Souostroví): budovy do <see cref="FerryReach"/>
+    /// dlaždic od něj platí za napojené — zboží odváží loď, silnice přes vodu
+    /// vést nemusí. 0 = není přístaviště.
+    /// </summary>
+    public bool IsFerryDock => FerryReach > 0;
+
     /// <summary>
     /// Je budova přístav obchodních tras mezi světy (kosmodrom, karavanseraj)?
     /// <see cref="TradeCapacity"/> je kolik jednotek za sekundu odbaví; kapacita

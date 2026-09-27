@@ -31,6 +31,7 @@ public sealed class WorldScene : IDisposable
     private readonly WaterRenderer _water;
     private readonly DecorationRenderer _decorations;
     private readonly NetworkGroundRenderer _networkGround;
+    private readonly TideRenderer _tide;
     private readonly UrbanGroundRenderer _urbanGround;
     private readonly RoadRenderer _roads;
     private readonly BuildingRenderer _buildings;
@@ -55,6 +56,7 @@ public sealed class WorldScene : IDisposable
         _water = new WaterRenderer(pixel);
         _decorations = new DecorationRenderer(pixel, content, seed, screens.Sprites);
         _networkGround = new NetworkGroundRenderer(pixel, content);
+        _tide = new TideRenderer(pixel, content);
         _urbanGround = new UrbanGroundRenderer(screens.SoftShadow, content);
         _roads = new RoadRenderer(pixel, content);
         _buildings = new BuildingRenderer(pixel, content, screens.Sprites, screens.SoftShadow);
@@ -121,6 +123,7 @@ public sealed class WorldScene : IDisposable
         _mist.Draw(spriteBatch, camera, simulation.Terrain, ValleyMistRenderer.Density(simulation.TimeOfDay01));
         _urbanGround.Draw(spriteBatch, camera);
         _networkGround.Draw(spriteBatch, camera, simulation); // zelená poušť kolem vody i na fotce
+        _tide.Draw(spriteBatch, camera, simulation);          // příliv na mělčinách
         _roads.Draw(spriteBatch, camera, simulation);
         _buildings.Draw(spriteBatch, camera, simulation);
         _ambient.Draw(spriteBatch, camera, simulation);

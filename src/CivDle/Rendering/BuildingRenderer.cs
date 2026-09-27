@@ -695,6 +695,7 @@ public sealed class BuildingRenderer
         BuildingStall.OutputFull => new Color(230, 208, 88),  // žlutá = plný sklad (jako v inspektoru)
         BuildingStall.NetworkShortage => new Color(140, 200, 255), // ledově modrá = síť nedosáhne
         BuildingStall.Buried => new Color(222, 190, 128),          // písková = zasypaná
+        BuildingStall.Flooded => new Color(96, 176, 220),          // modrá = zaplavená přílivem
         _ => Color.Transparent,
     };
 
