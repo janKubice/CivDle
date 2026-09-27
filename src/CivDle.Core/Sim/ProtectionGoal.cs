@@ -41,13 +41,38 @@ internal sealed class ProtectionGoal : IGovernorGoal
         for (int i = 0; i < buildings.Length; i++)
         {
             if (buildings[i].DisabledTicks > 0 && buildings[i].DisabledCause == DisableCause.Burial
-                && CanShelter(sim))
+                && !IsSheltered(buildings, buildings[i].X, buildings[i].Y) && CanShelter(sim))
             {
                 return new GoalAssessment(Need, Urgency, -1, i);
             }
         }
 
         return GoalAssessment.Idle(Need);
+    }
+
+    /// <summary>
+    /// Kryje už místo nějaká ochrana — i rozestavěná? Vyřazená budova zůstane
+    /// vyřazená, i když ochrana vedle ní mezitím vyrostla; bez téhle kontroly
+    /// by guvernér k jedné obalené budově stavěl prořezávač za prořezávačem
+    /// (flóra na Xenu obaluje každých 30 s, budova zůstane obalená minutu).
+    /// </summary>
+    private bool IsSheltered(ReadOnlySpan<BuildingInstance> buildings, int x, int y)
+    {
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            var shelters = _content.Buildings[buildings[i].DefIndex].Shelters;
+            for (int s = 0; s < shelters.Count; s++)
+            {
+                int dx = x - buildings[i].X;
+                int dy = y - buildings[i].Y;
+                if (dx * dx + dy * dy <= shelters[s].Radius * shelters[s].Radius)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Širší ochrana je lepší — kryje víc sousedů.</summary>
