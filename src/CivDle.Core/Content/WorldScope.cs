@@ -39,11 +39,24 @@ public static class WorldScope
     public const string TagKey = "worlds";
 
     /// <summary>
-    /// Filtrované soubory: pole položek s <c>id</c> a výchozí rozsah položky bez
-    /// značky (<c>true</c> = jen Domovina, <c>false</c> = všude).
-    /// Soubory mimo tabulku (gameplay, jazyky, sítě…) se nefiltrují.
+    /// Jak se filtruje jeden soubor.
     /// </summary>
-    private static readonly Dictionary<string, (string[] Arrays, bool HomeOnly)> Scopes = new(StringComparer.Ordinal)
+    /// <param name="Arrays">Pole položek s <c>id</c>; tečka jde do hloubky (<c>planting.species</c>).</param>
+    /// <param name="HomeOnly">Výchozí rozsah položky bez značky: <c>true</c> = jen Domovina, <c>false</c> = všude.</param>
+    /// <param name="SubstituteWholeFile">
+    /// Náhrady surovin platí pro celý soubor, ne jen pro vybrané položky —
+    /// nastavení (<c>gameplay.json</c>) nemá položky, ale denní odměna v něm
+    /// za dřevo na Duně dávat nesmí.
+    /// </param>
+    private sealed record FileScope(string[] Arrays, bool HomeOnly, bool SubstituteWholeFile = false)
+    {
+        public static implicit operator FileScope((string[] Arrays, bool HomeOnly) pair) => new(pair.Arrays, pair.HomeOnly);
+    }
+
+    /// <summary>
+    /// Filtrované soubory. Soubory mimo tabulku (jazyky, sítě…) se nefiltrují.
+    /// </summary>
+    private static readonly Dictionary<string, FileScope> Scopes = new(StringComparer.Ordinal)
     {
         // Obsah: bez značky jen Domovina.
         ["resources.json"] = (new[] { "resources" }, true),
@@ -88,7 +101,18 @@ public static class WorldScope
         ["seasons.json"] = (new[] { "seasons" }, false),
         ["settlement-ranks.json"] = (new[] { "ranks" }, false),
         ["chronicle.json"] = (new[] { "lines" }, false),
+
+        // Nastavení: sázení nabízí druhy Domoviny (háj dává dřevo) — kolonie
+        // si nabídne vlastní. Zbytek souboru zůstane, jen se přejmenují suroviny.
+        ["gameplay.json"] = new FileScope(new[] { "planting.species" }, true, SubstituteWholeFile: true),
     };
+
+    /// <summary>
+    /// Pole, ve kterých smí sdílená položka tiše ztratit surovinu, kterou svět
+    /// nemá: kapacita skladu pro obilí na Duně nic neznamená a nic nerozbije.
+    /// Cena ani recept takhle chránit nejde — ty musí spadnout (fail-fast).
+    /// </summary>
+    private static readonly HashSet<string> PrunableFields = new(StringComparer.OrdinalIgnoreCase) { "storage" };
 
     /// <summary>
     /// Pole, jejichž <b>textová hodnota</b> je ID suroviny — ta se při náhradě
@@ -111,8 +135,14 @@ public static class WorldScope
     /// <param name="json">Text základního souboru.</param>
     /// <param name="worldId">Pro který svět se načítá.</param>
     /// <param name="substitutes">Náhrady surovin světa (ID → ID); smí být prázdné.</param>
+    /// <param name="knownResources">
+    /// Suroviny světa; sdíleným položkám se podle nich odříznou kapacity skladů
+    /// pro suroviny, které svět nemá (<see cref="PrunableFields"/>). <c>null</c>
+    /// = nic neořezávat (suroviny samotné, Domovina).
+    /// </param>
     public static string Filter(
-        string fileName, string json, string worldId, IReadOnlyDictionary<string, string>? substitutes = null)
+        string fileName, string json, string worldId, IReadOnlyDictionary<string, string>? substitutes = null,
+        IReadOnlySet<string>? knownResources = null)
     {
         if (!Scopes.TryGetValue(fileName, out var scope))
         {
@@ -137,7 +167,7 @@ public static class WorldScope
 
         foreach (string arrayName in scope.Arrays)
         {
-            if (FindProperty(root, arrayName) is not JsonArray items)
+            if (FindPath(root, arrayName) is not JsonArray items)
             {
                 continue;
             }
@@ -156,14 +186,49 @@ public static class WorldScope
                 }
 
                 RemoveTag(item);
-                if (substitute)
+                if (substitute && !scope.SubstituteWholeFile)
                 {
                     Substitute(item, substitutes!);
+                }
+
+                if (!home && knownResources is not null)
+                {
+                    Prune(item, knownResources);
                 }
             }
         }
 
+        if (substitute && scope.SubstituteWholeFile)
+        {
+            Substitute(root, substitutes!);
+        }
+
         return root.ToJsonString();
+    }
+
+    /// <summary>Odřízne v kapacitách skladů suroviny, které svět nemá (do hloubky).</summary>
+    private static void Prune(JsonObject node, IReadOnlySet<string> knownResources)
+    {
+        foreach (var pair in node.ToList())
+        {
+            if (pair.Value is JsonObject child)
+            {
+                if (PrunableFields.Contains(pair.Key))
+                {
+                    foreach (string key in child.Select(entry => entry.Key).ToList())
+                    {
+                        if (!knownResources.Contains(key))
+                        {
+                            child.Remove(key);
+                        }
+                    }
+                }
+                else
+                {
+                    Prune(child, knownResources);
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -246,6 +311,23 @@ public static class WorldScope
         {
             item.Remove(key);
         }
+    }
+
+    /// <summary>Vlastnost po tečkované cestě (<c>planting.species</c>).</summary>
+    private static JsonNode? FindPath(JsonObject node, string path)
+    {
+        JsonNode? current = node;
+        foreach (string part in path.Split('.'))
+        {
+            if (current is not JsonObject obj)
+            {
+                return null;
+            }
+
+            current = FindProperty(obj, part);
+        }
+
+        return current;
     }
 
     /// <summary>Vlastnost bez ohledu na velikost písmen (loader čte JSON stejně).</summary>

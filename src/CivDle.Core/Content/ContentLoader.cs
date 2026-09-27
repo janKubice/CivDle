@@ -60,9 +60,15 @@ public sealed class ContentLoader
         _worldFile = worldId == WorldScope.HomeId ? null : ReadWorldFile(dataDirectory, worldId);
         _substitutes = _worldFile?.Substitutes ?? new Dictionary<string, string>();
         _withoutSystems = new HashSet<string>(_worldFile?.WithoutSystems ?? new List<string>(), StringComparer.Ordinal);
+        _knownResources = null;
 
         // Suroviny první — odkazují na ně biomy (clickYield) i budovy (ceny, recepty).
         var resources = LoadResources(Path.Combine(dataDirectory, "resources.json"));
+        if (worldId != WorldScope.HomeId)
+        {
+            // Sdíleným skladům se odříznou kapacity pro suroviny, které kolonie nemá.
+            _knownResources = new HashSet<string>(resources.All.Select(r => r.Id), StringComparer.Ordinal);
+        }
         var biomes = LoadBiomes(Path.Combine(dataDirectory, "biomes.json"), resources);
         // Žebříček sídel před budovami: budova může vyžadovat stupeň sídla,
         // takže loader musí znát ID stupňů dřív, než je začne překládat.
@@ -119,7 +125,7 @@ public sealed class ContentLoader
         CheckRewardUnlocks(
             Path.Combine(dataDirectory, "buildings.json"), Path.Combine(dataDirectory, "policies.json"),
             Path.Combine(dataDirectory, "districts.json"),
-            buildings, policies, districts, quests, scenarios);
+            buildings, policies, districts, quests, scenarios, checkShared: worldId == WorldScope.HomeId);
         var poi = LoadPointsOfInterest(Path.Combine(dataDirectory, "poi.json"), resources, biomes);
         var doctrines = LoadDoctrines(Path.Combine(dataDirectory, "doctrines.json"));
         var languages = LoadLanguages(Path.Combine(dataDirectory, "lang"), biomes, resources, buildings, worldGen, techs, prestigeUpgrades, legacyUpgrades, quests, achievements, events, eras, zoneTypes, policies, tiers, weather, landmarks, features, devlog, terraform, tutorial, challenges, contracts, districts, settlementRanks, citizens, elections, milestones, seasons, orbit, figures, chronicle, scenarios, poi, doctrines);
@@ -280,6 +286,9 @@ public sealed class ContentLoader
     private WorldFileDto? _worldFile;
     private IReadOnlyDictionary<string, string> _substitutes = new Dictionary<string, string>();
     private HashSet<string> _withoutSystems = new(StringComparer.Ordinal);
+
+    /// <summary>Suroviny světa (jen kolonie) — viz <see cref="WorldScope.Filter"/>.</summary>
+    private IReadOnlySet<string>? _knownResources;
 
     /// <summary>
     /// Je soubor pro tenhle svět k dispozici? Základní soubor, nebo soubor
@@ -2208,7 +2217,10 @@ public sealed class ContentLoader
 
             foreach (string category in categories)
             {
-                if (!knownCategories.Contains(category))
+                // Překlep v kategorii chytí načtení Domoviny (čtvrti sdílí všechny
+                // světy). Kolonie kategorii mít nemusí — na Duně pomníky nejsou
+                // a občanská čtvrť tam prostě vznikne z ostatních budov.
+                if (!knownCategories.Contains(category) && _worldId == WorldScope.HomeId)
                 {
                     throw new ContentLoadException(path,
                         $"Čtvrť '{id}' čeká kategorii '{category}', kterou nemá žádná budova.");
@@ -6761,11 +6773,19 @@ public sealed class ContentLoader
     private static void CheckRewardUnlocks(
         string buildingsPath, string policiesPath, string districtsPath,
         DefRegistry<BuildingDef> buildings, DefRegistry<GrowthPolicyDef> policies, DistrictCatalog districts,
-        DefRegistry<QuestDef> quests, ScenarioCatalog scenarios)
+        DefRegistry<QuestDef> quests, ScenarioCatalog scenarios, bool checkShared)
     {
         foreach (var building in buildings.All)
         {
             CheckRewardUnlock(buildingsPath, $"Budova '{building.Id}'", building.UnlockedBy, quests, scenarios);
+        }
+
+        // Politiky a styly čtvrtí sdílí všechny světy a jejich odkazy ověří
+        // načtení Domoviny. Kolonie Velké cíle ani výzvy nemá — odměna výzvy
+        // platí z profilu hráče i tady, odměna cíle Domoviny se tu prostě neodemkne.
+        if (!checkShared)
+        {
+            return;
         }
 
         foreach (var policy in policies.All)
@@ -6845,7 +6865,7 @@ public sealed class ContentLoader
         }
 
         string text = hasBase
-            ? WorldScope.Filter(Path.GetFileName(path), File.ReadAllText(path), _worldId, _substitutes)
+            ? WorldScope.Filter(Path.GetFileName(path), File.ReadAllText(path), _worldId, _substitutes, _knownResources)
             : File.ReadAllText(worldPath!);
         var overlays = OverlaysFor(path);
         if (hasBase && hasWorld)

@@ -20,6 +20,8 @@ namespace CivDle.Core.Content.Mods;
 /// co s čím párovat.</item>
 /// <item>Objekty se slévají po klíčích do hloubky, takže mod smí změnit jediné
 /// číslo v nastavení a zbytku se nedotknout.</item>
+/// <item>Výslovné <c>null</c> klíč smaže (odebrat vylepšení, které ve světě
+/// nedává smysl).</item>
 /// </list>
 ///
 /// <para>Čistá funkce nad textem: žádné soubory, žádný stav — proto jde ověřit
@@ -72,6 +74,15 @@ public static class JsonOverlay
         var result = (JsonObject)baseObject.DeepClone();
         foreach (var pair in overlayObject)
         {
+            // Výslovné null klíč smaže: svět (nebo mod) tak odebere sdílené
+            // budově vylepšení na stavbu, která u něj neexistuje. Chybějící klíč
+            // naopak nechá základ být — to je rozdíl mezi „nevím" a „nechci".
+            if (pair.Value is null)
+            {
+                result.Remove(pair.Key);
+                continue;
+            }
+
             result[pair.Key] = result.TryGetPropertyValue(pair.Key, out var existing)
                 ? MergeNode(existing, pair.Value)
                 : pair.Value?.DeepClone();

@@ -86,6 +86,19 @@ public class ModTests : IDisposable
     }
 
     [Fact]
+    public void AnExplicitNullRemovesTheKey()
+    {
+        // Kolonie sdílí sklad Domoviny, ale jeho vylepšení na logistické centrum
+        // u ní nedává smysl — null ho odebere, chybějící klíč by ho nechal.
+        string merged = JsonOverlay.Merge(
+            """{ "buildings": [ { "id": "warehouse", "upgradesTo": "hub", "cost": 5 } ] }""",
+            new[] { """{ "buildings": [ { "id": "warehouse", "upgradesTo": null } ] }""" });
+
+        Assert.DoesNotContain("upgradesTo", merged);
+        Assert.Contains("\"cost\":5", merged);
+    }
+
+    [Fact]
     public void ListsWithoutIdsAreReplacedWholesale()
     {
         // U barev a jmen není co s čím párovat — půlka staré palety mezi

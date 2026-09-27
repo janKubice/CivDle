@@ -111,8 +111,56 @@ public class WorldScopeTests
     {
         const string json = """{ "schemaVersion": 1, "things": [ { "id": "a", "worlds": ["frost"] } ] }""";
 
-        Assert.Same(json, WorldScope.Filter("gameplay.json", json, "dune"));
-        Assert.False(WorldScope.IsScoped("gameplay.json"));
+        Assert.Same(json, WorldScope.Filter("networks.json", json, "dune"));
+        Assert.False(WorldScope.IsScoped("networks.json"));
+    }
+
+    [Fact]
+    public void SharedStorageLosesResourcesTheWorldDoesNotHave()
+    {
+        const string json = """
+        { "schemaVersion": 1, "buildings": [
+          { "id": "warehouse", "worlds": ["*"], "buildCost": { "wood": 5 }, "storage": { "wood": 100, "grain": 50, "food": 80 } } ] }
+        """;
+        var known = new HashSet<string> { "adobe", "food" };
+        var substitutes = new Dictionary<string, string> { ["wood"] = "adobe" };
+
+        var root = JsonNode.Parse(WorldScope.Filter("buildings.json", json, "dune", substitutes, known))!;
+        var storage = root["buildings"]![0]!["storage"]!.AsObject();
+
+        Assert.Equal(new[] { "food", "adobe" }, storage.Select(p => p.Key).OrderByDescending(k => k).ToArray());
+        Assert.Equal(5, root["buildings"]![0]!["buildCost"]!["adobe"]!.GetValue<long>()); // cena se neořezává
+    }
+
+    [Fact]
+    public void HomeStorageIsNeverPruned()
+    {
+        const string json = """
+        { "schemaVersion": 1, "buildings": [ { "id": "warehouse", "worlds": ["*"], "storage": { "grain": 50 } } ] }
+        """;
+
+        string filtered = WorldScope.Filter("buildings.json", json, WorldScope.HomeId, null, new HashSet<string>());
+
+        Assert.Contains("grain", filtered);
+    }
+
+    [Fact]
+    public void GameplayKeepsSettingsButOnlySharedPlantingAndRenamesResources()
+    {
+        const string json = """
+        { "schemaVersion": 1, "dailyReward": { "reward": { "food": 25, "wood": 20 } },
+          "planting": { "species": [ { "id": "grove", "resource": "wood" }, { "id": "palm", "worlds": ["dune"], "resource": "food" } ] } }
+        """;
+        var substitutes = new Dictionary<string, string> { ["wood"] = "clay" };
+
+        var dune = JsonNode.Parse(WorldScope.Filter("gameplay.json", json, "dune", substitutes))!;
+        var home = JsonNode.Parse(WorldScope.Filter("gameplay.json", json, WorldScope.HomeId, substitutes))!;
+
+        Assert.Equal(20, dune["dailyReward"]!["reward"]!["clay"]!.GetValue<long>());
+        Assert.Null(dune["dailyReward"]!["reward"]!["wood"]);
+        Assert.Equal(new[] { "palm" }, dune["planting"]!["species"]!.AsArray().Select(x => x!["id"]!.GetValue<string>()));
+        Assert.Equal(new[] { "grove" }, home["planting"]!["species"]!.AsArray().Select(x => x!["id"]!.GetValue<string>()));
+        Assert.Equal(20, home["dailyReward"]!["reward"]!["wood"]!.GetValue<long>());
     }
 
     private static string[] Ids(string json, string array) =>
