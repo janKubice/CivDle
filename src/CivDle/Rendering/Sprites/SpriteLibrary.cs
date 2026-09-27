@@ -480,6 +480,109 @@ public sealed class SpriteLibrary : IDisposable
     }
 
     /// <summary>
+    /// Doplní sprity obsahu jiného světa (svety-design.md 5.2): budovy kolonie
+    /// kreslí <see cref="LookPainter"/> z dat, suroviny bez ruční ikony dostanou
+    /// obecnou ikonu v barvě suroviny. Co už v knihovně je, se nepřekresluje —
+    /// volá se při každém vstupu na svět a podruhé nestojí nic.
+    /// </summary>
+    public void EnsureContent(GameContent content)
+    {
+        AddLooks(_device, content.Buildings.All);
+        foreach (var resource in content.Resources.All)
+        {
+            string id = $"icon.{resource.Id}";
+            if (_sprites.ContainsKey(id))
+            {
+                continue;
+            }
+
+            var color = new Color(resource.MapColor.R, resource.MapColor.G, resource.MapColor.B);
+            Add(_device, id, IconSize, canvas => GenericResourceIcon(canvas, color));
+        }
+    }
+
+    /// <summary>
+    /// Ikony planet galaxie (<c>planet.&lt;id&gt;</c>) pro přepínač světů v HUD
+    /// a kartu světa. Kreslí se z barev planety v datech — skutečný povrch
+    /// z mapy peče až obrazovka galaxie.
+    /// </summary>
+    public void EnsurePlanets(WorldCatalog galaxy)
+    {
+        foreach (var world in galaxy.Worlds)
+        {
+            string id = $"planet.{world.Id}";
+            if (_sprites.ContainsKey(id))
+            {
+                continue;
+            }
+
+            var look = world.Planet;
+            Add(_device, id, IconSize, canvas => PlanetIcon(canvas, look));
+        }
+    }
+
+    /// <summary>Obecná ikona suroviny: hromádka v její barvě s odleskem.</summary>
+    private static void GenericResourceIcon(PixelCanvas c, Color color)
+    {
+        var dark = new Color((int)(color.R * 0.6f), (int)(color.G * 0.6f), (int)(color.B * 0.6f));
+        c.FillCircle(8f, 15f, 5.5f, dark);
+        c.FillCircle(16f, 15f, 5.5f, dark);
+        c.FillCircle(12f, 10f, 5.5f, color);
+        c.FillCircle(8f, 14f, 4.5f, color);
+        c.FillCircle(16f, 14f, 4.5f, color);
+        c.FillCircle(10.5f, 8.5f, 1.6f, Color.Lerp(color, Color.White, 0.6f));
+    }
+
+    /// <summary>Malá planeta: kotouč, stín na noční straně, pásy/čepičky/prstenec podle dat.</summary>
+    private static void PlanetIcon(PixelCanvas c, PlanetLook look)
+    {
+        var surface = new Color(look.Surface.R, look.Surface.G, look.Surface.B);
+        var accent = new Color(look.Accent.R, look.Accent.G, look.Accent.B);
+        const float cx = 12f;
+        const float cy = 12f;
+        const float r = 8.5f;
+        for (int y = 0; y < c.Height; y++)
+        {
+            for (int x = 0; x < c.Width; x++)
+            {
+                float dx = x + 0.5f - cx;
+                float dy = y + 0.5f - cy;
+                if (dx * dx + dy * dy > r * r)
+                {
+                    continue;
+                }
+
+                var color = surface;
+                if (look.Bands && ((int)(dy + r) / 3) % 2 == 1)
+                {
+                    color = accent;
+                }
+                else if (!look.Bands && ((x * 7 + y * 13) % 11) < 3)
+                {
+                    color = accent; // skvrny moře a pevniny
+                }
+
+                if (look.IceCaps && Math.Abs(dy) > r * 0.72f)
+                {
+                    color = Color.White;
+                }
+
+                float light = Math.Clamp(0.55f - (dx + dy) / (r * 2.4f), 0.25f, 1f); // světlo zleva shora
+                c.Blend(x, y, new Color((int)(color.R * light), (int)(color.G * light), (int)(color.B * light)));
+            }
+        }
+
+        if (look.Ring)
+        {
+            for (int x = 1; x < 23; x++)
+            {
+                int y = (int)(cy + (x - cx) * 0.18f);
+                c.Blend(x, y, new Color(220, 210, 190) * 0.8f);
+            }
+        }
+    }
+
+    /// <summary>
     /// Plátno pro vzhled z dat: velikost podle půdorysu (32 / 64 / 96 px jako
     /// ruční modely) a vysoké budovy vyšší o svou přerůstající výšku — ať mají
     /// pixely čtvercové (viz <see cref="AddTall"/>).

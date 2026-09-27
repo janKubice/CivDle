@@ -1,5 +1,6 @@
 using CivDle.Core.Config;
 using CivDle.Core.Content;
+using CivDle.Core.Galaxy;
 using CivDle.Core.Platform;
 using CivDle.Core.Save;
 using Microsoft.Xna.Framework;
@@ -26,7 +27,8 @@ public sealed class ScreenManager
         IPlatformServices platform)
     {
         Game = game;
-        Content = content;
+        _homeContent = content;
+        Galaxy = GalaxyContent.HomeOnly(content);
         Loc = localization;
         Saves = saves;
         Platform = platform;
@@ -71,8 +73,77 @@ public sealed class ScreenManager
     /// </summary>
     public bool IsToolRun { get; init; }
 
-    /// <summary>Načtený herní obsah — obrazovky ho jen čtou.</summary>
-    public GameContent Content { get; }
+    private readonly GameContent _homeContent;
+    private GameContent? _worldContent;
+
+    /// <summary>
+    /// Obsah světa, na který se hráč právě dívá — obrazovky ho jen čtou.
+    ///
+    /// <para>S galaxií už není jeden obsah pro celou hru: kolonie má vlastní
+    /// budovy i suroviny. Obrazovky ale obsah berou odsud, takže stačí přepnout
+    /// tady (<see cref="UseWorldContent"/>) a všechno, co vznikne potom, mluví
+    /// jazykem nového světa. Mimo kolonii (menu, Domovina) je to obsah Domoviny.</para>
+    /// </summary>
+    public GameContent Content => _worldContent ?? _homeContent;
+
+    /// <summary>Obsah Domoviny (menu, výzvy, profil).</summary>
+    public GameContent HomeContent => _homeContent;
+
+    /// <summary>Obsah všech světů galaxie (kolonie se načítají líně).</summary>
+    public GalaxyContent Galaxy { get; init; }
+
+    /// <summary>
+    /// Rozehraná galaxie; <c>null</c> = hraje se výzva, nástroj nebo je hráč v menu.
+    /// Drží ji správce obrazovek, protože přežívá výměnu herní obrazovky při
+    /// přepnutí světa.
+    /// </summary>
+    public GalaxySession? Session { get; private set; }
+
+    /// <summary>
+    /// Přepne obsah na svět simulace. Domovina (i její výzvy a Nová hra+) mluví
+    /// obsahem Domoviny jako dřív; kolonie svým. Sprity nových budov a ikony
+    /// nových surovin se doplní, aby je měl render čím kreslit.
+    /// </summary>
+    public void UseWorldContent(GameContent? content)
+    {
+        _worldContent = content is { World.IsHome: false } ? content : null;
+        if (_worldContent is not null)
+        {
+            Sprites.EnsureContent(_worldContent);
+        }
+    }
+
+    /// <summary>Začne (nebo vymění) rozehranou galaxii.</summary>
+    public void BeginSession(GalaxySession? session)
+    {
+        Session = session;
+        UseWorldContent(session?.Active.Content);
+    }
+
+    /// <summary>Konec rozehrané hry (návrat do menu).</summary>
+    public void EndSession()
+    {
+        Session = null;
+        UseWorldContent(null);
+    }
+
+    /// <summary>
+    /// Uloží hru. Jedno místo pro autosave, ruční uložení i zavření okna: když
+    /// běží galaxie a simulace je její aktivní svět, uloží se s ní (ostatní
+    /// světy, hodiny, loď) — jinak jen samotný svět, jako dřív.
+    /// </summary>
+    public bool SaveGame(Core.Sim.Simulation simulation, WorldInfo info)
+    {
+        var metadata = new SaveMetadata(info.Seed, info.SizeId, info.PresetId, DateTime.UtcNow);
+        if (Session is { } session && ReferenceEquals(session.Active, simulation) && !simulation.InScenario)
+        {
+            session.State.Observe(simulation);
+            session.State.Refresh(simulation);
+            return Saves.TrySave(simulation, metadata, session.State);
+        }
+
+        return SavesFor(simulation).TrySave(simulation, metadata);
+    }
 
     /// <summary>Překlady — obrazovky se přes event přestavují po změně jazyka.</summary>
     public Localization Loc { get; }

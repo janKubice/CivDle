@@ -365,6 +365,26 @@ public sealed class GalaxySession
         return (long)(hash ^ (ulong)State.Records[WorldScope.HomeId].Seed);
     }
 
+    /// <summary>
+    /// Načte svět ze snímku jen ke čtení — bez přepnutí (přehrání konce
+    /// kapitoly nad Domovinou, když hráč zrovna stojí v kolonii). Aktivní svět
+    /// vrátí rovnou.
+    /// </summary>
+    public Simulation PeekWorld(string worldId)
+    {
+        if (worldId == State.ActiveWorldId)
+        {
+            return Active;
+        }
+
+        if (!State.Records.TryGetValue(worldId, out var record) || record.Snapshot is null)
+        {
+            throw new InvalidOperationException($"Svět '{worldId}' nemá snímek.");
+        }
+
+        return _serializer.Read(new MemoryStream(record.Snapshot), Contents).Simulation;
+    }
+
     // ----- přepínání -----
 
     /// <summary>

@@ -73,8 +73,12 @@ try
         Console.WriteLine($"mod: {mod.Name} {mod.Version} ({mod.Id})");
     }
 
+    // Galaxie: kolonie mají vlastní obsah ze stejné složky dat a načtou se,
+    // až jsou potřeba (svety-design.md 7.1).
+    var galaxy = new GalaxyContent(Path.Combine(AppContext.BaseDirectory, "data"), mods, content);
+
     using var game = new CivDleGame(
-        content, captureDirectory, capsuleDirectory, trailerDirectory, trailerPreview, smoke, perf);
+        content, captureDirectory, capsuleDirectory, trailerDirectory, trailerPreview, smoke, perf, galaxy);
     game.Run();
     return 0;
 }

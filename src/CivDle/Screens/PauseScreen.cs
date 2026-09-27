@@ -135,8 +135,7 @@ public sealed class PauseScreen : IScreen
 
     private void SaveGame()
     {
-        var metadata = new SaveMetadata(_info.Seed, _info.SizeId, _info.PresetId, DateTime.UtcNow);
-        bool saved = _screens.SavesFor(_simulation).TrySave(_simulation, metadata);
+        bool saved = _screens.SaveGame(_simulation, _info); // s galaxií, když běží
 
         _saveStatusText = _screens.Loc[saved ? "pause.saved" : "pause.saveFailed"];
         _saveStatusLabel.Text = _saveStatusText;

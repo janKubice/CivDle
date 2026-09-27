@@ -36,6 +36,9 @@ public sealed class CivDleGame : Game
     private readonly string? _capsuleDirectory;
     private readonly TrailerDirector? _trailer;
     private readonly GameContent _content;
+
+    /// <summary>Obsah světů galaxie (kolonie se načítají líně).</summary>
+    private readonly GalaxyContent _galaxy;
     private readonly bool _smoke;
     private readonly bool _perf;
     private PerfRun? _perfRun;
@@ -88,9 +91,11 @@ public sealed class CivDleGame : Game
         string? trailerDirectory = null,
         bool trailerPreview = false,
         bool smoke = false,
-        bool perf = false)
+        bool perf = false,
+        GalaxyContent? galaxy = null)
     {
         _content = content;
+        _galaxy = galaxy ?? GalaxyContent.HomeOnly(content);
         _smoke = smoke;
         _perf = perf;
         _capture = captureDirectory is null ? null : new CaptureDirector(captureDirectory);
@@ -230,7 +235,8 @@ public sealed class CivDleGame : Game
         _steam = storeMode ? null : Platform.SteamPlatformServices.TryCreate(local);
         IPlatformServices platform = (IPlatformServices?)_steam ?? local;
 
-        var screens = new ScreenManager(this, content, localization, saves, platform) { IsToolRun = storeMode };
+        var screens = new ScreenManager(this, content, localization, saves, platform) { IsToolRun = storeMode, Galaxy = _galaxy };
+        Sprites.EnsurePlanets(_galaxy.Catalog);
 
         // Kamarádi se načtou jednou při startu, ne při každé karavaně. Bez
         // Steamu se nenačte nikdo a karavany jezdí dál — jen bez jmen.

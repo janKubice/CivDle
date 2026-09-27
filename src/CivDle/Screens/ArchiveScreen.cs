@@ -79,15 +79,18 @@ public sealed class ArchiveScreen : IScreen
     private void Restore(string path)
     {
         if (!_screens.Saves.TryRestoreFromArchive(path, DateTime.UtcNow)
-            || _screens.Saves.TryLoad(_screens.Content, out _) is not { } loaded)
+            || _screens.Saves.TryLoad(_screens.Galaxy, out _) is not { } loaded)
         {
             _status = _screens.Loc["menu.loadFailed"];
             BuildUi();
             return;
         }
 
+        // Archivované město mohlo mít galaxii — vrací se celá, s koloniemi.
         var info = new WorldInfo(loaded.Metadata.Seed, loaded.Metadata.SizeId, loaded.Metadata.PresetId);
+        var session = Core.Galaxy.GalaxySession.Resume(_screens.Galaxy, loaded);
+        _screens.BeginSession(session);
         _screens.ReplaceAll(new LoadingScreen(
-            _screens, "loading.savedGame", _ => new GameplayScreen(_screens, loaded.Simulation, info)));
+            _screens, "loading.savedGame", _ => new GameplayScreen(_screens, loaded.Simulation, info, null, session)));
     }
 }

@@ -2,6 +2,7 @@ using System.Text;
 using CivDle.Audio;
 using CivDle.Core.Config;
 using CivDle.Core.Content;
+using CivDle.Core.Galaxy;
 using CivDle.Core.Save;
 using CivDle.Core.Platform;
 using CivDle.Core.Sim;
@@ -40,6 +41,12 @@ public sealed class GameplayScreen : IScreen
     private readonly ScreenManager _screens;
     private readonly Simulation _simulation;
     private readonly WorldInfo _info;
+
+    /// <summary>Rozehraná galaxie; <c>null</c> = výzva (galaxii nemá).</summary>
+    private readonly GalaxySession? _session;
+
+    /// <summary>Byla galaxie otevřená už minule? Hlídá jednorázové oznámení po bráně.</summary>
+    private bool _galaxyWasOpen;
     private readonly Camera2D _camera = new();
     private readonly TerrainRenderer _terrainRenderer;
     private readonly WaterRenderer _waterRenderer;
@@ -484,12 +491,27 @@ public sealed class GameplayScreen : IScreen
     /// nereaguje — hráč viděl doběhnutý ukazatel, klikl a hra spadla. Počítá se
     /// po dávkách na načítací obrazovce, sem přijde jen výsledek.</para>
     /// </param>
+    /// <param name="session">
+    /// Rozehraná galaxie (přepnutí světa, načtený save). <c>null</c> = založí
+    /// se galaxie s jedinou Domovinou; výzva galaxii nemá.
+    /// </param>
     public GameplayScreen(
-        ScreenManager screens, Simulation simulation, WorldInfo info, OfflineSummary? offline = null)
+        ScreenManager screens, Simulation simulation, WorldInfo info, OfflineSummary? offline = null,
+        GalaxySession? session = null)
     {
         _screens = screens;
         _simulation = simulation;
         _info = info;
+
+        // Galaxie a obsah světa DŘÍV než cokoli jiného: všechny renderery níž
+        // si berou budovy, biomy a suroviny ze _screens.Content, a v kolonii to
+        // musí být obsah kolonie.
+        _session = session ?? (simulation.InScenario
+            ? null
+            : GalaxySession.Resume(screens.Galaxy, new LoadedSave(
+                simulation, new SaveMetadata(info.Seed, info.SizeId, info.PresetId, DateTime.UtcNow), null)));
+        screens.BeginSession(_session);
+        _galaxyWasOpen = _session?.IsOpen ?? false;
         // Už odemčené achievementy z profilu, ať se v téhle hře nespouštějí znovu.
         _simulation.SeedUnlockedAchievements(screens.Profile.UnlockedAchievements);
 
@@ -648,6 +670,7 @@ public sealed class GameplayScreen : IScreen
 
         float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
         _input.Update(dt);
+        UpdateGalaxy();
 
         // Kulisa podle biomu a počasí — atmosféra stála skoro jen na obraze.
         _soundscape.Update(dt, _simulation);
@@ -1546,6 +1569,50 @@ public sealed class GameplayScreen : IScreen
         BuildingStall.NetworkShortage => "stall.networkShortage",
         _ => null,
     };
+
+    /// <summary>
+    /// Přepínač světů v HUD (svety-design.md 7.8): malé planety založených
+    /// světů před počtem obyvatel. Aktivní svět je zvýrazněný, klik na jiný
+    /// odletí. Dokud je svět jediný, přepínač se neukáže vůbec.
+    /// </summary>
+    private void AddWorldSwitcher(HorizontalStackPanel row)
+    {
+        if (_session is not { IsOpen: true } session || session.State.Records.Count < 2)
+        {
+            return;
+        }
+
+        var loc = _screens.Loc;
+        var switcher = new HorizontalStackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+        foreach (var world in session.Catalog.Worlds)
+        {
+            if (!session.State.Records.ContainsKey(world.Id))
+            {
+                continue;
+            }
+
+            string id = world.Id;
+            bool active = id == session.State.ActiveWorldId;
+            var button = UiFactory.ToolButton(
+                _screens.Sprites.Get($"planet.{id}"),
+                loc[world.NameKey] + (active ? '\n' + loc["galaxy.youAreHere"] : '\n' + loc["galaxy.travel"]),
+                () =>
+                {
+                    if (!active)
+                    {
+                        WorldTravel.Go(_screens, session, id);
+                    }
+                });
+            if (active)
+            {
+                button.Background = new SolidBrush(UiPalette.PanelAccent);
+            }
+
+            switcher.Widgets.Add(button);
+        }
+
+        row.Widgets.Add(switcher);
+    }
 
     /// <summary>Jmenovky osad ve screen-space nad těžištěm shluku (orientace na mapě, fáze 4).</summary>
     private void DrawSettlementLabels(SpriteBatch spriteBatch)
@@ -2686,6 +2753,7 @@ public sealed class GameplayScreen : IScreen
         // Lidé a nečinné budovy na vlastním řádku pod surovinami — jsou to jiná
         // čísla než sklad a v zabaleném pruhu by jinak plavaly kdekoli.
         var summaryRow = new HorizontalStackPanel { Spacing = 14 };
+        AddWorldSwitcher(summaryRow);
         summaryRow.Widgets.Add(_populationLabel);
 
         // Nevyužité budovy se musí ohlásit: bez dělníků nevyrábějí a hráč by jinak
@@ -3345,6 +3413,15 @@ public sealed class GameplayScreen : IScreen
             records.Add(UiFactory.ToolButton(
                 Ico("orbit.planet"), loc["hud.orbit"] + '\n' + loc["tip.orbit"],
                 () => _screens.Push(new OrbitScreen(_screens, _simulation))));
+        }
+
+        // Galaxie až po otevření Hvězdné brány (svety-design.md 2.1): dřív by
+        // to byla mapa, na které se nedá nic udělat.
+        if (_session is { IsOpen: true })
+        {
+            records.Add(UiFactory.ToolButton(
+                Ico($"planet.{_session.State.ActiveWorldId}"), loc["hud.galaxy"] + '\n' + loc["tip.galaxy"],
+                OpenGalaxy));
         }
 
         // Osobnosti až od chvíle, kdy se první někdo narodil. Prázdný seznam
@@ -4489,7 +4566,38 @@ public sealed class GameplayScreen : IScreen
     private void SaveGame()
     {
         SyncChronicle();
-        _screens.SavesFor(_simulation).TrySave(_simulation, new SaveMetadata(_info.Seed, _info.SizeId, _info.PresetId, DateTime.UtcNow));
+        _screens.SaveGame(_simulation, _info); // s galaxií, když běží (ostatní světy, hodiny, loď)
+    }
+
+    /// <summary>
+    /// Galaxie za snímek: hodiny, měření toků, hvězdy — a jednou, když se
+    /// po otevření brány galaxie zpřístupní, to hráči řekne.
+    /// </summary>
+    private void UpdateGalaxy()
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        _session.Update();
+        bool open = _session.IsOpen;
+        if (open && !_galaxyWasOpen)
+        {
+            var loc = _screens.Loc;
+            _momentBanner.Show(loc["galaxy.opened.title"], loc["galaxy.opened"], UiPalette.Accent, seconds: 7f);
+        }
+
+        _galaxyWasOpen = open;
+    }
+
+    /// <summary>Otevře mapu galaxie.</summary>
+    internal void OpenGalaxy()
+    {
+        if (_session is { IsOpen: true } session)
+        {
+            _screens.Push(new GalaxyScreen(_screens, session));
+        }
     }
 
     /// <summary>

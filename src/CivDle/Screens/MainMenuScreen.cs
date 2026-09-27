@@ -25,6 +25,7 @@ public sealed class MainMenuScreen : IScreen
     {
         _screens = screens;
         _statusText = statusText;
+        _screens.EndSession(); // v menu se nehraje žádný svět — obsah zpět na Domovinu
         BuildUi();
         _screens.Loc.LanguageChanged += BuildUi;
         _screens.UiSettingsChanged += BuildUi;
@@ -240,20 +241,27 @@ public sealed class MainMenuScreen : IScreen
     /// </summary>
     private void ReplayEnding()
     {
-        var loaded = _screens.Saves.TryLoad(_screens.Content, out _);
-        if (loaded is null || !loaded.Simulation.IsGateOpened)
+        // Brána stojí na Domovině — když hráč zrovna hraje kolonii, přehraje
+        // se konec nad snímkem Domoviny, ne nad kolonií.
+        var loaded = _screens.Saves.TryLoad(_screens.Galaxy, out _);
+        var home = loaded is null
+            ? null
+            : loaded.Simulation.Content.World.IsHome
+                ? loaded.Simulation
+                : Core.Galaxy.GalaxySession.Resume(_screens.Galaxy, loaded).PeekWorld(WorldScope.HomeId);
+        if (home is null || !home.IsGateOpened)
         {
             _statusText = _screens.Loc["menu.endingMissing"];
             BuildUi();
             return;
         }
 
-        _screens.Push(new EndingScreen(_screens, loaded.Simulation, replay: true, newGamePlus: null));
+        _screens.Push(new EndingScreen(_screens, home, replay: true, newGamePlus: null));
     }
 
     private void ContinueGame()
     {
-        var loaded = _screens.Saves.TryLoad(_screens.Content, out var error);
+        var loaded = _screens.Saves.TryLoad(_screens.Galaxy, out var error);
         if (loaded is null)
         {
             if (error is not null)
@@ -273,9 +281,14 @@ public sealed class MainMenuScreen : IScreen
         var catchUp = new CivDle.Core.Sim.OfflineCatchUp(
             loaded.Simulation, loaded.Metadata.SavedAtUtc, DateTime.UtcNow);
 
+        // Galaxie (ostatní světy, hodiny, loď) a obsah aktivního světa dřív než
+        // načítací obrazovka — ta už kreslí kroniku biomy toho světa.
+        var session = Core.Galaxy.GalaxySession.Resume(_screens.Galaxy, loaded);
+        _screens.BeginSession(session);
+
         _screens.ReplaceAll(new LoadingScreen(
             _screens, "loading.savedGame",
-            offline => new GameplayScreen(_screens, loaded.Simulation, info, offline),
+            offline => new GameplayScreen(_screens, loaded.Simulation, info, offline, session),
             catchUp,
             loaded.Simulation));
     }
