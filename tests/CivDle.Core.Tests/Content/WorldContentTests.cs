@@ -47,6 +47,55 @@ public sealed class WorldContentTests
         Assert.False(world.Resources.TryIndexOf("wood", out _), $"svět '{worldId}' nemá mít dřevo Domoviny");
     }
 
+    /// <summary>
+    /// Každá surovina, kterou svět chce (stavba, výzkum, recept, údržba,
+    /// sloučení), na něm i vzniká — nebo je jen dovozem. Jinak stojí výzkum
+    /// i guvernér navždy (Xeno měl nektar, který nic nevyrábělo).
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Colonies))]
+    public void EveryResourceAColonyNeedsIsMadeThere(string worldId)
+    {
+        var world = Galaxy.Value.For(worldId);
+        var made = new HashSet<int>();
+        var needed = new Dictionary<int, string>();
+        void Need(IEnumerable<ResourceAmount> amounts, string by)
+        {
+            foreach (var amount in amounts)
+            {
+                needed.TryAdd(amount.ResourceIndex, by);
+            }
+        }
+
+        for (int b = 0; b < world.Buildings.Count; b++)
+        {
+            var def = world.Buildings[b];
+            if (def.Recipe is { } recipe)
+            {
+                made.UnionWith(recipe.Outputs.Select(o => o.ResourceIndex));
+                Need(recipe.Inputs, def.Id);
+            }
+
+            if (def.Buildable)
+            {
+                Need(def.BuildCost, def.Id);
+            }
+
+            Need(def.Upkeep, def.Id);
+            Need(def.MergeCost, def.Id);
+            Need(def.UpgradeCost, def.Id);
+        }
+
+        for (int t = 0; t < world.Techs.Count; t++)
+        {
+            Need(world.Techs[t].Cost, "výzkum " + world.Techs[t].Id);
+        }
+
+        var missing = needed.Where(n => !made.Contains(n.Key) && !world.Resources[n.Key].ImportOnly)
+            .Select(n => $"{world.Resources[n.Key].Id} (chce {n.Value})").ToList();
+        Assert.True(missing.Count == 0, $"svět '{worldId}' nic nevyrábí: " + string.Join(", ", missing));
+    }
+
     [Fact]
     public void TheDuneRunsOnWaterAndHasItsOwnGround()
     {
