@@ -362,6 +362,7 @@ public sealed class SmokeRun
             VisitColony(screens, session, time, "archipelago");
             VisitColony(screens, session, time, "forge", untilLava: true);
             VisitColony(screens, session, time, "gas_giant");
+            VisitColony(screens, session, time, "xeno", minutes: 12);
         }
         finally
         {
@@ -374,10 +375,11 @@ public sealed class SmokeRun
     /// místě, pět minut guvernéra, fotka (sníh roztátý kolem tepla, příliv na
     /// mělčinách…) a návrat domů. Hvězdy se neřeší — odemčení testuje jádro.
     /// Na Výhni (<paramref name="untilLava"/>) se čeká na první erupci, až láva
-    /// kus doteče, a fotka míří na její čelo.
+    /// kus doteče, a fotka míří na její čelo. Na Xenu (<paramref name="minutes"/>)
+    /// se běží déle, aby flóra po prvních tepech k městu dorostla.
     /// </summary>
     private static void VisitColony(ScreenManager screens, GalaxySession session, GameTime time, string worldId,
-        bool untilLava = false)
+        bool untilLava = false, double minutes = 0)
     {
         var world = session.Contents.Catalog.Find(worldId);
         if (world is null)
@@ -393,7 +395,8 @@ public sealed class SmokeRun
         try
         {
             colony.Plan.SetChoosesResearch(true);
-            int ticks = untilLava ? (int)(20 * 60 * Simulation.TicksPerSecond) : 3_000;
+            int ticks = untilLava ? (int)(20 * 60 * Simulation.TicksPerSecond)
+                : minutes > 0 ? (int)(minutes * 60 * Simulation.TicksPerSecond) : 3_000;
             for (int i = 0; i < ticks; i++)
             {
                 colony.Tick();

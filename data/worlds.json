@@ -75,6 +75,19 @@
       ],
       "colonyCostGrowth": 1.6,
       "planet": { "surface": "#E8C898", "accent": "#B86A40", "size": 1.4, "bands": true, "ring": true }
+    },
+    {
+      "id": "xeno",
+      "order": 6,
+      "starsRequired": 12,
+      "colonyCost": [
+        { "cost": { "steel": 3500000, "machine_parts": 1400000 } },
+        { "cost": { "electronics": 1000000, "computer": 500000, "tools": 3500000 } },
+        { "cost": { "food": 28000000, "robot": 300000 } },
+        { "cost": { "nanomaterial": 600000, "science": 10000000 } }
+      ],
+      "colonyCostGrowth": 1.6,
+      "planet": { "surface": "#6A3A8A", "accent": "#60F0D8", "size": 1.0, "ring": true }
     }
   ]
 }

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Zvěř Xena: světlušky a motýlí medúzy nad flórou, svítící brouci u hnízd, pasoucí se šestinožci v mechu — sdílená s Domovinou (značka worlds).",
+  "fauna": [
+    {
+      "id": "firefly",
+      "biomes": [
+        "xeno_moss",
+        "xeno_bloom"
+      ]
+    },
+    {
+      "id": "butterfly",
+      "biomes": [
+        "xeno_moss",
+        "xeno_bloom"
+      ]
+    },
+    {
+      "id": "glow_beetle",
+      "biomes": [
+        "xeno_bloom",
+        "xeno_nest"
+      ]
+    },
+    {
+      "id": "deer",
+      "biomes": [
+        "xeno_moss"
+      ]
+    }
+  ]
+}

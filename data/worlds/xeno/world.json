@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Xeno — cizí svět (svety-design.md 4.6). Flóra je jeden živý organismus: z hnízd roste v tepech a obaluje okraj města. Náhrady: sdílené budovy stojí živé vlákno místo dřeva, prken a kamene a biokrystaly místo bronzu a železa.",
+  "preset": "xeno",
+  "atmosphere": "xeno",
+  "landingModule": "xeno_lander",
+  "startingKit": {
+    "living_fiber": 180,
+    "spores": 60,
+    "food": 220,
+    "tools": 20
+  },
+  "exports": [
+    "biocrystal"
+  ],
+  "port": "signal_bloom",
+  "substitutes": {
+    "wood": "living_fiber",
+    "planks": "living_fiber",
+    "stone": "living_fiber",
+    "bronze": "biocrystal",
+    "iron": "biocrystal"
+  },
+  "withoutSystems": [
+    "npc-cities",
+    "figures",
+    "doctrines",
+    "poi",
+    "scenarios",
+    "carillon",
+    "frontier",
+    "orbit",
+    "grandwork",
+    "faith",
+    "citizens",
+    "contracts",
+    "challenges",
+    "tutorial",
+    "milestones",
+    "features",
+    "landmarks",
+    "seasons"
+  ]
+}

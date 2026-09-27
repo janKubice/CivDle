@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Zem Xena: fialový mech, hnízda flóry (odsud roste) a flóra sama (xeno_bloom) — tu klade tep flóry přepisem terénu. Mech a hnízda pokládají záplaty předvolby 'xeno'.",
+  "biomes": [
+    {
+      "id": "xeno_moss",
+      "mapColor": "#4A3A6A",
+      "colorVariation": 0.07,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        1.0
+      ],
+      "natural": false,
+      "productionMult": 1.0
+    },
+    {
+      "id": "xeno_nest",
+      "mapColor": "#B040A0",
+      "colorVariation": 0.05,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        1.0
+      ],
+      "natural": false,
+      "productionMult": 0.8
+    },
+    {
+      "id": "xeno_bloom",
+      "mapColor": "#7A3AA0",
+      "colorVariation": 0.08,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        1.0
+      ],
+      "natural": false,
+      "productionMult": 1.1,
+      "clickYield": {
+        "resource": "spores",
+        "amount": 1,
+        "charges": 10,
+        "regrowSeconds": 300
+      }
+    }
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Události Xena. Probuzení hnízda a rojení spor jsou volby — flóra sama roste z rozvrhu tepů.",
+  "events": [
+    {
+      "id": "xeno_spore_swarm",
+      "choices": [
+        {
+          "id": "brace",
+          "cost": {
+            "living_fiber": 30
+          }
+        },
+        {
+          "id": "endure",
+          "effect": {
+            "kind": "production",
+            "multiplier": 0.85,
+            "seconds": 150
+          }
+        }
+      ]
+    },
+    {
+      "id": "xeno_great_bloom",
+      "choices": [
+        {
+          "id": "harvest",
+          "gain": {
+            "spores": 80
+          }
+        },
+        {
+          "id": "admire",
+          "effect": {
+            "kind": "growth",
+            "multiplier": 1.15,
+            "seconds": 120
+          }
+        }
+      ]
+    },
+    {
+      "id": "xeno_eclipse",
+      "choices": [
+        {
+          "id": "celebrate",
+          "effect": {
+            "kind": "growth",
+            "multiplier": 1.1,
+            "seconds": 90
+          }
+        },
+        {
+          "id": "study",
+          "gain": {
+            "science": 40
+          }
+        }
+      ]
+    },
+    {
+      "id": "xeno_nest_awakens",
+      "choices": [
+        {
+          "id": "study",
+          "gain": {
+            "genome": 20
+          }
+        },
+        {
+          "id": "prune",
+          "cost": {
+            "living_fiber": 40
+          }
+        }
+      ]
+    },
+    {
+      "id": "xeno_forest_song",
+      "choices": [
+        {
+          "id": "listen",
+          "effect": {
+            "kind": "growth",
+            "multiplier": 1.2,
+            "seconds": 120
+          }
+        },
+        {
+          "id": "work",
+          "gain": {
+            "nectar": 60
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Předvolba Xena: vlhký teplý svět; nížiny pokryje fialový mech, v něm leží hnízda flóry. Hory a moře zůstávají.",
+  "presets": [
+    {
+      "id": "xeno",
+      "seaLevel": 0.33,
+      "fallbackBiome": "grassland",
+      "elevationNoise": {
+        "frequency": 1.5,
+        "octaves": 5,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      },
+      "moistureNoise": {
+        "frequency": 2.0,
+        "octaves": 3,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      },
+      "riverNoise": {
+        "frequency": 0.7,
+        "octaves": 2,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      },
+      "riverWidth": 0.004,
+      "riverMaxElevation": 0.5,
+      "temperatureNoise": {
+        "frequency": 0.6,
+        "octaves": 3,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      },
+      "temperatureBandTiles": 2400,
+      "temperatureLapse": 0.2,
+      "riverBiome": "shallow_water",
+      "temperatureShift": 0.1,
+      "moistureShift": 0.2,
+      "patches": [
+        {
+          "biome": "xeno_nest",
+          "on": [
+            "grassland",
+            "forest",
+            "jungle",
+            "steppe",
+            "savanna",
+            "swamp",
+            "desert",
+            "tundra",
+            "taiga",
+            "mangrove"
+          ],
+          "threshold": 0.8,
+          "noise": {
+            "frequency": 5.0,
+            "octaves": 2,
+            "persistence": 0.5,
+            "lacunarity": 2.0
+          }
+        },
+        {
+          "biome": "xeno_moss",
+          "on": [
+            "grassland",
+            "forest",
+            "jungle",
+            "steppe",
+            "savanna",
+            "swamp",
+            "desert",
+            "tundra",
+            "taiga",
+            "mangrove"
+          ],
+          "threshold": 0.001,
+          "noise": {
+            "frequency": 1.0,
+            "octaves": 2,
+            "persistence": 0.5,
+            "lacunarity": 2.0
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Vzestup Xena (svety-design.md 4.6): vylepšení navíc ke společným. Platí jen v téhle kolonii.",
+  "upgrades": [
+    {
+      "id": "xeno_quick_shears",
+      "effect": "hazard_resistance",
+      "magnitude": 0.15,
+      "cost": 2,
+      "maxLevel": 8,
+      "costGrowth": 1.3
+    },
+    {
+      "id": "xeno_rich_harvest",
+      "effect": "production_mult",
+      "targetResource": "spores",
+      "magnitude": 0.1,
+      "cost": 1,
+      "maxLevel": 20,
+      "costGrowth": 1.2
+    },
+    {
+      "id": "xeno_fast_growth",
+      "effect": "production_mult",
+      "targetResource": "living_fiber",
+      "magnitude": 0.1,
+      "cost": 1,
+      "maxLevel": 20,
+      "costGrowth": 1.2
+    },
+    {
+      "id": "xeno_sweet_nectar",
+      "effect": "production_mult",
+      "targetResource": "food",
+      "magnitude": 0.08,
+      "cost": 1,
+      "maxLevel": 20,
+      "costGrowth": 1.2
+    },
+    {
+      "id": "xeno_bright_fields",
+      "effect": "production_mult",
+      "targetResource": "luminsap",
+      "magnitude": 0.1,
+      "cost": 1,
+      "maxLevel": 20,
+      "costGrowth": 1.2
+    },
+    {
+      "id": "xeno_crystal_song",
+      "effect": "production_mult",
+      "targetResource": "biocrystal",
+      "magnitude": 0.1,
+      "cost": 2,
+      "maxLevel": 20,
+      "costGrowth": 1.2
+    },
+    {
+      "id": "xeno_harmony",
+      "effect": "growth_mult",
+      "magnitude": 0.05,
+      "cost": 2,
+      "maxLevel": 10,
+      "costGrowth": 1.25
+    }
+  ]
+}

@@ -1136,6 +1136,43 @@ sousedství).
 
 **Odhad:** 8–9 dní.
 
+> **Hotovo (D4.1–D4.2) — Xeno je hratelné.** `data/worlds/xeno/`: přistávací
+> modul a 21 budov z tabulky, 10 technologií, 6 surovin (perly a broušené
+> krystaly jen dovozem), mech, hnízda a flóra jako biomy, šíření flóry,
+> 5 událostí, fauna, 7 vylepšení Vzestupu a hvězdy.
+> * **Flóra** je jev `flora_spread`: každých 30 s doroste z hnízd a z flóry
+>   na sousední mech (šance z hashe seedu, tepu a dlaždice — stejný save roste
+>   stejně). Budovu, ke které doroste, obalí (stav „obalená", úponky přes
+>   střechu, zhasne) a lidé ji za minutu odstřihnou. Cesty flóra neprorůstá.
+>   Prořezávač (`flora: pruner`) šíření v okruhu zastaví a sklízí spory,
+>   bariéra (`flora: barrier`) flóru nepustí, Strom života ji nechá růst, ale
+>   nic neobalí (`shelter` bez prořezávání), Matka stromů totéž v okruhu 30.
+> * **Symbióza** je bonus za flóru v sousedství (`adjacency` na biom flóry):
+>   nektarová zahrada, sběrna spor, pěstírna vlákna i prořezávač rodí u flóry
+>   víc — flóra je zdroj, ne jen hrozba.
+> * **★★** je 10 klidných tepů (flóra k městu dorostla a nic neobalila)
+>   a zároveň aspoň polovina volné souše kolem města zelená
+>   (`calmGreenShare` — zastavěná půda se nepočítá). Vymýcené okolí se
+>   nepočítá: hvězda je za soužití, ne za prořezávač u každého domu.
+> * **Místo přistání** je 8–24 dlaždic od hnízda — první tep dojde k městu
+>   za pár minut, ale modul hned neobalí.
+> * **Guvernér:** ochranu (`ProtectionGoal`) staví k obalené budově jen tam,
+>   kde ji ještě nic nekryje (i rozestavěné) — dřív k jedné obalené budově
+>   postavil prořezávač za prořezávačem, až jich bylo přes 400. Oprava platí
+>   pro všechny světy. Širší ochrana má přednost, takže po výzkumu staví
+>   Stromy života a na části map si ★★ vyslouží sám.
+> * **Kontrola dat:** nový test ověří, že každá surovina, kterou svět chce
+>   (stavba, výzkum, recept, údržba), na něm i vzniká nebo je jen dovozem —
+>   našel nektar, který nic nevyrábělo (výzkum stál navždy).
+> * **Oproti návrhu:** stavby se nepěstují (staví se jako jinde, klíčírna je
+>   sklad), kořenová síť je bariéra, která budovy napojí jako cesta
+>   (`ferryReach`), živý úl flóru v sousedství nevyžaduje, ✦ je 20 000
+>   obyvatel bez podmínky „jen Stromy života". Genetická laboratoř II
+>   s héliem-3 a dvě slunce jako dva cykly dne zatím nejsou; dvě slunce jsou
+>   vidět na druhém, zrcadleném stínu budov. Fauna je sdílená zvěř Domoviny
+>   (světlušky, motýli, svítící brouci, jeleni).
+> * **Hands-off** (`XenoColonyTests`): guvernér sám dojde k ★ za 77–84 minut.
+
 ---
 
 ## 5. Vizuál napříč světy

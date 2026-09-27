@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Šíření flóry Xena (svety-design.md 4.6): každých 30 s flóra doroste z hnízd a z flóry na sousední mech; budovu, ke které doroste, obalí (vypadne, lidé ji odstřihnou). Prořezávač růst v okruhu zastaví, Strom života ho nechá růst, ale nic neobalí, bariéra flóru nepustí. Klidný tep (★★) se počítá, jen když je aspoň polovina volné souše kolem města zelená — soužití, ne vymýcení.",
+  "hazards": [
+    {
+      "id": "flora",
+      "behavior": "flora_spread",
+      "firstAfterSeconds": 300,
+      "intervalSeconds": 30,
+      "warningSeconds": 10,
+      "nestBiome": "xeno_nest",
+      "bloomBiome": "xeno_bloom",
+      "spreadOn": [
+        "xeno_moss"
+      ],
+      "spreadChance": 0.18,
+      "activeRadius": 40,
+      "wrapSeconds": 60,
+      "minBuildings": 5,
+      "calmGreenShare": 0.5
+    }
+  ]
+}

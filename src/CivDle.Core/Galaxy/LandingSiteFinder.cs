@@ -18,6 +18,9 @@ namespace CivDle.Core.Galaxy;
 /// neviděla celou hodinu; pravidlo světa má tlačit brzy a u každého startu
 /// stejně (svety-design.md 3.3).</para>
 ///
+/// <para><b>Svět s flórou</b> (Xeno): přednost mají místa s hnízdem na dohled,
+/// ale ne na prahu — první tepy flóry má hráč vidět, ne jimi začínat.</para>
+///
 /// <para>Deterministické ze seedu (terén je funkce seedu) a levné: kandidáti
 /// po mřížce, okolí po vzorcích. Počítá se jednou, při otevření dialogu.</para>
 /// </summary>
@@ -69,6 +72,8 @@ public static class LandingSiteFinder
         var eruption = content.Hazards.EruptionIndex >= 0 ? content.Hazards.Hazards[content.Hazards.EruptionIndex].Eruption : null;
         var vents = eruption is null ? null : FindVents(terrain, eruption);
         var lavaPaths = new Dictionary<(int, int), List<long>>();
+        var flora = content.Hazards.FloraIndex >= 0 ? content.Hazards.Hazards[content.Hazards.FloraIndex].Flora : null;
+        var nests = flora is null ? null : FindBiome(terrain, flora.NestBiomeIndex, NestReach);
         var scored = new List<(int X, int Y, int Score)>();
         for (int y = -SearchRadius; y <= SearchRadius; y += Stride)
         {
@@ -85,6 +90,11 @@ public static class LandingSiteFinder
                 if (vents is not null && IsUnderVent(content, terrain, vents, lavaPaths, eruption!, x, y))
                 {
                     score += UnderVentBonus;
+                }
+
+                if (nests is not null && IsNearNest(nests, x, y))
+                {
+                    score += NearNestBonus;
                 }
 
                 scored.Add((x, y, score));
@@ -105,6 +115,50 @@ public static class LandingSiteFinder
         }
 
         return chosen;
+    }
+
+    /// <summary>
+    /// Svět s flórou (Xeno): hnízdo blíž než tohle by obalilo modul hned
+    /// prvním tepem, dál než <see cref="NestReach"/> by k městu flóra dorostla
+    /// až za dlouho.
+    /// </summary>
+    private const int NestMinDistance = 8;
+
+    /// <summary>Nejvzdálenější hnízdo, které se ještě počítá „na dohled".</summary>
+    private const int NestReach = 24;
+
+    /// <summary>Jako místo pod sopkou: hnízdo na dohled přebije i lepší okolí.</summary>
+    private const int NearNestBonus = UnderVentBonus;
+
+    /// <summary>Místo u hnízda: nejbližší hnízdo je na dohled, ne na prahu.</summary>
+    private static bool IsNearNest(List<(int X, int Y)> nests, int x, int y)
+    {
+        long best = long.MaxValue;
+        foreach (var nest in nests)
+        {
+            best = Math.Min(best, (long)(nest.X - x) * (nest.X - x) + (long)(nest.Y - y) * (nest.Y - y));
+        }
+
+        return best >= (long)NestMinDistance * NestMinDistance && best <= (long)NestReach * NestReach;
+    }
+
+    /// <summary>Dlaždice biomu v celé oblasti hledání (i s okrajem <paramref name="margin"/>).</summary>
+    private static List<(int X, int Y)> FindBiome(ITerrain terrain, int biome, int margin)
+    {
+        var found = new List<(int X, int Y)>();
+        int reach = SearchRadius + margin;
+        for (int y = -reach; y <= reach; y += VentStride)
+        {
+            for (int x = -reach; x <= reach; x += VentStride)
+            {
+                if (terrain.BiomeAt(x, y) == biome)
+                {
+                    found.Add((x, y));
+                }
+            }
+        }
+
+        return found;
     }
 
     /// <summary>Průduchy v celé oblasti hledání (i s okrajem dosahu jevu).</summary>

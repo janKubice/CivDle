@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Počasí Xena: unášené spory, teplý déšť a bioluminiscenční mlha.",
+  "weather": [
+    {
+      "id": "clear",
+      "biomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "xeno_nest",
+        "beach",
+        "mountains",
+        "highlands",
+        "grassland",
+        "forest",
+        "jungle"
+      ],
+      "weight": 7,
+      "durationSeconds": 180,
+      "tint": "#F0E8FF",
+      "tintAlpha": 0.04,
+      "particle": "none"
+    },
+    {
+      "id": "spore_drift",
+      "biomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "xeno_nest",
+        "beach",
+        "mountains",
+        "highlands",
+        "grassland",
+        "forest",
+        "jungle"
+      ],
+      "weight": 5,
+      "durationSeconds": 150,
+      "tint": "#E0B0F0",
+      "tintAlpha": 0.1,
+      "particle": "sand"
+    },
+    {
+      "id": "warm_rain",
+      "biomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "xeno_nest",
+        "beach",
+        "mountains",
+        "highlands",
+        "grassland",
+        "forest",
+        "jungle"
+      ],
+      "weight": 3,
+      "durationSeconds": 120,
+      "tint": "#B0C8E8",
+      "tintAlpha": 0.14,
+      "particle": "rain"
+    },
+    {
+      "id": "glow_mist",
+      "biomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "xeno_nest",
+        "beach",
+        "mountains",
+        "highlands",
+        "grassland",
+        "forest",
+        "jungle"
+      ],
+      "weight": 2,
+      "durationSeconds": 120,
+      "tint": "#80F0E0",
+      "tintAlpha": 0.18,
+      "particle": "none"
+    }
+  ]
+}

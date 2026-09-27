@@ -3,6 +3,7 @@
   "fauna": [
     {
       "id": "deer",
+      "worlds": ["home", "xeno"],
       "biomes": [
         "grassland",
         "forest"
@@ -42,6 +43,7 @@
     },
     {
       "id": "firefly",
+      "worlds": ["home", "xeno"],
       "biomes": [
         "grassland",
         "forest"
@@ -278,6 +280,7 @@
     },
     {
       "id": "glow_beetle",
+      "worlds": ["home", "xeno"],
       "biomes": [
         "fallout"
       ],
@@ -537,7 +540,7 @@
     },
     {
       "id": "butterfly",
-      "worlds": ["home", "archipelago"],
+      "worlds": ["home", "archipelago", "xeno"],
       "biomes": [
         "grassland",
         "forest",

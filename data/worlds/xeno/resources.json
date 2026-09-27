@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Suroviny Xena. Perly a broušené krystaly se tu nevyrábí — symbiotická věž a xenobiologický ústav je chtějí dovozem (importOnly).",
+  "resources": [
+    {
+      "id": "spores",
+      "mapColor": "#C88AE8",
+      "startAmount": 0,
+      "baseStorage": 300
+    },
+    {
+      "id": "living_fiber",
+      "mapColor": "#6A9A7A",
+      "startAmount": 0,
+      "baseStorage": 300
+    },
+    {
+      "id": "nectar",
+      "mapColor": "#F0C060",
+      "startAmount": 0,
+      "baseStorage": 250
+    },
+    {
+      "id": "luminsap",
+      "mapColor": "#60F0D8",
+      "startAmount": 0,
+      "baseStorage": 200
+    },
+    {
+      "id": "genome",
+      "mapColor": "#E060C0",
+      "startAmount": 0,
+      "baseStorage": 150
+    },
+    {
+      "id": "biocrystal",
+      "mapColor": "#A0F0FF",
+      "startAmount": 0,
+      "baseStorage": 120
+    },
+    {
+      "id": "pearls",
+      "mapColor": "#F4EEE0",
+      "startAmount": 0,
+      "baseStorage": 100,
+      "importOnly": true
+    },
+    {
+      "id": "cut_crystal",
+      "mapColor": "#A8D8F0",
+      "startAmount": 0,
+      "baseStorage": 100,
+      "importOnly": true
+    }
+  ]
+}

@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Výzkum Xena (svety-design.md 4.6) a úpravy sdílené větve Domoviny: sdílené technologie tu nemají předpoklady, které na Xenu neexistují.",
+  "techs": [
+    {
+      "id": "writing",
+      "prerequisites": []
+    },
+    {
+      "id": "trade",
+      "prerequisites": [],
+      "unlocks": [
+        "market"
+      ]
+    },
+    {
+      "id": "tools",
+      "prerequisites": []
+    },
+    {
+      "id": "warehousing",
+      "prerequisites": [
+        "trade"
+      ]
+    },
+    {
+      "id": "apprenticeships",
+      "prerequisites": [
+        "schooling"
+      ]
+    },
+    {
+      "id": "public_works",
+      "prerequisites": [
+        "trade"
+      ]
+    },
+    {
+      "id": "symbiosis",
+      "cost": {
+        "living_fiber": 50,
+        "spores": 30
+      },
+      "unlocks": [
+        "living_hive",
+        "canopy_house"
+      ]
+    },
+    {
+      "id": "grown_buildings",
+      "cost": {
+        "living_fiber": 60,
+        "spores": 30,
+        "science": 20
+      },
+      "unlocks": [
+        "seed_vault"
+      ]
+    },
+    {
+      "id": "spore_barriers",
+      "cost": {
+        "spores": 60,
+        "science": 20
+      },
+      "unlocks": [
+        "spore_barrier",
+        "root_network"
+      ]
+    },
+    {
+      "id": "luminescence",
+      "cost": {
+        "living_fiber": 60,
+        "spores": 40,
+        "science": 30
+      },
+      "unlocks": [
+        "glow_field"
+      ]
+    },
+    {
+      "id": "genetics",
+      "cost": {
+        "nectar": 60,
+        "science": 40
+      },
+      "prerequisites": [
+        "symbiosis"
+      ],
+      "unlocks": [
+        "gene_lab",
+        "symbiont_workshop"
+      ]
+    },
+    {
+      "id": "biocrystals",
+      "cost": {
+        "luminsap": 30,
+        "spores": 80,
+        "science": 60
+      },
+      "prerequisites": [
+        "luminescence"
+      ],
+      "unlocks": [
+        "biocrystal_hatchery",
+        "signal_bloom"
+      ]
+    },
+    {
+      "id": "life_tree",
+      "cost": {
+        "nectar": 80,
+        "spores": 80,
+        "science": 60
+      },
+      "prerequisites": [
+        "symbiosis"
+      ],
+      "unlocks": [
+        "life_tree",
+        "serenity_garden",
+        "healing_grove"
+      ]
+    },
+    {
+      "id": "xenobiology",
+      "cost": {
+        "genome": 30,
+        "biocrystal": 10,
+        "science": 80
+      },
+      "prerequisites": [
+        "genetics",
+        "biocrystals"
+      ],
+      "unlocks": [
+        "xenobiology_institute"
+      ]
+    },
+    {
+      "id": "spires",
+      "cost": {
+        "biocrystal": 40,
+        "living_fiber": 150,
+        "science": 120
+      },
+      "prerequisites": [
+        "xenobiology"
+      ],
+      "unlocks": [
+        "symbiont_spire"
+      ]
+    },
+    {
+      "id": "world_tree",
+      "cost": {
+        "biocrystal": 300,
+        "genome": 200,
+        "science": 1200
+      },
+      "prerequisites": [
+        "spires",
+        "life_tree"
+      ],
+      "unlocks": [
+        "world_tree"
+      ]
+    }
+  ]
+}

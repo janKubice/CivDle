@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Úkoly Xena: úvodní kroky kolonie a hvězdy světa (svety-design.md 2.6). ★★ = deset tepů flóry u města bez jediné obalené budovy, ✦ = 20 000 obyvatel.",
+  "quests": [
+    {
+      "id": "xeno_first_pruners",
+      "condition": {
+        "metric": "building",
+        "building": "pruner",
+        "target": 3
+      },
+      "reward": {
+        "living_fiber": 40
+      }
+    },
+    {
+      "id": "xeno_nectar",
+      "condition": {
+        "metric": "building",
+        "building": "nectar_garden",
+        "target": 4
+      },
+      "reward": {
+        "spores": 40
+      }
+    },
+    {
+      "id": "xeno_glow",
+      "condition": {
+        "metric": "building",
+        "building": "glow_field",
+        "target": 2
+      },
+      "reward": {
+        "nectar": 40
+      }
+    },
+    {
+      "id": "xeno_genome",
+      "condition": {
+        "metric": "resource",
+        "resource": "genome",
+        "target": 20
+      },
+      "reward": {
+        "luminsap": 30
+      }
+    },
+    {
+      "id": "xeno_star_settled",
+      "group": "star",
+      "condition": {
+        "metric": "population",
+        "target": 5000
+      }
+    },
+    {
+      "id": "xeno_star_calm",
+      "group": "star",
+      "condition": {
+        "metric": "calmhazards",
+        "target": 10
+      }
+    },
+    {
+      "id": "xeno_star_wonder",
+      "group": "star",
+      "condition": {
+        "metric": "building",
+        "building": "world_tree",
+        "target": 1
+      }
+    },
+    {
+      "id": "xeno_star_master",
+      "group": "master",
+      "condition": {
+        "metric": "population",
+        "target": 20000
+      }
+    }
+  ]
+}

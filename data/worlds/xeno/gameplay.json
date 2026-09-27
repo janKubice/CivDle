@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Nastavení Xena nad gameplay.json Domoviny. Kolonisté přiletí rovnou do modulu (30 lidí), guvernér staví svižněji — kolonie má být druhá vesnice, ne první (svety-design.md 3.3).",
+  "planting": {
+    "species": [
+      {
+        "id": "spore_pod",
+        "cost": {
+          "food": 6
+        },
+        "resource": "spores",
+        "amount": 2
+      }
+    ]
+  },
+  "onboarding": {
+    "startSite": {
+      "nodes": {
+        "spores": 3
+      },
+      "buildings": [
+        "fungal_dwelling",
+        "fiber_nursery",
+        "nectar_garden"
+      ]
+    }
+  },
+  "demo": {
+    "techs": []
+  },
+  "startingPopulation": 30,
+  "populationFillRate": 0.0045,
+  "autoBuild": {
+    "intervalTicks": 40
+  }
+}

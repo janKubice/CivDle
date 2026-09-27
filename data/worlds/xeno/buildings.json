@@ -1,0 +1,976 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Budovy Xena (svety-design.md 4.6) a úpravy sdílených budov Domoviny. 'flora': pruner = prořezávač (v okruhu shelter flóra neroste), barrier = bariéra (přes dlaždici neproroste); 'shelter' před flórou = v okruhu nic neobalí (Strom života, Matka stromů). Symbióza: výrobny u flóry rodí víc (adjacency).",
+  "buildings": [
+    {
+      "id": "warehouse",
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ]
+    },
+    {
+      "id": "granary",
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ]
+    },
+    {
+      "id": "depot",
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ]
+    },
+    {
+      "id": "market",
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ]
+    },
+    {
+      "id": "library",
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ]
+    },
+    {
+      "id": "school",
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ]
+    },
+    {
+      "id": "university",
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ]
+    },
+    {
+      "id": "shrine",
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ]
+    },
+    {
+      "id": "temple",
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ]
+    },
+    {
+      "id": "toolmaker",
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ]
+    },
+    {
+      "id": "great_warehouse",
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "upgradesTo": null
+    },
+    {
+      "id": "xeno_lander",
+      "category": "housing",
+      "_comment_trade": "Modul drží spojení s lodí na oběžné dráze: malá kapacita tras hned od přistání.",
+      "tradeCapacity": 0.5,
+      "mapColor": "#C0B8D8",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "living_fiber": 1
+      },
+      "housingCapacity": 30,
+      "buildable": false,
+      "workerSlots": 2,
+      "recipe": {
+        "output": {
+          "food": 2,
+          "living_fiber": 1
+        },
+        "timeTicks": 60
+      },
+      "powerSupply": 4,
+      "storage": {
+        "living_fiber": 200,
+        "spores": 150,
+        "nectar": 150,
+        "food": 200,
+        "luminsap": 60,
+        "genome": 40,
+        "biocrystal": 40
+      },
+      "visualHeight": 1,
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "look": {
+        "shape": "pods",
+        "wall": "#C0B8D8",
+        "roof": "#8A7AA8",
+        "accent": "#60F0D8",
+        "features": [
+          "windows",
+          "antenna",
+          "glow"
+        ],
+        "glow": "#A0FFF0"
+      }
+    },
+    {
+      "id": "fungal_dwelling",
+      "category": "housing",
+      "mapColor": "#B090C8",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "living_fiber": 5
+      },
+      "housingCapacity": 6,
+      "autoBuild": true,
+      "mergesTo": "living_hive",
+      "mergeCost": {
+        "living_fiber": 20,
+        "spores": 8
+      },
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "look": {
+        "shape": "bulb",
+        "wall": "#B090C8",
+        "roof": "#7A5A9A",
+        "accent": "#60F0D8",
+        "features": [
+          "windows",
+          "glow"
+        ],
+        "glow": "#A0FFF0"
+      }
+    },
+    {
+      "id": "living_hive",
+      "category": "housing",
+      "_comment": "Živý úl: hustý a rád má flóru za sousedku (roste do ní, ne proti ní).",
+      "mapColor": "#A070B0",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "living_fiber": 30,
+        "spores": 10
+      },
+      "housingCapacity": 38,
+      "autoBuild": true,
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "look": {
+        "shape": "pods",
+        "wall": "#A070B0",
+        "roof": "#6A4A80",
+        "accent": "#F0C060",
+        "features": [
+          "windows",
+          "tendrils"
+        ],
+        "glow": "#FFE0A0"
+      }
+    },
+    {
+      "id": "canopy_house",
+      "category": "housing",
+      "mapColor": "#7AB08A",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "living_fiber": 40,
+        "nectar": 10
+      },
+      "housingCapacity": 44,
+      "autoBuild": true,
+      "visualHeight": 2,
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "look": {
+        "shape": "tree",
+        "wall": "#8A6AA8",
+        "roof": "#2FA89E",
+        "accent": "#F080C0",
+        "features": [
+          "windows",
+          "plants"
+        ],
+        "glow": "#FFB0E0"
+      }
+    },
+    {
+      "id": "symbiont_spire",
+      "category": "housing",
+      "_comment": "Luxus: chce perly ze Souostroví (dovoz). Bez nich ji guvernér nestaví.",
+      "mapColor": "#C8A0E8",
+      "footprint": [
+        3,
+        3
+      ],
+      "buildCost": {
+        "living_fiber": 120,
+        "biocrystal": 30,
+        "pearls": 20
+      },
+      "housingCapacity": 130,
+      "autoBuild": true,
+      "serviceValue": 4,
+      "visualHeight": 2,
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "look": {
+        "shape": "tower",
+        "wall": "#C8A0E8",
+        "roof": "#8A60B0",
+        "accent": "#60F0D8",
+        "features": [
+          "windows",
+          "tendrils",
+          "glow",
+          "spire_top"
+        ],
+        "glow": "#A0FFF0"
+      }
+    },
+    {
+      "id": "pruner",
+      "category": "civic",
+      "_comment": "Prořezávač: v okruhu flóra neroste a nic neobalí; sklízí spory z flóry kolem.",
+      "mapColor": "#8A8070",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "living_fiber": 8
+      },
+      "workerSlots": 1,
+      "autoBuild": true,
+      "flora": "pruner",
+      "shelter": {
+        "flora": 4
+      },
+      "recipe": {
+        "output": {
+          "spores": 1
+        },
+        "timeTicks": 60
+      },
+      "adjacency": {
+        "biomes": [
+          "xeno_bloom",
+          "xeno_nest"
+        ],
+        "radius": 2,
+        "perTile": 0.1,
+        "max": 1.0
+      },
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "look": {
+        "shape": "workshop",
+        "wall": "#8A8070",
+        "roof": "#5A5048",
+        "accent": "#F0C060",
+        "features": [
+          "rotor"
+        ]
+      }
+    },
+    {
+      "id": "spore_barrier",
+      "category": "civic",
+      "_comment": "Sporová bariéra: přes ni flóra neproroste (segment).",
+      "mapColor": "#E0C0F0",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "spores": 4
+      },
+      "flora": "barrier",
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "look": {
+        "shape": "column",
+        "wall": "#E0C0F0",
+        "roof": "#B090C8",
+        "accent": "#60F0D8",
+        "features": [
+          "glow"
+        ],
+        "glow": "#A0FFF0"
+      }
+    },
+    {
+      "id": "life_tree",
+      "category": "civic",
+      "_comment": "Strom života: v okruhu flóra roste dál, ale nic neobalí — zkrocená.",
+      "mapColor": "#E0C060",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "living_fiber": 40,
+        "nectar": 20,
+        "spores": 20
+      },
+      "serviceValue": 4,
+      "shelter": {
+        "flora": 7
+      },
+      "autoBuild": true,
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "look": {
+        "shape": "tree",
+        "wall": "#A08870",
+        "roof": "#D8A840",
+        "accent": "#FFF0A0",
+        "features": [
+          "glow",
+          "plants"
+        ],
+        "glow": "#FFE890"
+      }
+    },
+    {
+      "id": "root_network",
+      "category": "civic",
+      "_comment": "Kořenová síť: svítící kořeny, přes které flóra neproroste; budovy u nich jsou napojené jako u cesty.",
+      "mapColor": "#50C8B0",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "living_fiber": 4
+      },
+      "flora": "barrier",
+      "ferryReach": 3,
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "look": {
+        "shape": "channel",
+        "wall": "#3A5A50",
+        "roof": "#2A3A38",
+        "accent": "#50C8B0",
+        "features": [
+          "glow"
+        ],
+        "glow": "#90F0E0"
+      }
+    },
+    {
+      "id": "seed_vault",
+      "category": "storage",
+      "_comment": "Klíčírna: semeník s pulzujícími lusky — zásoba spor, vlákna a nektaru.",
+      "mapColor": "#C0A0D0",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "living_fiber": 20,
+        "spores": 10
+      },
+      "autoBuild": true,
+      "storage": {
+        "spores": 300,
+        "living_fiber": 300,
+        "nectar": 250,
+        "luminsap": 150
+      },
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "look": {
+        "shape": "pods",
+        "wall": "#C0A0D0",
+        "roof": "#8A70A0",
+        "accent": "#F0C060",
+        "features": [
+          "glow"
+        ]
+      }
+    },
+    {
+      "id": "spore_harvester",
+      "category": "production",
+      "mapColor": "#C88AE8",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "living_fiber": 8
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "spores": 2
+        },
+        "timeTicks": 40
+      },
+      "adjacency": {
+        "biomes": [
+          "xeno_bloom",
+          "xeno_nest"
+        ],
+        "radius": 2,
+        "perTile": 0.08,
+        "max": 0.8
+      },
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "bulb",
+        "wall": "#C88AE8",
+        "roof": "#8A5AA8",
+        "accent": "#F0C060",
+        "features": [
+          "pipes"
+        ]
+      }
+    },
+    {
+      "id": "fiber_nursery",
+      "category": "production",
+      "mapColor": "#6A9A7A",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "living_fiber": 6
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "living_fiber": 2
+        },
+        "timeTicks": 40
+      },
+      "adjacency": {
+        "biomes": [
+          "xeno_bloom",
+          "xeno_nest"
+        ],
+        "radius": 2,
+        "perTile": 0.05,
+        "max": 0.5
+      },
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "field",
+        "wall": "#4A3A6A",
+        "roof": "#6A9A7A",
+        "accent": "#8FD0A0",
+        "features": [
+          "plants",
+          "tendrils"
+        ]
+      }
+    },
+    {
+      "id": "nectar_garden",
+      "category": "production",
+      "_comment": "Nektarová zahrada: jídlo z obřích květů a k tomu nektar (výzkum, luxus, Matka stromů); u flóry rodí víc (symbióza).",
+      "mapColor": "#F0C060",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "living_fiber": 10
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "food": 4,
+          "nectar": 1
+        },
+        "timeTicks": 50
+      },
+      "adjacency": {
+        "biomes": [
+          "xeno_bloom",
+          "xeno_nest"
+        ],
+        "radius": 2,
+        "perTile": 0.05,
+        "max": 0.6
+      },
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "field",
+        "wall": "#4A3A6A",
+        "roof": "#C87AB0",
+        "accent": "#F0C060",
+        "features": [
+          "plants"
+        ]
+      }
+    },
+    {
+      "id": "glow_field",
+      "category": "power",
+      "_comment": "Luminiscenční pole: svítící baňky dávají luminiscin a v noci proud.",
+      "mapColor": "#60F0D8",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "living_fiber": 24,
+        "spores": 8
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "powerSupply": 10,
+      "supplyTime": "night",
+      "recipe": {
+        "output": {
+          "luminsap": 1
+        },
+        "timeTicks": 50
+      },
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "bulb",
+        "wall": "#3A5A58",
+        "roof": "#2A3A38",
+        "accent": "#60F0D8",
+        "features": [
+          "glow",
+          "crystals"
+        ],
+        "glow": "#A0FFF0"
+      }
+    },
+    {
+      "id": "biocrystal_hatchery",
+      "category": "production",
+      "mapColor": "#A0F0FF",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "living_fiber": 40,
+        "luminsap": 10
+      },
+      "workerSlots": 3,
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "spores": 2,
+          "luminsap": 1
+        },
+        "output": {
+          "biocrystal": 1
+        },
+        "timeTicks": 70
+      },
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "crystal",
+        "wall": "#A0F0FF",
+        "roof": "#60B0D0",
+        "accent": "#F080F0",
+        "features": [
+          "crystals",
+          "glow"
+        ],
+        "glow": "#FFB0FF"
+      }
+    },
+    {
+      "id": "gene_lab",
+      "category": "production",
+      "mapColor": "#E060C0",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "living_fiber": 24,
+        "spores": 10
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "nectar": 1
+        },
+        "output": {
+          "genome": 1,
+          "science": 2
+        },
+        "timeTicks": 60
+      },
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "dome",
+        "wall": "#E060C0",
+        "roof": "#A0408A",
+        "accent": "#60F0D8",
+        "features": [
+          "glow",
+          "tendrils"
+        ],
+        "glow": "#A0FFF0"
+      }
+    },
+    {
+      "id": "symbiont_workshop",
+      "category": "production",
+      "mapColor": "#B8A080",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "living_fiber": 20
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "living_fiber": 2,
+          "spores": 1
+        },
+        "output": {
+          "tools": 2
+        },
+        "timeTicks": 60
+      },
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "workshop",
+        "wall": "#B8A080",
+        "roof": "#8A7060",
+        "accent": "#60F0D8",
+        "features": [
+          "tendrils"
+        ]
+      }
+    },
+    {
+      "id": "xenobiology_institute",
+      "category": "civic",
+      "mapColor": "#D0B0F0",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "living_fiber": 60,
+        "biocrystal": 10
+      },
+      "workerSlots": 3,
+      "serviceValue": 6,
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "genome": 1
+        },
+        "output": {
+          "science": 6
+        },
+        "timeTicks": 60
+      },
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "look": {
+        "shape": "dome",
+        "wall": "#D0B0F0",
+        "roof": "#9A70C0",
+        "accent": "#60F0D8",
+        "features": [
+          "windows",
+          "glow"
+        ],
+        "glow": "#A0FFF0"
+      }
+    },
+    {
+      "id": "serenity_garden",
+      "category": "civic",
+      "mapColor": "#80E0C0",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "living_fiber": 16,
+        "nectar": 6
+      },
+      "serviceValue": 9,
+      "autoBuild": true,
+      "upkeep": {
+        "nectar": 1
+      },
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "look": {
+        "shape": "pool",
+        "wall": "#4A3A6A",
+        "roof": "#3A2A50",
+        "accent": "#80E0C0",
+        "features": [
+          "plants",
+          "water",
+          "glow"
+        ],
+        "glow": "#A0FFF0"
+      }
+    },
+    {
+      "id": "healing_grove",
+      "category": "civic",
+      "mapColor": "#90C890",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "living_fiber": 20,
+        "spores": 6
+      },
+      "serviceValue": 8,
+      "autoBuild": true,
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "look": {
+        "shape": "grove",
+        "wall": "#90C890",
+        "roof": "#5A8A5A",
+        "accent": "#F0F0FF",
+        "features": [
+          "plants"
+        ]
+      }
+    },
+    {
+      "id": "signal_bloom",
+      "category": "civic",
+      "tradeCapacity": 3,
+      "mapColor": "#F080D0",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "living_fiber": 80,
+        "biocrystal": 20
+      },
+      "housingCapacity": 4,
+      "workerSlots": 4,
+      "serviceValue": 5,
+      "upkeep": {
+        "food": 2
+      },
+      "storage": {
+        "biocrystal": 200,
+        "genome": 120,
+        "pearls": 120,
+        "cut_crystal": 120,
+        "food": 200
+      },
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "look": {
+        "shape": "tree",
+        "wall": "#F080D0",
+        "roof": "#B04090",
+        "accent": "#60F0D8",
+        "features": [
+          "glow",
+          "antenna"
+        ],
+        "glow": "#A0FFF0"
+      }
+    },
+    {
+      "id": "world_tree",
+      "category": "megastructure",
+      "_comment": "Matka stromů: flóra celého okolí zkrotne — v širokém okruhu nic neobalí, a v noci celé město září.",
+      "mapColor": "#D0A0F0",
+      "footprint": [
+        5,
+        5
+      ],
+      "buildCost": {
+        "living_fiber": 4000,
+        "biocrystal": 900,
+        "genome": 600,
+        "nectar": 2000
+      },
+      "serviceValue": 40,
+      "buildTicks": 3000,
+      "visualHeight": 2,
+      "powerSupply": 40,
+      "shelter": {
+        "flora": 30
+      },
+      "allowedBiomes": [
+        "xeno_moss",
+        "xeno_bloom",
+        "beach"
+      ],
+      "look": {
+        "shape": "tree",
+        "wall": "#D0A0F0",
+        "roof": "#8A50B0",
+        "accent": "#F0D060",
+        "features": [
+          "glow",
+          "tendrils",
+          "crystals"
+        ],
+        "glow": "#FFF0A0"
+      }
+    }
+  ]
+}
