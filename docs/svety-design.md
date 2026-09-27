@@ -363,6 +363,28 @@ biom `salt_flat` · překryv vodní sítě · zelenání půdy podle pokrytí vo
 
 **Odhad:** 6–8 dní (první svět — ověřuje kostru).
 
+> **Hotovo (D1.1–D1.4) — Duna je hratelná.** `data/worlds/dune/`: přistávací
+> modul a 21 budov z tabulky (odsolovací věž počká na dovoz krystalů z Mrazu;
+> výzkum Odsolování je v datech a odemkne ji), 11 technologií, 6 surovin,
+> vodní síť, písečné bouře, 5 událostí, fauna a úkoly.
+> * **Hvězdy** jsou úkoly se skupinou `star` / `master` (`quests.json`).
+>   Oproti návrhu je ★★ jen „10 bouří bez jediného zasypání"
+>   (`calmhazards`) — podmínka „celé město v dosahu vody" by se hlídala
+>   těžko a hráč by nevěděl, který dům chybí.
+> * **Bouře století** je událost s volbou (připravit se, nebo přečkat), ne
+>   zvláštní bouře — velké bouře už chodí z rozvrhu jevu.
+> * **Vzestup Duny** (`prestige.json` světa, 7 vylepšení) používá nové efekty
+>   `network_supply`, `network_demand`, `network_range`, `hazard_resistance`
+>   a cílený `production_mult` s `targetResource` (sklářští mistři zrychlí
+>   jen sklo).
+> * **Měřítko kolonie**: osada začíná se stropem 5 000 (= první hvězda),
+>   divy Domoviny se na koloniích neodemykají.
+> * **Hands-off** (`DuneColonyTests`): guvernér sám dojde k ★ za 90–105 minut
+>   podle mapy — s hráčem je to v cíli 60–90 minut. Cestou se opravil
+>   guvernér: háj staví jen tam, kde má síť volný výkon (druhý průchod sítě
+>   počítá, co odběratelé opravdu spotřebují), nečeká na výzkum, který
+>   blokuje surovina bez přítoku, a zajistí surovinu, kterou výzkum chce.
+
 ---
 
 ### 4.2 Mráz — ledový svět (`frost`)

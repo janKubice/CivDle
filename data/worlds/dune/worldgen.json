@@ -3,21 +3,85 @@
   "_comment": "Předvolba terénu Duny: horký suchý svět, málo moře, řídké oázy, zvodně pod pískem a solné pláně.",
   "presets": [
     {
-      "id": "dune", "seaLevel": 0.3, "fallbackBiome": "desert",
-      "elevationNoise": { "frequency": 1.3, "octaves": 5, "persistence": 0.5, "lacunarity": 2.0 },
-      "moistureNoise": { "frequency": 2.2, "octaves": 3, "persistence": 0.5, "lacunarity": 2.0 },
-      "riverNoise": { "frequency": 0.7, "octaves": 2, "persistence": 0.5, "lacunarity": 2.0 },
-      "riverWidth": 0.004, "riverMaxElevation": 0.5,
-      "temperatureNoise": { "frequency": 0.6, "octaves": 3, "persistence": 0.5, "lacunarity": 2.0 },
-      "temperatureBandTiles": 2400, "temperatureLapse": 0.3, "riverBiome": "shallow_water",
-      "temperatureShift": 0.35, "moistureShift": -0.3,
+      "id": "dune",
+      "seaLevel": 0.3,
+      "fallbackBiome": "desert",
+      "elevationNoise": {
+        "frequency": 1.3,
+        "octaves": 5,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      },
+      "moistureNoise": {
+        "frequency": 2.2,
+        "octaves": 3,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      },
+      "riverNoise": {
+        "frequency": 0.7,
+        "octaves": 2,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      },
+      "riverWidth": 0.004,
+      "riverMaxElevation": 0.5,
+      "temperatureNoise": {
+        "frequency": 0.6,
+        "octaves": 3,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      },
+      "temperatureBandTiles": 2400,
+      "temperatureLapse": 0.3,
+      "riverBiome": "shallow_water",
+      "temperatureShift": 0.35,
+      "moistureShift": -0.3,
       "patches": [
-        { "biome": "oasis", "on": ["desert", "steppe", "savanna"], "threshold": 0.8,
-          "noise": { "frequency": 6.0, "octaves": 2, "persistence": 0.5, "lacunarity": 2.0 } },
-        { "biome": "salt_flat", "on": ["desert"], "threshold": 0.72,
-          "noise": { "frequency": 3.2, "octaves": 2, "persistence": 0.5, "lacunarity": 2.0 } },
-        { "biome": "aquifer", "on": ["desert", "steppe", "savanna", "badlands"], "threshold": 0.62,
-          "noise": { "frequency": 2.6, "octaves": 3, "persistence": 0.5, "lacunarity": 2.0 } }
+        {
+          "biome": "oasis",
+          "on": [
+            "desert",
+            "steppe",
+            "savanna"
+          ],
+          "threshold": 0.8,
+          "noise": {
+            "frequency": 6.0,
+            "octaves": 2,
+            "persistence": 0.5,
+            "lacunarity": 2.0
+          }
+        },
+        {
+          "biome": "salt_flat",
+          "on": [
+            "desert"
+          ],
+          "threshold": 0.72,
+          "noise": {
+            "frequency": 3.2,
+            "octaves": 2,
+            "persistence": 0.5,
+            "lacunarity": 2.0
+          }
+        },
+        {
+          "biome": "aquifer",
+          "on": [
+            "desert",
+            "steppe",
+            "savanna",
+            "badlands"
+          ],
+          "threshold": 0.55,
+          "noise": {
+            "frequency": 2.6,
+            "octaves": 3,
+            "persistence": 0.5,
+            "lacunarity": 2.0
+          }
+        }
       ]
     }
   ]

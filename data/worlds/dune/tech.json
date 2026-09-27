@@ -73,9 +73,9 @@
     {
       "id": "qanats",
       "cost": {
-        "adobe": 60,
-        "tools": 10,
-        "science": 30
+        "adobe": 70,
+        "clay": 40,
+        "science": 40
       },
       "prerequisites": [
         "water_management"

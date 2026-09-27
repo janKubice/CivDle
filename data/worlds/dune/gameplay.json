@@ -1,14 +1,47 @@
 {
   "schemaVersion": 1,
-  "_comment": "Nastavení Duny nad gameplay.json Domoviny (suroviny v něm už přejmenovaly náhrady ve world.json).",
+  "_comment": "Nastavení Duny nad gameplay.json Domoviny (suroviny v něm už přejmenovaly náhrady ve world.json). Kolonisté přiletí rovnou do modulu (30 lidí) a guvernér staví svižněji — kolonie má být druhá vesnice, ne první (svety-design.md 3.3).",
   "planting": {
     "species": [
-      { "id": "palm_grove", "cost": { "food": 12, "clay": 6 }, "resource": "food", "amount": 2 },
-      { "id": "clay_bed", "cost": { "adobe": 20, "tools": 3 }, "resource": "clay", "amount": 3, "requiresTech": "adobe_drying" }
+      {
+        "id": "palm_grove",
+        "cost": {
+          "food": 12,
+          "clay": 6
+        },
+        "resource": "food",
+        "amount": 2
+      },
+      {
+        "id": "clay_bed",
+        "cost": {
+          "adobe": 25
+        },
+        "resource": "clay",
+        "amount": 3,
+        "requiresTech": "adobe_drying"
+      }
     ]
   },
   "onboarding": {
-    "startSite": { "nodes": { "clay": 3 }, "buildings": ["adobe_hut", "date_grove", "clay_pit"] }
+    "startSite": {
+      "nodes": {
+        "clay": 3
+      },
+      "buildings": [
+        "adobe_hut",
+        "date_grove",
+        "clay_pit"
+      ]
+    }
   },
-  "demo": { "techs": [] }
+  "demo": {
+    "techs": []
+  },
+  "startingPopulation": 30,
+  "_comment_populationFillRate": "Kolonisté se stěhují do hotových domů rychleji než na Domovině (0,003) — přiletěli s plánem, ne s rancem.",
+  "populationFillRate": 0.0045,
+  "autoBuild": {
+    "intervalTicks": 40
+  }
 }

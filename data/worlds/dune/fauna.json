@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Zvěř Duny: velbloudi, fenci, supi a drobotina pouště — sdílená s Domovinou (značka worlds), tady i na zvláštních dlaždicích Duny.",
+  "fauna": [
+    {
+      "id": "camel",
+      "biomes": [
+        "desert",
+        "steppe",
+        "oasis",
+        "aquifer",
+        "salt_flat"
+      ]
+    },
+    {
+      "id": "fennec",
+      "biomes": [
+        "desert",
+        "aquifer",
+        "oasis"
+      ]
+    },
+    {
+      "id": "vulture",
+      "biomes": [
+        "badlands",
+        "desert",
+        "volcanic",
+        "salt_flat"
+      ]
+    },
+    {
+      "id": "desert_lizard",
+      "biomes": [
+        "desert",
+        "badlands",
+        "aquifer"
+      ]
+    },
+    {
+      "id": "scorpion",
+      "biomes": [
+        "desert",
+        "badlands",
+        "salt_flat"
+      ]
+    },
+    {
+      "id": "oryx",
+      "biomes": [
+        "desert",
+        "savanna",
+        "oasis"
+      ]
+    }
+  ]
+}

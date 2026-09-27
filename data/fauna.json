@@ -54,6 +54,7 @@
     },
     {
       "id": "camel",
+      "worlds": ["home", "dune"],
       "biomes": [
         "desert",
         "steppe"
@@ -178,6 +179,7 @@
     },
     {
       "id": "vulture",
+      "worlds": ["home", "dune"],
       "predator": true,
       "biomes": [
         "badlands",
@@ -381,6 +383,7 @@
     },
     {
       "id": "fennec",
+      "worlds": ["home", "dune"],
       "predator": true,
       "biomes": [
         "desert"
@@ -393,6 +396,7 @@
     },
     {
       "id": "desert_lizard",
+      "worlds": ["home", "dune"],
       "biomes": [
         "desert",
         "badlands"
@@ -405,6 +409,7 @@
     },
     {
       "id": "scorpion",
+      "worlds": ["home", "dune"],
       "predator": true,
       "biomes": [
         "desert",
@@ -418,6 +423,7 @@
     },
     {
       "id": "oryx",
+      "worlds": ["home", "dune"],
       "biomes": [
         "desert",
         "savanna"

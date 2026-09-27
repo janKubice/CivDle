@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Vzestup Duny (svety-design.md 4.1): vylepšení pravidla světa navíc ke společným. Platí jen v téhle kolonii.",
+  "upgrades": [
+    {
+      "id": "dune_frugal_irrigation",
+      "effect": "network_demand",
+      "magnitude": 0.08,
+      "cost": 2,
+      "maxLevel": 10,
+      "costGrowth": 1.25
+    },
+    {
+      "id": "dune_deep_wells",
+      "effect": "network_range",
+      "magnitude": 1,
+      "cost": 6,
+      "maxLevel": 2,
+      "costGrowth": 2.5
+    },
+    {
+      "id": "dune_sturdy_fences",
+      "effect": "hazard_resistance",
+      "magnitude": 0.15,
+      "cost": 2,
+      "maxLevel": 8,
+      "costGrowth": 1.3
+    },
+    {
+      "id": "dune_quick_drying",
+      "effect": "production_mult",
+      "targetResource": "adobe",
+      "magnitude": 0.1,
+      "cost": 1,
+      "maxLevel": 20,
+      "costGrowth": 1.2
+    },
+    {
+      "id": "dune_glass_masters",
+      "effect": "production_mult",
+      "targetResource": "glass",
+      "magnitude": 0.1,
+      "cost": 2,
+      "maxLevel": 20,
+      "costGrowth": 1.22
+    },
+    {
+      "id": "dune_spice_trade",
+      "effect": "production_mult",
+      "targetResource": "spice",
+      "magnitude": 0.1,
+      "cost": 3,
+      "maxLevel": 20,
+      "costGrowth": 1.25
+    },
+    {
+      "id": "dune_night_dew",
+      "effect": "network_supply",
+      "magnitude": 0.08,
+      "cost": 2,
+      "maxLevel": 10,
+      "costGrowth": 1.25
+    }
+  ]
+}

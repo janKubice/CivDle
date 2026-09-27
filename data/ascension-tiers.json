@@ -3,16 +3,19 @@
   "tiers": [
     {
       "id": "village",
+      "worlds": ["*"],
       "order": 0,
       "populationCap": 1000
     },
     {
       "id": "city",
+      "worlds": ["*"],
       "order": 1,
       "populationCap": 25000
     },
     {
       "id": "metropolis",
+      "worlds": ["*"],
       "order": 2,
       "populationCap": 1000000,
       "unlocks": [
@@ -22,6 +25,7 @@
     },
     {
       "id": "megaregion",
+      "worlds": ["*"],
       "order": 3,
       "populationCap": 100000000,
       "unlocks": [
@@ -32,6 +36,7 @@
     },
     {
       "id": "planetary",
+      "worlds": ["*"],
       "order": 4,
       "populationCap": 10000000000,
       "unlocks": [

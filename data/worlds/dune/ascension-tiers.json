@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Měřítko kolonie: stejné stupně jako Domovina, ale osada začíná se stropem 5 000 — kolonisté přiletěli s tím, co Domovina umí. Divy Domoviny se tu neodemykají (prázdné unlocks).",
+  "tiers": [
+    {
+      "id": "village",
+      "populationCap": 5000
+    },
+    {
+      "id": "metropolis",
+      "unlocks": []
+    },
+    {
+      "id": "megaregion",
+      "unlocks": []
+    },
+    {
+      "id": "planetary",
+      "unlocks": []
+    }
+  ]
+}

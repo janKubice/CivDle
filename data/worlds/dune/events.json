@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Události Duny. Bouře století je událost, ne přírodní jev — varuje hráče a dá mu vybrat, jestli se připraví.",
+  "events": [
+    {
+      "id": "dune_dried_oasis",
+      "choices": [
+        {
+          "id": "dig",
+          "cost": {
+            "clay": 40
+          },
+          "gain": {
+            "adobe": 20
+          }
+        },
+        {
+          "id": "wait",
+          "effect": {
+            "kind": "production",
+            "multiplier": 0.85,
+            "seconds": 150
+          }
+        }
+      ]
+    },
+    {
+      "id": "dune_mountain_caravan",
+      "requires": {
+        "metric": "research",
+        "tech": "salt_works"
+      },
+      "choices": [
+        {
+          "id": "sell_salt",
+          "cost": {
+            "salt": 40
+          },
+          "gain": {
+            "tools": 20
+          }
+        },
+        {
+          "id": "buy_food",
+          "cost": {
+            "glass": 15
+          },
+          "gain": {
+            "food": 150
+          }
+        },
+        {
+          "id": "pass"
+        }
+      ]
+    },
+    {
+      "id": "dune_fata_morgana",
+      "choices": [
+        {
+          "id": "admire",
+          "effect": {
+            "kind": "growth",
+            "multiplier": 1.15,
+            "seconds": 120
+          }
+        },
+        {
+          "id": "ignore"
+        }
+      ]
+    },
+    {
+      "id": "dune_storm_of_the_century",
+      "requires": {
+        "metric": "research",
+        "tech": "windbreaks"
+      },
+      "choices": [
+        {
+          "id": "prepare",
+          "cost": {
+            "adobe": 60
+          }
+        },
+        {
+          "id": "endure",
+          "effect": {
+            "kind": "production",
+            "multiplier": 0.8,
+            "seconds": 120
+          }
+        }
+      ]
+    },
+    {
+      "id": "dune_desert_bloom",
+      "choices": [
+        {
+          "id": "plant",
+          "effect": {
+            "kind": "growth",
+            "multiplier": 1.35,
+            "seconds": 180
+          }
+        },
+        {
+          "id": "gather",
+          "gain": {
+            "food": 120
+          }
+        }
+      ]
+    }
+  ]
+}

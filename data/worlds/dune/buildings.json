@@ -217,7 +217,7 @@
         "clay": 4,
         "adobe": 3
       },
-      "housingCapacity": 5,
+      "housingCapacity": 6,
       "autoBuild": true,
       "mergesTo": "courtyard_house",
       "mergeCost": {
@@ -262,7 +262,7 @@
         "adobe": 30,
         "clay": 12
       },
-      "housingCapacity": 24,
+      "housingCapacity": 32,
       "autoBuild": true,
       "networks": {
         "water": {
@@ -304,7 +304,7 @@
         "adobe": 90,
         "glass": 25
       },
-      "housingCapacity": 60,
+      "housingCapacity": 90,
       "autoBuild": true,
       "serviceValue": 3,
       "visualHeight": 2,
@@ -441,7 +441,7 @@
       ],
       "networks": {
         "water": {
-          "supply": 4
+          "supply": 6
         }
       },
       "look": {
@@ -504,7 +504,7 @@
       ],
       "buildCost": {
         "adobe": 30,
-        "tools": 4
+        "clay": 10
       },
       "networks": {
         "water": {

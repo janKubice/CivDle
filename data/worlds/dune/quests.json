@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Úkoly Duny: úvodní kroky kolonie (voda, jídlo, cihly, sklo, větrolamy) a hvězdy světa (group star/master, svety-design.md 2.6). ✦ se uzavře bez odměny, jakmile se vyzkoumá odsolování.",
+  "quests": [
+    {
+      "id": "dune_first_well",
+      "condition": {
+        "metric": "building",
+        "building": "well",
+        "target": 1
+      },
+      "reward": {
+        "adobe": 30
+      }
+    },
+    {
+      "id": "dune_date_groves",
+      "condition": {
+        "metric": "building",
+        "building": "date_grove",
+        "target": 4
+      },
+      "reward": {
+        "clay": 60
+      }
+    },
+    {
+      "id": "dune_first_glass",
+      "condition": {
+        "metric": "resource",
+        "resource": "glass",
+        "target": 20
+      },
+      "reward": {
+        "adobe": 80
+      }
+    },
+    {
+      "id": "dune_fences",
+      "condition": {
+        "metric": "building",
+        "building": "sand_fence",
+        "target": 3
+      },
+      "reward": {
+        "glass": 20
+      }
+    },
+    {
+      "id": "dune_star_settled",
+      "group": "star",
+      "condition": {
+        "metric": "population",
+        "target": 5000
+      }
+    },
+    {
+      "id": "dune_star_storms",
+      "group": "star",
+      "condition": {
+        "metric": "calmhazards",
+        "target": 10
+      }
+    },
+    {
+      "id": "dune_star_wonder",
+      "group": "star",
+      "condition": {
+        "metric": "building",
+        "building": "glass_oasis",
+        "target": 1
+      }
+    },
+    {
+      "id": "dune_star_master",
+      "group": "master",
+      "condition": {
+        "metric": "population",
+        "target": 25000
+      },
+      "retireWhen": {
+        "metric": "research",
+        "tech": "desalination",
+        "target": 1
+      }
+    }
+  ]
+}
