@@ -92,9 +92,11 @@ public sealed class FlowMeter
         double seconds = oldest < 0 ? 0 : (sim.TickCount - _ticks[oldest]) / Simulation.TicksPerSecond;
         if (seconds < 5 || _steady.Length == 0 || _steady[0].Length != flows.Length)
         {
+            // Obchod vede trasa sama (i za nepřítomnosti) — do toku světa nepatří.
             for (int r = 0; r < flows.Length; r++)
             {
-                flows[r] = ledger.NetPerSecond(r);
+                flows[r] = ledger.NetPerSecond(r) - ledger.ImportedPerSecond(r)
+                    + ledger.ConsumedPerSecond(r, ConsumptionKind.Export);
             }
 
             return 0;

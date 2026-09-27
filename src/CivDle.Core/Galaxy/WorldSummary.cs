@@ -137,6 +137,13 @@ public sealed class WorldSummary
         return r < 0 ? 0 : _stocks[r];
     }
 
+    /// <summary>Kapacita skladu suroviny podle ID (0 = svět ji nezná).</summary>
+    public double CapOf(string resourceId)
+    {
+        int r = Array.IndexOf(_resourceIds, resourceId);
+        return r < 0 ? 0 : _caps[r];
+    }
+
     /// <summary>Tok suroviny podle ID (0 = svět ji nezná).</summary>
     public double FlowOf(string resourceId)
     {

@@ -29,7 +29,7 @@ public sealed record ClickYieldDto(string? Resource, int Amount, int Charges, do
 public sealed record ResourcesFileDto(int SchemaVersion, List<ResourceDto>? Resources);
 
 /// <summary>Jedna surovina tak, jak leží v JSON.</summary>
-public sealed record ResourceDto(string? Id, string? MapColor, double StartAmount, double BaseStorage);
+public sealed record ResourceDto(string? Id, string? MapColor, double StartAmount, double BaseStorage, bool ImportOnly = false);
 
 /// <summary>Obsah souboru <c>data/buildings.json</c>.</summary>
 public sealed record BuildingsFileDto(int SchemaVersion, List<BuildingDto>? Buildings);
@@ -80,7 +80,8 @@ public sealed record BuildingDto(
     ProjectDto? Project = null,
     Dictionary<string, NetworkUseDto>? Networks = null,
     string? SupplyTime = null,
-    Dictionary<string, int>? Shelter = null);
+    Dictionary<string, int>? Shelter = null,
+    double TradeCapacity = 0);
 
 /// <summary>Obsah souboru <c>hazards.json</c> (jen ve složce světa) — přírodní jevy.</summary>
 public sealed record HazardsFileDto(int SchemaVersion, List<HazardDto>? Hazards);
@@ -972,7 +973,10 @@ public sealed record GoldenKindDto(
     bool GrantsFestival = false);
 
 /// <summary>Obsah souboru <c>data/worlds.json</c> — světy galaxie.</summary>
-public sealed record WorldsFileDto(int SchemaVersion, List<WorldDto>? Worlds);
+public sealed record WorldsFileDto(int SchemaVersion, List<WorldDto>? Worlds, TradeDto? Trade = null);
+
+/// <summary>Obchod mezi světy tak, jak leží v JSON (<c>worlds.json</c> → <c>trade</c>).</summary>
+public sealed record TradeDto(double TravelSecondsPerStep, double DispatchSeconds);
 
 /// <summary>Jeden svět galaxie tak, jak leží v JSON.</summary>
 public sealed record WorldDto(
@@ -983,7 +987,9 @@ public sealed record WorldDto(
     List<ProjectStageDto>? ColonyCost,
     double ColonyCostGrowth,
     string? Atmosphere,
-    PlanetLookDto? Planet);
+    PlanetLookDto? Planet,
+    List<string>? Exports = null,
+    string? Port = null);
 
 /// <summary>Vzhled planety na mapě galaxie tak, jak leží v JSON.</summary>
 public sealed record PlanetLookDto(

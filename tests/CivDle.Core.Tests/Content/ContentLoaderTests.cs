@@ -929,6 +929,68 @@ public class ContentLoaderTests : IDisposable
     }
 
     [Fact]
+    public void LoadGalaxy_ReadsHomeTradeAndTheTradeConfig()
+    {
+        WriteDuneWorld();
+        WriteWorldsJson("""{ "wood": 500 }""", homeExtra: """, "exports": ["wood"], "port": "store" """,
+            trade: """ "trade": { "travelSecondsPerStep": 30, "dispatchSeconds": 5 }, """);
+
+        var home = Load();
+
+        Assert.Equal(new[] { home.Resources.IndexOf("wood") }, home.World.ExportIndices);
+        Assert.Equal(home.Buildings.IndexOf("store"), home.World.PortIndex);
+        Assert.Equal(new TradeConfig(30, 5), home.Galaxy.Trade);
+        Assert.Equal(1, home.Galaxy.StepsBetween("home", "dune"));
+    }
+
+    [Theory]
+    [InlineData(""", "exports": ["adobe"] """, "adobe")]  // cihla je surovina Duny
+    [InlineData(""", "port": "landing" """, "landing")]   // modul je budova Duny
+    public void LoadGalaxy_HomeTradeMustPointAtHomeContent(string homeExtra, string expected)
+    {
+        WriteDuneWorld();
+        WriteWorldsJson("""{ "wood": 500 }""", homeExtra: homeExtra);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
+    [Fact]
+    public void LoadGalaxy_ColonyTradeBelongsToItsWorldFile()
+    {
+        WriteDuneWorld();
+        WriteWorldsJson("""{ "wood": 500 }""", duneExtra: """, "exports": ["adobe"] """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("world.json", ex.Message);
+    }
+
+    [Fact]
+    public void LoadGalaxy_NonsenseTradeConfig_Throws()
+    {
+        WriteDuneWorld();
+        WriteWorldsJson("""{ "wood": 500 }""", trade: """ "trade": { "travelSecondsPerStep": 0, "dispatchSeconds": 5 }, """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("travelSecondsPerStep", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_NegativeTradeCapacity_Throws()
+    {
+        WriteAllValid();
+        string buildings = File.ReadAllText(Path.Combine(_tempDir, "buildings.json"));
+        Write("buildings.json", buildings.Replace("\"id\": \"house\",", "\"id\": \"house\", \"tradeCapacity\": -1,"));
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("tradeCapacity", ex.Message);
+    }
+
+    [Fact]
     public void LoadGalaxy_WithoutWorldsFile_HasNoGalaxy()
     {
         WriteAllValid();
@@ -1008,11 +1070,12 @@ public class ContentLoaderTests : IDisposable
         Write(Path.Combine("lang", "en.json"), LangJson("en", "English", extraKeys: keys));
     }
 
-    private void WriteWorldsJson(string colonyCost) => Write("worlds.json", $$"""
-        { "schemaVersion": 1, "worlds": [
-          { "id": "home", "order": 0, "planet": { "surface": "#4A7A3A", "accent": "#2E5D8A", "size": 1 } },
+    private void WriteWorldsJson(string colonyCost, string homeExtra = "", string duneExtra = "", string trade = "") =>
+        Write("worlds.json", $$"""
+        { "schemaVersion": 1, {{trade}} "worlds": [
+          { "id": "home", "order": 0, "planet": { "surface": "#4A7A3A", "accent": "#2E5D8A", "size": 1 } {{homeExtra}} },
           { "id": "dune", "order": 1, "requiresGate": true, "colonyCost": [ { "cost": {{colonyCost}} } ],
-            "colonyCostGrowth": 1.5, "planet": { "surface": "#D8A860", "accent": "#3FA7A0", "size": 0.8 } } ] }
+            "colonyCostGrowth": 1.5, "planet": { "surface": "#D8A860", "accent": "#3FA7A0", "size": 0.8 } {{duneExtra}} } ] }
         """);
 
     [Fact]

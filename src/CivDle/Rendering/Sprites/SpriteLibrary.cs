@@ -90,6 +90,14 @@ public sealed class SpriteLibrary : IDisposable
         Add(device, "icon.kelp", IconSize, KelpIcon);
         Add(device, "icon.nodules", IconSize, NodulesIcon);
 
+        // Suroviny Duny (sklo a koření vozí trasy i na Domovinu).
+        Add(device, "icon.glass", IconSize, GlassIcon);
+        Add(device, "icon.spice", IconSize, SpiceIcon);
+        Add(device, "icon.sand", IconSize, SandIcon);
+        Add(device, "icon.clay", IconSize, ClayIcon);
+        Add(device, "icon.adobe", IconSize, AdobeIcon);
+        Add(device, "icon.salt", IconSize, SaltIcon);
+
         // Ikony do HUD. Lišta plná slov je v akční hře nečitelná: hráč hledá
         // tvar, ne text. Popis nese bublina, ikona nese poznání.
         // Znak hry do hlavního menu. Kreslí se stejně jako ostatní ikony —
@@ -3833,6 +3841,64 @@ public sealed class SpriteLibrary : IDisposable
         c.FillCircle(13f, 18f, 3.5f, new Color(64, 54, 44));
         c.FillCircle(7.5f, 13f, 1.6f, new Color(134, 118, 92)); // lesk
         c.FillCircle(15f, 10.5f, 1.3f, new Color(148, 130, 100));
+    }
+
+    /// <summary>Sklo: tabule s odleskem, lehce modrozelená.</summary>
+    private static void GlassIcon(PixelCanvas c)
+    {
+        c.FillRect(6, 5, 12, 15, new Color(120, 190, 204));
+        c.FillRect(7, 6, 10, 13, new Color(168, 220, 230));
+        c.FillRect(8, 7, 2, 9, new Color(236, 250, 252));   // odlesk
+        c.FillRect(12, 8, 1, 4, new Color(236, 250, 252));
+        c.FillRect(6, 19, 12, 1, new Color(84, 140, 156));  // hrana
+    }
+
+    /// <summary>Koření: pytlík s hromádkou rudého prášku.</summary>
+    private static void SpiceIcon(PixelCanvas c)
+    {
+        c.FillCircle(12f, 16f, 6f, new Color(150, 96, 52));   // pytel
+        c.FillRect(8, 8, 8, 3, new Color(128, 80, 42));       // zavázané hrdlo
+        c.FillCircle(12f, 11.5f, 4f, new Color(210, 85, 43));  // koření navrch
+        c.FillCircle(10.5f, 10.5f, 1.4f, new Color(240, 150, 70));
+        c.FillCircle(13.5f, 12f, 1f, new Color(176, 52, 30));
+    }
+
+    /// <summary>Písek: nízká duna s vlnkami.</summary>
+    private static void SandIcon(PixelCanvas c)
+    {
+        c.FillCircle(12f, 20f, 9f, new Color(214, 178, 112));
+        c.FillCircle(12f, 21f, 7f, new Color(232, 200, 136));
+        c.FillRect(7, 16, 5, 1, new Color(196, 156, 92));      // vlnky od větru
+        c.FillRect(12, 18, 5, 1, new Color(196, 156, 92));
+    }
+
+    /// <summary>Hlína: vlhká hrouda s otiskem.</summary>
+    private static void ClayIcon(PixelCanvas c)
+    {
+        c.FillCircle(12f, 14f, 7f, new Color(150, 92, 60));
+        c.FillCircle(11f, 13f, 5f, new Color(178, 112, 74));
+        c.FillCircle(9.5f, 11f, 1.6f, new Color(206, 146, 104)); // lesk mokré hlíny
+        c.FillRect(13, 15, 3, 1, new Color(124, 74, 48));        // otisk prstu
+    }
+
+    /// <summary>Nepálená cihla: dvě cihly na sobě, okrové.</summary>
+    private static void AdobeIcon(PixelCanvas c)
+    {
+        c.FillRect(4, 13, 16, 6, new Color(176, 124, 78));
+        c.FillRect(6, 7, 13, 6, new Color(198, 146, 96));
+        c.FillRect(6, 7, 13, 1, new Color(222, 176, 126));  // světlo shora
+        c.FillRect(4, 13, 16, 1, new Color(206, 156, 106));
+        c.FillRect(11, 14, 1, 5, new Color(140, 96, 58));   // spára
+    }
+
+    /// <summary>Sůl: bílé krystalky na hromádce.</summary>
+    private static void SaltIcon(PixelCanvas c)
+    {
+        c.FillCircle(12f, 17f, 6.5f, new Color(214, 210, 200));
+        c.FillCircle(12f, 16f, 5f, new Color(242, 239, 230));
+        c.FillRect(9, 12, 2, 2, new Color(255, 255, 255));
+        c.FillRect(13, 13, 2, 2, new Color(255, 255, 255));
+        c.FillRect(11, 16, 1, 1, new Color(190, 186, 176));
     }
 
     // ----- orbita -----

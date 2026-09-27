@@ -51,7 +51,8 @@ public class TechReachabilityTests
         var unreachable = new List<string>();
         for (int i = 0; i < content.Resources.Count; i++)
         {
-            if (!reach.Contains(i))
+            // Dovoz z jiného světa (sklo na Domovině) se tu vyrobit nemá.
+            if (!reach.Contains(i) && !content.Resources[i].ImportOnly)
             {
                 unreachable.Add(content.Resources[i].Id);
             }

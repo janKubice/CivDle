@@ -1,10 +1,14 @@
 {
   "schemaVersion": 1,
   "_comment": "Galaxie (svety-design.md 2). Pořadí a odemčení světů, cena kolonizační lodi v surovinách Domoviny (stupně jako projekt, každá další kolonie × colonyCostGrowth) a vzhled planety na mapě galaxie. Co je NA světě, nese data/worlds/<id>/world.json.",
+  "_comment_trade": "Obchodní trasy (svety-design.md 2.5): cesta trvá travelSecondsPerStep galaktických sekund na každý krok mapy (sousední planety = 1 krok), dávka se plní a vykládá dispatchSeconds. Kapacitu tras dávají přístavy (tradeCapacity u budov). Vývoz Domoviny je tady, vývoz kolonií v jejich world.json.",
+  "trade": { "travelSecondsPerStep": 120, "dispatchSeconds": 10 },
   "worlds": [
     {
       "id": "home",
       "order": 0,
+      "exports": ["tools", "machine_parts", "electronics", "computer", "robot", "nanomaterial"],
+      "port": "spaceport",
       "planet": { "surface": "#4F8A3E", "accent": "#2E6A9A", "size": 1.1 }
     },
     {

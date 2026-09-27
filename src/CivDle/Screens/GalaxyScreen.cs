@@ -38,6 +38,12 @@ public sealed class GalaxyScreen : IScreen
     private string? _hovered;
     private float _time;
 
+    /// <summary>Kdy se naposled přestavěla karta (trasy mění čísla za běhu).</summary>
+    private float _cardBuiltAt;
+
+    /// <summary>Jak často se karta s trasami obnovuje (sekundy reálného času).</summary>
+    private const float CardRefreshSeconds = 2f;
+
     public GalaxyScreen(ScreenManager screens, GalaxySession session)
     {
         _screens = screens;
@@ -97,6 +103,12 @@ public sealed class GalaxyScreen : IScreen
             int index = _planets.FindIndex(p => p.World.Id == _selected);
             int step = _input.WasPressed(Keys.Right) ? 1 : -1;
             Select(_planets[(index + step + _planets.Count) % _planets.Count].World.Id);
+        }
+
+        // Karta kolonie s trasami ukazuje živá čísla (tok, zboží na cestě).
+        if (_time - _cardBuiltAt >= CardRefreshSeconds && _session.State.Trade.Routes.Count > 0)
+        {
+            BuildUi();
         }
     }
 
@@ -358,6 +370,7 @@ public sealed class GalaxyScreen : IScreen
 
     private void BuildUi()
     {
+        _cardBuiltAt = _time;
         var loc = _screens.Loc;
         var world = _session.Catalog.Find(_selected) ?? _session.Catalog.Worlds[0];
         var availability = _session.State.AvailabilityOf(world);
@@ -427,6 +440,11 @@ public sealed class GalaxyScreen : IScreen
             layout.Widgets.Add(Note(loc.Format("galaxy.exports", exports), UiPalette.Text));
         }
 
+        if (_session.State.Records.Count > 1)
+        {
+            TradeSection(layout, world);
+        }
+
         if (active)
         {
             layout.Widgets.Add(Note(loc["galaxy.youAreHere"], UiPalette.Accent));
@@ -435,6 +453,119 @@ public sealed class GalaxyScreen : IScreen
 
         layout.Widgets.Add(UiFactory.MenuButton(loc["galaxy.travel"], () => WorldTravel.Go(_screens, _session, world.Id)));
     }
+
+    /// <summary>
+    /// Obchod světa (svety-design.md 2.5): trasy, které tudy vedou, s tokem
+    /// a stavem, a tlačítka pro nové trasy — vývoz světa k ostatním koloniím
+    /// a jejich vývoz sem. Pravidla (co jde založit) drží <see cref="GalaxySession.CanOpenRoute"/>.
+    /// </summary>
+    private void TradeSection(VerticalStackPanel layout, WorldDef world)
+    {
+        var loc = _screens.Loc;
+        layout.Widgets.Add(new Label { Text = " " });
+        layout.Widgets.Add(Note(loc["galaxy.trade.title"], UiPalette.TextBright));
+        layout.Widgets.Add(Note(loc.Format("galaxy.trade.port",
+            Numbers.Format(_session.TradeWorlds.PortCapacity(world.Id))), UiPalette.TextDim));
+
+        var trade = _session.State.Trade;
+        bool any = false;
+        foreach (var route in trade.Routes.Where(r => r.FromWorldId == world.Id || r.ToWorldId == world.Id).ToList())
+        {
+            any = true;
+            layout.Widgets.Add(Note(loc.Format("galaxy.trade.route",
+                ResourceName(route.FromWorldId, route.ResourceId), WorldName(route.FromWorldId), WorldName(route.ToWorldId)),
+                UiPalette.Text));
+            layout.Widgets.Add(Note(loc.Format("galaxy.trade.rate",
+                Numbers.Format(route.LastRate), Numbers.Format(_session.RouteCapacity(route)),
+                Numbers.Format(trade.InTransitOn(route.Id)),
+                Numbers.Format(_session.TravelSeconds(route.FromWorldId, route.ToWorldId))), UiPalette.TextDim));
+
+            var status = new HorizontalStackPanel { Spacing = 8 };
+            status.Widgets.Add(new Label
+            {
+                Text = loc[RouteStatusKey(route.Status)],
+                TextColor = route.Status == TradeRouteStatus.Running ? UiPalette.Good : UiPalette.Warn,
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+            int id = route.Id;
+            status.Widgets.Add(UiFactory.SmallButton(loc["galaxy.trade.close"], () =>
+            {
+                _session.CloseRoute(id);
+                BuildUi();
+            }));
+            layout.Widgets.Add(status);
+        }
+
+        if (!any)
+        {
+            layout.Widgets.Add(Note(loc["galaxy.trade.none"], UiPalette.TextDim));
+        }
+
+        // Nové trasy: po dvou tlačítkách na řádek, ať karta nepřeteče.
+        HorizontalStackPanel? row = null;
+        foreach (var (from, to, resource) in PossibleRoutes(world.Id))
+        {
+            if (row is null || row.Widgets.Count >= 2)
+            {
+                row = new HorizontalStackPanel { Spacing = 6 };
+                layout.Widgets.Add(row);
+            }
+
+            string f = from, t = to, r = resource;
+            row.Widgets.Add(UiFactory.SmallButton(
+                loc.Format("galaxy.trade.open", ResourceName(from, resource), WorldName(to)),
+                () =>
+                {
+                    _session.OpenRoute(f, t, r);
+                    BuildUi();
+                }));
+        }
+
+        layout.Widgets.Add(Note(loc["galaxy.trade.hint"], UiPalette.TextDim));
+    }
+
+    /// <summary>Trasy, které jde se světem založit: jeho vývoz ven a vývoz ostatních k němu.</summary>
+    private IEnumerable<(string From, string To, string Resource)> PossibleRoutes(string worldId)
+    {
+        foreach (string other in _session.State.Records.Keys.ToList())
+        {
+            if (other == worldId)
+            {
+                continue;
+            }
+
+            foreach (var (from, to) in new[] { (worldId, other), (other, worldId) })
+            {
+                var content = _session.Contents.For(from);
+                foreach (int r in content.World.ExportIndices)
+                {
+                    string resource = content.Resources[r].Id;
+                    if (_session.CanOpenRoute(from, to, resource) == TradeBlocker.None)
+                    {
+                        yield return (from, to, resource);
+                    }
+                }
+            }
+        }
+    }
+
+    private string WorldName(string worldId) =>
+        _screens.Loc[_session.Catalog.Find(worldId)?.NameKey ?? worldId];
+
+    private string ResourceName(string worldId, string resourceId)
+    {
+        var resources = _session.Contents.For(worldId).Resources;
+        return resources.TryIndexOf(resourceId, out int r) ? _screens.Loc[resources[r].NameKey] : resourceId;
+    }
+
+    /// <summary>Lokalizační klíč stavu trasy.</summary>
+    internal static string RouteStatusKey(TradeRouteStatus status) => status switch
+    {
+        TradeRouteStatus.WaitingForGoods => "galaxy.trade.status.waiting",
+        TradeRouteStatus.DestinationFull => "galaxy.trade.status.full",
+        TradeRouteStatus.NoPort => "galaxy.trade.status.noport",
+        _ => "galaxy.trade.status.running",
+    };
 
     private void ShipCard(VerticalStackPanel layout, WorldDef world)
     {

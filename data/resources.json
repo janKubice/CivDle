@@ -161,6 +161,21 @@
       "mapColor": "#5B4B3A",
       "startAmount": 0,
       "baseStorage": 90
+    },
+    {
+      "_comment": "Dovoz z Duny (svety-design.md 2.3): Domovina sklo ani koření nevyrábí, přiváží je obchodní trasa.",
+      "id": "glass",
+      "mapColor": "#9FD6E0",
+      "startAmount": 0,
+      "baseStorage": 400,
+      "importOnly": true
+    },
+    {
+      "id": "spice",
+      "mapColor": "#D2552B",
+      "startAmount": 0,
+      "baseStorage": 300,
+      "importOnly": true
     }
   ]
 }

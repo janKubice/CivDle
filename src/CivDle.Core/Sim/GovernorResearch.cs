@@ -50,8 +50,8 @@ internal static class GovernorResearch
     }
 
     /// <summary>
-    /// Surovina (mimo vědu), které má technologie málo a která nikde neteče;
-    /// −1 = nic takového. Věda se nepočítá — na tu se čeká vždycky, knihovny ji dělají.
+    /// Surovina (mimo vědu), které má technologie málo a která nikde neteče
+    /// (ani výrobou, ani dovozem); −1 = nic takového. Věda se nepočítá — na tu se čeká vždycky, knihovny ji dělají.
     /// </summary>
     public static int StalledMaterial(Simulation sim, int tech)
     {
@@ -61,7 +61,7 @@ internal static class GovernorResearch
         {
             int resource = cost[i].ResourceIndex;
             if (resource != knowledge && sim.GetResource(resource) < cost[i].Amount
-                && sim.Ledger.ProducedPerSecond(resource) <= NoFlowBelow)
+                && sim.Ledger.InflowPerSecond(resource) <= NoFlowBelow)
             {
                 return resource;
             }

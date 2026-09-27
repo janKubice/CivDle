@@ -240,9 +240,94 @@ public class GalaxySessionTests
         Assert.Contains(Enumerable.Range(0, colony.Buildings.Length), i => colony.Buildings[i].DefIndex == 0);
     }
 
+    // ----- obchod -----
+
+    private const int Food = 1;
+
+    [Fact]
+    public void ARouteNeedsAnExportTheDestinationKnows()
+    {
+        var session = ColonyWithTrade();
+
+        Assert.Equal(TradeBlocker.None, session.CanOpenRoute(WorldScope.HomeId, "dune", "food"));
+        Assert.Equal(TradeBlocker.NotExported, session.CanOpenRoute(WorldScope.HomeId, "dune", "wood"));
+        Assert.Equal(TradeBlocker.UnknownAtDestination, session.CanOpenRoute("dune", WorldScope.HomeId, "adobe"));
+        Assert.Equal(TradeBlocker.SameWorld, session.CanOpenRoute("dune", "dune", "adobe"));
+        Assert.Equal(TradeBlocker.NotColony, session.CanOpenRoute(WorldScope.HomeId, "frost", "food"));
+
+        session.OpenRoute(WorldScope.HomeId, "dune", "food");
+        Assert.Equal(TradeBlocker.Duplicate, session.CanOpenRoute(WorldScope.HomeId, "dune", "food"));
+    }
+
+    [Fact]
+    public void HomeShipsToTheColonyWhileThePlayerIsThere()
+    {
+        // Hráč je na Duně, Domovina běží souhrnně: jídlo odtéká z jejího
+        // souhrnu (nevyrovnaný obchod) a v kolonii přibývá jako dovoz.
+        var session = ColonyWithTrade();
+        var route = session.OpenRoute(WorldScope.HomeId, "dune", "food");
+
+        RunWithMeter(session, 600); // minuta: cesta 20 s, dávky plují
+
+        var home = session.State.Records[WorldScope.HomeId];
+        Assert.True(route.TotalShipped > 50, $"odplulo jen {route.TotalShipped}");
+        Assert.Equal(-route.TotalShipped, home.PendingDelta["food"], 6);
+        Assert.True(session.Active.Ledger.ImportedPerSecond(Food) > 0, "kolonie má vidět dovoz");
+    }
+
+    [Fact]
+    public void WhatHomeSentIsMissingThereOnReturn()
+    {
+        var session = ColonyWithTrade();
+        var route = session.OpenRoute(WorldScope.HomeId, "dune", "food");
+        RunWithMeter(session, 300);
+        double stockAway = session.State.Records[WorldScope.HomeId].EstimatedStock("food", session.NowSeconds);
+
+        var home = session.SwitchTo(WorldScope.HomeId).Simulation;
+
+        Assert.True(route.TotalShipped > 0);
+        Assert.InRange(home.GetResource(Food), stockAway - 1, stockAway + 5); // + chvíle dotikání
+        Assert.Empty(session.State.Records[WorldScope.HomeId].PendingDelta);
+    }
+
+    [Fact]
+    public void RoutesAndCargoSurviveASave()
+    {
+        var session = ColonyWithTrade();
+        var route = session.OpenRoute(WorldScope.HomeId, "dune", "food");
+        RunWithMeter(session, 100);
+        double inTransit = session.State.Trade.InTransitOn(route.Id);
+        Assert.True(inTransit > 0);
+
+        var stream = new MemoryStream();
+        var colony = session.Active;
+        new SaveGameSerializer().Write(stream, colony, new SaveMetadata(colony.Seed, "s", "test", DateTime.UtcNow), session.State);
+        stream.Position = 0;
+        var resumed = GalaxySession.Resume(session.Contents, new SaveGameSerializer().Read(stream, session.Contents));
+
+        var loaded = resumed.State.Trade.Routes.Single();
+        Assert.Equal((route.Id, "food", route.TotalShipped), (loaded.Id, loaded.ResourceId, loaded.TotalShipped));
+        Assert.Equal(inTransit, resumed.State.Trade.InTransitOn(loaded.Id), 6);
+        Assert.Equal(session.State.Records[WorldScope.HomeId].PortCapacity, resumed.State.Records[WorldScope.HomeId].PortCapacity);
+        Assert.Equal(session.State.Trade.LastAdvancedAt, resumed.State.Trade.LastAdvancedAt);
+    }
+
+    /// <summary>Domovina s přístavem a vývozem jídla, Duna založená a aktivní.</summary>
+    private static GalaxySession ColonyWithTrade()
+    {
+        var session = NewSession(trade: true);
+        Assert.Equal(PlacementResult.Ok, session.Active.TryPlaceBuildingFree(2, 10, 10)); // přístav
+        session.Active.DebugCompleteConstruction();
+        session.Active.DebugSetResource(Food, 800);
+        BuildShip(session);
+        var site = session.LandingSites("dune")[0];
+        session.Colonize(site.X, site.Y);
+        return session;
+    }
+
     // ----- galaxie -----
 
-    private static GalaxySession NewSession(bool gateOpen = true)
+    private static GalaxySession NewSession(bool gateOpen = true, bool trade = false)
     {
         var biomes = new[] { TestContent.WaterBiome(), TestContent.LandBiome("grass") };
         var mask = new[] { false, true };
@@ -266,9 +351,21 @@ public class GalaxySessionTests
             new WorldDef("dune", 1, 0, true,
                 new[] { new ProjectStage(new[] { new ResourceAmount(Wood, 100) }), new ProjectStage(new[] { new ResourceAmount(Wood, 100) }) },
                 2, "dune", Planet()),
-        });
-        var home = TestContent.Build(biomes, 1, homeResources, new[] { TestContent.SimpleBuilding("hut", biomes.Length, housing: 10), kiln },
+        }, new TradeConfig(TravelSecondsPerStep: 20, DispatchSeconds: 5));
+        var port = TestContent.SimpleBuilding("port", biomes.Length) with
+        {
+            BuildCost = Array.Empty<ResourceAmount>(),
+            TradeCapacity = 5,
+        };
+        var homeBuildings = trade
+            ? new[] { TestContent.SimpleBuilding("hut", biomes.Length, housing: 10), kiln, port }
+            : new[] { TestContent.SimpleBuilding("hut", biomes.Length, housing: 10), kiln };
+        var home = TestContent.Build(biomes, 1, homeResources, homeBuildings,
             gameplay, techs: new[] { tech }, prestige: prestige).WithGalaxy(worlds);
+        if (trade)
+        {
+            home = home.WithWorld(WorldProfile.Home with { ExportIndices = new[] { Food } });
+        }
 
         var duneResources = new[]
         {
@@ -280,7 +377,8 @@ public class GalaxySessionTests
             WorkerSlots: 0, HousingCapacity: 30, BuildCost: Array.Empty<ResourceAmount>(),
             Recipe: new Recipe(Array.Empty<ResourceAmount>(), new[] { new ResourceAmount(1, 1) }, 20),
             AllowedBiomes: mask, StorageBonus: Array.Empty<ResourceAmount>(), AutoBuild: false, Buildable: false,
-            UpgradesToIndex: -1, UpgradeCost: Array.Empty<ResourceAmount>(), PowerSupply: 0, PowerDemand: 0);
+            UpgradesToIndex: -1, UpgradeCost: Array.Empty<ResourceAmount>(), PowerSupply: 0, PowerDemand: 0,
+            TradeCapacity: trade ? 2 : 0);
         var dune = TestContent.Build(biomes, 1, duneResources, new[] { module, TestContent.SimpleBuilding("hut", biomes.Length, housing: 4) },
             gameplay, techs: new[] { tech }, prestige: prestige)
             .WithWorld(WorldProfile.Home with
@@ -289,6 +387,7 @@ public class GalaxySessionTests
                 PresetIndex = 0,
                 LandingModuleIndex = 0,
                 StartingKit = new[] { new ResourceAmount(0, 50) },
+                ExportIndices = trade ? new[] { 0 } : Array.Empty<int>(),
             });
 
         var contents = GalaxyContent.HomeOnly(home);

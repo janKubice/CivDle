@@ -4141,14 +4141,22 @@ public sealed class GameplayScreen : IScreen
         // „proč mi to nepřibývá" — odpověď musí být první řádek, ne poslední.
         var ledger = _simulation.Ledger;
         double made = ledger.ProducedPerSecond(resourceIndex);
+        double imported = ledger.ImportedPerSecond(resourceIndex);
         double used = ledger.ConsumedPerSecond(resourceIndex);
         double lost = ledger.WastedPerSecond(resourceIndex);
-        if (made > 0.005 || used > 0.005)
+        if (made > 0.005 || used > 0.005 || imported > 0.005)
         {
             text.Append('\n').Append(loc.Format("tip.resource.production", Flow(made)));
+
+            // Dovoz vlastním řádkem: hráč má vidět, odkud surovina je (svety-design.md 2.5).
+            if (imported > 0.005)
+            {
+                text.Append('\n').Append(loc.Format("tip.resource.imported", Flow(imported)));
+            }
+
             text.Append('\n').Append(loc.Format("tip.resource.consumption", Flow(used)));
             AppendConsumptionParts(text, ledger, resourceIndex);
-            text.Append('\n').Append(loc.Format("tip.resource.net", Flow(made - used)));
+            text.Append('\n').Append(loc.Format("tip.resource.net", Flow(made + imported - used)));
         }
 
         // Propad se hlásí, jen když se doopravdy děje — je to výzva postavit
@@ -4180,6 +4188,7 @@ public sealed class GameplayScreen : IScreen
         "tip.resource.use.heating",
         "tip.resource.use.upkeep",
         "tip.resource.use.tools",
+        "tip.resource.use.export",
     };
 
     /// <summary>

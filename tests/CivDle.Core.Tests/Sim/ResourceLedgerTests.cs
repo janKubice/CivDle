@@ -304,4 +304,26 @@ public class ResourceLedgerTests
 
         Assert.True(sim.Ledger.ConsumedPerSecond(wood, ConsumptionKind.Purchases) > 0.5);
     }
+
+    [Fact]
+    public void TradeHasItsOwnLinesAndStaysOutOfTheSteadyFlow()
+    {
+        // Obchod s neaktivním světem vede trasa sama. Kdyby se vývoz a dovoz
+        // počítaly do souhrnného toku, odečetly by se za nepřítomnosti dvakrát.
+        var ledger = new ResourceLedger(1);
+        for (int tick = 0; tick < 400; tick++)
+        {
+            ledger.RecordProduced(0, 1);
+            ledger.RecordImported(0, 0.5);
+            ledger.RecordConsumed(0, 0.3, ConsumptionKind.Export);
+            ledger.EndTick(Tps);
+        }
+
+        Assert.Equal(10, ledger.ProducedPerSecond(0), 1);
+        Assert.Equal(5, ledger.ImportedPerSecond(0), 1);
+        Assert.Equal(15, ledger.InflowPerSecond(0), 1);
+        Assert.Equal(3, ledger.ConsumedPerSecond(0, ConsumptionKind.Export), 1);
+        Assert.Equal(12, ledger.NetPerSecond(0), 1);
+        Assert.Equal(400, ledger.SteadyTotal(0), 6); // jen výroba
+    }
 }

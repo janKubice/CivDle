@@ -72,6 +72,12 @@ public sealed class WorldRecord
     public HashSet<string> Stars { get; } = new(StringComparer.Ordinal);
 
     /// <summary>
+    /// Kolik za sekundu odbavily přístavy světa, když ho hráč opouštěl
+    /// (obchod s neaktivním světem nemá zástavbu, ze které by to spočítal).
+    /// </summary>
+    public double PortCapacity { get; set; }
+
+    /// <summary>
     /// Odhad zásoby teď: snímek + tok × čas nepřítomnosti + obchod, mezi nulou
     /// a skladem. Pro kartu světa a obchod s neaktivním světem.
     /// </summary>
@@ -155,6 +161,9 @@ public sealed class GalaxyState
 
     /// <summary>Rozestavěná kolonizační loď; <c>null</c> = žádná.</summary>
     public ColonyShipState? Ship { get; set; }
+
+    /// <summary>Obchodní trasy a zboží na cestě.</summary>
+    public TradeRouteSystem Trade { get; } = new();
 
     /// <summary>Založené světy (Domovina vždy).</summary>
     public IReadOnlyDictionary<string, WorldRecord> Records => _records;

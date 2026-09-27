@@ -150,6 +150,35 @@ Naplno se simuluje **jen svět, na který se hráč dívá**. Ostatní běží
 * Guvernér trasy nezakládá (je to strategické rozhodnutí hráče), ale
   **hlásí**, že budova čeká na dovoz, a navrhne trasu jedním klikem.
 
+> **Hotovo (D1.5) — obchodní trasy.** `TradeRouteSystem` (jádro galaxie)
+> jednou za galaktickou sekundu naloží na každou trasu, kolik unese, a dávky
+> na cestě vykládají u cíle. Dávka se plní i vykládá po dobu okna
+> (`worlds.json` → `trade.dispatchSeconds`), takže sklad u cíle roste
+> plynule; cesta trvá `trade.travelSecondsPerStep` na každý krok mapy.
+> * **Zachování:** co odejde, dorazí nebo pluje (test); nakládá se jen tolik,
+>   kolik se v cíli vejde i se zbožím na cestě; zrušená trasa doveze, co
+>   už pluje. Trasa bere jen nad rezervou guvernéra.
+> * **Kapacita:** budovy mají `tradeCapacity` (kosmodrom 25/s, karavanseraj
+>   3/s, přistávací modul 0,5/s — obchod nečeká na sůl). Přístav se dělí mezi
+>   trasy, které jím vedou; trasa dostane menší podíl z obou konců.
+> * **Neaktivní svět** obchoduje ze souhrnu posunutého do teď a do
+>   nevyrovnaného obchodu (`PendingDelta`) — po návratu se odeslané odečte
+>   a přivezené připíše, přesně proti stavu, ze kterého se svět obnoví.
+> * **Co jde vozit:** zdroj surovinu vyváží (vývoz kolonie ve `world.json`,
+>   Domoviny v jejím záznamu ve `worlds.json`) a cíl ji zná. Domovina má
+>   sklo a koření jako suroviny „jen dovozem" (`importOnly`) a dvě budovy,
+>   které je využijí: Kořenný bazar (služba) a Optickou dílnu (sklo +
+>   elektronika → počítače), obě po otevření brány.
+> * **Evidence:** vývoz je nový druh spotřeby, dovoz vlastní řádek
+>   v tooltipu; do souhrnného toku světa nepatří ani jedno (za nepřítomnosti
+>   by se počítaly dvakrát). Save (galaxie v2) nese trasy, dávky na cestě
+>   a kapacitu přístavů neaktivních světů.
+> * **Oproti návrhu:** trasa se zakládá tlačítkem na kartě světa (ne tažením)
+>   a lodě na mapě galaxie zatím nejsou vidět. Hlášení guvernéra „čeká na
+>   dovoz" přijde se světy, jejichž budovy dovoz opravdu potřebují (Mráz,
+>   Souostroví). Skleněná oáza nechce elektroniku z Domoviny — ★★★ nesmí
+>   záviset na dovozu (3.3).
+
 ### 2.6 Progrese
 
 **Hvězdy.** Každý svět má tři hvězdy a jednu mistrovskou:

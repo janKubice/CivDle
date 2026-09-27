@@ -149,6 +149,8 @@
     {
       "id": "dune_lander",
       "category": "housing",
+      "_comment_trade": "Modul drží spojení s lodí na oběžné dráze: malá kapacita tras hned od přistání, ať obchod nečeká na sůl pro karavanseraj.",
+      "tradeCapacity": 0.5,
       "mapColor": "#C9CED6",
       "footprint": [
         2,
@@ -935,6 +937,7 @@
     {
       "id": "caravanserai",
       "category": "civic",
+      "tradeCapacity": 3,
       "mapColor": "#D4A06A",
       "footprint": [
         2,
@@ -1082,10 +1085,10 @@
         5
       ],
       "buildCost": {
-        "glass": 3000,
+        "glass": 3600,
         "adobe": 5000,
         "spice": 600,
-        "electronics": 200
+        "salt": 800
       },
       "serviceValue": 40,
       "buildTicks": 3000,

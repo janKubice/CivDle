@@ -195,6 +195,75 @@ public sealed partial class Simulation
         return total;
     }
 
+    // ----- obchod mezi světy -----
+
+    /// <summary>
+    /// Kolik suroviny smí odejít obchodní trasou: zásoba nad rezervou
+    /// guvernéra i nad tím, na co šetří stavbu. Trasa je automatika jako
+    /// každá jiná — stavbu ani hráčovu rezervu nevyprázdní.
+    /// </summary>
+    public double TradeAvailable(int resourceIndex)
+    {
+        double floor = _storageCaps[resourceIndex] * GovernorReserve;
+        if (Claim.IsActive)
+        {
+            floor += Claim.AmountOf(resourceIndex);
+        }
+
+        return Math.Max(0, _resources[resourceIndex] - floor);
+    }
+
+    /// <summary>Kolik se suroviny ještě vejde do skladu (kam může dovoz).</summary>
+    public double TradeRoom(int resourceIndex) => Math.Max(0, _storageCaps[resourceIndex] - _resources[resourceIndex]);
+
+    /// <summary>Odvede surovinu na trasu (nejvýš <see cref="TradeAvailable"/>); vrací, kolik opravdu odešlo.</summary>
+    public double ExportResource(int resourceIndex, double amount)
+    {
+        double taken = Math.Min(amount, TradeAvailable(resourceIndex));
+        if (taken <= 0)
+        {
+            return 0;
+        }
+
+        _resources[resourceIndex] -= taken;
+        _ledger.RecordConsumed(resourceIndex, taken, ConsumptionKind.Export);
+        return taken;
+    }
+
+    /// <summary>Přijme dovoz (nejvýš do plného skladu); vrací, kolik se vešlo.</summary>
+    public double ImportResource(int resourceIndex, double amount)
+    {
+        double put = Math.Min(amount, TradeRoom(resourceIndex));
+        if (put <= 0)
+        {
+            return 0;
+        }
+
+        _resources[resourceIndex] += put;
+        _resourceKnown[resourceIndex] = true;
+        _ledger.RecordImported(resourceIndex, put);
+        return put;
+    }
+
+    /// <summary>
+    /// Kolik jednotek za sekundu odbaví přístavy světa (součet hotových budov
+    /// s <see cref="BuildingDef.TradeCapacity"/>). Průchod budovami — volá se
+    /// při odplutí dávky, ne za tik.
+    /// </summary>
+    public double PortCapacity()
+    {
+        double capacity = 0;
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            if (_buildings[i].IsComplete)
+            {
+                capacity += _content.Buildings[_buildings[i].DefIndex].TradeCapacity;
+            }
+        }
+
+        return capacity;
+    }
+
     /// <summary>
     /// Odkaz platí pro celou galaxii (svety-design.md 2.6): při přechodu na
     /// jiný svět si ho nový svět převezme — hloubku, body i úrovně. Úrovně

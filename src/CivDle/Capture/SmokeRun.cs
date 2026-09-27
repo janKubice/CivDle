@@ -1,4 +1,6 @@
 using CivDle.Core.Save;
+using CivDle.Core.Content;
+using CivDle.Core.Galaxy;
 using CivDle.Core.Sim;
 using CivDle.Screens;
 using Microsoft.Xna.Framework;
@@ -192,6 +194,11 @@ public sealed class SmokeRun
         // kalendář, sklady) a spadnout mají tady, ne autorovi při natáčení.
         Check("ladicí menu: všechny páky", () => DebugRound(screens, sim, time));
 
+        // Galaxie: mapa, přistání, kolonie s obchodní trasou a návrat domů.
+        // V běžné hře se sem hráč dostane až po Hvězdné bráně — dlouho po
+        // každém testu, který by to jinak prošel.
+        Check("galaxie: kolonie, trasy a návrat", () => GalaxyRound(screens, sim, time));
+
         // Úvod do hry: čerstvý svět bez jediné budovy. Nálet, táborák, šipka,
         // průvodcem vybraná budova a velké nápisy — všechno se kreslí jen
         // v prvních minutách nové hry, kam se smoke jinak nedostane.
@@ -248,6 +255,95 @@ public sealed class SmokeRun
         finally
         {
             screen.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Galaxie od brány po návrat: mapa galaxie, výběr místa přistání,
+    /// kolonie Duny se svou obrazovkou (atmosféra, síť, bouře), obchodní
+    /// trasy na kartě světa a přepnutí zpět na Domovinu. Loď se nestaví —
+    /// její cena je v milionech a vklad testuje jádro.
+    /// </summary>
+    private static void GalaxyRound(ScreenManager screens, Simulation home, GameTime time)
+    {
+        var contents = screens.Galaxy;
+        var dune = contents.Catalog.Find("dune");
+        if (!contents.Catalog.IsEnabled || dune is null)
+        {
+            return; // data bez galaxie (mody) — není co zkoušet
+        }
+
+        var state = GalaxyState.NewWithHome(home);
+        state.Active.PresetId = "continents";
+        state.Active.SizeId = "medium";
+        state.GateOpened = true;
+        state.Ship = new ColonyShipState(dune.Id) { StageIndex = dune.ColonyCost.Count }; // hotová loď
+        var session = new GalaxySession(contents, state, home);
+        screens.BeginSession(session);
+        try
+        {
+            var galaxy = new GalaxyScreen(screens, session);
+            screens.Push(galaxy);
+            Frames(galaxy, time);
+            galaxy.Select(dune.Id);
+            Frames(galaxy, time);
+            screens.Pop();
+
+            var landing = new LandingScreen(screens, session);
+            screens.Push(landing);
+            Frames(landing, time);
+            screens.Pop();
+
+            var site = session.LandingSites(dune.Id)[0];
+            var colony = session.Colonize(site.X, site.Y);
+            screens.BeginSession(session);
+            session.OpenRoute(WorldScope.HomeId, dune.Id, "tools");
+            session.OpenRoute(dune.Id, WorldScope.HomeId, "glass");
+
+            var colonyScreen = new GameplayScreen(screens, colony, WorldTravel.InfoOf(session), null, session);
+            try
+            {
+                // Pět minut kolonie: guvernér postaví studny a háje, trasy odplují.
+                colony.Plan.SetChoosesResearch(true);
+                for (int i = 0; i < 3_000; i++)
+                {
+                    colony.Tick();
+                    session.Update();
+                }
+
+                Frames(colonyScreen, time);
+
+                // Fotka kolonie: zelená poušť kolem vody, modul, první stavby
+                // guvernéra. Autor se na ni podívá, test jen hlídá, že nespadne.
+                PhotoAt(screens, colony, colony.LandingX + 1, colony.LandingY + 1, "civdle-smoke-dune");
+                if (session.State.Trade.Routes.All(r => r.TotalShipped <= 0))
+                {
+                    throw new InvalidOperationException("za půl minuty neodplula po žádné trase ani jedna dávka");
+                }
+
+                var map = new GalaxyScreen(screens, session);
+                screens.Push(map);
+                Frames(map, time);
+                map.Select(WorldScope.HomeId);
+                Frames(map, time);
+                screens.Pop();
+            }
+            finally
+            {
+                colonyScreen.Dispose();
+            }
+
+            var entry = session.SwitchTo(WorldScope.HomeId);
+            screens.BeginSession(session);
+            var warp = new WarpScreen(screens, contents.Catalog.Find(WorldScope.HomeId)!, () => new MainMenuScreen(screens));
+            Frames(warp, time);
+            var homeScreen = new GameplayScreen(screens, entry.Simulation, WorldTravel.InfoOf(session), null, session);
+            Frames(homeScreen, time);
+            homeScreen.Dispose();
+        }
+        finally
+        {
+            screens.EndSession();
         }
     }
 

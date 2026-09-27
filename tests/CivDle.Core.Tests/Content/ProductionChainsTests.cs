@@ -58,9 +58,9 @@ public class ProductionChainsTests
         var orphans = new List<string>();
         for (int i = 0; i < content.Resources.Count; i++)
         {
-            if (!chains.IsRaw(i))
+            if (!chains.IsRaw(i) || content.Resources[i].ImportOnly)
             {
-                continue;
+                continue; // vyrábí se, nebo ji přiváží obchodní trasa z jiného světa
             }
 
             // Sbíratelná = dá se naklikat na nějakém biomu.

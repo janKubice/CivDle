@@ -28,8 +28,12 @@ public sealed class GalaxyUiTests
             "galaxy.ship.invest", "galaxy.ship.ready", "galaxy.ship.land", "galaxy.ship.elsewhere",
             "landing.title", "landing.site", "landing.terrain", "landing.land", "landing.none", "loading.travel",
             "panel.back",
+            "galaxy.trade.title", "galaxy.trade.none", "galaxy.trade.route", "galaxy.trade.rate",
+            "galaxy.trade.open", "galaxy.trade.close", "galaxy.trade.port", "galaxy.trade.hint",
+            "tip.resource.imported", "tip.resource.use.export",
         };
         keys.AddRange(Enum.GetValues<ShipBlocker>().Where(b => b != ShipBlocker.None).Select(GalaxyScreen.BlockerKey));
+        keys.AddRange(Enum.GetValues<TradeRouteStatus>().Select(GalaxyScreen.RouteStatusKey));
         foreach (string world in WorldIds)
         {
             keys.Add($"world.{world}");

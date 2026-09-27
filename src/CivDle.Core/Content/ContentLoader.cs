@@ -147,12 +147,12 @@ public sealed class ContentLoader
 
         // Galaxii zná jen Domovina: cena lodi se platí v jejích surovinách.
         var galaxy = worldId == WorldScope.HomeId
-            ? LoadWorlds(Path.Combine(dataDirectory, "worlds.json"), resources)
+            ? LoadWorlds(Path.Combine(dataDirectory, "worlds.json"), resources, buildings)
             : WorldCatalog.Empty;
         CheckWorldNames(Path.Combine(dataDirectory, "lang"), languages, galaxy);
         CheckHazardNames(Path.Combine(dataDirectory, "lang"), languages, hazards);
         var world = _worldFile is null
-            ? WorldProfile.Home
+            ? _homeProfile
             : BuildWorldProfile(Path.Combine(dataDirectory, "worlds", worldId, "world.json"),
                 _worldFile, resources, buildings, techs, worldGen, gameplay);
         var atmosphere = PickAtmosphere(
@@ -525,8 +525,15 @@ public sealed class ContentLoader
     /// Světy galaxie. Chybějící soubor = hra bez galaxie (starší data, mody).
     /// Cena kolonizace se platí na Domovině, proto se validuje proti jejím surovinám.
     /// </summary>
-    private WorldCatalog LoadWorlds(string path, DefRegistry<Resource> resources)
+    /// <summary>
+    /// Profil Domoviny: výchozí, jen vývoz a přístav z domovského záznamu
+    /// <c>worlds.json</c> (Domovina nemá vlastní <c>world.json</c>).
+    /// </summary>
+    private WorldProfile _homeProfile = WorldProfile.Home;
+
+    private WorldCatalog LoadWorlds(string path, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings)
     {
+        _homeProfile = WorldProfile.Home;
         if (!File.Exists(path))
         {
             return WorldCatalog.Empty;
@@ -534,6 +541,18 @@ public sealed class ContentLoader
 
         var file = ReadFile<WorldsFileDto>(path);
         CheckSchemaVersion(path, file.SchemaVersion);
+
+        var trade = TradeConfig.Default;
+        if (file.Trade is { } tradeDto)
+        {
+            if (tradeDto.TravelSecondsPerStep is < 1 or > 86_400 || tradeDto.DispatchSeconds is < 1 or > 3_600)
+            {
+                throw new ContentLoadException(path,
+                    "'trade': 'travelSecondsPerStep' musí být 1–86 400 a 'dispatchSeconds' 1–3 600.");
+            }
+
+            trade = new TradeConfig(tradeDto.TravelSecondsPerStep, tradeDto.DispatchSeconds);
+        }
 
         var worlds = new List<WorldDef>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -567,6 +586,16 @@ public sealed class ContentLoader
                 throw new ContentLoadException(path, $"Svět '{id}': 'colonyCostGrowth' musí být aspoň 1 (další kolonie nesmí zlevňovat).");
             }
 
+            if (home)
+            {
+                _homeProfile = HomeTradeProfile(path, dto, resources, buildings);
+            }
+            else if (dto.Exports is not null || dto.Port is not null)
+            {
+                throw new ContentLoadException(path,
+                    $"Svět '{id}': vývoz a přístav kolonie patří do data/worlds/{id}/world.json, ne do worlds.json.");
+            }
+
             var planet = dto.Planet ?? new PlanetLookDto("#4A7A3A", "#2E5D8A", 1, false, false, false);
             worlds.Add(new WorldDef(
                 id, dto.Order, Math.Max(0, dto.StarsRequired), dto.RequiresGate, stages,
@@ -582,7 +611,31 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, "Galaxie musí obsahovat Domovinu ('home').");
         }
 
-        return new WorldCatalog(worlds);
+        return new WorldCatalog(worlds, trade);
+    }
+
+    /// <summary>Vývoz a přístav Domoviny — odkazy musí vést na obsah Domoviny.</summary>
+    private static WorldProfile HomeTradeProfile(
+        string path, WorldDto dto, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings)
+    {
+        var exports = new List<int>();
+        foreach (string id in dto.Exports ?? new List<string>())
+        {
+            if (!resources.TryIndexOf(id, out int resource))
+            {
+                throw new ContentLoadException(path, $"Domovina: vývoz '{id}' není surovina Domoviny.");
+            }
+
+            exports.Add(resource);
+        }
+
+        int port = -1;
+        if (dto.Port is not null && !buildings.TryIndexOf(dto.Port, out port))
+        {
+            throw new ContentLoadException(path, $"Domovina: přístav '{dto.Port}' není budova Domoviny.");
+        }
+
+        return WorldProfile.Home with { ExportIndices = exports, PortIndex = port };
     }
 
     // ----- sítě -----
@@ -3457,7 +3510,7 @@ public sealed class ContentLoader
                 throw new ContentLoadException(path, $"Surovina '{id}': 'startAmount' ({dto.StartAmount}) se nevejde do 'baseStorage' ({dto.BaseStorage}).");
             }
 
-            resources.Add(new Resource(id, color, dto.StartAmount, dto.BaseStorage));
+            resources.Add(new Resource(id, color, dto.StartAmount, dto.BaseStorage, dto.ImportOnly));
         }
 
         return new DefRegistry<Resource>(resources, r => r.Id, "surovina");
@@ -3842,7 +3895,19 @@ public sealed class ContentLoader
             project,
             ParseNetworks(path, id, dto.Networks),
             ParseSupplyTime(path, id, dto.SupplyTime),
-            ParseShelters(path, id, dto.Shelter));
+            ParseShelters(path, id, dto.Shelter),
+            ReadTradeCapacity(path, id, dto.TradeCapacity));
+    }
+
+    /// <summary>Kapacita přístavu (jednotek za sekundu): 0 = není přístav, nejvýš milion.</summary>
+    private static double ReadTradeCapacity(string path, string id, double capacity)
+    {
+        if (capacity is < 0 or > 1_000_000 || double.IsNaN(capacity))
+        {
+            throw new ContentLoadException(path, $"Budova '{id}': 'tradeCapacity' musí být 0–1 000 000, je {capacity}.");
+        }
+
+        return capacity;
     }
 
     /// <summary>ID přírodních jevů světa v pořadí souboru (viz <see cref="LoadHazards"/>).</summary>

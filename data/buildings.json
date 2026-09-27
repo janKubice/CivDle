@@ -624,7 +624,9 @@
         "faith": 60,
         "uranium": 40,
         "kelp": 120,
-        "nodules": 80
+        "nodules": 80,
+        "glass": 60,
+        "spice": 40
       },
       "upgradesTo": "great_warehouse",
       "upgradeCost": {
@@ -2340,6 +2342,8 @@
     {
       "id": "spaceport",
       "category": "megastructure",
+      "_comment_trade": "Přístav Domoviny v galaxii: obchodní trasy odbaví 25 jednotek za sekundu (dělí se mezi trasy).",
+      "tradeCapacity": 25,
       "mapColor": "#B0C4DE",
       "footprint": [
         6,
@@ -5238,6 +5242,34 @@
           }
         ]
       }
+    },
+    {
+      "id": "spice_bazaar",
+      "_comment": "Kořenný bazar: služba, která stojí na dovezeném koření z Duny (svety-design.md 2.3 — Domovina přijímá luxus). Odemyká ho otevřená brána.",
+      "category": "civic",
+      "mapColor": "#D2552B",
+      "footprint": [2, 2],
+      "workerSlots": 6,
+      "buildCost": { "steel": 60, "computer": 12 },
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
+      "serviceValue": 40,
+      "upkeep": { "spice": 1 },
+      "unlockedBy": "quest:open_the_gate",
+      "look": { "shape": "plaza", "wall": "#C98A4B", "roof": "#D2552B", "accent": "#F2C14E", "glow": "#FFB25A", "features": ["arches", "lanterns", "flag"] }
+    },
+    {
+      "id": "optics_workshop",
+      "_comment": "Optická dílna: dovezené sklo z Duny + elektronika = počítače rychleji než počítačka. Odemyká ji otevřená brána.",
+      "category": "production",
+      "mapColor": "#9FD6E0",
+      "footprint": [2, 2],
+      "workerSlots": 8,
+      "buildCost": { "steel": 40, "machine_parts": 16 },
+      "recipe": { "input": { "glass": 2, "electronics": 1 }, "output": { "computer": 2 }, "timeTicks": 50 },
+      "powerDemand": 12,
+      "allowedBiomes": ["grassland", "steppe", "beach", "savanna", "tundra", "desert"],
+      "unlockedBy": "quest:open_the_gate",
+      "look": { "shape": "workshop", "wall": "#6E8FA8", "roof": "#9FD6E0", "accent": "#E8F6FA", "glow": "#BFF2FF", "features": ["windows", "glow", "pipes"] }
     },
     {
       "id": "vertical_district",

@@ -11,7 +11,8 @@ namespace CivDle.Core.Galaxy;
 /// </summary>
 public static class GalaxyCodec
 {
-    private const int Version = 1;
+    /// <summary>2 = obchodní trasy, dávky na cestě a kapacita přístavů neaktivních světů.</summary>
+    private const int Version = 2;
 
     /// <summary>Strop počtu záznamů — ochrana před poškozeným souborem.</summary>
     private const int MaxRecords = 64;
@@ -46,6 +47,7 @@ public static class GalaxyCodec
             writer.Write(record.LeftAtSeconds);
             writer.Write(record.LandingX);
             writer.Write(record.LandingY);
+            writer.Write(record.PortCapacity);
 
             writer.Write(record.Stars.Count);
             foreach (string star in record.Stars)
@@ -77,6 +79,58 @@ public static class GalaxyCodec
             {
                 writer.Write(snapshot);
             }
+        }
+
+        WriteTrade(writer, state.Trade);
+    }
+
+    /// <summary>Trasy a zboží na cestě — co pluje, se po načtení doveze.</summary>
+    private static void WriteTrade(BinaryWriter writer, TradeRouteSystem trade)
+    {
+        writer.Write(trade.LastAdvancedAt);
+        writer.Write(trade.NextRouteId);
+        writer.Write(trade.Routes.Count);
+        foreach (var route in trade.Routes)
+        {
+            writer.Write(route.Id);
+            writer.Write(route.FromWorldId);
+            writer.Write(route.ToWorldId);
+            writer.Write(route.ResourceId);
+            writer.Write(route.TotalShipped);
+        }
+
+        writer.Write(trade.Shipments.Count);
+        foreach (var shipment in trade.Shipments)
+        {
+            writer.Write(shipment.RouteId);
+            writer.Write(shipment.ToWorldId);
+            writer.Write(shipment.ResourceId);
+            writer.Write(shipment.DepartedAt);
+            writer.Write(shipment.ArrivesAt);
+            writer.Write(shipment.Amount);
+            writer.Write(shipment.Delivered);
+        }
+    }
+
+    private static void ReadTrade(BinaryReader reader, TradeRouteSystem trade)
+    {
+        trade.LastAdvancedAt = reader.ReadDouble();
+        trade.NextRouteId = reader.ReadInt32();
+        int routes = Count(reader, MaxEntries);
+        for (int i = 0; i < routes; i++)
+        {
+            trade.Restore(reader.ReadInt32(), reader.ReadString(), reader.ReadString(), reader.ReadString(), reader.ReadDouble());
+        }
+
+        int shipments = Count(reader, MaxEntries);
+        for (int i = 0; i < shipments; i++)
+        {
+            var shipment = new Shipment(reader.ReadInt32(), reader.ReadString(), reader.ReadString(), reader.ReadDouble(), reader.ReadDouble())
+            {
+                Amount = reader.ReadDouble(),
+                Delivered = reader.ReadDouble(),
+            };
+            trade.Restore(shipment);
         }
     }
 
@@ -117,6 +171,11 @@ public static class GalaxyCodec
                 LandingY = reader.ReadInt32(),
             };
 
+            if (version >= 2)
+            {
+                record.PortCapacity = reader.ReadDouble();
+            }
+
             int stars = Count(reader, MaxEntries);
             for (int s = 0; s < stars; s++)
             {
@@ -155,6 +214,11 @@ public static class GalaxyCodec
             }
 
             state.Add(record);
+        }
+
+        if (version >= 2)
+        {
+            ReadTrade(reader, state.Trade);
         }
 
         if (!state.Records.ContainsKey(state.ActiveWorldId))

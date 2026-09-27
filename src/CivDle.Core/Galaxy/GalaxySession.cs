@@ -99,14 +99,26 @@ public sealed class GalaxySession
     /// <summary>Datum, od kterého se počítá dohánění — na skutečných hodinách nezáleží.</summary>
     private static readonly DateTime Epoch = new(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
+    /// <summary>Jak často se počítá obchod (galaktické sekundy).</summary>
+    private const double TradeStepSeconds = 1.0;
+
     private readonly SaveGameSerializer _serializer = new();
+    private readonly SessionTradeWorlds _tradeWorlds;
     private long _lastRefreshTick = long.MinValue;
+
+    /// <summary>
+    /// Probíhá vstup na svět s doháněním? Pak se obchod nepočítá — aktivní
+    /// simulace už je nová, ale galaktické hodiny ještě patří světu, ze kterého
+    /// hráč odešel.
+    /// </summary>
+    private bool _entering;
 
     public GalaxySession(GalaxyContent contents, GalaxyState state, Simulation active)
     {
         Contents = contents;
         State = state;
         Active = active;
+        _tradeWorlds = new SessionTradeWorlds(this);
     }
 
     /// <summary>
@@ -163,6 +175,197 @@ public sealed class GalaxySession
             _lastRefreshTick = Active.TickCount;
             State.Refresh(Active);
         }
+
+        var trade = State.Trade;
+        if (!_entering && (double.IsNaN(trade.LastAdvancedAt) || NowSeconds - trade.LastAdvancedAt >= TradeStepSeconds))
+        {
+            AdvanceTrade();
+        }
+    }
+
+    // ----- obchod -----
+
+    /// <summary>Přístup obchodu ke světům (aktivní ze simulace, ostatní ze souhrnu).</summary>
+    public ITradeWorlds TradeWorlds => _tradeWorlds;
+
+    /// <summary>Posune obchod do teď (vyloží, co dorazilo, a naloží, co trasy unesou).</summary>
+    public void AdvanceTrade()
+    {
+        if (!_entering)
+        {
+            State.Trade.Advance(NowSeconds, _tradeWorlds, Catalog.Trade, Catalog.StepsBetween);
+        }
+    }
+
+    /// <summary>
+    /// Co brání založit trasu: oba konce musí být kolonie, zdroj musí surovinu
+    /// vyvážet (artikly světa) a cíl ji musí znát.
+    /// </summary>
+    public TradeBlocker CanOpenRoute(string fromWorldId, string toWorldId, string resourceId)
+    {
+        if (fromWorldId == toWorldId)
+        {
+            return TradeBlocker.SameWorld;
+        }
+
+        if (!State.Records.ContainsKey(fromWorldId) || !State.Records.ContainsKey(toWorldId))
+        {
+            return TradeBlocker.NotColony;
+        }
+
+        var from = Contents.For(fromWorldId);
+        bool exported = false;
+        foreach (int r in from.World.ExportIndices)
+        {
+            exported |= from.Resources[r].Id == resourceId;
+        }
+
+        if (!exported)
+        {
+            return TradeBlocker.NotExported;
+        }
+
+        if (!Contents.For(toWorldId).Resources.TryIndexOf(resourceId, out _))
+        {
+            return TradeBlocker.UnknownAtDestination;
+        }
+
+        if (State.Trade.Exists(fromWorldId, toWorldId, resourceId))
+        {
+            return TradeBlocker.Duplicate;
+        }
+
+        return State.Trade.Routes.Count >= TradeRouteSystem.MaxRoutes ? TradeBlocker.TooMany : TradeBlocker.None;
+    }
+
+    /// <summary>Založí trasu.</summary>
+    /// <exception cref="InvalidOperationException">Trasu nejde založit (viz <see cref="CanOpenRoute"/>).</exception>
+    public TradeRoute OpenRoute(string fromWorldId, string toWorldId, string resourceId)
+    {
+        var blocker = CanOpenRoute(fromWorldId, toWorldId, resourceId);
+        if (blocker != TradeBlocker.None)
+        {
+            throw new InvalidOperationException($"Trasu {fromWorldId}→{toWorldId} ({resourceId}) nejde založit: {blocker}.");
+        }
+
+        AdvanceTrade(); // nová trasa nemá dostat náklad za čas, kdy neexistovala
+        return State.Trade.Open(fromWorldId, toWorldId, resourceId);
+    }
+
+    /// <summary>Zruší trasu (co pluje, dopluje).</summary>
+    public bool CloseRoute(int routeId)
+    {
+        AdvanceTrade();
+        return State.Trade.Close(routeId);
+    }
+
+    /// <summary>Kapacita trasy teď (jednotek za sekundu).</summary>
+    public double RouteCapacity(TradeRoute route) => State.Trade.CapacityOf(route, _tradeWorlds);
+
+    /// <summary>Doba cesty mezi dvěma světy (galaktické sekundy).</summary>
+    public double TravelSeconds(string fromWorldId, string toWorldId) =>
+        Catalog.StepsBetween(fromWorldId, toWorldId) * Catalog.Trade.TravelSecondsPerStep;
+
+    /// <summary>
+    /// Svět v obchodu: aktivní odpovídá ze simulace, neaktivní ze souhrnu
+    /// posunutého do teď a z nevyrovnaného obchodu. Neaktivní svět tak za
+    /// nepřítomnosti posílá jen to, co by opravdu měl — a po návratu se mu
+    /// odeslané odečte a přivezené připíše (<see cref="WorldRecord.PendingDelta"/>).
+    /// </summary>
+    private sealed class SessionTradeWorlds : ITradeWorlds
+    {
+        private readonly GalaxySession _session;
+
+        public SessionTradeWorlds(GalaxySession session) => _session = session;
+
+        public double Available(string worldId, string resourceId)
+        {
+            if (IsActive(worldId, resourceId, out int r))
+            {
+                return _session.Active.TradeAvailable(r);
+            }
+
+            return Record(worldId) is { } record ? record.EstimatedStock(resourceId, _session.NowSeconds) : 0;
+        }
+
+        public double Room(string worldId, string resourceId)
+        {
+            if (IsActive(worldId, resourceId, out int r))
+            {
+                return _session.Active.TradeRoom(r);
+            }
+
+            if (Record(worldId) is not { Summary: { } summary } record)
+            {
+                return 0;
+            }
+
+            return Math.Max(0, summary.CapOf(resourceId) - record.EstimatedStock(resourceId, _session.NowSeconds));
+        }
+
+        public double Take(string worldId, string resourceId, double amount)
+        {
+            if (IsActive(worldId, resourceId, out int r))
+            {
+                return _session.Active.ExportResource(r, amount);
+            }
+
+            if (Record(worldId) is not { } record)
+            {
+                return 0;
+            }
+
+            double taken = Math.Min(amount, record.EstimatedStock(resourceId, _session.NowSeconds));
+            if (taken > 0)
+            {
+                record.PendingDelta[resourceId] = record.PendingDelta.GetValueOrDefault(resourceId) - taken;
+            }
+
+            return Math.Max(0, taken);
+        }
+
+        public double Put(string worldId, string resourceId, double amount)
+        {
+            if (IsActive(worldId, resourceId, out int r))
+            {
+                return _session.Active.ImportResource(r, amount);
+            }
+
+            if (Record(worldId) is not { } record)
+            {
+                return 0;
+            }
+
+            double put = Math.Min(amount, Room(worldId, resourceId));
+            if (put > 0)
+            {
+                record.PendingDelta[resourceId] = record.PendingDelta.GetValueOrDefault(resourceId) + put;
+            }
+
+            return Math.Max(0, put);
+        }
+
+        public double PortCapacity(string worldId)
+        {
+            if (worldId == _session.State.ActiveWorldId)
+            {
+                return _session.Active.PortCapacity();
+            }
+
+            return Record(worldId)?.PortCapacity ?? 0;
+        }
+
+        private bool IsActive(string worldId, string resourceId, out int resource)
+        {
+            resource = -1;
+            return worldId == _session.State.ActiveWorldId
+                && _session.Active.Content.Resources.TryIndexOf(resourceId, out resource);
+        }
+
+        private WorldRecord? Record(string worldId) =>
+            _session.State.Records.TryGetValue(worldId, out var record) && worldId != _session.State.ActiveWorldId
+                ? record
+                : null;
     }
 
     // ----- kolonizační loď -----
@@ -331,6 +534,7 @@ public sealed class GalaxySession
         }
 
         var home = Active;
+        AdvanceTrade();
         double now = Leave();
         colony.GrantKnownTechs(home.ResearchedTechIds());
         colony.CopyLegacyFrom(home);
@@ -406,6 +610,7 @@ public sealed class GalaxySession
 
         var previous = Active;
         var sim = _serializer.Read(new MemoryStream(target.Snapshot), Contents).Simulation;
+        AdvanceTrade(); // vyrovnat obchod se světem, dokud je živý
         double now = Leave();
         sim.CopyLegacyFrom(previous);
         target.Snapshot = null;
@@ -432,8 +637,10 @@ public sealed class GalaxySession
         // načítání (s ukazatelem a stropem práce). Vstup se dokončí po něm.
         var catchUp = new OfflineCatchUp(sim, Epoch, Epoch.AddSeconds(absence));
         Active = sim;
+        _entering = true;
         return new WorldEntry(sim, catchUp, () =>
         {
+            _entering = false;
             ApplyPending(target, sim);
             Enter(target, sim, now);
         });
@@ -447,6 +654,7 @@ public sealed class GalaxySession
         var record = State.Active;
         State.Refresh(Active);
         record.Summary = WorldSummary.Measure(Active, Meter);
+        record.PortCapacity = Active.PortCapacity();
         record.LeftAtSeconds = now;
         record.Snapshot = Snapshot(Active, record);
         return now;

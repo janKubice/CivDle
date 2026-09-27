@@ -24,6 +24,13 @@ public enum ConsumptionKind
 
     /// <summary>Opotřebení nástrojů při práci.</summary>
     Tools,
+
+    /// <summary>
+    /// Vývoz obchodní trasou na jiný svět. Jako nákupy se nepočítá do
+    /// souhrnného toku (<see cref="ResourceLedger.SteadyTotal"/>) — obchod
+    /// s neaktivním světem vede trasa sama, jinak by se odečetl dvakrát.
+    /// </summary>
+    Export,
 }
 
 /// <summary>
@@ -62,10 +69,15 @@ public sealed class ResourceLedger
     private const double Smoothing = 0.03;
 
     /// <summary>Kolik druhů spotřeby se eviduje zvlášť.</summary>
-    public const int KindCount = 6;
+    public const int KindCount = 7;
 
     private readonly double[] _producedTick;
     private readonly double[] _wastedTick;
+
+    // Dovoz obchodními trasami: vlastní řádek, ne výroba — hráč má vidět,
+    // odkud surovina je, a souhrnný tok ho nesmí započítat (viz Export).
+    private readonly double[] _importedTick;
+    private readonly double[] _imported;
 
     private readonly double[] _produced;
     private readonly double[] _consumed;
@@ -82,6 +94,8 @@ public sealed class ResourceLedger
     {
         _producedTick = new double[resourceCount];
         _wastedTick = new double[resourceCount];
+        _importedTick = new double[resourceCount];
+        _imported = new double[resourceCount];
         _produced = new double[resourceCount];
         _consumed = new double[resourceCount];
         _wasted = new double[resourceCount];
@@ -124,6 +138,15 @@ public sealed class ResourceLedger
         }
     }
 
+    /// <summary>Zapíše, co přivezla obchodní trasa (to, co se vešlo do skladu).</summary>
+    public void RecordImported(int resourceIndex, double amount)
+    {
+        if (amount > 0)
+        {
+            _importedTick[resourceIndex] += amount;
+        }
+    }
+
     /// <summary>Zapíše, co se vyrobilo, ale nevešlo do skladu.</summary>
     public void RecordWasted(int resourceIndex, double amount)
     {
@@ -145,7 +168,7 @@ public sealed class ResourceLedger
             double steady = _producedTick[i] + _wastedTick[i];
             for (int k = 0; k < KindCount; k++)
             {
-                if (k != (int)ConsumptionKind.Purchases)
+                if (k != (int)ConsumptionKind.Purchases && k != (int)ConsumptionKind.Export)
                 {
                     steady -= _consumedByKindTick[k][i];
                 }
@@ -155,6 +178,7 @@ public sealed class ResourceLedger
 
             Roll(_produced, _producedTick, i, ticksPerSecond);
             Roll(_wasted, _wastedTick, i, ticksPerSecond);
+            Roll(_imported, _importedTick, i, ticksPerSecond);
 
             double total = 0;
             for (int k = 0; k < KindCount; k++)
@@ -169,6 +193,12 @@ public sealed class ResourceLedger
 
     /// <summary>Kolik se suroviny vyrobí za sekundu.</summary>
     public double ProducedPerSecond(int resourceIndex) => _produced[resourceIndex];
+
+    /// <summary>Kolik suroviny za sekundu přivezou obchodní trasy.</summary>
+    public double ImportedPerSecond(int resourceIndex) => _imported[resourceIndex];
+
+    /// <summary>Kolik suroviny za sekundu přibývá odkudkoli — výroba i dovoz („teče vůbec?").</summary>
+    public double InflowPerSecond(int resourceIndex) => _produced[resourceIndex] + _imported[resourceIndex];
 
     /// <summary>
     /// Průběžný součet čistého toku <b>bez nákupů</b> od startu evidence: co se
@@ -203,7 +233,7 @@ public sealed class ResourceLedger
 
     /// <summary>Čistý tok: co přibývá (kladné) nebo ubývá (záporné).</summary>
     public double NetPerSecond(int resourceIndex) =>
-        _produced[resourceIndex] - _consumed[resourceIndex];
+        _produced[resourceIndex] + _imported[resourceIndex] - _consumed[resourceIndex];
 
     /// <summary>
     /// Vyhlazené hodnoty jedné suroviny pro save: výroba, propad a spotřeba po
@@ -241,6 +271,8 @@ public sealed class ResourceLedger
     {
         Array.Clear(_producedTick);
         Array.Clear(_wastedTick);
+        Array.Clear(_importedTick);
+        Array.Clear(_imported);
         Array.Clear(_produced);
         Array.Clear(_consumed);
         Array.Clear(_wasted);

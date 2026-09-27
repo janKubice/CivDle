@@ -261,8 +261,16 @@ public sealed record BuildingDef(
     ProjectRule? ProjectOrNull = null,
     IReadOnlyList<NetworkUse>? NetworksOrNull = null,
     SupplyTime SupplyTime = SupplyTime.Always,
-    IReadOnlyList<Shelter>? SheltersOrNull = null)
+    IReadOnlyList<Shelter>? SheltersOrNull = null,
+    double TradeCapacity = 0)
 {
+    /// <summary>
+    /// Je budova přístav obchodních tras mezi světy (kosmodrom, karavanseraj)?
+    /// <see cref="TradeCapacity"/> je kolik jednotek za sekundu odbaví; kapacita
+    /// světa je součet přes hotové přístavy.
+    /// </summary>
+    public bool IsTradePort => TradeCapacity > 0;
+
     /// <summary>
     /// Před kterými přírodními jevy budova chrání okolí (větrolam před
     /// písečnou bouří). Prázdné = nechrání nic.

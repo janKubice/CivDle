@@ -54,6 +54,23 @@ public sealed record WorldDef(
 }
 
 /// <summary>
+/// Obchod mezi světy (svety-design.md 2.5, <c>worlds.json</c> → <c>trade</c>).
+/// </summary>
+/// <param name="TravelSecondsPerStep">
+/// Kolik galaktických sekund trvá cesta o jeden svět na mapě (sousední planety);
+/// dál je to násobek. Zboží dorazí se zpožděním — trasa není teleport.
+/// </param>
+/// <param name="DispatchSeconds">
+/// Jak často odplouvá dávka. Obchod je hrubý tok, ne tik simulace — deset sekund
+/// stačí na plynulý přísun a stojí zanedbatelně.
+/// </param>
+public sealed record TradeConfig(double TravelSecondsPerStep, double DispatchSeconds)
+{
+    /// <summary>Výchozí: dvě minuty na krok, dávka za deset sekund.</summary>
+    public static TradeConfig Default { get; } = new(120, 10);
+}
+
+/// <summary>
 /// Světy galaxie v pořadí z <c>data/worlds.json</c>. Prázdný katalog = hra bez
 /// galaxie (starší data, mody, obsah kolonie — ten katalog nenese).
 /// </summary>
@@ -61,9 +78,24 @@ public sealed class WorldCatalog
 {
     private readonly List<WorldDef> _worlds;
 
-    public WorldCatalog(IReadOnlyList<WorldDef> worlds)
+    public WorldCatalog(IReadOnlyList<WorldDef> worlds, TradeConfig? trade = null)
     {
         _worlds = worlds.OrderBy(w => w.Order).ToList();
+        Trade = trade ?? TradeConfig.Default;
+    }
+
+    /// <summary>Obchod mezi světy (doba cesty, dávky).</summary>
+    public TradeConfig Trade { get; }
+
+    /// <summary>
+    /// Kolik kroků po mapě dělí dva světy (rozdíl pořadí, aspoň 1). Mapa galaxie
+    /// staví planety v pořadí, takže tohle je vzdálenost, kterou hráč vidí.
+    /// </summary>
+    public int StepsBetween(string a, string b)
+    {
+        var from = Find(a);
+        var to = Find(b);
+        return from is null || to is null ? 1 : Math.Max(1, Math.Abs(from.Order - to.Order));
     }
 
     /// <summary>Bez galaxie.</summary>
