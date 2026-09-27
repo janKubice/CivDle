@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Poldr Souostroví: přílivovou mělčinu a mělkou vodu mění v souš (pláž). Živý útes nechává — z něj je korálový kámen.",
+  "terraform": [
+    {
+      "id": "reclaim_flat",
+      "to": "beach",
+      "from": [
+        "tidal_flat",
+        "shallow_water"
+      ],
+      "cost": {
+        "coral_stone": 20,
+        "bamboo": 10
+      },
+      "unlockTech": "polders"
+    }
+  ]
+}

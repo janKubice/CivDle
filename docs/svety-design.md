@@ -678,6 +678,39 @@ motiv: ukulele a marimba.
 
 **Odhad:** 6–7 dní.
 
+> **Hotovo (D2.4–D2.5) — Souostroví je hratelné.** `data/worlds/archipelago/`:
+> přistávací modul a 21 budov z tabulky, 10 technologií, 6 surovin (kelp
+> sdílí s podmořím Domoviny), přílivová mělčina, předvolba s atoly, příliv,
+> cyklóny, 5 událostí, fauna, 7 vylepšení Vzestupu a hvězdy.
+> * **Příliv** je jev `tides`: hladina je funkce času (cyklus 10 minut),
+>   mělčina má „výšku" z terénu vůči hladině moře a zaplaví se, když ji
+>   hladina přesáhne — níž položené dřív, takže čára přílivu po mapě
+>   putuje. Oproti návrhu se biom **nepřepisuje**: zaplavení se počítá
+>   z hladiny a výšky dlaždice, nic se neukládá a nic se nepřepočítává.
+>   Budova bez kůlů na zaplavené dlaždici vypadne (stav „zaplavená", voda po
+>   okna) a s odlivem se vrátí; kůlové budovy (`stilted`) jedou dál.
+>   Sběr mušlí stojí na mělčině schválně bez kůlů — pracuje jen za odlivu.
+>   Chrám přílivu chrání okruh (`shelter`) — mělčina v něm zůstane suchá.
+> * **Příboj** je `weather_burial` s `coastTiles`: cyklón zasype jen budovy
+>   u vody, chrání vlnolam. Kopeček má barvu z dat (`moundColor`).
+> * **Trajekty:** přístaviště (`ferryReach`) napojí budovy v okolí bez
+>   silnice; loděnice má delší dosah a přidává kapacitu tras.
+> * **Útesy dorůstají** přes uzly s dobíjením (jako les): korálový lom útes
+>   vytěží, útes na čas zbělá a sám doroste.
+> * **Stavění na vodě:** budovy jen na vodě (vory řas, perlové farmy,
+>   plovoucí domy) jsou „podmořské" — moře kolem otevře kotva (rybářské
+>   molo, plovoucí trh). Poldr mění mělčinu a mělkou vodu v pláž; staví ho
+>   hráč (terraformace je jeho rozhodnutí), proto ★★ „200 dlaždic souše
+>   z moře" (`terraformed`) zůstává na něm.
+> * **Obchod mezi koloniemi:** lagunová vila chce sklo z Duny (`importOnly`),
+>   trasa Duna → Souostroví ho doveze bez Domoviny. Guvernér na stavbu
+>   z dováženého zboží nešetří a nehlásí „nemá čím vyrobit" — dovoz je bonus.
+> * **Oproti návrhu:** delfíni, želvy a rejnoci zatím nejsou (sdílí se
+>   racci, hejna ryb, velryby, volavky a papoušci); plankton v noci a loďky
+>   trajektů na mapě přijdou s vizuálem pozdějších světů.
+> * **Hands-off** (`ArchipelagoColonyTests`): guvernér sám dojde k ★ za
+>   88–91 minut; na mělčiny staví jen kůlové budovy.
+
 ---
 
 ### 4.4 Výheň — sopečný svět (`forge`)

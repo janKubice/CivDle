@@ -1,0 +1,1076 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Budovy Souostroví (svety-design.md 4.3) a úpravy sdílených budov Domoviny: kde tu smí stát (null klíč smaže). 'stilted' = na kůlech (příliv pod nimi proteče), 'ferryReach' = přístaviště trajektu. Budovy jen na vodě (vory, perlové farmy, plovoucí domy) potřebují, aby moře kolem otevřela kotva — rybářské molo nebo plovoucí trh (subseaAnchor).",
+  "buildings": [
+    {
+      "id": "warehouse",
+      "allowedBiomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands"
+      ]
+    },
+    {
+      "id": "granary",
+      "allowedBiomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands"
+      ]
+    },
+    {
+      "id": "depot",
+      "allowedBiomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands"
+      ]
+    },
+    {
+      "id": "market",
+      "allowedBiomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands"
+      ]
+    },
+    {
+      "id": "library",
+      "allowedBiomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands"
+      ]
+    },
+    {
+      "id": "school",
+      "allowedBiomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands"
+      ]
+    },
+    {
+      "id": "university",
+      "allowedBiomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands"
+      ]
+    },
+    {
+      "id": "shrine",
+      "allowedBiomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands"
+      ]
+    },
+    {
+      "id": "temple",
+      "allowedBiomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands"
+      ]
+    },
+    {
+      "id": "toolmaker",
+      "allowedBiomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands"
+      ]
+    },
+    {
+      "id": "great_warehouse",
+      "allowedBiomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands"
+      ],
+      "upgradesTo": null
+    },
+    {
+      "id": "archipelago_lander",
+      "category": "housing",
+      "_comment_trade": "Modul drží spojení s lodí na oběžné dráze: malá kapacita tras hned od přistání.",
+      "tradeCapacity": 0.5,
+      "mapColor": "#D8D0C0",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "bamboo": 1
+      },
+      "housingCapacity": 30,
+      "buildable": false,
+      "workerSlots": 2,
+      "recipe": {
+        "output": {
+          "food": 2,
+          "bamboo": 1
+        },
+        "timeTicks": 60
+      },
+      "storage": {
+        "bamboo": 200,
+        "coral_stone": 200,
+        "fish": 150,
+        "food": 200,
+        "shells": 60,
+        "rope": 60,
+        "pearls": 40,
+        "kelp": 100
+      },
+      "visualHeight": 1,
+      "allowedBiomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands"
+      ],
+      "look": {
+        "shape": "dome",
+        "wall": "#D8D0C0",
+        "roof": "#A89878",
+        "accent": "#2FA0B8",
+        "features": [
+          "windows",
+          "antenna",
+          "flag",
+          "glow"
+        ],
+        "glow": "#FFE0A0"
+      }
+    },
+    {
+      "id": "round_house",
+      "category": "housing",
+      "mapColor": "#C8A870",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "bamboo": 5,
+        "coral_stone": 1
+      },
+      "housingCapacity": 6,
+      "autoBuild": true,
+      "allowedBiomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands"
+      ],
+      "look": {
+        "shape": "hut",
+        "wall": "#D8C8A0",
+        "roof": "#B89858",
+        "accent": "#8A6A3A",
+        "features": [
+          "thatch_roof",
+          "windows"
+        ],
+        "glow": "#FFD27A"
+      }
+    },
+    {
+      "id": "stilt_hut",
+      "category": "housing",
+      "_comment": "Na kůlech: příliv pod ní proteče. Staví se na mělčiny, kam nic jiného nesmí.",
+      "mapColor": "#B89868",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "bamboo": 7
+      },
+      "housingCapacity": 6,
+      "autoBuild": true,
+      "stilted": true,
+      "allowedBiomes": [
+        "tidal_flat",
+        "beach",
+        "mangrove",
+        "swamp"
+      ],
+      "look": {
+        "shape": "stilts",
+        "wall": "#B89868",
+        "roof": "#C8A860",
+        "accent": "#6A5A3A",
+        "features": [
+          "thatch_roof",
+          "windows",
+          "ropes"
+        ],
+        "glow": "#FFD27A"
+      }
+    },
+    {
+      "id": "floating_house",
+      "category": "housing",
+      "mapColor": "#A8C8C8",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "bamboo": 30,
+        "rope": 10,
+        "coral_stone": 10
+      },
+      "housingCapacity": 32,
+      "autoBuild": true,
+      "allowedBiomes": [
+        "shallow_water",
+        "coral_reef"
+      ],
+      "look": {
+        "shape": "raft",
+        "wall": "#A88858",
+        "roof": "#C8B070",
+        "accent": "#2FA0B8",
+        "features": [
+          "thatch_roof",
+          "windows",
+          "ropes",
+          "lanterns"
+        ],
+        "glow": "#FFD8A0"
+      }
+    },
+    {
+      "id": "lagoon_villa",
+      "category": "housing",
+      "_comment": "Luxus: chce perly a sklo z Duny (dovoz). Bez skla ji guvernér nestaví — dovoz je bonus, ne blokáda.",
+      "mapColor": "#F0E8D8",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "coral_stone": 80,
+        "pearls": 20,
+        "glass": 12
+      },
+      "housingCapacity": 90,
+      "autoBuild": true,
+      "serviceValue": 3,
+      "visualHeight": 1,
+      "stilted": true,
+      "allowedBiomes": [
+        "tidal_flat",
+        "beach"
+      ],
+      "look": {
+        "shape": "stilts",
+        "wall": "#F0E8D8",
+        "roof": "#C87858",
+        "accent": "#2FA0B8",
+        "features": [
+          "windows",
+          "lanterns",
+          "water",
+          "arches"
+        ],
+        "glow": "#FFD8A0"
+      }
+    },
+    {
+      "id": "lighthouse",
+      "category": "civic",
+      "mapColor": "#F4F4F0",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "coral_stone": 20,
+        "bamboo": 10
+      },
+      "workerSlots": 1,
+      "serviceValue": 6,
+      "autoBuild": true,
+      "allowedBiomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands",
+        "tidal_flat"
+      ],
+      "stilted": true,
+      "look": {
+        "shape": "tower",
+        "wall": "#F4F4F0",
+        "roof": "#C84838",
+        "accent": "#F0C040",
+        "features": [
+          "stripes",
+          "glow",
+          "spire_top"
+        ],
+        "glow": "#FFF0A0"
+      }
+    },
+    {
+      "id": "breakwater",
+      "category": "civic",
+      "mapColor": "#A8A090",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "coral_stone": 18
+      },
+      "requiresAdjacentWater": true,
+      "stilted": true,
+      "allowedBiomes": [
+        "beach",
+        "tidal_flat",
+        "mangrove"
+      ],
+      "shelter": {
+        "cyclone": 7
+      },
+      "look": {
+        "shape": "wall",
+        "wall": "#A8A090",
+        "roof": "#8A8270",
+        "accent": "#E8F4F8",
+        "features": [
+          "water",
+          "stripes"
+        ]
+      }
+    },
+    {
+      "id": "polder",
+      "category": "production",
+      "_comment": "Poldr: větrné čerpadlo mění mělčinu a mělkou vodu v souš — dlaždici za kolo.",
+      "mapColor": "#8AA870",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "bamboo": 60,
+        "coral_stone": 50,
+        "rope": 10
+      },
+      "workerSlots": 3,
+      "autoBuild": true,
+      "stilted": true,
+      "requiresAdjacentWater": true,
+      "allowedBiomes": [
+        "beach",
+        "tidal_flat",
+        "grassland",
+        "savanna",
+        "mangrove"
+      ],
+      "terraformAction": "reclaim_flat",
+      "terraformRadius": 6,
+      "look": {
+        "shape": "mast",
+        "wall": "#A88858",
+        "roof": "#6A8A5A",
+        "accent": "#2FA0B8",
+        "features": [
+          "rotor",
+          "water"
+        ]
+      }
+    },
+    {
+      "id": "ferry_dock",
+      "category": "civic",
+      "_comment": "Přístaviště trajektu: budovy v dosahu platí za napojené (zboží odváží loďka).",
+      "mapColor": "#9A7A58",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "bamboo": 20,
+        "rope": 6
+      },
+      "workerSlots": 1,
+      "autoBuild": true,
+      "requiresAdjacentWater": true,
+      "stilted": true,
+      "ferryReach": 10,
+      "allowedBiomes": [
+        "beach",
+        "tidal_flat"
+      ],
+      "look": {
+        "shape": "pier",
+        "wall": "#9A7A58",
+        "roof": "#6A5A3A",
+        "accent": "#2FA0B8",
+        "features": [
+          "ropes",
+          "lanterns",
+          "flag"
+        ],
+        "glow": "#FFD27A"
+      }
+    },
+    {
+      "id": "shipyard",
+      "category": "civic",
+      "mapColor": "#8A6A48",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "bamboo": 80,
+        "rope": 30,
+        "coral_stone": 40
+      },
+      "workerSlots": 4,
+      "requiresAdjacentWater": true,
+      "stilted": true,
+      "ferryReach": 16,
+      "tradeCapacity": 1.5,
+      "powerDemand": 4,
+      "autoBuild": true,
+      "allowedBiomes": [
+        "beach",
+        "tidal_flat"
+      ],
+      "look": {
+        "shape": "hall",
+        "wall": "#8A6A48",
+        "roof": "#6A4A30",
+        "accent": "#C89858",
+        "features": [
+          "ropes",
+          "sails",
+          "flag"
+        ]
+      }
+    },
+    {
+      "id": "bamboo_grove",
+      "category": "production",
+      "mapColor": "#7FB04A",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "bamboo": 3
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "bamboo": 2
+        },
+        "timeTicks": 40
+      },
+      "allowedBiomes": [
+        "jungle",
+        "forest",
+        "savanna",
+        "grassland",
+        "mangrove",
+        "swamp",
+        "highlands"
+      ],
+      "adjacency": {
+        "biomes": [
+          "jungle",
+          "forest"
+        ],
+        "radius": 2,
+        "perTile": 0.04,
+        "max": 0.4
+      },
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "grove",
+        "wall": "#6A9A3A",
+        "roof": "#8FBF5A",
+        "accent": "#4A7A2A",
+        "features": [
+          "plants"
+        ]
+      }
+    },
+    {
+      "id": "coral_quarry",
+      "category": "production",
+      "_comment": "Láme korálový kámen z útesu v dosahu; vytěžený útes zbělá a sám doroste.",
+      "mapColor": "#E8C8B0",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "bamboo": 8
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "stilted": true,
+      "recipe": {
+        "output": {
+          "coral_stone": 2
+        },
+        "timeTicks": 45
+      },
+      "terrainHarvestRadius": 4,
+      "allowedBiomes": [
+        "beach",
+        "tidal_flat"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "platform",
+        "wall": "#B89868",
+        "roof": "#E8C8B0",
+        "accent": "#F08070",
+        "features": [
+          "ropes",
+          "water"
+        ]
+      }
+    },
+    {
+      "id": "fishing_pier",
+      "category": "production",
+      "mapColor": "#7FA8C0",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "bamboo": 6
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "requiresAdjacentWater": true,
+      "stilted": true,
+      "subseaAnchor": true,
+      "recipe": {
+        "output": {
+          "fish": 2
+        },
+        "timeTicks": 40
+      },
+      "allowedBiomes": [
+        "beach",
+        "tidal_flat",
+        "mangrove",
+        "swamp"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "pier",
+        "wall": "#9A7A58",
+        "roof": "#6A5A3A",
+        "accent": "#7FA8C0",
+        "features": [
+          "ropes",
+          "sails"
+        ]
+      }
+    },
+    {
+      "id": "shell_collector",
+      "category": "production",
+      "_comment": "Sběr mušlí stojí na mělčině bez kůlů: za přílivu je pod vodou, pracuje jen za odlivu.",
+      "mapColor": "#F0DCC8",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "bamboo": 4
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "shells": 2
+        },
+        "timeTicks": 40
+      },
+      "allowedBiomes": [
+        "tidal_flat"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "hut",
+        "wall": "#C8B08A",
+        "roof": "#E8D8C0",
+        "accent": "#F0A890",
+        "features": [
+          "thatch_roof",
+          "sand"
+        ]
+      }
+    },
+    {
+      "id": "kelp_raft",
+      "category": "production",
+      "mapColor": "#3F7A4A",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "bamboo": 8
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "kelp": 2
+        },
+        "timeTicks": 45
+      },
+      "allowedBiomes": [
+        "shallow_water",
+        "coral_reef"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "raft",
+        "wall": "#8A7A58",
+        "roof": "#3F7A4A",
+        "accent": "#6FB06A",
+        "features": [
+          "plants",
+          "water"
+        ]
+      }
+    },
+    {
+      "id": "fish_drying_rack",
+      "category": "production",
+      "mapColor": "#C8A878",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "bamboo": 8,
+        "coral_stone": 2
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "fish": 2
+        },
+        "output": {
+          "food": 6
+        },
+        "timeTicks": 50
+      },
+      "allowedBiomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands",
+        "tidal_flat"
+      ],
+      "stilted": true,
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "stilts",
+        "wall": "#A88858",
+        "roof": "#C8A878",
+        "accent": "#7FA8C0",
+        "features": [
+          "ropes"
+        ]
+      }
+    },
+    {
+      "id": "ropewalk",
+      "category": "production",
+      "mapColor": "#B8966A",
+      "footprint": [
+        2,
+        1
+      ],
+      "buildCost": {
+        "bamboo": 20,
+        "coral_stone": 8
+      },
+      "workerSlots": 3,
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "bamboo": 2,
+          "kelp": 1
+        },
+        "output": {
+          "rope": 1
+        },
+        "timeTicks": 60
+      },
+      "allowedBiomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "hall",
+        "wall": "#B8966A",
+        "roof": "#8A6A48",
+        "accent": "#6A5A3A",
+        "features": [
+          "ropes",
+          "thatch_roof"
+        ]
+      }
+    },
+    {
+      "id": "pearl_farm",
+      "category": "production",
+      "mapColor": "#E8E4F0",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "bamboo": 30,
+        "rope": 12
+      },
+      "workerSlots": 3,
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "shells": 1
+        },
+        "output": {
+          "pearls": 1
+        },
+        "timeTicks": 90
+      },
+      "allowedBiomes": [
+        "shallow_water",
+        "coral_reef"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "raft",
+        "wall": "#A88858",
+        "roof": "#EEE8F4",
+        "accent": "#2FA0B8",
+        "features": [
+          "ropes",
+          "water",
+          "glow"
+        ],
+        "glow": "#F4F0FF"
+      }
+    },
+    {
+      "id": "tidal_plant",
+      "category": "power",
+      "mapColor": "#5A8AA8",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "coral_stone": 60,
+        "rope": 20
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "powerSupply": 12,
+      "requiresAdjacentWater": true,
+      "stilted": true,
+      "allowedBiomes": [
+        "beach",
+        "tidal_flat"
+      ],
+      "look": {
+        "shape": "channel",
+        "wall": "#5A6A7A",
+        "roof": "#3A4A5A",
+        "accent": "#2FA0B8",
+        "features": [
+          "rotor",
+          "water",
+          "glow"
+        ],
+        "glow": "#9FE0FF"
+      }
+    },
+    {
+      "id": "floating_market",
+      "category": "civic",
+      "tradeCapacity": 3,
+      "mapColor": "#E8A858",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "bamboo": 60,
+        "rope": 20,
+        "coral_stone": 20
+      },
+      "housingCapacity": 4,
+      "workerSlots": 4,
+      "serviceValue": 6,
+      "upkeep": {
+        "food": 2
+      },
+      "stilted": true,
+      "requiresAdjacentWater": true,
+      "subseaAnchor": true,
+      "storage": {
+        "pearls": 200,
+        "rope": 200,
+        "glass": 120,
+        "fish": 200,
+        "food": 200
+      },
+      "allowedBiomes": [
+        "beach",
+        "tidal_flat"
+      ],
+      "look": {
+        "shape": "raft",
+        "wall": "#A88858",
+        "roof": "#E8A858",
+        "accent": "#C84838",
+        "features": [
+          "sails",
+          "lanterns",
+          "flag"
+        ],
+        "glow": "#FFD27A"
+      }
+    },
+    {
+      "id": "shell_shrine",
+      "category": "civic",
+      "mapColor": "#F4ECE0",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "coral_stone": 30,
+        "shells": 20
+      },
+      "serviceValue": 9,
+      "upkeep": {
+        "shells": 1
+      },
+      "autoBuild": true,
+      "allowedBiomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands"
+      ],
+      "look": {
+        "shape": "dome",
+        "wall": "#F4ECE0",
+        "roof": "#E8D8C8",
+        "accent": "#F0A890",
+        "features": [
+          "dome_roof",
+          "arches",
+          "glow"
+        ],
+        "glow": "#FFF0D0"
+      }
+    },
+    {
+      "id": "tide_temple",
+      "category": "megastructure",
+      "_comment": "Chrám přílivu: v okruhu příliv ustane — mělčiny se stanou trvalou souší.",
+      "mapColor": "#F0E8D0",
+      "footprint": [
+        5,
+        5
+      ],
+      "buildCost": {
+        "coral_stone": 4000,
+        "pearls": 600,
+        "rope": 800,
+        "shells": 1500
+      },
+      "serviceValue": 40,
+      "buildTicks": 3000,
+      "visualHeight": 2,
+      "stilted": true,
+      "allowedBiomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands",
+        "tidal_flat"
+      ],
+      "shelter": {
+        "tide": 18
+      },
+      "look": {
+        "shape": "column",
+        "wall": "#F0E8D0",
+        "roof": "#E8C8A8",
+        "accent": "#2FA0B8",
+        "features": [
+          "arches",
+          "water",
+          "glow",
+          "rings"
+        ],
+        "glow": "#BFF0FF"
+      }
+    }
+  ]
+}

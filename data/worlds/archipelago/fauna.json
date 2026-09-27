@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Zvěř Souostroví: racci, hejna ryb pod hladinou, velryby na širém moři, volavky na mělčinách, papoušci — sdílená s Domovinou (značka worlds).",
+  "fauna": [
+    {
+      "id": "seagull",
+      "biomes": [
+        "ocean",
+        "beach",
+        "shallow_water",
+        "tidal_flat",
+        "coral_reef"
+      ]
+    },
+    {
+      "id": "fish_school",
+      "biomes": [
+        "coral_reef",
+        "shallow_water"
+      ]
+    },
+    {
+      "id": "whale",
+      "biomes": [
+        "ocean",
+        "deep_ocean"
+      ]
+    },
+    {
+      "id": "heron",
+      "biomes": [
+        "tidal_flat",
+        "mangrove",
+        "swamp",
+        "shallow_water"
+      ]
+    },
+    {
+      "id": "parrot",
+      "biomes": [
+        "jungle",
+        "mangrove"
+      ]
+    },
+    {
+      "id": "butterfly",
+      "biomes": [
+        "jungle",
+        "savanna",
+        "grassland"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Suroviny Souostroví. Kelp zná i Domovina (podmoří) — tady roste na vorech. Sklo se nevyrábí, vozí ho trasy z Duny (importOnly) na lagunové vily.",
+  "resources": [
+    {
+      "id": "coral_stone",
+      "mapColor": "#E8D6C4",
+      "startAmount": 0,
+      "baseStorage": 300
+    },
+    {
+      "id": "bamboo",
+      "mapColor": "#8FBF5A",
+      "startAmount": 0,
+      "baseStorage": 300
+    },
+    {
+      "id": "fish",
+      "mapColor": "#7FA8C0",
+      "startAmount": 0,
+      "baseStorage": 250
+    },
+    {
+      "id": "shells",
+      "mapColor": "#F0DCC8",
+      "startAmount": 0,
+      "baseStorage": 150
+    },
+    {
+      "id": "pearls",
+      "mapColor": "#EEE8F4",
+      "startAmount": 0,
+      "baseStorage": 120
+    },
+    {
+      "id": "rope",
+      "mapColor": "#B8966A",
+      "startAmount": 0,
+      "baseStorage": 150
+    },
+    {
+      "id": "kelp",
+      "mapColor": "#3F7A4A",
+      "startAmount": 0,
+      "baseStorage": 200
+    },
+    {
+      "id": "glass",
+      "mapColor": "#9FD8E0",
+      "startAmount": 0,
+      "baseStorage": 100,
+      "importOnly": true
+    }
+  ]
+}

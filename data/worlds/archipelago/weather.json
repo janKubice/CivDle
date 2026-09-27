@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Počasí Souostroví. Cyklón má váhu 0 — přichází s přírodním jevem (hazards.json) podle rozvrhu.",
+  "weather": [
+    {
+      "id": "clear",
+      "biomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands",
+        "tidal_flat",
+        "shallow_water",
+        "coral_reef",
+        "ocean",
+        "deep_ocean"
+      ],
+      "weight": 9,
+      "durationSeconds": 180,
+      "tint": "#FFFFFF",
+      "tintAlpha": 0.0,
+      "particle": "none"
+    },
+    {
+      "id": "rain",
+      "biomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands",
+        "tidal_flat",
+        "shallow_water",
+        "coral_reef",
+        "ocean",
+        "deep_ocean"
+      ],
+      "weight": 4,
+      "durationSeconds": 120,
+      "tint": "#B8C8D0",
+      "tintAlpha": 0.12,
+      "particle": "rain"
+    },
+    {
+      "id": "thunderstorm",
+      "biomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands",
+        "tidal_flat",
+        "shallow_water",
+        "coral_reef",
+        "ocean",
+        "deep_ocean"
+      ],
+      "weight": 2,
+      "durationSeconds": 90,
+      "tint": "#7888A0",
+      "tintAlpha": 0.25,
+      "particle": "rain"
+    },
+    {
+      "id": "cyclone",
+      "biomes": [
+        "beach",
+        "jungle",
+        "savanna",
+        "grassland",
+        "forest",
+        "mangrove",
+        "swamp",
+        "steppe",
+        "highlands",
+        "tidal_flat",
+        "shallow_water",
+        "coral_reef",
+        "ocean",
+        "deep_ocean"
+      ],
+      "extreme": true,
+      "productionMult": 0.85,
+      "weight": 0,
+      "durationSeconds": 50,
+      "tint": "#6A7A8A",
+      "tintAlpha": 0.4,
+      "particle": "rain"
+    }
+  ]
+}

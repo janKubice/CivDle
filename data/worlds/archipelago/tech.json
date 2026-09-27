@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Výzkum Souostroví (svety-design.md 4.3) a úpravy sdílené větve Domoviny: sdílené technologie tu nemají předpoklady, které na Souostroví neexistují.",
+  "techs": [
+    {
+      "id": "writing",
+      "prerequisites": []
+    },
+    {
+      "id": "trade",
+      "prerequisites": [],
+      "unlocks": [
+        "market"
+      ]
+    },
+    {
+      "id": "tools",
+      "prerequisites": []
+    },
+    {
+      "id": "warehousing",
+      "prerequisites": [
+        "trade"
+      ]
+    },
+    {
+      "id": "apprenticeships",
+      "prerequisites": [
+        "schooling"
+      ]
+    },
+    {
+      "id": "public_works",
+      "prerequisites": [
+        "trade"
+      ]
+    },
+    {
+      "id": "fishing",
+      "cost": {
+        "fish": 50,
+        "bamboo": 30
+      },
+      "effect": "production_mult",
+      "targetResource": "food",
+      "magnitude": 0.25
+    },
+    {
+      "id": "breakwaters",
+      "cost": {
+        "coral_stone": 50,
+        "bamboo": 30
+      },
+      "unlocks": [
+        "breakwater"
+      ]
+    },
+    {
+      "id": "ropemaking",
+      "cost": {
+        "bamboo": 60,
+        "kelp": 20,
+        "science": 20
+      },
+      "unlocks": [
+        "ropewalk"
+      ]
+    },
+    {
+      "id": "stilt_building",
+      "cost": {
+        "bamboo": 80,
+        "rope": 15,
+        "science": 30
+      },
+      "prerequisites": [
+        "ropemaking"
+      ],
+      "unlocks": [
+        "floating_house",
+        "lighthouse"
+      ]
+    },
+    {
+      "id": "shipbuilding",
+      "cost": {
+        "bamboo": 100,
+        "rope": 30,
+        "science": 40
+      },
+      "prerequisites": [
+        "ropemaking"
+      ],
+      "unlocks": [
+        "floating_market"
+      ]
+    },
+    {
+      "id": "ferries",
+      "cost": {
+        "rope": 40,
+        "science": 60
+      },
+      "prerequisites": [
+        "shipbuilding"
+      ],
+      "unlocks": [
+        "ferry_dock",
+        "shipyard"
+      ]
+    },
+    {
+      "id": "pearl_diving",
+      "cost": {
+        "shells": 60,
+        "science": 60
+      },
+      "prerequisites": [
+        "fishing"
+      ],
+      "unlocks": [
+        "pearl_farm",
+        "shell_shrine",
+        "lagoon_villa"
+      ]
+    },
+    {
+      "id": "polders",
+      "cost": {
+        "coral_stone": 120,
+        "rope": 30,
+        "science": 60
+      },
+      "prerequisites": [
+        "breakwaters",
+        "ropemaking"
+      ],
+      "unlocks": [
+        "polder"
+      ]
+    },
+    {
+      "id": "tidal_power",
+      "cost": {
+        "coral_stone": 150,
+        "rope": 40,
+        "science": 80
+      },
+      "prerequisites": [
+        "polders"
+      ],
+      "unlocks": [
+        "tidal_plant"
+      ]
+    },
+    {
+      "id": "tide_temple",
+      "cost": {
+        "pearls": 200,
+        "rope": 200,
+        "science": 1200
+      },
+      "prerequisites": [
+        "pearl_diving",
+        "polders"
+      ],
+      "unlocks": [
+        "tide_temple"
+      ]
+    }
+  ]
+}

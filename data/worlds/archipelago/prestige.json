@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Vzestup Souostroví (svety-design.md 4.3): vylepšení navíc ke společným. Platí jen v téhle kolonii.",
+  "upgrades": [
+    {
+      "id": "arch_strong_breakwaters",
+      "effect": "hazard_resistance",
+      "magnitude": 0.15,
+      "cost": 2,
+      "maxLevel": 8,
+      "costGrowth": 1.3
+    },
+    {
+      "id": "arch_rich_lagoons",
+      "effect": "production_mult",
+      "targetResource": "pearls",
+      "magnitude": 0.1,
+      "cost": 2,
+      "maxLevel": 20,
+      "costGrowth": 1.2
+    },
+    {
+      "id": "arch_ropewalkers",
+      "effect": "production_mult",
+      "targetResource": "rope",
+      "magnitude": 0.1,
+      "cost": 1,
+      "maxLevel": 20,
+      "costGrowth": 1.2
+    },
+    {
+      "id": "arch_reef_growth",
+      "effect": "production_mult",
+      "targetResource": "coral_stone",
+      "magnitude": 0.1,
+      "cost": 1,
+      "maxLevel": 20,
+      "costGrowth": 1.2
+    },
+    {
+      "id": "arch_fishers",
+      "effect": "production_mult",
+      "targetResource": "fish",
+      "magnitude": 0.1,
+      "cost": 1,
+      "maxLevel": 20,
+      "costGrowth": 1.2
+    },
+    {
+      "id": "arch_bamboo",
+      "effect": "production_mult",
+      "targetResource": "bamboo",
+      "magnitude": 0.1,
+      "cost": 1,
+      "maxLevel": 20,
+      "costGrowth": 1.2
+    },
+    {
+      "id": "arch_calm_seas",
+      "effect": "growth_mult",
+      "magnitude": 0.05,
+      "cost": 2,
+      "maxLevel": 10,
+      "costGrowth": 1.25
+    }
+  ]
+}

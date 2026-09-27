@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Přírodní jevy Souostroví (svety-design.md 4.3). Příliv: hladina v cyklu deseti minut stoupá a klesá, přílivová mělčina se zaplaví podle své výšky (floodRange = výška terénu vůči hladině moře, kde zaplaví první a kam dosáhne nejvyšší příliv). Cyklón: pás bouře přejde přes město, ale příboj bije jen budovy u vody (coastTiles); chrání vlnolam.",
+  "hazards": [
+    {
+      "id": "tide",
+      "behavior": "tides",
+      "periodSeconds": 600,
+      "floodBiome": "tidal_flat",
+      "floodRange": [
+        -0.03,
+        0.014
+      ]
+    },
+    {
+      "id": "cyclone",
+      "behavior": "weather_burial",
+      "firstAfterSeconds": 480,
+      "intervalSeconds": 900,
+      "intervalJitter": 0.3,
+      "warningSeconds": 60,
+      "sweepSeconds": 50,
+      "bandTiles": 30,
+      "burySeconds": 90,
+      "weather": "cyclone",
+      "solarDim": 0.6,
+      "minBuildings": 5,
+      "coastTiles": 2,
+      "moundColor": "#D8CCAE"
+    }
+  ]
+}

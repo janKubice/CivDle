@@ -270,7 +270,7 @@ public sealed class SmokeRun
     /// <summary>
     /// Galaxie od brány po návrat: mapa galaxie, výběr místa přistání,
     /// kolonie Duny se svou obrazovkou (atmosféra, síť, bouře), obchodní
-    /// trasy na kartě světa, přepnutí zpět na Domovinu a druhá kolonie (Mráz). Loď se nestaví —
+    /// trasy na kartě světa, přepnutí zpět na Domovinu a další kolonie (Mráz, Souostroví). Loď se nestaví —
     /// její cena je v milionech a vklad testuje jádro.
     /// </summary>
     private static void GalaxyRound(ScreenManager screens, Simulation home, GameTime time)
@@ -358,6 +358,7 @@ public sealed class SmokeRun
             homeScreen.Dispose();
 
             VisitColony(screens, session, time, "frost");
+            VisitColony(screens, session, time, "archipelago");
         }
         finally
         {
@@ -367,8 +368,8 @@ public sealed class SmokeRun
 
     /// <summary>
     /// Další kolonie z Domoviny: hotová loď, přistání na prvním nabízeném
-    /// místě, pět minut guvernéra, fotka (sníh roztátý kolem tepla, jinovatka
-    /// na zamrzlých) a návrat domů. Hvězdy se neřeší — odemčení testuje jádro.
+    /// místě, pět minut guvernéra, fotka (sníh roztátý kolem tepla, příliv na
+    /// mělčinách…) a návrat domů. Hvězdy se neřeší — odemčení testuje jádro.
     /// </summary>
     private static void VisitColony(ScreenManager screens, GalaxySession session, GameTime time, string worldId)
     {

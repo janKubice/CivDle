@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Souostroví — oceánský svět (svety-design.md 4.3). Náhrady: sdílené budovy Domoviny tu stojí bambus místo dřeva a prken, korálový kámen místo kamene a železa a lano místo bronzu.",
+  "preset": "archipelago",
+  "atmosphere": "archipelago",
+  "landingModule": "archipelago_lander",
+  "startingKit": {
+    "bamboo": 160,
+    "coral_stone": 120,
+    "food": 220,
+    "tools": 20
+  },
+  "exports": [
+    "pearls",
+    "rope"
+  ],
+  "port": "floating_market",
+  "substitutes": {
+    "wood": "bamboo",
+    "planks": "bamboo",
+    "stone": "coral_stone",
+    "iron": "coral_stone",
+    "bronze": "rope"
+  },
+  "withoutSystems": [
+    "npc-cities",
+    "figures",
+    "doctrines",
+    "poi",
+    "scenarios",
+    "carillon",
+    "frontier",
+    "orbit",
+    "grandwork",
+    "faith",
+    "citizens",
+    "contracts",
+    "challenges",
+    "tutorial",
+    "milestones",
+    "features",
+    "landmarks",
+    "seasons"
+  ]
+}

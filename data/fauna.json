@@ -78,6 +78,7 @@
     },
     {
       "id": "parrot",
+      "worlds": ["home", "archipelago"],
       "biomes": [
         "jungle",
         "mangrove"
@@ -130,6 +131,7 @@
     },
     {
       "id": "heron",
+      "worlds": ["home", "archipelago"],
       "biomes": [
         "swamp",
         "mangrove",
@@ -157,6 +159,7 @@
     },
     {
       "id": "fish_school",
+      "worlds": ["home", "archipelago"],
       "biomes": [
         "coral_reef",
         "shallow_water"
@@ -195,6 +198,7 @@
     },
     {
       "id": "whale",
+      "worlds": ["home", "archipelago"],
       "biomes": [
         "ocean",
         "deep_ocean"
@@ -219,6 +223,7 @@
     },
     {
       "id": "seagull",
+      "worlds": ["home", "archipelago"],
       "biomes": [
         "ocean",
         "beach",
@@ -526,6 +531,7 @@
     },
     {
       "id": "butterfly",
+      "worlds": ["home", "archipelago"],
       "biomes": [
         "grassland",
         "forest",

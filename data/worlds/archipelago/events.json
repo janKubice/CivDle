@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Události Souostroví. Cyklón sezóny je volba (připravit se, nebo přečkat) — cyklóny samy chodí z rozvrhu jevu.",
+  "events": [
+    {
+      "id": "arch_great_ebb",
+      "choices": [
+        {
+          "id": "gather",
+          "gain": {
+            "shells": 60
+          }
+        },
+        {
+          "id": "wreck",
+          "gain": {
+            "rope": 25,
+            "bamboo": 40
+          }
+        }
+      ]
+    },
+    {
+      "id": "arch_bleaching",
+      "choices": [
+        {
+          "id": "rest",
+          "effect": {
+            "kind": "production",
+            "multiplier": 0.9,
+            "seconds": 150
+          }
+        },
+        {
+          "id": "quarry",
+          "gain": {
+            "coral_stone": 50
+          }
+        }
+      ]
+    },
+    {
+      "id": "arch_turtles",
+      "choices": [
+        {
+          "id": "celebrate",
+          "cost": {
+            "food": 50
+          },
+          "effect": {
+            "kind": "growth",
+            "multiplier": 1.3,
+            "seconds": 180
+          }
+        },
+        {
+          "id": "work",
+          "gain": {
+            "fish": 40
+          }
+        }
+      ]
+    },
+    {
+      "id": "arch_wreck",
+      "choices": [
+        {
+          "id": "salvage",
+          "gain": {
+            "rope": 30,
+            "coral_stone": 30
+          }
+        },
+        {
+          "id": "leave"
+        }
+      ]
+    },
+    {
+      "id": "arch_cyclone_season",
+      "requires": {
+        "metric": "research",
+        "tech": "breakwaters",
+        "target": 1
+      },
+      "choices": [
+        {
+          "id": "prepare",
+          "cost": {
+            "coral_stone": 40
+          },
+          "effect": {
+            "kind": "growth",
+            "multiplier": 1.1,
+            "seconds": 120
+          }
+        },
+        {
+          "id": "shrug",
+          "effect": {
+            "kind": "production",
+            "multiplier": 0.85,
+            "seconds": 150
+          }
+        }
+      ]
+    }
+  ]
+}

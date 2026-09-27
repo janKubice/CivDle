@@ -16,7 +16,10 @@ namespace CivDle.Rendering;
 /// výška mělčiny je v paměti simulace, pěna se hýbe podle času a hashe dlaždice.
 /// Při velkém oddálení se kreslí jen každá n-tá dlaždice (větším čtvercem).</para>
 ///
-/// <para>Vrstva: render. Ze simulace jen čte (hladinu, výšku mělčin, biom).</para>
+/// <para>Útes, který korálový lom vytěžil, na čas zbělá — a jak dorůstá,
+/// barvu zase dostane (útes je uzel s dobíjením jako les).</para>
+///
+/// <para>Vrstva: render. Ze simulace jen čte (hladinu, výšku mělčin, biom, uzly).</para>
 /// </summary>
 public sealed class TideRenderer
 {
@@ -32,11 +35,15 @@ public sealed class TideRenderer
     private const double WetBand = 0.14;
 
     private static readonly Color Foam = new(238, 248, 250);
+    private static readonly Color Bleach = new(240, 236, 226);
     private static readonly Color WetSand = new(70, 60, 44);
 
     private readonly Texture2D _pixel;
     private readonly Color _water;
     private readonly bool _enabled;
+
+    /// <summary>Vodní biomy s těžitelným uzlem (útes) — ty po vytěžení blednou.</summary>
+    private readonly bool[] _reef;
     private float _time;
 
     public TideRenderer(Texture2D whitePixel, GameContent content)
@@ -48,6 +55,12 @@ public sealed class TideRenderer
         int shallow = content.Biomes.All.ToList().FindIndex(b => b.Id == "shallow_water");
         var color = shallow >= 0 ? content.Biomes[shallow].MapColor : new RgbColor(62, 133, 184);
         _water = new Color(color.R, color.G, color.B);
+
+        _reef = new bool[content.Biomes.Count];
+        for (int b = 0; b < _reef.Length; b++)
+        {
+            _reef[b] = content.Biomes[b].IsWater && content.Biomes[b].ClickYield is not null;
+        }
     }
 
     /// <summary>Posune pěnu (reálný čas).</summary>
@@ -76,13 +89,20 @@ public sealed class TideRenderer
         {
             for (int x = fromX - fromX % step; x <= toX; x += step)
             {
+                var rect = new Rectangle(x * TileSize, y * TileSize, TileSize * step, TileSize * step);
                 double height = simulation.TideHeightAt(x, y);
                 if (height >= 1.0)
                 {
-                    continue; // není mělčina (nebo ji nejvyšší příliv nedosáhne)
+                    // Není mělčina — ale může to být vytěžený útes.
+                    byte biome = simulation.BiomeAt(x, y);
+                    if (biome < _reef.Length && _reef[biome])
+                    {
+                        DrawBleach(spriteBatch, simulation, x, y, rect);
+                    }
+
+                    continue;
                 }
 
-                var rect = new Rectangle(x * TileSize, y * TileSize, TileSize * step, TileSize * step);
                 if (simulation.IsFloodedAt(x, y))
                 {
                     // Čím hlouběji pod hladinou, tím sytější voda.
@@ -103,6 +123,22 @@ public sealed class TideRenderer
         }
 
         spriteBatch.End();
+    }
+
+    /// <summary>Vytěžený útes zbělá: čím méně mu zbývá, tím bělejší.</summary>
+    private void DrawBleach(SpriteBatch spriteBatch, Simulation simulation, int x, int y, Rectangle rect)
+    {
+        int max = simulation.NodeMaxCharges(x, y);
+        if (max <= 0)
+        {
+            return;
+        }
+
+        int left = simulation.NodeChargesLeft(x, y);
+        if (left < max)
+        {
+            spriteBatch.Draw(_pixel, rect, Bleach * (0.55f * (1f - left / (float)max)));
+        }
     }
 
     /// <summary>Pěna na čáře přílivu: pár světlých čárek, které se pomalu vlní.</summary>

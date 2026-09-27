@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Předvolba terénu Souostroví: teplé moře s atoly a ostrůvky. Mělčiny u pobřeží střídá přílivová mělčina (záplata na plážích a útesech) s živým útesem.",
+  "presets": [
+    {
+      "id": "archipelago",
+      "seaLevel": 0.58,
+      "fallbackBiome": "grassland",
+      "elevationNoise": {
+        "frequency": 3.0,
+        "octaves": 5,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      },
+      "moistureNoise": {
+        "frequency": 2.5,
+        "octaves": 3,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      },
+      "riverNoise": {
+        "frequency": 0.9,
+        "octaves": 2,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      },
+      "riverWidth": 0.006,
+      "riverMaxElevation": 0.7,
+      "temperatureNoise": {
+        "frequency": 0.6,
+        "octaves": 3,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      },
+      "temperatureBandTiles": 2400,
+      "temperatureLapse": 0.3,
+      "riverBiome": "shallow_water",
+      "temperatureShift": 0.4,
+      "moistureShift": 0.15,
+      "patches": [
+        {
+          "biome": "tidal_flat",
+          "on": [
+            "beach",
+            "coral_reef",
+            "shallow_water"
+          ],
+          "threshold": 0.45,
+          "noise": {
+            "frequency": 3.5,
+            "octaves": 2,
+            "persistence": 0.5,
+            "lacunarity": 2.0
+          }
+        }
+      ]
+    }
+  ]
+}

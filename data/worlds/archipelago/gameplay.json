@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Nastavení Souostroví nad gameplay.json Domoviny. Kolonisté přiletí rovnou do modulu (30 lidí), guvernér staví svižněji — kolonie má být druhá vesnice, ne první (svety-design.md 3.3).",
+  "planting": {
+    "species": [
+      {
+        "id": "bamboo_patch",
+        "cost": {
+          "coral_stone": 4
+        },
+        "resource": "bamboo",
+        "amount": 2
+      }
+    ]
+  },
+  "onboarding": {
+    "startSite": {
+      "nodes": {
+        "coral_stone": 3
+      },
+      "buildings": [
+        "round_house",
+        "bamboo_grove",
+        "fishing_pier"
+      ]
+    }
+  },
+  "demo": {
+    "techs": []
+  },
+  "startingPopulation": 30,
+  "populationFillRate": 0.0045,
+  "autoBuild": {
+    "intervalTicks": 40
+  }
+}

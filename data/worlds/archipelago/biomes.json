@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Přílivová mělčina (natural: false) pokládá záplata předvolby 'archipelago' na pláže a útesy. Útes tu dává korálový kámen: lom ho vytěží, útes na čas zbělá a sám doroste.",
+  "biomes": [
+    {
+      "id": "tidal_flat",
+      "mapColor": "#C8B48A",
+      "colorVariation": 0.05,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        1.0
+      ],
+      "natural": false,
+      "productionMult": 0.9
+    },
+    {
+      "id": "coral_reef",
+      "clickYield": {
+        "resource": "coral_stone",
+        "amount": 2,
+        "charges": 10,
+        "regrowSeconds": 420
+      }
+    }
+  ]
+}

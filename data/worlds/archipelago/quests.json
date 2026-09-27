@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Úkoly Souostroví: úvodní kroky kolonie (kůly, ryby, lano, vlnolamy) a hvězdy světa (svety-design.md 2.6). ★★ = 200 dlaždic souše získaných z moře, ✦ = pět cyklónů, které nic nezasypaly.",
+  "quests": [
+    {
+      "id": "arch_first_stilts",
+      "condition": {
+        "metric": "building",
+        "building": "stilt_hut",
+        "target": 3
+      },
+      "reward": {
+        "bamboo": 40
+      }
+    },
+    {
+      "id": "arch_fishing",
+      "condition": {
+        "metric": "building",
+        "building": "fish_drying_rack",
+        "target": 2
+      },
+      "reward": {
+        "coral_stone": 40
+      }
+    },
+    {
+      "id": "arch_first_rope",
+      "condition": {
+        "metric": "resource",
+        "resource": "rope",
+        "target": 20
+      },
+      "reward": {
+        "bamboo": 80
+      }
+    },
+    {
+      "id": "arch_breakwaters",
+      "condition": {
+        "metric": "building",
+        "building": "breakwater",
+        "target": 3
+      },
+      "reward": {
+        "rope": 20
+      }
+    },
+    {
+      "id": "arch_star_settled",
+      "group": "star",
+      "condition": {
+        "metric": "population",
+        "target": 5000
+      }
+    },
+    {
+      "id": "arch_star_land",
+      "group": "star",
+      "condition": {
+        "metric": "terraformed",
+        "target": 200
+      }
+    },
+    {
+      "id": "arch_star_wonder",
+      "group": "star",
+      "condition": {
+        "metric": "building",
+        "building": "tide_temple",
+        "target": 1
+      }
+    },
+    {
+      "id": "arch_star_master",
+      "group": "master",
+      "condition": {
+        "metric": "calmhazards",
+        "target": 5
+      }
+    }
+  ]
+}
