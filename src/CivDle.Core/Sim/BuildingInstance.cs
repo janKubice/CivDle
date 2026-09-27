@@ -44,6 +44,9 @@ public enum BuildingStall : byte
 
     /// <summary>Stojí bez kůlů na přílivové mělčině a příliv ji zaplavil — s odlivem se vrátí.</summary>
     Flooded,
+
+    /// <summary>Zalila ji láva (Výheň) — vychladne a lidé ji zase zprovozní.</summary>
+    Scorched,
 }
 
 /// <summary>Proč je budova mimo provoz (<see cref="BuildingInstance.DisabledTicks"/>).</summary>
@@ -57,6 +60,9 @@ public enum DisableCause : byte
 
     /// <summary>Zaplavil ji příliv (budova bez kůlů na přílivové mělčině).</summary>
     Flood = 2,
+
+    /// <summary>Zalila ji láva z erupce.</summary>
+    Lava = 3,
 }
 
 /// <summary>Převod příčiny výpadku na stav budovy, který čte UI.</summary>
@@ -67,6 +73,7 @@ public static class DisableCauses
     {
         DisableCause.Burial => BuildingStall.Buried,
         DisableCause.Flood => BuildingStall.Flooded,
+        DisableCause.Lava => BuildingStall.Scorched,
         _ => BuildingStall.Damaged,
     };
 }

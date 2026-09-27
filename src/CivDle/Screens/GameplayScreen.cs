@@ -78,6 +78,7 @@ public sealed class GameplayScreen : IScreen
     private readonly HazardRenderer _hazardRenderer;
     private readonly NetworkGroundRenderer _networkGround;
     private readonly TideRenderer _tide;
+    private readonly LavaRenderer _lava;
 
     /// <summary>
     /// Jak moc je vidět dosah podmořské sítě (0–1). Rozsvěcí se samo, když má
@@ -562,6 +563,7 @@ public sealed class GameplayScreen : IScreen
         _hazardRenderer = new HazardRenderer(screens.WhitePixel, screens.Content);
         _networkGround = new NetworkGroundRenderer(screens.WhitePixel, screens.Content);
         _tide = new TideRenderer(screens.WhitePixel, screens.Content);
+        _lava = new LavaRenderer(screens.WhitePixel, screens.Content);
         _pollutionRenderer = new PollutionRenderer(screens.WhitePixel, screens.Content);
         _stallOverlay = new StallOverlayRenderer(screens.WhitePixel, screens.Content);
         _landmarkRenderer = new LandmarkRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
@@ -903,6 +905,7 @@ public sealed class GameplayScreen : IScreen
         _atmosphere.Update(worldDt, _screens.Content.Atmosphere, moteMin, moteMax, WindDirectionX, WindDirectionY);
         _hazardRenderer.Update(dt);
         _tide.Update(dt);
+        _lava.Update(dt);
         }
 
         // Cheaty se udržují herním časem: v pauze se nic nedosypává a záběr,
@@ -966,6 +969,7 @@ public sealed class GameplayScreen : IScreen
         // město v poušti je oáza a má zelenat i mezi domy. Pod vším, co stojí.
         _networkGround.Draw(spriteBatch, _camera, _simulation);
         _tide.Draw(spriteBatch, _camera, _simulation);
+        _lava.Draw(spriteBatch, _camera, _simulation);
         _zoneRenderer.Draw(spriteBatch, _camera, _simulation); // tint zón na zemi, pod budovami
         // Dosah podmořské sítě patří nad vodu, ale pod všechno ostatní —
         // je to informace o ploše, ne o tom, co na ní stojí.
@@ -1604,6 +1608,7 @@ public sealed class GameplayScreen : IScreen
         BuildingStall.NetworkShortage => "stall.networkShortage",
         BuildingStall.Buried => "stall.buried",
         BuildingStall.Flooded => "stall.flooded",
+        BuildingStall.Scorched => "stall.scorched",
         _ => null,
     };
 
@@ -2247,7 +2252,17 @@ public sealed class GameplayScreen : IScreen
             return;
         }
 
-        string name = loc[_screens.Content.Hazards.Hazards[view.HazardIndex].NameKey];
+        var hazard = _screens.Content.Hazards.Hazards[view.HazardIndex];
+        string name = loc[hazard.NameKey];
+        if (hazard.Eruption is not null)
+        {
+            // Erupce nepřichází „od západu" — duní průduch u města.
+            _hazardLabel.Text = view.Phase == HazardPhase.Warning
+                ? loc.Format("hud.hazard.soon", name, (int)Math.Ceiling(view.SecondsToStart))
+                : loc.Format("hud.hazard.active", name);
+            return;
+        }
+
         _hazardLabel.Text = view.Phase == HazardPhase.Warning
             ? loc.Format("hud.hazard.warning", name, loc[$"hazard.from.{view.DirectionIndex}"], (int)Math.Ceiling(view.SecondsToStart))
             : loc.Format("hud.hazard.active", name);

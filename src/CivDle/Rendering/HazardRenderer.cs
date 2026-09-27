@@ -30,6 +30,8 @@ public sealed class HazardRenderer
     private static readonly Color Ice = new(236, 248, 255);
     private static readonly Color Sand = new(222, 190, 128);
     private static readonly Color FloodWater = new(84, 168, 206);
+    private static readonly Color Crust = new(44, 38, 36);
+    private static readonly Color Magma = new(255, 132, 40);
     private static readonly Color Foam = new(236, 248, 250);
 
     /// <summary>Čím jsou zasypané budovy zasypané (z dat jevu: písek, sníh…) a jeho stín a světlo.</summary>
@@ -126,6 +128,12 @@ public sealed class HazardRenderer
                 continue;
             }
 
+            if (buildings[i].DisabledTicks > 0 && buildings[i].DisabledCause == DisableCause.Lava)
+            {
+                DrawScorched(spriteBatch, buildings[i]);
+                continue;
+            }
+
             if (buildings[i].DisabledTicks <= 0 || buildings[i].DisabledCause != DisableCause.Burial)
             {
                 continue;
@@ -178,6 +186,32 @@ public sealed class HazardRenderer
                     spriteBatch.Draw(_pixel, new Rectangle(wx, y, w, 1), Foam * 0.7f);
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Budova zalitá lávou: spodek obalený tmavou kůrou s rozžhavenými
+    /// prasklinami, které pomalu dýchají. Budova stojí — láva ji jen vyřadila.
+    /// </summary>
+    private void DrawScorched(SpriteBatch spriteBatch, in BuildingInstance building)
+    {
+        var def = _content.Buildings[building.DefIndex];
+        int px = building.X * TileSize;
+        int py = building.Y * TileSize;
+        int width = def.FootprintWidth * TileSize;
+        int height = def.FootprintHeight * TileSize;
+        int crust = Math.Max(5, height / 2);
+        spriteBatch.Draw(_pixel, new Rectangle(px - 1, py + height - crust, width + 2, crust + 1), Crust);
+
+        // Praskliny: krátké svislé a šikmé čárky, jas pulzuje pomalu.
+        for (int k = 0; k < 4; k++)
+        {
+            float h = Hash(building.X * 17 + k, building.Y * 5 + k);
+            float glow = 0.55f + 0.45f * MathF.Sin(_time * 1.3f + h * 9f);
+            int cx = px + 2 + (int)(h * Math.Max(1, width - 4));
+            int cy = py + height - crust + 1 + (int)(Hash(building.Y + k, building.X) * Math.Max(1, crust - 3));
+            spriteBatch.Draw(_pixel, new Rectangle(cx, cy, 1, 2), Magma * glow);
+            spriteBatch.Draw(_pixel, new Rectangle(cx + 1, cy + 1, 2, 1), Magma * (glow * 0.7f));
         }
     }
 

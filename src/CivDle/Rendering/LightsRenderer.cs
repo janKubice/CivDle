@@ -101,7 +101,7 @@ public sealed class LightsRenderer
 
             // Zamrzlá (bez sítě) a zasypaná budova zhasne — výpadek má být
             // vidět i v noci, ne jen v inspektoru.
-            if (building.Stall is BuildingStall.NetworkShortage or BuildingStall.Buried or BuildingStall.Flooded)
+            if (building.Stall is BuildingStall.NetworkShortage or BuildingStall.Buried or BuildingStall.Flooded or BuildingStall.Scorched)
             {
                 continue;
             }

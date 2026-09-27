@@ -132,6 +132,7 @@ public sealed class StallOverlayRenderer
             case BuildingStall.Damaged:
             case BuildingStall.Buried:
             case BuildingStall.Flooded:
+            case BuildingStall.Scorched:
                 return Damaged; // vyřazená na chvíli — zásah i zasypání se opraví samy
             case BuildingStall.OutputFull:
                 return StorageFull;

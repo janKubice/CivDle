@@ -323,6 +323,11 @@ internal sealed class AutoBuildSystem
             return MeetJobs(sim, ref rng);
         }
 
+        if (need == CityNeed.LavaDam)
+        {
+            return MeetLavaDam(sim);
+        }
+
         // Služby: když by stávající stačily, jen nemají zaplacenou údržbu, další
         // trh nepomůže — chybí suroviny na provoz (dřív guvernér stavěl knihovnu
         // za knihovnou, které pak stály bez údržby taky).
@@ -823,6 +828,30 @@ internal sealed class AutoBuildSystem
         foreach (int resource in order)
         {
             if (FillOf(sim, resource) < JobsFillCeiling && TryAddProducer(sim, resource, ref rng, ownInitiative: true))
+            {
+                return Outcome.Built;
+            }
+        }
+
+        return Outcome.Impossible;
+    }
+
+    /// <summary>
+    /// Hráz na předpovězenou dráhu lávy — přesně na dlaždici, kterou vybral
+    /// <see cref="LavaGoal"/>, ne „někde poblíž": o kus vedle by láva prošla.
+    /// </summary>
+    private Outcome MeetLavaDam(Simulation sim)
+    {
+        for (int d = 0; d < _content.Buildings.Count; d++)
+        {
+            var def = _content.Buildings[d];
+            if (def.LavaRole != LavaRole.Wall || !_roles.MayBuild(sim, d) || !LavaGoal.TryFindDamSite(sim, d, out int x, out int y))
+            {
+                continue;
+            }
+
+            if (sim.CanAfford(def.BuildCost) && sim.AutomationCanSpend(def.BuildCost, d)
+                && sim.TryPlaceBuilding(d, x, y) == PlacementResult.Ok)
             {
                 return Outcome.Built;
             }

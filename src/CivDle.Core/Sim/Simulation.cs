@@ -5258,6 +5258,67 @@ public sealed partial class Simulation
         return height;
     }
 
+    /// <summary>Výška terénu dlaždice 0–1 (láva teče z kopce).</summary>
+    public double ElevationAt(int x, int y) => _cachedTerrain.ElevationAt(x, y);
+
+    /// <summary>
+    /// Kolik dlaždic láva proměnila v novou zem (ztuhlá dráha, kde ještě
+    /// ztuhlá láva nebyla) — ✦ Výhně.
+    /// </summary>
+    public long LavaLandTiles { get; internal set; }
+
+    /// <summary>
+    /// Ztuhlá láva: dlaždice se změní v novou čedičovou zem. Co na ní rostlo,
+    /// shořelo. Počítá se jen dlaždice, kde ztuhlá láva ještě nebyla.
+    /// </summary>
+    internal void CoverWithLava(int x, int y, int crustBiome)
+    {
+        if (BiomeAt(x, y) == crustBiome)
+        {
+            return;
+        }
+
+        _nodes.Deplete(x, y, TickCount);
+        SetBiomeOverride(x, y, (byte)crustBiome);
+        LavaLandTiles++;
+    }
+
+    /// <summary>Kudy poteče příští láva (seismická stanice, guvernér); prázdné na světě bez erupcí.</summary>
+    public IReadOnlyList<long> PredictedLavaPath => _hazards.PredictedPath(this);
+
+    /// <summary>Rozběhnutá láva: dráha a kam už dotekla (−1 = žádná erupce).</summary>
+    public (IReadOnlyList<long> Path, int Front) ActiveLava => _hazards.ActiveLava;
+
+    /// <summary>Poslední ztuhlá láva a kdy (herní sekundy) — kůra ještě chvíli žhne.</summary>
+    public (IReadOnlyList<long> Path, double CooledAtSeconds) CoolingLava => _hazards.CoolingLava;
+
+    /// <summary>
+    /// Vidí hráč předpověď lávy? Jen když stojí budova, která předpovídá
+    /// (seismická stanice).
+    /// </summary>
+    public bool ForecastsHazards
+    {
+        get
+        {
+            // Render se ptá každý snímek — projde se jen po změně zástavby.
+            if (_forecastLayout != LayoutRevision)
+            {
+                _forecastLayout = LayoutRevision;
+                _forecasts = false;
+                var buildings = Buildings;
+                for (int i = 0; i < buildings.Length && !_forecasts; i++)
+                {
+                    _forecasts = buildings[i].IsComplete && _content.Buildings[buildings[i].DefIndex].Forecasts;
+                }
+            }
+
+            return _forecasts;
+        }
+    }
+
+    private long _forecastLayout = long.MinValue;
+    private bool _forecasts;
+
     /// <summary>Je dlaždice teď pod přílivem (render, UI)?</summary>
     public bool IsFloodedAt(int x, int y) =>
         _hazards.Tide is { } tide && _hazards.IsFlooded(this, tide, x, y, TideLevel);
@@ -5295,11 +5356,14 @@ public sealed partial class Simulation
     internal void RestoreHazards(int weathered, int calm) => _hazards.Restore(weathered, calm);
 
     /// <summary>Obnova ze savu: budova, která leží vyřazená, je zasypaná (ne poškozená).</summary>
-    internal void RestoreBurial(int buildingIndex)
+    internal void RestoreBurial(int buildingIndex) => RestoreDisableCause(buildingIndex, DisableCause.Burial);
+
+    /// <summary>Obnoví ze savu příčinu výpadku (odpočet sám nese sekce obrany).</summary>
+    internal void RestoreDisableCause(int buildingIndex, DisableCause cause)
     {
         if (buildingIndex >= 0 && buildingIndex < _buildingCount && _buildings[buildingIndex].DisabledTicks > 0)
         {
-            _buildings[buildingIndex].DisabledCause = DisableCause.Burial;
+            _buildings[buildingIndex].DisabledCause = cause;
         }
     }
 
@@ -7267,6 +7331,7 @@ public sealed partial class Simulation
         MetricKind.AirQuality => (long)Math.Floor(100.0 * (1.0 - _content.Gameplay.Pollution.Severity(AirPollutionOverCity))),
         MetricKind.DefenceWaves => FrontierDefense ? _frontier.NextWave : 0,
         MetricKind.CalmHazards => _hazards.Calm,
+        MetricKind.LavaLand => LavaLandTiles,
         MetricKind.WarmWinters => WarmWinters,
         MetricKind.ProjectsCompleted => CompletedProjects(param),
         _ => 0,

@@ -4005,8 +4005,19 @@ public sealed class ContentLoader
             ParseShelters(path, id, dto.Shelter),
             ReadTradeCapacity(path, id, dto.TradeCapacity),
             dto.Stilted,
-            ReadFerryReach(path, id, dto.FerryReach));
+            ReadFerryReach(path, id, dto.FerryReach),
+            ParseLavaRole(path, id, dto.Lava),
+            dto.Forecasts);
     }
+
+    /// <summary>Co budova dělá s lávou: nic, <c>wall</c> (hráz), <c>channel</c> (kanál).</summary>
+    private static LavaRole ParseLavaRole(string path, string id, string? value) => value?.Trim() switch
+    {
+        null or "" => LavaRole.None,
+        "wall" => LavaRole.Wall,
+        "channel" => LavaRole.Channel,
+        _ => throw new ContentLoadException(path, $"Budova '{id}': neznámé 'lava' '{value}' (wall, channel)."),
+    };
 
     /// <summary>Dosah přístaviště trajektu: 0 = není přístaviště, nejvýš 24 dlaždic.</summary>
     private static int ReadFerryReach(string path, string id, int reach)
@@ -4097,12 +4108,19 @@ public sealed class ContentLoader
             {
                 "weather_burial" => HazardBehavior.WeatherBurial,
                 "tides" => HazardBehavior.Tides,
-                _ => throw new ContentLoadException(path, $"{owner}: neznámé chování '{dto.Behavior}' (známé: weather_burial, tides)."),
+                "eruptions" => HazardBehavior.Eruptions,
+                _ => throw new ContentLoadException(path, $"{owner}: neznámé chování '{dto.Behavior}' (známé: weather_burial, tides, eruptions)."),
             };
 
             if (behavior == HazardBehavior.Tides)
             {
                 result.Add(new HazardDef(id, behavior, null, ParseTide(path, owner, dto, biomes)));
+                continue;
+            }
+
+            if (behavior == HazardBehavior.Eruptions)
+            {
+                result.Add(new HazardDef(id, behavior, null, Eruption: ParseEruption(path, owner, dto, biomes, weather)));
                 continue;
             }
 
@@ -4150,7 +4168,59 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, "Svět smí mít nejvýš jeden příliv (hladina moře je jedna).");
         }
 
+        if (result.Count(h => h.Behavior == HazardBehavior.Eruptions) > 1)
+        {
+            throw new ContentLoadException(path, "Svět smí mít nejvýš jedny erupce (průduchy sdílí jeden rozvrh).");
+        }
+
         return new HazardCatalog(result);
+    }
+
+    /// <summary>
+    /// Erupce: rozvrh jako u bouře (erupce i s varováním se vejde do rozestupu),
+    /// průduch a ztuhlá láva jsou existující biomy (ztuhlá láva je souš), dráha
+    /// 4–200 dlaždic, výpadek 1–3 600 s.
+    /// </summary>
+    private static EruptionRule ParseEruption(string path, string owner, HazardDto dto, BiomeRegistry biomes, DefRegistry<WeatherDef> weather)
+    {
+        if (dto.IntervalSeconds < 60 || dto.FirstAfterSeconds < 0 || dto.IntervalJitter is < 0 or > 0.9 || dto.WarningSeconds < 0)
+        {
+            throw new ContentLoadException(path,
+                $"{owner}: 'intervalSeconds' aspoň 60, 'firstAfterSeconds' a 'warningSeconds' nezáporné, 'intervalJitter' 0–0,9.");
+        }
+
+        if (dto.FlowSeconds <= 0 || dto.FlowSeconds + dto.WarningSeconds >= dto.IntervalSeconds * (1 - dto.IntervalJitter))
+        {
+            throw new ContentLoadException(path,
+                $"{owner}: erupce i s varováním ('flowSeconds' + 'warningSeconds') se musí vejít do rozestupu.");
+        }
+
+        if (dto.FlowLength is < 4 or > 200 || dto.LavaSeconds is < 1 or > 3600 || dto.SearchRadius is < 8 or > 200
+            || dto.SolarDim is < 0 or > 1 || dto.MinBuildings < 0)
+        {
+            throw new ContentLoadException(path,
+                $"{owner}: 'flowLength' 4–200, 'lavaSeconds' 1–3600, 'searchRadius' 8–200, 'solarDim' 0–1, 'minBuildings' nezáporné.");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.VentBiome) || !biomes.TryIndexOf(dto.VentBiome.Trim(), out int vent))
+        {
+            throw new ContentLoadException(path, $"{owner}: 'ventBiome' '{dto.VentBiome}' neexistuje.");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.CrustBiome) || !biomes.TryIndexOf(dto.CrustBiome.Trim(), out int crust) || biomes[crust].IsWater)
+        {
+            throw new ContentLoadException(path, $"{owner}: 'crustBiome' '{dto.CrustBiome}' musí být existující souš (ztuhlá láva).");
+        }
+
+        int weatherIndex = -1;
+        if (dto.Weather is not null && !weather.TryIndexOf(dto.Weather, out weatherIndex))
+        {
+            throw new ContentLoadException(path, $"{owner}: počasí '{dto.Weather}' neexistuje.");
+        }
+
+        return new EruptionRule(
+            dto.FirstAfterSeconds, dto.IntervalSeconds, dto.IntervalJitter, dto.WarningSeconds, dto.FlowSeconds,
+            dto.FlowLength, dto.LavaSeconds, vent, crust, dto.SearchRadius, weatherIndex, dto.SolarDim, dto.MinBuildings);
     }
 
     /// <summary>
@@ -5217,6 +5287,7 @@ public sealed class ContentLoader
             case "waves": return (MetricKind.DefenceWaves, -1);
             case "calmhazards": return (MetricKind.CalmHazards, -1);
             case "warmwinters": return (MetricKind.WarmWinters, -1);
+            case "lavaland": return (MetricKind.LavaLand, -1);
             case "project":
                 return (MetricKind.ProjectsCompleted,
                     string.IsNullOrWhiteSpace(building) ? -1 : ResolveRef(path, owner, "building", building, buildings));

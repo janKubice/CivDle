@@ -103,6 +103,7 @@ public sealed class GalaxyUiTests
         var content = LoadContent();
         Assert.Equal("stall.buried", GameplayScreen.StallText(Core.Sim.BuildingStall.Buried));
         Assert.Equal("stall.flooded", GameplayScreen.StallText(Core.Sim.BuildingStall.Flooded));
+        Assert.Equal("stall.scorched", GameplayScreen.StallText(Core.Sim.BuildingStall.Scorched));
         foreach (var language in content.Languages.All)
         {
             var loc = new Localization(content.Languages, language.Id);

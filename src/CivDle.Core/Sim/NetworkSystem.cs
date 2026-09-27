@@ -230,6 +230,7 @@ public sealed class NetworkSystem
             BuildingStall.Damaged => false,          // dostala zásah
             BuildingStall.Buried => false,           // zasypaná studna nedává vodu
             BuildingStall.Flooded => false,          // zaplavená pec nehřeje
+            BuildingStall.Scorched => false,         // láva zalila i elektrárnu
             BuildingStall.NetworkShortage => false,  // sama vypadla (zamrzlý kotel nehřeje)
             _ => true,
         };

@@ -686,6 +686,74 @@ public class ContentLoaderTests : IDisposable
         Assert.Contains(expected, ex.Message);
     }
 
+    private const string ValidEruption = """
+      { "id": "eruption", "behavior": "eruptions", "firstAfterSeconds": 540, "intervalSeconds": 720, "intervalJitter": 0.2,
+        "warningSeconds": 60, "flowSeconds": 40, "flowLength": 36, "lavaSeconds": 150, "ventBiome": "grass", "crustBiome": "grass" }
+    """;
+
+    [Theory]
+    [InlineData("\"flowLength\": 1", "flowLength")]
+    [InlineData("\"ventBiome\": \"lava\"", "ventBiome")]
+    [InlineData("\"crustBiome\": \"water\"", "crustBiome")]
+    [InlineData("\"flowSeconds\": 700", "flowSeconds")]
+    public void LoadFrom_BadEruption_Throws(string field, string expected)
+    {
+        WriteAllValid();
+        string hazard = ValidEruption.TrimEnd().TrimEnd('}') + ", " + field + " }";
+        Write("hazards.json", $$"""{ "schemaVersion": 1, "hazards": [ {{hazard}} ] }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_EruptionAndLavaRoles_Resolve()
+    {
+        WriteAllValid();
+        Write("hazards.json", $$"""{ "schemaVersion": 1, "hazards": [ {{ValidEruption}} ] }""");
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "house", "mapColor": "#B5651D", "footprint": [1, 1], "housingCapacity": 4,
+              "buildCost": { "wood": 10 }, "allowedBiomes": ["grass"], "lava": "channel", "forecasts": true }
+          ]
+        }
+        """);
+        var keys = new[] { "hazard.eruption", "hazard.eruption.warning", "hazard.eruption.passed", "hazard.calm", "hazard.buried" }
+            .Concat(Enumerable.Range(0, 8).Select(d => $"hazard.from.{d}")).ToArray();
+        Write(Path.Combine("lang", "cs.json"), LangJson("cs", "Čeština", extraKeys: keys));
+        Write(Path.Combine("lang", "en.json"), LangJson("en", "English", extraKeys: keys));
+
+        var content = Load();
+
+        var eruption = Assert.Single(content.Hazards.Hazards).Eruption!;
+        Assert.Equal(36, eruption.FlowLength);
+        Assert.Equal(0, content.Hazards.EruptionIndex);
+        Assert.Equal(LavaRole.Channel, content.Buildings[0].LavaRole);
+        Assert.True(content.Buildings[0].Forecasts);
+    }
+
+    [Fact]
+    public void LoadFrom_UnknownLavaRole_Throws()
+    {
+        WriteAllValid();
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "house", "mapColor": "#B5651D", "footprint": [1, 1], "housingCapacity": 4,
+              "buildCost": { "wood": 10 }, "allowedBiomes": ["grass"], "lava": "moat" }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("moat", ex.Message);
+    }
+
     [Fact]
     public void LoadFrom_TideStiltsAndFerry_Resolve()
     {

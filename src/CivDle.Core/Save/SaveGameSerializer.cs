@@ -1197,7 +1197,7 @@ public sealed class SaveGameSerializer
     /// </summary>
     private static void WriteHazards(BinaryWriter w, Simulation simulation)
     {
-        w.Write(2); // verze sekce (2 = navíc polární noci na konci)
+        w.Write(3); // verze sekce (2 = polární noci, 3 = láva: budovy pod ní a nová zem)
         w.Write(simulation.HazardsWeathered);
         w.Write(simulation.CalmHazards);
 
@@ -1239,12 +1239,33 @@ public sealed class SaveGameSerializer
         w.Write(winter.WarmWinters);
         w.Write(winter.Frozen);
         w.Write(winter.Season);
+
+        // Láva: výpadek sám nese sekce obrany, tahle k němu doplní příčinu.
+        int scorched = 0;
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            if (buildings[i].DisabledTicks > 0 && buildings[i].DisabledCause == DisableCause.Lava)
+            {
+                scorched++;
+            }
+        }
+
+        w.Write(scorched);
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            if (buildings[i].DisabledTicks > 0 && buildings[i].DisabledCause == DisableCause.Lava)
+            {
+                w.Write(i);
+            }
+        }
+
+        w.Write(simulation.LavaLandTiles);
     }
 
     private static void ReadHazards(BinaryReader section, GameContent content, Simulation simulation)
     {
         int version = section.ReadInt32();
-        if (version is < 1 or > 2)
+        if (version is < 1 or > 3)
         {
             return; // novější formát sekce: bouře začnou znovu, nic horšího se nestane
         }
@@ -1287,6 +1308,17 @@ public sealed class SaveGameSerializer
         if (version >= 2)
         {
             simulation.RestoreWinters(section.ReadInt32(), section.ReadBoolean(), section.ReadInt32());
+        }
+
+        if (version >= 3)
+        {
+            int scorched = section.ReadInt32();
+            for (int i = 0; i < scorched; i++)
+            {
+                simulation.RestoreDisableCause(section.ReadInt32(), DisableCause.Lava);
+            }
+
+            simulation.LavaLandTiles = section.ReadInt64();
         }
     }
 

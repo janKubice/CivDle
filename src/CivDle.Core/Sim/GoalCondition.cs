@@ -96,6 +96,9 @@ public enum MetricKind
     /// zamrzlé budovy — mistrovství pravidla Mrazu (★★).
     /// </summary>
     WarmWinters,
+
+    /// <summary>Kolik dlaždic láva proměnila v novou zem (✦ Výhně).</summary>
+    LavaLand,
 }
 
 /// <summary>

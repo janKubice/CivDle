@@ -219,6 +219,11 @@ public sealed record RaftRule(
 /// Bez kůlů vypadne, když přílivová mělčina pod ní zmizí pod vodou.
 /// </param>
 /// <param name="FerryReach">Dosah přístaviště trajektu (viz <see cref="IsFerryDock"/>); 0 = není.</param>
+/// <param name="LavaRole">Co budova dělá s lávou (Výheň): hráz ji zastaví, kanál ji svede.</param>
+/// <param name="Forecasts">
+/// Předpovídá přírodní jevy (seismická stanice): hráč vidí na mapě, kudy
+/// poteče příští láva.
+/// </param>
 public sealed record BuildingDef(
     string Id,
     string Category,
@@ -269,7 +274,9 @@ public sealed record BuildingDef(
     IReadOnlyList<Shelter>? SheltersOrNull = null,
     double TradeCapacity = 0,
     bool Stilted = false,
-    int FerryReach = 0)
+    int FerryReach = 0,
+    LavaRole LavaRole = LavaRole.None,
+    bool Forecasts = false)
 {
     /// <summary>
     /// Přístaviště trajektu (Souostroví): budovy do <see cref="FerryReach"/>

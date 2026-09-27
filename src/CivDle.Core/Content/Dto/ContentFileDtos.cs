@@ -83,7 +83,9 @@ public sealed record BuildingDto(
     Dictionary<string, int>? Shelter = null,
     double TradeCapacity = 0,
     bool Stilted = false,
-    int FerryReach = 0);
+    int FerryReach = 0,
+    string? Lava = null,
+    bool Forecasts = false);
 
 /// <summary>Obsah souboru <c>hazards.json</c> (jen ve složce světa) — přírodní jevy.</summary>
 public sealed record HazardsFileDto(int SchemaVersion, List<HazardDto>? Hazards);
@@ -106,7 +108,13 @@ public sealed record HazardDto(
     string? MoundColor = null,
     double PeriodSeconds = 0,
     string? FloodBiome = null,
-    List<double>? FloodRange = null);
+    List<double>? FloodRange = null,
+    double FlowSeconds = 0,
+    int FlowLength = 0,
+    double LavaSeconds = 0,
+    string? VentBiome = null,
+    string? CrustBiome = null,
+    int SearchRadius = 40);
 
 /// <summary>Jak budova používá jednu síť (voda, teplo, vztlak) tak, jak leží v JSON.</summary>
 public sealed record NetworkUseDto(int Supply, int Demand, int Relay, double CutoffBelow = 0);

@@ -1,4 +1,5 @@
 using CivDle.Core.Content;
+using CivDle.Core.World;
 
 namespace CivDle.Core.Sim;
 
@@ -76,6 +77,19 @@ internal sealed class HazardSystem
     // Ochrany před přílivem (chrám přílivu) — drží se mezi koly, čte je i render.
     private readonly List<(int X, int Y, int RadiusSquared)> _tideShelters = new();
 
+    /// <summary>Dráha lávy rozběhnuté erupce (po jevech; prázdné u jiných).</summary>
+    private readonly List<long>[] _paths;
+
+    /// <summary>Předpověď dráhy příští lávy a kdy se naposledy počítala.</summary>
+    private readonly List<long> _predicted = new();
+    private long _predictedLayout = long.MinValue;
+    private int _predictedTerrain = int.MinValue;
+    private long _predictedTick = -1_000_000; // „dávno" — bez přetečení při odečtu
+
+    /// <summary>Poslední ztuhlá láva (jen vzhled: kůra chvíli dohasíná).</summary>
+    private readonly List<long> _cooling = new();
+    private double _cooledAt = double.NegativeInfinity;
+
     /// <summary>Příliv světa; −1 = svět příliv nemá.</summary>
     private readonly int _tide;
 
@@ -87,9 +101,11 @@ internal sealed class HazardSystem
         _content = content;
         _seed = seed;
         _states = new BurialState[content.Hazards.Count];
+        _paths = new List<long>[content.Hazards.Count];
         for (int i = 0; i < _states.Length; i++)
         {
             _states[i] = new BurialState();
+            _paths[i] = new List<long>();
         }
 
         _tide = content.Hazards.TideIndex;
@@ -141,8 +157,321 @@ internal sealed class HazardSystem
             {
                 TickTide(sim, h, tide, now);
             }
+            else if (hazards[h].Eruption is { } eruption)
+            {
+                TickEruption(sim, h, eruption, now);
+            }
         }
     }
+
+    // ----- erupce -----
+
+    /// <summary>
+    /// Jednou za sekundu: varování, začátek (průduch nejblíž městu a dráha
+    /// z kopce), postup lávy po dráze a na konci ztuhnutí v novou zem.
+    ///
+    /// <para>Stav erupce drží tentýž <see cref="BurialState"/> jako bouře:
+    /// místo středu pásu průduch, místo poloměru kam láva dotekla. Dráha se
+    /// neukládá — z průduchu se po načtení spočítá znovu.</para>
+    /// </summary>
+    private void TickEruption(Simulation sim, int hazard, EruptionRule rule, double now)
+    {
+        var state = _states[hazard];
+        var path = _paths[hazard];
+        var (phase, eruption) = PhaseAt(hazard, rule, now);
+
+        if (state.ActiveStorm >= 0 && (phase != HazardPhase.Active || eruption != state.ActiveStorm))
+        {
+            FinishEruption(sim, hazard, rule, state, path, now);
+        }
+
+        if (phase == HazardPhase.Warning && state.WarnedStorm != eruption)
+        {
+            state.WarnedStorm = eruption;
+            sim.EnqueueNotification(new GameNotification(
+                NotificationKind.Hazard, _content.Hazards.Hazards[hazard].WarningKey, "hazard.lava.soon"));
+        }
+
+        if (phase != HazardPhase.Active)
+        {
+            return;
+        }
+
+        if (state.ActiveStorm != eruption)
+        {
+            BeginEruption(sim, rule, state, path, eruption);
+        }
+        else if (path.Count == 0 && state.Radius >= 0)
+        {
+            TracePath(sim, rule, state.CenterX, state.CenterY, path); // po načtení savu
+        }
+
+        if (state.Radius < 0 || path.Count < 2)
+        {
+            return; // průduch v dosahu není (nebo láva nemá kam téct)
+        }
+
+        double progress = Math.Clamp((now - StartOf(hazard, rule, eruption)) / rule.FlowSeconds, 0, 1);
+        int front = Math.Min(path.Count - 1, (int)Math.Ceiling(progress * (path.Count - 1)));
+        int reached = (int)state.Radius;
+        int lavaTicks = (int)Math.Ceiling(rule.LavaSeconds * Simulation.TicksPerSecond / sim.Bonuses.HazardResistance);
+        for (int i = reached + 1; i <= front; i++)
+        {
+            Scorch(sim, path[i], lavaTicks, state);
+        }
+
+        state.Radius = Math.Max(reached, front);
+    }
+
+    /// <summary>Erupce začíná: průduch nejblíž městu a dráha lávy z něj.</summary>
+    private void BeginEruption(Simulation sim, EruptionRule rule, BurialState state, List<long> path, int eruption)
+    {
+        state.ActiveStorm = eruption;
+        state.WarnedStorm = eruption;
+        state.Buried = 0;
+        state.Radius = 0;
+        state.CityStood = sim.Buildings.Length >= rule.MinBuildings;
+        path.Clear();
+        if (FindVent(sim, rule, out int ventX, out int ventY))
+        {
+            state.CenterX = ventX;
+            state.CenterY = ventY;
+            TracePath(sim, rule, ventX, ventY, path);
+        }
+        else
+        {
+            state.Radius = -1; // v dosahu města žádný průduch — tahle erupce ho mine
+        }
+    }
+
+    /// <summary>Láva dotekla na dlaždici: budova na ní (kromě hráze a kanálu) vypadne.</summary>
+    private void Scorch(Simulation sim, long tile, int lavaTicks, BurialState state)
+    {
+        if (!sim.TryGetBuildingAt(TileKey.X(tile), TileKey.Y(tile), out int index))
+        {
+            return;
+        }
+
+        ref var building = ref sim.BuildingsMutable[index];
+        if (!building.IsComplete || _content.Buildings[building.DefIndex].LavaRole != LavaRole.None)
+        {
+            return; // staveniště láva jen zalije; hráz a kanál jsou na ni stavěné
+        }
+
+        if (building.DisabledTicks <= 0 || building.DisabledCause != DisableCause.Lava)
+        {
+            state.Buried++; // budova přes víc dlaždic se počítá jednou
+        }
+
+        building.DisabledTicks = Math.Max(building.DisabledTicks, lavaTicks);
+        building.DisabledCause = DisableCause.Lava;
+        sim.MarkDisabled();
+    }
+
+    /// <summary>Láva dotekla: ztuhne v novou zem, statistika a zpráva hráči.</summary>
+    private void FinishEruption(Simulation sim, int hazard, EruptionRule rule, BurialState state, List<long> path, double now)
+    {
+        if (path.Count == 0 && state.Radius >= 0)
+        {
+            TracePath(sim, rule, state.CenterX, state.CenterY, path); // po načtení savu
+        }
+
+        int reached = Math.Min(path.Count - 1, (int)state.Radius);
+        for (int i = 1; i <= reached; i++)
+        {
+            sim.CoverWithLava(TileKey.X(path[i]), TileKey.Y(path[i]), rule.CrustBiomeIndex);
+        }
+
+        _cooling.Clear();
+        for (int i = 0; i <= reached; i++)
+        {
+            _cooling.Add(path[i]);
+        }
+
+        _cooledAt = now;
+        Finish(sim, hazard, state);
+        path.Clear();
+    }
+
+    /// <summary>
+    /// Průduch nejblíž středu města v dosahu <see cref="EruptionRule.SearchRadius"/>
+    /// (při shodě ten s menším y, pak x — deterministicky).
+    /// </summary>
+    private static bool FindVent(Simulation sim, EruptionRule rule, out int ventX, out int ventY)
+    {
+        int cx = sim.CityCenterX;
+        int cy = sim.CityCenterY;
+        int radius = rule.SearchRadius;
+        long best = long.MaxValue;
+        ventX = 0;
+        ventY = 0;
+        for (int y = cy - radius; y <= cy + radius; y++)
+        {
+            for (int x = cx - radius; x <= cx + radius; x++)
+            {
+                if (sim.BiomeAt(x, y) != rule.VentBiomeIndex)
+                {
+                    continue;
+                }
+
+                long d = (long)(x - cx) * (x - cx) + (long)(y - cy) * (y - cy);
+                if (d < best)
+                {
+                    best = d;
+                    ventX = x;
+                    ventY = y;
+                }
+            }
+        }
+
+        return best != long.MaxValue;
+    }
+
+    /// <summary>
+    /// Dráha lávy z průduchu: vždy na nejnižšího souseda, kde ještě nebyla.
+    /// Hrází neprojde, do kanálu steče (je „hlubší" než cokoli kolem), korytem
+    /// teče dál, i kdyby mírně stoupalo, a na jeho konci se zastaví. Jinak do
+    /// kopce jen o <see cref="EruptionRule.SpreadTolerance"/>; u moře ztuhne
+    /// v novou zem a dál neteče.
+    /// </summary>
+    internal static void TracePath(Simulation sim, EruptionRule rule, int ventX, int ventY, List<long> path)
+    {
+        path.Clear();
+        int x = ventX;
+        int y = ventY;
+        path.Add(TileKey.Pack(x, y));
+        double here = sim.ElevationAt(x, y);
+        bool inChannel = false;
+        for (int step = 0; step < rule.FlowLength; step++)
+        {
+            double best = double.MaxValue;
+            int bestX = 0;
+            int bestY = 0;
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (dx == 0 && dy == 0)
+                    {
+                        continue;
+                    }
+
+                    int nx = x + dx;
+                    int ny = y + dy;
+                    long key = TileKey.Pack(nx, ny);
+                    if (path.Contains(key))
+                    {
+                        continue;
+                    }
+
+                    double height = FlowHeight(sim, rule, nx, ny);
+                    if (height < best)
+                    {
+                        best = height;
+                        bestX = nx;
+                        bestY = ny;
+                    }
+                }
+            }
+
+            bool intoChannel = best < ChannelFloor;
+            if (best == double.MaxValue || (best > here + EruptionRule.SpreadTolerance && !(inChannel && intoChannel)))
+            {
+                break; // zahrazeno, nebo prohlubeň, ze které láva nevyteče
+            }
+
+            x = bestX;
+            y = bestY;
+            here = best;
+            inChannel = intoChannel;
+            path.Add(TileKey.Pack(x, y));
+            if (sim.IsWaterAt(x, y))
+            {
+                break; // láva se potkala s mořem: pára, nová zem, konec
+            }
+        }
+    }
+
+    /// <summary>
+    /// Terén má výšku 0–1 a kanál je o celou výšku hlouběji — koryto je
+    /// tedy všechno pod nulou.
+    /// </summary>
+    private const double ChannelFloor = 0.0;
+
+    /// <summary>Jak „nízko" je dlaždice pro lávu: hráz = zeď, kanál = koryto, ztuhlá láva o kus výš.</summary>
+    private static double FlowHeight(Simulation sim, EruptionRule rule, int x, int y)
+    {
+        if (sim.TryGetBuildingAt(x, y, out int index))
+        {
+            var role = sim.Content.Buildings[sim.Buildings[index].DefIndex].LavaRole;
+            if (role == LavaRole.Wall)
+            {
+                return double.MaxValue;
+            }
+
+            if (role == LavaRole.Channel)
+            {
+                return sim.ElevationAt(x, y) - 1.0;
+            }
+        }
+
+        double height = sim.ElevationAt(x, y);
+        return sim.BiomeAt(x, y) == rule.CrustBiomeIndex ? height + EruptionRule.CrustRise : height;
+    }
+
+    /// <summary>
+    /// Kudy poteče příští láva (pro seismickou stanici a guvernéra): z průduchu
+    /// nejblíž městu, se zástavbou, jak je teď. Přepočítá se jen po změně
+    /// zástavby nebo terénu, nejvýš dvakrát za sekundu (mezi tím může být
+    /// o půl sekundy stará — guvernér pak hráz postaví o kolo později).
+    /// </summary>
+    public IReadOnlyList<long> PredictedPath(Simulation sim)
+    {
+        int hazard = _content.Hazards.EruptionIndex;
+        if (hazard < 0)
+        {
+            return Array.Empty<long>();
+        }
+
+        // Revize budov (ne rozložení): hráz staveniště drží lávu už rozestavěná
+        // a předpověď ji musí vidět hned — jinak by guvernér stavěl hráz za hrází.
+        bool stale = sim.BuildingRevision != _predictedLayout || sim.TerrainRevision != _predictedTerrain;
+        if (stale && sim.TickCount - _predictedTick >= Simulation.TicksPerSecond / 2)
+        {
+            _predictedLayout = sim.BuildingRevision;
+            _predictedTerrain = sim.TerrainRevision;
+            _predictedTick = sim.TickCount;
+            var rule = _content.Hazards.Hazards[hazard].Eruption!;
+            if (FindVent(sim, rule, out int ventX, out int ventY))
+            {
+                TracePath(sim, rule, ventX, ventY, _predicted);
+            }
+            else
+            {
+                _predicted.Clear();
+            }
+        }
+
+        return _predicted;
+    }
+
+    /// <summary>Kudy teče láva teď a kam už dotekla (render); prázdné mimo erupci.</summary>
+    public (IReadOnlyList<long> Path, int Front) ActiveLava
+    {
+        get
+        {
+            int hazard = _content.Hazards.EruptionIndex;
+            if (hazard < 0 || _states[hazard].ActiveStorm < 0)
+            {
+                return (Array.Empty<long>(), -1);
+            }
+
+            return (_paths[hazard], (int)_states[hazard].Radius);
+        }
+    }
+
+    /// <summary>Dráha poslední ztuhlé lávy a kdy ztuhla (render: chladnoucí kůra).</summary>
+    public (IReadOnlyList<long> Path, double CooledAtSeconds) CoolingLava => (_cooling, _cooledAt);
 
     // ----- příliv -----
 
@@ -214,7 +543,7 @@ internal sealed class HazardSystem
         var hazards = _content.Hazards.Hazards;
         for (int h = 0; h < hazards.Count; h++)
         {
-            if (hazards[h].Burial is not { } rule)
+            if (hazards[h].Schedule is not { } rule)
             {
                 continue;
             }
@@ -227,11 +556,11 @@ internal sealed class HazardSystem
 
             double start = StartOf(h, rule, storm);
             var state = _states[h];
-            bool known = state.ActiveStorm == storm;
+            bool known = state.ActiveStorm == storm && hazards[h].Burial is not null; // pás má jen bouře
             return new HazardView(
-                h, phase, Math.Max(0, start - now), Math.Clamp((now - start) / rule.SweepSeconds, 0, 1),
+                h, phase, Math.Max(0, start - now), Math.Clamp((now - start) / rule.DurationSeconds, 0, 1),
                 DirectionOf(h, storm), known ? state.CenterX : 0, known ? state.CenterY : 0,
-                known ? state.Radius : 0, rule.BandTiles);
+                known ? state.Radius : 0, hazards[h].Burial?.BandTiles ?? 0);
         }
 
         return HazardView.None;
@@ -247,7 +576,7 @@ internal sealed class HazardSystem
         var hazards = _content.Hazards.Hazards;
         for (int h = 0; h < hazards.Count; h++)
         {
-            if (hazards[h].Burial is { } rule && PhaseAt(h, rule, now).Phase == HazardPhase.Active)
+            if (hazards[h].Schedule is { } rule && PhaseAt(h, rule, now).Phase == HazardPhase.Active)
             {
                 dim = Math.Min(dim, rule.SolarDim);
             }
@@ -266,7 +595,7 @@ internal sealed class HazardSystem
         var hazards = _content.Hazards.Hazards;
         for (int h = 0; h < hazards.Count; h++)
         {
-            if (hazards[h].Burial is { WeatherIndex: >= 0 } rule && PhaseAt(h, rule, now).Phase != HazardPhase.Calm)
+            if (hazards[h].Schedule is { WeatherIndex: >= 0 } rule && PhaseAt(h, rule, now).Phase != HazardPhase.Calm)
             {
                 return rule.WeatherIndex;
             }
@@ -447,7 +776,7 @@ internal sealed class HazardSystem
     /// Ve které fázi je jev v čase <paramref name="now"/> a o kterou bouři jde.
     /// Posun začátku je menší než rozestup, takže stačí zkusit sousední bouře.
     /// </summary>
-    private (HazardPhase Phase, int Storm) PhaseAt(int hazard, BurialRule rule, double now)
+    private (HazardPhase Phase, int Storm) PhaseAt(int hazard, IHazardSchedule rule, double now)
     {
         if (now < rule.FirstAfterSeconds - rule.WarningSeconds)
         {
@@ -458,7 +787,7 @@ internal sealed class HazardSystem
         for (int storm = Math.Max(0, slot - 1); storm <= slot + 1; storm++)
         {
             double start = StartOf(hazard, rule, storm);
-            if (now >= start && now < start + rule.SweepSeconds)
+            if (now >= start && now < start + rule.DurationSeconds)
             {
                 return (HazardPhase.Active, storm);
             }
@@ -473,7 +802,7 @@ internal sealed class HazardSystem
     }
 
     /// <summary>Kdy bouře číslo <paramref name="storm"/> začíná (herní sekundy).</summary>
-    private double StartOf(int hazard, BurialRule rule, int storm) =>
+    private double StartOf(int hazard, IHazardSchedule rule, int storm) =>
         rule.FirstAfterSeconds + storm * rule.IntervalSeconds
         + Unit(hazard, storm, 0x51A7) * rule.IntervalJitter * rule.IntervalSeconds;
 
@@ -515,8 +844,16 @@ internal sealed class HazardSystem
         /// <summary>Stálo město, když bouře začala? (Jinak se do statistiky nepočítá.)</summary>
         public bool CityStood;
 
+        /// <summary>Střed pásu (bouře), nebo průduch, ze kterého teče láva (erupce).</summary>
         public int CenterX;
+
+        /// <summary>Viz <see cref="CenterX"/>.</summary>
         public int CenterY;
+
+        /// <summary>
+        /// Poloměr, který pás přejde (bouře), nebo kam po dráze láva dotekla
+        /// (erupce; −1 = v dosahu města žádný průduch).
+        /// </summary>
         public double Radius;
     }
 }

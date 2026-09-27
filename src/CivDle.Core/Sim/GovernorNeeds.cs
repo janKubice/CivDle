@@ -54,6 +54,9 @@ public enum CityNeed
 
     /// <summary>Přírodní jev něco zasypal — chybí ochrana (větrolam).</summary>
     Protection,
+
+    /// <summary>Příští láva poteče přes budovy — chybí hráz (Výheň).</summary>
+    LavaDam,
 }
 
 /// <summary>

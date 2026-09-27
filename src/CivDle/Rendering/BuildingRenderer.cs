@@ -696,6 +696,7 @@ public sealed class BuildingRenderer
         BuildingStall.NetworkShortage => new Color(140, 200, 255), // ledově modrá = síť nedosáhne
         BuildingStall.Buried => new Color(222, 190, 128),          // písková = zasypaná
         BuildingStall.Flooded => new Color(96, 176, 220),          // modrá = zaplavená přílivem
+        BuildingStall.Scorched => new Color(232, 110, 40),         // oranžová = zalitá lávou
         _ => Color.Transparent,
     };
 

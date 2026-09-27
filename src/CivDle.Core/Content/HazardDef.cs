@@ -18,6 +18,56 @@ public enum HazardBehavior
     /// zaplaví podle své výšky a budova bez kůlů na ní vypadne (Souostroví).
     /// </summary>
     Tides,
+
+    /// <summary>
+    /// <c>eruptions</c>: průduch podle rozvrhu vybuchne, láva teče po spádu
+    /// terénu, vyřadí budovy v cestě a ztuhne v novou zem (Výheň).
+    /// </summary>
+    Eruptions,
+}
+
+/// <summary>
+/// Rozvrh jevu, který přichází v dávkách (bouře, erupce): k-tá dávka začíná
+/// v <c>první + k × rozestup + posun(k)</c>, varuje předem a trvá danou dobu.
+/// </summary>
+public interface IHazardSchedule
+{
+    /// <summary>Kdy přijde první (herní sekundy od založení).</summary>
+    double FirstAfterSeconds { get; }
+
+    /// <summary>Průměrný rozestup.</summary>
+    double IntervalSeconds { get; }
+
+    /// <summary>Jak moc se začátek v rámci rozestupu posouvá (0–0,9).</summary>
+    double IntervalJitter { get; }
+
+    /// <summary>Jak dlouho předem hra varuje.</summary>
+    double WarningSeconds { get; }
+
+    /// <summary>Jak dlouho jev probíhá.</summary>
+    double DurationSeconds { get; }
+
+    /// <summary>Počasí, které během varování a jevu vidí hráč; −1 = žádné.</summary>
+    int WeatherIndex { get; }
+
+    /// <summary>Kolik slunce za jevu projde (sluneční zrcadla); 1 = nic neubere.</summary>
+    double SolarDim { get; }
+
+    /// <summary>Od kolika budov se jev počítá do statistiky.</summary>
+    int MinBuildings { get; }
+}
+
+/// <summary>Co dělá budova s lávou (Výheň): nic, hráz ji zastaví, kanál ji svede.</summary>
+public enum LavaRole
+{
+    /// <summary>Láva ji zalije (a budova vypadne).</summary>
+    None,
+
+    /// <summary>Hráz: láva jí neprojde.</summary>
+    Wall,
+
+    /// <summary>Kanál: láva teče po něm a na jeho konci se zastaví.</summary>
+    Channel,
 }
 
 /// <summary>
@@ -51,7 +101,61 @@ public sealed record BurialRule(
     double SolarDim,
     int MinBuildings,
     int CoastTiles = 0,
-    RgbColor? MoundColor = null);
+    RgbColor? MoundColor = null) : IHazardSchedule
+{
+    /// <summary>Bouře trvá, dokud pás přejde přes město.</summary>
+    public double DurationSeconds => SweepSeconds;
+}
+
+/// <summary>
+/// Erupce (<see cref="HazardBehavior.Eruptions"/>). Rozvrh je čistá funkce
+/// času a seedu; láva vyteče z průduchu nejblíž městu a teče z kopce po
+/// dlaždicích — dráha je spočitatelná předem (seismická stanice ji ukáže).
+/// </summary>
+/// <param name="FirstAfterSeconds">Kdy vybuchne poprvé.</param>
+/// <param name="IntervalSeconds">Průměrný rozestup erupcí.</param>
+/// <param name="IntervalJitter">Posun začátku v rámci rozestupu (0–0,9).</param>
+/// <param name="WarningSeconds">Jak dlouho předem hra varuje (země duní).</param>
+/// <param name="FlowSeconds">Jak dlouho láva postupuje po dráze.</param>
+/// <param name="FlowLength">Kolik dlaždic nejvýš láva urazí.</param>
+/// <param name="LavaSeconds">Na jak dlouho zasažená budova vypadne.</param>
+/// <param name="VentBiomeIndex">Biom průduchu (odkud láva teče).</param>
+/// <param name="CrustBiomeIndex">Biom ztuhlé lávy — nová zem po erupci.</param>
+/// <param name="SearchRadius">Jak daleko od středu města se průduch hledá (dlaždice).</param>
+/// <param name="WeatherIndex">Počasí během varování a erupce (popel); −1 = žádné.</param>
+/// <param name="SolarDim">Kolik slunce za erupce projde popelem.</param>
+/// <param name="MinBuildings">Od kolika budov se erupce počítá do statistiky.</param>
+public sealed record EruptionRule(
+    double FirstAfterSeconds,
+    double IntervalSeconds,
+    double IntervalJitter,
+    double WarningSeconds,
+    double FlowSeconds,
+    int FlowLength,
+    double LavaSeconds,
+    int VentBiomeIndex,
+    int CrustBiomeIndex,
+    int SearchRadius,
+    int WeatherIndex,
+    double SolarDim,
+    int MinBuildings) : IHazardSchedule
+{
+    /// <summary>Erupce trvá, dokud láva dotéká.</summary>
+    public double DurationSeconds => FlowSeconds;
+
+    /// <summary>
+    /// O kolik je láva ochotná téct „do kopce" (výška terénu 0–1): po rovině se
+    /// rozlévá, do svahu ne. Bez téhle tolerance by se zastavila v každé
+    /// drobné prohlubni šumu.
+    /// </summary>
+    public const double SpreadTolerance = 0.004;
+
+    /// <summary>
+    /// O kolik ztuhlá láva zvedne dlaždici: další erupce už tudy neteče tak
+    /// ochotně a lávové pole se rozšiřuje do stran.
+    /// </summary>
+    public const double CrustRise = 0.006;
+}
 
 /// <summary>
 /// Příliv a odliv (<see cref="HazardBehavior.Tides"/>). Hladina je čistá funkce
@@ -85,8 +189,12 @@ public sealed record TideRule(double PeriodSeconds, int FloodBiomeIndex, double 
 /// <param name="Behavior">Chování (viz <see cref="HazardBehavior"/>).</param>
 /// <param name="Burial">Parametry zasypávání; <c>null</c> u jiných chování.</param>
 /// <param name="Tide">Parametry přílivu; <c>null</c> u jiných chování.</param>
-public sealed record HazardDef(string Id, HazardBehavior Behavior, BurialRule? Burial, TideRule? Tide = null)
+/// <param name="Eruption">Parametry erupcí; <c>null</c> u jiných chování.</param>
+public sealed record HazardDef(string Id, HazardBehavior Behavior, BurialRule? Burial, TideRule? Tide = null, EruptionRule? Eruption = null)
 {
+    /// <summary>Rozvrh jevu, který chodí v dávkách (bouře, erupce); <c>null</c> u přílivu.</summary>
+    public IHazardSchedule? Schedule => (IHazardSchedule?)Burial ?? Eruption;
+
     /// <summary>Jméno jevu.</summary>
     public string NameKey => $"hazard.{Id}";
 
@@ -134,4 +242,7 @@ public sealed class HazardCatalog
 
     /// <summary>Index přílivu světa; −1 = svět příliv nemá.</summary>
     public int TideIndex => _hazards.FindIndex(h => h.Tide is not null);
+
+    /// <summary>Index erupcí světa; −1 = svět nevybuchuje.</summary>
+    public int EruptionIndex => _hazards.FindIndex(h => h.Eruption is not null);
 }

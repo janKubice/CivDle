@@ -22,7 +22,7 @@ namespace CivDle.Core.Sim;
 internal sealed class GovernorGoals
 {
     /// <summary>Kolik cílů může být najednou (velikost bufferu pro <see cref="AssessAll"/>).</summary>
-    public const int MaxGoals = 12;
+    public const int MaxGoals = 14;
 
     private readonly IGovernorGoal[] _goals;
     private readonly IGovernorGoal?[] _byNeed;
@@ -38,6 +38,7 @@ internal sealed class GovernorGoals
             new PowerGoal(content, roles),
             new NetworkGoal(content, roles),
             new ProtectionGoal(content, roles),
+            new LavaGoal(content, roles),
             new StorageGoal(content, roles, memory),
             new ServicesGoal(needs, capabilities),
             new HousingGoal(needs, capabilities),
