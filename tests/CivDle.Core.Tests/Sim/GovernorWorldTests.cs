@@ -100,6 +100,90 @@ public class GovernorWorldTests
         Assert.Contains(sim.Buildings.ToArray(), b => b.DefIndex == Glassworks);
     }
 
+    [Fact]
+    public void AWorkshopWaitsForPowerItCannotGet()
+    {
+        // Mráz na začátku: proud dává jen modul (4) a elektrárna čeká na
+        // výzkum. Lidé bez práce „dostávali" dílnu za dílnou — sto
+        // čtyřicet brusíren na proud pro dvě, každá jela na šedesátinu.
+        var sim = PoweredWorld(plantUnlocked: false);
+
+        Run(sim, 600);
+
+        int workshops = sim.Buildings.ToArray().Count(b => b.DefIndex == PoweredWorkshop);
+        Assert.InRange(workshops, 1, 2);
+    }
+
+    [Fact]
+    public void AWorkshopMayGoFirstWhenAPlantCanFollow()
+    {
+        // Umí-li guvernér elektrárnu postavit, dílna na ni nečeká — cíl proudu
+        // ji přistaví k dílně (tak se to na Domovině dělalo vždycky).
+        var sim = PoweredWorld(plantUnlocked: true);
+
+        Run(sim, 600);
+
+        int workshops = sim.Buildings.ToArray().Count(b => b.DefIndex == PoweredWorkshop);
+        Assert.True(workshops > 2, $"jen {workshops} dílen, i když elektrárna jde postavit");
+    }
+
+    private const int PoweredLander = 1;
+    private const int PoweredWorkshop = 2;
+
+    /// <summary>
+    /// Město s lidmi bez práce: dům stojí sklo, sklo dělá dílna na proud,
+    /// proud dává modul (4 = dvě dílny) a — když ji test odemkne — elektrárna.
+    /// </summary>
+    private static Simulation PoweredWorld(bool plantUnlocked)
+    {
+        var biomes = new[] { TestContent.WaterBiome(), TestContent.LandBiome("tundra") };
+        var resources = new[]
+        {
+            new Resource("food", new RgbColor(200, 180, 60), 0, BaseStorage: 10_000),
+            new Resource("glass", new RgbColor(150, 210, 220), 0, BaseStorage: 10_000),
+        };
+        var land = new[] { false, true };
+
+        BuildingDef Def(string id, int workers = 0, int housing = 0, Recipe? recipe = null, bool autoBuild = false,
+            int powerSupply = 0, int powerDemand = 0, ResourceAmount[]? cost = null, bool buildable = true) => new(
+            id, "test", new RgbColor(1, 1, 1), 1, 1,
+            WorkerSlots: workers, HousingCapacity: housing, BuildCost: cost ?? Array.Empty<ResourceAmount>(),
+            Recipe: recipe, AllowedBiomes: land, StorageBonus: Array.Empty<ResourceAmount>(),
+            AutoBuild: autoBuild, Buildable: buildable, UpgradesToIndex: -1,
+            UpgradeCost: Array.Empty<ResourceAmount>(), PowerSupply: powerSupply, PowerDemand: powerDemand);
+
+        var buildings = new[]
+        {
+            Def("house", housing: 5, autoBuild: true, cost: new[] { new ResourceAmount(Glass, 1) }),
+            Def("lander", housing: 80, powerSupply: 4, buildable: false), // přistane, nestaví se
+            Def("glassworks", workers: 3, autoBuild: true, powerDemand: 2,
+                recipe: new Recipe(Array.Empty<ResourceAmount>(), new[] { new ResourceAmount(Glass, 1) }, 10)),
+            Def("power_plant", autoBuild: true, powerSupply: 10),
+        };
+
+        // Zamčenou elektrárnu odemyká výzkum, na který město nemá.
+        var techs = plantUnlocked
+            ? Array.Empty<TechDef>()
+            : new[] { new TechDef("steam", new[] { new ResourceAmount(Food, 1_000_000) }, Array.Empty<int>(), new[] { 3 }) };
+
+        var gameplay = TestContent.DefaultGameplay with
+        {
+            FoodPerPersonPerSecond = 0,
+            PopulationGrowthPerSecond = 0,
+            StartingPopulation = 60,
+            AutoBuild = new AutoBuildConfig(IntervalTicks: 5, SearchRadius: 6, PopulationHeadroom: 2),
+            GovernorOrNull = new GovernorConfig(
+                true, StorageGoalConfig.Off, SupplyGoalConfig.Off, SupplyGoalConfig.Off,
+                LandscapeGoalConfig.Off, new PowerGoalConfig(0.9)),
+        };
+
+        var content = TestContent.Build(biomes, 1, resources, buildings, gameplay, techs: techs)
+            .WithWorld(WorldProfile.Home with { Id = "frost", LandingModuleIndex = PoweredLander });
+        var sim = new Simulation(content, new UniformTerrain(1), seed: 5);
+        Assert.Equal(PlacementResult.Ok, sim.Land(0, 0));
+        return sim;
+    }
+
     private static (Simulation Sim, GameContent Content) World(
         IReadOnlyList<TechDef>? techs = null, bool glassworksUnlocked = true, bool hungry = false,
         bool glassworksHasSite = true)

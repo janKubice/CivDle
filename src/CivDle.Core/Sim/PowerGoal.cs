@@ -36,7 +36,7 @@ internal sealed class PowerGoal : IGovernorGoal
 
     public GoalAssessment Assess(Simulation sim)
     {
-        if (!_config.IsEnabled || !CanGenerate(sim))
+        if (!_config.IsEnabled || !CanGenerate(_content, _roles, sim))
         {
             return GoalAssessment.Idle(Need);
         }
@@ -78,11 +78,11 @@ internal sealed class PowerGoal : IGovernorGoal
     }
 
     /// <summary>Umí guvernér postavit něco, co proud vyrábí?</summary>
-    private bool CanGenerate(Simulation sim)
+    internal static bool CanGenerate(GameContent content, GovernorRoles roles, Simulation sim)
     {
-        for (int d = 0; d < _content.Buildings.Count; d++)
+        for (int d = 0; d < content.Buildings.Count; d++)
         {
-            if (_content.Buildings[d].PowerSupply > 0 && _roles.MayBuild(sim, d))
+            if (content.Buildings[d].PowerSupply > 0 && roles.MayBuild(sim, d))
             {
                 return true;
             }

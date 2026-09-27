@@ -296,6 +296,45 @@ public sealed class GovernorNeeds
             }
         }
 
+        return StarvedInput(sim);
+    }
+
+    /// <summary>Pod tímhle podílem se přítok „celý spotřebuje" — nic nezbývá na sklad.</summary>
+    private const double EatenShare = 0.97;
+
+    /// <summary>
+    /// Vstup, který teče, ale nestačí: některá výrobna na něj stojí, na skladě
+    /// není a co přiteče, výroba hned spotřebuje. −1 = nic takového.
+    ///
+    /// <para><b>Proč vedle „vyschlého":</b> na Mrazu stálo 49 skleníků na pěti
+    /// sběrnách lišejníku. Lišejník tekl, takže vyschlý nebyl — a guvernér místo
+    /// sběren stavěl další skleníky, které hned stály taky.</para>
+    /// </summary>
+    private int StarvedInput(Simulation sim)
+    {
+        var buildings = sim.Buildings;
+        var ledger = sim.Ledger;
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            if (buildings[i].Stall != BuildingStall.MissingInput
+                || _content.Buildings[buildings[i].DefIndex].Recipe is not { } recipe)
+            {
+                continue;
+            }
+
+            for (int j = 0; j < recipe.Inputs.Count; j++)
+            {
+                int index = recipe.Inputs[j].ResourceIndex;
+                double inflow = ledger.InflowPerSecond(index);
+                if (sim.GetResource(index) < recipe.Inputs[j].Amount
+                    && inflow > NoFlowBelow
+                    && ledger.ConsumedPerSecond(index, ConsumptionKind.Recipes) >= inflow * EatenShare)
+                {
+                    return index;
+                }
+            }
+        }
+
         return -1;
     }
 
@@ -317,7 +356,35 @@ public sealed class GovernorNeeds
         }
 
         int tech = sim.CheapestOpenTech();
-        return tech < 0 ? -1 : GovernorResearch.StalledMaterial(sim, tech);
+        int material = tech < 0 ? -1 : GovernorResearch.StalledMaterial(sim, tech);
+
+        // „Nikdo nevyrábí" doslova: když výrobna stojí a jen je pomalá (nebo
+        // nemá vstupy — to hlídá vyschlý vstup), další kvůli výzkumu nepřibude.
+        // Výzkum mezitím vezme jinou technologii, na kterou město má.
+        return material >= 0 && HasProducerOf(sim, material) ? -1 : material;
+    }
+
+    /// <summary>Stojí (nebo se staví) ve městě budova, která surovinu vyrábí?</summary>
+    private bool HasProducerOf(Simulation sim, int resource)
+    {
+        var buildings = sim.Buildings;
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            if (_content.Buildings[buildings[i].DefIndex].Recipe is not { } recipe)
+            {
+                continue;
+            }
+
+            for (int j = 0; j < recipe.Outputs.Count; j++)
+            {
+                if (recipe.Outputs[j].ResourceIndex == resource)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

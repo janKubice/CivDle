@@ -1341,10 +1341,19 @@ internal sealed class AutoBuildSystem
             // pracují. Když některé stojí bez lidí, další by stálo taky: dělníci
             // jdou na nedostatkové výrobny přednostně, takže prázdné pole znamená,
             // že lidé prostě nejsou. (Změřeno: bez tohohle 495 polí na 150 lidí.)
-            return HasUnstaffedProducerOf(sim, _content.Gameplay.FoodResourceIndex);
+            // Stejně tak další skleník, když už jeden stojí bez lišejníku — ten
+            // hlad nezažene, pomůže sběrna (cíl vstupů).
+            return HasUnstaffedProducerOf(sim, _content.Gameplay.FoodResourceIndex)
+                || HasStarvedInstance(sim, defIndex);
         }
 
-        int slots = _content.Buildings[defIndex].WorkerSlots;
+        var def = _content.Buildings[defIndex];
+        if (def.NeedsPower && !HasPowerFor(sim, def))
+        {
+            return true;
+        }
+
+        int slots = def.WorkerSlots;
         if (slots <= 0)
         {
             return false; // domy, sklady a služby lidi nepotřebují
@@ -1360,6 +1369,38 @@ internal sealed class AutoBuildSystem
         // lidi navíc, je další výrobna přesně to, co potřebuje.
         return sim.IdleBuildings > 0
             && sim.TotalWorkerSlots + slots > sim.Population * WorkerSlotsPerPerson;
+    }
+
+    /// <summary>
+    /// Bude mít dílna na proud z čeho jet? Buď ve městě zbývá výkon, nebo
+    /// guvernér umí elektrárnu postavit (cíl proudu ji pak přistaví k ní).
+    ///
+    /// <para><b>Proč:</b> na Mrazu dává zpočátku proud jen přistávací modul
+    /// (4 jednotky) a parní generátor přijde až s výzkumem. Guvernér mezitím
+    /// stavěl pro nezaměstnané brusírnu za brusírnou — sto třicet čtyři dílen se
+    /// dělilo o proud pro dvě, každá jela na šedesátinu, broušený krystal
+    /// pořád chyběl, a tak přibývaly další.</para>
+    /// </summary>
+    private bool HasPowerFor(Simulation sim, BuildingDef def)
+    {
+        if (PowerGoal.CanGenerate(_content, _roles, sim))
+        {
+            return true;
+        }
+
+        // Rozestavěné dílny se do poptávky počítají taky — jinak by jich
+        // guvernér v jednom kole rozestavěl deset na proud pro jednu.
+        int spare = sim.TotalPowerSupply - sim.TotalPowerDemand;
+        var buildings = sim.Buildings;
+        for (int i = 0; i < buildings.Length && spare >= def.PowerDemand; i++)
+        {
+            if (!buildings[i].IsComplete)
+            {
+                spare -= _content.Buildings[buildings[i].DefIndex].PowerDemand;
+            }
+        }
+
+        return spare >= def.PowerDemand;
     }
 
     /// <summary>
