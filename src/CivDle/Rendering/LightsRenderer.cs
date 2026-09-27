@@ -98,6 +98,14 @@ public sealed class LightsRenderer
             }
 
             ref readonly var building = ref buildings[i];
+
+            // Zamrzlá (bez sítě) a zasypaná budova zhasne — výpadek má být
+            // vidět i v noci, ne jen v inspektoru.
+            if (building.Stall is BuildingStall.NetworkShortage or BuildingStall.Buried)
+            {
+                continue;
+            }
+
             var def = _content.Buildings[building.DefIndex];
             int width = def.FootprintWidth * tileSize;
             int height = def.FootprintHeight * tileSize;

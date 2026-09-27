@@ -702,10 +702,24 @@ public sealed class ContentLoader
                 ParseColor(path, dto.OverlayColor, $"Síť '{id}'"),
                 ParseTerrainSources(path, id, dto.TerrainSources, biomes),
                 ParseNetworkHousing(path, id, dto.Housing),
-                ParseNetworkGround(path, id, dto.Ground, biomes)));
+                ParseNetworkGround(path, id, dto.Ground, biomes),
+                ParseShortageLook(path, id, dto.ShortageLook)));
         }
 
         return result;
+    }
+
+    /// <summary>Vzhled budovy, které síť nestačí (jinovatka na Mrazu); jen známé vzhledy.</summary>
+    private static string ParseShortageLook(string path, string id, string? look)
+    {
+        string value = look ?? NetworkTypeDef.PlainLook;
+        if (!NetworkTypeDef.ShortageLooks.Contains(value))
+        {
+            throw new ContentLoadException(path,
+                $"Síť '{id}': neznámý 'shortageLook' '{value}' (známé: {string.Join(", ", NetworkTypeDef.ShortageLooks.OrderBy(x => x))}).");
+        }
+
+        return value;
     }
 
     /// <summary>Stopa sítě na zemi: barva, biomy (musí existovat, voda ne) a hustota 0–1.</summary>
@@ -2062,16 +2076,64 @@ public sealed class ContentLoader
                 ? (RgbColor?)null
                 : ParseColor(path, dto.MoteColor, $"Období '{id}' ('moteColor')");
 
+            // Délka dne: aspoň kousek světla i v polární noci a kousek tmy
+            // v létě — úplná tma by vypnula zrcadla i den-noc cyklus rendru.
+            if (dto.Daylight is < 0.05 or > 0.95)
+            {
+                throw new ContentLoadException(path, $"Období '{id}': 'daylight' musí být 0,05–0,95, je {dto.Daylight}.");
+            }
+
             seasons.Add(new SeasonDef(
                 id, tint, dto.TintAlpha,
                 dto.FoodProductionMult, dto.HarvestMult, dto.GrowthMult,
                 dto.FuelPerPersonPerSecond, dto.ColdGrowthMult,
                 Math.Clamp(dto.SnowCover, 0, 1),
                 moteColor, dto.MoteDensity, Math.Clamp(dto.MoteFall, 0, 1),
-                groundTint, Math.Clamp(dto.GroundTintStrength, 0, 1), Math.Clamp(dto.GroundSnow, 0, 1)));
+                groundTint, Math.Clamp(dto.GroundTintStrength, 0, 1), Math.Clamp(dto.GroundSnow, 0, 1),
+                dto.Daylight, ParseSeasonNetworkDemand(path, id, dto.NetworkDemand)));
         }
 
         return new SeasonCalendar(seasons, file.DaysPerSeason, fuelIndex);
+    }
+
+    /// <summary>
+    /// Poptávka po sítích v období (zima na Mrazu chce víc tepla): jen sítě
+    /// světa (proud má svá pravidla), násobič 0,1–10. Indexováno jako katalog sítí.
+    /// </summary>
+    private IReadOnlyList<double>? ParseSeasonNetworkDemand(string path, string id, Dictionary<string, double>? dto)
+    {
+        if (dto is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        var mults = new double[_networkTypes.Count + 1];
+        Array.Fill(mults, 1.0);
+        foreach (var (network, mult) in dto)
+        {
+            int index = -1;
+            for (int i = 0; i < _networkTypes.Count; i++)
+            {
+                if (_networkTypes[i].Id == network)
+                {
+                    index = i + 1; // index 0 je elektřina
+                }
+            }
+
+            if (index < 0)
+            {
+                throw new ContentLoadException(path, $"Období '{id}': 'networkDemand' odkazuje na neexistující síť '{network}'.");
+            }
+
+            if (mult is < 0.1 or > 10)
+            {
+                throw new ContentLoadException(path, $"Období '{id}': 'networkDemand.{network}' musí být 0,1–10, je {mult}.");
+            }
+
+            mults[index] = mult;
+        }
+
+        return mults;
     }
 
     /// <summary>
@@ -3667,9 +3729,16 @@ public sealed class ContentLoader
         {
             var inputs = ParseResourceAmounts(path, id, "recipe.input", dto.Recipe.Input, resources);
             var outputs = ParseResourceAmounts(path, id, "recipe.output", dto.Recipe.Output, resources);
-            if (outputs.Count == 0)
+
+            // Recept bez výstupu dává smysl jen u zdroje sítě, který pálí palivo
+            // (rašelinová pec hřeje, dokud má rašelinu). Jinde je to chyba dat:
+            // budova by jen tiše spotřebovávala.
+            bool burnsFuel = inputs.Count > 0
+                && (dto.PowerSupply > 0 || (dto.Networks?.Values.Any(use => use.Supply > 0) ?? false));
+            if (outputs.Count == 0 && !burnsFuel)
             {
-                throw new ContentLoadException(path, $"Budova '{id}': recept musí mít aspoň jeden výstup.");
+                throw new ContentLoadException(path,
+                    $"Budova '{id}': recept musí mít aspoň jeden výstup (bez výstupu jen zdroj sítě, který pálí palivo).");
             }
 
             if (dto.Recipe.TimeTicks is < 1 or > 100_000)
@@ -5087,6 +5156,7 @@ public sealed class ContentLoader
             case "airquality": return (MetricKind.AirQuality, -1);
             case "waves": return (MetricKind.DefenceWaves, -1);
             case "calmhazards": return (MetricKind.CalmHazards, -1);
+            case "warmwinters": return (MetricKind.WarmWinters, -1);
             case "project":
                 return (MetricKind.ProjectsCompleted,
                     string.IsNullOrWhiteSpace(building) ? -1 : ResolveRef(path, owner, "building", building, buildings));

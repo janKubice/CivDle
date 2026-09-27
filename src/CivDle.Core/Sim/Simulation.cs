@@ -87,6 +87,12 @@ public sealed partial class Simulation
     /// <summary>Schod dne, se kterým se síť naposledy počítala (<see cref="SupplyCurve.Phase"/>).</summary>
     private int _supplyPhase = int.MinValue;
 
+    /// <summary>Období, podle kterého se naposled počítala poptávka sítí.</summary>
+    private int _networkSeason = int.MinValue;
+
+    /// <summary>Zamrzla v tomhle období aspoň jedna budova (síť nedosáhla)?</summary>
+    private bool _seasonFrozen;
+
     /// <summary>Biom na dlaždici jako delegát pro přírodní zdroje sítí — vytvořený jednou, ne při každém přepočtu.</summary>
     private readonly Func<int, int, byte> _biomeAtForNetworks;
     private readonly FrontierSystem _frontier;
@@ -2080,8 +2086,33 @@ public sealed partial class Simulation
             }
 
             double elapsedDays = ElapsedDays;
-            return elapsedDays - Math.Floor(elapsedDays);
+            double clock = elapsedDays - Math.Floor(elapsedDays);
+            return CurrentSeason is { ChangesDaylight: true } season ? SolarTime(clock, season.Daylight) : clock;
         }
+    }
+
+    /// <summary>
+    /// Sluneční čas pro den dané délky (polární noc na Mrazu): skutečný čas
+    /// <paramref name="clock"/> se přemapuje tak, aby slunce svítilo jen podíl
+    /// <paramref name="daylight"/> dne, a přitom poledne zůstalo v 0,5 a půlnoc
+    /// v 0. Všechno, co se řídí sluncem (render, zrcadla, lapače rosy), tak
+    /// polární noc „vidí" samo — bez vlastní logiky.
+    ///
+    /// <para>Půlnoc se mapuje na půlnoc pro každou délku dne, takže změna
+    /// období (o půlnoci) nic neposkočí.</para>
+    /// </summary>
+    public static double SolarTime(double clock, double daylight)
+    {
+        double rise = 0.5 - daylight / 2;
+        double set = 0.5 + daylight / 2;
+        if (clock >= rise && clock <= set)
+        {
+            return 0.25 + (clock - rise) / daylight * 0.5;
+        }
+
+        double sinceSunset = clock > set ? clock - set : clock + 1 - set;
+        double solar = 0.75 + sinceSunset / (1 - daylight) * 0.5;
+        return solar - Math.Floor(solar);
     }
 
     /// <summary>
@@ -3269,7 +3300,8 @@ public sealed partial class Simulation
         _networks.Rebuild(
             BuildingsMutable, _content, new NetworkLight(TimeOfDay01, false, SolarDim),
             _biomeAtForNetworks, TerrainRevision,
-            new NetworkBoost(_bonuses.NetworkSupplyMult, _bonuses.NetworkDemandMult, (int)_bonuses.NetworkRangeBonus));
+            new NetworkBoost(_bonuses.NetworkSupplyMult, _bonuses.NetworkDemandMult, (int)_bonuses.NetworkRangeBonus),
+            CurrentSeason);
     }
 
     /// <summary>
@@ -4871,6 +4903,22 @@ public sealed partial class Simulation
             _powerDirty = true;
         }
 
+        // Období mění poptávku po sítích (zima na Mrazu chce víc tepla).
+        // Konec polární noci bez jediné zamrzlé budovy se počítá do hvězd.
+        int season = CurrentSeasonIndex;
+        if (season != _networkSeason)
+        {
+            if (_networkSeason >= 0 && _networkSeason == _content.Seasons.PolarNightIndex
+                && !_seasonFrozen && _buildingCount >= MinBuildingsForWarmWinter)
+            {
+                WarmWinters++;
+            }
+
+            _seasonFrozen = false;
+            _networkSeason = season;
+            _powerDirty = true;
+        }
+
         // Zrcadla ve dne, lapač rosy v noci: síť se přepočítá, když se změní
         // schod dne — šestnáctkrát za den, ne každý tik.
         if (_hasTimedSupply)
@@ -5129,6 +5177,29 @@ public sealed partial class Simulation
 
     /// <summary>Kolik z nich nic nezasypalo.</summary>
     public int CalmHazards => _hazards.Calm;
+
+    /// <summary>
+    /// Kolik polárních nocí město přečkalo bez jediné zamrzlé budovy (★★ Mrazu).
+    /// Prázdná osada se nepočítá — přečkat noc s modulem a dvěma chatrčemi není umění.
+    /// </summary>
+    public int WarmWinters { get; private set; }
+
+    /// <summary>Od kolika budov se polární noc počítá.</summary>
+    private const int MinBuildingsForWarmWinter = 10;
+
+    /// <summary>Budova zamrzla (síť nedosáhla) — tahle polární noc se do hvězdy nepočítá.</summary>
+    internal void NoteNetworkShortage() => _seasonFrozen = true;
+
+    /// <summary>Stav počítadla polárních nocí pro save.</summary>
+    internal (int WarmWinters, bool Frozen, int Season) WinterState => (WarmWinters, _seasonFrozen, _networkSeason);
+
+    /// <summary>Obnoví počítadlo polárních nocí ze savu.</summary>
+    internal void RestoreWinters(int warmWinters, bool frozen, int season)
+    {
+        WarmWinters = warmWinters;
+        _seasonFrozen = frozen;
+        _networkSeason = season;
+    }
 
     /// <summary>Stav bouře pro save.</summary>
     internal HazardSystem.BurialState HazardState(int hazard) => _hazards.StateOf(hazard);
@@ -7109,6 +7180,7 @@ public sealed partial class Simulation
         MetricKind.AirQuality => (long)Math.Floor(100.0 * (1.0 - _content.Gameplay.Pollution.Severity(AirPollutionOverCity))),
         MetricKind.DefenceWaves => FrontierDefense ? _frontier.NextWave : 0,
         MetricKind.CalmHazards => _hazards.Calm,
+        MetricKind.WarmWinters => WarmWinters,
         MetricKind.ProjectsCompleted => CompletedProjects(param),
         _ => 0,
     };

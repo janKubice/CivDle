@@ -7,7 +7,8 @@ namespace CivDle.Rendering;
 
 /// <summary>
 /// Přírodní jevy na mapě (svety-design.md 5.3): pás písečné bouře, který
-/// přechází přes město, a kopečky písku na zasypaných budovách.
+/// přechází přes město, kopečky písku na zasypaných budovách a jinovatka na
+/// budovách, kterým chybí teplo (síť se vzhledem výpadku „frost").
 ///
 /// <para>„Mechanika je vidět": hráč má z mapy poznat, odkud bouře jde a co
 /// zasypala, dřív než si přečte hlášku. Zasypaná budova má kopeček písku
@@ -24,12 +25,18 @@ public sealed class HazardRenderer
     /// <summary>Kolik proužků písku nese pás.</summary>
     private const int Streaks = 260;
 
+    private static readonly Color Frost = new(196, 226, 255);
+    private static readonly Color Ice = new(236, 248, 255);
     private static readonly Color Sand = new(222, 190, 128);
     private static readonly Color SandShade = new(186, 150, 96);
     private static readonly Color SandLight = new(240, 216, 164);
 
     private readonly Texture2D _pixel;
     private readonly GameContent _content;
+
+    /// <summary>Které sítě zamrzají (vzhled výpadku „frost"); prázdné = svět bez mrazu.</summary>
+    private readonly bool[] _frostNetworks;
+    private readonly bool _anyFrost;
 
     /// <summary>Indexy budov ve výřezu — jeden seznam na celý život.</summary>
     private readonly List<int> _visible = new();
@@ -40,6 +47,12 @@ public sealed class HazardRenderer
     {
         _pixel = whitePixel;
         _content = content;
+        _frostNetworks = new bool[content.Networks.Count];
+        for (int n = 0; n < _frostNetworks.Length; n++)
+        {
+            _frostNetworks[n] = content.Networks[n].ShortageLook == NetworkTypeDef.FrostLook;
+            _anyFrost |= _frostNetworks[n];
+        }
     }
 
     /// <summary>Posune animaci proužků (reálný čas — i v pauze vítr fouká).</summary>
@@ -48,7 +61,7 @@ public sealed class HazardRenderer
     /// <summary>Zasypané budovy a běžící bouře. Svět bez jevů nestojí nic.</summary>
     public void Draw(SpriteBatch spriteBatch, Camera2D camera, Simulation simulation)
     {
-        if (_content.Hazards.Count == 0)
+        if (_content.Hazards.Count == 0 && !_anyFrost)
         {
             return;
         }
@@ -84,7 +97,18 @@ public sealed class HazardRenderer
         for (int slot = 0; slot < _visible.Count; slot++)
         {
             int i = _visible[slot];
-            if (i >= buildings.Length || buildings[i].DisabledTicks <= 0 || buildings[i].DisabledCause != DisableCause.Burial)
+            if (i >= buildings.Length)
+            {
+                continue;
+            }
+
+            if (_anyFrost && buildings[i].Stall == BuildingStall.NetworkShortage)
+            {
+                DrawFrost(spriteBatch, buildings[i]);
+                continue;
+            }
+
+            if (buildings[i].DisabledTicks <= 0 || buildings[i].DisabledCause != DisableCause.Burial)
             {
                 continue;
             }
@@ -104,6 +128,51 @@ public sealed class HazardRenderer
                 spriteBatch.Draw(_pixel, rect, layer == 0 ? SandShade : Sand);
                 spriteBatch.Draw(_pixel, new Rectangle(rect.X, rect.Y, Math.Max(1, rect.Width / 2), 1), SandLight);
             }
+        }
+    }
+
+    /// <summary>
+    /// Jinovatka na budově, které chybí teplo: bledě modrý závoj, sněhová
+    /// čepice nahoře, rampouchy dole a pár třpytek. Kreslí se jen u budov,
+    /// jejichž výpadek způsobila mrznoucí síť — jinak by „bez proudu" na
+    /// Domovině vypadalo jako mráz.
+    /// </summary>
+    private void DrawFrost(SpriteBatch spriteBatch, in BuildingInstance building)
+    {
+        var def = _content.Buildings[building.DefIndex];
+        bool frozenByNetwork = false;
+        foreach (var use in def.Networks)
+        {
+            frozenByNetwork |= use.Demand > 0 && use.NetworkIndex < _frostNetworks.Length && _frostNetworks[use.NetworkIndex];
+        }
+
+        if (!frozenByNetwork)
+        {
+            return;
+        }
+
+        int px = building.X * TileSize;
+        int py = building.Y * TileSize;
+        int width = def.FootprintWidth * TileSize;
+        int height = def.FootprintHeight * TileSize;
+        spriteBatch.Draw(_pixel, new Rectangle(px, py, width, height), Frost * 0.35f);
+        spriteBatch.Draw(_pixel, new Rectangle(px, py, width, 2), Ice * 0.9f);
+
+        // Rampouchy: každé tři pixely jeden, délka z hashe.
+        for (int x = 1; x < width - 1; x += 3)
+        {
+            int length = 2 + (int)(Hash(building.X * 131 + x, building.Y) * 4);
+            spriteBatch.Draw(_pixel, new Rectangle(px + x, py + height - 1, 1, length), Ice * 0.8f);
+        }
+
+        // Třpytky: pár bílých bodů, které pomalu blikají.
+        for (int k = 0; k < 3; k++)
+        {
+            float h = Hash(building.X * 7 + k, building.Y * 13 + k);
+            float twinkle = 0.5f + 0.5f * MathF.Sin(_time * 2.2f + h * 12f);
+            int sx = px + 2 + (int)(h * (width - 4));
+            int sy = py + 2 + (int)(Hash(building.Y + k, building.X) * (height - 4));
+            spriteBatch.Draw(_pixel, new Rectangle(sx, sy, 1, 1), Color.White * twinkle);
         }
     }
 

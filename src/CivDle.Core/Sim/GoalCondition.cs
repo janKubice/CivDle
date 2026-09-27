@@ -90,6 +90,12 @@ public enum MetricKind
     /// by cokoli zasypaly — mistrovství pravidla světa (★★ Duny).
     /// </summary>
     CalmHazards,
+
+    /// <summary>
+    /// Kolik polárních nocí (nejkratší období světa) město přečkalo bez jediné
+    /// zamrzlé budovy — mistrovství pravidla Mrazu (★★).
+    /// </summary>
+    WarmWinters,
 }
 
 /// <summary>

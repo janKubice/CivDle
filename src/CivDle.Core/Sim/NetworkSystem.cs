@@ -70,9 +70,10 @@ public sealed class NetworkSystem
     /// <param name="biomeAt">Biom na dlaždici (včetně přepisů); <c>null</c> = bez přírodních zdrojů.</param>
     /// <param name="terrainRevision">Verze terénu — po změně se zapomenou součty přírodních zdrojů.</param>
     /// <param name="boost">Vylepšení sítí světa ze Vzestupu (na proud se nevztahují).</param>
+    /// <param name="season">Období — mění poptávku (zima na Mrazu chce víc tepla); <c>null</c> = beze změny.</param>
     public void Rebuild(
         ReadOnlySpan<BuildingInstance> buildings, GameContent content, in NetworkLight light,
-        Func<int, int, byte>? biomeAt, int terrainRevision, in NetworkBoost boost)
+        Func<int, int, byte>? biomeAt, int terrainRevision, in NetworkBoost boost, SeasonDef? season = null)
     {
         var networks = content.Networks;
         if (_grids.Length != networks.Count)
@@ -95,7 +96,10 @@ public sealed class NetworkSystem
         for (int n = 0; n < _grids.Length; n++)
         {
             var type = networks[n];
-            var own = n == NetworkCatalog.PowerIndex ? NetworkBoost.None : boost;
+            // Poptávka se dělí DemandMult — víc poptávky v zimě = menší dělitel.
+            var own = n == NetworkCatalog.PowerIndex
+                ? NetworkBoost.None
+                : boost with { DemandMult = boost.DemandMult / (season?.NetworkDemandMult(n) ?? 1.0) };
             int range = type.IsEnabled ? type.Range + own.RangeBonus : 0;
 
             // Volný výkon chce jen guvernér (a jen u sítí, bez kterých některá

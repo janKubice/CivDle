@@ -232,6 +232,7 @@ internal sealed class ProductionSystem
             if (IsCutOff(sim, building, building.DefIndex, out float networkPace))
             {
                 SetStall(ref building, def, BuildingStall.NetworkShortage);
+                sim.NoteNetworkShortage();
                 continue;
             }
 

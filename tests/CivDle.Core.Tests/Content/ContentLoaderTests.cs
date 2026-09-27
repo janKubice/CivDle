@@ -658,6 +658,7 @@ public class ContentLoaderTests : IDisposable
     [InlineData("{ \"id\": \"water\", \"range\": 4, \"overlayColor\": \"#FFFFFF\", \"ground\": { \"color\": \"#70A050\" } }", "'on'")]
     [InlineData("{ \"id\": \"water\", \"range\": 4, \"overlayColor\": \"#FFFFFF\", \"ground\": { \"color\": \"#70A050\", \"on\": [\"lava\"] } }", "lava")]
     [InlineData("{ \"id\": \"water\", \"range\": 4, \"overlayColor\": \"#FFFFFF\", \"ground\": { \"color\": \"#70A050\", \"on\": [\"grass\"], \"density\": 3 } }", "density")]
+    [InlineData("{ \"id\": \"heat\", \"range\": 4, \"overlayColor\": \"#FFFFFF\", \"shortageLook\": \"lava\" }", "shortageLook")]
     public void LoadFrom_BadNetworkType_Throws(string network, string expected)
     {
         WriteAllValid();
@@ -666,6 +667,58 @@ public class ContentLoaderTests : IDisposable
         var ex = Assert.Throws<ContentLoadException>(Load);
 
         Assert.Contains(expected, ex.Message);
+    }
+
+    [Theory]
+    [InlineData("\"daylight\": 0.01", "daylight")]
+    [InlineData("\"daylight\": 1.0", "daylight")]
+    [InlineData("\"networkDemand\": { \"steam\": 1.5 }", "steam")]
+    [InlineData("\"networkDemand\": { \"heat\": 50 }", "networkDemand.heat")]
+    public void LoadFrom_BadPolarSeason_Throws(string field, string expected)
+    {
+        // Polární noc (Mráz): délka dne a zimní poptávka po síti se ověřují při načtení.
+        WriteAllValid();
+        Write("networks.json", """{ "schemaVersion": 1, "networks": [ { "id": "heat", "range": 2, "overlayColor": "#F08C3C" } ] }""");
+        Write("seasons.json", $$"""
+        { "schemaVersion": 1, "daysPerSeason": 2, "seasons": [
+          { "id": "winter", "foodProductionMult": 1, "harvestMult": 1, "growthMult": 1, "coldGrowthMult": 1, {{field}} } ] }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
+    [Theory]
+    [InlineData("", false)]
+    [InlineData(", \"networks\": { \"heat\": { \"supply\": 10 } }", true)]
+    [InlineData(", \"powerSupply\": 5", true)]
+    public void LoadFrom_RecipeWithoutOutput_OnlyForAFuelBurningSource(string source, bool loads)
+    {
+        // Rašelinová pec: recept jen se vstupem (pálí palivo) smí mít jen zdroj
+        // sítě — jinde by budova tiše spotřebovávala.
+        WriteAllValid();
+        Write("networks.json", """{ "schemaVersion": 1, "networks": [ { "id": "heat", "range": 2, "overlayColor": "#F08C3C" } ] }""");
+        Write("buildings.json", $$"""
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "house", "mapColor": "#B5651D", "footprint": [1, 1],
+              "buildCost": { "wood": 10 }, "allowedBiomes": ["grass"],
+              "recipe": { "input": { "wood": 1 }, "timeTicks": 60 }{{source}} }
+          ]
+        }
+        """);
+
+        if (loads)
+        {
+            Assert.Empty(Load().Buildings[0].Recipe!.Outputs);
+        }
+        else
+        {
+            var ex = Assert.Throws<ContentLoadException>(Load);
+            Assert.Contains("výstup", ex.Message);
+        }
     }
 
     [Fact]

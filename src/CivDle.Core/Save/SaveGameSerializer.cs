@@ -568,8 +568,9 @@ public sealed class SaveGameSerializer
         }
 
         // Až po sekci obrany: ta vrací odpočty vyřazených budov, tahle k nim
-        // doplní, že je zasypal písek.
-        if (simulation.Content.Hazards.Count > 0)
+        // doplní, že je zasypal písek. Nese i počítadlo polárních nocí, takže
+        // se píše i na světě s polární nocí bez jevů.
+        if (simulation.Content.Hazards.Count > 0 || simulation.Content.Seasons.PolarNightIndex >= 0)
         {
             WriteSection(writer, SectionHazards, w => WriteHazards(w, simulation));
         }
@@ -1189,11 +1190,12 @@ public sealed class SaveGameSerializer
 
     /// <summary>
     /// Přírodní jevy jménem (ne indexem — pořadí v datech se mění): rozběhnutá
-    /// bouře, statistika a které budovy leží zasypané.
+    /// bouře, statistika, které budovy leží zasypané a (od verze 2) polární
+    /// noci přečkané v teple.
     /// </summary>
     private static void WriteHazards(BinaryWriter w, Simulation simulation)
     {
-        w.Write(1); // verze sekce
+        w.Write(2); // verze sekce (2 = navíc polární noci na konci)
         w.Write(simulation.HazardsWeathered);
         w.Write(simulation.CalmHazards);
 
@@ -1230,12 +1232,17 @@ public sealed class SaveGameSerializer
                 w.Write(i);
             }
         }
+
+        var winter = simulation.WinterState;
+        w.Write(winter.WarmWinters);
+        w.Write(winter.Frozen);
+        w.Write(winter.Season);
     }
 
     private static void ReadHazards(BinaryReader section, GameContent content, Simulation simulation)
     {
         int version = section.ReadInt32();
-        if (version != 1)
+        if (version is < 1 or > 2)
         {
             return; // novější formát sekce: bouře začnou znovu, nic horšího se nestane
         }
@@ -1273,6 +1280,11 @@ public sealed class SaveGameSerializer
         for (int i = 0; i < buried; i++)
         {
             simulation.RestoreBurial(section.ReadInt32());
+        }
+
+        if (version >= 2)
+        {
+            simulation.RestoreWinters(section.ReadInt32(), section.ReadBoolean(), section.ReadInt32());
         }
     }
 

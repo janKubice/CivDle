@@ -34,8 +34,26 @@ public sealed record SeasonDef(
     double MoteFall = 0.0,
     RgbColor? GroundTint = null,
     double GroundTintStrength = 0.0,
-    double GroundSnow = 0.0)
+    double GroundSnow = 0.0,
+    double Daylight = 0.5,
+    IReadOnlyList<double>? NetworkDemandOrNull = null)
 {
+    /// <summary>Normální den: slunce svítí polovinu dne (východ v 0,25, západ v 0,75).</summary>
+    public const double NormalDaylight = 0.5;
+
+    /// <summary>
+    /// Mění období délku dne (polární noc na Mrazu, půlnoční slunce v létě)?
+    /// Bez toho platí normální den — Domovina a starší data beze změny.
+    /// </summary>
+    public bool ChangesDaylight => Math.Abs(Daylight - NormalDaylight) > 1e-9;
+
+    /// <summary>
+    /// Násobič poptávky po síti v tomhle období (v zimě chce Mráz o polovinu
+    /// víc tepla), indexováno sítí; 1 = beze změny.
+    /// </summary>
+    public double NetworkDemandMult(int network) =>
+        NetworkDemandOrNull is { } mults && network < mults.Count ? mults[network] : 1.0;
+
     /// <summary>
     /// Mění tohle období barvu <b>země</b>, ne jen nádech přes obraz?
     ///
@@ -103,6 +121,28 @@ public sealed record SeasonCalendar(
 
     /// <summary>Kolik herních dní trvá celý rok.</summary>
     public int DaysPerYear => Seasons.Count * DaysPerSeason;
+
+    /// <summary>
+    /// Polární noc: období s nejkratším dnem, pokud je kratší než normální den;
+    /// −1 = svět polární noc nemá (Domovina, Duna).
+    /// </summary>
+    public int PolarNightIndex
+    {
+        get
+        {
+            int best = -1;
+            for (int i = 0; i < Seasons.Count; i++)
+            {
+                if (Seasons[i].Daylight < SeasonDef.NormalDaylight - 1e-9
+                    && (best < 0 || Seasons[i].Daylight < Seasons[best].Daylight))
+                {
+                    best = i;
+                }
+            }
+
+            return best;
+        }
+    }
 
     /// <summary>
     /// Které období panuje daný den (první den hry = 1). Modulo přes celý rok —

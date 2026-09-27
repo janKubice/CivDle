@@ -111,7 +111,7 @@ public sealed record NetworksFileDto(int SchemaVersion, List<NetworkTypeDto>? Ne
 public sealed record NetworkTypeDto(
     string? Id, int Range, string? Shortage, double CutoffBelow, string? OverlayColor,
     List<TerrainSourceDto>? TerrainSources = null, NetworkHousingDto? Housing = null,
-    NetworkGroundDto? Ground = null);
+    NetworkGroundDto? Ground = null, string? ShortageLook = null);
 
 /// <summary>Stopa sítě na zemi tak, jak leží v JSON.</summary>
 public sealed record NetworkGroundDto(string? Color, List<string>? On, double Density = 0.5);
@@ -410,7 +410,9 @@ public sealed record SeasonDto(
     double MoteFall = 0.0,
     string? GroundTint = null,
     double GroundTintStrength = 0.0,
-    double GroundSnow = 0.0);
+    double GroundSnow = 0.0,
+    double Daylight = 0.5,
+    Dictionary<string, double>? NetworkDemand = null);
 
 /// <summary>Nastavení spokojenosti tak, jak leží v JSON.</summary>
 public sealed record HappinessDto(

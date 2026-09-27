@@ -38,8 +38,18 @@ public sealed record NetworkTypeDef(
     RgbColor OverlayColor,
     IReadOnlyList<TerrainSource>? TerrainSourcesOrNull = null,
     NetworkHousing? Housing = null,
-    NetworkGround? Ground = null)
+    NetworkGround? Ground = null,
+    string ShortageLook = NetworkTypeDef.PlainLook)
 {
+    /// <summary>Vzhled budovy bez sítě: nic zvláštního (jen stav v inspektoru).</summary>
+    public const string PlainLook = "none";
+
+    /// <summary>Vzhled budovy bez tepla: jinovatka, rampouchy, zhasnutá okna.</summary>
+    public const string FrostLook = "frost";
+
+    /// <summary>Známé vzhledy výpadku — loader jiné odmítne.</summary>
+    public static IReadOnlySet<string> ShortageLooks { get; } = new HashSet<string>(StringComparer.Ordinal) { PlainLook, FrostLook };
+
     /// <summary>
     /// Přírodní zdroje: dlaždice biomu, které do sítě dodávají samy (oáza na
     /// Duně, horký pramen na Mrazu). Nikdo je nestaví a nikdo je nezboří.
