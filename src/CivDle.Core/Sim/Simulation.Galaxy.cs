@@ -49,6 +49,10 @@ public sealed partial class Simulation
         LandingX = x;
         LandingY = y;
         Fog.Reveal(x, y, FogRevealRadius * 2);
+
+        // Těžiště se jinak přepočítá až za pár tiků — do té doby by bylo na
+        // počátku mapy a guvernér by první stavby hledal tam, ne u modulu.
+        UpdateCityCenter();
         return PlacementResult.Ok;
     }
 
@@ -79,6 +83,7 @@ public sealed partial class Simulation
                             AddResource(item.ResourceIndex, item.Amount);
                         }
 
+                        UpdateCityCenter();
                         return;
                     }
                 }
