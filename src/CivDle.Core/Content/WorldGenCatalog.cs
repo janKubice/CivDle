@@ -27,6 +27,9 @@ public sealed record WorldSize(string Id, int Width, int Height)
 /// <param name="TemperatureBandTiles">Délka jednoho klimatického cyklu v dlaždicích (0 = teplota jen ze šumu).</param>
 /// <param name="TemperatureLapse">O kolik ochladí plná výška hor (0 = výška teplotu neovlivní).</param>
 /// <param name="RiverBiomeIndex">Biom sladké vody v řečišti; −1 = odvodí se z definic (první mělká voda).</param>
+/// <param name="TemperatureShift">Posun teploty celého světa (poušť +, led −); 0 = jako Domovina.</param>
+/// <param name="MoistureShift">Posun vlhkosti celého světa (sucho −, mokro +); 0 = jako Domovina.</param>
+/// <param name="PatchesOrNull">Záplaty biomů (viz <see cref="BiomePatch"/>).</param>
 public sealed record TerrainPreset(
     string Id,
     float SeaLevel,
@@ -39,11 +42,33 @@ public sealed record TerrainPreset(
     NoiseSpec? TemperatureNoise = null,
     float TemperatureBandTiles = 0f,
     float TemperatureLapse = 0f,
-    int RiverBiomeIndex = -1)
+    int RiverBiomeIndex = -1,
+    float TemperatureShift = 0f,
+    float MoistureShift = 0f,
+    IReadOnlyList<BiomePatch>? PatchesOrNull = null)
 {
     /// <summary>Lokalizační klíč jména presetu.</summary>
     public string NameKey => $"preset.{Id}";
+
+    /// <summary>
+    /// Záplaty biomů přes vygenerovaný terén (solné pláně na poušti, zvodně,
+    /// horké prameny) — svety-design.md 7.4.
+    /// </summary>
+    public IReadOnlyList<BiomePatch> Patches => PatchesOrNull ?? Array.Empty<BiomePatch>();
 }
+
+/// <summary>
+/// Záplata biomu: tam, kde generátor vybral jeden z biomů <paramref name="On"/>
+/// a vlastní šum záplaty přeleze práh, je místo toho biom
+/// <paramref name="BiomeIndex"/>. Tak vzniknou solné pláně uprostřed pouště
+/// nebo zvodně pod pískem — zvláštní dlaždice světa, které běžné rozsahy výšky
+/// a vlhkosti neumí, protože by je ukradl biom, který je v seznamu dřív.
+/// </summary>
+/// <param name="BiomeIndex">Biom záplaty.</param>
+/// <param name="On">Na kterých biomech smí záplata ležet (maska podle indexu).</param>
+/// <param name="Noise">Šum záplaty (velikost skvrn).</param>
+/// <param name="Threshold">Práh 0–1: čím výš, tím vzácnější skvrny.</param>
+public sealed record BiomePatch(int BiomeIndex, bool[] On, NoiseSpec Noise, float Threshold);
 
 /// <summary>
 /// Katalog nastavení generátoru z <c>data/worldgen.json</c>: velikosti světa a terénní presety,

@@ -6578,10 +6578,60 @@ public sealed class ContentLoader
         }
 
         float riverMaxElevation = dto.RiverMaxElevation <= 0 ? 1f : (float)dto.RiverMaxElevation;
+        if (dto.TemperatureShift is < -1 or > 1 || dto.MoistureShift is < -1 or > 1)
+        {
+            throw new ContentLoadException(path, $"Preset '{id}': 'temperatureShift' a 'moistureShift' musí být −1 až 1.");
+        }
+
         return new TerrainPreset(
             id, (float)dto.SeaLevel, fallbackIndex, elevation, moisture,
             river, (float)dto.RiverWidth, riverMaxElevation,
-            temperature, (float)dto.TemperatureBandTiles, (float)dto.TemperatureLapse, riverBiome);
+            temperature, (float)dto.TemperatureBandTiles, (float)dto.TemperatureLapse, riverBiome,
+            (float)dto.TemperatureShift, (float)dto.MoistureShift, ParsePatches(path, id, dto.Patches, biomes));
+    }
+
+    /// <summary>Záplaty biomů presetu: biom, na čem smí ležet, šum a práh.</summary>
+    private static IReadOnlyList<BiomePatch>? ParsePatches(
+        string path, string presetId, List<BiomePatchDto>? dtos, BiomeRegistry biomes)
+    {
+        if (dtos is null || dtos.Count == 0)
+        {
+            return null;
+        }
+
+        var result = new List<BiomePatch>(dtos.Count);
+        foreach (var dto in dtos)
+        {
+            if (dto.Biome is null || !biomes.TryIndexOf(dto.Biome, out int biome))
+            {
+                throw new ContentLoadException(path, $"Preset '{presetId}': záplata odkazuje na neexistující biom '{dto.Biome}'.");
+            }
+
+            if (dto.On is not { Count: > 0 })
+            {
+                throw new ContentLoadException(path, $"Preset '{presetId}', záplata '{dto.Biome}': chybí 'on' — na čem smí ležet.");
+            }
+
+            var on = new bool[biomes.Count];
+            foreach (string under in dto.On)
+            {
+                if (!biomes.TryIndexOf(under, out int index))
+                {
+                    throw new ContentLoadException(path, $"Preset '{presetId}', záplata '{dto.Biome}': neznámý biom '{under}' v 'on'.");
+                }
+
+                on[index] = true;
+            }
+
+            if (dto.Threshold is <= 0 or >= 1)
+            {
+                throw new ContentLoadException(path, $"Preset '{presetId}', záplata '{dto.Biome}': 'threshold' musí být v (0, 1).");
+            }
+
+            result.Add(new BiomePatch(biome, on, ValidateNoise(path, presetId, $"patches.{dto.Biome}.noise", dto.Noise), (float)dto.Threshold));
+        }
+
+        return result;
     }
 
     private static NoiseSpec ValidateNoise(string path, string presetId, string field, NoiseDto? dto)

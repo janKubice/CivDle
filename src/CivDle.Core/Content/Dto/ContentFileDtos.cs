@@ -739,7 +739,13 @@ public sealed record TerrainPresetDto(
     NoiseDto? TemperatureNoise,
     double TemperatureBandTiles,
     double TemperatureLapse,
-    string? RiverBiome);
+    string? RiverBiome,
+    double TemperatureShift = 0,
+    double MoistureShift = 0,
+    List<BiomePatchDto>? Patches = null);
+
+/// <summary>Záplata biomu v presetu tak, jak leží v JSON.</summary>
+public sealed record BiomePatchDto(string? Biome, List<string>? On, NoiseDto? Noise, double Threshold);
 
 /// <summary>Obsah souboru <c>data/ufo.json</c> (návštěvy UFO).</summary>
 public sealed record UfoFileDto(int SchemaVersion, UfoConfigDto? Ufo);

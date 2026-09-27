@@ -866,6 +866,39 @@ public class ContentLoaderTests : IDisposable
         """);
 
     [Fact]
+    public void LoadFrom_PresetWithClimateShiftAndPatch_Loads()
+    {
+        WriteAllValid();
+        WriteWorldGen(presetExtra: """
+            , "temperatureShift": 0.2, "moistureShift": -0.3,
+            "patches": [{ "biome": "water", "on": ["grass"], "threshold": 0.7,
+              "noise": { "frequency": 2, "octaves": 2, "persistence": 0.5, "lacunarity": 2 } }]
+            """);
+
+        var preset = Load().WorldGen.Presets[0];
+
+        Assert.Equal(0.2f, preset.TemperatureShift);
+        Assert.Equal(-0.3f, preset.MoistureShift);
+        var patch = Assert.Single(preset.Patches);
+        Assert.Equal(0.7f, patch.Threshold);
+    }
+
+    [Theory]
+    [InlineData("\"temperatureShift\": 1.5", "temperatureShift")]
+    [InlineData("\"patches\": [{ \"biome\": \"lava\", \"on\": [\"grass\"], \"threshold\": 0.5, \"noise\": { \"frequency\": 1, \"octaves\": 1, \"persistence\": 0.5, \"lacunarity\": 2 } }]", "lava")]
+    [InlineData("\"patches\": [{ \"biome\": \"water\", \"on\": [], \"threshold\": 0.5, \"noise\": { \"frequency\": 1, \"octaves\": 1, \"persistence\": 0.5, \"lacunarity\": 2 } }]", "'on'")]
+    [InlineData("\"patches\": [{ \"biome\": \"water\", \"on\": [\"grass\"], \"threshold\": 1, \"noise\": { \"frequency\": 1, \"octaves\": 1, \"persistence\": 0.5, \"lacunarity\": 2 } }]", "threshold")]
+    public void LoadFrom_BadPresetClimate_Throws(string field, string expected)
+    {
+        WriteAllValid();
+        WriteWorldGen(presetExtra: ", " + field);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
+    [Fact]
     public void LoadFrom_WithoutAtmospheres_LooksLikeTheHomeworld()
     {
         WriteAllValid();
@@ -2657,7 +2690,7 @@ public class ContentLoaderTests : IDisposable
         Write("eras.json", """{ "schemaVersion": 1, "eras": [{ "id": "start", "order": 0 }] }""");
     }
 
-    private void WriteWorldGen(string fallbackBiome = "grass", string? defaultPreset = null)
+    private void WriteWorldGen(string fallbackBiome = "grass", string? defaultPreset = null, string presetExtra = "")
     {
         string defaultPresetLine = defaultPreset is null ? string.Empty : $"\"defaultPreset\": \"{defaultPreset}\",";
         Write("worldgen.json", $$"""
@@ -2669,6 +2702,7 @@ public class ContentLoaderTests : IDisposable
             "id": "p", "seaLevel": 0.5, "fallbackBiome": "{{fallbackBiome}}",
             "elevationNoise": { "frequency": 1, "octaves": 3, "persistence": 0.5, "lacunarity": 2 },
             "moistureNoise": { "frequency": 1, "octaves": 3, "persistence": 0.5, "lacunarity": 2 }
+            {{presetExtra}}
           }]
         }
         """);

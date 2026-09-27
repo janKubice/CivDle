@@ -45,6 +45,9 @@ public sealed class ProceduralTerrain : ITerrain
     private readonly int[] _waterBiomes;
     private readonly int[] _landBiomes;
 
+    /// <summary>Šum každé záplaty biomu (viz <see cref="BiomePatch"/>), ve stejném pořadí.</summary>
+    private readonly FractalNoise[] _patchNoise;
+
     public ProceduralTerrain(BiomeRegistry biomes, TerrainPreset preset, long seed)
     {
         _biomes = biomes;
@@ -75,7 +78,18 @@ public sealed class ProceduralTerrain : ITerrain
         _landBiomes = land.ToArray();
 
         _riverBiome = ResolveRiverBiome(biomes, preset, _waterBiomes);
+
+        var patches = preset.Patches;
+        _patchNoise = new FractalNoise[patches.Count];
+        for (int i = 0; i < patches.Count; i++)
+        {
+            // Každá záplata svůj šum: solné pláně a zvodně nesmí ležet na týchž místech.
+            _patchNoise[i] = new FractalNoise(DeriveSeed(seed, PatchSeedSalt + (ulong)i * 0x9E37UL), patches[i].Noise);
+        }
     }
+
+    // Sůl pro seedy záplat biomů.
+    private const ulong PatchSeedSalt = 0x3C6EF372FE94F82BUL;
 
     /// <summary>
     /// Biom v řečišti. Preset ho smí určit napřímo (<c>riverBiome</c>); jinak se vezme
@@ -110,7 +124,11 @@ public sealed class ProceduralTerrain : ITerrain
     public float ElevationAt(int x, int y) => _elevationNoise.Sample01(x * FrequencyScale, y * FrequencyScale);
 
     /// <summary>Vlhkost 0–1 (řídí vegetaci, suroviny a dekorace).</summary>
-    public float MoistureAt(int x, int y) => _moistureNoise.Sample01(x * FrequencyScale, y * FrequencyScale);
+    public float MoistureAt(int x, int y)
+    {
+        float moisture = _moistureNoise.Sample01(x * FrequencyScale, y * FrequencyScale);
+        return _preset.MoistureShift == 0f ? moisture : Math.Clamp(moisture + _preset.MoistureShift, 0f, 1f);
+    }
 
     /// <summary>
     /// Teplota 0–1: 0 = polární, 1 = rovníková. Skládá se ze zeměpisné šířky
@@ -124,7 +142,7 @@ public sealed class ProceduralTerrain : ITerrain
     {
         if (_temperatureNoise is null)
         {
-            return 0.5f;
+            return Math.Clamp(0.5f + _preset.TemperatureShift, 0f, 1f);
         }
 
         float latitude = _preset.TemperatureBandTiles > 0f
@@ -132,7 +150,8 @@ public sealed class ProceduralTerrain : ITerrain
             : 0.5f;
 
         float noise = _temperatureNoise.Sample01(x * FrequencyScale, y * FrequencyScale);
-        float temperature = latitude * (1f - TemperatureNoiseWeight) + noise * TemperatureNoiseWeight;
+        float temperature = latitude * (1f - TemperatureNoiseWeight) + noise * TemperatureNoiseWeight
+            + _preset.TemperatureShift; // horký nebo mrazivý svět; Domovina 0
 
         float elevation = ElevationAt(x, y);
         if (elevation > _preset.SeaLevel && _preset.TemperatureLapse > 0f)
@@ -219,6 +238,22 @@ public sealed class ProceduralTerrain : ITerrain
     }
 
     public byte BiomeAt(int x, int y)
+    {
+        byte biome = BaseBiomeAt(x, y);
+        var patches = _preset.Patches;
+        for (int i = 0; i < patches.Count; i++)
+        {
+            if (patches[i].On[biome]
+                && _patchNoise[i].Sample01(x * FrequencyScale, y * FrequencyScale) > patches[i].Threshold)
+            {
+                return (byte)patches[i].BiomeIndex;
+            }
+        }
+
+        return biome;
+    }
+
+    private byte BaseBiomeAt(int x, int y)
     {
         float elevation = ElevationAt(x, y);
         float temperature = TemperatureAt(x, y);

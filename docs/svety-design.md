@@ -1194,6 +1194,14 @@ výroba, guvernér i render ho už umí.
   (`SetBiomeOverride`, `TerrainRevision` — existují). `CachedTerrain` drží
   jen vygenerovaný terén, přepisy jsou zvlášť, takže se nic nezneplatňuje.
 
+> **Hotovo (příprava D1).** Preset v `worldgen.json` má `temperatureShift`
+> a `moistureShift` (posun klimatu celého světa, −1 až 1) a `patches` —
+> záplaty biomů: `{ "biome", "on": [biomy pod ní], "noise", "threshold" }`.
+> Záplata leží jen na vyjmenovaných biomech, má vlastní šum ze seedu světa
+> a řeší zvláštní dlaždice, které by běžné rozsahy výšky a vlhkosti neuměly
+> (solná pláň uprostřed pouště, zvodeň pod pískem). Bez těch polí je terén
+> dlaždici po dlaždici stejný jako dřív.
+
 ### 7.5 Galaxie
 
 Nová vrstva nad simulací (čisté OOP, `Core/Galaxy/`):
