@@ -74,7 +74,7 @@ public static class LandingSiteFinder
         {
             for (int x = -SearchRadius; x <= SearchRadius; x += Stride)
             {
-                if (!Fits(def, terrain, x, y))
+                if (!Fits(content, def, terrain, x, y))
                 {
                     continue;
                 }
@@ -169,13 +169,20 @@ public static class LandingSiteFinder
         return closest is >= LavaMinDistance and <= LavaMaxDistance;
     }
 
-    private static bool Fits(BuildingDef def, ITerrain terrain, int x, int y)
+    /// <summary>
+    /// Sedne modul na místo? Na světě bez země (Nebesa) stačí oblaka, ze kterých
+    /// loď udělá palubu (<see cref="PlatformDef"/>).
+    /// </summary>
+    private static bool Fits(GameContent content, BuildingDef def, ITerrain terrain, int x, int y)
     {
+        var platform = content.World.Platform;
         for (int ty = y; ty < y + def.FootprintHeight; ty++)
         {
             for (int tx = x; tx < x + def.FootprintWidth; tx++)
             {
-                if (!def.IsBiomeAllowed(terrain.BiomeAt(tx, ty)))
+                byte biome = terrain.BiomeAt(tx, ty);
+                if (!def.IsBiomeAllowed(biome)
+                    && (platform is null || !content.Terraform[platform.TerraformIndex].AppliesTo(biome)))
                 {
                     return false;
                 }

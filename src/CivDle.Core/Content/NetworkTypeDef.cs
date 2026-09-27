@@ -47,8 +47,12 @@ public sealed record NetworkTypeDef(
     /// <summary>Vzhled budovy bez tepla: jinovatka, rampouchy, zhasnutá okna.</summary>
     public const string FrostLook = "frost";
 
+    /// <summary>Vzhled budovy bez vztlaku (Nebesa): klesá do mraků, tmavne a zhasne.</summary>
+    public const string SinkLook = "sink";
+
     /// <summary>Známé vzhledy výpadku — loader jiné odmítne.</summary>
-    public static IReadOnlySet<string> ShortageLooks { get; } = new HashSet<string>(StringComparer.Ordinal) { PlainLook, FrostLook };
+    public static IReadOnlySet<string> ShortageLooks { get; } =
+        new HashSet<string>(StringComparer.Ordinal) { PlainLook, FrostLook, SinkLook };
 
     /// <summary>
     /// Přírodní zdroje: dlaždice biomu, které do sítě dodávají samy (oáza na
@@ -97,7 +101,7 @@ public sealed record NetworkHousing(double GrowthPenalty, double HappinessPenalt
 
 /// <summary>
 /// Kdy zdroj dodává: stále, jen ve dne (sluneční zrcadla — nejvíc v poledne),
-/// nebo jen v noci (lapač rosy).
+/// jen v noci (lapač rosy), nebo jen v bouřkovém pásu (hromosvod).
 /// </summary>
 public enum SupplyTime
 {
@@ -109,6 +113,9 @@ public enum SupplyTime
 
     /// <summary>Jen v noci.</summary>
     Night,
+
+    /// <summary>Jen když přes město jde bouřkový pás (<see cref="BurialLook.Storm"/>).</summary>
+    Storm,
 }
 
 /// <summary>

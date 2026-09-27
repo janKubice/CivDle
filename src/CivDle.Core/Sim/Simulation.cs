@@ -3302,7 +3302,7 @@ public sealed partial class Simulation
 
         _powerDirty = false;
         _networks.Rebuild(
-            BuildingsMutable, _content, new NetworkLight(TimeOfDay01, false, SolarDim),
+            BuildingsMutable, _content, new NetworkLight(TimeOfDay01, false, SolarDim, StormActive),
             _biomeAtForNetworks, TerrainRevision,
             new NetworkBoost(_bonuses.NetworkSupplyMult, _bonuses.NetworkDemandMult, (int)_bonuses.NetworkRangeBonus),
             CurrentSeason);
@@ -3313,6 +3313,9 @@ public sealed partial class Simulation
     /// sluneční zrcadla pak dodávají méně.
     /// </summary>
     public double SolarDim => _hazards.SolarDim(TickCount);
+
+    /// <summary>Jde přes město bouřkový pás (Nebesa)? Hromosvody pak dodávají proud.</summary>
+    public bool StormActive => _hazards.StormActive(TickCount);
 
     /// <summary>
     /// Pokrytí proudem podle průměru dne — pohled guvernéra. Zrcadla v noci
@@ -4819,9 +4822,10 @@ public sealed partial class Simulation
         // na to, aby ho most překlenul. Dřív hráč vodní dlaždici nedláždil vůbec
         // a most se dal získat jen náhodou přes auto-silnice; přitom přemostit
         // říčku tažením je ta nejpřirozenější věc, kterou od nástroje čeká.
-        if (_content.Biomes[_cachedTerrain.BiomeAt(x, y)].IsWater && !CanBridge(x, y))
+        var biome = _content.Biomes[_cachedTerrain.BiomeAt(x, y)];
+        if ((biome.IsWater && !CanBridge(x, y)) || biome.HasNoGround)
         {
-            return PlacementResult.WrongBiome;
+            return PlacementResult.WrongBiome; // v oblacích Nebes vede cesta jen po plošině
         }
 
         return PlacementResult.Ok;
@@ -4969,7 +4973,7 @@ public sealed partial class Simulation
         // schod dne — šestnáctkrát za den, ne každý tik.
         if (_hasTimedSupply)
         {
-            int phase = SupplyCurve.Phase(TimeOfDay01, SolarDim < 1.0);
+            int phase = SupplyCurve.Phase(TimeOfDay01, SolarDim < 1.0, StormActive);
             if (phase != _supplyPhase)
             {
                 _supplyPhase = phase;

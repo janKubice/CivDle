@@ -44,6 +44,10 @@ public sealed record ClickYield(int ResourceIndex, int Amount, int Charges = 0, 
 /// rovník je horký, a stejná výška × vlhkost dá jinou krajinu podle zeměpisné šířky.
 /// </param>
 /// <param name="ClickYield">Co dá ruční klik na dlaždici; <c>null</c> = nic.</param>
+/// <param name="Void">
+/// Bez země (oblačný oceán Nebes): nestojí tu nic, co nese <c>allowedBiomes</c>
+/// jen pro tenhle biom, ani silnice. Stavět se dá jen na plošině.
+/// </param>
 public sealed record Biome(
     string Id,
     RgbColor MapColor,
@@ -56,7 +60,8 @@ public sealed record Biome(
     ClickYield? ClickYield = null,
     double ProductionMult = 1.0,
     bool Natural = true,
-    bool Rocky = false)
+    bool Rocky = false,
+    bool Void = false)
 {
     /// <summary>
     /// Prosvítá na strmém svahu holé podloží?
@@ -71,6 +76,12 @@ public sealed record Biome(
     /// renderer.</para>
     /// </summary>
     public bool ShowsBedrock => Rocky;
+
+    /// <summary>
+    /// Pod dlaždicí není země (oblačný oceán plynného obra): silnice ani most
+    /// tu nevede, budova stojí jen na plošině (svety-design.md 4.5).
+    /// </summary>
+    public bool HasNoGround => Void;
 
 
     /// <summary>

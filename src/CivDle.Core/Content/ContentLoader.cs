@@ -154,7 +154,7 @@ public sealed class ContentLoader
         var world = _worldFile is null
             ? _homeProfile
             : BuildWorldProfile(Path.Combine(dataDirectory, "worlds", worldId, "world.json"),
-                _worldFile, resources, buildings, techs, worldGen, gameplay);
+                _worldFile, resources, buildings, techs, worldGen, gameplay, biomes, terraform);
         var atmosphere = PickAtmosphere(
             Path.Combine(dataDirectory, "atmospheres.json"),
             LoadAtmospheres(Path.Combine(dataDirectory, "atmospheres.json")),
@@ -369,7 +369,8 @@ public sealed class ContentLoader
     /// </summary>
     private static WorldProfile BuildWorldProfile(
         string path, WorldFileDto dto, DefRegistry<Resource> resources, DefRegistry<BuildingDef> buildings,
-        DefRegistry<TechDef> techs, WorldGenCatalog worldGen, GameplayConfig gameplay)
+        DefRegistry<TechDef> techs, WorldGenCatalog worldGen, GameplayConfig gameplay,
+        BiomeRegistry biomes, DefRegistry<TerraformDef> terraform)
     {
         string worldId = Path.GetFileName(Path.GetDirectoryName(path) ?? string.Empty);
 
@@ -428,9 +429,49 @@ public sealed class ContentLoader
         var profile = new WorldProfile(
             worldId, preset, landing, kit, exports, port,
             dto.Substitutes ?? new Dictionary<string, string>(),
-            new HashSet<string>(dto.WithoutSystems ?? new List<string>(), StringComparer.Ordinal));
+            new HashSet<string>(dto.WithoutSystems ?? new List<string>(), StringComparer.Ordinal),
+            ParsePlatform(path, worldId, dto.Platform, biomes, terraform, buildings[landing]));
         CheckWorldStarts(path, profile, resources, buildings, techs, gameplay);
         return profile;
+    }
+
+    /// <summary>
+    /// Nosná plošina: biom paluby, nástroj, který ji klade (musí mířit právě na
+    /// ni), a modul, který na palubě smí přistát.
+    /// </summary>
+    private static PlatformDef? ParsePlatform(
+        string path, string worldId, PlatformDto? dto, BiomeRegistry biomes, DefRegistry<TerraformDef> terraform,
+        BuildingDef landing)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (dto.Biome is null || !biomes.TryIndexOf(dto.Biome, out int biome) || biomes[biome].IsWater || biomes[biome].HasNoGround)
+        {
+            throw new ContentLoadException(path, $"Svět '{worldId}': plošina '{dto.Biome}' musí být biom se zemí (paluba).");
+        }
+
+        if (dto.Terraform is null || !terraform.TryIndexOf(dto.Terraform, out int action)
+            || terraform[action].TargetBiomeIndex != biome)
+        {
+            throw new ContentLoadException(path,
+                $"Svět '{worldId}': plošinu klade terraformace '{dto.Terraform}', a ta musí měnit oblaka právě v '{dto.Biome}'.");
+        }
+
+        if (dto.LandingRadius is < 1 or > 16)
+        {
+            throw new ContentLoadException(path, $"Svět '{worldId}': 'landingRadius' plošiny musí být 1–16, je {dto.LandingRadius}.");
+        }
+
+        if (!landing.IsBiomeAllowed(biome) || landing.FootprintWidth > dto.LandingRadius * 2 + 1)
+        {
+            throw new ContentLoadException(path,
+                $"Svět '{worldId}': přistávací modul '{landing.Id}' musí stát na palubě '{dto.Biome}' a vejít se na ni.");
+        }
+
+        return new PlatformDef(biome, action, dto.LandingRadius);
     }
 
     /// <summary>
@@ -3508,9 +3549,15 @@ public sealed class ContentLoader
                 $"Biom '{id}': 'rocky' nedává smysl u vodního biomu — hladina je vodorovná, skála se pod ní nikdy neukáže.");
         }
 
+        if (dto.Void && (dto.IsWater || clickYield is not null))
+        {
+            throw new ContentLoadException(path,
+                $"Biom '{id}': 'void' (bez země) nemůže být voda ani mít výnos kliknutím — v oblacích není co sebrat.");
+        }
+
         return new Biome(id, color, (float)dto.ColorVariation, dto.IsWater,
             depth, elevation, moisture, temperature, clickYield, productionMult, dto.Natural ?? true,
-            dto.Rocky);
+            dto.Rocky, dto.Void);
     }
 
     private static ValueRange ParseRange(string path, string biomeId, string field, double[]? values, bool required)
@@ -4157,10 +4204,17 @@ public sealed class ContentLoader
                 throw new ContentLoadException(path, $"{owner}: počasí '{dto.Weather}' neexistuje.");
             }
 
+            var look = dto.Look?.Trim() switch
+            {
+                null or "" or "mound" => BurialLook.Mound,
+                "storm" => BurialLook.Storm,
+                _ => throw new ContentLoadException(path, $"{owner}: neznámý 'look' '{dto.Look}' (známé: mound, storm)."),
+            };
+
             result.Add(new HazardDef(id, behavior, new BurialRule(
                 dto.FirstAfterSeconds, dto.IntervalSeconds, dto.IntervalJitter, dto.WarningSeconds, dto.SweepSeconds,
                 dto.BandTiles, dto.BurySeconds, weatherIndex, dto.SolarDim, dto.MinBuildings, dto.CoastTiles,
-                dto.MoundColor is null ? null : ParseColor(path, dto.MoundColor, $"{owner} ('moundColor')"))));
+                dto.MoundColor is null ? null : ParseColor(path, dto.MoundColor, $"{owner} ('moundColor')"), look)));
         }
 
         if (result.Count(h => h.Behavior == HazardBehavior.Tides) > 1)
@@ -4284,7 +4338,8 @@ public sealed class ContentLoader
         null or "" or "always" => SupplyTime.Always,
         "day" => SupplyTime.Day,
         "night" => SupplyTime.Night,
-        _ => throw new ContentLoadException(path, $"Budova '{id}': neznámé 'supplyTime' '{value}' (always, day, night)."),
+        "storm" => SupplyTime.Storm,
+        _ => throw new ContentLoadException(path, $"Budova '{id}': neznámé 'supplyTime' '{value}' (always, day, night, storm)."),
     };
 
     /// <summary>
@@ -7123,11 +7178,18 @@ public sealed class ContentLoader
             throw new ContentLoadException(path, $"Preset '{id}': 'temperatureShift' a 'moistureShift' musí být −1 až 1.");
         }
 
+        int fillBiome = -1;
+        if (!string.IsNullOrWhiteSpace(dto.FillBiome) && !biomes.TryIndexOf(dto.FillBiome.Trim(), out fillBiome))
+        {
+            throw new ContentLoadException(path, $"Preset '{id}' odkazuje na neexistující biom '{dto.FillBiome}' v 'fillBiome'.");
+        }
+
         return new TerrainPreset(
             id, (float)dto.SeaLevel, fallbackIndex, elevation, moisture,
             river, (float)dto.RiverWidth, riverMaxElevation,
             temperature, (float)dto.TemperatureBandTiles, (float)dto.TemperatureLapse, riverBiome,
-            (float)dto.TemperatureShift, (float)dto.MoistureShift, ParsePatches(path, id, dto.Patches, biomes));
+            (float)dto.TemperatureShift, (float)dto.MoistureShift, ParsePatches(path, id, dto.Patches, biomes),
+            fillBiome);
     }
 
     /// <summary>Záplaty biomů presetu: biom, na čem smí ležet, šum a práh.</summary>

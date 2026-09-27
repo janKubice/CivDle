@@ -77,6 +77,7 @@ public sealed class GameplayScreen : IScreen
     private readonly FrontierRenderer _frontierRenderer;
     private readonly HazardRenderer _hazardRenderer;
     private readonly NetworkGroundRenderer _networkGround;
+    private readonly CloudSeaRenderer _cloudSea;
     private readonly TideRenderer _tide;
     private readonly LavaRenderer _lava;
 
@@ -562,6 +563,7 @@ public sealed class GameplayScreen : IScreen
         _frontierRenderer = new FrontierRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
         _hazardRenderer = new HazardRenderer(screens.WhitePixel, screens.Content);
         _networkGround = new NetworkGroundRenderer(screens.WhitePixel, screens.Content);
+        _cloudSea = new CloudSeaRenderer(screens.WhitePixel, screens.Content);
         _tide = new TideRenderer(screens.WhitePixel, screens.Content);
         _lava = new LavaRenderer(screens.WhitePixel, screens.Content);
         _pollutionRenderer = new PollutionRenderer(screens.WhitePixel, screens.Content);
@@ -904,6 +906,7 @@ public sealed class GameplayScreen : IScreen
         // Nezávisle na období: na Mrazu v létě sněží taky.
         _atmosphere.Update(worldDt, _screens.Content.Atmosphere, moteMin, moteMax, WindDirectionX, WindDirectionY);
         _hazardRenderer.Update(dt);
+        _cloudSea.Update(dt);
         _tide.Update(dt);
         _lava.Update(dt);
         }
@@ -968,6 +971,7 @@ public sealed class GameplayScreen : IScreen
         // Stopa sítě na zemi (zelená poušť kolem vody) nad zpevněnou zemí:
         // město v poušti je oáza a má zelenat i mezi domy. Pod vším, co stojí.
         _networkGround.Draw(spriteBatch, _camera, _simulation);
+        _cloudSea.Draw(spriteBatch, _camera, _simulation);
         _tide.Draw(spriteBatch, _camera, _simulation);
         _lava.Draw(spriteBatch, _camera, _simulation);
         _zoneRenderer.Draw(spriteBatch, _camera, _simulation); // tint zón na zemi, pod budovami

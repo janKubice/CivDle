@@ -70,6 +70,16 @@ public enum LavaRole
     Channel,
 }
 
+/// <summary>Jak vypadá zásah bouře, která vyřazuje (<see cref="BurialRule.Look"/>).</summary>
+public enum BurialLook
+{
+    /// <summary>Kopeček písku, sněhu nebo naplaveniny — lidé budovu vyhrabou.</summary>
+    Mound,
+
+    /// <summary>Zásah bleskem v bouřkovém pásu plynného obra — budova jiskří a zčerná.</summary>
+    Storm,
+}
+
 /// <summary>
 /// Jak se chová bouře, která zasypává (<see cref="HazardBehavior.WeatherBurial"/>).
 /// Rozvrh je čistá funkce času a seedu — stejný save dá stejné bouře.
@@ -89,6 +99,11 @@ public enum LavaRole
 /// (příboj v Souostroví); 0 = celý pás.
 /// </param>
 /// <param name="MoundColor">Čím je budova zasypaná (písek, sníh, naplavenina); <c>null</c> = písek.</param>
+/// <param name="Look">
+/// Jak zásah vypadá a jak se hlásí: kopeček (písek, sníh, příboj), nebo zásah
+/// bleskem v bouřkovém pásu (Nebesa) — ten k tomu napájí hromosvody
+/// (<see cref="SupplyTime.Storm"/>).
+/// </param>
 public sealed record BurialRule(
     double FirstAfterSeconds,
     double IntervalSeconds,
@@ -101,7 +116,8 @@ public sealed record BurialRule(
     double SolarDim,
     int MinBuildings,
     int CoastTiles = 0,
-    RgbColor? MoundColor = null) : IHazardSchedule
+    RgbColor? MoundColor = null,
+    BurialLook Look = BurialLook.Mound) : IHazardSchedule
 {
     /// <summary>Bouře trvá, dokud pás přejde přes město.</summary>
     public double DurationSeconds => SweepSeconds;
@@ -226,7 +242,11 @@ public sealed class HazardCatalog
 {
     private readonly List<HazardDef> _hazards;
 
-    public HazardCatalog(IReadOnlyList<HazardDef> hazards) => _hazards = hazards.ToList();
+    public HazardCatalog(IReadOnlyList<HazardDef> hazards)
+    {
+        _hazards = hazards.ToList();
+        BurialIsStorm = _hazards.Exists(h => h.Burial is { Look: BurialLook.Storm });
+    }
 
     /// <summary>Svět bez přírodních jevů (Domovina).</summary>
     public static HazardCatalog Empty { get; } = new(Array.Empty<HazardDef>());
@@ -245,4 +265,10 @@ public sealed class HazardCatalog
 
     /// <summary>Index erupcí světa; −1 = svět nevybuchuje.</summary>
     public int EruptionIndex => _hazards.FindIndex(h => h.Eruption is not null);
+
+    /// <summary>
+    /// Vyřazuje bouře na tomhle světě bleskem (bouřkové pásy Nebes), ne
+    /// zasypáním? Podle toho se výpadek hlásí a kreslí.
+    /// </summary>
+    public bool BurialIsStorm { get; }
 }

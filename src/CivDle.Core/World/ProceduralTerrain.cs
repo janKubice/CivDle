@@ -239,7 +239,9 @@ public sealed class ProceduralTerrain : ITerrain
 
     public byte BiomeAt(int x, int y)
     {
-        byte biome = BaseBiomeAt(x, y);
+        // Svět jednoho biomu (oblačný oceán Nebes): klima ani moře nerozhodují,
+        // jen záplaty přes něj.
+        byte biome = _preset.FillBiomeIndex >= 0 ? (byte)_preset.FillBiomeIndex : BaseBiomeAt(x, y);
         var patches = _preset.Patches;
         for (int i = 0; i < patches.Count; i++)
         {

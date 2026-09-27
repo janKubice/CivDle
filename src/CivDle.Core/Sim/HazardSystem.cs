@@ -579,6 +579,25 @@ internal sealed class HazardSystem
     }
 
     /// <summary>
+    /// Jde teď přes město bouřkový pás (<see cref="BurialLook.Storm"/>)? Podle
+    /// toho dodávají hromosvody.
+    /// </summary>
+    public bool StormActive(long tickCount)
+    {
+        double now = tickCount / Simulation.TicksPerSecond;
+        var hazards = _content.Hazards.Hazards;
+        for (int h = 0; h < hazards.Count; h++)
+        {
+            if (hazards[h].Burial is { Look: BurialLook.Storm } rule && PhaseAt(h, rule, now).Phase == HazardPhase.Active)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Počasí, které má hráč vidět: během varování a bouře počasí jevu
     /// (obloha zhnědne dřív, než bouře dorazí). −1 = žádné.
     /// </summary>

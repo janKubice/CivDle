@@ -57,6 +57,9 @@ public enum CityNeed
 
     /// <summary>Příští láva poteče přes budovy — chybí hráz (Výheň).</summary>
     LavaDam,
+
+    /// <summary>Na palubě dochází volné místo — je potřeba ji rozšířit (Nebesa).</summary>
+    Platform,
 }
 
 /// <summary>

@@ -1,4 +1,5 @@
 using CivDle.Core.Content;
+using CivDle.Core.World;
 using CivDle.Core.WorldGen;
 
 namespace CivDle.Core.Sim;
@@ -326,6 +327,11 @@ internal sealed class AutoBuildSystem
         if (need == CityNeed.LavaDam)
         {
             return MeetLavaDam(sim);
+        }
+
+        if (need == CityNeed.Platform)
+        {
+            return MeetPlatform(sim, ref rng);
         }
 
         // Služby: když by stávající stačily, jen nemají zaplacenou údržbu, další
@@ -858,6 +864,49 @@ internal sealed class AutoBuildSystem
         }
 
         return Outcome.Impossible;
+    }
+
+    /// <summary>Kolik dlaždic paluby položí guvernér za jedno kolo.</summary>
+    private const int DeckTilesPerRound = 6;
+
+    /// <summary>
+    /// Rozšíří palubu (Nebesa): pár dlaždic na okraji, co nejblíž středu města.
+    /// Platí se jako ruční terraformace a jen z rezervy nad nárokem guvernéra;
+    /// když chybí materiál, řeší se jeho výroba — paluba je předpoklad všeho.
+    /// </summary>
+    private Outcome MeetPlatform(Simulation sim, ref SplitMix64 rng)
+    {
+        if (_content.World.Platform is not { } platform)
+        {
+            return Outcome.Impossible;
+        }
+
+        var action = _content.Terraform[platform.TerraformIndex];
+        foreach (var cost in action.Cost)
+        {
+            if (sim.GetResource(cost.ResourceIndex) < cost.Amount)
+            {
+                return SecureResource(sim, cost.ResourceIndex, forTarget: -1, depth: 0, ref rng);
+            }
+        }
+
+        Span<long> frontier = stackalloc long[DeckTilesPerRound];
+        int count = PlatformGoal.FindFrontier(sim, platform, action, frontier);
+        int laid = 0;
+        for (int i = 0; i < count; i++)
+        {
+            if (!sim.CanAfford(action.Cost) || !sim.AutomationCanSpend(action.Cost))
+            {
+                break;
+            }
+
+            if (sim.TryAutoTerraform(platform.TerraformIndex, TileKey.X(frontier[i]), TileKey.Y(frontier[i])) == PlacementResult.Ok)
+            {
+                laid++;
+            }
+        }
+
+        return laid > 0 ? Outcome.Built : count > 0 ? Outcome.Saving : Outcome.Impossible;
     }
 
     /// <summary>Plný sklad nepotřebuje další výrobnu, ani když jsou lidi bez práce.</summary>

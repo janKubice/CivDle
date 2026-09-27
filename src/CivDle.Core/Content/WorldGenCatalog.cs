@@ -30,6 +30,10 @@ public sealed record WorldSize(string Id, int Width, int Height)
 /// <param name="TemperatureShift">Posun teploty celého světa (poušť +, led −); 0 = jako Domovina.</param>
 /// <param name="MoistureShift">Posun vlhkosti celého světa (sucho −, mokro +); 0 = jako Domovina.</param>
 /// <param name="PatchesOrNull">Záplaty biomů (viz <see cref="BiomePatch"/>).</param>
+/// <param name="FillBiomeIndex">
+/// Celý svět je tenhle biom (oblačný oceán Nebes) — klima ani moře nerozhodují,
+/// záplaty leží přes něj; −1 = běžný terén.
+/// </param>
 public sealed record TerrainPreset(
     string Id,
     float SeaLevel,
@@ -45,7 +49,8 @@ public sealed record TerrainPreset(
     int RiverBiomeIndex = -1,
     float TemperatureShift = 0f,
     float MoistureShift = 0f,
-    IReadOnlyList<BiomePatch>? PatchesOrNull = null)
+    IReadOnlyList<BiomePatch>? PatchesOrNull = null,
+    int FillBiomeIndex = -1)
 {
     /// <summary>Lokalizační klíč jména presetu.</summary>
     public string NameKey => $"preset.{Id}";

@@ -966,6 +966,7 @@ public class ContentLoaderTests : IDisposable
     [InlineData("\"weather\": \"acid_rain\"", "acid_rain")]
     [InlineData("\"coastTiles\": 12", "coastTiles")]
     [InlineData("\"moundColor\": \"snow\"", "moundColor")]
+    [InlineData("\"look\": \"sparkles\"", "sparkles")]
     public void LoadFrom_BadHazard_Throws(string field, string expected)
     {
         WriteAllValid();
@@ -1067,6 +1068,8 @@ public class ContentLoaderTests : IDisposable
     [InlineData("\"exports\": [\"wood\"]", "vývoz")]
     [InlineData("\"withoutSystems\": [\"buildings\"]", "withoutSystems")]
     [InlineData("\"preset\": \"mars\"", "mars")]
+    [InlineData("\"platform\": { \"biome\": \"water\", \"terraform\": \"deck\", \"landingRadius\": 3 }", "plošina")]
+    [InlineData("\"platform\": { \"biome\": \"grass\", \"terraform\": \"nope\", \"landingRadius\": 3 }", "nope")]
     public void LoadWorld_BadWorldFile_Throws(string field, string expected)
     {
         WriteDuneWorld(extraWorldField: field);
@@ -1298,6 +1301,7 @@ public class ContentLoaderTests : IDisposable
     [InlineData("\"patches\": [{ \"biome\": \"lava\", \"on\": [\"grass\"], \"threshold\": 0.5, \"noise\": { \"frequency\": 1, \"octaves\": 1, \"persistence\": 0.5, \"lacunarity\": 2 } }]", "lava")]
     [InlineData("\"patches\": [{ \"biome\": \"water\", \"on\": [], \"threshold\": 0.5, \"noise\": { \"frequency\": 1, \"octaves\": 1, \"persistence\": 0.5, \"lacunarity\": 2 } }]", "'on'")]
     [InlineData("\"patches\": [{ \"biome\": \"water\", \"on\": [\"grass\"], \"threshold\": 1, \"noise\": { \"frequency\": 1, \"octaves\": 1, \"persistence\": 0.5, \"lacunarity\": 2 } }]", "threshold")]
+    [InlineData("\"fillBiome\": \"nebula\"", "nebula")]
     public void LoadFrom_BadPresetClimate_Throws(string field, string expected)
     {
         WriteAllValid();
@@ -1306,6 +1310,43 @@ public class ContentLoaderTests : IDisposable
         var ex = Assert.Throws<ContentLoadException>(Load);
 
         Assert.Contains(expected, ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_VoidWaterBiome_Throws()
+    {
+        WriteAllValid();
+        Write("biomes.json", """
+        { "schemaVersion": 1, "biomes": [
+          { "id": "water", "mapColor": "#1C4E7A", "isWater": true, "depthRange": [0, 1] },
+          { "id": "grass", "mapColor": "#5A8A3A", "isWater": false, "elevationRange": [0, 1] },
+          { "id": "sky", "mapColor": "#F0E0C0", "isWater": true, "depthRange": [0, 1], "void": true } ] }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("void", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_FilledPresetAndVoidBiome_Resolve()
+    {
+        WriteAllValid();
+        Write("biomes.json", """
+        { "schemaVersion": 1, "biomes": [
+          { "id": "water", "mapColor": "#1C4E7A", "isWater": true, "depthRange": [0, 1] },
+          { "id": "grass", "mapColor": "#5A8A3A", "isWater": false, "elevationRange": [0, 1] },
+          { "id": "sky", "mapColor": "#F0E0C0", "isWater": false, "elevationRange": [0, 1], "natural": false, "void": true } ] }
+        """);
+        WriteWorldGen(presetExtra: ", \"fillBiome\": \"sky\"");
+        var keys = new[] { "biome.sky" };
+        Write(Path.Combine("lang", "cs.json"), LangJson("cs", "Čeština", extraKeys: keys));
+        Write(Path.Combine("lang", "en.json"), LangJson("en", "English", extraKeys: keys));
+
+        var content = Load();
+
+        Assert.True(content.Biomes[content.Biomes.IndexOf("sky")].HasNoGround);
+        Assert.Equal(content.Biomes.IndexOf("sky"), content.WorldGen.Presets[0].FillBiomeIndex);
     }
 
     [Fact]

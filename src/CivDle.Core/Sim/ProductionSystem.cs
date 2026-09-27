@@ -211,7 +211,7 @@ internal sealed class ProductionSystem
             // to nestojí nic.
             if (building.DisabledTicks > 0)
             {
-                SetStall(ref building, def, DisableCauses.StallOf(building.DisabledCause));
+                SetStall(ref building, def, DisableCauses.StallOf(building.DisabledCause, _content.Hazards.BurialIsStorm));
                 continue;
             }
 
@@ -461,7 +461,7 @@ internal sealed class ProductionSystem
 
             if (building.DisabledTicks > 0)
             {
-                _blocked[i] = DisableCauses.StallOf(building.DisabledCause);
+                _blocked[i] = DisableCauses.StallOf(building.DisabledCause, _content.Hazards.BurialIsStorm);
                 continue;
             }
 

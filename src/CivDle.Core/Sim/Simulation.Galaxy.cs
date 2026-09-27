@@ -35,6 +35,7 @@ public sealed partial class Simulation
             return PlacementResult.NotUnlocked; // Domovina nepřistává
         }
 
+        LayLandingDeck(module, x, y);
         var result = PlaceModule(module, x, y);
         if (result != PlacementResult.Ok)
         {
@@ -69,6 +70,7 @@ public sealed partial class Simulation
         }
 
         int module = _content.World.LandingModuleIndex;
+        LayLandingDeck(module, LandingX, LandingY);
         for (int radius = 0; radius <= 24; radius++)
         {
             for (int dy = -radius; dy <= radius; dy++)
@@ -96,6 +98,34 @@ public sealed partial class Simulation
     {
         LandingX = x;
         LandingY = y;
+    }
+
+    /// <summary>
+    /// Na světě bez země (Nebesa) přiveze loď první kus paluby: čtverec kolem
+    /// modulu se z oblaků změní v palubu — zdarma a bez počítání do
+    /// přetvořených dlaždic (to je hvězda hráče, ne lodi).
+    /// </summary>
+    private void LayLandingDeck(int module, int x, int y)
+    {
+        if (_content.World.Platform is not { } platform)
+        {
+            return;
+        }
+
+        var def = _content.Buildings[module];
+        var action = _content.Terraform[platform.TerraformIndex];
+        int centerX = x + def.FootprintWidth / 2;
+        int centerY = y + def.FootprintHeight / 2;
+        for (int dy = -platform.LandingRadius; dy <= platform.LandingRadius; dy++)
+        {
+            for (int dx = -platform.LandingRadius; dx <= platform.LandingRadius; dx++)
+            {
+                if (action.AppliesTo(BiomeAt(centerX + dx, centerY + dy)))
+                {
+                    SetBiomeOverride(centerX + dx, centerY + dy, (byte)platform.BiomeIndex);
+                }
+            }
+        }
     }
 
     private PlacementResult PlaceModule(int module, int x, int y)

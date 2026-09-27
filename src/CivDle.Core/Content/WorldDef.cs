@@ -126,6 +126,17 @@ public sealed class WorldCatalog
 }
 
 /// <summary>
+/// Nosná plošina světa bez země (Nebesa, svety-design.md 4.5): paluba je biom,
+/// na který se staví, a klade se terraformací z oblaků — hráč ji kreslí po
+/// dlaždicích jako silnici, guvernér ji rozšiřuje, když mu dochází místo.
+/// Přistávací modul přiveze první kus paluby s sebou.
+/// </summary>
+/// <param name="BiomeIndex">Biom paluby (na něj budovy stojí).</param>
+/// <param name="TerraformIndex">Nástroj terraformace, který palubu klade (cíl = <paramref name="BiomeIndex"/>).</param>
+/// <param name="LandingRadius">Poloměr paluby, kterou přiveze loď (čtverec kolem modulu, zdarma).</param>
+public sealed record PlatformDef(int BiomeIndex, int TerraformIndex, int LandingRadius);
+
+/// <summary>
 /// Co svět říká o sobě ve svém obsahu (<c>data/worlds/&lt;id&gt;/world.json</c>):
 /// terén, přistávací modul, startovní výbava, vývoz a přístav. Domovina má
 /// výchozí profil — hráč si terén volí sám a začíná táborákem.
@@ -138,6 +149,7 @@ public sealed class WorldCatalog
 /// <param name="PortIndex">Přístav světa — budova, jejíž kapacita omezuje obchodní trasy; −1 = žádný.</param>
 /// <param name="Substitutes">Náhrady surovin pro sdílený obsah (dřevo → cihla).</param>
 /// <param name="WithoutSystems">Volitelné systémy, které svět nemá (soubory bez <c>.json</c>).</param>
+/// <param name="Platform">Plošina, bez které se na světě nestaví (Nebesa); <c>null</c> = pevná zem.</param>
 public sealed record WorldProfile(
     string Id,
     int PresetIndex,
@@ -146,7 +158,8 @@ public sealed record WorldProfile(
     IReadOnlyList<int> ExportIndices,
     int PortIndex,
     IReadOnlyDictionary<string, string> Substitutes,
-    IReadOnlySet<string> WithoutSystems)
+    IReadOnlySet<string> WithoutSystems,
+    PlatformDef? Platform = null)
 {
     /// <summary>Profil Domoviny: vše jako v první kapitole.</summary>
     public static WorldProfile Home { get; } = new(

@@ -20,7 +20,8 @@ public sealed record BiomeDto(
     ClickYieldDto? ClickYield,
     double ProductionMult,
     bool? Natural = null,
-    bool Rocky = false);
+    bool Rocky = false,
+    bool Void = false);
 
 /// <summary>Výnos ručního kliknutí na biom tak, jak leží v JSON.</summary>
 public sealed record ClickYieldDto(string? Resource, int Amount, int Charges, double RegrowSeconds);
@@ -106,6 +107,7 @@ public sealed record HazardDto(
     int MinBuildings = 5,
     int CoastTiles = 0,
     string? MoundColor = null,
+    string? Look = null,
     double PeriodSeconds = 0,
     string? FloodBiome = null,
     List<double>? FloodRange = null,
@@ -792,7 +794,8 @@ public sealed record TerrainPresetDto(
     string? RiverBiome,
     double TemperatureShift = 0,
     double MoistureShift = 0,
-    List<BiomePatchDto>? Patches = null);
+    List<BiomePatchDto>? Patches = null,
+    string? FillBiome = null);
 
 /// <summary>Záplata biomu v presetu tak, jak leží v JSON.</summary>
 public sealed record BiomePatchDto(string? Biome, List<string>? On, NoiseDto? Noise, double Threshold);
@@ -1026,7 +1029,11 @@ public sealed record WorldFileDto(
     string? Port,
     Dictionary<string, string>? Substitutes,
     List<string>? WithoutSystems,
-    string? Atmosphere = null);
+    string? Atmosphere = null,
+    PlatformDto? Platform = null);
+
+/// <summary>Nosná plošina světa tak, jak leží ve <c>world.json</c>.</summary>
+public sealed record PlatformDto(string? Biome, string? Terraform, int LandingRadius);
 
 /// <summary>Obsah souboru <c>data/atmospheres.json</c> — profily atmosféry světů.</summary>
 public sealed record AtmospheresFileDto(int SchemaVersion, List<AtmosphereDto>? Atmospheres);

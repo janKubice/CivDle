@@ -9,7 +9,9 @@ namespace CivDle.Rendering;
 /// Přírodní jevy na mapě (svety-design.md 5.3): pás bouře, který přechází
 /// přes město, kopečky na zasypaných budovách (písek, sníh — barva z dat
 /// jevu), voda po okna u budov zaplavených přílivem a jinovatka na budovách,
-/// kterým chybí teplo (síť se vzhledem výpadku „frost").
+/// kterým chybí teplo (síť se vzhledem výpadku „frost"). Na Nebesích bouřkový
+/// pás s blesky, jiskřící budovy, které zasáhl, a budovy bez vztlaku, které
+/// klesají do mraků (vzhled „sink").
 ///
 /// <para>„Mechanika je vidět": hráč má z mapy poznat, odkud bouře jde a co
 /// zasypala, dřív než si přečte hlášku. Zasypaná budova má kopeček písku
@@ -33,6 +35,10 @@ public sealed class HazardRenderer
     private static readonly Color Crust = new(44, 38, 36);
     private static readonly Color Magma = new(255, 132, 40);
     private static readonly Color Foam = new(236, 248, 250);
+    private static readonly Color StormCloud = new(58, 52, 86);
+    private static readonly Color Lightning = new(236, 226, 255);
+    private static readonly Color Soot = new(34, 30, 44);
+    private static readonly Color CloudWisp = new(246, 236, 220);
 
     /// <summary>Čím jsou zasypané budovy zasypané (z dat jevu: písek, sníh…) a jeho stín a světlo.</summary>
     private readonly Color _mound;
@@ -45,6 +51,13 @@ public sealed class HazardRenderer
     /// <summary>Které sítě zamrzají (vzhled výpadku „frost"); prázdné = svět bez mrazu.</summary>
     private readonly bool[] _frostNetworks;
     private readonly bool _anyFrost;
+
+    /// <summary>Které sítě při výpadku nechají budovu klesnout (vztlak na Nebesích).</summary>
+    private readonly bool[] _sinkNetworks;
+    private readonly bool _anySink;
+
+    /// <summary>Vyřazuje tu bouře bleskem (bouřkový pás), ne zasypáním?</summary>
+    private readonly bool _storm;
 
     /// <summary>Indexy budov ve výřezu — jeden seznam na celý život.</summary>
     private readonly List<int> _visible = new();
@@ -62,10 +75,21 @@ public sealed class HazardRenderer
         _moundShade = Color.Lerp(_mound, Color.Black, 0.18f);
         _moundLight = Color.Lerp(_mound, Color.White, 0.3f);
         _frostNetworks = new bool[content.Networks.Count];
+        _sinkNetworks = new bool[content.Networks.Count];
         for (int n = 0; n < _frostNetworks.Length; n++)
         {
             _frostNetworks[n] = content.Networks[n].ShortageLook == NetworkTypeDef.FrostLook;
             _anyFrost |= _frostNetworks[n];
+            _sinkNetworks[n] = content.Networks[n].ShortageLook == NetworkTypeDef.SinkLook;
+            _anySink |= _sinkNetworks[n];
+        }
+
+        _storm = content.Hazards.BurialIsStorm;
+        if (_storm)
+        {
+            _mound = StormCloud;
+            _moundShade = Color.Lerp(StormCloud, Color.Black, 0.3f);
+            _moundLight = Color.Lerp(StormCloud, Lightning, 0.5f);
         }
     }
 
@@ -75,7 +99,7 @@ public sealed class HazardRenderer
     /// <summary>Zasypané budovy a běžící bouře. Svět bez jevů nestojí nic.</summary>
     public void Draw(SpriteBatch spriteBatch, Camera2D camera, Simulation simulation)
     {
-        if (_content.Hazards.Count == 0 && !_anyFrost)
+        if (_content.Hazards.Count == 0 && !_anyFrost && !_anySink)
         {
             return;
         }
@@ -122,6 +146,12 @@ public sealed class HazardRenderer
                 continue;
             }
 
+            if (_anySink && buildings[i].Stall == BuildingStall.NetworkShortage)
+            {
+                DrawSinking(spriteBatch, buildings[i]);
+                continue;
+            }
+
             if (buildings[i].DisabledTicks > 0 && buildings[i].DisabledCause == DisableCause.Flood)
             {
                 DrawFlooded(spriteBatch, buildings[i]);
@@ -136,6 +166,12 @@ public sealed class HazardRenderer
 
             if (buildings[i].DisabledTicks <= 0 || buildings[i].DisabledCause != DisableCause.Burial)
             {
+                continue;
+            }
+
+            if (_storm)
+            {
+                DrawStruck(spriteBatch, buildings[i]);
                 continue;
             }
 
@@ -216,6 +252,77 @@ public sealed class HazardRenderer
     }
 
     /// <summary>
+    /// Budova, kterou zasáhl bouřkový pás: začouzená, s jiskrami, které
+    /// přeskakují po střeše. Nic nespadlo — jen vypadla a sama se vrátí.
+    /// </summary>
+    private void DrawStruck(SpriteBatch spriteBatch, in BuildingInstance building)
+    {
+        var def = _content.Buildings[building.DefIndex];
+        int px = building.X * TileSize;
+        int py = building.Y * TileSize;
+        int width = def.FootprintWidth * TileSize;
+        int height = def.FootprintHeight * TileSize;
+        spriteBatch.Draw(_pixel, new Rectangle(px, py, width, height), Soot * 0.45f);
+
+        for (int k = 0; k < 3; k++)
+        {
+            float h = Hash(building.X * 23 + k, building.Y * 11 + k);
+            if ((_time * 2.5f + h * 7f) % 1f > 0.35f)
+            {
+                continue; // jiskra skáče, nesvítí pořád
+            }
+
+            int sx = px + 1 + (int)(h * Math.Max(1, width - 3));
+            int sy = py + 1 + (int)(Hash(building.Y + k, building.X * 3) * Math.Max(1, height / 2));
+            spriteBatch.Draw(_pixel, new Rectangle(sx, sy, 2, 1), Lightning);
+            spriteBatch.Draw(_pixel, new Rectangle(sx + 1, sy + 1, 1, 2), Lightning * 0.7f);
+        }
+    }
+
+    /// <summary>
+    /// Budova bez vztlaku klesá: potemní a spodek jí zakryjí mraky, které
+    /// pomalu plují. Nic nespadne — plošina jen visí níž, dokud vztlak
+    /// nepřibude.
+    /// </summary>
+    private void DrawSinking(SpriteBatch spriteBatch, in BuildingInstance building)
+    {
+        var def = _content.Buildings[building.DefIndex];
+        bool sunk = false;
+        foreach (var use in def.Networks)
+        {
+            sunk |= use.Demand > 0 && use.NetworkIndex < _sinkNetworks.Length && _sinkNetworks[use.NetworkIndex];
+        }
+
+        if (!sunk)
+        {
+            return;
+        }
+
+        int px = building.X * TileSize;
+        int py = building.Y * TileSize;
+        int width = def.FootprintWidth * TileSize;
+        int height = def.FootprintHeight * TileSize;
+        spriteBatch.Draw(_pixel, new Rectangle(px, py, width, height), Soot * 0.35f);
+
+        // Chuchvalce mraků přes spodek: tři řady, každá pluje jinou rychlostí.
+        int band = Math.Max(4, height / 2);
+        for (int row = 0; row < 3; row++)
+        {
+            int y = py + height - band + row * band / 3;
+            float shift = (_time * (3f + row) + Hash(building.X, building.Y + row) * 12f) % 10f;
+            for (float x = shift - 10f; x < width; x += 10f)
+            {
+                int wx = px + Math.Max(0, (int)x);
+                int w = Math.Min(7, px + width - wx);
+                if (w > 0)
+                {
+                    spriteBatch.Draw(_pixel, new Rectangle(wx, y, w, band / 3 + 1), CloudWisp * (0.55f + row * 0.15f));
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Jinovatka na budově, které chybí teplo: bledě modrý závoj, sněhová
     /// čepice nahoře, rampouchy dole a pár třpytek. Kreslí se jen u budov,
     /// jejichž výpadek způsobila mrznoucí síť — jinak by „bez proudu" na
@@ -281,6 +388,11 @@ public sealed class HazardRenderer
         spriteBatch.Draw(_pixel, center, null, _mound * 0.28f, rotation, new Vector2(0.5f, 0.5f),
             new Vector2(length, width), SpriteEffects.None, 0f);
 
+        if (_storm)
+        {
+            DrawLightning(spriteBatch, center, across, move, length, width);
+        }
+
         // Proužky: poloha je hash indexu, posun po větru je čas — žádný stav.
         float moveRotation = MathF.Atan2(move.Y, move.X);
         for (int i = 0; i < Streaks; i++)
@@ -294,6 +406,34 @@ public sealed class HazardRenderer
             var color = (i % 3 == 0 ? _moundLight : _moundShade) * 0.55f;
             spriteBatch.Draw(_pixel, position, null, color, moveRotation, Vector2.Zero,
                 new Vector2(streak, 1), SpriteEffects.None, 0f);
+        }
+    }
+
+    /// <summary>
+    /// Blesky v bouřkovém pásu: pár klikatých čar, každá blikne na zlomek
+    /// sekundy v jiný čas. Poloha i chvíle jsou hash — žádný stav.
+    /// </summary>
+    private void DrawLightning(SpriteBatch spriteBatch, Vector2 center, Vector2 across, Vector2 move, float length, float width)
+    {
+        const int Bolts = 7;
+        for (int b = 0; b < Bolts; b++)
+        {
+            float phase = (_time * 0.9f + Hash(b, 11)) % 1f;
+            if (phase > 0.07f)
+            {
+                continue;
+            }
+
+            float bright = 1f - phase / 0.07f;
+            var point = center + across * ((Hash(b, 12) - 0.5f) * length) + move * ((Hash(b, 13) - 0.5f) * width);
+            for (int segment = 0; segment < 5; segment++)
+            {
+                var next = point + new Vector2((Hash(b * 7 + segment, 14) - 0.5f) * 14f, 8f + Hash(b, segment) * 6f);
+                var delta = next - point;
+                spriteBatch.Draw(_pixel, point, null, Lightning * bright, MathF.Atan2(delta.Y, delta.X), Vector2.Zero,
+                    new Vector2(delta.Length(), 1.5f), SpriteEffects.None, 0f);
+                point = next;
+            }
         }
     }
 

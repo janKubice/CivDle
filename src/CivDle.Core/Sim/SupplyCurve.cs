@@ -28,12 +28,19 @@ public static class SupplyCurve
     /// Násobič dodávky v daném čase; <paramref name="dayDim"/> ubere slunci
     /// (písečná bouře zakryje zrcadla).
     /// </summary>
-    public static double Factor(SupplyTime time, double timeOfDay, double dayDim = 1.0) => time switch
+    public static double Factor(SupplyTime time, double timeOfDay, double dayDim = 1.0, bool storm = false) => time switch
     {
         SupplyTime.Day => Math.Round(Sun(timeOfDay) * Steps) / Steps * dayDim,
         SupplyTime.Night => IsNight(timeOfDay) ? 1.0 : 0.0,
+        SupplyTime.Storm => storm ? 1.0 : 0.0,
         _ => 1.0,
     };
+
+    /// <summary>
+    /// Jakou část času jde přes město bouřkový pás — průměr hromosvodu pro
+    /// guvernéra. Hrubě: pás přejde za minutu a přichází po čtyřech až pěti.
+    /// </summary>
+    public const double StormShare = 0.2;
 
     /// <summary>
     /// Průměr za celý den — podle něj plánuje guvernér. Kdyby koukal na
@@ -43,15 +50,17 @@ public static class SupplyCurve
     {
         SupplyTime.Day => 1.0 / Math.PI, // průměr kladné půlvlny sinu přes celý den
         SupplyTime.Night => 0.5,
+        SupplyTime.Storm => StormShare,
         _ => 1.0,
     };
 
     /// <summary>
     /// Číslo schodu — když se změní, síť se přepočítá. Noc je jeden schod,
-    /// den osm; ztlumení (bouře) se přičte, aby změna počasí přepočet vyvolala.
+    /// den osm; ztlumení a bouřkový pás se přičtou, aby změna počasí přepočet
+    /// vyvolala.
     /// </summary>
-    public static int Phase(double timeOfDay, bool dimmed) =>
-        (IsNight(timeOfDay) ? -1 : (int)Math.Round(Sun(timeOfDay) * Steps)) + (dimmed ? 100 : 0);
+    public static int Phase(double timeOfDay, bool dimmed, bool storm = false) =>
+        (IsNight(timeOfDay) ? -1 : (int)Math.Round(Sun(timeOfDay) * Steps)) + (dimmed ? 100 : 0) + (storm ? 1000 : 0);
 }
 
 /// <summary>
@@ -74,7 +83,8 @@ public readonly record struct NetworkBoost(double SupplyMult, double DemandMult,
 /// <param name="TimeOfDay">Denní čas 0–1.</param>
 /// <param name="Steady">Počítat s průměrem dne, ne s okamžikem.</param>
 /// <param name="DayDim">Kolik slunce projde (1 = jasno).</param>
-public readonly record struct NetworkLight(double TimeOfDay, bool Steady, double DayDim = 1.0)
+/// <param name="Storm">Jde přes město bouřkový pás (hromosvody dodávají)?</param>
+public readonly record struct NetworkLight(double TimeOfDay, bool Steady, double DayDim = 1.0, bool Storm = false)
 {
     /// <summary>Světlo, na kterém nezáleží (obsah bez časovaných zdrojů).</summary>
     public static NetworkLight Noon => new(0.5, false);
@@ -84,5 +94,5 @@ public readonly record struct NetworkLight(double TimeOfDay, bool Steady, double
     /// přejde, a guvernér nemá stavět kvůli počasí.
     /// </summary>
     public double FactorFor(SupplyTime time) =>
-        Steady ? SupplyCurve.Average(time) : SupplyCurve.Factor(time, TimeOfDay, DayDim);
+        Steady ? SupplyCurve.Average(time) : SupplyCurve.Factor(time, TimeOfDay, DayDim, Storm);
 }
