@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Roční období na Mrazu: sníh leží celý rok, v zimě je polární noc (daylight — podíl dne se sluncem) a teplo se hledá o polovinu víc (networkDemand). Netopí se palivem lidí — hřeje tepelná síť (fuelResource: null).",
+  "fuelResource": null,
+  "seasons": [
+    {
+      "id": "spring",
+      "daylight": 0.55,
+      "foodProductionMult": 1.0,
+      "growthMult": 1.05,
+      "groundSnow": 0.6,
+      "groundTintStrength": 0.0,
+      "moteColor": "#F4F8FF",
+      "moteDensity": 0.3,
+      "moteFall": 0.25
+    },
+    {
+      "id": "summer",
+      "daylight": 0.8,
+      "tintColor": "#FFE8C0",
+      "tintAlpha": 0.02,
+      "foodProductionMult": 1.15,
+      "growthMult": 1.1,
+      "groundSnow": 0.3,
+      "moteColor": "#F0F4E8",
+      "moteDensity": 0.15,
+      "moteFall": 0.1
+    },
+    {
+      "id": "autumn",
+      "daylight": 0.45,
+      "foodProductionMult": 1.0,
+      "harvestMult": 1.0,
+      "groundSnow": 0.6,
+      "groundTintStrength": 0.0,
+      "moteColor": "#F4F8FF",
+      "moteDensity": 0.4,
+      "moteFall": 0.35
+    },
+    {
+      "id": "winter",
+      "daylight": 0.15,
+      "tintColor": "#8AA8D8",
+      "tintAlpha": 0.05,
+      "foodProductionMult": 0.8,
+      "harvestMult": 0.8,
+      "growthMult": 0.85,
+      "fuelPerPersonPerSecond": 0.0,
+      "coldGrowthMult": 1.0,
+      "snowCover": 1.0,
+      "groundSnow": 1.0,
+      "networkDemand": {
+        "heat": 1.5
+      },
+      "moteColor": "#FFFFFF",
+      "moteDensity": 0.75,
+      "moteFall": 0.4
+    }
+  ]
+}

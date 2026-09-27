@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Zvláštní dlaždice Mrazu. Nevznikají z rozsahů výšky a vlhkosti (natural: false) — pokládá je záplata předvolby 'frost' (worldgen.json).",
+  "biomes": [
+    {
+      "id": "hot_spring",
+      "mapColor": "#6FB0A8",
+      "colorVariation": 0.06,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        1.0
+      ],
+      "natural": false,
+      "productionMult": 1.2
+    },
+    {
+      "id": "peat_bog",
+      "mapColor": "#5E5040",
+      "colorVariation": 0.06,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        1.0
+      ],
+      "natural": false,
+      "clickYield": {
+        "resource": "peat",
+        "amount": 2,
+        "charges": 10,
+        "regrowSeconds": 600
+      },
+      "productionMult": 0.9
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Přírodní jevy Mrazu (svety-design.md 4.2). Vánice přejde přes město jako pás po směru větru; co stojí v pásu a nechrání ho sněžná pluhovna, zasype sníh — vypadne z provozu, lidé ho odhrabou. První do deseti minut, s minutovým varováním.",
+  "hazards": [
+    {
+      "id": "blizzard",
+      "behavior": "weather_burial",
+      "firstAfterSeconds": 540,
+      "intervalSeconds": 780,
+      "intervalJitter": 0.3,
+      "warningSeconds": 60,
+      "sweepSeconds": 45,
+      "bandTiles": 18,
+      "burySeconds": 120,
+      "weather": "blizzard",
+      "solarDim": 0.5,
+      "minBuildings": 5
+    }
+  ]
+}

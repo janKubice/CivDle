@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Zvěř Mrazu: sobi, polární lišky, sovy, tuleni na kře — sdílená s Domovinou (značka worlds), tady i na zvláštních dlaždicích Mrazu.",
+  "fauna": [
+    {
+      "id": "reindeer",
+      "biomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "steppe"
+      ]
+    },
+    {
+      "id": "arctic_fox",
+      "biomes": [
+        "tundra",
+        "taiga",
+        "ice_shelf",
+        "glacier"
+      ]
+    },
+    {
+      "id": "owl",
+      "biomes": [
+        "taiga",
+        "tundra"
+      ]
+    },
+    {
+      "id": "seal",
+      "biomes": [
+        "ice_shelf",
+        "beach"
+      ]
+    },
+    {
+      "id": "polar_bear",
+      "biomes": [
+        "ice_shelf",
+        "glacier"
+      ]
+    },
+    {
+      "id": "snow_hare",
+      "biomes": [
+        "tundra",
+        "taiga",
+        "peat_bog"
+      ]
+    }
+  ]
+}

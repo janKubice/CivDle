@@ -1,0 +1,1268 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Budovy Mrazu (svety-design.md 4.2) a úpravy sdílených budov Domoviny: kde na Mrazu smí stát a že i ony potřebují teplo (null klíč smaže).",
+  "buildings": [
+    {
+      "id": "warehouse",
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "networks": {
+        "heat": {
+          "demand": 1
+        }
+      }
+    },
+    {
+      "id": "granary",
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "networks": {
+        "heat": {
+          "demand": 1
+        }
+      }
+    },
+    {
+      "id": "depot",
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "networks": {
+        "heat": {
+          "demand": 1
+        }
+      }
+    },
+    {
+      "id": "market",
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "networks": {
+        "heat": {
+          "demand": 1
+        }
+      }
+    },
+    {
+      "id": "library",
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "networks": {
+        "heat": {
+          "demand": 1
+        }
+      }
+    },
+    {
+      "id": "school",
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "networks": {
+        "heat": {
+          "demand": 1
+        }
+      }
+    },
+    {
+      "id": "university",
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "networks": {
+        "heat": {
+          "demand": 1
+        }
+      }
+    },
+    {
+      "id": "shrine",
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "networks": {
+        "heat": {
+          "demand": 1
+        }
+      }
+    },
+    {
+      "id": "temple",
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "networks": {
+        "heat": {
+          "demand": 1
+        }
+      }
+    },
+    {
+      "id": "toolmaker",
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "networks": {
+        "heat": {
+          "demand": 1
+        }
+      }
+    },
+    {
+      "id": "great_warehouse",
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "upgradesTo": null,
+      "networks": {
+        "heat": {
+          "demand": 2
+        }
+      }
+    },
+    {
+      "id": "frost_lander",
+      "category": "housing",
+      "_comment_trade": "Modul drží spojení s lodí na oběžné dráze: malá kapacita tras hned od přistání.",
+      "tradeCapacity": 0.5,
+      "mapColor": "#C9CED6",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "ice": 1
+      },
+      "housingCapacity": 30,
+      "buildable": false,
+      "workerSlots": 2,
+      "recipe": {
+        "output": {
+          "food": 2,
+          "ice": 1
+        },
+        "timeTicks": 60
+      },
+      "storage": {
+        "ice": 200,
+        "peat": 200,
+        "lichen": 150,
+        "food": 200,
+        "frost_crystal": 60,
+        "cut_crystal": 40,
+        "heat_cell": 40
+      },
+      "networks": {
+        "heat": {
+          "supply": 16
+        }
+      },
+      "powerSupply": 4,
+      "visualHeight": 1,
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "look": {
+        "shape": "dome",
+        "wall": "#C9CED6",
+        "roof": "#8A97A8",
+        "accent": "#E8843A",
+        "features": [
+          "windows",
+          "antenna",
+          "chimney",
+          "glow",
+          "snow"
+        ],
+        "glow": "#FFD8A0"
+      }
+    },
+    {
+      "id": "ice_house",
+      "category": "housing",
+      "mapColor": "#D8ECF6",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "ice": 5,
+        "peat": 1
+      },
+      "housingCapacity": 6,
+      "autoBuild": true,
+      "mergesTo": "habitat_dome",
+      "mergeCost": {
+        "ice": 20,
+        "frost_crystal": 4
+      },
+      "networks": {
+        "heat": {
+          "demand": 1
+        }
+      },
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "look": {
+        "shape": "dome",
+        "wall": "#D8ECF6",
+        "roof": "#B8D8EA",
+        "accent": "#6A8AA8",
+        "features": [
+          "dome_roof",
+          "windows",
+          "snow"
+        ],
+        "glow": "#FFD27A"
+      }
+    },
+    {
+      "id": "hearth_house",
+      "category": "housing",
+      "_comment": "Hřeje sebe i nejbližší sousedy, dokud má rašelinu (recept bez výstupu = palivo).",
+      "mapColor": "#8A7A68",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "ice": 6,
+        "peat": 4
+      },
+      "housingCapacity": 10,
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "peat": 1
+        },
+        "timeTicks": 90
+      },
+      "networks": {
+        "heat": {
+          "supply": 4,
+          "demand": 1
+        }
+      },
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "look": {
+        "shape": "house",
+        "wall": "#8A7A68",
+        "roof": "#5A4A3C",
+        "accent": "#E8843A",
+        "features": [
+          "chimney",
+          "steam",
+          "windows",
+          "snow"
+        ],
+        "glow": "#FFC070"
+      }
+    },
+    {
+      "id": "habitat_dome",
+      "category": "housing",
+      "mapColor": "#CFE6F2",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "ice": 30,
+        "frost_crystal": 6
+      },
+      "housingCapacity": 36,
+      "autoBuild": true,
+      "networks": {
+        "heat": {
+          "demand": 3
+        }
+      },
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "look": {
+        "shape": "dome",
+        "wall": "#CFE6F2",
+        "roof": "#9FC8E0",
+        "accent": "#6A8AA8",
+        "features": [
+          "dome_roof",
+          "windows",
+          "glow",
+          "snow"
+        ],
+        "glow": "#FFD8A0"
+      }
+    },
+    {
+      "id": "thermal_tower",
+      "category": "housing",
+      "mapColor": "#B8C8D8",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "ice": 90,
+        "cut_crystal": 20,
+        "heat_cell": 10
+      },
+      "housingCapacity": 100,
+      "autoBuild": true,
+      "serviceValue": 3,
+      "visualHeight": 2,
+      "networks": {
+        "heat": {
+          "demand": 5
+        }
+      },
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "look": {
+        "shape": "tower",
+        "wall": "#B8C8D8",
+        "roof": "#7A8A9C",
+        "accent": "#E8843A",
+        "features": [
+          "windows",
+          "steam",
+          "spire_top",
+          "snow"
+        ],
+        "glow": "#FFD8A0"
+      }
+    },
+    {
+      "id": "peat_stove",
+      "category": "production",
+      "_comment": "Malý zdroj tepla: hřeje, dokud má rašelinu.",
+      "mapColor": "#6A5040",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "ice": 6
+      },
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "peat": 1
+        },
+        "timeTicks": 60
+      },
+      "networks": {
+        "heat": {
+          "supply": 10
+        }
+      },
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "look": {
+        "shape": "wall",
+        "wall": "#6A5040",
+        "roof": "#4A3A30",
+        "accent": "#E8843A",
+        "features": [
+          "glow",
+          "steam"
+        ],
+        "glow": "#FFB060"
+      }
+    },
+    {
+      "id": "steam_generator",
+      "category": "power",
+      "mapColor": "#7A8290",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "ice": 40,
+        "frost_crystal": 10
+      },
+      "workerSlots": 3,
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "peat": 3
+        },
+        "timeTicks": 60
+      },
+      "networks": {
+        "heat": {
+          "supply": 36
+        }
+      },
+      "powerSupply": 14,
+      "pollution": {
+        "air": 0.3
+      },
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "look": {
+        "shape": "tanks",
+        "wall": "#7A8290",
+        "roof": "#4A5260",
+        "accent": "#E8843A",
+        "features": [
+          "chimney",
+          "steam",
+          "pipes",
+          "glow"
+        ],
+        "glow": "#FFB060"
+      }
+    },
+    {
+      "id": "geothermal_bore",
+      "category": "power",
+      "mapColor": "#6FB0A8",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "ice": 30,
+        "frost_crystal": 12
+      },
+      "workerSlots": 1,
+      "autoBuild": true,
+      "networks": {
+        "heat": {
+          "supply": 45
+        }
+      },
+      "powerSupply": 4,
+      "allowedBiomes": [
+        "hot_spring"
+      ],
+      "look": {
+        "shape": "rig",
+        "wall": "#6A7480",
+        "roof": "#4A525C",
+        "accent": "#6FB0A8",
+        "features": [
+          "steam",
+          "water",
+          "pipes"
+        ],
+        "glow": "#BFF0E8"
+      }
+    },
+    {
+      "id": "heat_relay",
+      "category": "civic",
+      "_comment": "Tepelná věž: pálí tepelné články a nese teplo dál — přenosné teplo pro vzdálené budovy.",
+      "mapColor": "#B87A48",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "ice": 20,
+        "cut_crystal": 4
+      },
+      "recipe": {
+        "input": {
+          "heat_cell": 1
+        },
+        "timeTicks": 240
+      },
+      "networks": {
+        "heat": {
+          "supply": 6,
+          "relay": 4
+        }
+      },
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "look": {
+        "shape": "mast",
+        "wall": "#B87A48",
+        "roof": "#8A5A34",
+        "accent": "#FF9A4A",
+        "features": [
+          "glow",
+          "stripes"
+        ],
+        "glow": "#FFB060"
+      }
+    },
+    {
+      "id": "snowplow_depot",
+      "category": "civic",
+      "mapColor": "#8A94A0",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "ice": 12,
+        "peat": 4
+      },
+      "workerSlots": 2,
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "shelter": {
+        "blizzard": 7
+      },
+      "look": {
+        "shape": "workshop",
+        "wall": "#8A94A0",
+        "roof": "#5A6470",
+        "accent": "#E8C040",
+        "features": [
+          "snow",
+          "stripes"
+        ]
+      }
+    },
+    {
+      "id": "ice_quarry",
+      "category": "production",
+      "mapColor": "#9FD0EA",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "ice": 4
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "ice": 2
+        },
+        "timeTicks": 40
+      },
+      "allowedBiomes": [
+        "glacier",
+        "ice_shelf",
+        "tundra",
+        "snow_peaks",
+        "taiga"
+      ],
+      "adjacency": {
+        "biomes": [
+          "glacier",
+          "ice_shelf"
+        ],
+        "radius": 2,
+        "perTile": 0.03,
+        "max": 0.35
+      },
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "pit",
+        "wall": "#9FD0EA",
+        "roof": "#6FA8C8",
+        "accent": "#E8F6FF",
+        "features": [
+          "ropes",
+          "snow"
+        ]
+      }
+    },
+    {
+      "id": "peat_cutter",
+      "category": "production",
+      "mapColor": "#5A4636",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "ice": 6
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "peat": 2
+        },
+        "timeTicks": 45
+      },
+      "allowedBiomes": [
+        "peat_bog",
+        "tundra",
+        "taiga"
+      ],
+      "adjacency": {
+        "biomes": [
+          "peat_bog"
+        ],
+        "radius": 2,
+        "perTile": 0.04,
+        "max": 0.4
+      },
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "field",
+        "wall": "#5A4636",
+        "roof": "#3A2A20",
+        "accent": "#8A7050",
+        "features": [
+          "stripes"
+        ]
+      }
+    },
+    {
+      "id": "lichen_gatherer",
+      "category": "production",
+      "mapColor": "#9FB08A",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "ice": 5
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "lichen": 2
+        },
+        "timeTicks": 40
+      },
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "steppe",
+        "grassland",
+        "highlands"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "hut",
+        "wall": "#8A7A68",
+        "roof": "#9FB08A",
+        "accent": "#6A8A5A",
+        "features": [
+          "plants",
+          "snow"
+        ]
+      }
+    },
+    {
+      "id": "crystal_mine",
+      "category": "production",
+      "mapColor": "#7FC8F0",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "ice": 20,
+        "peat": 6
+      },
+      "workerSlots": 3,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "frost_crystal": 1
+        },
+        "timeTicks": 60
+      },
+      "networks": {
+        "heat": {
+          "demand": 2
+        }
+      },
+      "allowedBiomes": [
+        "glacier",
+        "mountains",
+        "snow_peaks",
+        "highlands",
+        "ice_shelf",
+        "tundra"
+      ],
+      "adjacency": {
+        "biomes": [
+          "glacier",
+          "snow_peaks",
+          "mountains"
+        ],
+        "radius": 2,
+        "perTile": 0.04,
+        "max": 0.5
+      },
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "pit",
+        "wall": "#5A6A7A",
+        "roof": "#3A4A5A",
+        "accent": "#7FC8F0",
+        "features": [
+          "crystals",
+          "glow"
+        ],
+        "glow": "#9FE0FF"
+      }
+    },
+    {
+      "id": "greenhouse",
+      "category": "production",
+      "mapColor": "#7FB86A",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "ice": 20,
+        "peat": 6
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "lichen": 2
+        },
+        "output": {
+          "food": 6
+        },
+        "timeTicks": 50
+      },
+      "networks": {
+        "heat": {
+          "demand": 2
+        }
+      },
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "dome",
+        "wall": "#CFE6F2",
+        "roof": "#8FC87A",
+        "accent": "#5A9A4A",
+        "features": [
+          "dome_roof",
+          "plants",
+          "glow"
+        ],
+        "glow": "#9FF08A"
+      }
+    },
+    {
+      "id": "crystal_cutter",
+      "category": "production",
+      "mapColor": "#B8E8FF",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "ice": 30,
+        "frost_crystal": 10
+      },
+      "workerSlots": 3,
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "frost_crystal": 2
+        },
+        "output": {
+          "cut_crystal": 1
+        },
+        "timeTicks": 60
+      },
+      "powerDemand": 2,
+      "networks": {
+        "heat": {
+          "demand": 2
+        }
+      },
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "workshop",
+        "wall": "#8A9AAA",
+        "roof": "#5A6A7A",
+        "accent": "#B8E8FF",
+        "features": [
+          "crystals",
+          "windows",
+          "glow"
+        ],
+        "glow": "#DFF6FF"
+      }
+    },
+    {
+      "id": "heat_cell_works",
+      "category": "production",
+      "mapColor": "#E8843A",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "ice": 30,
+        "cut_crystal": 6
+      },
+      "workerSlots": 3,
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "frost_crystal": 1,
+          "peat": 2
+        },
+        "output": {
+          "heat_cell": 1
+        },
+        "timeTicks": 70
+      },
+      "networks": {
+        "heat": {
+          "demand": 2
+        }
+      },
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "tanks",
+        "wall": "#8A7A6A",
+        "roof": "#5A4A3C",
+        "accent": "#E8843A",
+        "features": [
+          "pipes",
+          "glow",
+          "chimney"
+        ],
+        "glow": "#FFB060"
+      }
+    },
+    {
+      "id": "hot_springs_spa",
+      "category": "civic",
+      "mapColor": "#8FC8C0",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "ice": 20,
+        "peat": 8
+      },
+      "serviceValue": 9,
+      "autoBuild": true,
+      "networks": {
+        "heat": {
+          "demand": 2
+        }
+      },
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "look": {
+        "shape": "pool",
+        "wall": "#9FB0B8",
+        "roof": "#6A7A84",
+        "accent": "#6FB0A8",
+        "features": [
+          "steam",
+          "water",
+          "snow"
+        ]
+      }
+    },
+    {
+      "id": "aurora_observatory",
+      "category": "science",
+      "mapColor": "#E8EEF6",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "ice": 50,
+        "frost_crystal": 16
+      },
+      "workerSlots": 3,
+      "serviceValue": 5,
+      "autoBuild": true,
+      "powerDemand": 2,
+      "recipe": {
+        "output": {
+          "science": 4
+        },
+        "timeTicks": 60
+      },
+      "networks": {
+        "heat": {
+          "demand": 2
+        }
+      },
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "look": {
+        "shape": "dome",
+        "wall": "#E8EEF6",
+        "roof": "#C8D4E0",
+        "accent": "#6FD8A0",
+        "features": [
+          "dome_roof",
+          "antenna",
+          "glow",
+          "snow"
+        ],
+        "glow": "#BFFFE0"
+      }
+    },
+    {
+      "id": "winter_harbor",
+      "category": "civic",
+      "tradeCapacity": 3,
+      "mapColor": "#8AA0B4",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "ice": 80,
+        "cut_crystal": 20,
+        "peat": 20
+      },
+      "housingCapacity": 4,
+      "workerSlots": 4,
+      "serviceValue": 5,
+      "upkeep": {
+        "food": 2
+      },
+      "requiresAdjacentWater": true,
+      "storage": {
+        "cut_crystal": 200,
+        "heat_cell": 150,
+        "ice": 200,
+        "food": 200,
+        "peat": 150
+      },
+      "networks": {
+        "heat": {
+          "demand": 2
+        }
+      },
+      "allowedBiomes": [
+        "beach",
+        "ice_shelf",
+        "tundra",
+        "taiga",
+        "steppe",
+        "grassland"
+      ],
+      "look": {
+        "shape": "pier",
+        "wall": "#8AA0B4",
+        "roof": "#5A6A7A",
+        "accent": "#E8C040",
+        "features": [
+          "flag",
+          "lanterns",
+          "snow"
+        ],
+        "glow": "#FFD27A"
+      }
+    },
+    {
+      "id": "winter_heart",
+      "category": "megastructure",
+      "mapColor": "#FFB870",
+      "footprint": [
+        5,
+        5
+      ],
+      "buildCost": {
+        "ice": 5000,
+        "cut_crystal": 800,
+        "heat_cell": 400,
+        "frost_crystal": 1500
+      },
+      "serviceValue": 40,
+      "buildTicks": 3000,
+      "visualHeight": 2,
+      "networks": {
+        "heat": {
+          "supply": 300,
+          "relay": 10
+        }
+      },
+      "allowedBiomes": [
+        "tundra",
+        "taiga",
+        "peat_bog",
+        "hot_spring",
+        "ice_shelf",
+        "steppe",
+        "grassland",
+        "highlands",
+        "beach"
+      ],
+      "shelter": {
+        "blizzard": 14
+      },
+      "look": {
+        "shape": "column",
+        "wall": "#C8B8A8",
+        "roof": "#8A6A50",
+        "accent": "#FFB870",
+        "features": [
+          "glow",
+          "spark",
+          "steam",
+          "rings"
+        ],
+        "glow": "#FFE0A0"
+      }
+    }
+  ]
+}

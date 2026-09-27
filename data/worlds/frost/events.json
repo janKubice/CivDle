@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Události Mrazu. Návrat slunce je svátek po polární noci; lavina je událost s volbou, ne přírodní jev.",
+  "events": [
+    {
+      "id": "frost_aurora",
+      "choices": [
+        {
+          "id": "watch",
+          "effect": {
+            "kind": "growth",
+            "multiplier": 1.2,
+            "seconds": 120
+          }
+        },
+        {
+          "id": "measure",
+          "gain": {
+            "science": 40
+          }
+        }
+      ]
+    },
+    {
+      "id": "frost_frozen_river",
+      "choices": [
+        {
+          "id": "cross",
+          "gain": {
+            "ice": 60
+          }
+        },
+        {
+          "id": "wait"
+        }
+      ]
+    },
+    {
+      "id": "frost_ice_floe",
+      "choices": [
+        {
+          "id": "admire",
+          "effect": {
+            "kind": "growth",
+            "multiplier": 1.1,
+            "seconds": 90
+          }
+        },
+        {
+          "id": "ignore"
+        }
+      ]
+    },
+    {
+      "id": "frost_return_of_sun",
+      "requires": {
+        "metric": "research",
+        "tech": "ice_insulation",
+        "target": 1
+      },
+      "choices": [
+        {
+          "id": "celebrate",
+          "cost": {
+            "food": 50
+          },
+          "effect": {
+            "kind": "growth",
+            "multiplier": 1.3,
+            "seconds": 180
+          }
+        },
+        {
+          "id": "work",
+          "gain": {
+            "peat": 40
+          }
+        }
+      ]
+    },
+    {
+      "id": "frost_avalanche",
+      "choices": [
+        {
+          "id": "dig",
+          "cost": {
+            "peat": 30
+          },
+          "gain": {
+            "ice": 40
+          }
+        },
+        {
+          "id": "wait",
+          "effect": {
+            "kind": "production",
+            "multiplier": 0.85,
+            "seconds": 150
+          }
+        }
+      ]
+    }
+  ]
+}

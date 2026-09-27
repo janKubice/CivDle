@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Tepelná síť Mrazu (svety-design.md 4.2): zdroj ohřeje buňky 8×8 kolem sebe, dokud stačí dosah. Pod polovičním pokrytím budova zamrzne (cutoff) — výroba stojí, sama rozmrzne, jakmile se teplo vrátí. Horký pramen hřeje sám. V dosahu tepla roztaje sníh (ground).",
+  "networks": [
+    {
+      "id": "heat",
+      "range": 2,
+      "shortage": "cutoff",
+      "cutoffBelow": 0.5,
+      "overlayColor": "#FF9A4A",
+      "terrainSources": [
+        {
+          "biome": "hot_spring",
+          "supplyPerTile": 0.5
+        }
+      ],
+      "housing": {
+        "growthPenalty": 0.8,
+        "happinessPenalty": 0.2
+      },
+      "ground": {
+        "color": "#7A6650",
+        "on": [
+          "tundra",
+          "taiga",
+          "peat_bog",
+          "ice_shelf",
+          "steppe",
+          "grassland",
+          "highlands",
+          "beach",
+          "glacier"
+        ],
+        "density": 0.3
+      },
+      "shortageLook": "frost"
+    }
+  ]
+}

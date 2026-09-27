@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Mráz — ledový svět (svety-design.md 4.2). Náhrady: sdílené budovy Domoviny tu stojí led místo dřeva, kamene a prken, mrazové krystaly místo železa a broušené krystaly místo bronzu.",
+  "preset": "frost",
+  "atmosphere": "frost",
+  "landingModule": "frost_lander",
+  "startingKit": {
+    "ice": 160,
+    "peat": 140,
+    "food": 220,
+    "tools": 20
+  },
+  "exports": [
+    "cut_crystal",
+    "heat_cell"
+  ],
+  "port": "winter_harbor",
+  "substitutes": {
+    "wood": "ice",
+    "stone": "ice",
+    "planks": "ice",
+    "bronze": "cut_crystal",
+    "iron": "frost_crystal"
+  },
+  "withoutSystems": [
+    "npc-cities",
+    "figures",
+    "doctrines",
+    "poi",
+    "scenarios",
+    "carillon",
+    "frontier",
+    "orbit",
+    "grandwork",
+    "faith",
+    "citizens",
+    "contracts",
+    "challenges",
+    "tutorial",
+    "milestones",
+    "features",
+    "landmarks"
+  ]
+}

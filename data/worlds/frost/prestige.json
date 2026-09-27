@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Vzestup Mrazu (svety-design.md 4.2): vylepšení pravidla světa navíc ke společným. Platí jen v téhle kolonii.",
+  "upgrades": [
+    {
+      "id": "frost_better_insulation",
+      "effect": "network_demand",
+      "magnitude": 0.08,
+      "cost": 2,
+      "maxLevel": 10,
+      "costGrowth": 1.25
+    },
+    {
+      "id": "frost_long_relays",
+      "effect": "network_range",
+      "magnitude": 1,
+      "cost": 6,
+      "maxLevel": 2,
+      "costGrowth": 2.0
+    },
+    {
+      "id": "frost_deep_bores",
+      "effect": "network_supply",
+      "magnitude": 0.08,
+      "cost": 2,
+      "maxLevel": 10,
+      "costGrowth": 1.25
+    },
+    {
+      "id": "frost_frugal_stoves",
+      "effect": "production_mult",
+      "targetResource": "peat",
+      "magnitude": 0.1,
+      "cost": 1,
+      "maxLevel": 20,
+      "costGrowth": 1.2
+    },
+    {
+      "id": "frost_hardiness",
+      "effect": "growth_mult",
+      "magnitude": 0.05,
+      "cost": 2,
+      "maxLevel": 10,
+      "costGrowth": 1.25
+    },
+    {
+      "id": "frost_quick_thaw",
+      "effect": "hazard_resistance",
+      "magnitude": 0.15,
+      "cost": 2,
+      "maxLevel": 8,
+      "costGrowth": 1.3
+    },
+    {
+      "id": "frost_crystal_masters",
+      "effect": "production_mult",
+      "targetResource": "cut_crystal",
+      "magnitude": 0.1,
+      "cost": 2,
+      "maxLevel": 20,
+      "costGrowth": 1.2
+    }
+  ]
+}

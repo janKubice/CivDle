@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Výzkum Mrazu (svety-design.md 4.2) a úpravy sdílené větve Domoviny: sdílené technologie tu nemají předpoklady, které na Mrazu neexistují.",
+  "techs": [
+    {
+      "id": "writing",
+      "prerequisites": []
+    },
+    {
+      "id": "trade",
+      "prerequisites": [],
+      "unlocks": [
+        "market"
+      ]
+    },
+    {
+      "id": "tools",
+      "prerequisites": []
+    },
+    {
+      "id": "warehousing",
+      "prerequisites": [
+        "trade"
+      ]
+    },
+    {
+      "id": "apprenticeships",
+      "prerequisites": [
+        "schooling"
+      ]
+    },
+    {
+      "id": "public_works",
+      "prerequisites": [
+        "trade"
+      ]
+    },
+    {
+      "id": "ice_insulation",
+      "cost": {
+        "ice": 50,
+        "peat": 20
+      },
+      "unlocks": [
+        "habitat_dome",
+        "hot_springs_spa"
+      ]
+    },
+    {
+      "id": "peat_stoves",
+      "cost": {
+        "ice": 40,
+        "peat": 30
+      },
+      "unlocks": [
+        "hearth_house"
+      ]
+    },
+    {
+      "id": "snowplows",
+      "cost": {
+        "ice": 60,
+        "peat": 30
+      },
+      "prerequisites": [
+        "peat_stoves"
+      ],
+      "unlocks": [
+        "snowplow_depot"
+      ]
+    },
+    {
+      "id": "greenhouses",
+      "cost": {
+        "lichen": 60,
+        "ice": 40,
+        "science": 20
+      },
+      "prerequisites": [
+        "ice_insulation"
+      ],
+      "effect": "production_mult",
+      "targetResource": "food",
+      "magnitude": 0.25
+    },
+    {
+      "id": "crystallography",
+      "cost": {
+        "ice": 60,
+        "science": 30
+      },
+      "prerequisites": [
+        "ice_insulation"
+      ],
+      "unlocks": [
+        "crystal_mine",
+        "aurora_observatory"
+      ]
+    },
+    {
+      "id": "steam_heat",
+      "cost": {
+        "ice": 80,
+        "peat": 60,
+        "science": 30
+      },
+      "prerequisites": [
+        "peat_stoves"
+      ],
+      "unlocks": [
+        "steam_generator"
+      ]
+    },
+    {
+      "id": "crystal_cutting",
+      "cost": {
+        "frost_crystal": 40,
+        "science": 60
+      },
+      "prerequisites": [
+        "crystallography"
+      ],
+      "unlocks": [
+        "crystal_cutter",
+        "winter_harbor"
+      ]
+    },
+    {
+      "id": "geothermal_bores",
+      "cost": {
+        "ice": 100,
+        "frost_crystal": 30,
+        "science": 60
+      },
+      "prerequisites": [
+        "steam_heat",
+        "crystallography"
+      ],
+      "unlocks": [
+        "geothermal_bore",
+        "thermal_tower"
+      ]
+    },
+    {
+      "id": "heat_cells",
+      "cost": {
+        "frost_crystal": 60,
+        "peat": 60,
+        "science": 80
+      },
+      "prerequisites": [
+        "crystal_cutting",
+        "steam_heat"
+      ],
+      "unlocks": [
+        "heat_cell_works",
+        "heat_relay"
+      ]
+    },
+    {
+      "id": "winter_heart",
+      "cost": {
+        "cut_crystal": 300,
+        "heat_cell": 150,
+        "science": 1200
+      },
+      "prerequisites": [
+        "geothermal_bores",
+        "heat_cells"
+      ],
+      "unlocks": [
+        "winter_heart"
+      ]
+    }
+  ]
+}

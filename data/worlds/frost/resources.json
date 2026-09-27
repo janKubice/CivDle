@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Suroviny Mrazu. Jídlo, nástroje, věda a průmyslové zboží Domoviny jsou sdílené (značka worlds v data/resources.json).",
+  "resources": [
+    {
+      "id": "ice",
+      "mapColor": "#BFE0F0",
+      "startAmount": 0,
+      "baseStorage": 300
+    },
+    {
+      "id": "peat",
+      "mapColor": "#5A4636",
+      "startAmount": 0,
+      "baseStorage": 300
+    },
+    {
+      "id": "lichen",
+      "mapColor": "#9FB08A",
+      "startAmount": 0,
+      "baseStorage": 250
+    },
+    {
+      "id": "frost_crystal",
+      "mapColor": "#7FC8F0",
+      "startAmount": 0,
+      "baseStorage": 150
+    },
+    {
+      "id": "cut_crystal",
+      "mapColor": "#B8E8FF",
+      "startAmount": 0,
+      "baseStorage": 120
+    },
+    {
+      "id": "heat_cell",
+      "mapColor": "#E8843A",
+      "startAmount": 0,
+      "baseStorage": 100
+    }
+  ]
+}

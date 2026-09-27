@@ -270,7 +270,7 @@ public sealed class SmokeRun
     /// <summary>
     /// Galaxie od brány po návrat: mapa galaxie, výběr místa přistání,
     /// kolonie Duny se svou obrazovkou (atmosféra, síť, bouře), obchodní
-    /// trasy na kartě světa a přepnutí zpět na Domovinu. Loď se nestaví —
+    /// trasy na kartě světa, přepnutí zpět na Domovinu a druhá kolonie (Mráz). Loď se nestaví —
     /// její cena je v milionech a vklad testuje jádro.
     /// </summary>
     private static void GalaxyRound(ScreenManager screens, Simulation home, GameTime time)
@@ -356,11 +356,52 @@ public sealed class SmokeRun
             var homeScreen = new GameplayScreen(screens, entry.Simulation, WorldTravel.InfoOf(session), null, session);
             Frames(homeScreen, time);
             homeScreen.Dispose();
+
+            VisitColony(screens, session, time, "frost");
         }
         finally
         {
             screens.EndSession();
         }
+    }
+
+    /// <summary>
+    /// Další kolonie z Domoviny: hotová loď, přistání na prvním nabízeném
+    /// místě, pět minut guvernéra, fotka (sníh roztátý kolem tepla, jinovatka
+    /// na zamrzlých) a návrat domů. Hvězdy se neřeší — odemčení testuje jádro.
+    /// </summary>
+    private static void VisitColony(ScreenManager screens, GalaxySession session, GameTime time, string worldId)
+    {
+        var world = session.Contents.Catalog.Find(worldId);
+        if (world is null)
+        {
+            return;
+        }
+
+        session.State.Ship = new ColonyShipState(world.Id) { StageIndex = world.ColonyCost.Count };
+        var site = session.LandingSites(world.Id)[0];
+        var colony = session.Colonize(site.X, site.Y);
+        screens.BeginSession(session);
+        var screen = new GameplayScreen(screens, colony, WorldTravel.InfoOf(session), null, session);
+        try
+        {
+            colony.Plan.SetChoosesResearch(true);
+            for (int i = 0; i < 3_000; i++)
+            {
+                colony.Tick();
+                session.Update();
+            }
+
+            Frames(screen, time);
+            PhotoAt(screens, colony, colony.LandingX + 1, colony.LandingY + 1, $"civdle-smoke-{world.Id}");
+        }
+        finally
+        {
+            screen.Dispose();
+        }
+
+        session.SwitchTo(WorldScope.HomeId);
+        screens.BeginSession(session);
     }
 
     private void Check(string what, Action action)

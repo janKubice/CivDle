@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Úkoly Mrazu: úvodní kroky kolonie (teplo, jídlo, krystaly, pluhy) a hvězdy světa (group star/master, svety-design.md 2.6). ★★ = celá polární noc bez jediné zamrzlé budovy; ✦ jen s geotermálním teplem — uzavře se bez odměny, jakmile stojí parní generátor.",
+  "quests": [
+    {
+      "id": "frost_first_stove",
+      "condition": {
+        "metric": "building",
+        "building": "peat_stove",
+        "target": 2
+      },
+      "reward": {
+        "ice": 30
+      }
+    },
+    {
+      "id": "frost_greenhouses",
+      "condition": {
+        "metric": "building",
+        "building": "greenhouse",
+        "target": 2
+      },
+      "reward": {
+        "peat": 60
+      }
+    },
+    {
+      "id": "frost_first_crystal",
+      "condition": {
+        "metric": "resource",
+        "resource": "frost_crystal",
+        "target": 20
+      },
+      "reward": {
+        "ice": 80
+      }
+    },
+    {
+      "id": "frost_plows",
+      "condition": {
+        "metric": "building",
+        "building": "snowplow_depot",
+        "target": 3
+      },
+      "reward": {
+        "frost_crystal": 20
+      }
+    },
+    {
+      "id": "frost_star_settled",
+      "group": "star",
+      "condition": {
+        "metric": "population",
+        "target": 5000
+      }
+    },
+    {
+      "id": "frost_star_night",
+      "group": "star",
+      "condition": {
+        "metric": "warmwinters",
+        "target": 1
+      }
+    },
+    {
+      "id": "frost_star_wonder",
+      "group": "star",
+      "condition": {
+        "metric": "building",
+        "building": "winter_heart",
+        "target": 1
+      }
+    },
+    {
+      "id": "frost_star_master",
+      "group": "master",
+      "condition": {
+        "metric": "population",
+        "target": 20000
+      },
+      "retireWhen": {
+        "metric": "building",
+        "building": "steam_generator",
+        "target": 1
+      }
+    }
+  ]
+}

@@ -104,6 +104,7 @@
     },
     {
       "id": "reindeer",
+      "worlds": ["home", "frost"],
       "biomes": [
         "tundra",
         "taiga"
@@ -304,6 +305,7 @@
     },
     {
       "id": "polar_bear",
+      "worlds": ["home", "frost"],
       "predator": true,
       "biomes": [
         "glacier",
@@ -318,6 +320,7 @@
     },
     {
       "id": "arctic_fox",
+      "worlds": ["home", "frost"],
       "predator": true,
       "biomes": [
         "tundra",
@@ -358,6 +361,7 @@
     },
     {
       "id": "snow_hare",
+      "worlds": ["home", "frost"],
       "biomes": [
         "tundra",
         "taiga",
@@ -371,6 +375,7 @@
     },
     {
       "id": "seal",
+      "worlds": ["home", "frost"],
       "biomes": [
         "ice_shelf",
         "glacier"
@@ -507,6 +512,7 @@
     },
     {
       "id": "owl",
+      "worlds": ["home", "frost"],
       "predator": true,
       "biomes": [
         "forest",

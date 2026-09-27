@@ -527,6 +527,39 @@ proud) · délka dne podle období z dat světa · `weather_burial` znovu
 
 **Odhad:** 5–6 dní.
 
+> **Hotovo (D2.1–D2.3) — Mráz je hratelný.** `data/worlds/frost/`: přistávací
+> modul (bydlení, teplo 16, proud 4) a 20 budov z tabulky, 16 technologií,
+> 6 surovin, biomy horký pramen a rašeliniště, tepelná síť, vánice,
+> 5 událostí, fauna, 7 vylepšení Vzestupu a hvězdy.
+> * **Teplo** je síť s tvrdým prahem (`cutoff` pod 50 %): budova bez tepla
+>   zamrzne a sama rozmrzne. Horký pramen hřeje sám (`terrainSources`).
+>   Síť má vzhled výpadku z dat (`shortageLook: frost`) — zamrzlá budova má
+>   jinovatku a rampouchy a v noci nesvítí; v dosahu tepla roztaje sníh
+>   (stopa `ground` v hnědé barvě mokré země).
+> * **Palivo zdrojů:** rašelinová pec a parní generátor mají recept bez
+>   výstupu — hřejí, dokud pálí rašelinu (loader to dovolí jen zdroji sítě).
+>   Tepelná věž pálí tepelné články: to je „přenosné teplo" z návrhu.
+> * **Polární noc** je v datech období: `daylight` (podíl dne se sluncem)
+>   a `networkDemand` (v zimě chtějí budovy o polovinu víc tepla).
+>   Simulace přemapuje hodiny na sluneční čas (`Simulation.SolarTime`) —
+>   poledne i půlnoc zůstanou, jen slunce svítí kratší dobu, takže render,
+>   zrcadla i lapače rosy polární noc „vidí" samy.
+> * **★★** je metrika `warmwinters`: polární noc, ve které ve městě
+>   o aspoň deseti budovách nic nezamrzlo; počítadlo jde do savu.
+> * **Oproti návrhu:** skleník nechce proud (proud modulu by stačil na pár
+>   skleníků a jídlo by stálo), proud chce brusírna a polární observatoř — a guvernér
+>   dílnu na proud postaví jen tam, kde proud zbývá nebo kde umí přistavět
+>   elektrárnu (dřív jich rozestavěl přes sto na proud pro dvě). Termální
+>   věžák chce místo perel broušené krystaly a tepelné články — perly přijdou
+>   se Souostrovím. ✦ je zatím 20 000 obyvatel bez podmínky „jen
+>   geotermální teplo" (ta by se hlídala těžko). Dovoz skla z Duny přijde
+>   s obchodem mezi koloniemi.
+> * **Hands-off** (`FrostColonyTests`): guvernér sám dojde k ★ za 84–90 minut
+>   a přečká první polární noc v teple. Cestou se opravil guvernér: další
+>   skleník nestaví, když jeden stojí bez lišejníku (vstup, který teče, ale
+>   celý se spotřebuje, je „hladový" stejně jako vyschlý), a výzkum
+>   nezakládá výrobnu suroviny, kterou už něco vyrábí.
+
 ---
 
 ### 4.3 Souostroví — oceánský svět (`archipelago`)

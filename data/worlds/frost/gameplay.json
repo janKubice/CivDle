@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Nastavení Mrazu nad gameplay.json Domoviny. Kolonisté přiletí rovnou do modulu (30 lidí), guvernér staví svižněji — kolonie má být druhá vesnice, ne první (svety-design.md 3.3).",
+  "planting": {
+    "species": [
+      {
+        "id": "moss_patch",
+        "cost": {
+          "ice": 6
+        },
+        "resource": "lichen",
+        "amount": 2
+      }
+    ]
+  },
+  "onboarding": {
+    "startSite": {
+      "nodes": {
+        "ice": 3
+      },
+      "buildings": [
+        "ice_house",
+        "peat_stove",
+        "lichen_gatherer"
+      ]
+    }
+  },
+  "demo": {
+    "techs": []
+  },
+  "startingPopulation": 30,
+  "populationFillRate": 0.0045,
+  "autoBuild": {
+    "intervalTicks": 40
+  }
+}
