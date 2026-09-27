@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Paluba Nebes: z oblaků udělá plošinu, na které se dá stavět. Hráč ji kreslí po dlaždicích, guvernér ji rozšiřuje sám, když mu dochází místo (world.json → platform).",
+  "terraform": [
+    {
+      "id": "lay_deck",
+      "to": "sky_deck",
+      "from": [
+        "cloud_sea"
+      ],
+      "cost": {
+        "carbon_fiber": 2
+      }
+    }
+  ]
+}

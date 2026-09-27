@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Suroviny Nebes. Perly a sklo se tu nevyrábí — oblačný palác je chce dovozem (importOnly).",
+  "resources": [
+    {
+      "id": "hydrogen",
+      "mapColor": "#C8E0FF",
+      "startAmount": 0,
+      "baseStorage": 300
+    },
+    {
+      "id": "helium3",
+      "mapColor": "#8AD0FF",
+      "startAmount": 0,
+      "baseStorage": 150
+    },
+    {
+      "id": "carbon_dust",
+      "mapColor": "#4A4A50",
+      "startAmount": 0,
+      "baseStorage": 300
+    },
+    {
+      "id": "carbon_fiber",
+      "mapColor": "#2A2A30",
+      "startAmount": 0,
+      "baseStorage": 300
+    },
+    {
+      "id": "aerogel",
+      "mapColor": "#D8E8F4",
+      "startAmount": 0,
+      "baseStorage": 150
+    },
+    {
+      "id": "metallic_hydrogen",
+      "mapColor": "#A0A8C0",
+      "startAmount": 0,
+      "baseStorage": 100
+    },
+    {
+      "id": "glass",
+      "mapColor": "#9FD8E0",
+      "startAmount": 0,
+      "baseStorage": 100,
+      "importOnly": true
+    },
+    {
+      "id": "pearls",
+      "mapColor": "#F4EEE0",
+      "startAmount": 0,
+      "baseStorage": 100,
+      "importOnly": true
+    }
+  ]
+}

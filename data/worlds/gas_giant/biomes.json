@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Oblačný oceán plynného obra: bez země (void) — nestojí tu nic, ani silnice. Paluba je biom, na kterém se staví; klade se terraformací (terraform.json) a loď přiveze první kus kolem modulu.",
+  "biomes": [
+    {
+      "id": "cloud_sea",
+      "mapColor": "#EAD6B4",
+      "colorVariation": 0.05,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        1.0
+      ],
+      "natural": false,
+      "void": true
+    },
+    {
+      "id": "sky_deck",
+      "mapColor": "#8A929E",
+      "colorVariation": 0.03,
+      "isWater": false,
+      "elevationRange": [
+        0.0,
+        1.0
+      ],
+      "natural": false
+    }
+  ]
+}

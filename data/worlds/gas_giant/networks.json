@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Vztlak Nebes (svety-design.md 4.5): vaky, nosiče a kotvy nesou buňky 8×8 kolem sebe, dokud stačí nosnost; každá budova váží (demand). Pod 60 % budova klesne do mraků (cutoff, vzhled sink) — vypadne a sama se vrátí, až vztlak přibude.",
+  "networks": [
+    {
+      "id": "lift",
+      "range": 2,
+      "shortage": "cutoff",
+      "cutoffBelow": 0.6,
+      "overlayColor": "#A8D8FF",
+      "housing": {
+        "growthPenalty": 0.8,
+        "happinessPenalty": 0.2
+      },
+      "shortageLook": "sink"
+    }
+  ]
+}

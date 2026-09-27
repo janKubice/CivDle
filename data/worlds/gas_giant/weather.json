@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Počasí Nebes. Bouřkový pás má váhu 0 — přichází s přírodním jevem (hazards.json).",
+  "weather": [
+    {
+      "id": "clear",
+      "biomes": [
+        "cloud_sea",
+        "sky_deck"
+      ],
+      "weight": 7,
+      "durationSeconds": 180,
+      "tint": "#FFF0D8",
+      "tintAlpha": 0.04,
+      "particle": "none"
+    },
+    {
+      "id": "strong_wind",
+      "biomes": [
+        "cloud_sea",
+        "sky_deck"
+      ],
+      "weight": 5,
+      "durationSeconds": 150,
+      "tint": "#F0D8B8",
+      "tintAlpha": 0.08,
+      "particle": "none"
+    },
+    {
+      "id": "hydrogen_rain",
+      "biomes": [
+        "cloud_sea",
+        "sky_deck"
+      ],
+      "weight": 2,
+      "durationSeconds": 90,
+      "tint": "#C8D8F0",
+      "tintAlpha": 0.14,
+      "particle": "rain"
+    },
+    {
+      "id": "storm_band",
+      "biomes": [
+        "cloud_sea",
+        "sky_deck"
+      ],
+      "extreme": true,
+      "productionMult": 0.9,
+      "weight": 0,
+      "durationSeconds": 50,
+      "tint": "#4A4468",
+      "tintAlpha": 0.35,
+      "particle": "rain"
+    }
+  ]
+}

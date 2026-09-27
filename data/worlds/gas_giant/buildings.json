@@ -1,0 +1,1029 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Budovy Nebes (svety-design.md 4.5) a úpravy sdílených budov Domoviny. Všechno stojí na palubě (sky_deck) a váží (networks.lift.demand); vztlak dávají vaky, nosiče a kotvy (lift.supply). 'shelter' před storm_band = v okruhu blesk nezasáhne; hromosvod dodává proud jen v bouřkovém pásu (supplyTime storm).",
+  "buildings": [
+    {
+      "id": "warehouse",
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "networks": {
+        "lift": {
+          "demand": 1
+        }
+      }
+    },
+    {
+      "id": "granary",
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "networks": {
+        "lift": {
+          "demand": 1
+        }
+      }
+    },
+    {
+      "id": "depot",
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "networks": {
+        "lift": {
+          "demand": 1
+        }
+      }
+    },
+    {
+      "id": "market",
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "networks": {
+        "lift": {
+          "demand": 1
+        }
+      }
+    },
+    {
+      "id": "library",
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "networks": {
+        "lift": {
+          "demand": 1
+        }
+      }
+    },
+    {
+      "id": "school",
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "networks": {
+        "lift": {
+          "demand": 1
+        }
+      }
+    },
+    {
+      "id": "university",
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "networks": {
+        "lift": {
+          "demand": 1
+        }
+      }
+    },
+    {
+      "id": "shrine",
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "networks": {
+        "lift": {
+          "demand": 1
+        }
+      }
+    },
+    {
+      "id": "temple",
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "networks": {
+        "lift": {
+          "demand": 1
+        }
+      }
+    },
+    {
+      "id": "toolmaker",
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "networks": {
+        "lift": {
+          "demand": 1
+        }
+      }
+    },
+    {
+      "id": "great_warehouse",
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "upgradesTo": null,
+      "networks": {
+        "lift": {
+          "demand": 2
+        }
+      }
+    },
+    {
+      "id": "sky_lander",
+      "category": "housing",
+      "_comment_trade": "Modul drží spojení s lodí na oběžné dráze: malá kapacita tras hned od přistání.",
+      "tradeCapacity": 0.5,
+      "mapColor": "#C0C8D4",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "carbon_fiber": 1
+      },
+      "housingCapacity": 30,
+      "buildable": false,
+      "workerSlots": 2,
+      "recipe": {
+        "output": {
+          "food": 2,
+          "carbon_fiber": 1
+        },
+        "timeTicks": 60
+      },
+      "powerSupply": 4,
+      "networks": {
+        "lift": {
+          "supply": 30
+        }
+      },
+      "storage": {
+        "carbon_fiber": 200,
+        "carbon_dust": 150,
+        "hydrogen": 150,
+        "food": 200,
+        "aerogel": 60,
+        "helium3": 40,
+        "metallic_hydrogen": 30
+      },
+      "visualHeight": 1,
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "look": {
+        "shape": "pods",
+        "wall": "#C0C8D4",
+        "roof": "#8A929E",
+        "accent": "#F0B060",
+        "features": [
+          "windows",
+          "antenna",
+          "glow",
+          "ropes"
+        ],
+        "glow": "#FFE0A0"
+      }
+    },
+    {
+      "id": "sky_pod",
+      "category": "housing",
+      "mapColor": "#D8DEE6",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "carbon_fiber": 5
+      },
+      "housingCapacity": 6,
+      "autoBuild": true,
+      "mergesTo": "cloud_spire",
+      "mergeCost": {
+        "carbon_fiber": 20,
+        "aerogel": 6
+      },
+      "networks": {
+        "lift": {
+          "demand": 1
+        }
+      },
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "look": {
+        "shape": "pods",
+        "wall": "#D8DEE6",
+        "roof": "#A8B0BC",
+        "accent": "#F0B060",
+        "features": [
+          "windows"
+        ],
+        "glow": "#FFE0A0"
+      }
+    },
+    {
+      "id": "hanging_house",
+      "category": "housing",
+      "_comment": "Dům zavěšený na lanech pod okrajem paluby: lehký a na stejném kusu paluby víc lidí.",
+      "mapColor": "#C8B89A",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "carbon_fiber": 8,
+        "aerogel": 2
+      },
+      "housingCapacity": 10,
+      "autoBuild": true,
+      "networks": {
+        "lift": {
+          "demand": 1
+        }
+      },
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "look": {
+        "shape": "house",
+        "wall": "#C8B89A",
+        "roof": "#9A7A5A",
+        "accent": "#F0B060",
+        "features": [
+          "windows",
+          "ropes"
+        ],
+        "glow": "#FFE0A0"
+      }
+    },
+    {
+      "id": "cloud_spire",
+      "category": "housing",
+      "mapColor": "#E8ECF2",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "carbon_fiber": 40,
+        "aerogel": 10
+      },
+      "housingCapacity": 44,
+      "autoBuild": true,
+      "visualHeight": 2,
+      "networks": {
+        "lift": {
+          "demand": 4
+        }
+      },
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "look": {
+        "shape": "tower",
+        "wall": "#E8ECF2",
+        "roof": "#B8C0CC",
+        "accent": "#F0B060",
+        "features": [
+          "windows",
+          "spire_top",
+          "flag"
+        ],
+        "glow": "#FFE0A0"
+      }
+    },
+    {
+      "id": "cloud_palace",
+      "category": "housing",
+      "_comment": "Luxus: chce perly ze Souostroví a sklo z Duny (dovoz). Bez nich ho guvernér nestaví.",
+      "mapColor": "#F4F0E8",
+      "footprint": [
+        3,
+        3
+      ],
+      "buildCost": {
+        "carbon_fiber": 120,
+        "aerogel": 40,
+        "pearls": 20,
+        "glass": 20
+      },
+      "housingCapacity": 130,
+      "autoBuild": true,
+      "serviceValue": 4,
+      "visualHeight": 2,
+      "networks": {
+        "lift": {
+          "demand": 8
+        }
+      },
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "look": {
+        "shape": "dome",
+        "wall": "#F4F0E8",
+        "roof": "#C8D8E8",
+        "accent": "#F0B060",
+        "features": [
+          "windows",
+          "flag",
+          "arches",
+          "glow"
+        ],
+        "glow": "#FFE0A0"
+      }
+    },
+    {
+      "id": "lift_balloon",
+      "category": "civic",
+      "_comment": "Vztlakový vak: malý vztlak kolem sebe. Bez vztlaku by paluba i domy klesly do mraků.",
+      "mapColor": "#E8A060",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "carbon_fiber": 4
+      },
+      "autoBuild": true,
+      "networks": {
+        "lift": {
+          "supply": 10
+        }
+      },
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "look": {
+        "shape": "balloon",
+        "wall": "#E8A060",
+        "roof": "#C87838",
+        "accent": "#F4E8D8",
+        "features": [
+          "stripes",
+          "ropes"
+        ]
+      }
+    },
+    {
+      "id": "hydrogen_lifter",
+      "category": "civic",
+      "_comment": "Vodíkový nosič: velký vztlak, dokud pálí vodík (recept bez výstupu).",
+      "mapColor": "#C8E0FF",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "carbon_fiber": 30,
+        "aerogel": 5
+      },
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "hydrogen": 1
+        },
+        "timeTicks": 60
+      },
+      "networks": {
+        "lift": {
+          "supply": 36
+        }
+      },
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "look": {
+        "shape": "balloon",
+        "wall": "#C8E0FF",
+        "roof": "#98B0D0",
+        "accent": "#F4E8D8",
+        "features": [
+          "ropes",
+          "rings"
+        ]
+      }
+    },
+    {
+      "id": "antigrav_anchor",
+      "category": "civic",
+      "_comment": "Antigravitační kotva: obří vztlak z kovového vodíku, nepálí nic.",
+      "mapColor": "#8A90B0",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "metallic_hydrogen": 30,
+        "aerogel": 20,
+        "carbon_fiber": 40
+      },
+      "autoBuild": true,
+      "powerDemand": 4,
+      "networks": {
+        "lift": {
+          "supply": 110
+        }
+      },
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "look": {
+        "shape": "ring",
+        "wall": "#8A90B0",
+        "roof": "#5A6080",
+        "accent": "#A8C8FF",
+        "features": [
+          "rings",
+          "glow"
+        ],
+        "glow": "#C0E0FF"
+      }
+    },
+    {
+      "id": "storm_shield",
+      "category": "civic",
+      "_comment": "Bouřkový štít: v okruhu blesk nezasáhne.",
+      "mapColor": "#6080C0",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "carbon_fiber": 20,
+        "aerogel": 4
+      },
+      "shelter": {
+        "storm_band": 6
+      },
+      "networks": {
+        "lift": {
+          "demand": 1
+        }
+      },
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "look": {
+        "shape": "mast",
+        "wall": "#6080C0",
+        "roof": "#405890",
+        "accent": "#A8C8FF",
+        "features": [
+          "glow",
+          "antenna"
+        ],
+        "glow": "#C0E0FF"
+      }
+    },
+    {
+      "id": "weather_tower",
+      "category": "civic",
+      "_comment": "Meteorologická věž: měří vítr a pásy, věda a klid v duši.",
+      "mapColor": "#B8C0CC",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "carbon_fiber": 16,
+        "aerogel": 2
+      },
+      "workerSlots": 1,
+      "serviceValue": 2,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "science": 2
+        },
+        "timeTicks": 60
+      },
+      "networks": {
+        "lift": {
+          "demand": 1
+        }
+      },
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "look": {
+        "shape": "mast",
+        "wall": "#B8C0CC",
+        "roof": "#8A929E",
+        "accent": "#F0B060",
+        "features": [
+          "rotor",
+          "antenna"
+        ]
+      }
+    },
+    {
+      "id": "hydrogen_scoop",
+      "category": "production",
+      "mapColor": "#A8C8F0",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "carbon_fiber": 8
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "hydrogen": 2
+        },
+        "timeTicks": 40
+      },
+      "networks": {
+        "lift": {
+          "demand": 1
+        }
+      },
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "rig",
+        "wall": "#A8C8F0",
+        "roof": "#7890B0",
+        "accent": "#F4E8D8",
+        "features": [
+          "pipes",
+          "ropes"
+        ]
+      }
+    },
+    {
+      "id": "dust_collector",
+      "category": "production",
+      "mapColor": "#5A5A62",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "carbon_fiber": 6
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "carbon_dust": 2
+        },
+        "timeTicks": 40
+      },
+      "networks": {
+        "lift": {
+          "demand": 1
+        }
+      },
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "mast",
+        "wall": "#5A5A62",
+        "roof": "#3A3A42",
+        "accent": "#E8D8C0",
+        "features": [
+          "sails"
+        ]
+      }
+    },
+    {
+      "id": "deep_probe",
+      "category": "production",
+      "_comment": "Hlubinná sonda: kovový vodík z hloubky obra. V bouřkovém pásu stojí jako všechno bez štítu.",
+      "mapColor": "#7A80A0",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "carbon_fiber": 40,
+        "aerogel": 10
+      },
+      "workerSlots": 4,
+      "autoBuild": true,
+      "powerDemand": 4,
+      "recipe": {
+        "output": {
+          "metallic_hydrogen": 1
+        },
+        "timeTicks": 90
+      },
+      "networks": {
+        "lift": {
+          "demand": 3
+        }
+      },
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "rig",
+        "wall": "#7A80A0",
+        "roof": "#4A5070",
+        "accent": "#A8C8FF",
+        "features": [
+          "ropes",
+          "pipes"
+        ]
+      }
+    },
+    {
+      "id": "helium_separator",
+      "category": "production",
+      "mapColor": "#C0D8F0",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "carbon_fiber": 40,
+        "aerogel": 8
+      },
+      "workerSlots": 3,
+      "autoBuild": true,
+      "powerDemand": 3,
+      "recipe": {
+        "input": {
+          "hydrogen": 3
+        },
+        "output": {
+          "helium3": 1
+        },
+        "timeTicks": 70
+      },
+      "networks": {
+        "lift": {
+          "demand": 3
+        }
+      },
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "tanks",
+        "wall": "#C0D8F0",
+        "roof": "#8AA0C0",
+        "accent": "#8AD0FF",
+        "features": [
+          "pipes",
+          "glow"
+        ],
+        "glow": "#B8E8FF"
+      }
+    },
+    {
+      "id": "fiber_loom",
+      "category": "production",
+      "mapColor": "#2A2A30",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "carbon_fiber": 10
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "carbon_dust": 2
+        },
+        "output": {
+          "carbon_fiber": 1
+        },
+        "timeTicks": 40
+      },
+      "networks": {
+        "lift": {
+          "demand": 1
+        }
+      },
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "workshop",
+        "wall": "#3A3A42",
+        "roof": "#2A2A30",
+        "accent": "#F0B060",
+        "features": [
+          "rotor"
+        ]
+      }
+    },
+    {
+      "id": "aerogel_kiln",
+      "category": "production",
+      "mapColor": "#D8E8F4",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "carbon_fiber": 16
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "carbon_dust": 1,
+          "hydrogen": 1
+        },
+        "output": {
+          "aerogel": 1
+        },
+        "timeTicks": 60
+      },
+      "networks": {
+        "lift": {
+          "demand": 1
+        }
+      },
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "workshop",
+        "wall": "#D8E8F4",
+        "roof": "#A8B8C8",
+        "accent": "#F0B060",
+        "features": [
+          "chimney",
+          "glow"
+        ],
+        "glow": "#FFE0A0"
+      }
+    },
+    {
+      "id": "aeroponic_farm",
+      "category": "production",
+      "_comment": "Aeroponická farma: jídlo ze zavěšených závěsů v mlze.",
+      "mapColor": "#7AB05A",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "carbon_fiber": 12
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "food": 5
+        },
+        "timeTicks": 50
+      },
+      "networks": {
+        "lift": {
+          "demand": 2
+        }
+      },
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "field",
+        "wall": "#8A929E",
+        "roof": "#5A8A3A",
+        "accent": "#8FBF5A",
+        "features": [
+          "plants",
+          "ropes"
+        ]
+      }
+    },
+    {
+      "id": "lightning_harvester",
+      "category": "power",
+      "_comment": "Hromosvod: obří proud, ale jen když přes město jde bouřkový pás.",
+      "mapColor": "#8060C0",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "carbon_fiber": 24,
+        "aerogel": 6
+      },
+      "autoBuild": true,
+      "powerSupply": 40,
+      "supplyTime": "storm",
+      "networks": {
+        "lift": {
+          "demand": 1
+        }
+      },
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "look": {
+        "shape": "mast",
+        "wall": "#8060C0",
+        "roof": "#5A4090",
+        "accent": "#E8E0FF",
+        "features": [
+          "spark",
+          "antenna"
+        ],
+        "glow": "#F0E8FF"
+      }
+    },
+    {
+      "id": "wind_turbine",
+      "category": "power",
+      "mapColor": "#E8ECF0",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "carbon_fiber": 14
+      },
+      "autoBuild": true,
+      "powerSupply": 6,
+      "networks": {
+        "lift": {
+          "demand": 1
+        }
+      },
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "look": {
+        "shape": "mast",
+        "wall": "#E8ECF0",
+        "roof": "#B8C0CC",
+        "accent": "#F0B060",
+        "features": [
+          "rotor"
+        ]
+      }
+    },
+    {
+      "id": "airship_dock",
+      "category": "civic",
+      "_comment": "Dok vzducholodí: přístav světa a vzducholodě spojí vzdálené paluby jako trajekt.",
+      "tradeCapacity": 3,
+      "ferryReach": 14,
+      "mapColor": "#C8A878",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "carbon_fiber": 80,
+        "aerogel": 20
+      },
+      "housingCapacity": 4,
+      "workerSlots": 4,
+      "serviceValue": 5,
+      "upkeep": {
+        "food": 2
+      },
+      "storage": {
+        "helium3": 200,
+        "carbon_fiber": 200,
+        "glass": 120,
+        "pearls": 120,
+        "food": 200
+      },
+      "networks": {
+        "lift": {
+          "demand": 3
+        }
+      },
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "look": {
+        "shape": "tower",
+        "wall": "#C8A878",
+        "roof": "#8A6A48",
+        "accent": "#F0B060",
+        "features": [
+          "ropes",
+          "flag"
+        ],
+        "glow": "#FFE0A0"
+      }
+    },
+    {
+      "id": "sky_gallery",
+      "category": "civic",
+      "mapColor": "#D0E0F0",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "carbon_fiber": 20,
+        "aerogel": 6
+      },
+      "serviceValue": 9,
+      "autoBuild": true,
+      "upkeep": {
+        "hydrogen": 1
+      },
+      "networks": {
+        "lift": {
+          "demand": 1
+        }
+      },
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "look": {
+        "shape": "hall",
+        "wall": "#D0E0F0",
+        "roof": "#A0B8D0",
+        "accent": "#F0B060",
+        "features": [
+          "windows",
+          "arches"
+        ],
+        "glow": "#FFE0A0"
+      }
+    },
+    {
+      "id": "storm_eye",
+      "category": "megastructure",
+      "_comment": "Oko bouře: napojí město na Velkou bouři — v širokém okruhu utiší pásy, dá obří proud a nese kus města.",
+      "mapColor": "#4A4078",
+      "footprint": [
+        5,
+        5
+      ],
+      "buildCost": {
+        "carbon_fiber": 4000,
+        "aerogel": 1200,
+        "metallic_hydrogen": 800,
+        "helium3": 600
+      },
+      "serviceValue": 40,
+      "buildTicks": 3000,
+      "visualHeight": 2,
+      "powerSupply": 60,
+      "shelter": {
+        "storm_band": 24
+      },
+      "networks": {
+        "lift": {
+          "supply": 80
+        }
+      },
+      "allowedBiomes": [
+        "sky_deck"
+      ],
+      "look": {
+        "shape": "vortex",
+        "wall": "#4A4078",
+        "roof": "#2A2450",
+        "accent": "#E8E0FF",
+        "features": [
+          "spark",
+          "glow",
+          "rings"
+        ],
+        "glow": "#F0E8FF"
+      }
+    }
+  ]
+}

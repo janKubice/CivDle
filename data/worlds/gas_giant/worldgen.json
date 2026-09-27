@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Předvolba Nebes: celý svět je oblačný oceán (fillBiome) — klima ani moře tu nerozhodují. Pásy mraků kreslí render.",
+  "presets": [
+    {
+      "id": "gas_giant",
+      "seaLevel": 0.3,
+      "fallbackBiome": "cloud_sea",
+      "fillBiome": "cloud_sea",
+      "elevationNoise": {
+        "frequency": 1.0,
+        "octaves": 3,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      },
+      "moistureNoise": {
+        "frequency": 1.0,
+        "octaves": 2,
+        "persistence": 0.5,
+        "lacunarity": 2.0
+      }
+    }
+  ]
+}

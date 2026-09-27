@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Nastavení Nebes nad gameplay.json Domoviny. Kolonisté přiletí rovnou do modulu (30 lidí), guvernér staví svižněji — kolonie má být druhá vesnice, ne první (svety-design.md 3.3).",
+  "planting": {
+    "species": [
+      {
+        "id": "dust_net",
+        "cost": {
+          "food": 6
+        },
+        "resource": "carbon_dust",
+        "amount": 2
+      }
+    ]
+  },
+  "onboarding": {
+    "startSite": {
+      "nodes": {
+        "carbon_dust": 3
+      },
+      "buildings": [
+        "sky_pod",
+        "dust_collector",
+        "aeroponic_farm"
+      ]
+    }
+  },
+  "demo": {
+    "techs": []
+  },
+  "startingPopulation": 30,
+  "populationFillRate": 0.0045,
+  "autoBuild": {
+    "intervalTicks": 40
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Nebesa — plynný obr (svety-design.md 4.5). Země tu není: staví se na palubě, kterou loď přiveze kolem modulu a kterou pak hráč i guvernér rozšiřují terraformací z oblaků (platform). Náhrady: sdílené budovy stojí uhlíkové vlákno místo dřeva, prken a kamene, aerogel místo bronzu a železa.",
+  "preset": "gas_giant",
+  "atmosphere": "gas_giant",
+  "landingModule": "sky_lander",
+  "startingKit": {
+    "carbon_fiber": 180,
+    "carbon_dust": 60,
+    "hydrogen": 60,
+    "food": 220,
+    "tools": 20
+  },
+  "exports": [
+    "helium3",
+    "carbon_fiber"
+  ],
+  "port": "airship_dock",
+  "substitutes": {
+    "wood": "carbon_fiber",
+    "planks": "carbon_fiber",
+    "stone": "carbon_fiber",
+    "bronze": "aerogel",
+    "iron": "aerogel"
+  },
+  "platform": {
+    "biome": "sky_deck",
+    "terraform": "lay_deck",
+    "landingRadius": 5
+  },
+  "withoutSystems": [
+    "npc-cities",
+    "figures",
+    "doctrines",
+    "poi",
+    "scenarios",
+    "carillon",
+    "frontier",
+    "orbit",
+    "grandwork",
+    "faith",
+    "citizens",
+    "contracts",
+    "challenges",
+    "tutorial",
+    "milestones",
+    "features",
+    "landmarks",
+    "seasons"
+  ]
+}

@@ -1,0 +1,188 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Výzkum Nebes (svety-design.md 4.5) a úpravy sdílené větve Domoviny: sdílené technologie tu nemají předpoklady, které na Nebesích neexistují.",
+  "techs": [
+    {
+      "id": "writing",
+      "prerequisites": []
+    },
+    {
+      "id": "trade",
+      "prerequisites": [],
+      "unlocks": [
+        "market"
+      ]
+    },
+    {
+      "id": "tools",
+      "prerequisites": []
+    },
+    {
+      "id": "warehousing",
+      "prerequisites": [
+        "trade"
+      ]
+    },
+    {
+      "id": "apprenticeships",
+      "prerequisites": [
+        "schooling"
+      ]
+    },
+    {
+      "id": "public_works",
+      "prerequisites": [
+        "trade"
+      ]
+    },
+    {
+      "id": "hydrogen_lift",
+      "cost": {
+        "carbon_fiber": 50,
+        "hydrogen": 30
+      },
+      "unlocks": [
+        "hydrogen_lifter",
+        "hanging_house"
+      ]
+    },
+    {
+      "id": "aerogel",
+      "cost": {
+        "carbon_fiber": 60,
+        "carbon_dust": 40,
+        "science": 20
+      },
+      "unlocks": [
+        "aerogel_kiln",
+        "cloud_spire"
+      ]
+    },
+    {
+      "id": "meteorology",
+      "cost": {
+        "carbon_fiber": 60,
+        "science": 20
+      },
+      "unlocks": [
+        "weather_tower"
+      ]
+    },
+    {
+      "id": "storm_shields",
+      "cost": {
+        "aerogel": 20,
+        "science": 40
+      },
+      "prerequisites": [
+        "meteorology",
+        "aerogel"
+      ],
+      "unlocks": [
+        "storm_shield"
+      ]
+    },
+    {
+      "id": "storm_power",
+      "cost": {
+        "aerogel": 30,
+        "science": 60
+      },
+      "prerequisites": [
+        "storm_shields"
+      ],
+      "unlocks": [
+        "lightning_harvester"
+      ]
+    },
+    {
+      "id": "helium_separation",
+      "cost": {
+        "hydrogen": 80,
+        "aerogel": 20,
+        "science": 50
+      },
+      "prerequisites": [
+        "hydrogen_lift",
+        "aerogel"
+      ],
+      "unlocks": [
+        "helium_separator"
+      ]
+    },
+    {
+      "id": "deep_sounding",
+      "cost": {
+        "aerogel": 40,
+        "carbon_fiber": 80,
+        "science": 80
+      },
+      "prerequisites": [
+        "aerogel"
+      ],
+      "unlocks": [
+        "deep_probe"
+      ]
+    },
+    {
+      "id": "airships",
+      "cost": {
+        "carbon_fiber": 100,
+        "aerogel": 30,
+        "science": 60
+      },
+      "prerequisites": [
+        "hydrogen_lift"
+      ],
+      "unlocks": [
+        "airship_dock",
+        "sky_gallery"
+      ]
+    },
+    {
+      "id": "antigravity",
+      "cost": {
+        "metallic_hydrogen": 40,
+        "aerogel": 60,
+        "science": 150
+      },
+      "prerequisites": [
+        "deep_sounding"
+      ],
+      "unlocks": [
+        "antigrav_anchor"
+      ]
+    },
+    {
+      "id": "sky_palaces",
+      "cost": {
+        "aerogel": 80,
+        "carbon_fiber": 150,
+        "science": 120
+      },
+      "prerequisites": [
+        "airships",
+        "antigravity"
+      ],
+      "unlocks": [
+        "cloud_palace"
+      ]
+    },
+    {
+      "id": "storm_eye",
+      "cost": {
+        "metallic_hydrogen": 200,
+        "helium3": 200,
+        "science": 1200
+      },
+      "prerequisites": [
+        "antigravity",
+        "storm_power",
+        "helium_separation"
+      ],
+      "unlocks": [
+        "storm_eye"
+      ]
+    }
+  ]
+}

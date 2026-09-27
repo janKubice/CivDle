@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Vzestup Nebes (svety-design.md 4.5): vylepšení navíc ke společným. Platí jen v téhle kolonii.",
+  "upgrades": [
+    {
+      "id": "gg_light_decks",
+      "effect": "network_demand",
+      "magnitude": 0.08,
+      "cost": 2,
+      "maxLevel": 10,
+      "costGrowth": 1.3
+    },
+    {
+      "id": "gg_strong_balloons",
+      "effect": "network_supply",
+      "magnitude": 0.1,
+      "cost": 2,
+      "maxLevel": 10,
+      "costGrowth": 1.3
+    },
+    {
+      "id": "gg_wide_shields",
+      "effect": "hazard_resistance",
+      "magnitude": 0.15,
+      "cost": 2,
+      "maxLevel": 8,
+      "costGrowth": 1.3
+    },
+    {
+      "id": "gg_rich_depths",
+      "effect": "production_mult",
+      "targetResource": "metallic_hydrogen",
+      "magnitude": 0.1,
+      "cost": 2,
+      "maxLevel": 20,
+      "costGrowth": 1.2
+    },
+    {
+      "id": "gg_dust_sails",
+      "effect": "production_mult",
+      "targetResource": "carbon_dust",
+      "magnitude": 0.1,
+      "cost": 1,
+      "maxLevel": 20,
+      "costGrowth": 1.2
+    },
+    {
+      "id": "gg_fiber_weavers",
+      "effect": "production_mult",
+      "targetResource": "carbon_fiber",
+      "magnitude": 0.1,
+      "cost": 1,
+      "maxLevel": 20,
+      "costGrowth": 1.2
+    },
+    {
+      "id": "gg_helium_masters",
+      "effect": "production_mult",
+      "targetResource": "helium3",
+      "magnitude": 0.1,
+      "cost": 2,
+      "maxLevel": 20,
+      "costGrowth": 1.2
+    },
+    {
+      "id": "gg_abyss_view",
+      "effect": "growth_mult",
+      "magnitude": 0.05,
+      "cost": 2,
+      "maxLevel": 10,
+      "costGrowth": 1.25
+    }
+  ]
+}

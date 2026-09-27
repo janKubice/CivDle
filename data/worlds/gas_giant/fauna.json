@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Zvěř Nebes: nebeské velryby a svítící medúzovití plovci v mracích, hejna mrakoplavců nad palubou — sdílená s Domovinou (značka worlds), tady v oblacích.",
+  "fauna": [
+    {
+      "id": "whale",
+      "biomes": [
+        "cloud_sea"
+      ]
+    },
+    {
+      "id": "jellyfish",
+      "biomes": [
+        "cloud_sea"
+      ]
+    },
+    {
+      "id": "bird",
+      "biomes": [
+        "cloud_sea",
+        "sky_deck"
+      ]
+    }
+  ]
+}

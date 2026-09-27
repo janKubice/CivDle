@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Úkoly Nebes: úvodní kroky kolonie (vaky, paluba, vlákno, hélium) a hvězdy světa (svety-design.md 2.6). ★★ = deset bouřkových pásů bez jediného zásahu, ✦ = tisíc dlaždic paluby.",
+  "quests": [
+    {
+      "id": "gg_first_balloons",
+      "condition": {
+        "metric": "building",
+        "building": "lift_balloon",
+        "target": 3
+      },
+      "reward": {
+        "carbon_fiber": 40
+      }
+    },
+    {
+      "id": "gg_first_deck",
+      "condition": {
+        "metric": "terraformed",
+        "target": 60
+      },
+      "reward": {
+        "carbon_dust": 60
+      }
+    },
+    {
+      "id": "gg_fiber",
+      "condition": {
+        "metric": "resource",
+        "resource": "carbon_fiber",
+        "target": 150
+      },
+      "reward": {
+        "hydrogen": 60
+      }
+    },
+    {
+      "id": "gg_helium",
+      "condition": {
+        "metric": "resource",
+        "resource": "helium3",
+        "target": 20
+      },
+      "reward": {
+        "aerogel": 30
+      }
+    },
+    {
+      "id": "gg_star_settled",
+      "group": "star",
+      "condition": {
+        "metric": "population",
+        "target": 5000
+      }
+    },
+    {
+      "id": "gg_star_calm",
+      "group": "star",
+      "condition": {
+        "metric": "calmhazards",
+        "target": 10
+      }
+    },
+    {
+      "id": "gg_star_wonder",
+      "group": "star",
+      "condition": {
+        "metric": "building",
+        "building": "storm_eye",
+        "target": 1
+      }
+    },
+    {
+      "id": "gg_star_master",
+      "group": "master",
+      "condition": {
+        "metric": "terraformed",
+        "target": 1000
+      }
+    }
+  ]
+}

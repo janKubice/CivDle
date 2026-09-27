@@ -15,6 +15,7 @@
     },
     {
       "id": "bird",
+      "worlds": ["home", "gas_giant"],
       "biomes": [
         "grassland",
         "beach",
@@ -200,7 +201,7 @@
     },
     {
       "id": "whale",
-      "worlds": ["home", "archipelago"],
+      "worlds": ["home", "archipelago", "gas_giant"],
       "biomes": [
         "ocean",
         "deep_ocean"
@@ -213,6 +214,7 @@
     },
     {
       "id": "jellyfish",
+      "worlds": ["home", "gas_giant"],
       "biomes": [
         "deep_ocean",
         "ocean"

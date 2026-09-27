@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Bouřkové pásy Nebes (svety-design.md 4.5): pás přejde přes město; co nechrání bouřkový štít, zasáhne blesk (look storm) — vypadne a samo se vrátí. Zatímco pás jde přes město, dodávají hromosvody (supplyTime storm). První do deseti minut, s minutovým varováním.",
+  "hazards": [
+    {
+      "id": "storm_band",
+      "behavior": "weather_burial",
+      "look": "storm",
+      "firstAfterSeconds": 480,
+      "intervalSeconds": 600,
+      "intervalJitter": 0.3,
+      "warningSeconds": 60,
+      "sweepSeconds": 50,
+      "bandTiles": 20,
+      "burySeconds": 90,
+      "weather": "storm_band",
+      "solarDim": 0.8,
+      "minBuildings": 5
+    }
+  ]
+}

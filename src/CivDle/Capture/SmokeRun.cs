@@ -361,6 +361,7 @@ public sealed class SmokeRun
             VisitColony(screens, session, time, "frost");
             VisitColony(screens, session, time, "archipelago");
             VisitColony(screens, session, time, "forge", untilLava: true);
+            VisitColony(screens, session, time, "gas_giant");
         }
         finally
         {

@@ -62,6 +62,19 @@
       ],
       "colonyCostGrowth": 1.6,
       "planet": { "surface": "#3A3434", "accent": "#FF7A2A", "size": 0.9 }
+    },
+    {
+      "id": "gas_giant",
+      "order": 5,
+      "starsRequired": 9,
+      "colonyCost": [
+        { "cost": { "steel": 2500000, "machine_parts": 1000000 } },
+        { "cost": { "electronics": 700000, "computer": 350000, "tools": 2500000 } },
+        { "cost": { "food": 20000000, "robot": 200000 } },
+        { "cost": { "nanomaterial": 400000, "science": 7000000 } }
+      ],
+      "colonyCostGrowth": 1.6,
+      "planet": { "surface": "#E8C898", "accent": "#B86A40", "size": 1.4, "bands": true, "ring": true }
     }
   ]
 }

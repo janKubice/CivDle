@@ -986,6 +986,38 @@ cíl „plošina a vztlak dřív než stavba".
 
 **Odhad:** 9–11 dní (největší svět technicky).
 
+> **Hotovo (D3.3–D3.4) — Nebesa jsou hratelná.** `data/worlds/gas_giant/`:
+> přistávací modul a 21 budov z tabulky, 11 technologií, 6 surovin, oblačný
+> oceán a paluba, vztlak, bouřkové pásy, 5 událostí, fauna, 8 vylepšení
+> Vzestupu a hvězdy.
+> * **Svět bez země:** biom `void` (oblačný oceán) — nestojí tu nic, ani
+>   silnice. Předvolba vyplní celý svět jedním biomem (`fillBiome`).
+> * **Paluba je terén, ne budova** (oproti tabulce): `world.json` → `platform`
+>   říká, který biom je paluba a která terraformace ji klade z oblaků. Loď
+>   přiveze palubu kolem modulu, hráč ji kreslí po dlaždicích, guvernér ji
+>   rozšiřuje sám (`PlatformGoal`, nad bydlením), když mu dochází místo.
+>   Ulicí je paluba: silnice se tu nestaví a automatika si nevyhrazuje pruhy.
+>   ✦ = 1 000 dlaždic paluby (`terraformed`).
+> * **Vztlak** je síť `lift` s tvrdým prahem: každá budova váží (`demand`),
+>   vaky, nosiče a kotvy nesou (`supply`); bez vztlaku budova klesne do mraků
+>   (vzhled `sink`) a sama se vrátí. Váha paluby samotné se nepočítá — stojí
+>   vlákno při pokládání.
+> * **Bouřkové pásy** jsou `weather_burial` se vzhledem `storm`: pás budovu
+>   zasáhne bleskem (stav „zasažená"), chrání bouřkový štít. Hromosvod
+>   (`supplyTime: storm`) dodává proud, zatímco pás jde přes město — oproti
+>   návrhu celý, ne jen v pásu.
+> * **Vzducholodě** jsou trajekty (`ferryReach` doku) — napojí vzdálené paluby.
+> * **Vzhled:** `CloudSeaRenderer` kreslí pásy mraků ve dvou vrstvách
+>   s paralaxou a chuchvalci, palubu s nýty a zábradlím, lana dolů a stín
+>   paluby na mracích; v pásu blesky, zasažené budovy jiskří. Nebeské velryby
+>   a medúzy jsou sdílená zvěř Domoviny, tady v oblacích.
+> * **Oproti návrhu dále:** závěsný dům stojí na palubě (lehký dům, víc lidí
+>   na dlaždici); fúzní reaktor Domoviny na hélium-3 zatím není; hlubinná
+>   sonda v bouři nestojí jinak než ostatní budovy.
+> * **Hands-off** (`GasGiantColonyTests`): guvernér sám dojde k ★ za
+>   86–93 minut; štíty staví po zásazích, ★★ (10 pásů bez zásahu) zůstává
+>   výzvou pro hráče.
+
 ---
 
 ### 4.6 Xeno — cizí svět (`xeno`)

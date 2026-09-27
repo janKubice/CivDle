@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Události Nebes. Velká bouře je volba — bouřkové pásy samy chodí z rozvrhu jevu.",
+  "events": [
+    {
+      "id": "gg_sky_whales",
+      "choices": [
+        {
+          "id": "watch",
+          "effect": {
+            "kind": "growth",
+            "multiplier": 1.2,
+            "seconds": 120
+          }
+        },
+        {
+          "id": "work",
+          "gain": {
+            "carbon_dust": 60
+          }
+        }
+      ]
+    },
+    {
+      "id": "gg_great_storm",
+      "choices": [
+        {
+          "id": "prepare",
+          "cost": {
+            "carbon_fiber": 40
+          }
+        },
+        {
+          "id": "shrug",
+          "effect": {
+            "kind": "production",
+            "multiplier": 0.85,
+            "seconds": 150
+          }
+        }
+      ]
+    },
+    {
+      "id": "gg_downdraft",
+      "choices": [
+        {
+          "id": "reinforce",
+          "cost": {
+            "carbon_fiber": 30
+          }
+        },
+        {
+          "id": "endure",
+          "effect": {
+            "kind": "growth",
+            "multiplier": 0.85,
+            "seconds": 120
+          }
+        }
+      ]
+    },
+    {
+      "id": "gg_eclipse",
+      "choices": [
+        {
+          "id": "celebrate",
+          "effect": {
+            "kind": "growth",
+            "multiplier": 1.1,
+            "seconds": 90
+          }
+        },
+        {
+          "id": "study",
+          "gain": {
+            "science": 40
+          }
+        }
+      ]
+    },
+    {
+      "id": "gg_corona",
+      "choices": [
+        {
+          "id": "admire",
+          "effect": {
+            "kind": "growth",
+            "multiplier": 1.1,
+            "seconds": 90
+          }
+        },
+        {
+          "id": "work",
+          "gain": {
+            "hydrogen": 50
+          }
+        }
+      ]
+    }
+  ]
+}
