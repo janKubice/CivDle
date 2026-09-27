@@ -866,6 +866,52 @@ public class ContentLoaderTests : IDisposable
         """);
 
     [Fact]
+    public void LoadFrom_WithoutAtmospheres_LooksLikeTheHomeworld()
+    {
+        WriteAllValid();
+
+        Assert.Same(AtmosphereProfile.Home, Load().Atmosphere);
+    }
+
+    [Theory]
+    [InlineData("\"particles\": \"lasers\"", "lasers")]
+    [InlineData("\"morningAlpha\": 0.9", "0–0,5")]
+    [InlineData("\"moons\": 9", "moons")]
+    public void LoadFrom_BadAtmosphere_Throws(string field, string expected)
+    {
+        WriteAllValid();
+        Write("atmospheres.json", $$"""
+        { "schemaVersion": 1, "atmospheres": [
+          { "id": "home", "morning": "#FFC480", "noon": "#FFFCF0", "evening": "#7E76D2", {{field}} } ] }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
+    [Fact]
+    public void LoadWorld_PicksItsAtmosphereOrFailsWhenMissing()
+    {
+        WriteDuneWorld(extraWorldField: "\"atmosphere\": \"dune\"");
+        Write("atmospheres.json", """
+        { "schemaVersion": 1, "atmospheres": [
+          { "id": "home", "morning": "#FFC480", "noon": "#FFFCF0", "evening": "#7E76D2" },
+          { "id": "dune", "morning": "#FFB060", "noon": "#FFFFFF", "evening": "#FF9A50", "particles": "sand", "particleDensity": 0.3 } ] }
+        """);
+
+        Assert.Equal("sand", LoadWorld("dune").Atmosphere.Particles);
+        Assert.Equal("home", Load().Atmosphere.Id);
+
+        WriteDuneWorld(extraWorldField: "\"atmosphere\": \"mars\"");
+        Write("atmospheres.json", """
+        { "schemaVersion": 1, "atmospheres": [ { "id": "home", "morning": "#FFC480", "noon": "#FFFCF0", "evening": "#7E76D2" } ] }
+        """);
+        var ex = Assert.Throws<ContentLoadException>(() => LoadWorld("dune"));
+        Assert.Contains("mars", ex.Message);
+    }
+
+    [Fact]
     public void LoadFrom_WithoutContractsFile_LeavesBoardOff()
     {
         // Soubor je volitelný: starší data se musí načíst a hrát jako dřív.

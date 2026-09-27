@@ -985,6 +985,16 @@ dostane profil, který přesně odpovídá dnešnímu vzhledu (regresní snímek
 Loader ověří, že každý svět má profil a že odkazy (druhy částic, vrstvy
 oblohy) existují.
 
+> **Hotovo (D0.6).** `data/atmospheres.json` má profil pro Domovinu a šest
+> světů; svět si ho vybere v `world.json` → `atmosphere` (jinak podle svého
+> ID, jinak vzhled Domoviny). Render z něj bere barvy ranního, poledního
+> a večerního světla, celkový nádech (`tint`), částice (`AtmosphereLayer`:
+> písek, sníh, popel, spory, pyl, opar) a polární záři. Profil Domoviny dává
+> **přesně** stejné světlo jako dřívější konstanty v `DayNightCycle` (test
+> projede celý den ve všech obdobích); bez souboru platí vestavěná Domovina.
+> Měsíce, prstenec, druhé slunce a akcent HUD jsou v datech připravené
+> a kreslit se začnou se světy, které je mají (Nebesa, Xeno).
+
 ### 5.2 Paleta, sprity a silueta
 
 * Sprity se kreslí **v kódu** (`PixelCanvas`, `SpriteLibrary`) — to je

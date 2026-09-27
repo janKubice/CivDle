@@ -192,6 +192,7 @@ public sealed class GameplayScreen : IScreen
     private readonly CloudShadowRenderer _clouds;
     private readonly CloudLayerRenderer _cloudLayer;
     private readonly Rendering.Effects.AmbientMotes _motes;
+    private readonly AtmosphereLayer _atmosphere;
     private readonly GodRayRenderer _godRays;
     private readonly ValleyMistRenderer _mist;
     private readonly ParchmentOverlay _parchment;
@@ -602,6 +603,7 @@ public sealed class GameplayScreen : IScreen
         _clouds = new CloudShadowRenderer(screens.GraphicsDevice);
         _cloudLayer = new CloudLayerRenderer(screens.GraphicsDevice);
         _motes = new Rendering.Effects.AmbientMotes(info.Seed);
+        _atmosphere = new AtmosphereLayer(info.Seed);
         _godRays = new GodRayRenderer(screens.GraphicsDevice);
         _mist = new ValleyMistRenderer(screens.GraphicsDevice);
         _parchment = new ParchmentOverlay(screens.GraphicsDevice);
@@ -882,6 +884,10 @@ public sealed class GameplayScreen : IScreen
             (float)(season?.MoteDensity ?? 0.0),
             (float)(season?.MoteFall ?? 0.0),
             WindDirectionX, WindDirectionY);
+
+        // A co poletuje vzduchem světa — písek na Duně, popel ve Výhni.
+        // Nezávisle na období: na Mrazu v létě sněží taky.
+        _atmosphere.Update(worldDt, _screens.Content.Atmosphere, moteMin, moteMax, WindDirectionX, WindDirectionY);
         }
 
         // Cheaty se udržují herním časem: v pauze se nic nedosypává a záběr,
@@ -1047,7 +1053,7 @@ public sealed class GameplayScreen : IScreen
         // přes sebe. Násobení tvar zachová, závoj ho rozpouštěl.
         double timeOfDay = RenderTimeOfDay;
         var light = DayNightCycle.LightColor(
-            timeOfDay, _screens.Content.Gameplay.DayNight, _simulation.CurrentSeason);
+            timeOfDay, _screens.Content.Gameplay.DayNight, _simulation.CurrentSeason, _screens.Content.Atmosphere);
 
         // Ve fotorežimu se okraje rozostří: město se změní v model na stole.
         // Za hry by to překáželo — hráč se dívá po celé ploše — ale právě proto
@@ -1063,6 +1069,8 @@ public sealed class GameplayScreen : IScreen
             _motes.Draw(spriteBatch, _camera, _screens.WhitePixel, motesSeason.MoteColor!.Value.ToXna());
         }
 
+        _atmosphere.DrawParticles(spriteBatch, _camera, _screens.WhitePixel, _screens.Content.Atmosphere);
+
         // Mraky nad městem AŽ ZA složením. Letí mezi kamerou a zemí, takže je
         // nemá co zastínit — a hlavně tím na chvíli zakryjí kus obrazu, což je
         // jediná věc, po které oko uvěří, že je mezi ním a městem vzduch.
@@ -1071,6 +1079,11 @@ public sealed class GameplayScreen : IScreen
         _cloudLayer.Draw(
             spriteBatch, _camera, _screens.GraphicsDevice.Viewport,
             CloudCoverage(), WindDirectionX, WindDirectionY, light);
+
+        // Polární záře nad mraky: je vysoko v atmosféře, mraky ji nezakryjí.
+        _atmosphere.DrawAurora(
+            spriteBatch, _screens.WhitePixel, _screens.GraphicsDevice.Viewport,
+            _screens.Content.Atmosphere, DayNightCycle.NightFactor(timeOfDay));
 
         // Paprsky úplně nakonec. Nízké slunce prosvítá mezerami v mracích
         // a kreslí do vzduchu pruhy — proto až za mraky, ne před nimi.

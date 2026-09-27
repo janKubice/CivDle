@@ -141,6 +141,10 @@ public sealed class ContentLoader
             ? WorldProfile.Home
             : BuildWorldProfile(Path.Combine(dataDirectory, "worlds", worldId, "world.json"),
                 _worldFile, resources, buildings, techs, worldGen, gameplay);
+        var atmosphere = PickAtmosphere(
+            Path.Combine(dataDirectory, "atmospheres.json"),
+            LoadAtmospheres(Path.Combine(dataDirectory, "atmospheres.json")),
+            _worldFile?.Atmosphere ?? worldId);
 
         return new GameContent(
             biomes, resources, buildings, techs, prestige, prestigeUpgrades, quests, questsDynamic, achievements, events, eras,
@@ -151,7 +155,100 @@ public sealed class ContentLoader
             Networks = new NetworkCatalog(NetworkCatalog.PowerType(gameplay.Power), _networkTypes),
             World = world,
             Galaxy = galaxy,
+            Atmosphere = atmosphere,
         };
+    }
+
+    // ----- atmosféra -----
+
+    /// <summary>
+    /// Profily atmosféry. Chybějící soubor = jen vestavěný vzhled Domoviny
+    /// (<see cref="AtmosphereProfile.Home"/>) — starší data vypadají jako dřív.
+    /// </summary>
+    private IReadOnlyList<AtmosphereProfile> LoadAtmospheres(string path)
+    {
+        if (!HasFile(path))
+        {
+            return Array.Empty<AtmosphereProfile>();
+        }
+
+        var file = ReadFile<AtmospheresFileDto>(path);
+        CheckSchemaVersion(path, file.SchemaVersion);
+        var result = new List<AtmosphereProfile>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var dto in file.Atmospheres ?? new List<AtmosphereDto>())
+        {
+            string id = RequireId(path, dto.Id, $"Atmosféra na pozici {result.Count}");
+            if (!seen.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID atmosféry '{id}'.");
+            }
+
+            string owner = $"Atmosféra '{id}'";
+            string particles = dto.Particles ?? "none";
+            if (!AtmosphereProfile.ParticleKinds.Contains(particles))
+            {
+                throw new ContentLoadException(path,
+                    $"{owner}: neznámé částice '{particles}' (známé: {string.Join(", ", AtmosphereProfile.ParticleKinds.OrderBy(k => k))}).");
+            }
+
+            if (dto.MorningAlpha is < 0 or > 0.5 || dto.EveningAlpha is < 0 or > 0.5)
+            {
+                throw new ContentLoadException(path, $"{owner}: síla ranního a večerního nádechu musí být 0–0,5 — víc už je filtr, ne světlo.");
+            }
+
+            if (dto.TintStrength is < 0 or > 1 || dto.ParticleDensity is < 0 or > 1)
+            {
+                throw new ContentLoadException(path, $"{owner}: 'tintStrength' a 'particleDensity' musí být 0–1.");
+            }
+
+            if (dto.Moons is < 0 or > 4)
+            {
+                throw new ContentLoadException(path, $"{owner}: 'moons' musí být 0–4.");
+            }
+
+            result.Add(new AtmosphereProfile(
+                id,
+                ParseColor(path, dto.Morning, owner), ParseColor(path, dto.Noon, owner), ParseColor(path, dto.Evening, owner),
+                dto.MorningAlpha, dto.EveningAlpha,
+                dto.Tint is null ? new RgbColor(255, 255, 255) : ParseColor(path, dto.Tint, owner), dto.TintStrength,
+                particles, dto.ParticleDensity, dto.Aurora, dto.Moons, dto.Ring,
+                dto.SecondSun is null ? null : ParseColor(path, dto.SecondSun, owner),
+                dto.HudAccent is null ? AtmosphereProfile.Home.HudAccent : ParseColor(path, dto.HudAccent, owner)));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Profil světa: ten se jménem z <c>world.json</c> (nebo ID světa). Svět,
+    /// který o profil výslovně žádá, ho mít musí; bez souboru profilů platí
+    /// vestavěná Domovina.
+    /// </summary>
+    private AtmosphereProfile PickAtmosphere(string path, IReadOnlyList<AtmosphereProfile> profiles, string id)
+    {
+        foreach (var profile in profiles)
+        {
+            if (profile.Id == id)
+            {
+                return profile;
+            }
+        }
+
+        if (_worldFile?.Atmosphere is { } wanted)
+        {
+            throw new ContentLoadException(path, $"Svět '{_worldId}' chce atmosféru '{wanted}', která neexistuje.");
+        }
+
+        foreach (var profile in profiles)
+        {
+            if (profile.Id == WorldScope.HomeId)
+            {
+                return profile; // svět bez vlastního profilu vypadá jako Domovina
+            }
+        }
+
+        return AtmosphereProfile.Home;
     }
 
     /// <summary>

@@ -283,6 +283,7 @@ public sealed class GameContent
         Networks = networks ?? Networks,
         World = world ?? World,
         Galaxy = galaxy ?? Galaxy,
+        Atmosphere = Atmosphere,
     };
 
     /// <summary>
@@ -297,6 +298,12 @@ public sealed class GameContent
     /// bez galaxie.
     /// </summary>
     public WorldCatalog Galaxy { get; init; } = WorldCatalog.Empty;
+
+    /// <summary>
+    /// Atmosféra světa (světlo, nádech, částice, noční obloha) z
+    /// <c>data/atmospheres.json</c>; bez souboru vzhled Domoviny.
+    /// </summary>
+    public AtmosphereProfile Atmosphere { get; init; } = AtmosphereProfile.Home;
 
     private NetworkCatalog? _networks;
 

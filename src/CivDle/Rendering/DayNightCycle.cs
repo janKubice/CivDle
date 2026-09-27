@@ -22,12 +22,6 @@ public static class DayNightCycle
     private const float Noon = 0.50f;
     private const float Evening = 0.78f;
 
-    /// <summary>Nejsilnější teplý nádech (ráno). Nad 15 % už to vypadá jako filtr.</summary>
-    private const float MorningAlpha = 0.10f;
-
-    /// <summary>Nejsilnější studený nádech (večer).</summary>
-    private const float EveningAlpha = 0.12f;
-
     /// <summary>Síla noci 0–1 (1 = hluboká noc). Plynulé rampy při svítání a soumraku.</summary>
     public static float NightFactor(double timeOfDay01)
     {
@@ -69,15 +63,26 @@ public static class DayNightCycle
     /// <para>Vrací barvu a její krytí; krytí je schválně malé (do 12 %) —
     /// grading má být vidět na screenshotu vedle sebe, ne při hraní.</para>
     /// </summary>
-    public static (Color Color, float Alpha) Grade(double timeOfDay01)
+    public static (Color Color, float Alpha) Grade(double timeOfDay01) =>
+        Grade(timeOfDay01, AtmosphereProfile.Home);
+
+    /// <summary>
+    /// Grading podle atmosféry světa (svety-design.md 5.1): kotvy ráno, poledne
+    /// a večer a jejich síla jsou v datech — Duna má bílé poledne a zlatý
+    /// soumrak, Mráz celodenní zlatou hodinu. Domovina má původní hodnoty.
+    /// </summary>
+    public static (Color Color, float Alpha) Grade(double timeOfDay01, AtmosphereProfile atmosphere)
     {
         float t = (float)(timeOfDay01 - Math.Floor(timeOfDay01));
 
         // Tři kotvy přes den. Mezi nimi se plynule přechází, takže se barva
-        // nikde neláme.
-        var morning = new Color(255, 196, 128);  // teplé nízké slunce
-        var noon = new Color(255, 252, 240);     // bílé polední světlo
-        var evening = new Color(126, 118, 210);  // modrofialový večer
+        // nikde neláme. Domovina: teplé nízké slunce, bílé poledne,
+        // modrofialový večer.
+        var morning = atmosphere.Morning.ToXna();
+        var noon = atmosphere.Noon.ToXna();
+        var evening = atmosphere.Evening.ToXna();
+        float morningAlpha = (float)atmosphere.MorningAlpha;
+        float eveningAlpha = (float)atmosphere.EveningAlpha;
 
         // V noci se grading vytrácí ÚPLNĚ. Nejde jen o to, že přes tmu není co
         // gradovat: mezi večerem a ránem je v křivce zlom (modrá → teplá) a
@@ -88,11 +93,11 @@ public static class DayNightCycle
         if (t < Noon)
         {
             float k = Math.Clamp((t - Morning) / (Noon - Morning), 0f, 1f);
-            return (Color.Lerp(morning, noon, k), Lerp(MorningAlpha, 0f, k) * daylight);
+            return (Color.Lerp(morning, noon, k), Lerp(morningAlpha, 0f, k) * daylight);
         }
 
         float e = Math.Clamp((t - Noon) / (Evening - Noon), 0f, 1f);
-        return (Color.Lerp(noon, evening, e), Lerp(0f, EveningAlpha, e) * daylight);
+        return (Color.Lerp(noon, evening, e), Lerp(0f, eveningAlpha, e) * daylight);
     }
 
     /// <summary>
@@ -175,13 +180,26 @@ public static class DayNightCycle
     /// znamenaly tři plné přetažení obrazovky za snímek — a hlavně se jejich
     /// pořadí muselo hlídat ručně.</para>
     /// </summary>
-    public static Color LightColor(double timeOfDay01, DayNightConfig config, SeasonDef? season)
+    public static Color LightColor(double timeOfDay01, DayNightConfig config, SeasonDef? season) =>
+        LightColor(timeOfDay01, config, season, AtmosphereProfile.Home);
+
+    /// <summary>
+    /// Barva světla podle atmosféry světa: grading z profilu a celodenní nádech
+    /// světa (rezavá Výheň, jantarová Nebesa). Domovina nádech nemá.
+    /// </summary>
+    public static Color LightColor(double timeOfDay01, DayNightConfig config, SeasonDef? season, AtmosphereProfile atmosphere)
     {
         var light = Vector3.One;
 
+        // Nádech světa: platí celý den, i v noci — svět má svou barvu i za tmy.
+        if (atmosphere.TintStrength > 0.001)
+        {
+            light *= Vector3.Lerp(Vector3.One, atmosphere.Tint.ToXna().ToVector3(), (float)atmosphere.TintStrength);
+        }
+
         // Grading: barva světla, které zbývá. Síla z Grade() je krytí závoje,
         // takže se používá jako míra, jak daleko od bílé se posunout.
-        var (gradeColor, gradeAlpha) = Grade(timeOfDay01);
+        var (gradeColor, gradeAlpha) = Grade(timeOfDay01, atmosphere);
         if (gradeAlpha > 0.001f)
         {
             light *= Vector3.Lerp(Vector3.One, gradeColor.ToVector3(), gradeAlpha * GradeReach);

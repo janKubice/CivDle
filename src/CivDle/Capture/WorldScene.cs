@@ -132,7 +132,7 @@ public sealed class WorldScene : IDisposable
         // ze které vznikl.
         double timeOfDay = simulation.TimeOfDay01;
         var light = DayNightCycle.LightColor(
-            timeOfDay, _screens.Content.Gameplay.DayNight, simulation.CurrentSeason);
+            timeOfDay, _screens.Content.Gameplay.DayNight, simulation.CurrentSeason, _screens.Content.Atmosphere);
         DayNightCycle.DrawLight(spriteBatch, _screens.WhitePixel, viewport, light);
 
         // Lampy a okna až nad osvětlením — jsou to zdroje světla, ne plocha.

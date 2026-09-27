@@ -964,4 +964,26 @@ public sealed record WorldFileDto(
     List<string>? Exports,
     string? Port,
     Dictionary<string, string>? Substitutes,
-    List<string>? WithoutSystems);
+    List<string>? WithoutSystems,
+    string? Atmosphere = null);
+
+/// <summary>Obsah souboru <c>data/atmospheres.json</c> — profily atmosféry světů.</summary>
+public sealed record AtmospheresFileDto(int SchemaVersion, List<AtmosphereDto>? Atmospheres);
+
+/// <summary>Jeden profil atmosféry tak, jak leží v JSON.</summary>
+public sealed record AtmosphereDto(
+    string? Id,
+    string? Morning,
+    string? Noon,
+    string? Evening,
+    double MorningAlpha,
+    double EveningAlpha,
+    string? Tint,
+    double TintStrength,
+    string? Particles,
+    double ParticleDensity,
+    bool Aurora,
+    int Moons,
+    bool Ring,
+    string? SecondSun,
+    string? HudAccent);

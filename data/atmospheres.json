@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Atmosféry světů (svety-design.md 5.1): grading dne (ráno/poledne/večer a síla), celodenní nádech světa, částice ve vzduchu, noční obloha a akcent rozhraní. Domovina = přesně dřívější vzhled (regresní test).",
+  "atmospheres": [
+    {
+      "id": "home",
+      "morning": "#FFC480", "noon": "#FFFCF0", "evening": "#7E76D2",
+      "morningAlpha": 0.10, "eveningAlpha": 0.12,
+      "tint": "#FFFFFF", "tintStrength": 0,
+      "particles": "none", "particleDensity": 0,
+      "hudAccent": "#60C4DC"
+    },
+    {
+      "id": "dune",
+      "morning": "#FFB060", "noon": "#FFFFFF", "evening": "#FF9A50",
+      "morningAlpha": 0.16, "eveningAlpha": 0.18,
+      "tint": "#FFE8C0", "tintStrength": 0.10,
+      "particles": "sand", "particleDensity": 0.35,
+      "moons": 1,
+      "hudAccent": "#E8A24C"
+    },
+    {
+      "id": "frost",
+      "morning": "#FFC890", "noon": "#E8F4FF", "evening": "#FFB478",
+      "morningAlpha": 0.18, "eveningAlpha": 0.16,
+      "tint": "#D8E8FF", "tintStrength": 0.12,
+      "particles": "snow", "particleDensity": 0.45,
+      "aurora": true, "moons": 1,
+      "hudAccent": "#9ED8F0"
+    },
+    {
+      "id": "archipelago",
+      "morning": "#FFD090", "noon": "#FFFFF4", "evening": "#FF8A70",
+      "morningAlpha": 0.10, "eveningAlpha": 0.14,
+      "tint": "#E0FFF8", "tintStrength": 0.06,
+      "particles": "none", "particleDensity": 0,
+      "moons": 1,
+      "hudAccent": "#3FC8C0"
+    },
+    {
+      "id": "forge",
+      "morning": "#FF9060", "noon": "#FFD8C0", "evening": "#C04830",
+      "morningAlpha": 0.14, "eveningAlpha": 0.20,
+      "tint": "#FFC8A8", "tintStrength": 0.18,
+      "particles": "ash", "particleDensity": 0.40,
+      "moons": 0,
+      "hudAccent": "#F07038"
+    },
+    {
+      "id": "gas_giant",
+      "morning": "#FFC878", "noon": "#FFE8C0", "evening": "#E08858",
+      "morningAlpha": 0.14, "eveningAlpha": 0.16,
+      "tint": "#FFE0B0", "tintStrength": 0.16,
+      "particles": "mist", "particleDensity": 0.30,
+      "moons": 3, "ring": true,
+      "hudAccent": "#F0B060"
+    },
+    {
+      "id": "xeno",
+      "morning": "#FFB0A0", "noon": "#F0E8FF", "evening": "#A070FF",
+      "morningAlpha": 0.14, "eveningAlpha": 0.20,
+      "tint": "#E8D8FF", "tintStrength": 0.14,
+      "particles": "spores", "particleDensity": 0.40,
+      "moons": 2, "ring": true, "secondSun": "#80B8FF",
+      "hudAccent": "#C080F0"
+    }
+  ]
+}
