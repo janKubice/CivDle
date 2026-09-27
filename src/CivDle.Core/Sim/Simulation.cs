@@ -80,6 +80,15 @@ public sealed partial class Simulation
     private readonly NetworkSystem _networks = new();
 
     private bool _powerDirty = true;
+
+    /// <summary>Má obsah zdroj, který dodává jen ve dne nebo jen v noci? (Jinak se schod dne nehlídá.)</summary>
+    private readonly bool _hasTimedSupply;
+
+    /// <summary>Schod dne, se kterým se síť naposledy počítala (<see cref="SupplyCurve.Phase"/>).</summary>
+    private int _supplyPhase = int.MinValue;
+
+    /// <summary>Biom na dlaždici jako delegát pro přírodní zdroje sítí — vytvořený jednou, ne při každém přepočtu.</summary>
+    private readonly Func<int, int, byte> _biomeAtForNetworks;
     private readonly FrontierSystem _frontier;
     private readonly FigureSystem _figures;
     private readonly Carillon _carillon;
@@ -180,6 +189,8 @@ public sealed partial class Simulation
         Terrain = terrain;
         _cachedTerrain = new CachedTerrain(terrain, _biomeOverrides);
         Seed = seed;
+        _hasTimedSupply = NetworkSystem.HasTimedSupply(content);
+        _biomeAtForNetworks = BiomeAt;
 
         // Budova je odemčená od startu, pokud ji žádná technologie nehlídá.
         _buildingUnlocked = new bool[content.Buildings.Count];
@@ -3245,7 +3256,131 @@ public sealed partial class Simulation
         }
 
         _powerDirty = false;
-        _networks.Rebuild(BuildingsMutable, _content);
+        _networks.Rebuild(
+            BuildingsMutable, _content, new NetworkLight(TimeOfDay01, false, SolarDim),
+            _biomeAtForNetworks, TerrainRevision);
+    }
+
+    /// <summary>
+    /// Kolik slunce projde k zemi (1 = jasno). Ztlumí ho písečná bouře —
+    /// sluneční zrcadla pak dodávají méně.
+    /// </summary>
+    public double SolarDim => 1.0;
+
+    /// <summary>
+    /// Pokrytí proudem podle průměru dne — pohled guvernéra. Zrcadla v noci
+    /// nesvítí, ale guvernér kvůli tomu nemá stavět další.
+    /// </summary>
+    public double PowerSteadyAt(int x, int y)
+    {
+        if (!_content.Gameplay.Power.IsEnabled)
+        {
+            return PowerFactor;
+        }
+
+        RefreshPowerIfNeeded();
+        return _networks.SteadyCoverageAt(NetworkCatalog.PowerIndex, x, y);
+    }
+
+    /// <summary>Pokrytí sítí podle průměru dne (pohled guvernéra; viz <see cref="PowerSteadyAt"/>).</summary>
+    public double NetworkSteadyCoverageAt(int network, int x, int y)
+    {
+        if (network == NetworkCatalog.PowerIndex)
+        {
+            return PowerSteadyAt(x, y);
+        }
+
+        RefreshPowerIfNeeded();
+        return _networks.SteadyCoverageAt(network, x, y);
+    }
+
+    // ----- sítě a bydlení -----
+
+    private int _homeNetworkRevision = -1;
+    private double _networkGrowthMult = 1.0;
+    private double _networkHappinessDrop;
+
+    /// <summary>
+    /// O kolik zpomalí růst domy bez sítě (voda na Duně): 1 = nic, 0,5 = polovina.
+    /// Počítá se z podílu bydlení, kam síť nedosáhne — půl města bez vody =
+    /// půl postihu z <see cref="NetworkHousing"/>.
+    /// </summary>
+    public double NetworkGrowthMult
+    {
+        get
+        {
+            RefreshHomeNetworkEffects();
+            return _networkGrowthMult;
+        }
+    }
+
+    /// <summary>Kolik spokojenosti vezme bydlení bez sítě (0–1).</summary>
+    public double NetworkHappinessDrop
+    {
+        get
+        {
+            RefreshHomeNetworkEffects();
+            return _networkHappinessDrop;
+        }
+    }
+
+    /// <summary>
+    /// Přepočítá dopad sítí na bydlení — jen když se od minula sítě
+    /// přepočítaly (změna zástavby, schod dne). Čistá funkce stavu, takže
+    /// načtená hra dojde ke stejnému číslu.
+    /// </summary>
+    private void RefreshHomeNetworkEffects()
+    {
+        var networks = _content.Networks;
+        bool any = false;
+        for (int n = 1; n < networks.Count; n++)
+        {
+            any |= networks[n].Housing is not null && networks[n].IsEnabled;
+        }
+
+        if (!any)
+        {
+            return; // Domovina a svět bez takové sítě: nic se nepočítá
+        }
+
+        RefreshPowerIfNeeded();
+        if (_homeNetworkRevision == _networks.Revision)
+        {
+            return;
+        }
+
+        _homeNetworkRevision = _networks.Revision;
+        double growth = 1.0;
+        double drop = 0.0;
+        var buildings = Buildings;
+        for (int n = 1; n < networks.Count; n++)
+        {
+            if (networks[n].Housing is not { } housing || !networks[n].IsEnabled)
+            {
+                continue;
+            }
+
+            double homes = 0;
+            double dry = 0;
+            for (int i = 0; i < buildings.Length; i++)
+            {
+                var def = _content.Buildings[buildings[i].DefIndex];
+                if (!buildings[i].IsComplete || def.HousingCapacity <= 0 || def.DemandOf(n) <= 0)
+                {
+                    continue;
+                }
+
+                homes += def.HousingCapacity;
+                dry += def.HousingCapacity * (1.0 - _networks.CoverageAt(n, buildings[i].X, buildings[i].Y));
+            }
+
+            double share = homes > 0 ? dry / homes : 0.0;
+            growth *= 1.0 - share * housing.GrowthPenalty;
+            drop += share * housing.HappinessPenalty;
+        }
+
+        _networkGrowthMult = growth;
+        _networkHappinessDrop = drop;
     }
 
     /// <summary>Postavené budovy (jen ke čtení; render z nich kreslí).</summary>
@@ -4713,6 +4848,18 @@ public sealed partial class Simulation
         if (_production.TakePowerPlantsChanged())
         {
             _powerDirty = true;
+        }
+
+        // Zrcadla ve dne, lapač rosy v noci: síť se přepočítá, když se změní
+        // schod dne — šestnáctkrát za den, ne každý tik.
+        if (_hasTimedSupply)
+        {
+            int phase = SupplyCurve.Phase(TimeOfDay01, SolarDim < 1.0);
+            if (phase != _supplyPhase)
+            {
+                _supplyPhase = phase;
+                _powerDirty = true;
+            }
         }
 
         _toolsSystem.Tick(this); // až po výrobě: ohladí se to, čím se právě pracovalo

@@ -35,8 +35,16 @@ public sealed record NetworkTypeDef(
     int Range,
     NetworkShortage Shortage,
     double CutoffBelow,
-    RgbColor OverlayColor)
+    RgbColor OverlayColor,
+    IReadOnlyList<TerrainSource>? TerrainSourcesOrNull = null,
+    NetworkHousing? Housing = null)
 {
+    /// <summary>
+    /// Přírodní zdroje: dlaždice biomu, které do sítě dodávají samy (oáza na
+    /// Duně, horký pramen na Mrazu). Nikdo je nestaví a nikdo je nezboří.
+    /// </summary>
+    public IReadOnlyList<TerrainSource> TerrainSources => TerrainSourcesOrNull ?? Array.Empty<TerrainSource>();
+
     /// <summary>ID elektrické sítě — ta jediná se v datech budov píše starými poli.</summary>
     public const string PowerId = "power";
 
@@ -57,7 +65,40 @@ public sealed record NetworkTypeDef(
 /// Relé: síť, která dosáhne na buňku s touto budovou, teče dál, jako by tu
 /// byl zdroj s tímto dosahem (tepelná věž, cisterna, kanát). 0 = není relé.
 /// </param>
-public readonly record struct NetworkUse(int NetworkIndex, int Supply, int Demand, int RelayRange);
+/// <param name="CutoffBelow">
+/// Tvrdý práh jen pro tuhle budovu: pod tímto pokrytím nejede vůbec (datlový
+/// háj bez vody neurodí nic), i když síť jinak jen zpomaluje. 0 = řídí se druhem sítě.
+/// </param>
+public readonly record struct NetworkUse(int NetworkIndex, int Supply, int Demand, int RelayRange, double CutoffBelow = 0);
+
+/// <summary>Přírodní zdroj sítě: kolik dodá každá dlaždice biomu.</summary>
+/// <param name="BiomeIndex">Biom, který dodává (oáza).</param>
+/// <param name="SupplyPerTile">Výkon jedné dlaždice.</param>
+public sealed record TerrainSource(int BiomeIndex, double SupplyPerTile);
+
+/// <summary>
+/// Co nedostatek sítě dělá s bydlením: dům bez vody neroste tak rychle a žije
+/// se v něm hůř. Obojí je podíl — půl města bez vody = půl postihu.
+/// </summary>
+/// <param name="GrowthPenalty">O kolik se zpomalí růst, když nemá síť nikdo (0–1).</param>
+/// <param name="HappinessPenalty">Kolik bodů spokojenosti to vezme, když nemá síť nikdo (0–1).</param>
+public sealed record NetworkHousing(double GrowthPenalty, double HappinessPenalty);
+
+/// <summary>
+/// Kdy zdroj dodává: stále, jen ve dne (sluneční zrcadla — nejvíc v poledne),
+/// nebo jen v noci (lapač rosy).
+/// </summary>
+public enum SupplyTime
+{
+    /// <summary>Pořád stejně.</summary>
+    Always,
+
+    /// <summary>Ve dne podle výšky slunce, v noci nic.</summary>
+    Day,
+
+    /// <summary>Jen v noci.</summary>
+    Night,
+}
 
 /// <summary>
 /// Druhy sítí. Index 0 je vždy elektřina — nastavuje ji <c>gameplay.json</c>

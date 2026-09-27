@@ -19,6 +19,15 @@ namespace CivDle.Core.Sim;
 /// <para><b>Hrubá mřížka a nízká frekvence.</b> Přepočítává se jen po změně
 /// zástavby (CLAUDE.md: růstové systémy nejedou každý tik), bez alokací —
 /// slovníky a fronty se jen čistí.</para>
+///
+/// <para><b>Časované zdroje</b> (zrcadla ve dne, lapač rosy v noci) dodávají
+/// podle <see cref="NetworkLight"/>; simulace síť přepočítá, když se změní
+/// schod dne (<see cref="SupplyCurve.Phase"/>). Vedle okamžitého stavu se
+/// počítá i <b>průměr dne</b> — podle něj plánuje guvernér.</para>
+///
+/// <para><b>Přírodní zdroje</b> (oáza) jsou dlaždice terénu. Hledají se jen
+/// v dosahu buněk, kde někdo síť chce, a součet za buňku se pamatuje, dokud
+/// se terén nezmění.</para>
 /// </summary>
 public sealed class NetworkSystem
 {
@@ -30,8 +39,17 @@ public sealed class NetworkSystem
 
     private NetworkGrid[] _grids = Array.Empty<NetworkGrid>();
 
+    /// <summary>Sítě spočítané s průměrem dne; <c>null</c> = žádný časovaný zdroj, platí okamžité.</summary>
+    private NetworkGrid[]? _steadyGrids;
+
     /// <summary>Kolik buněk má v síti aspoň něco (pro testy a diagnostiku).</summary>
     public int CellCount(int network) => network < _grids.Length ? _grids[network].CellCount : 0;
+
+    /// <summary>
+    /// Počítadlo přepočtů. Kdo si z pokrytí něco odvozuje (dopad na bydlení),
+    /// pozná podle něj, že je jeho výsledek zastaralý.
+    /// </summary>
+    public int Revision { get; private set; }
 
     /// <summary>
     /// Přepočítá všechny sítě od základu.
@@ -40,23 +58,84 @@ public sealed class NetworkSystem
     /// a dva zdroje mohou pokrývat tutéž čtvrť — jednu záplavu od druhé odečíst
     /// nejde. Volá se jen po změně zástavby.</para>
     /// </summary>
-    public void Rebuild(ReadOnlySpan<BuildingInstance> buildings, GameContent content)
+    public void Rebuild(ReadOnlySpan<BuildingInstance> buildings, GameContent content) =>
+        Rebuild(buildings, content, NetworkLight.Noon, null, 0);
+
+    /// <summary>
+    /// Přepočet se světlem (časované zdroje) a terénem (přírodní zdroje).
+    /// </summary>
+    /// <param name="buildings">Budovy.</param>
+    /// <param name="content">Obsah (druhy sítí, budovy).</param>
+    /// <param name="light">Denní čas a ztlumení slunce.</param>
+    /// <param name="biomeAt">Biom na dlaždici (včetně přepisů); <c>null</c> = bez přírodních zdrojů.</param>
+    /// <param name="terrainRevision">Verze terénu — po změně se zapomenou součty přírodních zdrojů.</param>
+    public void Rebuild(
+        ReadOnlySpan<BuildingInstance> buildings, GameContent content, in NetworkLight light,
+        Func<int, int, byte>? biomeAt, int terrainRevision)
     {
         var networks = content.Networks;
         if (_grids.Length != networks.Count)
         {
-            _grids = new NetworkGrid[networks.Count];
-            for (int i = 0; i < _grids.Length; i++)
-            {
-                _grids[i] = new NetworkGrid();
-            }
+            _grids = NewGrids(networks.Count);
+            _steadyGrids = null;
         }
 
+        bool timed = HasTimedSupply(content);
+        if (timed && _steadyGrids is null)
+        {
+            _steadyGrids = NewGrids(networks.Count);
+        }
+        else if (!timed)
+        {
+            _steadyGrids = null;
+        }
+
+        var steady = light with { Steady = true };
         for (int n = 0; n < _grids.Length; n++)
         {
             var type = networks[n];
-            _grids[n].Rebuild(buildings, content, n, type.IsEnabled ? type.Range : 0);
+            int range = type.IsEnabled ? type.Range : 0;
+            _grids[n].Rebuild(buildings, content, n, range, light, biomeAt, terrainRevision);
+            _steadyGrids?[n].Rebuild(buildings, content, n, range, steady, biomeAt, terrainRevision);
         }
+
+        Revision++;
+    }
+
+    /// <summary>Má obsah zdroj, který dodává jen někdy? Pak se počítá i průměr dne.</summary>
+    public static bool HasTimedSupply(GameContent content)
+    {
+        for (int d = 0; d < content.Buildings.Count; d++)
+        {
+            if (content.Buildings[d].SupplyTime != SupplyTime.Always && content.Buildings[d].SuppliesNetwork)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static NetworkGrid[] NewGrids(int count)
+    {
+        var grids = new NetworkGrid[count];
+        for (int i = 0; i < grids.Length; i++)
+        {
+            grids[i] = new NetworkGrid();
+        }
+
+        return grids;
+    }
+
+    /// <summary>
+    /// Pokrytí podle průměru dne (lapač rosy dodává půl dne, zrcadla asi
+    /// třetinu). Podle toho plánuje guvernér; bez časovaných zdrojů je to
+    /// totéž co <see cref="CoverageAt"/>.
+    /// </summary>
+    public double SteadyCoverageAt(int network, int x, int y)
+    {
+        var grids = _steadyGrids ?? _grids;
+        return network < grids.Length ? grids[network].CoverageAt(x, y) : 1.0;
     }
 
     /// <summary>
@@ -84,6 +163,9 @@ public sealed class NetworkSystem
         {
             _grids[i].Clear();
         }
+
+        _steadyGrids = null;
+        Revision++;
     }
 
     /// <summary>
@@ -115,9 +197,16 @@ public sealed class NetworkSystem
         private readonly Dictionary<long, int> _best = new();
         private readonly Queue<(long Cell, int Remaining)> _frontier = new();
 
+        // Přírodní zdroje: kolik dodá buňka (součet dlaždic), dokud se nezmění terén.
+        private readonly Dictionary<long, double> _terrainSupply = new();
+        private readonly HashSet<long> _terrainCandidates = new();
+        private int _terrainRevision = -1;
+
         public int CellCount => _supply.Count + _demand.Count;
 
-        public void Rebuild(ReadOnlySpan<BuildingInstance> buildings, GameContent content, int network, int range)
+        public void Rebuild(
+            ReadOnlySpan<BuildingInstance> buildings, GameContent content, int network, int range,
+            in NetworkLight light, Func<int, int, byte>? biomeAt, int terrainRevision)
         {
             Clear();
             if (range <= 0)
@@ -165,9 +254,86 @@ public sealed class NetworkSystem
                 int supply = def.SupplyOf(network);
                 if (supply > 0 && NetworkSystem.IsDelivering(buildings[i]))
                 {
-                    Spread(buildings[i].X, buildings[i].Y, supply, Math.Min(range, MaxRange));
+                    double power = supply * light.FactorFor(def.SupplyTime);
+                    if (power > 0)
+                    {
+                        Spread(CellOf(buildings[i].X, buildings[i].Y), power, Math.Min(range, MaxRange));
+                    }
                 }
             }
+
+            var sources = content.Networks[network].TerrainSources;
+            if (sources.Count > 0 && biomeAt is not null)
+            {
+                SpreadTerrain(sources, biomeAt, terrainRevision, Math.Min(range, MaxRange));
+            }
+        }
+
+        /// <summary>
+        /// Přírodní zdroje: buňky v dosahu někoho, kdo síť chce, a v nich
+        /// dlaždice zdrojového biomu. Oáza daleko od města se nepočítá — nemá
+        /// komu dodávat.
+        /// </summary>
+        private void SpreadTerrain(
+            IReadOnlyList<TerrainSource> sources, Func<int, int, byte> biomeAt, int terrainRevision, int range)
+        {
+            if (terrainRevision != _terrainRevision)
+            {
+                _terrainSupply.Clear();
+                _terrainRevision = terrainRevision;
+            }
+
+            _terrainCandidates.Clear();
+            foreach (long cell in _demand.Keys)
+            {
+                int cellX = TileKey.X(cell);
+                int cellY = TileKey.Y(cell);
+                for (int dy = -range; dy <= range; dy++)
+                {
+                    int span = range - Math.Abs(dy);
+                    for (int dx = -span; dx <= span; dx++)
+                    {
+                        _terrainCandidates.Add(TileKey.Pack(cellX + dx, cellY + dy));
+                    }
+                }
+            }
+
+            foreach (long cell in _terrainCandidates)
+            {
+                if (!_terrainSupply.TryGetValue(cell, out double supply))
+                {
+                    supply = TerrainSupplyOf(cell, sources, biomeAt);
+                    _terrainSupply[cell] = supply;
+                }
+
+                if (supply > 0)
+                {
+                    Spread(cell, supply, range);
+                }
+            }
+        }
+
+        private static double TerrainSupplyOf(long cell, IReadOnlyList<TerrainSource> sources, Func<int, int, byte> biomeAt)
+        {
+            int originX = TileKey.X(cell) << CellShift;
+            int originY = TileKey.Y(cell) << CellShift;
+            double supply = 0;
+            for (int y = 0; y < CellSize; y++)
+            {
+                for (int x = 0; x < CellSize; x++)
+                {
+                    byte biome = biomeAt(originX + x, originY + y);
+                    for (int s = 0; s < sources.Count; s++)
+                    {
+                        if (sources[s].BiomeIndex == biome)
+                        {
+                            supply += sources[s].SupplyPerTile;
+                        }
+                    }
+                }
+            }
+
+            return supply;
         }
 
         public double CoverageAt(int x, int y)
@@ -207,12 +373,12 @@ public sealed class NetworkSystem
         /// původní šíření do vzdálenosti <c>range</c> po čtyřech směrech a každá
         /// buňka se projde jednou.</para>
         /// </summary>
-        private void Spread(int x, int y, double power, int range)
+        private void Spread(long origin, double power, int range)
         {
             _best.Clear();
             _frontier.Clear();
 
-            Offer(CellOf(x, y), range);
+            Offer(origin, range);
             while (_frontier.Count > 0)
             {
                 var (cell, remaining) = _frontier.Dequeue();

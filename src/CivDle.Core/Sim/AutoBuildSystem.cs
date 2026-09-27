@@ -343,7 +343,7 @@ internal sealed class AutoBuildSystem
         // proudu. Když se k nim nevejdou, jinde by jen stály — a guvernér by
         // příští kolo stavěl další, protože potřeba by trvala (změřeno: tři sta
         // školek rozesetých po městě).
-        bool anchorOnly = goal.Anchor >= 0 && need is CityNeed.Landscape or CityNeed.Power;
+        bool anchorOnly = goal.Anchor >= 0 && need is CityNeed.Landscape or CityNeed.Power or CityNeed.Network;
         for (int i = 0; i < count; i++)
         {
             if (TryPlace(sim, ranked[i], ref rng, anchor: goal.Anchor, anchorOnly: anchorOnly))

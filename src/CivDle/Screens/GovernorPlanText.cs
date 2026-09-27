@@ -18,6 +18,15 @@ public static class GovernorPlanText
     /// <summary>Hotová věta pro jednu položku plánu.</summary>
     public static string Line(GameContent content, Localization loc, GovernorAgendaItem item)
     {
+        // U sítě nese položka index sítě, ne suroviny („budovy bez vody").
+        if (item.Need == CityNeed.Network)
+        {
+            string network = item.ResourceIndex > 0 && item.ResourceIndex < content.Networks.Count
+                ? loc[content.Networks[item.ResourceIndex].NameKey]
+                : string.Empty;
+            return loc.Format(KeyFor(item.Need), network);
+        }
+
         string resource = item.ResourceIndex >= 0 && item.ResourceIndex < content.Resources.Count
             ? loc[content.Resources[item.ResourceIndex].NameKey]
             : string.Empty;

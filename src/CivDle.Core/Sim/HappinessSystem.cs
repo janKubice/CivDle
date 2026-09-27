@@ -227,7 +227,8 @@ internal sealed class HappinessSystem
             Government: sim.ElectionHappinessBonus,
             ServiceCoverage: coverage,
             Pollution: smog,
-            ServiceReach: reach);
+            ServiceReach: reach,
+            Networks: -sim.NetworkHappinessDrop);
     }
 
     /// <summary>

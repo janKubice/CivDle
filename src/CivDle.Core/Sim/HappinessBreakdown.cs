@@ -22,6 +22,7 @@ namespace CivDle.Core.Sim;
 /// Rozdíl proti <paramref name="ServiceCoverage"/> říká, jestli chybějí služby,
 /// nebo jen suroviny na jejich provoz — a to jsou dvě různé rady.
 /// </param>
+/// <param name="Networks">Kolik ubralo bydlení bez sítě — domy bez vody na Duně (záporné číslo).</param>
 public readonly record struct HappinessBreakdown(
     double Base,
     double Services,
@@ -29,10 +30,11 @@ public readonly record struct HappinessBreakdown(
     double Government,
     double ServiceCoverage,
     double Pollution = 0,
-    double ServiceReach = 1.0)
+    double ServiceReach = 1.0,
+    double Networks = 0)
 {
     /// <summary>Výsledná spokojenost 0–1 — součet položek oříznutý do rozsahu.</summary>
-    public double Total => Math.Clamp(Base + Services + Crowding + Government + Pollution, 0.0, 1.0);
+    public double Total => Math.Clamp(Base + Services + Crowding + Government + Pollution + Networks, 0.0, 1.0);
 
     /// <summary>Spokojenost je vypnutá (starší data) — všechno je v pořádku.</summary>
     public static HappinessBreakdown Perfect { get; } = new(1.0, 0, 0, 0, 1.0);

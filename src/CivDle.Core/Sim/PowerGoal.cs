@@ -51,7 +51,9 @@ internal sealed class PowerGoal : IGovernorGoal
                 continue;
             }
 
-            double coverage = sim.PowerAt(buildings[i].X, buildings[i].Y);
+            // Průměr dne, ne okamžik: sluneční zrcadla v noci nesvítí,
+            // a kdyby guvernér koukal na okamžik, stavěl by jedno za druhým.
+            double coverage = sim.PowerSteadyAt(buildings[i].X, buildings[i].Y);
             if (coverage < worstCoverage)
             {
                 worstCoverage = coverage;

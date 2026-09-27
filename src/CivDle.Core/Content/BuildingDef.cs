@@ -259,7 +259,8 @@ public sealed record BuildingDef(
     string? UnlockedBy = null,
     BuildingLook? LookOrNull = null,
     ProjectRule? ProjectOrNull = null,
-    IReadOnlyList<NetworkUse>? NetworksOrNull = null)
+    IReadOnlyList<NetworkUse>? NetworksOrNull = null,
+    SupplyTime SupplyTime = SupplyTime.Always)
 {
     /// <summary>Staví se budova vkládáním surovin po stupních (<see cref="ProjectRule"/>)?</summary>
     public bool IsProject => ProjectOrNull is not null;

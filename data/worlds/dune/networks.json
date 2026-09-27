@@ -1,7 +1,22 @@
 {
   "schemaVersion": 1,
-  "_comment": "Vodní síť Duny (svety-design.md 4.1): zdroj zaplní buňky 8×8 kolem sebe, dokud stačí dosah. Nedostatek = výroba × pokrytí (slowdown), jako u proudu.",
+  "_comment": "Vodní síť Duny (svety-design.md 4.1): zdroj zaplní buňky 8×8 kolem sebe, dokud stačí dosah. Nedostatek = výroba × pokrytí (slowdown), jako u proudu; domy bez vody rostou pomaleji a žije se v nich hůř (housing). Oáza je přírodní zdroj — každá její dlaždice dodává sama.",
   "networks": [
-    { "id": "water", "range": 3, "shortage": "slowdown", "overlayColor": "#3FA7E0" }
+    {
+      "id": "water",
+      "range": 3,
+      "shortage": "slowdown",
+      "overlayColor": "#3FA7E0",
+      "terrainSources": [
+        {
+          "biome": "oasis",
+          "supplyPerTile": 0.4
+        }
+      ],
+      "housing": {
+        "growthPenalty": 0.7,
+        "happinessPenalty": 0.15
+      }
+    }
   ]
 }

@@ -83,7 +83,7 @@ public sealed class ContentLoader
         // Druhy sítí před budovami: budova na síť odkazuje jménem a loader ho
         // musí umět přeložit. Elektřina se přidá až s gameplay.json (její dosah
         // leží tam), proto je tu zatím jen seznam ostatních.
-        _networkTypes = LoadNetworkTypes(Path.Combine(dataDirectory, "networks.json"));
+        _networkTypes = LoadNetworkTypes(Path.Combine(dataDirectory, "networks.json"), biomes);
         var buildings = LoadBuildings(
             Path.Combine(dataDirectory, "buildings.json"), biomes, resources, settlementRanks, terraformIds);
         var techs = LoadTech(Path.Combine(dataDirectory, "tech.json"), buildings, resources);
@@ -588,7 +588,7 @@ public sealed class ContentLoader
     /// Druhy sítí z <c>networks.json</c>. Chybějící soubor není chyba — svět
     /// bez vody a tepla (Domovina, starší mody) má jen elektřinu.
     /// </summary>
-    private IReadOnlyList<NetworkTypeDef> LoadNetworkTypes(string path)
+    private IReadOnlyList<NetworkTypeDef> LoadNetworkTypes(string path, BiomeRegistry biomes)
     {
         if (!HasFile(path))
         {
@@ -637,10 +637,58 @@ public sealed class ContentLoader
 
             result.Add(new NetworkTypeDef(
                 id, dto.Range, shortage, shortage == NetworkShortage.Cutoff ? dto.CutoffBelow : 0,
-                ParseColor(path, dto.OverlayColor, $"Síť '{id}'")));
+                ParseColor(path, dto.OverlayColor, $"Síť '{id}'"),
+                ParseTerrainSources(path, id, dto.TerrainSources, biomes),
+                ParseNetworkHousing(path, id, dto.Housing)));
         }
 
         return result;
+    }
+
+    /// <summary>Přírodní zdroje sítě: biom musí existovat a dodávat rozumně.</summary>
+    private static IReadOnlyList<TerrainSource>? ParseTerrainSources(
+        string path, string id, List<TerrainSourceDto>? dtos, BiomeRegistry biomes)
+    {
+        if (dtos is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        var result = new List<TerrainSource>(dtos.Count);
+        foreach (var dto in dtos)
+        {
+            if (dto.Biome is null || !biomes.TryIndexOf(dto.Biome, out int biome))
+            {
+                throw new ContentLoadException(path, $"Síť '{id}': přírodní zdroj odkazuje na neexistující biom '{dto.Biome}'.");
+            }
+
+            // Buňka má 64 dlaždic: víc než 100 na dlaždici by z jedné oázy
+            // udělalo zdroj pro půl světa.
+            if (dto.SupplyPerTile is <= 0 or > 100)
+            {
+                throw new ContentLoadException(path, $"Síť '{id}', zdroj '{dto.Biome}': 'supplyPerTile' musí být v (0, 100].");
+            }
+
+            result.Add(new TerrainSource(biome, dto.SupplyPerTile));
+        }
+
+        return result;
+    }
+
+    /// <summary>Dopad nedostatku sítě na bydlení; oba postihy 0–1.</summary>
+    private static NetworkHousing? ParseNetworkHousing(string path, string id, NetworkHousingDto? dto)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (dto.GrowthPenalty is < 0 or > 1 || dto.HappinessPenalty is < 0 or > 1)
+        {
+            throw new ContentLoadException(path, $"Síť '{id}': 'housing' — growthPenalty i happinessPenalty musí být 0–1.");
+        }
+
+        return new NetworkHousing(dto.GrowthPenalty, dto.HappinessPenalty);
     }
 
     /// <summary>
@@ -690,7 +738,13 @@ public sealed class ContentLoader
                     $"Budova '{id}', síť '{networkId}': nic nedodává, nechce ani nepřenáší — překlep?");
             }
 
-            result.Add(new NetworkUse(index, use.Supply, use.Demand, use.Relay));
+            if (use.CutoffBelow is < 0 or > 1 || (use.CutoffBelow > 0 && use.Demand == 0))
+            {
+                throw new ContentLoadException(path,
+                    $"Budova '{id}', síť '{networkId}': 'cutoffBelow' musí být 0–1 a dává smysl jen u budovy, která síť chce.");
+            }
+
+            result.Add(new NetworkUse(index, use.Supply, use.Demand, use.Relay, use.CutoffBelow));
         }
 
         return result;
@@ -3775,8 +3829,18 @@ public sealed class ContentLoader
             ParseUnlockedBy(path, $"Budova '{id}'", dto.UnlockedBy),
             ParseLook(path, id, dto.Look),
             project,
-            ParseNetworks(path, id, dto.Networks));
+            ParseNetworks(path, id, dto.Networks),
+            ParseSupplyTime(path, id, dto.SupplyTime));
     }
+
+    /// <summary>Kdy budova dodává do sítí (<c>always</c>, <c>day</c>, <c>night</c>).</summary>
+    private static SupplyTime ParseSupplyTime(string path, string id, string? value) => value?.Trim() switch
+    {
+        null or "" or "always" => SupplyTime.Always,
+        "day" => SupplyTime.Day,
+        "night" => SupplyTime.Night,
+        _ => throw new ContentLoadException(path, $"Budova '{id}': neznámé 'supplyTime' '{value}' (always, day, night)."),
+    };
 
     /// <summary>
     /// Stavba po stupních. Každý stupeň musí něco stát (stupeň zadarmo by se

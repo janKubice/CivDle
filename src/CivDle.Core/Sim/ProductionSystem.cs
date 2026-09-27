@@ -53,6 +53,9 @@ internal sealed class ProductionSystem
     /// </summary>
     private readonly int[][] _defNetworkDemands;
 
+    /// <summary>Vlastní tvrdé prahy budov k sítím z <see cref="_defNetworkDemands"/> (0 = žádný).</summary>
+    private readonly double[][] _defNetworkCutoffs;
+
     public ProductionSystem(GameContent content)
     {
         _content = content;
@@ -60,11 +63,13 @@ internal sealed class ProductionSystem
         _defScarce = new bool[_defs.Length];
         _defFeedsNetwork = new bool[_defs.Length];
         _defNetworkDemands = new int[_defs.Length][];
+        _defNetworkCutoffs = new double[_defs.Length][];
         for (int d = 0; d < _defs.Length; d++)
         {
             var networks = _defs[d].Networks;
             _defFeedsNetwork[d] = _defs[d].PowerSupply > 0;
             var demands = new List<int>();
+            var cutoffs = new List<double>();
             for (int n = 0; n < networks.Count; n++)
             {
                 if (networks[n].Supply > 0 || networks[n].RelayRange > 0)
@@ -75,10 +80,12 @@ internal sealed class ProductionSystem
                 if (networks[n].Demand > 0)
                 {
                     demands.Add(networks[n].NetworkIndex);
+                    cutoffs.Add(networks[n].CutoffBelow);
                 }
             }
 
             _defNetworkDemands[d] = demands.ToArray();
+            _defNetworkCutoffs[d] = cutoffs.ToArray();
         }
     }
 
@@ -97,6 +104,7 @@ internal sealed class ProductionSystem
         }
 
         var networks = _content.Networks;
+        var cutoffs = _defNetworkCutoffs[defIndex];
         for (int n = 0; n < demands.Length; n++)
         {
             var type = networks[demands[n]];
@@ -106,6 +114,14 @@ internal sealed class ProductionSystem
             }
 
             double coverage = sim.NetworkCoverageAt(demands[n], building.X, building.Y);
+
+            // Budova smí mít vlastní tvrdý práh: datlový háj bez vody neurodí
+            // nic, i když ostatním voda chybí jen „trochu" (zpomalení).
+            if (cutoffs[n] > 0 && coverage < cutoffs[n])
+            {
+                return true;
+            }
+
             if (type.Shortage == NetworkShortage.Cutoff)
             {
                 if (coverage < type.CutoffBelow)

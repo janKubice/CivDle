@@ -45,6 +45,12 @@ public enum CityNeed
 
     /// <summary>Na modlitbu by se čekalo moc dlouho — chybí svatyně a chrámy.</summary>
     Faith,
+
+    /// <summary>
+    /// Budovy bez jiné sítě než proudu (voda na Duně, teplo na Mrazu) — chybí
+    /// zdroj v dosahu.
+    /// </summary>
+    Network,
 }
 
 /// <summary>

@@ -1164,6 +1164,25 @@ s typem sítě z dat**. Elektřina zůstane jedním z typů.
 > znovu. Stavy „zamrzlá/klesá" jsou zatím jeden stav `NetworkShortage` —
 > vzhled podle světa přijde s Mrazem a Nebesy.
 
+> **Hotovo (D1.2) — voda na Duně.** Síť umí, co světy potřebují:
+> * **časované zdroje** — budova má `supplyTime` (`always`, `day`, `night`):
+>   zrcadla dodávají podle výšky slunce po osmi schodech, lapač rosy jen
+>   v noci. Simulace síť přepočítá, když se schod změní (16× za den);
+> * **průměr dne pro guvernéra** — vedle okamžitého stavu se počítá pokrytí
+>   s celodenním průměrem zdrojů (`PowerSteadyAt`, `NetworkSteadyCoverageAt`).
+>   Guvernér podle něj plánuje, jinak by v noci stavěl zrcadlo za zrcadlem;
+> * **přírodní zdroje** — `terrainSources` v `networks.json`: každá dlaždice
+>   oázy dodává sama. Hledají se jen v dosahu buněk, kde někdo síť chce;
+> * **vlastní tvrdý práh** budovy — `cutoffBelow` u `networks` budovy: datlový
+>   háj pod 40 % vody neurodí nic, ostatní jen zpomalí;
+> * **dopad na bydlení** — `housing` v `networks.json`: podíl domů bez sítě
+>   zpomalí růst a ubere spokojenost (nový řádek rozpadu spokojenosti);
+> * **cíl guvernéra** `NetworkGoal` — k budově bez sítě postaví zdroj; studna
+>   jen na zvodni, a když se tam nevejde, lapač rosy.
+>
+> Oproti návrhu: cisterna je relé s malou vlastní zásobou (neukládá vodu
+> přes noc) a kanát je relé s dlouhým dosahem do všech směrů, ne jedním.
+
 ### 7.3 Přírodní jevy
 
 Každé pravidlo světa je **chování za behavior-ID** (CLAUDE.md): třída

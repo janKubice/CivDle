@@ -624,6 +624,8 @@ public class ContentLoaderTests : IDisposable
     [InlineData("\"power\": { \"demand\": 2 }", "powerSupply")]
     [InlineData("\"lava\": { \"demand\": 2 }", "lava")]
     [InlineData("\"water\": { }", "překlep")]
+    [InlineData("\"water\": { \"demand\": 2, \"cutoffBelow\": 1.5 }", "cutoffBelow")]
+    [InlineData("\"water\": { \"supply\": 2, \"cutoffBelow\": 0.5 }", "cutoffBelow")]
     public void LoadFrom_BadBuildingNetwork_Throws(string field, string expected)
     {
         WriteAllValid();
@@ -650,6 +652,9 @@ public class ContentLoaderTests : IDisposable
     [InlineData("{ \"id\": \"heat\", \"range\": 0, \"overlayColor\": \"#FFFFFF\" }", "range")]
     [InlineData("{ \"id\": \"heat\", \"range\": 4, \"shortage\": \"cutoff\", \"overlayColor\": \"#FFFFFF\" }", "cutoffBelow")]
     [InlineData("{ \"id\": \"heat\", \"range\": 4, \"shortage\": \"explode\", \"overlayColor\": \"#FFFFFF\" }", "explode")]
+    [InlineData("{ \"id\": \"water\", \"range\": 4, \"overlayColor\": \"#FFFFFF\", \"terrainSources\": [ { \"biome\": \"lava\", \"supplyPerTile\": 1 } ] }", "lava")]
+    [InlineData("{ \"id\": \"water\", \"range\": 4, \"overlayColor\": \"#FFFFFF\", \"terrainSources\": [ { \"biome\": \"grass\", \"supplyPerTile\": 0 } ] }", "supplyPerTile")]
+    [InlineData("{ \"id\": \"water\", \"range\": 4, \"overlayColor\": \"#FFFFFF\", \"housing\": { \"growthPenalty\": 2, \"happinessPenalty\": 0.1 } }", "housing")]
     public void LoadFrom_BadNetworkType_Throws(string network, string expected)
     {
         WriteAllValid();
@@ -658,6 +663,56 @@ public class ContentLoaderTests : IDisposable
         var ex = Assert.Throws<ContentLoadException>(Load);
 
         Assert.Contains(expected, ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_TimedSourcesThresholdsAndTerrainSources_Resolve()
+    {
+        WriteAllValid();
+        Write("networks.json", """
+        { "schemaVersion": 1, "networks": [
+          { "id": "water", "range": 3, "overlayColor": "#3FA7E0",
+            "terrainSources": [ { "biome": "grass", "supplyPerTile": 0.5 } ],
+            "housing": { "growthPenalty": 0.7, "happinessPenalty": 0.15 } } ] }
+        """);
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "house", "mapColor": "#B5651D", "footprint": [1, 1], "housingCapacity": 4,
+              "buildCost": { "wood": 10 }, "allowedBiomes": ["grass"], "supplyTime": "night",
+              "networks": { "water": { "supply": 3, "demand": 2, "cutoffBelow": 0.4 } } }
+          ]
+        }
+        """);
+
+        var content = Load();
+        var water = content.Networks[content.Networks.IndexOf("water")];
+        var house = content.Buildings[0];
+
+        Assert.Equal(SupplyTime.Night, house.SupplyTime);
+        Assert.Equal(0.4, house.Networks[0].CutoffBelow);
+        Assert.Equal(0.5, Assert.Single(water.TerrainSources).SupplyPerTile);
+        Assert.Equal(0.7, water.Housing!.GrowthPenalty);
+    }
+
+    [Fact]
+    public void LoadFrom_UnknownSupplyTime_Throws()
+    {
+        WriteAllValid();
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "house", "mapColor": "#B5651D", "footprint": [1, 1], "housingCapacity": 4,
+              "buildCost": { "wood": 10 }, "allowedBiomes": ["grass"], "supplyTime": "dusk" }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("dusk", ex.Message);
     }
 
     // ----- světy galaxie (svety-design.md 7.1) -----

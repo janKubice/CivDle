@@ -78,17 +78,25 @@ public sealed record BuildingDto(
     string? UnlockedBy = null,
     BuildingLookDto? Look = null,
     ProjectDto? Project = null,
-    Dictionary<string, NetworkUseDto>? Networks = null);
+    Dictionary<string, NetworkUseDto>? Networks = null,
+    string? SupplyTime = null);
 
 /// <summary>Jak budova používá jednu síť (voda, teplo, vztlak) tak, jak leží v JSON.</summary>
-public sealed record NetworkUseDto(int Supply, int Demand, int Relay);
+public sealed record NetworkUseDto(int Supply, int Demand, int Relay, double CutoffBelow = 0);
 
 /// <summary>Obsah souboru <c>data/networks.json</c>.</summary>
 public sealed record NetworksFileDto(int SchemaVersion, List<NetworkTypeDto>? Networks);
 
 /// <summary>Jeden druh sítě tak, jak leží v JSON.</summary>
 public sealed record NetworkTypeDto(
-    string? Id, int Range, string? Shortage, double CutoffBelow, string? OverlayColor);
+    string? Id, int Range, string? Shortage, double CutoffBelow, string? OverlayColor,
+    List<TerrainSourceDto>? TerrainSources = null, NetworkHousingDto? Housing = null);
+
+/// <summary>Přírodní zdroj sítě tak, jak leží v JSON.</summary>
+public sealed record TerrainSourceDto(string? Biome, double SupplyPerTile);
+
+/// <summary>Dopad nedostatku sítě na bydlení tak, jak leží v JSON.</summary>
+public sealed record NetworkHousingDto(double GrowthPenalty, double HappinessPenalty);
 
 /// <summary>Stavba po stupních (projekt) tak, jak leží v JSON.</summary>
 public sealed record ProjectDto(

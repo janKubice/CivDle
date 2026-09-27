@@ -453,7 +453,8 @@
           "ropes",
           "water"
         ]
-      }
+      },
+      "supplyTime": "night"
     },
     {
       "id": "cistern",
@@ -719,7 +720,8 @@
       },
       "networks": {
         "water": {
-          "demand": 3
+          "demand": 3,
+          "cutoffBelow": 0.4
         }
       },
       "look": {
@@ -867,7 +869,8 @@
       },
       "networks": {
         "water": {
-          "demand": 4
+          "demand": 4,
+          "cutoffBelow": 0.4
         }
       },
       "allowedBiomes": [
@@ -923,7 +926,8 @@
           "solar",
           "glow"
         ]
-      }
+      },
+      "supplyTime": "day"
     },
     {
       "id": "caravanserai",

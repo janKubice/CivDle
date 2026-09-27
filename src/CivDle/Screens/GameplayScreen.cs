@@ -2213,6 +2213,12 @@ public sealed class GameplayScreen : IScreen
             text += loc.Format("hud.happinessPollution", Points(parts.Pollution));
         }
 
+        // Domy bez vody (Duna) — jen na světě, kde síť bydlení něco dělá.
+        if (Math.Abs(parts.Networks) > 0.0005)
+        {
+            text += loc.Format("hud.happinessNetworks", Points(parts.Networks));
+        }
+
         // Proč služby nestačí: buď na ně nedosáhnou (postav trh jinam), nebo
         // nemají údržbu (chybí surovina). Dvě různé rady — řekne se ta pravá.
         int unpaid = (int)Math.Round((parts.ServiceReach - parts.ServiceCoverage) * 100);
