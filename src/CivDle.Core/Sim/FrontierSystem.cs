@@ -83,30 +83,11 @@ public sealed class FrontierSystem
             return false;
         }
 
-        Repair(sim);
+        // Oprava poškozených běží v simulaci pro všechny příčiny (zásah, zasypání).
         bool spawned = SpawnDueWave(sim);
         bool fought = MoveAndStrike(sim);
         bool shot = FireDefenses(sim);
         return spawned || fought || shot;
-    }
-
-    /// <summary>
-    /// Poškozené budovy se samy opravují.
-    ///
-    /// <para>Vlastní průchod, ne přílepek k výrobě: opravovat se musí i domy
-    /// a sklady, které žádný recept nemají a výrobní smyčka je přeskakuje.
-    /// Běží jen v zapnutém režimu, takže běžnou hru nestojí nic.</para>
-    /// </summary>
-    private static void Repair(Simulation sim)
-    {
-        var buildings = sim.BuildingsMutable;
-        for (int i = 0; i < buildings.Length; i++)
-        {
-            if (buildings[i].DisabledTicks > 0)
-            {
-                buildings[i].DisabledTicks--;
-            }
-        }
     }
 
     /// <summary>

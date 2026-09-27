@@ -79,6 +79,9 @@ public enum NotificationKind
     /// stavět). Vlastní druh, protože je to výzva k zásahu, ne oslava.
     /// </summary>
     GovernorStuck,
+
+    /// <summary>Přírodní jev světa: blíží se písečná bouře, bouře přešla.</summary>
+    Hazard,
 }
 
 /// <summary>

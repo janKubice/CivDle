@@ -268,13 +268,16 @@ public sealed class GameContent
     /// </summary>
     public GameContent WithGalaxy(WorldCatalog galaxy) => Clone(galaxy: galaxy);
 
+    /// <summary>Tentýž obsah s jinými přírodními jevy (testy jevů bez celého světa).</summary>
+    public GameContent WithHazards(HazardCatalog hazards) => Clone(hazards: hazards);
+
     /// <summary>
     /// Mělká kopie s vyměněnými částmi. Jediné místo, které vyjmenovává celý
     /// konstruktor — nová část obsahu se tak nemůže při kopii tiše ztratit.
     /// </summary>
     private GameContent Clone(
         GameplayConfig? gameplay = null, FrontierConfig? frontier = null, NetworkCatalog? networks = null,
-        WorldProfile? world = null, WorldCatalog? galaxy = null) => new(
+        WorldProfile? world = null, WorldCatalog? galaxy = null, HazardCatalog? hazards = null) => new(
         Biomes, Resources, Buildings, Techs, Prestige, PrestigeUpgrades, Quests, QuestsDynamic,
         Achievements, Events, Eras, WorldGen, gameplay ?? Gameplay, Languages, SettlementNames, Decorations,
         Fauna, Devlog, ZoneTypes, Policies, AscensionTiers, Weather, Landmarks, Features, Ufo,
@@ -284,6 +287,7 @@ public sealed class GameContent
         World = world ?? World,
         Galaxy = galaxy ?? Galaxy,
         Atmosphere = Atmosphere,
+        Hazards = hazards ?? Hazards,
     };
 
     /// <summary>
@@ -304,6 +308,12 @@ public sealed class GameContent
     /// <c>data/atmospheres.json</c>; bez souboru vzhled Domoviny.
     /// </summary>
     public AtmosphereProfile Atmosphere { get; init; } = AtmosphereProfile.Home;
+
+    /// <summary>
+    /// Přírodní jevy světa (písečné bouře na Duně) z <c>hazards.json</c> ve
+    /// složce světa; Domovina žádné nemá.
+    /// </summary>
+    public HazardCatalog Hazards { get; init; } = HazardCatalog.Empty;
 
     private NetworkCatalog? _networks;
 

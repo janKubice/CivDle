@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Přírodní jevy Duny (svety-design.md 4.1). Písečná bouře přejde přes město jako pás po směru větru; co stojí v pásu a nechrání ho větrolam, zasype — vypadne z provozu, lidé ho vyhrabou. Rozvrh je funkce seedu: první bouře do deseti minut, s minutovým varováním.",
+  "hazards": [
+    {
+      "id": "sandstorm", "behavior": "weather_burial",
+      "firstAfterSeconds": 540, "intervalSeconds": 720, "intervalJitter": 0.3,
+      "warningSeconds": 60, "sweepSeconds": 45, "bandTiles": 18, "burySeconds": 150,
+      "weather": "sandstorm", "solarDim": 0.3, "minBuildings": 5
+    }
+  ]
+}

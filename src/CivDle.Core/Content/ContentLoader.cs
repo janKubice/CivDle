@@ -84,6 +84,12 @@ public sealed class ContentLoader
         // musí umět přeložit. Elektřina se přidá až s gameplay.json (její dosah
         // leží tam), proto je tu zatím jen seznam ostatních.
         _networkTypes = LoadNetworkTypes(Path.Combine(dataDirectory, "networks.json"), biomes);
+        // Přírodní jevy: budova na ně odkazuje jménem (větrolam chrání před
+        // pískem), takže se ID čtou napřed; registr se sestaví až s počasím.
+        string hazardsPath = Path.Combine(dataDirectory, "hazards.json");
+        var hazardsFile = HasFile(hazardsPath) ? ReadFile<HazardsFileDto>(hazardsPath) : null;
+        _hazardIds = (hazardsFile?.Hazards ?? new List<HazardDto>())
+            .Select((dto, i) => RequireId(hazardsPath, dto.Id, $"Přírodní jev na pozici {i}")).ToList();
         var buildings = LoadBuildings(
             Path.Combine(dataDirectory, "buildings.json"), biomes, resources, settlementRanks, terraformIds);
         var techs = LoadTech(Path.Combine(dataDirectory, "tech.json"), buildings, resources);
@@ -97,6 +103,7 @@ public sealed class ContentLoader
         var policies = LoadPolicies(Path.Combine(dataDirectory, "policies.json"));
         var tiers = LoadAscensionTiers(Path.Combine(dataDirectory, "ascension-tiers.json"), buildings);
         var weather = LoadWeather(Path.Combine(dataDirectory, "weather.json"), biomes);
+        var hazards = LoadHazards(hazardsPath, hazardsFile, weather);
         var landmarks = LoadLandmarks(Path.Combine(dataDirectory, "landmarks.json"), biomes, resources);
         var features = LoadFeatures(Path.Combine(dataDirectory, "features.json"), resources, buildings, techs);
         var ufo = LoadUfo(Path.Combine(dataDirectory, "ufo.json"));
@@ -143,6 +150,7 @@ public sealed class ContentLoader
             ? LoadWorlds(Path.Combine(dataDirectory, "worlds.json"), resources)
             : WorldCatalog.Empty;
         CheckWorldNames(Path.Combine(dataDirectory, "lang"), languages, galaxy);
+        CheckHazardNames(Path.Combine(dataDirectory, "lang"), languages, hazards);
         var world = _worldFile is null
             ? WorldProfile.Home
             : BuildWorldProfile(Path.Combine(dataDirectory, "worlds", worldId, "world.json"),
@@ -162,6 +170,7 @@ public sealed class ContentLoader
             World = world,
             Galaxy = galaxy,
             Atmosphere = atmosphere,
+            Hazards = hazards,
         };
     }
 
@@ -3144,9 +3153,11 @@ public sealed class ContentLoader
                 mask[biomeIndex] = true;
             }
 
-            if (dto.Weight <= 0)
+            // Nula je dovolená: takové počasí nepřijde samo, jen s přírodním
+            // jevem (písečná bouře na Duně přichází podle rozvrhu bouří).
+            if (dto.Weight < 0)
             {
-                throw new ContentLoadException(path, $"Počasí '{id}': 'weight' musí být kladná, je {dto.Weight}.");
+                throw new ContentLoadException(path, $"Počasí '{id}': 'weight' nesmí být záporná, je {dto.Weight}.");
             }
 
             if (dto.DurationSeconds is <= 0 or > 3600)
@@ -3830,7 +3841,139 @@ public sealed class ContentLoader
             ParseLook(path, id, dto.Look),
             project,
             ParseNetworks(path, id, dto.Networks),
-            ParseSupplyTime(path, id, dto.SupplyTime));
+            ParseSupplyTime(path, id, dto.SupplyTime),
+            ParseShelters(path, id, dto.Shelter));
+    }
+
+    /// <summary>ID přírodních jevů světa v pořadí souboru (viz <see cref="LoadHazards"/>).</summary>
+    private IReadOnlyList<string> _hazardIds = Array.Empty<string>();
+
+    /// <summary>Před čím budova chrání: jev světa a poloměr (1–32 dlaždic).</summary>
+    private IReadOnlyList<Shelter>? ParseShelters(string path, string id, Dictionary<string, int>? dto)
+    {
+        if (dto is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        var result = new List<Shelter>(dto.Count);
+        foreach (var (hazardId, radius) in dto)
+        {
+            int index = -1;
+            for (int i = 0; i < _hazardIds.Count; i++)
+            {
+                if (_hazardIds[i] == hazardId)
+                {
+                    index = i;
+                }
+            }
+
+            if (index < 0)
+            {
+                throw new ContentLoadException(path, $"Budova '{id}' chrání před neexistujícím jevem '{hazardId}'.");
+            }
+
+            if (radius is < 1 or > 32)
+            {
+                throw new ContentLoadException(path, $"Budova '{id}': ochrana před '{hazardId}' musí mít poloměr 1–32, má {radius}.");
+            }
+
+            result.Add(new Shelter(index, radius));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Přírodní jevy světa (svety-design.md 7.3). Soubor mají jen světy, které
+    /// jevy mají; Domovina žádné. Rozvrh musí dávat smysl: bouře kratší než
+    /// rozestup, varování před ní, zasypání na rozumnou dobu.
+    /// </summary>
+    private static HazardCatalog LoadHazards(string path, HazardsFileDto? file, DefRegistry<WeatherDef> weather)
+    {
+        if (file is null)
+        {
+            return HazardCatalog.Empty;
+        }
+
+        CheckSchemaVersion(path, file.SchemaVersion);
+        var result = new List<HazardDef>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var dto in file.Hazards ?? new List<HazardDto>())
+        {
+            string id = RequireId(path, dto.Id, $"Přírodní jev na pozici {result.Count}");
+            if (!seen.Add(id))
+            {
+                throw new ContentLoadException(path, $"Duplicitní ID přírodního jevu '{id}'.");
+            }
+
+            string owner = $"Jev '{id}'";
+            var behavior = dto.Behavior?.Trim() switch
+            {
+                "weather_burial" => HazardBehavior.WeatherBurial,
+                _ => throw new ContentLoadException(path, $"{owner}: neznámé chování '{dto.Behavior}' (známé: weather_burial)."),
+            };
+
+            if (dto.IntervalSeconds < 60 || dto.FirstAfterSeconds < 0)
+            {
+                throw new ContentLoadException(path, $"{owner}: 'intervalSeconds' musí být aspoň 60 a 'firstAfterSeconds' nezáporné.");
+            }
+
+            if (dto.SweepSeconds <= 0 || dto.SweepSeconds + dto.WarningSeconds >= dto.IntervalSeconds * (1 - dto.IntervalJitter))
+            {
+                throw new ContentLoadException(path,
+                    $"{owner}: bouře i s varováním ('sweepSeconds' + 'warningSeconds') se musí vejít do rozestupu, jinak by se překrývaly.");
+            }
+
+            if (dto.IntervalJitter is < 0 or > 0.9 || dto.WarningSeconds < 0)
+            {
+                throw new ContentLoadException(path, $"{owner}: 'intervalJitter' musí být 0–0,9 a 'warningSeconds' nezáporné.");
+            }
+
+            if (dto.BandTiles is < 2 or > 400 || dto.BurySeconds is < 1 or > 3600 || dto.SolarDim is < 0 or > 1 || dto.MinBuildings < 0)
+            {
+                throw new ContentLoadException(path,
+                    $"{owner}: 'bandTiles' 2–400, 'burySeconds' 1–3600, 'solarDim' 0–1, 'minBuildings' nezáporné.");
+            }
+
+            int weatherIndex = -1;
+            if (dto.Weather is not null && !weather.TryIndexOf(dto.Weather, out weatherIndex))
+            {
+                throw new ContentLoadException(path, $"{owner}: počasí '{dto.Weather}' neexistuje.");
+            }
+
+            result.Add(new HazardDef(id, behavior, new BurialRule(
+                dto.FirstAfterSeconds, dto.IntervalSeconds, dto.IntervalJitter, dto.WarningSeconds, dto.SweepSeconds,
+                dto.BandTiles, dto.BurySeconds, weatherIndex, dto.SolarDim, dto.MinBuildings)));
+        }
+
+        return new HazardCatalog(result);
+    }
+
+    /// <summary>
+    /// Hlášky přírodních jevů ve všech jazycích — a směry, odkud jev přichází
+    /// („od západu"), když svět nějaký jev má.
+    /// </summary>
+    private static void CheckHazardNames(string langDirectory, DefRegistry<LanguageDef> languages, HazardCatalog hazards)
+    {
+        if (hazards.Count == 0)
+        {
+            return;
+        }
+
+        var keys = hazards.Hazards.SelectMany(h => h.TextKeys)
+            .Concat(Enumerable.Range(0, 8).Select(d => $"hazard.from.{d}"))
+            .Concat(new[] { "hazard.calm", "hazard.buried" });
+        foreach (var language in languages.All)
+        {
+            foreach (string key in keys)
+            {
+                if (!language.Strings.ContainsKey(key))
+                {
+                    throw new ContentLoadException(langDirectory, $"Jazyk '{language.Id}' nemá klíč '{key}' (přírodní jevy).");
+                }
+            }
+        }
     }
 
     /// <summary>Kdy budova dodává do sítí (<c>always</c>, <c>day</c>, <c>night</c>).</summary>
@@ -4824,6 +4967,7 @@ public sealed class ContentLoader
             case "contracts": return (MetricKind.ContractsCompleted, -1);
             case "airquality": return (MetricKind.AirQuality, -1);
             case "waves": return (MetricKind.DefenceWaves, -1);
+            case "calmhazards": return (MetricKind.CalmHazards, -1);
             case "project":
                 return (MetricKind.ProjectsCompleted,
                     string.IsNullOrWhiteSpace(building) ? -1 : ResolveRef(path, owner, "building", building, buildings));

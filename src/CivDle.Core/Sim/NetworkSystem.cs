@@ -182,6 +182,7 @@ public sealed class NetworkSystem
             BuildingStall.MissingInput => false,     // došlo palivo
             BuildingStall.NoWorkers => false,        // nemá kdo obsluhovat
             BuildingStall.Damaged => false,          // dostala zásah
+            BuildingStall.Buried => false,           // zasypaná studna nedává vodu
             BuildingStall.NetworkShortage => false,  // sama vypadla (zamrzlý kotel nehřeje)
             _ => true,
         };

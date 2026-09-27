@@ -79,7 +79,26 @@ public sealed record BuildingDto(
     BuildingLookDto? Look = null,
     ProjectDto? Project = null,
     Dictionary<string, NetworkUseDto>? Networks = null,
-    string? SupplyTime = null);
+    string? SupplyTime = null,
+    Dictionary<string, int>? Shelter = null);
+
+/// <summary>Obsah souboru <c>hazards.json</c> (jen ve složce světa) — přírodní jevy.</summary>
+public sealed record HazardsFileDto(int SchemaVersion, List<HazardDto>? Hazards);
+
+/// <summary>Jeden přírodní jev tak, jak leží v JSON.</summary>
+public sealed record HazardDto(
+    string? Id,
+    string? Behavior,
+    double FirstAfterSeconds,
+    double IntervalSeconds,
+    double IntervalJitter,
+    double WarningSeconds,
+    double SweepSeconds,
+    int BandTiles,
+    double BurySeconds,
+    string? Weather,
+    double SolarDim = 1,
+    int MinBuildings = 5);
 
 /// <summary>Jak budova používá jednu síť (voda, teplo, vztlak) tak, jak leží v JSON.</summary>
 public sealed record NetworkUseDto(int Supply, int Demand, int Relay, double CutoffBelow = 0);

@@ -156,6 +156,9 @@ public sealed class SaveGameSerializer
     /// jako svět, který nepřistával — přesně to, čím je.
     /// </summary>
     private const string SectionLanding = "landing";
+
+    /// <summary>Přírodní jevy světa: rozběhnutá bouře, statistika a zasypané budovy.</summary>
+    private const string SectionHazards = "hazards";
     private const string SectionDistrictStyles = "districtStyles";
 
     /// <summary>
@@ -562,6 +565,13 @@ public sealed class SaveGameSerializer
                 w.Write(simulation.LandingX);
                 w.Write(simulation.LandingY);
             });
+        }
+
+        // Až po sekci obrany: ta vrací odpočty vyřazených budov, tahle k nim
+        // doplní, že je zasypal písek.
+        if (simulation.Content.Hazards.Count > 0)
+        {
+            WriteSection(writer, SectionHazards, w => WriteHazards(w, simulation));
         }
 
         if (galaxy is not null)
@@ -1177,6 +1187,95 @@ public sealed class SaveGameSerializer
         simulation.RestoreFrontier(nextWave, killed, reached, attackers, damage);
     }
 
+    /// <summary>
+    /// Přírodní jevy jménem (ne indexem — pořadí v datech se mění): rozběhnutá
+    /// bouře, statistika a které budovy leží zasypané.
+    /// </summary>
+    private static void WriteHazards(BinaryWriter w, Simulation simulation)
+    {
+        w.Write(1); // verze sekce
+        w.Write(simulation.HazardsWeathered);
+        w.Write(simulation.CalmHazards);
+
+        var hazards = simulation.Content.Hazards.Hazards;
+        w.Write(hazards.Count);
+        for (int h = 0; h < hazards.Count; h++)
+        {
+            var state = simulation.HazardState(h);
+            w.Write(hazards[h].Id);
+            w.Write(state.ActiveStorm);
+            w.Write(state.WarnedStorm);
+            w.Write(state.Buried);
+            w.Write(state.CityStood);
+            w.Write(state.CenterX);
+            w.Write(state.CenterY);
+            w.Write(state.Radius);
+        }
+
+        var buildings = simulation.Buildings;
+        int buried = 0;
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            if (buildings[i].DisabledTicks > 0 && buildings[i].DisabledCause == DisableCause.Burial)
+            {
+                buried++;
+            }
+        }
+
+        w.Write(buried);
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            if (buildings[i].DisabledTicks > 0 && buildings[i].DisabledCause == DisableCause.Burial)
+            {
+                w.Write(i);
+            }
+        }
+    }
+
+    private static void ReadHazards(BinaryReader section, GameContent content, Simulation simulation)
+    {
+        int version = section.ReadInt32();
+        if (version != 1)
+        {
+            return; // novější formát sekce: bouře začnou znovu, nic horšího se nestane
+        }
+
+        simulation.RestoreHazards(section.ReadInt32(), section.ReadInt32());
+        int count = section.ReadInt32();
+        for (int i = 0; i < count; i++)
+        {
+            string id = section.ReadString();
+            int active = section.ReadInt32();
+            int warned = section.ReadInt32();
+            int buriedByStorm = section.ReadInt32();
+            bool stood = section.ReadBoolean();
+            int centerX = section.ReadInt32();
+            int centerY = section.ReadInt32();
+            double radius = section.ReadDouble();
+
+            int index = content.Hazards.IndexOf(id);
+            if (index < 0)
+            {
+                continue; // jev z dat zmizel
+            }
+
+            var state = simulation.HazardState(index);
+            state.ActiveStorm = active;
+            state.WarnedStorm = warned;
+            state.Buried = buriedByStorm;
+            state.CityStood = stood;
+            state.CenterX = centerX;
+            state.CenterY = centerY;
+            state.Radius = radius;
+        }
+
+        int buried = section.ReadInt32();
+        for (int i = 0; i < buried; i++)
+        {
+            simulation.RestoreBurial(section.ReadInt32());
+        }
+    }
+
     private static void ApplySection(string name, BinaryReader section, GameContent content, Simulation simulation)
     {
         switch (name)
@@ -1193,6 +1292,7 @@ public sealed class SaveGameSerializer
             case SectionGrandWork: ReadGrandWork(section, content, simulation); break;
             case SectionLegacy: ReadLegacy(section, content, simulation); break;
             case SectionLanding: simulation.RestoreLanding(section.ReadInt32(), section.ReadInt32()); break;
+            case SectionHazards: ReadHazards(section, content, simulation); break;
             case SectionQuests: ReadQuests(section, content, simulation); break;
             case SectionDiscoveries: ReadDiscoveries(section, simulation); break;
             case SectionPlanted: ReadPlanted(section, content, simulation); break;

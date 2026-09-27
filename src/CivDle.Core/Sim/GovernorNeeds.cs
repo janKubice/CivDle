@@ -51,6 +51,9 @@ public enum CityNeed
     /// zdroj v dosahu.
     /// </summary>
     Network,
+
+    /// <summary>Přírodní jev něco zasypal — chybí ochrana (větrolam).</summary>
+    Protection,
 }
 
 /// <summary>

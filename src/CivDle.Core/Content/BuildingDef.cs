@@ -260,8 +260,30 @@ public sealed record BuildingDef(
     BuildingLook? LookOrNull = null,
     ProjectRule? ProjectOrNull = null,
     IReadOnlyList<NetworkUse>? NetworksOrNull = null,
-    SupplyTime SupplyTime = SupplyTime.Always)
+    SupplyTime SupplyTime = SupplyTime.Always,
+    IReadOnlyList<Shelter>? SheltersOrNull = null)
 {
+    /// <summary>
+    /// Před kterými přírodními jevy budova chrání okolí (větrolam před
+    /// písečnou bouří). Prázdné = nechrání nic.
+    /// </summary>
+    public IReadOnlyList<Shelter> Shelters => SheltersOrNull ?? Array.Empty<Shelter>();
+
+    /// <summary>Poloměr ochrany před jevem; 0 = nechrání.</summary>
+    public int ShelterRadius(int hazardIndex)
+    {
+        var shelters = Shelters;
+        for (int i = 0; i < shelters.Count; i++)
+        {
+            if (shelters[i].HazardIndex == hazardIndex)
+            {
+                return shelters[i].Radius;
+            }
+        }
+
+        return 0;
+    }
+
     /// <summary>Staví se budova vkládáním surovin po stupních (<see cref="ProjectRule"/>)?</summary>
     public bool IsProject => ProjectOrNull is not null;
 

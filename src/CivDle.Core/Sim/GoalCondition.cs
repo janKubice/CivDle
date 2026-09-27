@@ -84,6 +84,12 @@ public enum MetricKind
     /// daného typu budovy (Hvězdná brána).
     /// </summary>
     ProjectsCompleted,
+
+    /// <summary>
+    /// Kolik přírodních jevů (písečných bouří) přešlo přes stojící město, aniž
+    /// by cokoli zasypaly — mistrovství pravidla světa (★★ Duny).
+    /// </summary>
+    CalmHazards,
 }
 
 /// <summary>

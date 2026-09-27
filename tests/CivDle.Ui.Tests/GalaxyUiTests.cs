@@ -94,6 +94,22 @@ public sealed class GalaxyUiTests
     }
 
     [Fact]
+    public void TheStormForecastAndABuriedBuildingSpeakEveryLanguage()
+    {
+        var content = LoadContent();
+        Assert.Equal("stall.buried", GameplayScreen.StallText(Core.Sim.BuildingStall.Buried));
+        foreach (var language in content.Languages.All)
+        {
+            var loc = new Localization(content.Languages, language.Id);
+            string warning = loc.Format("hud.hazard.warning", "Bouře", loc["hazard.from.6"], 42);
+            Assert.Contains("42", warning);
+            Assert.DoesNotContain("{", warning);
+            Assert.DoesNotContain("{", loc.Format("hud.hazard.active", "Bouře"));
+            Assert.True(language.Strings.ContainsKey("stall.buried"), $"jazyk '{language.Id}' nemá 'stall.buried'");
+        }
+    }
+
+    [Fact]
     public void StarsAreShownAsFilledAndEmpty()
     {
         Assert.Equal("☆☆☆", GalaxyScreen.Stars(0));

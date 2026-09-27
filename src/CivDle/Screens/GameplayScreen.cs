@@ -69,6 +69,7 @@ public sealed class GameplayScreen : IScreen
     /// <summary>Drží hráč pohled na rozvod proudu zapnutý ručně?</summary>
     private bool _showPower;
     private readonly FrontierRenderer _frontierRenderer;
+    private readonly HazardRenderer _hazardRenderer;
 
     /// <summary>
     /// Jak moc je vidět dosah podmořské sítě (0–1). Rozsvěcí se samo, když má
@@ -331,6 +332,7 @@ public sealed class GameplayScreen : IScreen
     private Label _currencyLabel = null!;
     private Label _powerLabel = null!;
     private Label _weatherLabel = null!;
+    private Label _hazardLabel = null!;
     private Label _seasonLabel = null!;
 
     /// <summary>Stav bitvy v HUDu; <c>null</c> mimo režim obrany.</summary>
@@ -549,6 +551,7 @@ public sealed class GameplayScreen : IScreen
         _subseaRenderer = new SubseaRenderer(screens.WhitePixel);
         _powerRenderer = new PowerOverlayRenderer(screens.WhitePixel);
         _frontierRenderer = new FrontierRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
+        _hazardRenderer = new HazardRenderer(screens.WhitePixel, screens.Content);
         _pollutionRenderer = new PollutionRenderer(screens.WhitePixel, screens.Content);
         _stallOverlay = new StallOverlayRenderer(screens.WhitePixel, screens.Content);
         _landmarkRenderer = new LandmarkRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
@@ -888,6 +891,7 @@ public sealed class GameplayScreen : IScreen
         // A co poletuje vzduchem světa — písek na Duně, popel ve Výhni.
         // Nezávisle na období: na Mrazu v létě sněží taky.
         _atmosphere.Update(worldDt, _screens.Content.Atmosphere, moteMin, moteMax, WindDirectionX, WindDirectionY);
+        _hazardRenderer.Update(dt);
         }
 
         // Cheaty se udržují herním časem: v pauze se nic nedosypává a záběr,
@@ -992,6 +996,9 @@ public sealed class GameplayScreen : IScreen
             // Útočníci mezi chodce a faunu: chodí po zemi jako oni. Mimo režim
             // obrany je to prázdné volání, které se vrátí na prvním řádku.
             _frontierRenderer.Draw(spriteBatch, _camera, _simulation);
+            // Kopečky písku na zasypaných budovách a pás bouře — nad budovami,
+            // protože bouře jde přes střechy, ne pod nimi.
+            _hazardRenderer.Draw(spriteBatch, _camera, _simulation);
             _fauna.Draw(spriteBatch, _screens.Sprites, _screens.WhitePixel, _camera);
             // Letouny až za pozemní kulisou — mají letět NAD vším, co stojí na zemi.
             _airTraffic.Draw(spriteBatch, _camera);
@@ -1580,6 +1587,7 @@ public sealed class GameplayScreen : IScreen
         BuildingStall.NoTerrain => "stall.noTerrain",
         BuildingStall.OutputFull => "stall.outputFull",
         BuildingStall.NetworkShortage => "stall.networkShortage",
+        BuildingStall.Buried => "stall.buried",
         _ => null,
     };
 
@@ -2192,6 +2200,25 @@ public sealed class GameplayScreen : IScreen
         }
 
         _lastSeasonIndex = index;
+    }
+
+    /// <summary>
+    /// Předpověď přírodního jevu (svety-design.md 7.8): „Písečná bouře od
+    /// západu — za 42 s", pak „probíhá". Mimo varování a bouři prázdné.
+    /// </summary>
+    private void UpdateHazardLabel(Localization loc)
+    {
+        var view = _simulation.CurrentHazard;
+        if (view.HazardIndex < 0)
+        {
+            _hazardLabel.Text = string.Empty;
+            return;
+        }
+
+        string name = loc[_screens.Content.Hazards.Hazards[view.HazardIndex].NameKey];
+        _hazardLabel.Text = view.Phase == HazardPhase.Warning
+            ? loc.Format("hud.hazard.warning", name, loc[$"hazard.from.{view.DirectionIndex}"], (int)Math.Ceiling(view.SecondsToStart))
+            : loc.Format("hud.hazard.active", name);
     }
 
     /// <summary>Spokojenost rozepsaná na sčítance („Základ 60 · služby +25 · přelidnění −12").</summary>
@@ -2878,6 +2905,8 @@ public sealed class GameplayScreen : IScreen
         worldInfoStack.Widgets.Add(_currencyLabel);
         worldInfoStack.Widgets.Add(_powerLabel);
         worldInfoStack.Widgets.Add(_weatherLabel);
+        _hazardLabel = new Label { TextColor = UiPalette.Warn, HorizontalAlignment = HorizontalAlignment.Right };
+        worldInfoStack.Widgets.Add(_hazardLabel);
         if (_screens.Content.Seasons.IsEnabled)
         {
             worldInfoStack.Widgets.Add(_seasonLabel);
@@ -5183,6 +5212,7 @@ public sealed class GameplayScreen : IScreen
             _weatherLabel.Text = string.Empty;
         }
 
+        UpdateHazardLabel(loc);
         UpdateSeasonLabel(loc);
         UpdateFrontierLabel(loc);
         UpdateToolsLabel(loc);

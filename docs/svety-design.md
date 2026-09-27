@@ -1202,6 +1202,22 @@ mřížce** a **nízké frekvenci**, bez alokací v tiku (CLAUDE.md). Vyřazení
 budov používá existující mechanismus poškození (odpočet výpadku), takže
 výroba, guvernér i render ho už umí.
 
+> **Hotovo (D1.4) — písečné bouře.** Jevy světa jsou v `hazards.json` ve
+> složce světa (`behavior` → třída v simulaci, parametry v datech). První je
+> `weather_burial`: rozvrh je čistá funkce seedu (bouře *k* začíná
+> v `first + k × interval + posun(k)`), minutu předem hra varuje a obloha
+> zhnědne (počasí jevu), pak pás o šířce `bandTiles` přejde přes město po
+> směru větru (jeden z osmi). Co v pásu stojí a nekryje ho budova s `shelter`
+> (větrolam), vypadne na `burySeconds` — stav „zasypaná", kopeček písku na
+> mapě, sama se vyhrabe. Sluneční zrcadla v bouři dodávají méně (`solarDim`).
+> Oprava vyřazených budov přešla z obrany do simulace, takže funguje pro
+> zásah i zasypání a na světě bez obrany. Statistika (`calmhazards` = bouře
+> přes stojící město bez jediného zasypání) je metrika pro hvězdy; save nese
+> rozběhnutou bouři a zasypané budovy. HUD ukazuje předpověď („Písečná bouře
+> od západu — za 42 s"). Guvernér po bouři staví ochranu k zasypaným budovám
+> (`ProtectionGoal`) — kudy půjde příští bouře, neví, ale kde jednou zasypala,
+> tam je město vystavené.
+
 ### 7.4 Terén a generátor
 
 * Každý svět má **předvolbu generátoru** (`worldgen.json` rozšíření): sada

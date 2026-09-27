@@ -90,6 +90,15 @@ public sealed partial class Simulation
     /// <summary>Biom na dlaždici jako delegát pro přírodní zdroje sítí — vytvořený jednou, ne při každém přepočtu.</summary>
     private readonly Func<int, int, byte> _biomeAtForNetworks;
     private readonly FrontierSystem _frontier;
+
+    /// <summary>Přírodní jevy světa (písečné bouře na Duně); na Domovině prázdné.</summary>
+    private readonly HazardSystem _hazards;
+
+    /// <summary>
+    /// Je nějaká budova mimo provoz (zásah, zasypání)? Jen tehdy se prochází
+    /// pole budov kvůli opravě — běžné město to nestojí nic.
+    /// </summary>
+    private bool _anyDisabled;
     private readonly FigureSystem _figures;
     private readonly Carillon _carillon;
     private readonly PointOfInterestSystem _poi;
@@ -271,6 +280,7 @@ public sealed partial class Simulation
         _zoneFill = new ZoneFillSystem(content, seed);
         _colonySystem = new ColonySystem(content, seed);
         _weatherSystem = new WeatherSystem(content, seed);
+        _hazards = new HazardSystem(content, seed);
         _happinessSystem = new HappinessSystem(content);
         _ufoSystem = new UfoSystem(content, seed);
         _roadBuilder = new RoadBuilder(content);
@@ -3265,7 +3275,7 @@ public sealed partial class Simulation
     /// Kolik slunce projde k zemi (1 = jasno). Ztlumí ho písečná bouře —
     /// sluneční zrcadla pak dodávají méně.
     /// </summary>
-    public double SolarDim => 1.0;
+    public double SolarDim => _hazards.SolarDim(TickCount);
 
     /// <summary>
     /// Pokrytí proudem podle průměru dne — pohled guvernéra. Zrcadla v noci
@@ -4916,6 +4926,11 @@ public sealed partial class Simulation
         TickExpedition();
         TickRafts();
 
+        // Poškozené a zasypané budovy se samy opravují — napřed, ať obrana
+        // v tomtéž tiku vidí stejný stav jako dřív, kdy opravu dělala sama.
+        RepairDisabled();
+        _hazards.Tick(this);
+
         // Obrana je volitelný režim: kdo si ho nezapnul, nezaplatí za něj ani
         // jednu podmínku navíc v tiku.
         if (FrontierDefense)
@@ -5059,6 +5074,64 @@ public sealed partial class Simulation
         // by hejno útočníků vyřadilo budovu na hodiny reálného času.
         int cap = _content.Frontier.RepairTicks * 2;
         _buildings[buildingIndex].DisabledTicks = Math.Min(cap, _buildings[buildingIndex].DisabledTicks + ticks);
+        _buildings[buildingIndex].DisabledCause = DisableCause.Attack;
+        _anyDisabled = true;
+    }
+
+    /// <summary>Nějaká budova vypadla z provozu — oprava ji bude odpočítávat.</summary>
+    internal void MarkDisabled() => _anyDisabled = true;
+
+    /// <summary>
+    /// Poškozené a zasypané budovy se samy opravují (lidé je vyhrabou).
+    ///
+    /// <para>Vlastní průchod, ne přílepek k výrobě: opravovat se musí i domy
+    /// a sklady, které žádný recept nemají a výrobní smyčka je přeskakuje.
+    /// Dokud nic vyřazené není, neběží vůbec.</para>
+    /// </summary>
+    private void RepairDisabled()
+    {
+        if (!_anyDisabled)
+        {
+            return;
+        }
+
+        bool any = false;
+        for (int i = 0; i < _buildingCount; i++)
+        {
+            if (_buildings[i].DisabledTicks > 0)
+            {
+                _buildings[i].DisabledTicks--;
+                any |= _buildings[i].DisabledTicks > 0;
+            }
+        }
+
+        _anyDisabled = any;
+    }
+
+    // ----- přírodní jevy -----
+
+    /// <summary>Co se právě děje s přírodním jevem (pro render a HUD).</summary>
+    public HazardView CurrentHazard => _hazards.View(TickCount);
+
+    /// <summary>Kolik bouří přešlo přes stojící město.</summary>
+    public int HazardsWeathered => _hazards.Weathered;
+
+    /// <summary>Kolik z nich nic nezasypalo.</summary>
+    public int CalmHazards => _hazards.Calm;
+
+    /// <summary>Stav bouře pro save.</summary>
+    internal HazardSystem.BurialState HazardState(int hazard) => _hazards.StateOf(hazard);
+
+    /// <summary>Obnova přírodních jevů ze savu.</summary>
+    internal void RestoreHazards(int weathered, int calm) => _hazards.Restore(weathered, calm);
+
+    /// <summary>Obnova ze savu: budova, která leží vyřazená, je zasypaná (ne poškozená).</summary>
+    internal void RestoreBurial(int buildingIndex)
+    {
+        if (buildingIndex >= 0 && buildingIndex < _buildingCount && _buildings[buildingIndex].DisabledTicks > 0)
+        {
+            _buildings[buildingIndex].DisabledCause = DisableCause.Burial;
+        }
     }
 
     // ----- orbita -----
@@ -5909,6 +5982,13 @@ public sealed partial class Simulation
     {
         get
         {
+            // Přírodní jev světa má přednost: obloha zhnědne už při varování.
+            int forced = _hazards.ForcedWeather(TickCount);
+            if (forced >= 0)
+            {
+                return forced;
+            }
+
             int index = _weatherSystem.CurrentWeather(CityBiome, TickCount);
             return _weatherSystem.IsActive(index, TickCount) ? index : -1;
         }
@@ -7017,6 +7097,7 @@ public sealed partial class Simulation
         MetricKind.ContractsCompleted => ContractsCompleted,
         MetricKind.AirQuality => (long)Math.Floor(100.0 * (1.0 - _content.Gameplay.Pollution.Severity(AirPollutionOverCity))),
         MetricKind.DefenceWaves => FrontierDefense ? _frontier.NextWave : 0,
+        MetricKind.CalmHazards => _hazards.Calm,
         MetricKind.ProjectsCompleted => CompletedProjects(param),
         _ => 0,
     };
@@ -10343,6 +10424,7 @@ public sealed partial class Simulation
             if (index >= 0 && index < _buildingCount && ticks > 0)
             {
                 _buildings[index].DisabledTicks = ticks;
+                _anyDisabled = true;
             }
         }
     }

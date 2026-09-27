@@ -211,7 +211,8 @@ internal sealed class ProductionSystem
             // to nestojí nic.
             if (building.DisabledTicks > 0)
             {
-                SetStall(ref building, def, BuildingStall.Damaged);
+                SetStall(ref building, def,
+                    building.DisabledCause == DisableCause.Burial ? BuildingStall.Buried : BuildingStall.Damaged);
                 continue;
             }
 
@@ -460,7 +461,7 @@ internal sealed class ProductionSystem
 
             if (building.DisabledTicks > 0)
             {
-                _blocked[i] = BuildingStall.Damaged;
+                _blocked[i] = building.DisabledCause == DisableCause.Burial ? BuildingStall.Buried : BuildingStall.Damaged;
                 continue;
             }
 

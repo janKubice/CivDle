@@ -130,7 +130,8 @@ public sealed class StallOverlayRenderer
             case BuildingStall.NoTerrain:
                 return NoTerrain;
             case BuildingStall.Damaged:
-                return Damaged;
+            case BuildingStall.Buried:
+                return Damaged; // vyřazená na chvíli — zásah i zasypání se opraví samy
             case BuildingStall.OutputFull:
                 return StorageFull;
             case BuildingStall.NetworkShortage:

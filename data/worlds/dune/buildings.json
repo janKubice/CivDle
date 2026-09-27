@@ -559,6 +559,9 @@
         "features": [
           "sand"
         ]
+      },
+      "shelter": {
+        "sandstorm": 6
       }
     },
     {
@@ -1115,6 +1118,9 @@
           "glow",
           "crystals"
         ]
+      },
+      "shelter": {
+        "sandstorm": 14
       }
     }
   ]

@@ -715,6 +715,88 @@ public class ContentLoaderTests : IDisposable
         Assert.Contains("dusk", ex.Message);
     }
 
+    private const string ValidHazard = """
+      { "id": "sandstorm", "behavior": "weather_burial", "firstAfterSeconds": 540, "intervalSeconds": 720,
+        "intervalJitter": 0.3, "warningSeconds": 60, "sweepSeconds": 45, "bandTiles": 18, "burySeconds": 150 }
+    """;
+
+    [Fact]
+    public void LoadFrom_HazardAndShelter_Resolve()
+    {
+        WriteAllValid();
+        Write("hazards.json", $$"""{ "schemaVersion": 1, "hazards": [ {{ValidHazard}} ] }""");
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "house", "mapColor": "#B5651D", "footprint": [1, 1], "housingCapacity": 4,
+              "buildCost": { "wood": 10 }, "allowedBiomes": ["grass"], "shelter": { "sandstorm": 6 } }
+          ]
+        }
+        """);
+        var keys = new[]
+        {
+            "hazard.sandstorm", "hazard.sandstorm.warning", "hazard.sandstorm.passed", "hazard.calm", "hazard.buried",
+            "hazard.from.0", "hazard.from.1", "hazard.from.2", "hazard.from.3", "hazard.from.4", "hazard.from.5",
+            "hazard.from.6", "hazard.from.7",
+        };
+        Write(Path.Combine("lang", "cs.json"), LangJson("cs", "Čeština", extraKeys: keys));
+        Write(Path.Combine("lang", "en.json"), LangJson("en", "English", extraKeys: keys));
+
+        var content = Load();
+
+        var hazard = Assert.Single(content.Hazards.Hazards);
+        Assert.Equal(HazardBehavior.WeatherBurial, hazard.Behavior);
+        Assert.Equal(720, hazard.Burial!.IntervalSeconds);
+        Assert.Equal(6, content.Buildings[0].ShelterRadius(0));
+    }
+
+    [Theory]
+    [InlineData("\"behavior\": \"meteor\"", "meteor")]
+    [InlineData("\"sweepSeconds\": 700", "sweepSeconds")]
+    [InlineData("\"intervalSeconds\": 10", "intervalSeconds")]
+    [InlineData("\"weather\": \"acid_rain\"", "acid_rain")]
+    public void LoadFrom_BadHazard_Throws(string field, string expected)
+    {
+        WriteAllValid();
+        string hazard = ValidHazard.TrimEnd().TrimEnd('}') + ", " + field + " }";
+        Write("hazards.json", $$"""{ "schemaVersion": 1, "hazards": [ {{hazard}} ] }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains(expected, ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_ShelterFromAnUnknownHazard_Throws()
+    {
+        WriteAllValid();
+        Write("buildings.json", """
+        {
+          "schemaVersion": 1,
+          "buildings": [
+            { "id": "house", "mapColor": "#B5651D", "footprint": [1, 1], "housingCapacity": 4,
+              "buildCost": { "wood": 10 }, "allowedBiomes": ["grass"], "shelter": { "blizzard": 6 } }
+          ]
+        }
+        """);
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("blizzard", ex.Message);
+    }
+
+    [Fact]
+    public void LoadFrom_HazardWithoutTexts_Throws()
+    {
+        WriteAllValid();
+        Write("hazards.json", $$"""{ "schemaVersion": 1, "hazards": [ {{ValidHazard}} ] }""");
+
+        var ex = Assert.Throws<ContentLoadException>(Load);
+
+        Assert.Contains("hazard.", ex.Message);
+    }
+
     // ----- světy galaxie (svety-design.md 7.1) -----
 
     [Fact]

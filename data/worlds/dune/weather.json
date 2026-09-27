@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Počasí Duny. Písečná bouře má váhu 0 — sama nepřijde, přichází s přírodním jevem (hazards.json) podle rozvrhu bouří.",
+  "weather": [
+    { "id": "clear", "biomes": ["desert", "steppe", "savanna", "badlands", "aquifer", "oasis", "salt_flat", "beach", "mountains", "volcanic", "snow_peaks"],
+      "weight": 10, "durationSeconds": 180, "tint": "#FFFFFF", "tintAlpha": 0.0, "particle": "none" },
+    { "id": "heat_haze", "biomes": ["desert", "steppe", "savanna", "badlands", "aquifer", "oasis", "salt_flat", "beach"],
+      "weight": 6, "durationSeconds": 120, "tint": "#E8B45A", "tintAlpha": 0.16, "particle": "none" },
+    { "id": "rain", "biomes": ["desert", "steppe", "savanna", "badlands", "aquifer", "oasis", "salt_flat", "beach"],
+      "weight": 0.5, "durationSeconds": 60, "tint": "#3E5A7A", "tintAlpha": 0.18, "particle": "rain" },
+    { "id": "sandstorm", "biomes": ["desert", "steppe", "savanna", "badlands", "aquifer", "oasis", "salt_flat", "beach"],
+      "extreme": true, "productionMult": 0.85, "weight": 0, "durationSeconds": 45, "tint": "#C2954A", "tintAlpha": 0.45, "particle": "sand" }
+  ]
+}

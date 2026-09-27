@@ -38,6 +38,19 @@ public enum BuildingStall : byte
     /// plošina bez vztlaku) — vypadla a vrátí se sama, až pokrytí stoupne.
     /// </summary>
     NetworkShortage,
+
+    /// <summary>Zasypal ji přírodní jev (písek, sníh) — lidé ji sami vyhrabou.</summary>
+    Buried,
+}
+
+/// <summary>Proč je budova mimo provoz (<see cref="BuildingInstance.DisabledTicks"/>).</summary>
+public enum DisableCause : byte
+{
+    /// <summary>Zásah útočníka (režim obrany).</summary>
+    Attack = 0,
+
+    /// <summary>Zasypal ji přírodní jev (písečná bouře, vánice).</summary>
+    Burial = 1,
 }
 
 /// <summary>
@@ -57,6 +70,9 @@ public struct BuildingInstance
     /// jinde zůstane navždy nula.</para>
     /// </summary>
     public int DisabledTicks;
+
+    /// <summary>Proč je mimo provoz — render kreslí zasypanou jinak než poškozenou.</summary>
+    public DisableCause DisabledCause;
 
     /// <summary>
     /// Kolik tiků do další rány, umí-li budova střílet. <c>short</c> stačí
