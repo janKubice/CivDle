@@ -291,7 +291,54 @@ internal sealed class GovernorSites
         }
 
         var result = forMove ? sim.CanMoveBuilding(ignoreBuilding, x, y) : sim.CanPlace(defIndex, x, y);
-        return result == PlacementResult.Ok && sim.PlanAt(x, y).AllowsCategory(def.Category);
+        return result == PlacementResult.Ok && sim.PlanAt(x, y).AllowsCategory(def.Category) && NetworkAllows(sim, def, x, y);
+    }
+
+    /// <summary>
+    /// Dává místo budově smysl kvůli síti? Budova s vlastním tvrdým prahem
+    /// (datlový háj bez vody neurodí nic) patří jen tam, kam síť už teče, kde
+    /// pokrytí na práh stačí a kde zdroje mají volný výkon aspoň na ten práh —
+    /// jinak by se kolem jedné studny kupily háje, dokud by nevyschly všechny.
+    ///
+    /// <para><b>Proč:</b> bez toho guvernér stavěl háj za hájem do suché
+    /// pouště — žádný nerodil, hlad trval, a tak přibyl další. Stovky hájů
+    /// a město o sto čtyřiceti lidech. Hráč smí stavět kam chce (třeba si
+    /// vodu přivede potom); tohle je jen úsudek guvernéra.</para>
+    /// </summary>
+    public static bool NetworkAllows(Simulation sim, BuildingDef def, int x, int y)
+    {
+        var uses = def.Networks;
+        for (int i = 0; i < uses.Count; i++)
+        {
+            if (uses[i].CutoffBelow <= 0 || uses[i].Demand <= 0)
+            {
+                continue;
+            }
+
+            int network = uses[i].NetworkIndex;
+            if (sim.NetworkSteadySpareAt(network, x, y) < uses[i].Demand * uses[i].CutoffBelow
+                || sim.NetworkSteadyCoverageAt(network, x, y) < uses[i].CutoffBelow)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Potřebuje budova k provozu, aby síť tekla (má vlastní tvrdý práh)? Vrací tu síť, jinak −1.</summary>
+    public static int CutoffNetworkOf(BuildingDef def)
+    {
+        var uses = def.Networks;
+        for (int i = 0; i < uses.Count; i++)
+        {
+            if (uses[i].CutoffBelow > 0 && uses[i].Demand > 0)
+            {
+                return uses[i].NetworkIndex;
+            }
+        }
+
+        return -1;
     }
 
     private int CountNodes(Simulation sim, BuildingDef def, int x, int y, int radius, int stride)

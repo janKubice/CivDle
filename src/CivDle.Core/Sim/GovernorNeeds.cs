@@ -300,6 +300,44 @@ public sealed class GovernorNeeds
     }
 
     /// <summary>
+    /// Surovina, na kterou čeká další výzkum a kterou ve městě nikdo nevyrábí
+    /// (sklo na Sklářství, sůl na Karavany); −1 = žádná. Jen když si hráč
+    /// nechal výzkum na guvernérovi.
+    ///
+    /// <para><b>Proč:</b> guvernér stavěl knihovny na vědu, ale na sklo, které
+    /// chtěla další technologie, nikdo nemyslel — výzkum Duny stál na třinácti
+    /// technologiích celé dvě hodiny. Věda sama se tu nepočítá, tu hlídá
+    /// cíl vědění.</para>
+    /// </summary>
+    public int MissingResearchMaterial(Simulation sim)
+    {
+        if (!sim.Plan.ChoosesResearch)
+        {
+            return -1;
+        }
+
+        int tech = sim.CheapestOpenTech();
+        if (tech < 0)
+        {
+            return -1;
+        }
+
+        int knowledge = _content.Gameplay.Governor.Knowledge.ResourceIndex;
+        var cost = sim.ScaledResearchCost(tech);
+        for (int i = 0; i < cost.Count; i++)
+        {
+            int resource = cost[i].ResourceIndex;
+            if (resource != knowledge && sim.GetResource(resource) < cost[i].Amount
+                && sim.Ledger.ProducedPerSecond(resource) <= NoFlowBelow)
+            {
+                return resource;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>
     /// Je ve městě dost lidí bez práce, a přitom žádná budova nestojí prázdná?
     /// Pak je další výrobna přesně to, co město potřebuje — lidé by jinak jen
     /// bydleli. (Prázdná budova znamená opak: lidí je málo, ne práce.)

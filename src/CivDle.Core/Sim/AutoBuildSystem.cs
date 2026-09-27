@@ -652,6 +652,13 @@ internal sealed class AutoBuildSystem
                     && sim.TryPlaceBuilding(defIndex, x, y) == PlacementResult.Ok);
         }
 
+        // Háj, který se nevešel, protože nikde neteče voda: napřed zdroj.
+        // Příští kolo už bude kam háj postavit.
+        if (!placed && GovernorSites.CutoffNetworkOf(def) is int network and >= 0)
+        {
+            TryAddNetworkSource(sim, network, ref rng);
+        }
+
         if (placed)
         {
             if (sim.Claim.DefIndex == defIndex)
@@ -672,6 +679,73 @@ internal sealed class AutoBuildSystem
     /// a když kolem ní nebylo místo (v hustém shluku skoro vždycky), vzdal
     /// celý interval — město pak stálo na stropu bydlení s plným skladem.
     /// </summary>
+    /// <summary>
+    /// Postaví zdroj sítě (studnu, lapač rosy) u některé budovy — nejsilnější,
+    /// který se vejde. Pro budovy, které bez sítě nemají kam jít.
+    /// </summary>
+    private bool TryAddNetworkSource(Simulation sim, int network, ref SplitMix64 rng)
+    {
+        // Studna, která se ještě staví, vodu nedává — příští kolo by háj zase
+        // „neviděl" vodu a přibyla by další. Počká se, až se dostaví.
+        if (HasSourceUnderConstruction(sim, network))
+        {
+            return false;
+        }
+
+        Span<int> ranked = stackalloc int[_content.Buildings.Count];
+        Span<double> power = stackalloc double[_content.Buildings.Count];
+        int count = 0;
+        for (int d = 0; d < _content.Buildings.Count; d++)
+        {
+            var def = _content.Buildings[d];
+            int supply = def.SupplyOf(network);
+            if (supply <= 0 || !_roles.MayBuild(sim, d) || !sim.CanAfford(def.BuildCost))
+            {
+                continue;
+            }
+
+            double steady = supply * SupplyCurve.Average(def.SupplyTime);
+            int at = count++;
+            while (at > 0 && power[at - 1] < steady)
+            {
+                power[at] = power[at - 1];
+                ranked[at] = ranked[at - 1];
+                at--;
+            }
+
+            power[at] = steady;
+            ranked[at] = d;
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            if (TryAtAnchors(sim, ranked[i], ref rng))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Staví se zdroj sítě? Průchod budovami, ale jen na neúspěšné cestě
+    /// (háj nemá kam jít) — ne každé kolo.
+    /// </summary>
+    private bool HasSourceUnderConstruction(Simulation sim, int network)
+    {
+        var buildings = sim.Buildings;
+        for (int i = 0; i < buildings.Length; i++)
+        {
+            if (!buildings[i].IsComplete && _content.Buildings[buildings[i].DefIndex].SupplyOf(network) > 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private bool TryAtAnchors(Simulation sim, int defIndex, ref SplitMix64 rng)
     {
         int buildingCount = sim.Buildings.Length;
@@ -1565,6 +1639,12 @@ internal sealed class AutoBuildSystem
             }
 
             if (result != PlacementResult.Ok)
+            {
+                continue;
+            }
+
+            // Háj bez vody neurodí: budova s tvrdým prahem sítě jen tam, kam síť teče.
+            if (!GovernorSites.NetworkAllows(sim, _content.Buildings[defIndex], x, y))
             {
                 continue;
             }

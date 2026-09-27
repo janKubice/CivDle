@@ -97,11 +97,34 @@ public sealed class NetworkSystem
             var type = networks[n];
             var own = n == NetworkCatalog.PowerIndex ? NetworkBoost.None : boost;
             int range = type.IsEnabled ? type.Range + own.RangeBonus : 0;
-            _grids[n].Rebuild(buildings, content, n, range, light, biomeAt, terrainRevision, own);
-            _steadyGrids?[n].Rebuild(buildings, content, n, range, steady, biomeAt, terrainRevision, own);
+
+            // Volný výkon chce jen guvernér (a jen u sítí, bez kterých některá
+            // budova neběží) — počítá se tedy jen v mřížce, kterou čte on.
+            bool spare = HasCutoffConsumer(content, n);
+            _grids[n].Rebuild(buildings, content, n, range, light, biomeAt, terrainRevision, own,
+                spare && _steadyGrids is null);
+            _steadyGrids?[n].Rebuild(buildings, content, n, range, steady, biomeAt, terrainRevision, own, spare);
         }
 
         Revision++;
+    }
+
+    /// <summary>Má síť odběratele s vlastním tvrdým prahem (háj bez vody neurodí)?</summary>
+    private static bool HasCutoffConsumer(GameContent content, int network)
+    {
+        for (int d = 0; d < content.Buildings.Count; d++)
+        {
+            var uses = content.Buildings[d].Networks;
+            for (int i = 0; i < uses.Count; i++)
+            {
+                if (uses[i].NetworkIndex == network && uses[i].CutoffBelow > 0 && uses[i].Demand > 0)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Má obsah zdroj, který dodává jen někdy? Pak se počítá i průměr dne.</summary>
@@ -138,6 +161,23 @@ public sealed class NetworkSystem
     {
         var grids = _steadyGrids ?? _grids;
         return network < grids.Length ? grids[network].CoverageAt(x, y) : 1.0;
+    }
+
+    /// <summary>
+    /// Kolik volného výkonu (podle průměru dne) na místo dosáhne: součet toho,
+    /// co zdroje v dosahu nerozdají svým dosavadním odběratelům. Guvernér se
+    /// podle toho ptá „utáhne síť tady ještě háj?".
+    ///
+    /// <para><b>Proč ne dodávka ani pokrytí:</b> dodávka se zapisuje jen do
+    /// buněk s poptávkou — první háj u nové studny by vodu „neviděl" a guvernér
+    /// by místo něj stavěl studnu za studnou. A pokrytí je 1 všude, kde zatím
+    /// nikdo nic nechce, takže by kupil háje kolem jedné studny, dokud by
+    /// nevyschly všechny.</para>
+    /// </summary>
+    public double SteadySpareAt(int network, int x, int y)
+    {
+        var grids = _steadyGrids ?? _grids;
+        return network < grids.Length ? grids[network].SpareAt(x, y) : 0.0;
     }
 
     /// <summary>
@@ -196,9 +236,14 @@ public sealed class NetworkSystem
     {
         private readonly Dictionary<long, double> _supply = new();
         private readonly Dictionary<long, double> _demand = new();
+        private readonly Dictionary<long, double> _spare = new();
         private readonly Dictionary<long, int> _relay = new();
         private readonly Dictionary<long, int> _best = new();
         private readonly Queue<(long Cell, int Remaining)> _frontier = new();
+
+        // Zdroje posledního přepočtu — pro druhý průchod (volný výkon).
+        private readonly List<(long Cell, double Power, int Range)> _sources = new();
+        private bool _trackSpare;
 
         // Přírodní zdroje: kolik dodá buňka (součet dlaždic), dokud se nezmění terén.
         private readonly Dictionary<long, double> _terrainSupply = new();
@@ -209,9 +254,11 @@ public sealed class NetworkSystem
 
         public void Rebuild(
             ReadOnlySpan<BuildingInstance> buildings, GameContent content, int network, int range,
-            in NetworkLight light, Func<int, int, byte>? biomeAt, int terrainRevision, in NetworkBoost boost)
+            in NetworkLight light, Func<int, int, byte>? biomeAt, int terrainRevision, in NetworkBoost boost,
+            bool trackSpare)
         {
             Clear();
+            _trackSpare = trackSpare;
             if (range <= 0)
             {
                 return;
@@ -269,6 +316,62 @@ public sealed class NetworkSystem
             if (sources.Count > 0 && biomeAt is not null)
             {
                 SpreadTerrain(sources, biomeAt, terrainRevision, Math.Min(range, MaxRange), boost.SupplyMult);
+            }
+
+            if (_trackSpare)
+            {
+                ComputeSpare();
+            }
+        }
+
+        /// <summary>
+        /// Druhý průchod: kolik z výkonu každého zdroje odběratelé opravdu
+        /// spotřebují. Zdroj dá buňce podíl podle poptávky; když buňka dostane
+        /// víc, než chce (dvě studny u jednoho háje), přebytek každého zdroje
+        /// se vrátí do volného. Nevyužitý výkon zdroje pak patří každé buňce
+        /// v jeho dosahu.
+        ///
+        /// <para>Jednoduchý rozdíl „výkon − poptávka v dosahu" nestačí: dvě
+        /// studny u jednoho háje by každá viděla celou jeho poptávku a obě by
+        /// hlásily nulu — guvernér by pak stavěl studnu za studnou.</para>
+        /// </summary>
+        private void ComputeSpare()
+        {
+            for (int s = 0; s < _sources.Count; s++)
+            {
+                var (origin, power, range) = _sources[s];
+                Reach(origin, range);
+
+                double wanted = 0;
+                foreach (long cell in _best.Keys)
+                {
+                    wanted += _demand.GetValueOrDefault(cell);
+                }
+
+                double used = 0;
+                if (wanted > 0)
+                {
+                    foreach (long cell in _best.Keys)
+                    {
+                        double demand = _demand.GetValueOrDefault(cell);
+                        if (demand > 0)
+                        {
+                            double given = power * demand / wanted;
+                            used += given * Math.Min(1.0, demand / _supply[cell]);
+                        }
+                    }
+                }
+
+                double unused = power - used;
+                if (unused <= 1e-9)
+                {
+                    continue;
+                }
+
+                foreach (long cell in _best.Keys)
+                {
+                    _spare[cell] = _spare.GetValueOrDefault(cell) + unused;
+                }
             }
         }
 
@@ -356,10 +459,14 @@ public sealed class NetworkSystem
 
         public double DemandAt(int x, int y) => _demand.GetValueOrDefault(CellOf(x, y));
 
+        public double SpareAt(int x, int y) => _spare.GetValueOrDefault(CellOf(x, y));
+
         public void Clear()
         {
             _supply.Clear();
             _demand.Clear();
+            _spare.Clear();
+            _sources.Clear();
             _relay.Clear();
         }
 
@@ -379,25 +486,12 @@ public sealed class NetworkSystem
         /// </summary>
         private void Spread(long origin, double power, int range)
         {
-            _best.Clear();
-            _frontier.Clear();
-
-            Offer(origin, range);
-            while (_frontier.Count > 0)
+            if (_trackSpare)
             {
-                var (cell, remaining) = _frontier.Dequeue();
-                if (_best[cell] != remaining || remaining <= 0)
-                {
-                    continue; // mezitím dosažena lépe, nebo už nemá kam
-                }
-
-                int cellX = TileKey.X(cell);
-                int cellY = TileKey.Y(cell);
-                Offer(TileKey.Pack(cellX + 1, cellY), remaining - 1);
-                Offer(TileKey.Pack(cellX - 1, cellY), remaining - 1);
-                Offer(TileKey.Pack(cellX, cellY + 1), remaining - 1);
-                Offer(TileKey.Pack(cellX, cellY - 1), remaining - 1);
+                _sources.Add((origin, power, range));
             }
+
+            Reach(origin, range);
 
             double wanted = 0;
             foreach (long cell in _best.Keys)
@@ -417,6 +511,30 @@ public sealed class NetworkSystem
                 {
                     _supply[cell] = _supply.GetValueOrDefault(cell) + (power * demand / wanted);
                 }
+            }
+        }
+
+        /// <summary>Buňky v dosahu zdroje (do <see cref="_best"/>), včetně prodloužení přes relé.</summary>
+        private void Reach(long origin, int range)
+        {
+            _best.Clear();
+            _frontier.Clear();
+
+            Offer(origin, range);
+            while (_frontier.Count > 0)
+            {
+                var (cell, remaining) = _frontier.Dequeue();
+                if (_best[cell] != remaining || remaining <= 0)
+                {
+                    continue; // mezitím dosažena lépe, nebo už nemá kam
+                }
+
+                int cellX = TileKey.X(cell);
+                int cellY = TileKey.Y(cell);
+                Offer(TileKey.Pack(cellX + 1, cellY), remaining - 1);
+                Offer(TileKey.Pack(cellX - 1, cellY), remaining - 1);
+                Offer(TileKey.Pack(cellX, cellY + 1), remaining - 1);
+                Offer(TileKey.Pack(cellX, cellY - 1), remaining - 1);
             }
         }
 

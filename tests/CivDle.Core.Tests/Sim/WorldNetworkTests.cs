@@ -136,6 +136,24 @@ public class WorldNetworkTests
     }
 
     [Fact]
+    public void SpareCapacityCountsWhatConsumersReallyUse()
+    {
+        // Volný výkon je pohled guvernéra: kolik háj ještě utáhne. Dvě studny
+        // u jednoho háje nesmí hlásit nulu jen proto, že každá vidí celou jeho
+        // poptávku — jinak guvernér staví studnu za studnou.
+        var (sim, _) = World();
+        Place(sim, Well, 0, 0);
+        Assert.Equal(10.0, sim.NetworkSteadySpareAt(Water, 0, 0), 6); // nikdo nic nechce
+
+        Place(sim, Grove, 1, 0);
+        Assert.Equal(0.0, sim.NetworkSteadySpareAt(Water, 0, 0), 6);  // háj vzal všechno
+
+        Place(sim, Well, 2, 0);
+        Assert.Equal(10.0, sim.NetworkSteadySpareAt(Water, 0, 0), 6); // druhá studna je volná
+        Assert.Equal(0.0, sim.NetworkSteadySpareAt(Water, 40, 0), 6); // mimo dosah nic
+    }
+
+    [Fact]
     public void TheGovernorDigsAWellNextToADryGrove()
     {
         var (sim, _) = World(governor: true);

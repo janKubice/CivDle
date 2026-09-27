@@ -3293,6 +3293,16 @@ public sealed partial class Simulation
         return _networks.SteadyCoverageAt(NetworkCatalog.PowerIndex, x, y);
     }
 
+    /// <summary>
+    /// Kolik volného výkonu sítě na místo dosáhne podle průměru dne — co zdroje
+    /// v dosahu ještě nerozdaly (pohled guvernéra: „utáhne síť tady další háj?").
+    /// </summary>
+    public double NetworkSteadySpareAt(int network, int x, int y)
+    {
+        RefreshPowerIfNeeded();
+        return _networks.SteadySpareAt(network, x, y);
+    }
+
     /// <summary>Pokrytí sítí podle průměru dne (pohled guvernéra; viz <see cref="PowerSteadyAt"/>).</summary>
     public double NetworkSteadyCoverageAt(int network, int x, int y)
     {
@@ -8987,13 +8997,15 @@ public sealed partial class Simulation
     /// <returns>Index technologie; −1 = žádná.</returns>
     internal int CheapestOpenTech(int resourceIndex = -1)
     {
+        MarkProducibleResources();
         int best = -1;
         double bestCost = double.MaxValue;
         for (int t = 0; t < _techLevel.Length; t++)
         {
             var tech = _content.Techs[t];
             if (_techLevel[t] >= tech.MaxLevel || IsTechBeyondDemo(t) || !PrerequisitesMet(tech)
-                || (resourceIndex >= 0 && ResearchCostOf(t, resourceIndex) <= 0))
+                || (resourceIndex >= 0 && ResearchCostOf(t, resourceIndex) <= 0)
+                || !IsResearchObtainable(t))
             {
                 continue;
             }
@@ -9007,6 +9019,55 @@ public sealed partial class Simulation
         }
 
         return best;
+    }
+
+    /// <summary>Které suroviny umí vyrobit některá odemčená budova (pracovní pole, bez alokace).</summary>
+    private bool[] _producible = Array.Empty<bool>();
+
+    private void MarkProducibleResources()
+    {
+        if (_producible.Length != _content.Resources.Count)
+        {
+            _producible = new bool[_content.Resources.Count];
+        }
+
+        Array.Clear(_producible);
+        for (int d = 0; d < _content.Buildings.Count; d++)
+        {
+            if (!_buildingUnlocked[d] || _content.Buildings[d].Recipe is not { } recipe)
+            {
+                continue;
+            }
+
+            for (int o = 0; o < recipe.Outputs.Count; o++)
+            {
+                _producible[recipe.Outputs[o].ResourceIndex] = true;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Dá se na technologii vůbec našetřit? Surovinu buď město má, nebo ji umí
+    /// vyrobit některá odemčená budova.
+    ///
+    /// <para><b>Proč:</b> „nejlevnější otevřená" byla na Duně Skladba, která
+    /// chce sklo — a sklárnu odemyká až dražší Sklářství. Guvernér čekal na
+    /// sklo, které nemohl nikdy mít, a výzkum stál dvě hodiny. Technologie,
+    /// na kterou se našetřit nedá, se teď přeskočí.</para>
+    /// </summary>
+    private bool IsResearchObtainable(int techIndex)
+    {
+        var cost = _content.Techs[techIndex].Cost;
+        for (int i = 0; i < cost.Count; i++)
+        {
+            int resource = cost[i].ResourceIndex;
+            if (_resources[resource] < ResearchCost(cost[i].Amount, _techLevel[techIndex]) && !_producible[resource])
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Kolik suroviny stojí další úroveň technologie (po škálování); 0 = nestojí.</summary>

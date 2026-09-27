@@ -57,10 +57,19 @@ internal sealed class InputsGoal : IGovernorGoal
 
     public CityNeed Need => CityNeed.Inputs;
 
+    /// <summary>Surovina na výzkum spěchá míň než vyschlý vstup — výroba stojí, výzkum jen čeká.</summary>
+    private const int ResearchUrgency = 58;
+
     public GoalAssessment Assess(Simulation sim)
     {
         int dried = _needs.DriedUpInput(sim);
-        return dried >= 0 ? new GoalAssessment(Need, 90, dried, -1) : GoalAssessment.Idle(Need);
+        if (dried >= 0)
+        {
+            return new GoalAssessment(Need, 90, dried, -1);
+        }
+
+        int research = _needs.MissingResearchMaterial(sim);
+        return research >= 0 ? new GoalAssessment(Need, ResearchUrgency, research, -1) : GoalAssessment.Idle(Need);
     }
 
     /// <summary>
