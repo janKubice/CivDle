@@ -71,6 +71,24 @@ public class GovernorWorldTests
     }
 
     [Fact]
+    public void ResearchMovesOnWhenAMaterialNeverFlows()
+    {
+        // Sklárna je odemčená, ale nemá kde stát (na Duně: solné pánve bez
+        // solné pláně u města). Levné sklářství by čekalo navždy — výzkum
+        // mezitím vezme to, na co město má.
+        var glassTech = new TechDef("glass_lore", new[] { new ResourceAmount(Glass, 5) }, Array.Empty<int>(), Array.Empty<int>());
+        var farming = new TechDef("farming", new[] { new ResourceAmount(Food, 50) }, Array.Empty<int>(), Array.Empty<int>());
+        var (sim, _) = World(techs: new[] { glassTech, farming }, glassworksHasSite: false);
+        sim.Plan.SetChoosesResearch(true);
+        sim.DebugSetResource(Food, 500);
+
+        Run(sim, 200);
+
+        Assert.True(sim.IsTechResearched(1), "zemědělství se má vyzkoumat, i když sklářství čeká na sklo");
+        Assert.False(sim.IsTechResearched(0));
+    }
+
+    [Fact]
     public void TheGovernorBuildsWhatTheNextResearchNeeds()
     {
         var glassTech = new TechDef("glass_lore", new[] { new ResourceAmount(Glass, 5) }, Array.Empty<int>(), Array.Empty<int>());
@@ -83,7 +101,8 @@ public class GovernorWorldTests
     }
 
     private static (Simulation Sim, GameContent Content) World(
-        IReadOnlyList<TechDef>? techs = null, bool glassworksUnlocked = true, bool hungry = false)
+        IReadOnlyList<TechDef>? techs = null, bool glassworksUnlocked = true, bool hungry = false,
+        bool glassworksHasSite = true)
     {
         var biomes = new[] { TestContent.WaterBiome(), TestContent.LandBiome("sand") };
         var resources = new[]
@@ -93,10 +112,10 @@ public class GovernorWorldTests
         };
         var land = new[] { false, true };
 
-        BuildingDef Def(string id, Recipe? recipe, NetworkUse? use, int housing = 0, bool autoBuild = false) => new(
+        BuildingDef Def(string id, Recipe? recipe, NetworkUse? use, int housing = 0, bool autoBuild = false, bool[]? biomes = null) => new(
             id, "test", new RgbColor(1, 1, 1), 1, 1,
             WorkerSlots: 0, HousingCapacity: housing, BuildCost: Array.Empty<ResourceAmount>(),
-            Recipe: recipe, AllowedBiomes: land, StorageBonus: Array.Empty<ResourceAmount>(),
+            Recipe: recipe, AllowedBiomes: biomes ?? land, StorageBonus: Array.Empty<ResourceAmount>(),
             AutoBuild: autoBuild, Buildable: true, UpgradesToIndex: -1,
             UpgradeCost: Array.Empty<ResourceAmount>(), PowerSupply: 0, PowerDemand: 0,
             NetworksOrNull: use is { } u ? new[] { u } : null);
@@ -107,7 +126,8 @@ public class GovernorWorldTests
             Def("grove", new Recipe(Array.Empty<ResourceAmount>(), new[] { new ResourceAmount(Food, 1) }, 10),
                 new NetworkUse(Water, 0, 10, 0, CutoffBelow: 0.5), autoBuild: true),
             Def("well", null, new NetworkUse(Water, 10, 0, 0)),
-            Def("glassworks", new Recipe(Array.Empty<ResourceAmount>(), new[] { new ResourceAmount(Glass, 1) }, 10), null),
+            Def("glassworks", new Recipe(Array.Empty<ResourceAmount>(), new[] { new ResourceAmount(Glass, 1) }, 10), null,
+                biomes: glassworksHasSite ? null : new[] { false, false }),
         };
 
         // Sklárnu odemyká technologie, kterou nikdo nezkoumá — dokud ji

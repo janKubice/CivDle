@@ -8994,8 +8994,9 @@ public sealed partial class Simulation
     /// kolik vědy bude potřeba a jestli se cena vůbec vejde do skladu.
     /// </summary>
     /// <param name="resourceIndex">Jen technologie, které tuhle surovinu stojí; −1 = libovolné.</param>
+    /// <param name="affordableNow">Jen ty, které jde vyzkoumat hned a na které smí sáhnout automatika.</param>
     /// <returns>Index technologie; −1 = žádná.</returns>
-    internal int CheapestOpenTech(int resourceIndex = -1)
+    internal int CheapestOpenTech(int resourceIndex = -1, bool affordableNow = false)
     {
         MarkProducibleResources();
         int best = -1;
@@ -9005,7 +9006,8 @@ public sealed partial class Simulation
             var tech = _content.Techs[t];
             if (_techLevel[t] >= tech.MaxLevel || IsTechBeyondDemo(t) || !PrerequisitesMet(tech)
                 || (resourceIndex >= 0 && ResearchCostOf(t, resourceIndex) <= 0)
-                || !IsResearchObtainable(t))
+                || !IsResearchObtainable(t)
+                || (affordableNow && (CanResearch(t) != PlacementResult.Ok || !AutomationCanSpend(ScaledResearchCost(t)))))
             {
                 continue;
             }

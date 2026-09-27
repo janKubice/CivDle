@@ -317,24 +317,7 @@ public sealed class GovernorNeeds
         }
 
         int tech = sim.CheapestOpenTech();
-        if (tech < 0)
-        {
-            return -1;
-        }
-
-        int knowledge = _content.Gameplay.Governor.Knowledge.ResourceIndex;
-        var cost = sim.ScaledResearchCost(tech);
-        for (int i = 0; i < cost.Count; i++)
-        {
-            int resource = cost[i].ResourceIndex;
-            if (resource != knowledge && sim.GetResource(resource) < cost[i].Amount
-                && sim.Ledger.ProducedPerSecond(resource) <= NoFlowBelow)
-            {
-                return resource;
-            }
-        }
-
-        return -1;
+        return tech < 0 ? -1 : GovernorResearch.StalledMaterial(sim, tech);
     }
 
     /// <summary>
