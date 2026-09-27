@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Duna — pouštní svět (svety-design.md 4.1). Náhrady: sdílené budovy Domoviny tu stojí hlínu místo dřeva a kamene, cihly místo prken a sklo místo bronzu a železa.",
+  "preset": "dune",
+  "atmosphere": "dune",
+  "landingModule": "dune_lander",
+  "startingKit": { "clay": 160, "adobe": 100, "food": 200, "tools": 20 },
+  "exports": ["glass", "spice"],
+  "port": "caravanserai",
+  "substitutes": { "wood": "clay", "stone": "clay", "planks": "adobe", "bronze": "glass", "iron": "glass" },
+  "withoutSystems": [
+    "npc-cities", "figures", "doctrines", "poi", "scenarios", "carillon", "frontier", "orbit",
+    "grandwork", "faith", "citizens", "contracts", "challenges", "tutorial", "milestones", "features", "landmarks"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Nastavení Duny nad gameplay.json Domoviny (suroviny v něm už přejmenovaly náhrady ve world.json).",
+  "planting": {
+    "species": [
+      { "id": "palm_grove", "cost": { "food": 12, "clay": 6 }, "resource": "food", "amount": 2 },
+      { "id": "clay_bed", "cost": { "adobe": 20, "tools": 3 }, "resource": "clay", "amount": 3, "requiresTech": "adobe_drying" }
+    ]
+  },
+  "onboarding": {
+    "startSite": { "nodes": { "clay": 3 }, "buildings": ["adobe_hut", "date_grove", "clay_pit"] }
+  },
+  "demo": { "techs": [] }
+}

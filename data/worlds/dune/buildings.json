@@ -1,0 +1,1117 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Budovy Duny (svety-design.md 4.1) a úpravy sdílených budov Domoviny: kde na Duně smí stát a co u nich nedává smysl (null klíč smaže).",
+  "buildings": [
+    {
+      "id": "warehouse",
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis",
+        "salt_flat"
+      ]
+    },
+    {
+      "id": "great_warehouse",
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis",
+        "salt_flat"
+      ],
+      "upgradesTo": null
+    },
+    {
+      "id": "granary",
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis",
+        "salt_flat"
+      ]
+    },
+    {
+      "id": "depot",
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis",
+        "salt_flat"
+      ]
+    },
+    {
+      "id": "market",
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis",
+        "salt_flat"
+      ]
+    },
+    {
+      "id": "library",
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis",
+        "salt_flat"
+      ]
+    },
+    {
+      "id": "school",
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis",
+        "salt_flat"
+      ]
+    },
+    {
+      "id": "university",
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis",
+        "salt_flat"
+      ]
+    },
+    {
+      "id": "shrine",
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis",
+        "salt_flat"
+      ]
+    },
+    {
+      "id": "temple",
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis",
+        "salt_flat"
+      ]
+    },
+    {
+      "id": "toolmaker",
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis",
+        "salt_flat"
+      ]
+    },
+    {
+      "id": "dune_lander",
+      "category": "housing",
+      "mapColor": "#C9CED6",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "adobe": 1
+      },
+      "housingCapacity": 30,
+      "buildable": false,
+      "workerSlots": 2,
+      "recipe": {
+        "output": {
+          "food": 2,
+          "adobe": 1
+        },
+        "timeTicks": 60
+      },
+      "storage": {
+        "clay": 200,
+        "adobe": 150,
+        "food": 200,
+        "sand": 100,
+        "salt": 100,
+        "glass": 60,
+        "spice": 40
+      },
+      "networks": {
+        "water": {
+          "supply": 12
+        }
+      },
+      "visualHeight": 1,
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis"
+      ],
+      "look": {
+        "shape": "dome",
+        "wall": "#C9CED6",
+        "roof": "#8A97A8",
+        "accent": "#E0A040",
+        "glow": "#FFE0A0",
+        "features": [
+          "windows",
+          "antenna",
+          "solar",
+          "glow"
+        ]
+      }
+    },
+    {
+      "id": "adobe_hut",
+      "category": "housing",
+      "mapColor": "#C98E5A",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "clay": 4,
+        "adobe": 3
+      },
+      "housingCapacity": 5,
+      "autoBuild": true,
+      "mergesTo": "courtyard_house",
+      "mergeCost": {
+        "adobe": 20,
+        "clay": 10
+      },
+      "networks": {
+        "water": {
+          "demand": 1
+        }
+      },
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis"
+      ],
+      "look": {
+        "shape": "hut",
+        "wall": "#C98E5A",
+        "roof": "#E6D2A8",
+        "accent": "#3F5FA0",
+        "glow": "#FFD27A",
+        "features": [
+          "flat_roof",
+          "windows"
+        ]
+      }
+    },
+    {
+      "id": "courtyard_house",
+      "category": "housing",
+      "mapColor": "#D4A06A",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "adobe": 30,
+        "clay": 12
+      },
+      "housingCapacity": 24,
+      "autoBuild": true,
+      "networks": {
+        "water": {
+          "demand": 3
+        }
+      },
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis"
+      ],
+      "look": {
+        "shape": "house",
+        "wall": "#D4A06A",
+        "roof": "#E8D6B0",
+        "accent": "#3F5FA0",
+        "glow": "#FFD27A",
+        "features": [
+          "flat_roof",
+          "plants",
+          "arches",
+          "windows"
+        ]
+      }
+    },
+    {
+      "id": "windcatcher_tower",
+      "category": "housing",
+      "mapColor": "#D9B07A",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "adobe": 90,
+        "glass": 25
+      },
+      "housingCapacity": 60,
+      "autoBuild": true,
+      "serviceValue": 3,
+      "visualHeight": 2,
+      "networks": {
+        "water": {
+          "demand": 6
+        }
+      },
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis"
+      ],
+      "look": {
+        "shape": "tower",
+        "wall": "#D9B07A",
+        "roof": "#B98A55",
+        "accent": "#3F5FA0",
+        "glow": "#FFD27A",
+        "features": [
+          "flat_roof",
+          "windows",
+          "stripes",
+          "spire_top"
+        ]
+      }
+    },
+    {
+      "id": "oasis_palace",
+      "category": "housing",
+      "mapColor": "#EAD7B0",
+      "footprint": [
+        3,
+        3
+      ],
+      "buildCost": {
+        "adobe": 400,
+        "glass": 150,
+        "spice": 80
+      },
+      "housingCapacity": 220,
+      "serviceValue": 6,
+      "upkeep": {
+        "spice": 1
+      },
+      "visualHeight": 2,
+      "networks": {
+        "water": {
+          "demand": 12
+        }
+      },
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis"
+      ],
+      "look": {
+        "shape": "hall",
+        "wall": "#EAD7B0",
+        "roof": "#3F7FA0",
+        "accent": "#D2552B",
+        "glow": "#FFE4A0",
+        "features": [
+          "dome_roof",
+          "arches",
+          "water",
+          "plants",
+          "flag"
+        ]
+      }
+    },
+    {
+      "id": "well",
+      "category": "production",
+      "mapColor": "#9A8468",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "clay": 8
+      },
+      "workerSlots": 1,
+      "autoBuild": true,
+      "allowedBiomes": [
+        "aquifer",
+        "oasis"
+      ],
+      "networks": {
+        "water": {
+          "supply": 14
+        }
+      },
+      "look": {
+        "shape": "pit",
+        "wall": "#9A8468",
+        "roof": "#6E5A44",
+        "accent": "#3FA7E0",
+        "features": [
+          "water",
+          "ropes"
+        ]
+      }
+    },
+    {
+      "id": "dew_trap",
+      "category": "production",
+      "mapColor": "#B8B0A0",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "clay": 5
+      },
+      "autoBuild": true,
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis",
+        "salt_flat"
+      ],
+      "networks": {
+        "water": {
+          "supply": 4
+        }
+      },
+      "look": {
+        "shape": "mast",
+        "wall": "#B8B0A0",
+        "roof": "#8C8474",
+        "accent": "#9FD6E0",
+        "features": [
+          "ropes",
+          "water"
+        ]
+      }
+    },
+    {
+      "id": "cistern",
+      "category": "civic",
+      "mapColor": "#C9A574",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "adobe": 20,
+        "glass": 6
+      },
+      "networks": {
+        "water": {
+          "supply": 3,
+          "relay": 3
+        }
+      },
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis"
+      ],
+      "look": {
+        "shape": "dome",
+        "wall": "#C9A574",
+        "roof": "#A88452",
+        "accent": "#3FA7E0",
+        "features": [
+          "water",
+          "pipes"
+        ]
+      }
+    },
+    {
+      "id": "qanat",
+      "category": "civic",
+      "mapColor": "#A88452",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "adobe": 30,
+        "tools": 4
+      },
+      "networks": {
+        "water": {
+          "relay": 6
+        }
+      },
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis"
+      ],
+      "look": {
+        "shape": "channel",
+        "wall": "#A88452",
+        "roof": "#8A6A40",
+        "accent": "#3FA7E0",
+        "features": [
+          "water"
+        ]
+      }
+    },
+    {
+      "id": "sand_fence",
+      "category": "civic",
+      "mapColor": "#B89A68",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "clay": 6
+      },
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis",
+        "salt_flat"
+      ],
+      "look": {
+        "shape": "wall",
+        "wall": "#B89A68",
+        "roof": "#8C7250",
+        "accent": "#D8C090",
+        "features": [
+          "sand"
+        ]
+      }
+    },
+    {
+      "id": "clay_pit",
+      "category": "production",
+      "mapColor": "#8E5A3A",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "clay": 6
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "clay": 2
+        },
+        "timeTicks": 40
+      },
+      "allowedBiomes": [
+        "oasis",
+        "aquifer",
+        "steppe",
+        "savanna",
+        "beach"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "pit",
+        "wall": "#8E5A3A",
+        "roof": "#6E4028",
+        "accent": "#C98E5A",
+        "features": [
+          "water"
+        ]
+      }
+    },
+    {
+      "id": "sand_quarry",
+      "category": "production",
+      "mapColor": "#E3C27A",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "clay": 8,
+        "adobe": 4
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "sand": 2
+        },
+        "timeTicks": 40
+      },
+      "allowedBiomes": [
+        "desert"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "pit",
+        "wall": "#E3C27A",
+        "roof": "#C9A55A",
+        "accent": "#8C7250",
+        "features": [
+          "sand"
+        ]
+      }
+    },
+    {
+      "id": "salt_pans",
+      "category": "production",
+      "mapColor": "#F2EFE6",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "adobe": 20,
+        "clay": 10
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "salt": 2
+        },
+        "timeTicks": 50
+      },
+      "allowedBiomes": [
+        "salt_flat"
+      ],
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "look": {
+        "shape": "pool",
+        "wall": "#F2EFE6",
+        "roof": "#DAD4C4",
+        "accent": "#9FD6E0",
+        "features": [
+          "water"
+        ]
+      }
+    },
+    {
+      "id": "date_grove",
+      "category": "production",
+      "mapColor": "#5E8A3A",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "clay": 10,
+        "adobe": 4
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "output": {
+          "food": 4
+        },
+        "timeTicks": 50
+      },
+      "allowedBiomes": [
+        "oasis",
+        "aquifer",
+        "desert",
+        "steppe",
+        "savanna"
+      ],
+      "adjacency": {
+        "biomes": [
+          "oasis"
+        ],
+        "radius": 2,
+        "perTile": 0.03,
+        "max": 0.35
+      },
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "networks": {
+        "water": {
+          "demand": 3
+        }
+      },
+      "look": {
+        "shape": "grove",
+        "wall": "#5E8A3A",
+        "roof": "#3F6A2A",
+        "accent": "#B8742E",
+        "features": [
+          "plants"
+        ]
+      }
+    },
+    {
+      "id": "adobe_yard",
+      "category": "production",
+      "mapColor": "#C98E5A",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "clay": 10
+      },
+      "workerSlots": 2,
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "clay": 2
+        },
+        "output": {
+          "adobe": 1
+        },
+        "timeTicks": 40
+      },
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "networks": {
+        "water": {
+          "demand": 1
+        }
+      },
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis"
+      ],
+      "look": {
+        "shape": "field",
+        "wall": "#C98E5A",
+        "roof": "#A87040",
+        "accent": "#E6D2A8",
+        "features": [
+          "sand"
+        ]
+      }
+    },
+    {
+      "id": "glassworks",
+      "category": "production",
+      "mapColor": "#B8865A",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "adobe": 30,
+        "clay": 10
+      },
+      "workerSlots": 3,
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "sand": 3
+        },
+        "output": {
+          "glass": 1
+        },
+        "timeTicks": 50
+      },
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "pollution": {
+        "air": 0.2
+      },
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis"
+      ],
+      "look": {
+        "shape": "workshop",
+        "wall": "#B8865A",
+        "roof": "#6E4A30",
+        "accent": "#9FD6E0",
+        "glow": "#FFB060",
+        "features": [
+          "chimney",
+          "glow",
+          "windows"
+        ]
+      }
+    },
+    {
+      "id": "spice_garden",
+      "category": "production",
+      "mapColor": "#C0702E",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "adobe": 40,
+        "glass": 10
+      },
+      "workerSlots": 3,
+      "autoBuild": true,
+      "recipe": {
+        "input": {
+          "salt": 1
+        },
+        "output": {
+          "spice": 1
+        },
+        "timeTicks": 60
+      },
+      "powerDemand": 2,
+      "milestones": {
+        "every": 5,
+        "bonusPerStep": 0.1,
+        "maxSteps": 10
+      },
+      "networks": {
+        "water": {
+          "demand": 4
+        }
+      },
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis"
+      ],
+      "look": {
+        "shape": "field",
+        "wall": "#C0702E",
+        "roof": "#8A4A20",
+        "accent": "#E0B040",
+        "features": [
+          "plants",
+          "stripes"
+        ]
+      }
+    },
+    {
+      "id": "solar_mirrors",
+      "category": "power",
+      "mapColor": "#9FD6E0",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "glass": 40,
+        "adobe": 20
+      },
+      "powerSupply": 14,
+      "autoBuild": true,
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis"
+      ],
+      "look": {
+        "shape": "mirrors",
+        "wall": "#9FD6E0",
+        "roof": "#6E8C9C",
+        "accent": "#FFE08A",
+        "glow": "#FFF0B0",
+        "features": [
+          "solar",
+          "glow"
+        ]
+      }
+    },
+    {
+      "id": "caravanserai",
+      "category": "civic",
+      "mapColor": "#D4A06A",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "adobe": 80,
+        "glass": 20,
+        "salt": 30
+      },
+      "housingCapacity": 4,
+      "workerSlots": 4,
+      "serviceValue": 6,
+      "upkeep": {
+        "food": 2
+      },
+      "storage": {
+        "glass": 200,
+        "spice": 120,
+        "salt": 200,
+        "food": 200,
+        "adobe": 150
+      },
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis"
+      ],
+      "look": {
+        "shape": "plaza",
+        "wall": "#D4A06A",
+        "roof": "#B07A45",
+        "accent": "#3F5FA0",
+        "glow": "#FFD27A",
+        "features": [
+          "arches",
+          "flag",
+          "lanterns"
+        ]
+      }
+    },
+    {
+      "id": "hammam",
+      "category": "civic",
+      "mapColor": "#E6D2A8",
+      "footprint": [
+        1,
+        1
+      ],
+      "buildCost": {
+        "adobe": 40,
+        "glass": 10
+      },
+      "serviceValue": 8,
+      "upkeep": {
+        "salt": 1
+      },
+      "autoBuild": true,
+      "networks": {
+        "water": {
+          "demand": 4
+        }
+      },
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis"
+      ],
+      "look": {
+        "shape": "dome",
+        "wall": "#E6D2A8",
+        "roof": "#D4B888",
+        "accent": "#3FA7E0",
+        "features": [
+          "dome_roof",
+          "steam",
+          "water"
+        ]
+      }
+    },
+    {
+      "id": "desert_observatory",
+      "category": "science",
+      "mapColor": "#F0EAD8",
+      "footprint": [
+        2,
+        2
+      ],
+      "buildCost": {
+        "adobe": 60,
+        "glass": 40
+      },
+      "workerSlots": 3,
+      "serviceValue": 5,
+      "upkeep": {
+        "food": 1
+      },
+      "autoBuild": true,
+      "powerDemand": 3,
+      "recipe": {
+        "input": {
+          "glass": 1
+        },
+        "output": {
+          "science": 5
+        },
+        "timeTicks": 60
+      },
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis"
+      ],
+      "look": {
+        "shape": "dome",
+        "wall": "#F0EAD8",
+        "roof": "#D8D0BC",
+        "accent": "#3F5FA0",
+        "glow": "#BFE0FF",
+        "features": [
+          "dome_roof",
+          "antenna",
+          "glow"
+        ]
+      }
+    },
+    {
+      "id": "glass_oasis",
+      "category": "megastructure",
+      "mapColor": "#BFE8F0",
+      "footprint": [
+        5,
+        5
+      ],
+      "buildCost": {
+        "glass": 3000,
+        "adobe": 5000,
+        "spice": 600,
+        "electronics": 200
+      },
+      "serviceValue": 40,
+      "buildTicks": 3000,
+      "visualHeight": 2,
+      "networks": {
+        "water": {
+          "supply": 200,
+          "relay": 10
+        }
+      },
+      "allowedBiomes": [
+        "desert",
+        "steppe",
+        "savanna",
+        "beach",
+        "badlands",
+        "aquifer",
+        "oasis"
+      ],
+      "look": {
+        "shape": "dome",
+        "wall": "#BFE8F0",
+        "roof": "#7FC8D8",
+        "accent": "#4F9A4A",
+        "glow": "#DFFBFF",
+        "features": [
+          "dome_roof",
+          "plants",
+          "water",
+          "glow",
+          "crystals"
+        ]
+      }
+    }
+  ]
+}

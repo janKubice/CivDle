@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Galaxie (svety-design.md 2). Pořadí a odemčení světů, cena kolonizační lodi v surovinách Domoviny (stupně jako projekt, každá další kolonie × colonyCostGrowth) a vzhled planety na mapě galaxie. Co je NA světě, nese data/worlds/<id>/world.json.",
+  "worlds": [
+    {
+      "id": "home",
+      "order": 0,
+      "planet": { "surface": "#4F8A3E", "accent": "#2E6A9A", "size": 1.1 }
+    },
+    {
+      "id": "dune",
+      "order": 1,
+      "requiresGate": true,
+      "colonyCost": [
+        { "cost": { "steel": 1500000, "machine_parts": 600000 } },
+        { "cost": { "electronics": 400000, "computer": 200000, "tools": 1500000 } },
+        { "cost": { "food": 12000000, "robot": 120000 } },
+        { "cost": { "nanomaterial": 250000, "science": 4000000 } }
+      ],
+      "colonyCostGrowth": 1.6,
+      "planet": { "surface": "#D8A860", "accent": "#3FA7A0", "size": 0.9 }
+    }
+  ]
+}

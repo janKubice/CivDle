@@ -579,6 +579,7 @@
     },
     {
       "id": "warehouse",
+      "worlds": ["*"],
       "category": "storage",
       "mapColor": "#7E5C3F",
       "footprint": [
@@ -634,6 +635,7 @@
     },
     {
       "id": "great_warehouse",
+      "worlds": ["*"],
       "category": "storage",
       "mapColor": "#8C7A5E",
       "footprint": [
@@ -878,6 +880,7 @@
     },
     {
       "id": "market",
+      "worlds": ["*"],
       "category": "civic",
       "mapColor": "#B58A54",
       "footprint": [
@@ -915,6 +918,7 @@
     },
     {
       "id": "toolmaker",
+      "worlds": ["*"],
       "category": "production",
       "mapColor": "#9C7A4A",
       "footprint": [
@@ -1878,6 +1882,7 @@
     },
     {
       "id": "granary",
+      "worlds": ["*"],
       "category": "storage",
       "mapColor": "#C9A227",
       "footprint": [
@@ -1907,6 +1912,7 @@
     },
     {
       "id": "depot",
+      "worlds": ["*"],
       "category": "storage",
       "mapColor": "#8D7B5F",
       "footprint": [
@@ -3539,6 +3545,7 @@
     },
     {
       "id": "library",
+      "worlds": ["*"],
       "category": "science",
       "mapColor": "#5E86B8",
       "footprint": [
@@ -3583,6 +3590,7 @@
     },
     {
       "id": "school",
+      "worlds": ["*"],
       "category": "science",
       "mapColor": "#4F79AE",
       "footprint": [
@@ -3633,6 +3641,7 @@
     },
     {
       "id": "university",
+      "worlds": ["*"],
       "category": "science",
       "mapColor": "#3F639B",
       "footprint": [
@@ -3723,6 +3732,7 @@
     },
     {
       "id": "shrine",
+      "worlds": ["*"],
       "category": "faith",
       "mapColor": "#D8C070",
       "footprint": [
@@ -3764,6 +3774,7 @@
     },
     {
       "id": "temple",
+      "worlds": ["*"],
       "category": "faith",
       "mapColor": "#C8A850",
       "footprint": [

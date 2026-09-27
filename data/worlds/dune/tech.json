@@ -1,0 +1,188 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Výzkum Duny (svety-design.md 4.1) a úpravy sdílené větve Domoviny: sdílené technologie tu nemají předpoklady, které na Duně neexistují (mlýny, bronz, cechy).",
+  "techs": [
+    {
+      "id": "writing",
+      "prerequisites": []
+    },
+    {
+      "id": "trade",
+      "prerequisites": [],
+      "unlocks": [
+        "market"
+      ]
+    },
+    {
+      "id": "tools",
+      "prerequisites": []
+    },
+    {
+      "id": "warehousing",
+      "prerequisites": [
+        "trade"
+      ]
+    },
+    {
+      "id": "apprenticeships",
+      "prerequisites": [
+        "schooling"
+      ]
+    },
+    {
+      "id": "public_works",
+      "prerequisites": [
+        "trade"
+      ]
+    },
+    {
+      "id": "water_management",
+      "cost": {
+        "clay": 40,
+        "adobe": 20
+      },
+      "unlocks": [
+        "cistern",
+        "hammam"
+      ]
+    },
+    {
+      "id": "adobe_drying",
+      "cost": {
+        "clay": 60,
+        "adobe": 20
+      },
+      "unlocks": [
+        "courtyard_house"
+      ]
+    },
+    {
+      "id": "windbreaks",
+      "cost": {
+        "clay": 50,
+        "adobe": 30
+      },
+      "prerequisites": [
+        "water_management"
+      ],
+      "unlocks": [
+        "sand_fence",
+        "windcatcher_tower"
+      ]
+    },
+    {
+      "id": "qanats",
+      "cost": {
+        "adobe": 60,
+        "tools": 10,
+        "science": 30
+      },
+      "prerequisites": [
+        "water_management"
+      ],
+      "unlocks": [
+        "qanat"
+      ]
+    },
+    {
+      "id": "glassmaking",
+      "cost": {
+        "adobe": 50,
+        "sand": 60
+      },
+      "prerequisites": [
+        "adobe_drying"
+      ],
+      "unlocks": [
+        "glassworks",
+        "desert_observatory"
+      ]
+    },
+    {
+      "id": "salt_works",
+      "cost": {
+        "adobe": 40,
+        "science": 20
+      },
+      "prerequisites": [
+        "adobe_drying"
+      ],
+      "unlocks": [
+        "salt_pans"
+      ]
+    },
+    {
+      "id": "caravans",
+      "cost": {
+        "adobe": 80,
+        "salt": 40,
+        "science": 40
+      },
+      "prerequisites": [
+        "salt_works",
+        "trade"
+      ],
+      "unlocks": [
+        "caravanserai"
+      ]
+    },
+    {
+      "id": "solar_mirrors",
+      "cost": {
+        "glass": 40,
+        "science": 60
+      },
+      "prerequisites": [
+        "glassmaking"
+      ],
+      "unlocks": [
+        "solar_mirrors"
+      ]
+    },
+    {
+      "id": "spice_craft",
+      "cost": {
+        "salt": 60,
+        "glass": 20,
+        "science": 80
+      },
+      "prerequisites": [
+        "salt_works",
+        "solar_mirrors"
+      ],
+      "unlocks": [
+        "spice_garden",
+        "oasis_palace"
+      ]
+    },
+    {
+      "id": "desalination",
+      "cost": {
+        "glass": 120,
+        "salt": 120,
+        "science": 300
+      },
+      "prerequisites": [
+        "qanats",
+        "glassmaking"
+      ],
+      "effect": "growth_mult",
+      "magnitude": 0.15
+    },
+    {
+      "id": "glass_oasis",
+      "cost": {
+        "glass": 600,
+        "spice": 150,
+        "science": 1200
+      },
+      "prerequisites": [
+        "desalination",
+        "spice_craft"
+      ],
+      "unlocks": [
+        "glass_oasis"
+      ]
+    }
+  ]
+}

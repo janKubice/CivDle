@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Roční období na Duně: žádný sníh, v zimě se netopí (proto fuelResource: null). Léto je výheň, zima chladná a nejúrodnější.",
+  "fuelResource": null,
+  "seasons": [
+    { "id": "spring", "foodProductionMult": 1.1, "growthMult": 1.15, "moteColor": "#F0D9A8", "moteDensity": 0.3, "moteFall": 0.1,
+      "groundTint": "#D8C07A", "groundTintStrength": 0.08 },
+    { "id": "summer", "tintColor": "#FFC060", "tintAlpha": 0.04, "foodProductionMult": 0.85, "growthMult": 0.95,
+      "moteColor": "#E8C890", "moteDensity": 0.5, "moteFall": 0.04 },
+    { "id": "autumn", "foodProductionMult": 1.0, "harvestMult": 1.2, "moteColor": "#D8B070", "moteDensity": 0.4, "moteFall": 0.2,
+      "groundTint": "#C8A060", "groundTintStrength": 0.12 },
+    { "id": "winter", "tintColor": "#B8C8E0", "tintAlpha": 0.03, "foodProductionMult": 1.15, "harvestMult": 1.0, "growthMult": 1.05,
+      "fuelPerPersonPerSecond": 0.0, "coldGrowthMult": 1.0, "snowCover": 0.0, "moteColor": "#E8E0D0", "moteDensity": 0.2, "moteFall": 0.3,
+      "groundTint": "#C8B890", "groundTintStrength": 0.1, "groundSnow": 0.0 }
+  ]
+}

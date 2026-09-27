@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Vodní síť Duny (svety-design.md 4.1): zdroj zaplní buňky 8×8 kolem sebe, dokud stačí dosah. Nedostatek = výroba × pokrytí (slowdown), jako u proudu.",
+  "networks": [
+    { "id": "water", "range": 3, "shortage": "slowdown", "overlayColor": "#3FA7E0" }
+  ]
+}

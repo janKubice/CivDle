@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Suroviny Duny. Jídlo, nástroje, věda, víra a průmyslové zboží Domoviny jsou sdílené (značka worlds v data/resources.json).",
+  "resources": [
+    { "id": "sand", "mapColor": "#E3C27A", "startAmount": 0, "baseStorage": 300 },
+    { "id": "clay", "mapColor": "#B0704A", "startAmount": 0, "baseStorage": 300 },
+    { "id": "adobe", "mapColor": "#C98E5A", "startAmount": 0, "baseStorage": 250 },
+    { "id": "glass", "mapColor": "#9FD6E0", "startAmount": 0, "baseStorage": 150 },
+    { "id": "salt", "mapColor": "#F2EFE6", "startAmount": 0, "baseStorage": 200 },
+    { "id": "spice", "mapColor": "#D2552B", "startAmount": 0, "baseStorage": 120 }
+  ]
+}

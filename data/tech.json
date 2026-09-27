@@ -14,6 +14,7 @@
     },
     {
       "id": "trade",
+      "worlds": ["*"],
       "cost": {
         "wood": 30,
         "planks": 20
@@ -29,6 +30,7 @@
     },
     {
       "id": "market_scales",
+      "worlds": ["*"],
       "cost": {
         "science": 20,
         "wood": 10
@@ -42,6 +44,7 @@
     },
     {
       "id": "ledgers",
+      "worlds": ["*"],
       "cost": {
         "science": 20,
         "wood": 10
@@ -55,6 +58,7 @@
     },
     {
       "id": "tools",
+      "worlds": ["*"],
       "cost": {
         "planks": 30,
         "stone": 20
@@ -165,6 +169,7 @@
     },
     {
       "id": "granary",
+      "worlds": ["*"],
       "cost": {
         "planks": 40,
         "stone": 40
@@ -364,6 +369,7 @@
     },
     {
       "id": "warehousing",
+      "worlds": ["*"],
       "cost": {
         "planks": 80,
         "bronze": 20
@@ -473,6 +479,7 @@
     },
     {
       "id": "apprenticeships",
+      "worlds": ["*"],
       "cost": {
         "science": 45,
         "food": 15
@@ -1091,6 +1098,7 @@
     },
     {
       "id": "writing",
+      "worlds": ["*"],
       "cost": {
         "planks": 25,
         "stone": 15
@@ -1104,6 +1112,7 @@
     },
     {
       "id": "schooling",
+      "worlds": ["*"],
       "cost": {
         "planks": 60,
         "science": 25
@@ -1117,6 +1126,7 @@
     },
     {
       "id": "higher_education",
+      "worlds": ["*"],
       "cost": {
         "stone": 150,
         "science": 120
@@ -1603,6 +1613,7 @@
     },
     {
       "id": "rituals",
+      "worlds": ["*"],
       "cost": {
         "wood": 40,
         "stone": 30
@@ -1616,6 +1627,7 @@
     },
     {
       "id": "priesthood",
+      "worlds": ["*"],
       "cost": {
         "stone": 120,
         "science": 60
@@ -1642,6 +1654,7 @@
     },
     {
       "id": "public_works",
+      "worlds": ["*"],
       "cost": {
         "planks": 120,
         "stone": 90

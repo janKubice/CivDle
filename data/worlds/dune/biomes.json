@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Zvláštní dlaždice Duny. Nevznikají z rozsahů výšky a vlhkosti (natural: false) — pokládá je záplata předvolby 'dune' (worldgen.json).",
+  "biomes": [
+    { "id": "oasis", "mapColor": "#4F9A4A", "colorVariation": 0.07, "isWater": false, "elevationRange": [0.0, 1.0], "natural": false,
+      "clickYield": { "resource": "food", "amount": 2, "charges": 8, "regrowSeconds": 600 }, "productionMult": 1.25 },
+    { "id": "aquifer", "mapColor": "#D6BE84", "colorVariation": 0.05, "isWater": false, "elevationRange": [0.0, 1.0], "natural": false,
+      "productionMult": 0.85 },
+    { "id": "salt_flat", "mapColor": "#EEE8D8", "colorVariation": 0.03, "isWater": false, "elevationRange": [0.0, 1.0], "natural": false,
+      "clickYield": { "resource": "salt", "amount": 1, "charges": 20, "regrowSeconds": 600 }, "productionMult": 0.6 }
+  ]
+}
