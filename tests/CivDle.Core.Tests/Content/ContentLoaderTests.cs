@@ -655,6 +655,9 @@ public class ContentLoaderTests : IDisposable
     [InlineData("{ \"id\": \"water\", \"range\": 4, \"overlayColor\": \"#FFFFFF\", \"terrainSources\": [ { \"biome\": \"lava\", \"supplyPerTile\": 1 } ] }", "lava")]
     [InlineData("{ \"id\": \"water\", \"range\": 4, \"overlayColor\": \"#FFFFFF\", \"terrainSources\": [ { \"biome\": \"grass\", \"supplyPerTile\": 0 } ] }", "supplyPerTile")]
     [InlineData("{ \"id\": \"water\", \"range\": 4, \"overlayColor\": \"#FFFFFF\", \"housing\": { \"growthPenalty\": 2, \"happinessPenalty\": 0.1 } }", "housing")]
+    [InlineData("{ \"id\": \"water\", \"range\": 4, \"overlayColor\": \"#FFFFFF\", \"ground\": { \"color\": \"#70A050\" } }", "'on'")]
+    [InlineData("{ \"id\": \"water\", \"range\": 4, \"overlayColor\": \"#FFFFFF\", \"ground\": { \"color\": \"#70A050\", \"on\": [\"lava\"] } }", "lava")]
+    [InlineData("{ \"id\": \"water\", \"range\": 4, \"overlayColor\": \"#FFFFFF\", \"ground\": { \"color\": \"#70A050\", \"on\": [\"grass\"], \"density\": 3 } }", "density")]
     public void LoadFrom_BadNetworkType_Throws(string network, string expected)
     {
         WriteAllValid();
@@ -673,7 +676,8 @@ public class ContentLoaderTests : IDisposable
         { "schemaVersion": 1, "networks": [
           { "id": "water", "range": 3, "overlayColor": "#3FA7E0",
             "terrainSources": [ { "biome": "grass", "supplyPerTile": 0.5 } ],
-            "housing": { "growthPenalty": 0.7, "happinessPenalty": 0.15 } } ] }
+            "housing": { "growthPenalty": 0.7, "happinessPenalty": 0.15 },
+            "ground": { "color": "#70A050", "on": ["grass"], "density": 0.4 } } ] }
         """);
         Write("buildings.json", """
         {
@@ -694,6 +698,8 @@ public class ContentLoaderTests : IDisposable
         Assert.Equal(0.4, house.Networks[0].CutoffBelow);
         Assert.Equal(0.5, Assert.Single(water.TerrainSources).SupplyPerTile);
         Assert.Equal(0.7, water.Housing!.GrowthPenalty);
+        Assert.True(water.Ground!.BiomeMask[content.Biomes.IndexOf("grass")]);
+        Assert.Equal(0.4, water.Ground.Density);
     }
 
     [Fact]

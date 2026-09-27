@@ -701,10 +701,48 @@ public sealed class ContentLoader
                 id, dto.Range, shortage, shortage == NetworkShortage.Cutoff ? dto.CutoffBelow : 0,
                 ParseColor(path, dto.OverlayColor, $"Síť '{id}'"),
                 ParseTerrainSources(path, id, dto.TerrainSources, biomes),
-                ParseNetworkHousing(path, id, dto.Housing)));
+                ParseNetworkHousing(path, id, dto.Housing),
+                ParseNetworkGround(path, id, dto.Ground, biomes)));
         }
 
         return result;
+    }
+
+    /// <summary>Stopa sítě na zemi: barva, biomy (musí existovat, voda ne) a hustota 0–1.</summary>
+    private static NetworkGround? ParseNetworkGround(string path, string id, NetworkGroundDto? dto, BiomeRegistry biomes)
+    {
+        if (dto is null)
+        {
+            return null;
+        }
+
+        if (dto.On is not { Count: > 0 })
+        {
+            throw new ContentLoadException(path, $"Síť '{id}': 'ground' musí říct, na kterých biomech se kreslí ('on').");
+        }
+
+        if (dto.Density is <= 0 or > 1)
+        {
+            throw new ContentLoadException(path, $"Síť '{id}': 'ground.density' musí být v (0, 1].");
+        }
+
+        var mask = new bool[biomes.Count];
+        foreach (string name in dto.On)
+        {
+            if (!biomes.TryIndexOf(name, out int biome))
+            {
+                throw new ContentLoadException(path, $"Síť '{id}': 'ground' odkazuje na neexistující biom '{name}'.");
+            }
+
+            if (biomes[biome].IsWater)
+            {
+                throw new ContentLoadException(path, $"Síť '{id}': 'ground' na vodě ('{name}') nemá co zazelenat.");
+            }
+
+            mask[biome] = true;
+        }
+
+        return new NetworkGround(ParseColor(path, dto.Color, $"Síť '{id}', ground"), mask, dto.Density);
     }
 
     /// <summary>Přírodní zdroje sítě: biom musí existovat a dodávat rozumně.</summary>

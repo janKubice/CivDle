@@ -1075,6 +1075,21 @@ Pohled (jako dnešní překryv proudu):
 | Nebesa | klesající plošiny, stíny na mracích | vztlak vs. zátěž, příští bouřkový pás |
 | Xeno | plazivý okraj flóry, úponky na budovách | příští tep šíření, zkrocené okruhy |
 
+> **Hotovo (D1.6) — Duna je vidět.** Síť v `networks.json` může mít stopu
+> na zemi (`ground`: barva, biomy, hustota) — `NetworkGroundRenderer` kreslí
+> tam, kam voda teče k odběratelům, nádech a trsy trávy; vlhkost se mezi
+> buňkami 8×8 prolíná, takže hranice není pravítko, a buňka s nedostatkem
+> vody zelená méně. Oproti prvnímu pokusu se nekreslí celý dosah studny —
+> ten je 24 dlaždic a zelenala by celá poušť; takhle zelená město a pole,
+> okolí zůstane písek. Z dálky jen měkký nádech po buňkách; bez alokací za
+> snímek, poloha trsů je hash dlaždice. Kreslí se ve hře i na fotkách, nad
+> zpevněnou zemí (město v poušti je oáza).
+> Překryv proudu je teď **překryv sítí**: na světě s víc sítěmi přepíná
+> klávesa E proud → voda → vypnuto, legenda i počty se řídí vybranou sítí
+> a výběr budovy ve stavebním menu ukáže síť, na které závisí. Zasypané
+> budovy mají kopeček písku (D1.4). Zvodně jako vlastní vrstva překryvu
+> zatím nejsou — studnu guvernér i hráč poznají podle biomu.
+
 ### 5.4 Mapa galaxie
 
 * Klidné **hvězdné pole s paralaxou** (2–3 vrstvy hvězd, mlhovina).

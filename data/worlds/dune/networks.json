@@ -16,6 +16,12 @@
       "housing": {
         "growthPenalty": 0.7,
         "happinessPenalty": 0.15
+      },
+      "_comment_ground": "Stopa vody na zemi: kam síť dosáhne, tam poušť zezelená (svety-design.md 4.1 — zelená žilnatina v okrové pláni).",
+      "ground": {
+        "color": "#7FA84E",
+        "on": ["desert", "aquifer", "badlands", "steppe", "savanna", "beach"],
+        "density": 0.55
       }
     }
   ]

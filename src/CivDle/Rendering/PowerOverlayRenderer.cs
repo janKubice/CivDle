@@ -1,3 +1,4 @@
+using CivDle.Core.Content;
 using CivDle.Core.Sim;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -84,9 +85,18 @@ public sealed class PowerOverlayRenderer
         return Legend.Count - 1;
     }
 
-    /// <summary>Vykreslí pokrytí přes buňky ve výřezu.</summary>
+    /// <summary>Vykreslí pokrytí proudem přes buňky ve výřezu.</summary>
     /// <param name="fade">Průhlednost 0–1; vrstva se rozsvěcí plynule.</param>
-    public void Draw(SpriteBatch spriteBatch, Camera2D camera, Simulation simulation, float fade)
+    public void Draw(SpriteBatch spriteBatch, Camera2D camera, Simulation simulation, float fade) =>
+        Draw(spriteBatch, camera, simulation, fade, NetworkCatalog.PowerIndex);
+
+    /// <summary>
+    /// Vykreslí pokrytí sítí daného druhu (proud, voda, teplo). Stejné barvy
+    /// pro všechny sítě: „zelená = dost, červená = nic" se hráč učí jednou.
+    /// </summary>
+    /// <param name="fade">Průhlednost 0–1; vrstva se rozsvěcí plynule.</param>
+    /// <param name="network">Index sítě (<see cref="NetworkCatalog.PowerIndex"/> = proud).</param>
+    public void Draw(SpriteBatch spriteBatch, Camera2D camera, Simulation simulation, float fade, int network)
     {
         if (fade <= 0.01f)
         {
@@ -110,12 +120,13 @@ public sealed class PowerOverlayRenderer
 
                 // Kde proud nikdo nechce, se nekreslí nic. Zelený koberec přes
                 // celou mapu by neřekl vůbec nic.
-                if (simulation.PowerSupplyAt(tileX, tileY) <= 0 && simulation.PowerAt(tileX, tileY) >= 0.999)
+                double coverage = simulation.NetworkCoverageAt(network, tileX, tileY);
+                if (simulation.NetworkSupplyAt(network, tileX, tileY) <= 0 && coverage >= 0.999)
                 {
                     continue;
                 }
 
-                var color = ColorFor(simulation.PowerAt(tileX, tileY));
+                var color = ColorFor(coverage);
                 var rect = new Rectangle(tileX * TileSize, tileY * TileSize, CellSize * TileSize, CellSize * TileSize);
 
                 spriteBatch.Draw(_pixel, rect, color * (FillAlpha * fade));

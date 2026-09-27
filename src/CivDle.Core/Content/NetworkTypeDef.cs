@@ -37,7 +37,8 @@ public sealed record NetworkTypeDef(
     double CutoffBelow,
     RgbColor OverlayColor,
     IReadOnlyList<TerrainSource>? TerrainSourcesOrNull = null,
-    NetworkHousing? Housing = null)
+    NetworkHousing? Housing = null,
+    NetworkGround? Ground = null)
 {
     /// <summary>
     /// Přírodní zdroje: dlaždice biomu, které do sítě dodávají samy (oáza na
@@ -157,3 +158,14 @@ public sealed class NetworkCatalog
         return -1;
     }
 }
+
+/// <summary>
+/// Stopa sítě na zemi (svety-design.md 5.3 — „mechanika svítí"): kam síť
+/// dosáhne, tam se půda změní — v poušti zezelená, na Mrazu roztaje sníh.
+/// Hranice sítě je tak vidět bez překryvu.
+/// </summary>
+/// <param name="Color">Barva stopy (tráva, mokrá hlína).</param>
+/// <param name="BiomeMask">Na kterých biomech se stopa kreslí (indexováno biomem); voda a skála ne.</param>
+/// <param name="Density">Jak hustě (0–1): kolik dlaždic plně zásobené buňky dostane trs.</param>
+public sealed record NetworkGround(RgbColor Color, IReadOnlyList<bool> BiomeMask, double Density);
+

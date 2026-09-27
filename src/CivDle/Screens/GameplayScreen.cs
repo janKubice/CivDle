@@ -68,8 +68,15 @@ public sealed class GameplayScreen : IScreen
 
     /// <summary>Drží hráč pohled na rozvod proudu zapnutý ručně?</summary>
     private bool _showPower;
+
+    /// <summary>Kterou síť překryv ukazuje (proud, voda…); přepíná se opakovaným stiskem.</summary>
+    private int _overlayNetwork = NetworkCatalog.PowerIndex;
+
+    /// <summary>Titulek legendy překryvu — mění se se sítí.</summary>
+    private Label? _powerLegendTitle;
     private readonly FrontierRenderer _frontierRenderer;
     private readonly HazardRenderer _hazardRenderer;
+    private readonly NetworkGroundRenderer _networkGround;
 
     /// <summary>
     /// Jak moc je vidět dosah podmořské sítě (0–1). Rozsvěcí se samo, když má
@@ -552,6 +559,7 @@ public sealed class GameplayScreen : IScreen
         _powerRenderer = new PowerOverlayRenderer(screens.WhitePixel);
         _frontierRenderer = new FrontierRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
         _hazardRenderer = new HazardRenderer(screens.WhitePixel, screens.Content);
+        _networkGround = new NetworkGroundRenderer(screens.WhitePixel, screens.Content);
         _pollutionRenderer = new PollutionRenderer(screens.WhitePixel, screens.Content);
         _stallOverlay = new StallOverlayRenderer(screens.WhitePixel, screens.Content);
         _landmarkRenderer = new LandmarkRenderer(screens.WhitePixel, screens.Content, screens.Sprites);
@@ -951,12 +959,15 @@ public sealed class GameplayScreen : IScreen
             ValleyMistRenderer.Density(RenderTimeOfDay));
 
         _urbanGround.Draw(spriteBatch, _camera); // zpevněná zem, aby zeleň zbyla jen v parcích
+        // Stopa sítě na zemi (zelená poušť kolem vody) nad zpevněnou zemí:
+        // město v poušti je oáza a má zelenat i mezi domy. Pod vším, co stojí.
+        _networkGround.Draw(spriteBatch, _camera, _simulation);
         _zoneRenderer.Draw(spriteBatch, _camera, _simulation); // tint zón na zemi, pod budovami
         // Dosah podmořské sítě patří nad vodu, ale pod všechno ostatní —
         // je to informace o ploše, ne o tom, co na ní stojí.
         _subseaRenderer.Draw(spriteBatch, _camera, _simulation, _subseaFade);
         // Rozvod proudu taky na zem, pod budovy — je to informace o ploše.
-        _powerRenderer.Draw(spriteBatch, _camera, _simulation, _powerFade);
+        _powerRenderer.Draw(spriteBatch, _camera, _simulation, _powerFade, _overlayNetwork);
         _districtRenderer.Draw(spriteBatch, _camera, _simulation); // tvář čtvrtí, taky na zemi
         // Landmarky jen zblízka (LOD): z výšky jsou stejně pod rozlišením a dotaz
         // na desítky tisíc dlaždic by zbytečně žral snímky.
@@ -1741,11 +1752,17 @@ public sealed class GameplayScreen : IScreen
         bool wanted = _showPower;
         if (!wanted && _tools.SelectedBuilding >= 0)
         {
+            // Vybraná budova ukáže síť, na které závisí (studna vodu, dílna proud).
             var def = _screens.Content.Buildings[_tools.SelectedBuilding];
-            wanted = def.PowerSupply > 0 || def.PowerDemand > 0;
+            int network = NetworkOf(def);
+            if (network >= 0)
+            {
+                wanted = true;
+                _overlayNetwork = network;
+            }
         }
 
-        float target = wanted && _screens.Content.Gameplay.Power.IsEnabled ? 1f : 0f;
+        float target = wanted && IsOverlayNetworkEnabled(_overlayNetwork) ? 1f : 0f;
         _powerFade = MathHelper.Clamp(
             _powerFade + Math.Sign(target - _powerFade) * FadeSpeed * dt, 0f, 1f);
     }
@@ -3366,10 +3383,15 @@ public sealed class GameplayScreen : IScreen
             ToggleBottlenecks);
         view.Add(UiFactory.WithKeyHint(_bottleneckButton, KeyHint(GameAction.Bottlenecks)));
 
-        if (_screens.Content.Gameplay.Power.IsEnabled)
+        if (OverlayNetworks().Count > 0)
         {
+            // Svět s víc sítěmi (Duna: proud a voda) přepíná opakovaným stiskem.
+            bool several = OverlayNetworks().Count > 1;
             _powerButton = UiFactory.ToolButton(
-                Ico("ui.power"), loc["hud.powerOverlay"] + '\n' + loc["tip.powerOverlay"],
+                Ico("ui.power"),
+                several
+                    ? loc["hud.networkOverlay"] + '\n' + loc["tip.networkOverlay"]
+                    : loc["hud.powerOverlay"] + '\n' + loc["tip.powerOverlay"],
                 TogglePower);
             view.Add(UiFactory.WithKeyHint(_powerButton, KeyHint(GameAction.PowerOverlay)));
         }
@@ -3959,7 +3981,8 @@ public sealed class GameplayScreen : IScreen
     {
         var loc = _screens.Loc;
         var rows = new VerticalStackPanel { Spacing = 4 };
-        rows.Widgets.Add(new Label { Text = loc["hud.powerOverlay"], TextColor = UiPalette.TextBright });
+        _powerLegendTitle = new Label { Text = OverlayTitle(), TextColor = UiPalette.TextBright };
+        rows.Widgets.Add(_powerLegendTitle);
 
         _powerCounts = new Label[PowerOverlayRenderer.Legend.Count];
         for (int i = 0; i < PowerOverlayRenderer.Legend.Count; i++)
@@ -4048,15 +4071,16 @@ public sealed class GameplayScreen : IScreen
     {
         Span<int> counts = stackalloc int[PowerOverlayRenderer.Legend.Count];
         var buildings = _simulation.Buildings;
+        int network = _overlayNetwork;
         for (int i = 0; i < buildings.Length; i++)
         {
             var def = _screens.Content.Buildings[buildings[i].DefIndex];
-            if (def.PowerDemand <= 0)
+            if (def.DemandOf(network) <= 0)
             {
                 continue;
             }
 
-            counts[PowerOverlayRenderer.LegendSlot(_simulation.PowerAt(buildings[i].X, buildings[i].Y))]++;
+            counts[PowerOverlayRenderer.LegendSlot(_simulation.NetworkCoverageAt(network, buildings[i].X, buildings[i].Y))]++;
         }
 
         for (int i = 0; i < _powerCounts.Length; i++)
@@ -5001,12 +5025,89 @@ public sealed class GameplayScreen : IScreen
         RefreshOverlayButtons();
     }
 
+    /// <summary>
+    /// Zapne překryv sítí, přepne na další síť, nebo ho po poslední vypne:
+    /// proud → voda → vypnuto. Svět s jedinou sítí se chová jako dřív.
+    /// </summary>
     private void TogglePower()
     {
-        _showPower = !_showPower;
+        var networks = OverlayNetworks();
+        if (networks.Count == 0)
+        {
+            return;
+        }
+
+        int at = networks.IndexOf(_overlayNetwork);
+        if (!_showPower)
+        {
+            _showPower = true;
+            _overlayNetwork = networks[0];
+        }
+        else if (at >= 0 && at + 1 < networks.Count)
+        {
+            _overlayNetwork = networks[at + 1];
+        }
+        else
+        {
+            _showPower = false;
+        }
+
         _powerLegend.Visible = _showPower;
+        if (_powerLegendTitle is not null)
+        {
+            _powerLegendTitle.Text = OverlayTitle();
+        }
+
+        if (_showPower)
+        {
+            RefreshPowerCounts();
+        }
+
         RefreshOverlayButtons();
     }
+
+    /// <summary>Sítě, které jde ukázat překryvem: proud (když je zapnutý) a sítě světa.</summary>
+    private List<int> OverlayNetworks()
+    {
+        var result = new List<int>();
+        var networks = _screens.Content.Networks;
+        for (int n = 0; n < networks.Count; n++)
+        {
+            if (IsOverlayNetworkEnabled(n))
+            {
+                result.Add(n);
+            }
+        }
+
+        return result;
+    }
+
+    private bool IsOverlayNetworkEnabled(int network) =>
+        network == NetworkCatalog.PowerIndex
+            ? _screens.Content.Gameplay.Power.IsEnabled
+            : network < _screens.Content.Networks.Count && _screens.Content.Networks[network].IsEnabled;
+
+    /// <summary>Síť, na které budova závisí nejvíc (překryv při výběru ve stavebním menu); −1 = žádná.</summary>
+    private int NetworkOf(BuildingDef def)
+    {
+        foreach (var use in def.Networks)
+        {
+            if (IsOverlayNetworkEnabled(use.NetworkIndex))
+            {
+                return use.NetworkIndex;
+            }
+        }
+
+        return (def.PowerSupply > 0 || def.PowerDemand > 0) && IsOverlayNetworkEnabled(NetworkCatalog.PowerIndex)
+            ? NetworkCatalog.PowerIndex
+            : -1;
+    }
+
+    /// <summary>Titulek legendy: „Pokrytí proudem", nebo jméno sítě světa.</summary>
+    private string OverlayTitle() =>
+        _overlayNetwork == NetworkCatalog.PowerIndex
+            ? _screens.Loc["hud.powerOverlay"]
+            : _screens.Loc.Format("hud.networkOverlay.of", _screens.Loc[_screens.Content.Networks[_overlayNetwork].NameKey]);
 
     private void ToggleSubsea()
     {

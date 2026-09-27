@@ -110,7 +110,11 @@ public sealed record NetworksFileDto(int SchemaVersion, List<NetworkTypeDto>? Ne
 /// <summary>Jeden druh sítě tak, jak leží v JSON.</summary>
 public sealed record NetworkTypeDto(
     string? Id, int Range, string? Shortage, double CutoffBelow, string? OverlayColor,
-    List<TerrainSourceDto>? TerrainSources = null, NetworkHousingDto? Housing = null);
+    List<TerrainSourceDto>? TerrainSources = null, NetworkHousingDto? Housing = null,
+    NetworkGroundDto? Ground = null);
+
+/// <summary>Stopa sítě na zemi tak, jak leží v JSON.</summary>
+public sealed record NetworkGroundDto(string? Color, List<string>? On, double Density = 0.5);
 
 /// <summary>Přírodní zdroj sítě tak, jak leží v JSON.</summary>
 public sealed record TerrainSourceDto(string? Biome, double SupplyPerTile);

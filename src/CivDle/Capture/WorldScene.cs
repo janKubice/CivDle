@@ -30,6 +30,7 @@ public sealed class WorldScene : IDisposable
     private readonly TerrainRenderer _terrain;
     private readonly WaterRenderer _water;
     private readonly DecorationRenderer _decorations;
+    private readonly NetworkGroundRenderer _networkGround;
     private readonly UrbanGroundRenderer _urbanGround;
     private readonly RoadRenderer _roads;
     private readonly BuildingRenderer _buildings;
@@ -53,6 +54,7 @@ public sealed class WorldScene : IDisposable
         _terrain = new TerrainRenderer(device, content.Biomes, seed);
         _water = new WaterRenderer(pixel);
         _decorations = new DecorationRenderer(pixel, content, seed, screens.Sprites);
+        _networkGround = new NetworkGroundRenderer(pixel, content);
         _urbanGround = new UrbanGroundRenderer(screens.SoftShadow, content);
         _roads = new RoadRenderer(pixel, content);
         _buildings = new BuildingRenderer(pixel, content, screens.Sprites, screens.SoftShadow);
@@ -118,6 +120,7 @@ public sealed class WorldScene : IDisposable
         _decorations.Draw(spriteBatch, camera, simulation.Terrain, simulation);
         _mist.Draw(spriteBatch, camera, simulation.Terrain, ValleyMistRenderer.Density(simulation.TimeOfDay01));
         _urbanGround.Draw(spriteBatch, camera);
+        _networkGround.Draw(spriteBatch, camera, simulation); // zelená poušť kolem vody i na fotce
         _roads.Draw(spriteBatch, camera, simulation);
         _buildings.Draw(spriteBatch, camera, simulation);
         _ambient.Draw(spriteBatch, camera, simulation);

@@ -34,6 +34,15 @@ public sealed class SmokeRun
     /// </summary>
     public void Run(ScreenManager screens, GameplayScreen screen, Simulation sim, GameTime time)
     {
+        // Jen galaxie (CIVDLE_SMOKE_ONLY=galaxy): rychlá smyčka při ladění
+        // vzhledu kolonií — celý smoke trvá v softwarovém renderu čtvrt hodiny.
+        if (Environment.GetEnvironmentVariable("CIVDLE_SMOKE_ONLY") == "galaxy")
+        {
+            Check("galaxie: kolonie, trasy a návrat", () => GalaxyRound(screens, sim, time));
+            Console.WriteLine($"smoke OK ({_passed.Count} kroků): {string.Join(", ", _passed)}");
+            return;
+        }
+
         Check("silnice: zapnout", () => screen.ActivateToolForSmoke(SmokeTool.Road));
         Frames(screen, time);
         Check("silnice: postavit", () => BuildRoadsAround(sim));
@@ -271,6 +280,13 @@ public sealed class SmokeRun
         if (!contents.Catalog.IsEnabled || dune is null)
         {
             return; // data bez galaxie (mody) — není co zkoušet
+        }
+
+        // Trasy potřebují přístav i doma: kosmodrom postaví stejná cesta jako
+        // orbitální kolo (v samotném kole galaxie by jinak chyběl).
+        if (home.PortCapacity() <= 0)
+        {
+            CityFixture.FillTheOrbit(home, contents.Home);
         }
 
         var state = GalaxyState.NewWithHome(home);
