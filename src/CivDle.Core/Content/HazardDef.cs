@@ -271,6 +271,11 @@ public sealed record HazardDef(
 /// <param name="ActiveRadius">Jak daleko od středu města flóra roste (dál se nic nepočítá).</param>
 /// <param name="WrapSeconds">Na jak dlouho obalená budova vypadne, než ji lidé odstřihnou.</param>
 /// <param name="MinBuildings">Od kolika budov se tep počítá do statistiky.</param>
+/// <param name="CalmGreenShare">
+/// Kolik okolí města (souše, kde flóra může být) musí být zelené, aby se tep
+/// bez obalené budovy počítal jako klidný (★★ Xena: soužití, ne vymýcení).
+/// 0 = bez podmínky.
+/// </param>
 public sealed record FloraRule(
     double FirstAfterSeconds,
     double IntervalSeconds,
@@ -281,7 +286,8 @@ public sealed record FloraRule(
     double SpreadChance,
     int ActiveRadius,
     double WrapSeconds,
-    int MinBuildings) : IHazardSchedule
+    int MinBuildings,
+    double CalmGreenShare = 0) : IHazardSchedule
 {
     /// <summary>Tepy chodí pravidelně — flóra dýchá, nebouří.</summary>
     public double IntervalJitter => 0;

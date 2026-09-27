@@ -123,7 +123,8 @@ public sealed record HazardDto(
     List<string>? SpreadOn = null,
     double SpreadChance = 0,
     int ActiveRadius = 0,
-    double WrapSeconds = 0);
+    double WrapSeconds = 0,
+    double CalmGreenShare = 0);
 
 /// <summary>Jak budova používá jednu síť (voda, teplo, vztlak) tak, jak leží v JSON.</summary>
 public sealed record NetworkUseDto(int Supply, int Demand, int Relay, double CutoffBelow = 0);

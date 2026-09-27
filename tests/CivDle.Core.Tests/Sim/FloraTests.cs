@@ -11,6 +11,7 @@ namespace CivDle.Core.Tests.Sim;
 /// Xeno (svety-design.md 4.6): flóra roste z hnízda v tepech, obalí budovu na
 /// okraji (sama se vrátí), prořezávač šíření v okruhu zastaví, Strom života
 /// ho nechá růst, ale nic neobalí, bariéra ho nepustí a flóra přežije save.
+/// Klidný tep (★★) chce i dost zeleně kolem města — vymýcená flóra se nepočítá.
 /// </summary>
 public class FloraTests
 {
@@ -115,6 +116,31 @@ public class FloraTests
     }
 
     [Fact]
+    public void APrunedCityIsNotCalmWhenTheWorldMustStayGreen()
+    {
+        var sim = World(calmGreenShare: 0.5);
+        Place(sim, Pruner, 0, 3);
+        Place(sim, Hut, 1, 0);
+
+        Run(sim, seconds: 61);
+
+        Assert.True(sim.HazardsWeathered > 0, "tepy k městu dorostly");
+        Assert.Equal(0, sim.CalmHazards); // nic neobalily, ale zeleně kolem města skoro není
+    }
+
+    [Fact]
+    public void ALifeTreeKeepsTheCityCalmAndGreen()
+    {
+        var sim = World(calmGreenShare: 0.0005); // ~3 dlaždice flóry z 6 561
+        Place(sim, Tree, 0, 3);
+        Place(sim, Hut, 1, 0);
+
+        Run(sim, seconds: 61);
+
+        Assert.True(sim.CalmHazards > 0, "u Stromu života flóra roste a nic neobalí — klidné tepy se počítají");
+    }
+
+    [Fact]
     public void ABarrierHoldsTheFloraBack()
     {
         var sim = World();
@@ -173,7 +199,7 @@ public class FloraTests
         public byte BiomeAt(int x, int y) => x == 0 && y == 0 ? (byte)Nest : (byte)Land;
     }
 
-    private static Simulation World()
+    private static Simulation World(double calmGreenShare = 0)
     {
         var biomes = new[]
         {
@@ -206,7 +232,7 @@ public class FloraTests
                 new HazardDef("flora", HazardBehavior.FloraSpread, null, Flora: new FloraRule(
                     FirstAfterSeconds: Interval, IntervalSeconds: Interval, WarningSeconds: 2, NestBiomeIndex: Nest,
                     BloomBiomeIndex: Bloom, SpreadOn: spreadOn, SpreadChance: 0.6, ActiveRadius: 40, WrapSeconds: 30,
-                    MinBuildings: 1)),
+                    MinBuildings: 1, CalmGreenShare: calmGreenShare)),
             }));
         return new Simulation(content, new NestTerrain(), seed: 3);
     }

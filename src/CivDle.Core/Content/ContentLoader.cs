@@ -4266,10 +4266,11 @@ public sealed class ContentLoader
                 $"{owner}: 'intervalSeconds' aspoň 10, 'firstAfterSeconds' a 'warningSeconds' nezáporné a tep s varováním se vejde do rozestupu.");
         }
 
-        if (dto.SpreadChance is <= 0 or > 1 || dto.ActiveRadius is < 8 or > 200 || dto.WrapSeconds is < 1 or > 3600 || dto.MinBuildings < 0)
+        if (dto.SpreadChance is <= 0 or > 1 || dto.ActiveRadius is < 8 or > 200 || dto.WrapSeconds is < 1 or > 3600 || dto.MinBuildings < 0
+            || dto.CalmGreenShare is < 0 or > 1)
         {
             throw new ContentLoadException(path,
-                $"{owner}: 'spreadChance' (0, 1], 'activeRadius' 8–200, 'wrapSeconds' 1–3600, 'minBuildings' nezáporné.");
+                $"{owner}: 'spreadChance' (0, 1], 'activeRadius' 8–200, 'wrapSeconds' 1–3600, 'minBuildings' nezáporné, 'calmGreenShare' 0–1.");
         }
 
         int Land(string field, string? value)
@@ -4302,7 +4303,7 @@ public sealed class ContentLoader
         }
 
         return new FloraRule(dto.FirstAfterSeconds, dto.IntervalSeconds, dto.WarningSeconds, nest, bloom, spreadOn,
-            dto.SpreadChance, dto.ActiveRadius, dto.WrapSeconds, dto.MinBuildings);
+            dto.SpreadChance, dto.ActiveRadius, dto.WrapSeconds, dto.MinBuildings, dto.CalmGreenShare);
     }
 
     /// <summary>

@@ -198,7 +198,11 @@ internal sealed class HazardSystem
         var (phase, pulse) = PhaseAt(hazard, rule, now);
         if (state.ActiveStorm >= 0 && (phase != HazardPhase.Active || pulse != state.ActiveStorm))
         {
-            Finish(sim, hazard, state, quietWhenCalm: true);
+            // Podíl zeleně se měří až na konci tepu (ne při růstu), takže se
+            // nemusí ukládat — save uprostřed tepu dopočítá totéž.
+            bool calmCounts = rule.CalmGreenShare <= 0 || !state.CityStood || state.Buried > 0
+                || GreenShare(sim, rule) >= rule.CalmGreenShare;
+            Finish(sim, hazard, state, quietWhenCalm: true, calmCounts);
         }
 
         if (phase != HazardPhase.Active || state.ActiveStorm == pulse)
@@ -286,6 +290,38 @@ internal sealed class HazardSystem
         }
 
         return touched;
+    }
+
+    /// <summary>
+    /// Kolik souše v okolí města je zelené: flóra a hnízda proti všemu, kde
+    /// by flóra mohla být (její biom, volná dlaždice bez budovy a cesty).
+    /// Zastavěná půda se nepočítá — větší město tak podmínku nezhorší.
+    /// </summary>
+    internal static double GreenShare(Simulation sim, FloraRule rule)
+    {
+        int cx = sim.CityCenterX;
+        int cy = sim.CityCenterY;
+        int r = rule.ActiveRadius;
+        int green = 0;
+        int land = 0;
+        for (int y = cy - r; y <= cy + r; y++)
+        {
+            for (int x = cx - r; x <= cx + r; x++)
+            {
+                byte biome = sim.BiomeAt(x, y);
+                if (biome == rule.BloomBiomeIndex || biome == rule.NestBiomeIndex)
+                {
+                    green++;
+                    land++;
+                }
+                else if (rule.SpreadOn[biome] && !sim.IsRoad(x, y) && !sim.TryGetBuildingAt(x, y, out _))
+                {
+                    land++;
+                }
+            }
+        }
+
+        return land == 0 ? 0 : (double)green / land;
     }
 
     /// <summary>
@@ -908,14 +944,16 @@ internal sealed class HazardSystem
     /// <summary>
     /// Bouře přešla: statistika a zpráva hráči. Tep flóry chodí každou půlminutu
     /// — ten se hlásí (<paramref name="quietWhenCalm"/>), jen když něco obalil.
+    /// <paramref name="calmCounts"/> = false: nic nezasypal, ale klidný se
+    /// nepočítá (flóry bylo kolem města málo, viz <see cref="FloraRule.CalmGreenShare"/>).
     /// </summary>
-    private void Finish(Simulation sim, int hazard, BurialState state, bool quietWhenCalm = false)
+    private void Finish(Simulation sim, int hazard, BurialState state, bool quietWhenCalm = false, bool calmCounts = true)
     {
         var def = _content.Hazards.Hazards[hazard];
         if (state.CityStood)
         {
             Weathered++;
-            if (state.Buried == 0)
+            if (state.Buried == 0 && calmCounts)
             {
                 Calm++;
             }
