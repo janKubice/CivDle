@@ -1208,6 +1208,18 @@ Nová vrstva nad simulací (čisté OOP, `Core/Galaxy/`):
 * **V paměti je vždy jen jedna `Simulation`** (aktivní svět). Ostatní jsou
   záznamy se snímkem a souhrnem.
 
+> **Hotovo (D0.3, D0.4).** `GalaxyState` drží záznamy světů (`WorldRecord`:
+> seed, předvolba, místo přistání, snímek, souhrn, obchod za nepřítomnosti,
+> hvězdy) a galaktické hodiny; ty se odvozují z tiků aktivního světa
+> (`Observe` pozná i reset Vzestupem). Kolonizační loď je stav v galaxii
+> (`ColonyShipState`), ne samostatná třída: stupně a cena jsou z `worlds.json`,
+> vklad jde stejnou cestou jako vklad do projektu (`Simulation.InvestSurplus`).
+> Za běhu to celé řídí `GalaxySession` — loď, místa přistání
+> (`LandingSiteFinder`), založení kolonie (modul přistane hotový, náklad lodi,
+> technologie Domoviny se stejným ID, Odkaz) a přepínání. Obchodní trasy
+> (`TradeRouteSystem`) přijdou s Dunou — do té doby je `PendingDelta`
+> připravené místo, kam dorazí zboží za nepřítomnosti.
+
 ### 7.6 Souhrnná simulace
 
 * Toky se měří průběžně (klouzavé okno ze `SteadyTotal` evidence toků),
@@ -1219,6 +1231,12 @@ Nová vrstva nad simulací (čisté OOP, `Core/Galaxy/`):
   přepnutí musí být rychlé.
 * Cíl: přepnutí ≤ 2 s u města s 25 000 budovami; souhrnný krok všech
   neaktivních světů ≤ 1 ms.
+
+> **Hotovo (D0.3, D0.4).** Toky měří `FlowMeter` průběžně (klouzavé okno
+> kontrolních bodů), odchod je okamžitý. `WorldSummary.Advance` je čistá
+> funkce (zásoby mezi nulou a stropem skladu, populace k bydlení). Krátká
+> nepřítomnost (do 30 minut) = souhrn + obchod + 100 tiků dotikání; delší =
+> `OfflineCatchUp` přes obrazovku načítání, guvernér za tu dobu staví.
 
 ### 7.7 Uložení hry
 
@@ -1232,6 +1250,14 @@ Nová vrstva nad simulací (čisté OOP, `Core/Galaxy/`):
 * Velikost: každý svět má snímek o velikosti dnešního savu; šest měst ×
   jednotky MB je v pořádku. Komprese sekcí jako dnes.
 
+> **Hotovo (D0.3) — jedna změna proti návrhu.** Save formátu v17 má sekci
+> `galaxy` (`GalaxyCodec`, vlastní verze) a snímky neaktivních světů leží
+> **uvnitř ní** jako celé savy ve stávajícím formátu, ne jako sekce
+> `world:<id>` — každý svět se tak čte tou samou prověřenou cestou jako dřív
+> jediné město. Hlavička nese ID světa, protože obsah (a tím terén) se liší
+> po světech. Save bez sekce `galaxy` se načte jako galaxie s Domovinou;
+> poškozená sekce = srozumitelná chyba, ne tichá ztráta kolonií.
+
 ### 7.8 Rozhraní
 
 * **Obrazovka galaxie** (5.4), **karta světa**, **dialog kolonizace**
@@ -1241,6 +1267,13 @@ Nová vrstva nad simulací (čisté OOP, `Core/Galaxy/`):
 * **Předpověď jevů** v HUD: čas do erupce, bouře, přílivu, tepu šíření.
 * **Muzeum světů** (sbírka, hvězdy, fauna, rekordy).
 * Akcent HUD podle světa (profil atmosféry).
+
+> **Hotovo (D0.5).** Obrazovka galaxie (`GalaxyScreen`: hvězdné pole
+> s paralaxou, planety upečené z mapy světa se světly města na noční straně,
+> karta světa a karta lodi), výběr místa přistání (`LandingScreen`), krátký
+> přechod (`WarpScreen`, dá se přeskočit) a přepínač světů u souhrnu v HUD.
+> Obchodní trasy, překryvy jevů, předpověď a Muzeum přijdou se světy, které
+> je potřebují.
 
 ### 7.9 Render
 
