@@ -131,7 +131,7 @@ public sealed class BulkBuilder
 
                 int x = fromX + dirX * column * stepX;
                 int y = fromY + dirY * row * stepY;
-                if (leaveStreets && OverlapsStreet(def, x, y))
+                if (leaveStreets && OverlapsStreet(_simulation, def, x, y))
                 {
                     continue;
                 }
@@ -196,7 +196,7 @@ public sealed class BulkBuilder
                     // 5×5, ke kterému vedla jediná cesta zvenčí. (U tažení se
                     // mřížka NEuplatňuje: tam obdélník nakreslil hráč a nikdo
                     // mu do něj nemá dělat díry.)
-                    if (OverlapsStreet(def, x, y))
+                    if (OverlapsStreet(_simulation, def, x, y))
                     {
                         continue;
                     }
@@ -259,13 +259,13 @@ public sealed class BulkBuilder
     /// Zasahuje půdorys do pruhu vyhrazeného pro ulici? U větších budov stačí,
     /// aby na něj sáhla jedinou dlaždicí — jinak by ulici přeťala.
     /// </summary>
-    private static bool OverlapsStreet(BuildingDef def, int x, int y)
+    private static bool OverlapsStreet(Simulation sim, BuildingDef def, int x, int y)
     {
         for (int tileY = y; tileY < y + Math.Max(1, def.FootprintHeight); tileY++)
         {
             for (int tileX = x; tileX < x + Math.Max(1, def.FootprintWidth); tileX++)
             {
-                if (CityLayout.IsReservedForStreet(tileX, tileY))
+                if (CityLayout.IsReservedForStreet(sim, tileX, tileY))
                 {
                     return true;
                 }

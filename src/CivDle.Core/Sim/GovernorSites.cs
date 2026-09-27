@@ -285,7 +285,7 @@ internal sealed class GovernorSites
     {
         // Ulice napřed: je to jen aritmetika, kdežto CanPlace u volné dlaždice
         // počítá biom ze šumu — a vyhrazená ulice je volná skoro vždycky.
-        if (CityLayout.IsReservedForStreet(x, y))
+        if (CityLayout.IsReservedForStreet(sim, x, y))
         {
             return false;
         }

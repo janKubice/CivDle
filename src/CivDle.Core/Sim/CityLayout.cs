@@ -84,6 +84,13 @@ public static class CityLayout
         Mod(x, StreetPeriod) == 0 || Mod(y, StreetPeriod) == 0;
 
     /// <summary>
+    /// Vyhrazený pruh na světě simulace — na palubě Nebes se pruhy nevyhrazují
+    /// (<see cref="Simulation.ReservesStreets"/>).
+    /// </summary>
+    public static bool IsReservedForStreet(Simulation sim, int x, int y) =>
+        sim.ReservesStreets && IsReservedForStreet(x, y);
+
+    /// <summary>
     /// Levý/horní okraj bloku, do kterého dlaždice patří — tedy souřadnice
     /// pruhu pro ulici. Blok pak zabírá <c>origin+1 … origin+StreetPeriod−1</c>.
     /// </summary>

@@ -1176,9 +1176,17 @@ public sealed partial class Simulation
 
     /// <summary>
     /// Smí se ve hře stavět silnice? Výzva „Město bez cest" je zakáže hráči
-    /// i guvernérovi.
+    /// i guvernérovi. Na světě bez země (Nebesa) je ulicí paluba sama —
+    /// silnice by jen ukusovala místo, které se musí dokupovat, a všechno je
+    /// napojené (bez jediné silnice platí každá budova za napojenou).
     /// </summary>
-    public bool RoadsAllowed => !_noRoads;
+    public bool RoadsAllowed => !_noRoads && _content.World.Platform is null;
+
+    /// <summary>
+    /// Nechává si automatika pruhy na ulice (<see cref="CityLayout"/>)? Na
+    /// palubě ne — silnice tu nevedou a pruhy by zůstaly prázdné navždy.
+    /// </summary>
+    public bool ReservesStreets => _content.World.Platform is null;
 
     /// <summary>Smí se ve hře zkoumat? Výzva „Bez knih" výzkum zakáže.</summary>
     public bool ResearchAllowed => !_noResearch;
@@ -4801,7 +4809,7 @@ public sealed partial class Simulation
     /// <summary>Lze na dlaždici položit silnici? (Zastavěno, už silnice, nebo vysazený zdroj = ne.)</summary>
     public PlacementResult CanBuildRoad(int x, int y)
     {
-        if (_noRoads)
+        if (!RoadsAllowed)
         {
             return PlacementResult.NotUnlocked;
         }

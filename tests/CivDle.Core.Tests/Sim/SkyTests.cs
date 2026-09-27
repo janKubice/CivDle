@@ -41,15 +41,29 @@ public class SkyTests
     }
 
     [Fact]
+    public void AVoidTileTakesNoRoadEvenWhereRoadsAreAllowed()
+    {
+        var sim = World(platform: false);
+
+        Assert.True(sim.RoadsAllowed);
+        Assert.Equal(PlacementResult.WrongBiome, sim.CanBuildRoad(8, 0));
+    }
+
+    [Fact]
     public void NothingStandsOnTheClouds()
     {
         var sim = World();
         sim.Land(0, 0);
 
-        Assert.Equal(PlacementResult.WrongBiome, sim.CanBuildRoad(8, 0));
-        Assert.Equal(PlacementResult.Ok, sim.CanBuildRoad(-2, 3));
         Assert.Equal(PlacementResult.WrongBiome, sim.CanPlace(Hut, 8, 0));
         Assert.Equal(PlacementResult.Ok, sim.CanPlace(Hut, -2, 3));
+
+        // Ulicí je paluba: silnice se nestaví nikde a všechno je napojené.
+        Assert.False(sim.RoadsAllowed);
+        Assert.Equal(PlacementResult.NotUnlocked, sim.CanBuildRoad(-2, 3));
+        int hut = Place(sim, Hut, -2, 3);
+        Assert.True(sim.IsBuildingConnected(hut));
+        Assert.False(sim.ReservesStreets);
     }
 
     [Fact]
@@ -141,7 +155,7 @@ public class SkyTests
         return count;
     }
 
-    private static Simulation World(bool governor = false, bool storm = false)
+    private static Simulation World(bool governor = false, bool storm = false, bool platform = true)
     {
         var sky = TestContent.LandBiome("cloud_sea") with { Void = true };
         var biomes = new[] { TestContent.WaterBiome(), sky, TestContent.LandBiome("sky_deck") };
@@ -189,7 +203,10 @@ public class SkyTests
 
         var content = TestContent.Build(biomes, 2, resources, buildings, gameplay, terraform: terraform)
             .WithNetworks(new[] { new NetworkTypeDef("charge", 2, NetworkShortage.Slowdown, 0, new RgbColor(200, 180, 255)) })
-            .WithWorld(WorldProfile.Home with { Id = "gas_giant", LandingModuleIndex = Lander, Platform = new PlatformDef(Deck, 0, 3) });
+            .WithWorld(WorldProfile.Home with
+            {
+                Id = "gas_giant", LandingModuleIndex = Lander, Platform = platform ? new PlatformDef(Deck, 0, 3) : null,
+            });
 
         if (storm)
         {

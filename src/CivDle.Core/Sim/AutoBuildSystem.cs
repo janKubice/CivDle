@@ -1770,7 +1770,7 @@ internal sealed class AutoBuildSystem
 
             // Ulice napřed: levná aritmetika, kdežto CanPlace u volné dlaždice
             // počítá biom ze šumu (viz GovernorSites.IsBuildable).
-            if (CityLayout.IsReservedForStreet(x, y))
+            if (CityLayout.IsReservedForStreet(sim, x, y))
             {
                 continue;
             }

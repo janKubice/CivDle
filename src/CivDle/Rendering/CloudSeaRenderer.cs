@@ -13,9 +13,9 @@ namespace CivDle.Rendering;
 /// mracích pod ní. Z toho má hráč pocit výšky, aniž by si četl tooltip.
 ///
 /// <para>Kreslí se nad upečeným terénem a pod budovami. Bez alokací za
-/// snímek: barva pásu je funkce souřadnice a času, pláty a lana hash
-/// dlaždice. Oblaka se kreslí po dvojicích dlaždic a při velkém oddálení
-/// ještě řidčeji (rozpočet dlaždic jako u přílivu).</para>
+/// snímek: barva pásu je funkce souřadnice a času, chuchvalce ze šumu mraků
+/// (<see cref="CloudNoise"/>), pláty a lana hash dlaždice. Při velkém
+/// oddálení se oblaka kreslí řidčeji (rozpočet dlaždic jako u přílivu).</para>
 ///
 /// <para>Vrstva: render. Ze simulace čte jen biom dlaždice.</para>
 /// </summary>
@@ -28,6 +28,9 @@ public sealed class CloudSeaRenderer
 
     /// <summary>Pod tímhle přiblížením se pláty a lana nekreslí — byl by to šum.</summary>
     private const float DetailZoom = 0.6f;
+
+    /// <summary>Perioda šumu chuchvalců (dlaždice) — šum se po ní opakuje bez švu.</summary>
+    private const int PuffSize = 128;
 
     /// <summary>Pásy obra: krémová, broskvová, okrová, rezavá, bílá (paleta z návrhu).</summary>
     private static readonly Color[] Bands =
@@ -95,8 +98,8 @@ public sealed class CloudSeaRenderer
         int fromY = (int)Math.Floor(min.Y / TileSize) - 1;
         int toX = (int)Math.Ceiling(max.X / TileSize) + 1;
         int toY = (int)Math.Ceiling(max.Y / TileSize) + 1;
-        long cells = (long)(toX - fromX + 1) * (toY - fromY + 1) / 4;
-        int step = 2 * (cells <= CellBudget ? 1 : (int)Math.Ceiling(Math.Sqrt(cells / (double)CellBudget)));
+        long cells = (long)(toX - fromX + 1) * (toY - fromY + 1);
+        int step = cells <= CellBudget ? 1 : (int)Math.Ceiling(Math.Sqrt(cells / (double)CellBudget));
         var center = camera.Position / TileSize;
 
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: camera.Transform);
@@ -116,15 +119,22 @@ public sealed class CloudSeaRenderer
                         continue;
                     }
 
+                    // Chuchvalce: horní vrstva má světlé kupy, spodní tmavší údolí mezi pásy.
                     var color = BandColor(x + driftX, y + driftY, layer);
-                    spriteBatch.Draw(_pixel, new Rectangle(x * TileSize, y * TileSize, TileSize * step, TileSize * step), color * alpha);
+                    float puff = CloudNoise.DensityAt(
+                        Mod((int)(x + driftX * 1.5f), PuffSize), Mod(y * 2 + (int)driftY, PuffSize), PuffSize, 0.35f, 0.45f, 7 + layer);
+                    color = layer == 1
+                        ? Color.Lerp(color, Color.White, puff * 0.5f)
+                        : Color.Lerp(color, Shadow, (1f - puff) * 0.18f);
+                    spriteBatch.Draw(_pixel, new Rectangle(x * TileSize, y * TileSize, TileSize * step, TileSize * step),
+                        color * (layer == 1 ? alpha * (0.3f + puff) : alpha));
                 }
             }
         }
 
         // Z velké dálky stačí barva paluby z upečeného terénu — stíny a pláty
         // po dlaždicích by stály víc, než je vidět.
-        if (_deck >= 0 && step <= 2)
+        if (_deck >= 0 && step == 1)
         {
             DrawDeck(spriteBatch, simulation, fromX, fromY, toX, toY, camera.Zoom >= DetailZoom);
         }
