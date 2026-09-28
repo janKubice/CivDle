@@ -440,18 +440,11 @@ public sealed class SmokeRun
             return; // data bez Souhvězdí (mody)
         }
 
-        // Odemčení jako na konci hry: výzkum, otevřená brána (Velký cíl)
-        // a měřítko pro megastruktury.
-        home.DebugGrantTech(home.Content.Techs.IndexOf("constellation_theory"));
-        home.DebugCompleteQuest(home.Content.Quests.IndexOf("open_the_gate"));
-        // Div chce metropoli poblíž — kolem kosmodromu (také megastruktura
-        // metropole) je jistá; střed města po Vzestupu smoke běhu být nemusí.
-        var (cx, cy) = NearSpaceport(home) ?? (home.CityCenterX, home.CityCenterY);
-        var site = FreeSpot(home, wonder, cx, cy);
-        if (site is not { } spot || home.TryPlaceBuildingFree(wonder, spot.X, spot.Y) != PlacementResult.Ok)
+        // Ladicí položení: smoke jde o epilog, ne o pravidla umístění —
+        // Domovina po Vzestupu smoke běhu metropoli mít nemusí.
+        if (!PlaceNear(home, wonder, home.CityCenterX, home.CityCenterY))
         {
-            throw new InvalidOperationException(
-                $"Souhvězdí se na Domovinu nevešlo (u {cx},{cy}: {home.CanPlace(wonder, cx, cy)})");
+            throw new InvalidOperationException("Souhvězdí se na Domovinu nevešlo (žádná volná zem kolem města)");
         }
 
         home.DebugCompleteConstruction();
@@ -526,51 +519,28 @@ public sealed class SmokeRun
         }
     }
 
-    /// <summary>Poloha kosmodromu Domoviny; null = žádný nestojí.</summary>
-    private static (int X, int Y)? NearSpaceport(Simulation sim)
+    /// <summary>
+    /// Položí budovu ladicí cestou (bez ceny, odemčení a hodnosti sídla) na
+    /// první volnou zem kolem bodu, po spirále čtverců.
+    /// </summary>
+    private static bool PlaceNear(Simulation sim, int defIndex, int centerX, int centerY)
     {
-        if (!sim.Content.Buildings.TryIndexOf("spaceport", out int port))
-        {
-            return null;
-        }
-
-        var buildings = sim.Buildings;
-        for (int i = 0; i < buildings.Length; i++)
-        {
-            if (buildings[i].DefIndex == port)
-            {
-                return (buildings[i].X, buildings[i].Y);
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>První volné místo pro budovu kolem bodu (po spirále čtverců).</summary>
-    private static (int X, int Y)? FreeSpot(Simulation sim, int defIndex, int centerX, int centerY)
-    {
-        for (int r = 0; r < 120; r += 2)
+        for (int r = 0; r < 160; r += 2)
         {
             for (int dy = -r; dy <= r; dy += 2)
             {
                 for (int dx = -r; dx <= r; dx += 2)
                 {
-                    if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != r)
+                    if (Math.Max(Math.Abs(dx), Math.Abs(dy)) == r
+                        && sim.DebugPlaceBuilding(defIndex, centerX + dx, centerY + dy) == PlacementResult.Ok)
                     {
-                        continue;
-                    }
-
-                    int x = centerX + dx;
-                    int y = centerY + dy;
-                    if (sim.CanPlace(defIndex, x, y) == PlacementResult.Ok)
-                    {
-                        return (x, y);
+                        return true;
                     }
                 }
             }
         }
 
-        return null;
+        return false;
     }
 
     private void Check(string what, Action action)

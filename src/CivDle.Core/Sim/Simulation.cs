@@ -2899,10 +2899,30 @@ public sealed partial class Simulation
     }
 
     /// <summary>
-    /// Ladicí: označí úkol za splněný (bez odměny). Smoke běh tak odemkne
-    /// stavby za Velké cíle (<c>unlockedBy: quest:…</c>) bez hodin hraní.
+    /// Ladicí: položí staveniště budovy bez ceny, odemčení a hodnosti sídla —
+    /// sedět musí jen půda (volné dlaždice, biom). Smoke tak postaví
+    /// Souhvězdí i na Domovině, která po Vzestupu metropoli nemá; jde mu
+    /// o epilog, ne o pravidla umístění.
     /// </summary>
-    public void DebugCompleteQuest(int questIndex) => _questsCompleted[questIndex] = true;
+    public PlacementResult DebugPlaceBuilding(int defIndex, int x, int y)
+    {
+        var def = _content.Buildings[defIndex];
+        var ground = FootprintFits(def, x, y);
+        if (ground != PlacementResult.Ok)
+        {
+            return ground;
+        }
+
+        AddBuilding(defIndex, x, y, progress: 0f);
+        if (!def.TakesTimeToBuild)
+        {
+            ApplyBuildingBonuses(def);
+        }
+
+        SettlementsDirty = true;
+        DistrictsDirty = true;
+        return PlacementResult.Ok;
+    }
 
     /// <summary>Ladicí: dokončí rozestavěný start družice okamžitě.</summary>
     public void DebugFinishLaunch()
@@ -5531,20 +5551,10 @@ public sealed partial class Simulation
             return PlacementResult.SettlementTooSmall;
         }
 
-        for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
+        var ground = FootprintFits(def, x, y);
+        if (ground != PlacementResult.Ok)
         {
-            for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
-            {
-                if (!IsTileFree(tileX, tileY))
-                {
-                    return PlacementResult.Occupied;
-                }
-
-                if (!def.IsBiomeAllowed(_cachedTerrain.BiomeAt(tileX, tileY)))
-                {
-                    return PlacementResult.WrongBiome;
-                }
-            }
+            return ground;
         }
 
         // Přístav a rybolov musí stát na břehu — jinak by „pobřežní" budovy ztratily smysl.
@@ -5562,6 +5572,28 @@ public sealed partial class Simulation
         }
 
         return CanPay(def.BuildCost) ? PlacementResult.Ok : PlacementResult.NotEnoughResources;
+    }
+
+    /// <summary>Vejde se půdorys na volnou zem správného biomu?</summary>
+    private PlacementResult FootprintFits(BuildingDef def, int x, int y)
+    {
+        for (int tileY = y; tileY < y + def.FootprintHeight; tileY++)
+        {
+            for (int tileX = x; tileX < x + def.FootprintWidth; tileX++)
+            {
+                if (!IsTileFree(tileX, tileY))
+                {
+                    return PlacementResult.Occupied;
+                }
+
+                if (!def.IsBiomeAllowed(_cachedTerrain.BiomeAt(tileX, tileY)))
+                {
+                    return PlacementResult.WrongBiome;
+                }
+            }
+        }
+
+        return PlacementResult.Ok;
     }
 
     /// <summary>

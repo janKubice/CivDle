@@ -191,6 +191,23 @@ public class ProjectTests
     }
 
     [Fact]
+    public void TheDebugPlacementSkipsTheUnlocksButNotTheGround()
+    {
+        // Smoke staví Souhvězdí na Domovině bez výzkumu, brány i metropole;
+        // volnou zem ale ladicí cesta ctít musí, jinak by stavěla přes domy.
+        var content = TestData.LoadRealContent();
+        var sim = new Simulation(content, new UniformTerrain((byte)content.Biomes.IndexOf("grassland")), 7);
+        int wonder = content.Buildings.IndexOf("constellation");
+        Assert.NotEqual(PlacementResult.Ok, sim.CanPlace(wonder, 0, 0));
+
+        Assert.Equal(PlacementResult.Ok, sim.DebugPlaceBuilding(wonder, 0, 0));
+        Assert.Equal(PlacementResult.Occupied, sim.DebugPlaceBuilding(wonder, 3, 3));
+
+        sim.DebugCompleteConstruction();
+        Assert.True(sim.IsGalaxyUnited);
+    }
+
+    [Fact]
     public void TheRealGateIsAProjectThatOpensTheGate()
     {
         var content = TestData.LoadRealContent();
