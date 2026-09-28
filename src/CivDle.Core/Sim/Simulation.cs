@@ -2924,6 +2924,48 @@ public sealed partial class Simulation
         return PlacementResult.Ok;
     }
 
+    /// <summary>
+    /// Ladicí: postaví budovu hotovou na první volné zemi kolem středu města
+    /// (po spirále čtverců, položení jako <see cref="DebugPlaceBuilding"/>)
+    /// a dostaví ji tou samou cestou jako stavební systém — projekt tedy spustí
+    /// svůj efekt: brána se otevře, Souhvězdí sjednotí galaxii.
+    ///
+    /// <para>Dostaví jen tuhle budovu, ne všechno rozestavěné: páka „otevřít
+    /// bránu" nemá mimochodem dohnat půl města. Existuje pro ladicí menu
+    /// a smoke — dojít k bráně poctivě trvá desítky hodin a bez zkratky se nedá
+    /// vyzkoušet nic, co je za ní.</para>
+    /// </summary>
+    /// <returns>Index postavené budovy; −1, když se kolem města nenašla volná zem.</returns>
+    public int DebugBuildNearCity(int defIndex, int searchRadius = 160)
+    {
+        var def = _content.Buildings[defIndex];
+        for (int r = 0; r < searchRadius; r += 2)
+        {
+            for (int dy = -r; dy <= r; dy += 2)
+            {
+                for (int dx = -r; dx <= r; dx += 2)
+                {
+                    if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != r
+                        || DebugPlaceBuilding(defIndex, CityCenterX + dx, CityCenterY + dy) != PlacementResult.Ok)
+                    {
+                        continue;
+                    }
+
+                    int index = _buildingCount - 1;
+                    if (_buildings[index].BuildTicksRemaining > 0)
+                    {
+                        _buildings[index].BuildTicksRemaining = 0;
+                        CompleteConstruction(index, def);
+                    }
+
+                    return index;
+                }
+            }
+        }
+
+        return -1;
+    }
+
     /// <summary>Ladicí: dokončí rozestavěný start družice okamžitě.</summary>
     public void DebugFinishLaunch()
     {

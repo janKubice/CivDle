@@ -295,11 +295,18 @@ public sealed class SmokeRun
         state.Active.PresetId = "continents";
         state.Active.SizeId = "medium";
         state.GateOpened = true;
-        state.Ship = new ColonyShipState(dune.Id) { StageIndex = dune.ColonyCost.Count }; // hotová loď
         var session = new GalaxySession(contents, state, home);
         screens.BeginSession(session);
         try
         {
+            // Hotovou loď k Duně připraví páky ladicího menu — tytéž, kterými
+            // si autor ve hře zkracuje cestu ke koloniím.
+            GalaxyDebugRound(screens, session, time);
+            if (session.ShipTarget?.Id != dune.Id || !session.IsShipReady)
+            {
+                throw new InvalidOperationException("páky galaxie nepřipravily hotovou loď k Duně");
+            }
+
             var galaxy = new GalaxyScreen(screens, session);
             screens.Push(galaxy);
             Frames(galaxy, time);
@@ -440,14 +447,14 @@ public sealed class SmokeRun
             return; // data bez Souhvězdí (mody)
         }
 
-        // Ladicí položení: smoke jde o epilog, ne o pravidla umístění —
-        // Domovina po Vzestupu smoke běhu metropoli mít nemusí.
-        if (!PlaceNear(home, wonder, home.CityCenterX, home.CityCenterY))
+        // Ladicí stavba (stejná jako páka „Postavit Souhvězdí“): smoke jde
+        // o epilog, ne o pravidla umístění — Domovina po Vzestupu smoke běhu
+        // metropoli mít nemusí.
+        if (home.DebugBuildNearCity(wonder) < 0)
         {
             throw new InvalidOperationException("Souhvězdí se na Domovinu nevešlo (žádná volná zem kolem města)");
         }
 
-        home.DebugCompleteConstruction();
         if (!home.IsGalaxyUnited)
         {
             throw new InvalidOperationException("dostavěné Souhvězdí galaxii nesjednotilo");
@@ -519,30 +526,6 @@ public sealed class SmokeRun
         }
     }
 
-    /// <summary>
-    /// Položí budovu ladicí cestou (bez ceny, odemčení a hodnosti sídla) na
-    /// první volnou zem kolem bodu, po spirále čtverců.
-    /// </summary>
-    private static bool PlaceNear(Simulation sim, int defIndex, int centerX, int centerY)
-    {
-        for (int r = 0; r < 160; r += 2)
-        {
-            for (int dy = -r; dy <= r; dy += 2)
-            {
-                for (int dx = -r; dx <= r; dx += 2)
-                {
-                    if (Math.Max(Math.Abs(dx), Math.Abs(dy)) == r
-                        && sim.DebugPlaceBuilding(defIndex, centerX + dx, centerY + dy) == PlacementResult.Ok)
-                    {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
-    }
-
     private void Check(string what, Action action)
     {
         action();
@@ -578,6 +561,17 @@ public sealed class SmokeRun
         screens.Push(debug);
         Frames(debug, time);
         debug.PullEveryLeverForSmoke();
+        Frames(debug, time);
+        screens.Pop();
+    }
+
+    /// <summary>Ladicí menu nad Domovinou s otevřenou galaxií: jen páky galaxie.</summary>
+    private static void GalaxyDebugRound(ScreenManager screens, GalaxySession session, GameTime time)
+    {
+        var debug = new DebugScreen(screens, session.Active, new Rendering.Camera2D());
+        screens.Push(debug);
+        Frames(debug, time);
+        debug.PullEveryLeverForSmoke(DebugScreen.GalaxySectionTitle);
         Frames(debug, time);
         screens.Pop();
     }

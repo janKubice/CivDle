@@ -162,6 +162,14 @@ public sealed class GalaxyState
     /// <summary>Rozestavěná kolonizační loď; <c>null</c> = žádná.</summary>
     public ColonyShipState? Ship { get; set; }
 
+    /// <summary>
+    /// Ladicí: za otevřenou bránou jsou dostupné všechny světy bez ohledu na
+    /// hvězdy (ladicí menu). Schválně se <b>neukládá</b> — po načtení platí
+    /// zase hvězdy a založené kolonie zůstanou koloniemi, takže zkratka nemůže
+    /// hráči trvale rozbít postup. Bránu neobchází: bez ní galaxie není.
+    /// </summary>
+    public bool DebugAllWorldsOpen { get; set; }
+
     /// <summary>Obchodní trasy a zboží na cestě.</summary>
     public TradeRouteSystem Trade { get; } = new();
 
@@ -251,6 +259,11 @@ public sealed class GalaxyState
         if (!GateOpened)
         {
             return WorldAvailability.Locked; // bez brány není galaxie vůbec
+        }
+
+        if (DebugAllWorldsOpen)
+        {
+            return WorldAvailability.Available;
         }
 
         return TotalStars() >= world.StarsRequired ? WorldAvailability.Available : WorldAvailability.Locked;

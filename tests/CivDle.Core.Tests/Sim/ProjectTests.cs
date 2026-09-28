@@ -208,6 +208,53 @@ public class ProjectTests
     }
 
     [Fact]
+    public void TheDebugBuildOpensTheRealGateAndFinishesNothingElse()
+    {
+        // Páka „Otevřít Hvězdnou bránu“: brána bez výzkumu, divů a metropole,
+        // dostavěná cestou stavebního systému (hlášení spustí průlet a konec
+        // kapitoly) — ale rozestavěný kosmodrom ve městě zůstane rozestavěný.
+        var content = TestData.LoadRealContent();
+        var sim = new Simulation(content, new UniformTerrain((byte)content.Biomes.IndexOf("grassland")), 7);
+        int spaceport = content.Buildings.IndexOf("spaceport");
+        Assert.Equal(PlacementResult.Ok, sim.DebugPlaceBuilding(spaceport, 60, 60));
+        Drain(sim);
+
+        int gate = sim.DebugBuildNearCity(content.Buildings.IndexOf("star_gate"));
+
+        Assert.True(gate >= 0);
+        Assert.True(sim.Buildings[gate].IsComplete);
+        Assert.True(sim.IsGateOpened);
+        Assert.Contains(Drain(sim), n => n.TitleKey == "toast.gateOpened");
+        Assert.False(sim.Buildings[0].IsComplete); // kosmodrom se staví dál
+    }
+
+    [Fact]
+    public void TheDebugBuildUnitesTheGalaxyWithTheRealConstellation()
+    {
+        var content = TestData.LoadRealContent();
+        var sim = new Simulation(content, new UniformTerrain((byte)content.Biomes.IndexOf("grassland")), 7);
+
+        Assert.True(sim.DebugBuildNearCity(content.Buildings.IndexOf("constellation")) >= 0);
+
+        Assert.True(sim.IsGalaxyUnited);
+        Assert.Contains(Drain(sim), n => n.TitleKey == "toast.galaxyUnited");
+    }
+
+    [Fact]
+    public void TheDebugBuildSaysSoWhenThereIsNoGround()
+    {
+        // Menu pak hráči řekne, že se projekt nevešel — nesmí stavět do moře.
+        var sim = new Simulation(TestContent.Build(
+            new[] { TestContent.WaterBiome(), TestContent.LandBiome("plain") }, 1,
+            new[] { new Resource("wood", new RgbColor(1, 1, 1), 0, BaseStorage: 100) },
+            new[] { TestContent.SimpleBuilding("gate", 2) with { AllowedBiomes = new[] { false, true } } }),
+            new UniformTerrain(0));
+
+        Assert.Equal(-1, sim.DebugBuildNearCity(0, searchRadius: 12));
+        Assert.Equal(0, sim.Buildings.Length);
+    }
+
+    [Fact]
     public void TheRealGateIsAProjectThatOpensTheGate()
     {
         var content = TestData.LoadRealContent();

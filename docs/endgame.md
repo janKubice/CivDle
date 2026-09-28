@@ -120,6 +120,10 @@ s odměnou, která se dá ukázat: **pomníkem ve městě**.
   v katalogu ukazuje, kolik budov má největší sídlo proti potřebné metropoli
   (300 budov v jednom souvislém sídle), a stejné číslo říká hláška při
   odmítnutém položení.
+* **Zkratka pro vývoj a natáčení:** ladicí menu (Ctrl+Shift+D) má sekci
+  Galaxie — otevřít Hvězdnou bránu, odemknout všechny světy (neukládá se),
+  hotová kolonizační loď a Souhvězdí. Brána i Souhvězdí se dostaví cestou
+  stavebního systému, takže proběhne průlet a konec kapitoly jako ve hře.
 * Oproti prvnímu návrhu: „Všechny megastruktury" je **sedm divů techniky**
   (brána z bodu C přibude jako osmá a cíl by jinak přestal sedět); styly
   čtvrtí jako odměna přijdou s bodem B4; tituly v kronice vypadly —

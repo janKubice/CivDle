@@ -1,4 +1,6 @@
 using CivDle.Core;
+using CivDle.Core.Content;
+using CivDle.Core.Galaxy;
 using CivDle.Core.Sim;
 using CivDle.Input;
 using CivDle.Rendering;
@@ -22,8 +24,9 @@ namespace CivDle.Screens;
 /// sloupec přerostl obrazovku. Nic se po kliknutí nepřestavuje (mění se jen
 /// popisek přepínače a řádek s výsledkem), takže seznam zůstává, kde byl.</para>
 ///
-/// <para>Sahá jen na veřejné příkazy simulace a na její <c>Debug*</c> páky —
-/// tytéž, které testuje <c>DebugToolsTests</c>.</para>
+/// <para>Sahá jen na veřejné příkazy simulace a galaxie a na jejich
+/// <c>Debug*</c> páky — tytéž, které testují <c>DebugToolsTests</c>
+/// a <c>GalaxySessionTests</c>.</para>
 ///
 /// <para>Texty nejsou lokalizované schválně: je to vývojářský nástroj a každý
 /// klíč navíc by byl práce pro překladatele na věci, kterou hráč nevidí.</para>
@@ -92,8 +95,9 @@ public sealed class DebugScreen : IScreen
 
     /// <summary>Jedna páka: popisek, co udělá, a jestli ji smí zmáčknout smoke test.</summary>
     /// <param name="InSmoke">
-    /// False u pák, které otevírají další okno nebo trvají dlouho (přetočení
-    /// času o hodiny by smoke běh natáhlo o minuty).
+    /// False u pák, které otevírají další okno, trvají dlouho (přetočení
+    /// času o hodiny by smoke běh natáhlo o minuty) nebo končí kapitolu
+    /// (brána a Souhvězdí — smoke je prochází ve vlastních krocích).
     /// </param>
     private readonly record struct Lever(string Label, Action Run, bool InSmoke = true);
 
@@ -220,7 +224,17 @@ public sealed class DebugScreen : IScreen
             new("Spustit náhodnou událost", TriggerEvent, InSmoke: false),
             new("Zlatý úlovek hned", SpawnGolden),
         }),
+        new Section(GalaxySectionTitle, new Lever[]
+        {
+            new("Otevřít Hvězdnou bránu", OpenGate, InSmoke: false),
+            new("Odemknout všechny světy", UnlockAllWorlds),
+            new("Hotová kolonizační loď", ReadyShip),
+            new("Postavit Souhvězdí", UniteGalaxy, InSmoke: false),
+        }),
     };
+
+    /// <summary>Nadpis sekce galaxie — smoke podle něj zmáčkne jen ji.</summary>
+    internal const string GalaxySectionTitle = "Galaxie";
 
     private Label SectionTitle(string text) => new()
     {
@@ -529,6 +543,128 @@ public sealed class DebugScreen : IScreen
         Report("zlatý úlovek je na cestě — zavři menu a hledej ho na obrazovce");
     }
 
+    // ----- galaxie -----
+
+    /// <summary>
+    /// Galaxie téhle hry — jen když menu běží nad jejím aktivním světem. Ve
+    /// výzvě galaxie není a páky to jen ohlásí.
+    /// </summary>
+    private GalaxySession? Galaxy =>
+        _screens.Session is { } session && ReferenceEquals(session.Active, _simulation) ? session : null;
+
+    /// <summary>
+    /// Postaví Hvězdnou bránu hotovou u města. Dostavba jde cestou stavebního
+    /// systému, takže po zavření menu proběhne průlet a konec kapitoly jako ve
+    /// hře a galaxie se otevře — tlačítko přibude v Přehledech.
+    /// </summary>
+    private void OpenGate()
+    {
+        if (_simulation.IsGateOpened)
+        {
+            Report("brána už je otevřená — galaxie je v Přehledech → Galaxie");
+            return;
+        }
+
+        if (!BuildProject("star_gate", "Hvězdnou bránu"))
+        {
+            return;
+        }
+
+        Galaxy?.State.Refresh(_simulation); // ať další páky vidí otevřenou galaxii hned, ne až po zavření menu
+        Report("brána je otevřená — zavři menu: průlet, konec kapitoly a pak Přehledy → Galaxie");
+    }
+
+    /// <summary>Světy za bránou bez hvězd (do načtení hry, viz <see cref="GalaxyState.DebugAllWorldsOpen"/>).</summary>
+    private void UnlockAllWorlds()
+    {
+        if (OpenGalaxy() is not { } galaxy)
+        {
+            return;
+        }
+
+        galaxy.State.DebugAllWorldsOpen = true;
+        Report("všechny světy jsou dostupné bez hvězd (do příštího načtení hry)");
+    }
+
+    /// <summary>Hotová kolonizační loď — místo přistání vybírá hráč na mapě galaxie.</summary>
+    private void ReadyShip()
+    {
+        if (OpenGalaxy() is not { } galaxy)
+        {
+            return;
+        }
+
+        if (galaxy.State.ActiveWorldId != WorldScope.HomeId)
+        {
+            Report("loď se staví na Domovině — přepni se na ni");
+            return;
+        }
+
+        var world = galaxy.DebugReadyShip();
+        Report(world is null
+            ? "žádný další svět není dostupný — zkus „Odemknout všechny světy“"
+            : $"loď k světu {_screens.Loc[world.NameKey]} je hotová — Přehledy → Galaxie → místo přistání");
+    }
+
+    /// <summary>Souhvězdí hotové u města: po zavření menu průlet a epilog galaxie.</summary>
+    private void UniteGalaxy()
+    {
+        if (OpenGalaxy() is null)
+        {
+            return;
+        }
+
+        if (_simulation.IsGalaxyUnited)
+        {
+            Report("galaxie už je sjednocená");
+            return;
+        }
+
+        if (BuildProject("constellation", "Souhvězdí"))
+        {
+            Report("Souhvězdí stojí — zavři menu: průlet a epilog galaxie");
+        }
+    }
+
+    /// <summary>Otevřená galaxie, nebo <c>null</c> s hlášením, proč není.</summary>
+    private GalaxySession? OpenGalaxy()
+    {
+        switch (Galaxy)
+        {
+            case null:
+                Report("v téhle hře galaxie není (výzva nebo data bez světů)");
+                return null;
+            case { IsOpen: false }:
+                Report("napřed otevři Hvězdnou bránu — bez ní galaxie není");
+                return null;
+            case var galaxy:
+                return galaxy;
+        }
+    }
+
+    /// <summary>
+    /// Postaví projekt hotový u města (bez ceny, odemčení a hodnosti sídla).
+    /// Projekty patří Domovině — na kolonii to menu řekne místo tichého nic.
+    /// </summary>
+    private bool BuildProject(string id, string what)
+    {
+        var content = _simulation.Content;
+        if (!content.Buildings.TryIndexOf(id, out int index))
+        {
+            Report(content.World.IsHome ? $"{what} data neobsahují" : $"{what} jde postavit jen na Domovině — přepni se na ni");
+            return false;
+        }
+
+        if (_simulation.DebugBuildNearCity(index) < 0)
+        {
+            var def = content.Buildings[index];
+            Report($"kolem města není volná souš {def.FootprintWidth}×{def.FootprintHeight} pro {what}");
+            return false;
+        }
+
+        return true;
+    }
+
     private void Report(string text)
     {
         if (_status is not null)
@@ -542,10 +678,16 @@ public sealed class DebugScreen : IScreen
     /// nebo trvají dlouho. Páka, která spadne, spadne tady — ne autorovi
     /// uprostřed natáčení.
     /// </summary>
-    internal void PullEveryLeverForSmoke()
+    /// <param name="onlySection">Jen páky jedné sekce (galaxie v kroku galaxie); <c>null</c> = všechny.</param>
+    internal void PullEveryLeverForSmoke(string? onlySection = null)
     {
         foreach (var section in Sections())
         {
+            if (onlySection is not null && section.Title != onlySection)
+            {
+                continue;
+            }
+
             foreach (var lever in section.Levers)
             {
                 if (lever.InSmoke)

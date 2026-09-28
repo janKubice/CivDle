@@ -432,6 +432,49 @@ public sealed class GalaxySession
         State.Ship = new ColonyShipState(worldId);
     }
 
+    /// <summary>
+    /// Ladicí: hotová kolonizační loď. Rozestavěnou dostaví; když žádná není,
+    /// založí ji k prvnímu dostupnému světu (podle pořadí v galaxii). Obchází
+    /// jen vklady a kosmodrom — výběr místa přistání zůstává hráči, takže se
+    /// kolonie zakládá stejnou cestou jako ve hře.
+    /// </summary>
+    /// <returns>
+    /// Svět, ke kterému loď letí; <c>null</c>, když galaxie není otevřená,
+    /// hráč není na Domovině (kolonie se zakládá odtud) nebo žádný svět není
+    /// dostupný.
+    /// </returns>
+    public WorldDef? DebugReadyShip()
+    {
+        if (!IsOpen || State.ActiveWorldId != WorldScope.HomeId)
+        {
+            return null;
+        }
+
+        var world = ShipTarget;
+        if (world is null)
+        {
+            foreach (var candidate in Catalog.Worlds)
+            {
+                if (State.AvailabilityOf(candidate) == WorldAvailability.Available
+                    && (world is null || candidate.Order < world.Order))
+                {
+                    world = candidate;
+                }
+            }
+
+            if (world is null)
+            {
+                return null;
+            }
+
+            State.Ship = new ColonyShipState(world.Id);
+        }
+
+        State.Ship!.StageIndex = world.ColonyCost.Count;
+        State.Ship.Invested.Clear();
+        return world;
+    }
+
     /// <summary>Svět, ke kterému se loď staví; <c>null</c> = žádná loď.</summary>
     public WorldDef? ShipTarget => State.Ship is { } ship ? Catalog.Find(ship.TargetWorldId) : null;
 

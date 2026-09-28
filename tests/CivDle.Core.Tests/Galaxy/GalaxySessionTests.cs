@@ -49,6 +49,62 @@ public class GalaxySessionTests
     }
 
     [Fact]
+    public void TheDebugShipIsReadyForTheFirstOpenWorldAndOnlyBehindTheGate()
+    {
+        // Páka ladicího menu: bez brány nic, s ní hotová loď k prvnímu
+        // dostupnému světu — a kolonie se pak zakládá stejnou cestou jako ve hře.
+        Assert.Null(NewSession(gateOpen: false).DebugReadyShip());
+
+        var session = NewSession();
+        var world = session.DebugReadyShip();
+
+        Assert.Equal("dune", world?.Id);
+        Assert.True(session.IsShipReady);
+        var site = session.LandingSites("dune")[0];
+        Assert.Equal("dune", session.Colonize(site.X, site.Y).Content.World.Id);
+        Assert.Null(session.DebugReadyShip()); // z kolonie ne (a Duna už kolonií je)
+    }
+
+    [Fact]
+    public void TheDebugShipFinishesAShipAlreadyUnderway()
+    {
+        var session = NewSession();
+        session.Active.DebugSetResource(Wood, 150);
+        session.StartShip("dune");
+        session.InvestInShip();
+        session.InvestInShip(); // druhý stupeň z půlky
+        Assert.False(session.IsShipReady);
+
+        Assert.Equal("dune", session.DebugReadyShip()?.Id);
+
+        Assert.True(session.IsShipReady);
+        Assert.Equal(0, session.ShipInvested(Wood));
+    }
+
+    [Fact]
+    public void DebugOpenWorldsIgnoreTheStarsButNotTheGateAndAreNotSaved()
+    {
+        var state = NewSession(gateOpen: false).State;
+        var far = new WorldDef("xeno", 6, 12, false, Array.Empty<ProjectStage>(), 1, "xeno", Planet());
+        state.DebugAllWorldsOpen = true;
+
+        Assert.Equal(WorldAvailability.Locked, state.AvailabilityOf(far)); // bez brány galaxie není
+        state.GateOpened = true;
+        Assert.Equal(WorldAvailability.Available, state.AvailabilityOf(far));
+
+        using var stream = new MemoryStream();
+        using (var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, leaveOpen: true))
+        {
+            GalaxyCodec.Write(writer, state);
+        }
+
+        stream.Position = 0;
+        var loaded = GalaxyCodec.Read(new BinaryReader(stream));
+        Assert.False(loaded.DebugAllWorldsOpen);
+        Assert.Equal(WorldAvailability.Locked, loaded.AvailabilityOf(far)); // po načtení zase hvězdy
+    }
+
+    [Fact]
     public void TheGalaxyEpilogueSummaryListsEveryWorldAndOnlyReads()
     {
         var session = NewSession();
