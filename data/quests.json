@@ -366,7 +366,7 @@
       },
       "activeWhen": {
         "metric": "ascension",
-        "target": 3
+        "target": 2
       }
     },
     {
@@ -439,8 +439,8 @@
         "target": 1
       },
       "activeWhen": {
-        "metric": "megastructures",
-        "target": 7
+        "metric": "ascension",
+        "target": 2
       }
     },
     {

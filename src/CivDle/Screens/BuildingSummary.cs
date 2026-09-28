@@ -87,6 +87,14 @@ internal static class BuildingSummary
             text.Append('\n').Append(TipLine.Tag(TipKind.Limit, loc["tip.build.needsWater"]));
         }
 
+        // Megastruktury chtějí velké sídlo — bez téhle řádky hráč zjistil až
+        // při pokládání, že „sídlo je moc malé", a nevěděl, o kolik.
+        if (RequiredRank(content, def) is { } rank)
+        {
+            text.Append('\n').Append(TipLine.Tag(TipKind.Limit, loc.Format("tip.build.needsRank",
+                loc[rank.NameKey], rank.MinBuildings)));
+        }
+
         // Že se budova staví na dno a jen v dosahu přístavu, se z ceny ani
         // z receptu nepozná — a je to první věc, o kterou se hráč zarazí.
         if (def.IsSubsea)
@@ -275,6 +283,15 @@ internal static class BuildingSummary
         // Nejčastější hodnota je ta, kterou hráč pozná jako „tolik ke všemu".
         double typical = bonus.Select(b => b.Amount).OrderBy(a => a).ElementAt(bonus.Count / 2);
         return loc.Format("tip.build.storageAll", typical.ToString("0"), bonus.Count);
+    }
+
+    /// <summary>Hodnost sídla, kterou budova potřebuje; null = žádnou.</summary>
+    public static SettlementRankDef? RequiredRank(GameContent content, BuildingDef def)
+    {
+        var ranks = content.SettlementRanks.Ranks;
+        return def.NeedsSettlementRank && def.MinSettlementRank >= 0 && def.MinSettlementRank < ranks.Count
+            ? ranks[def.MinSettlementRank]
+            : null;
     }
 
     public static string Needs(GameContent content, Localization loc, BuildingDef def) =>

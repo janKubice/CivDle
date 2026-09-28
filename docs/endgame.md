@@ -92,13 +92,13 @@ s odměnou, která se dá ukázat: **pomníkem ve městě**.
 | Miliarda | populace ≥ 1 000 000 000 | 4. Vzestup | Sloup miliardy |
 | Tři metropole | 3 sídla s hodností `metropolis` | 2. Vzestup | Brána bulvárů |
 | Nová zem | 2 000 přetvořených dlaždic | 2. Vzestup | Socha zúrodnitelů |
-| Sedm divů techniky | 7 různých dostavěných megastruktur | 3. Vzestup | Síň divů |
+| Sedm divů techniky | 7 různých dostavěných megastruktur | 2. Vzestup (první megastruktury) | Síň divů |
 | Hloubka díla | stupeň velkého díla 25 | první stupeň díla | Hvězdná studna |
 | Nebe nad městem | 5 družic na oběžné dráze | první kosmodrom | Nebeská lucerna |
 | Město bez kouře | čistota vzduchu nad městem ≥ 95 % | 100 milionů obyvatel | Zahradní věž (čistí vzduch) |
 | Věčný trh | 50 kontraktů v jednom měřítku | 5 kontraktů | Kupecký sloup |
 | Klid zbraní | 100 vln obrany | první vlna | Hradba vytrvalých |
-| Otevřít bránu | Hvězdná brána (C1) | — | závěrečná sekvence (bod C) |
+| Otevřít bránu | Hvězdná brána (C1) | 2. Vzestup | závěrečná sekvence (bod C) |
 
 * **Nové metriky** (`MetricKind`): sídla s aspoň danou hodností
   (`settlements` + `rank`), různé dostavěné megastruktury (`megastructures`),
@@ -111,6 +111,15 @@ s odměnou, která se dá ukázat: **pomníkem ve městě**.
   odemkne, a po splnění se stavební nabídka hned obnoví.
 * **Vzhled pomníků je z dat** (`look`: tvar, barvy, prvky) a kreslí ho
   `LookPainter` — stejný systém potáhne budovy bodů B, C a D (viz 3.3 níž).
+* **Cesta ke hvězdám je vidět předem.** „Sedm divů techniky" i „Otevřít
+  bránu" se ukážou spolu s měřítkem, které odemyká první megastruktury
+  (2. Vzestup); dřív byla brána vidět až po sedmi divech a hráč o ní neměl
+  jak vědět. Popisy vedou krok za krokem (kde megastruktury najít, že chtějí
+  sídlo Metropole, výzkum Teorie brány, vklady do stupňů, galaxie za ní)
+  a náhled Vzestupu ukáže, co další měřítko odemkne. Megastruktura
+  v katalogu ukazuje, kolik budov má největší sídlo proti potřebné metropoli
+  (300 budov v jednom souvislém sídle), a stejné číslo říká hláška při
+  odmítnutém položení.
 * Oproti prvnímu návrhu: „Všechny megastruktury" je **sedm divů techniky**
   (brána z bodu C přibude jako osmá a cíl by jinak přestal sedět); styly
   čtvrtí jako odměna přijdou s bodem B4; tituly v kronice vypadly —

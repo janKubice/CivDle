@@ -82,6 +82,32 @@ public class GreatGoalsTests
         Assert.Equal(1, sim.EvaluateMetric(MetricKind.Megastructures, -1));
     }
 
+    /// <summary>
+    /// Cesta ke hvězdám musí být vidět předem: cíle „Sedm divů techniky"
+    /// a „Otevřít bránu" se ukážou spolu s měřítkem, které odemyká první
+    /// megastruktury. Dřív byla brána vidět až po dostavění všech sedmi divů
+    /// a hráč o ní neměl jak vědět.
+    /// </summary>
+    [Fact]
+    public void RealContent_TheRoadToTheStarsShowsUpWithTheFirstMegastructures()
+    {
+        var content = TestData.LoadRealContent();
+        int firstMegaTier = content.AscensionTiers.All
+            .Where(t => t.UnlockedBuildingIndices.Any(b => content.Buildings[b].Category == "megastructure"))
+            .Min(t => t.Order);
+        int wonders = content.Quests.IndexOf("great_megastructures");
+        int gate = content.Quests.IndexOf("open_the_gate");
+
+        var sim = new Simulation(content, new UniformTerrain((byte)content.Biomes.IndexOf("grassland")), 3);
+        sim.DebugGrantAscensionLevels(firstMegaTier - 1);
+        Assert.False(sim.IsQuestActive(wonders));
+        Assert.False(sim.IsQuestActive(gate));
+
+        sim.DebugGrantAscensionLevels(1);
+        Assert.True(sim.IsQuestActive(wonders), "Sedm divů má být vidět s prvními megastrukturami");
+        Assert.True(sim.IsQuestActive(gate), "brána má být vidět jako další krok, ne až po sedmi divech");
+    }
+
     [Fact]
     public void RealContent_EveryGreatGoal_HasAMonument()
     {

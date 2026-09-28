@@ -1,4 +1,5 @@
 using CivDle.Core;
+using CivDle.Core.Content;
 using CivDle.Core.Sim;
 using CivDle.Input;
 using Microsoft.Xna.Framework;
@@ -427,6 +428,15 @@ public sealed class AscensionScreen : IScreen
             Wrap = true,
         });
 
+        // Co nové měřítko odemkne (megastruktury). Bez téhle řádky se hráč
+        // o megastrukturách — a tím o cestě k Hvězdné bráně — dozvěděl až
+        // náhodou ve stavební nabídce.
+        string tierUnlocks = TierUnlocksText(preview.LevelAfter);
+        if (tierUnlocks.Length > 0)
+        {
+            stack.Widgets.Add(new Label { Text = tierUnlocks, TextColor = UiPalette.TextBright, Wrap = true });
+        }
+
         // „Přijdeš o" má smysl psát jen tehdy, když je o co přijít — po prvním
         // Vzestupu z holé mapy by to byl planý strašák.
         if (preview.LosesAnything)
@@ -448,6 +458,46 @@ public sealed class AscensionScreen : IScreen
         });
 
         return stack;
+    }
+
+    /// <summary>
+    /// Stupně měřítka, které tenhle Vzestup odemkne, a co na nich jde stavět;
+    /// když žádný, nejbližší další stupeň s novými stavbami a kolik Vzestupů
+    /// k němu zbývá. Prázdné, když už žádný stupeň nic neodemyká.
+    /// </summary>
+    private string TierUnlocksText(int levelAfter)
+    {
+        var loc = _screens.Loc;
+        var content = _screens.Content;
+        var reached = new List<string>();
+        AscensionTierDef? later = null;
+        foreach (var tier in content.AscensionTiers.All)
+        {
+            if (tier.Order <= _simulation.AscensionLevel || tier.UnlockedBuildingIndices.Count == 0)
+            {
+                continue;
+            }
+
+            string buildings = string.Join(", ", tier.UnlockedBuildingIndices.Select(b => loc[content.Buildings[b].NameKey]));
+            if (tier.Order <= levelAfter)
+            {
+                reached.Add(loc.Format("prestige.preview.tier", loc[tier.NameKey], buildings));
+            }
+            else if (later is null || tier.Order < later.Order)
+            {
+                later = tier;
+            }
+        }
+
+        if (reached.Count > 0)
+        {
+            return string.Join("\n", reached);
+        }
+
+        return later is null
+            ? string.Empty
+            : loc.Format("prestige.preview.tierLater", loc[later.NameKey], later.Order - levelAfter,
+                string.Join(", ", later.UnlockedBuildingIndices.Select(b => loc[content.Buildings[b].NameKey])));
     }
 
     private Widget UpgradeRow(int upgradeIndex)

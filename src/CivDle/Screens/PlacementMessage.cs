@@ -20,7 +20,12 @@ namespace CivDle.Screens;
 internal static class PlacementMessage
 {
     /// <summary>Hláška pro odmítnuté místo pod kurzorem.</summary>
-    public static string Describe(GameContent content, Localization loc, BuildingDef def, PlacementResult result)
+    /// <param name="largestSettlement">
+    /// Kolik budov má největší sídlo hráče (u „sídlo je moc malé" říká, kolik
+    /// ještě chybí); −1 = neznámé.
+    /// </param>
+    public static string Describe(GameContent content, Localization loc, BuildingDef def, PlacementResult result,
+        int largestSettlement = -1)
     {
         switch (result)
         {
@@ -34,9 +39,8 @@ internal static class PlacementMessage
 
             case PlacementResult.SettlementTooSmall:
             {
-                var ranks = content.SettlementRanks.Ranks;
-                return def.MinSettlementRank >= 0 && def.MinSettlementRank < ranks.Count
-                    ? loc.Format("build.error.settlementNeeds", loc[ranks[def.MinSettlementRank].NameKey])
+                return BuildingSummary.RequiredRank(content, def) is { } rank
+                    ? loc.Format("build.error.settlementNeeds", loc[rank.NameKey], rank.MinBuildings, Math.Max(0, largestSettlement))
                     : loc["build.error.settlementTooSmall"];
             }
 

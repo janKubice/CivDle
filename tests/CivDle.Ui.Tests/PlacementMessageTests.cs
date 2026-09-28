@@ -47,6 +47,36 @@ public class PlacementMessageTests
     }
 
     [Fact]
+    public void ASettlementThatIsTooSmallSaysHowManyBuildingsAndHowFarItIs()
+    {
+        // „Chce Metropoli" nestačilo: hráč nevěděl, že je to 300 budov v jednom
+        // sídle, ani kolik mu jich chybí — a vypadalo to, že megastruktury nejdou.
+        var content = LoadContent();
+        var loc = new Localization(content.Languages, content.Languages[0].Id);
+        var def = content.Buildings[content.Buildings.IndexOf("spaceport")];
+        var rank = content.SettlementRanks.Ranks[def.MinSettlementRank];
+
+        string text = PlacementMessage.Describe(content, loc, def, PlacementResult.SettlementTooSmall, largestSettlement: 123);
+
+        Assert.Contains(rank.MinBuildings.ToString(), text);
+        Assert.Contains("123", text);
+    }
+
+    [Fact]
+    public void TheCatalogTipSaysAMegastructureNeedsABigSettlement()
+    {
+        var content = LoadContent();
+        var loc = new Localization(content.Languages, content.Languages[0].Id);
+        var def = content.Buildings[content.Buildings.IndexOf("spaceport")];
+        var rank = content.SettlementRanks.Ranks[def.MinSettlementRank];
+
+        string tip = BuildingSummary.Describe(content, loc, def);
+
+        Assert.Contains(loc[rank.NameKey], tip);
+        Assert.Contains(rank.MinBuildings.ToString(), tip);
+    }
+
+    [Fact]
     public void EveryRefusalHasWordsInEveryLanguage()
     {
         // Nepřeložený klíč se v téhle hlášce pozná až ve chvíli, kdy hráč něco

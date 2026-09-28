@@ -361,6 +361,12 @@ public sealed class GameplayScreen : IScreen
     private HorizontalStackPanel _buildItemsPanel = null!;
     private string _selectedCategory = string.Empty;
     private readonly List<(int DefIndex, Button Button, Label PriceLabel)> _buildButtons = new();
+
+    /// <summary>
+    /// Řádky „chce sídlo Metropole: 123/300 budov" u tlačítek budov, které
+    /// potřebují velké sídlo — obnovují se s cenami, sídlo mezitím roste.
+    /// </summary>
+    private readonly List<(int DefIndex, Label Label)> _rankLabels = new();
     private ObjectiveTracker _objectives = null!;
     private readonly Queue<IScreen> _pendingIntros = new(); // uvítací overlaye (offline, denní odměna)
     private readonly Random _eventRng = new();
@@ -4390,6 +4396,7 @@ public sealed class GameplayScreen : IScreen
         var content = _screens.Content;
         _buildItemsPanel.Widgets.Clear();
         _buildButtons.Clear();
+        _rankLabels.Clear();
         for (int i = 0; i < content.Buildings.Count; i++)
         {
             if (!_simulation.IsBuildingBuildable(i))
@@ -4486,6 +4493,32 @@ public sealed class GameplayScreen : IScreen
             // tmavší a průsvitnější. Plochá výplň by ji z lišty vyňala.
             button.Background = new PanelBrush(affordable ? UiPalette.Panel : new Color(30, 34, 42, 170));
         }
+
+        if (_rankLabels.Count > 0)
+        {
+            int largest = LargestSettlementBuildings();
+            foreach (var (defIndex, label) in _rankLabels)
+            {
+                var rank = BuildingSummary.RequiredRank(content, content.Buildings[defIndex])!;
+                bool reached = _simulation.HighestSettlementRank >= content.Buildings[defIndex].MinSettlementRank;
+                label.Text = loc.Format(reached ? "hud.build.rankReached" : "hud.build.needsRank",
+                    loc[rank.NameKey], Math.Min(largest, rank.MinBuildings), rank.MinBuildings);
+                label.TextColor = reached ? UiPalette.Good : UiPalette.Warn;
+            }
+        }
+    }
+
+    /// <summary>Kolik budov má největší sídlo hráče (0 = žádné).</summary>
+    private int LargestSettlementBuildings()
+    {
+        var settlements = _simulation.Settlements;
+        int largest = 0;
+        for (int i = 0; i < settlements.Count; i++)
+        {
+            largest = Math.Max(largest, settlements[i].BuildingCount);
+        }
+
+        return largest;
     }
 
     // ----- konec první kapitoly -----
@@ -4983,6 +5016,15 @@ public sealed class GameplayScreen : IScreen
                 TextColor = UiPalette.TextBright,
                 HorizontalAlignment = HorizontalAlignment.Center,
             });
+        }
+
+        // Megastruktura chce velké sídlo: hráč má vidět rovnou u tlačítka, jak
+        // daleko k němu je, ne to zjišťovat až odmítnutím při pokládání.
+        if (BuildingSummary.RequiredRank(content, def) is not null)
+        {
+            var rankLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
+            caption.Widgets.Add(rankLabel);
+            _rankLabels.Add((defIndex, rankLabel));
         }
 
         var button = new Button
@@ -5618,7 +5660,7 @@ public sealed class GameplayScreen : IScreen
 
         if (_tools.GhostVisible && _tools.GhostResult != PlacementResult.Ok)
         {
-            _statusLabel.Text = PlacementMessage.Describe(_screens.Content, loc, def, _tools.GhostResult);
+            _statusLabel.Text = PlacementMessage.Describe(_screens.Content, loc, def, _tools.GhostResult, LargestSettlementBuildings());
             _statusLabel.TextColor = UiPalette.Bad;
         }
         else
