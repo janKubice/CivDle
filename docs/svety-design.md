@@ -213,6 +213,18 @@ kapacita tras, rychlejší přepínání (kratší dotikání).
 **Galaktická sbírka** (profil hráče): hvězdy, divy, fauna viděná na každém
 světě, rekordy — obrazovka „Muzeum světů".
 
+> **Hotovo (D4.4) — Muzeum světů.** Profil má sbírku po světech
+> (`PlayerProfile.Galaxy`: hvězdy, viděná zvěř, rekord populace, divy),
+> zapisuje se s autosavem (kronika), jen když je galaxie otevřená, a jen
+> přibývá — horší hra ani Nová hra+ ji nezmenší. Zvěř je „viděná", když ji
+> hra opravdu vypustila u kamery (`FaunaSystem.SeenSpecies`), ne když by
+> podle biomu mohla žít. `MuseumScreen` ukáže za každý svět hvězdy (splněné
+> jasně, chybějící tlumeně), rekord, divy a zvěř (viděné druhy jménem,
+> chybějící jen počtem); nenavštívený svět je silueta. Otevírá se z mapy
+> galaxie a z hlavního menu, jakmile je ve sbírce aspoň jeden svět.
+> Oproti návrhu nejsou rekordy galaxie zvlášť — kronika už drží rekordy
+> napříč hrami, Muzeum drží rekordy po světech.
+
 ### 2.7 Konec druhé kapitoly
 
 **Galaktický div „Souhvězdí"** na Domovině potřebuje artikly ze všech šesti

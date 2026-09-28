@@ -1,3 +1,4 @@
+using CivDle.Core.Config;
 using CivDle.Core.Save;
 using CivDle.Core.Content;
 using CivDle.Core.Galaxy;
@@ -364,6 +365,7 @@ public sealed class SmokeRun
             VisitColony(screens, session, time, "gas_giant");
             VisitColony(screens, session, time, "xeno", minutes: 12);
             GalaxyEpilogue(screens, session, time);
+            Museum(screens, session, time);
         }
         finally
         {
@@ -489,6 +491,34 @@ public sealed class SmokeRun
 
             screens.Profile.GalaxyEndingSeen = seen;
             screens.SaveProfile();
+        }
+    }
+
+    /// <summary>
+    /// Muzeum světů nad sbírkou z právě odehraných světů (hvězdy ze záznamů
+    /// galaxie). Sbírka hráče se po smoke vrátí — nic se z ní neukládá.
+    /// </summary>
+    private static void Museum(ScreenManager screens, GalaxySession session, GameTime time)
+    {
+        var profile = screens.Profile;
+        var original = profile.Galaxy;
+        profile.Galaxy = new Dictionary<string, WorldCollection>();
+        try
+        {
+            foreach (var (id, record) in session.State.Records)
+            {
+                var fauna = screens.Galaxy.For(id).Fauna.Take(2).Select(f => f.Id);
+                profile.RecordWorld(id, record.Stars, fauna, record.Summary?.Population ?? 1, 1);
+            }
+
+            var museum = new MuseumScreen(screens);
+            screens.Push(museum);
+            Frames(museum, time);
+            screens.Pop();
+        }
+        finally
+        {
+            profile.Galaxy = original;
         }
     }
 

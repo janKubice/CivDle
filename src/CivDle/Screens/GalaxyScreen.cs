@@ -413,6 +413,7 @@ public sealed class GalaxyScreen : IScreen
 
         layout.Widgets.Add(new Label { Text = " " });
         layout.Widgets.Add(Note(loc.Format("galaxy.totalStars", _session.State.TotalStars()), UiPalette.TextDim));
+        layout.Widgets.Add(UiFactory.SmallButton(loc["museum.title"], () => _screens.Push(new MuseumScreen(_screens))));
         layout.Widgets.Add(UiFactory.SmallButton(loc["panel.close"], _screens.Pop));
 
         var panel = UiFactory.DarkPanel(layout);

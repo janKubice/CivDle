@@ -2733,10 +2733,32 @@ public sealed class GameplayScreen : IScreen
             }
         }
 
+        changed |= SyncMuseum(profile);
         if (changed)
         {
             _screens.SaveProfile();
         }
+    }
+
+    /// <summary>
+    /// Zapíše svět do galaktické sbírky (Muzeum světů): hvězdy, viděnou zvěř,
+    /// rekord populace a divy. Jen s otevřenou galaxií — před branou Muzeum
+    /// není a Domovina by se do něj zapisovala zbytečně.
+    /// </summary>
+    private bool SyncMuseum(PlayerProfile profile)
+    {
+        if (_session is not { IsOpen: true } || _simulation.InScenario)
+        {
+            return false;
+        }
+
+        var content = _simulation.Content;
+        return profile.RecordWorld(
+            content.World.Id,
+            GalaxyState.StarsOf(_simulation),
+            _fauna.SeenSpecies.Select(i => content.Fauna[i].Id),
+            _simulation.Population,
+            _simulation.WondersCompleted);
     }
 
     /// <summary>

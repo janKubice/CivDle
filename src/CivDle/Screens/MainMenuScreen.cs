@@ -154,6 +154,12 @@ public sealed class MainMenuScreen : IScreen
                 buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.galaxyEnding"], ReplayGalaxyEnding));
             }
 
+            // Muzeum světů, jakmile je v galaktické sbírce aspoň jeden svět.
+            if (_screens.Profile.Galaxy.Count > 0)
+            {
+                buttons.Widgets.Add(UiFactory.MenuButton(loc["museum.title"], () => _screens.Push(new MuseumScreen(_screens))));
+            }
+
             // Archiv měst (Nová hra+) jen tehdy, když v něm něco je.
             if (_screens.Saves.ArchivedFiles().Count > 0)
             {

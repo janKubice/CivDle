@@ -72,10 +72,20 @@ public sealed class FaunaSystem
     private int _count;
     private float _spawnTimer;
 
+    /// <summary>Druhy (index v <c>fauna.json</c>), které se hráči kdy ukázaly.</summary>
+    private readonly HashSet<int> _seen = new();
+
     public FaunaSystem(GameContent content)
     {
         _content = content;
     }
+
+    /// <summary>
+    /// Druhy, které se na obrazovce opravdu objevily — pro Muzeum světů
+    /// („zvěř viděná na každém světě"). Viděná znamená vypuštěná u kamery,
+    /// ne jen možná podle biomu: sbírka má odměnit dívání se, ne data.
+    /// </summary>
+    public IReadOnlyCollection<int> SeenSpecies => _seen;
 
     /// <summary>Kolik tvorů je na scéně. Pro testy stád.</summary>
     internal int CountForTests => _count;
@@ -471,6 +481,7 @@ public sealed class FaunaSystem
                 DirectionTimer = GrazeSeconds(),
                 Phase = Random.Shared.NextSingle() * 10f,
             };
+            _seen.Add(defIndex); // druhů je pár desítek — množina přestane růst hned
         }
     }
 

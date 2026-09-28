@@ -85,6 +85,26 @@ public sealed class PlayerProfile
     /// </summary>
     public bool GalaxyEndingSeen { get; set; }
 
+    /// <summary>
+    /// Galaktická sbírka po světech (ID světa → sbírka): obsah Muzea světů.
+    /// Prázdná, dokud hráč neotevře bránu.
+    /// </summary>
+    public Dictionary<string, WorldCollection> Galaxy { get; set; } = new();
+
+    /// <summary>Zapíše do sbírky, co svět právě má; true = něco přibylo (stojí za uložení).</summary>
+    public bool RecordWorld(string worldId, IEnumerable<string> stars, IEnumerable<string> fauna, double population, long wonders)
+    {
+        bool created = false;
+        if (!Galaxy.TryGetValue(worldId, out var collection))
+        {
+            collection = new WorldCollection();
+            Galaxy[worldId] = collection;
+            created = true;
+        }
+
+        return collection.Record(stars, fauna, population, wonders) || created;
+    }
+
     /// <summary>Zapíše výzvu jako dohranou; vrací false, když už byla.</summary>
     public bool MarkChallengeWon(string scenarioId)
     {

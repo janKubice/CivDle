@@ -35,6 +35,20 @@ public class WildlifeTests
     }
 
     [Fact]
+    public void OnlySpeciesThatShowedUpCountAsSeen()
+    {
+        // Muzeum světů sbírá zvěř, kterou hráč opravdu viděl — ne všechno,
+        // co by podle biomu mohlo žít.
+        var (fauna, sim, camera) = Wild();
+        Assert.Empty(fauna.SeenSpecies);
+
+        Run(fauna, sim, camera, seconds: 6);
+
+        Assert.NotEmpty(fauna.SeenSpecies);
+        Assert.All(fauna.SeenSpecies, species => Assert.InRange(species, 0, sim.Content.Fauna.Count - 1));
+    }
+
+    [Fact]
     public void AHerdStaysTogetherInsteadOfScattering()
     {
         // Kdyby se každé zvíře toulalo po svém, byly by ze stáda do minuty
