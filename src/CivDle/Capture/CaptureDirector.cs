@@ -37,10 +37,19 @@ public sealed class CaptureDirector
     private int _frame;
     private Color[]? _buffer;
 
-    public CaptureDirector(string outputDirectory)
+    /// <summary>
+    /// </summary>
+    /// <param name="outputDirectory">Kam se snímky uloží.</param>
+    /// <param name="second">
+    /// Natočit <b>druhou sadu</b> místo základní? Obchod snese víc obrázků, než
+    /// kolik jich je v jedné sadě, a druhá je stavěná jinak: základní ukazuje,
+    /// jak hra <em>vypadá</em>, druhá hlavně to, co se v ní dá <em>dělat</em>.
+    /// Obě zůstávají v kódu, aby šly porovnat a vybrat.
+    /// </param>
+    public CaptureDirector(string outputDirectory, bool second = false)
     {
         _outputDirectory = outputDirectory;
-        _shots = DefaultShots();
+        _shots = second ? SecondShots() : DefaultShots();
         _fullDetail = Rendering.DetailLevel.FullDetail();
     }
 
@@ -65,8 +74,46 @@ public sealed class CaptureDirector
         new StoreShot("10-orbit", ShotSubject.Orbit, Minutes: 12, Zoom: 3.2f, Seed: 20260728),
     };
 
-    /// <summary>Připraví scénu dalšího snímku a vrátí obrazovku, kterou má hra ukázat.</summary>
-    public IScreen PrepareNextShot(ScreenManager screens)
+    /// <summary>
+    /// Druhá sada: víc o tom, co se dá <b>dělat</b>, než jak to vypadá.
+    ///
+    /// <para>Základní sada je z velké části krajina v různém světle. Je hezká,
+    /// ale zákazník z ní nepozná, že hra má výrobní řetězce, prestiž, obranu
+    /// ani kroniku — a přesně na to se v obchodě ptá. Proto je tady půlka
+    /// záběrů z obrazovek a druhá půlka ze světa, ale s jinými semínky a v jiné
+    /// denní době, aby se ty dvě sady nepřekrývaly.</para>
+    ///
+    /// <para>Semínka jsou <b>prověřená</b> — týž seznam, jaký používá trailer.
+    /// Náhodně vybrané semínko postaví město s dírami v ulicích a vypadá pak
+    /// jako jednotvárná mřížka; vyzkoušel jsem to a snímek to bylo poznat hned.</para>
+    /// </summary>
+    private static List<StoreShot> SecondShots() => new()
+    {
+        new StoreShot("01-dawn", ShotSubject.Dawn, Minutes: 15, Zoom: 3.8f, Seed: 30313),
+        new StoreShot("02-wonder", ShotSubject.Wonder, Minutes: 16, Zoom: 4.2f, Seed: 20260728),
+        new StoreShot("03-chains", ShotSubject.Chains, Minutes: 14, Zoom: 3.2f, Seed: 20260728),
+        new StoreShot("04-harbour", ShotSubject.Coast, Minutes: 16, Zoom: 3.4f, Seed: 777001),
+        new StoreShot("05-ascension", ShotSubject.Ascension, Minutes: 18, Zoom: 3.2f, Seed: 20260728),
+        new StoreShot("06-frontier", ShotSubject.Frontier, Minutes: 16, Zoom: 3.2f, Seed: 20260728),
+        new StoreShot("07-metropolis", ShotSubject.Scale, Minutes: 18, Zoom: 0.5f, Seed: 4242),
+        new StoreShot("08-chronicle", ShotSubject.Chronicle, Minutes: 16, Zoom: 3.2f, Seed: 20260728),
+        new StoreShot("09-winter-dusk", ShotSubject.Winter, Minutes: 14, Zoom: 3.9f, Seed: 4711),
+        new StoreShot("10-stats", ShotSubject.Stats, Minutes: 18, Zoom: 3.2f, Seed: 20260728),
+        new StoreShot("11-night-lights", ShotSubject.NightScale, Minutes: 18, Zoom: 0.4f, Seed: 20260816),
+        new StoreShot("12-tech", ShotSubject.Tech, Minutes: 14, Zoom: 3.0f, Seed: 4242),
+    };
+
+    /// <summary>
+    /// Připraví scénu dalšího snímku a postaví zásobník obrazovek.
+    ///
+    /// <para><b>Překryv musí mít pod sebou město.</b> Dřív se vracela jediná
+    /// obrazovka a volající ji nasadil přes <c>ReplaceAll</c> — jenže skoro
+    /// všechny herní obrazovky (výzkum, achievementy, řetězce, Vzestup…) jsou
+    /// překryvy a pod sebou čekají svět. Bez něj z nich na snímku zbyl panel
+    /// v černotě: obrázek okna, ne obrázek hry. Našlo se to až renderem,
+    /// protože z kódu to vypadá úplně správně.</para>
+    /// </summary>
+    public void PrepareNextShot(ScreenManager screens)
     {
         var shot = _shots[_shotIndex];
         var sim = CityFixture.Grow(screens.Content, shot.Seed, shot.Minutes);
@@ -77,7 +124,7 @@ public sealed class CaptureDirector
 
         // Denní záběry chtějí polední světlo — ve hře se stmívá a scéna přes
         // noční overlay ztmavne tak, že z města není nic vidět.
-        if (shot.Subject is ShotSubject.City or ShotSubject.Winter or ShotSubject.Scale)
+        if (shot.Subject is ShotSubject.City or ShotSubject.Scale or ShotSubject.Wonder)
         {
             CityFixture.TickUntilPostcardMoment(sim, screens.Content, from: 0.40, to: 0.58);
         }
@@ -116,19 +163,57 @@ public sealed class CaptureDirector
                 // něco lítá — takže se družice na scénu opravdu vypustí.
                 CityFixture.FillTheOrbit(sim, screens.Content);
                 break;
+
+            case ShotSubject.Dawn:
+                // Rozbřesk, ne soumrak: mlha ještě leží v údolích a okna dosud
+                // svítí. Je to opačný konec dne než u GoldenHour, takže se ty
+                // dva záběry nepřekrývají.
+                // 0,20 byla ještě noc — na hotovém snímku vyšlo 05:00 a město
+                // se v modré tmě ztrácelo. Rozbřesk chce chvíli, kdy světlo
+                // teprve přichází, ne kdy ještě nepřišlo.
+                CityFixture.TickUntilTimeOfDay(sim, from: 0.28, to: 0.33);
+                break;
+
+            case ShotSubject.Wonder:
+                // Megastruktura je největší věc, kterou hráč postaví. Kamera
+                // jde na staveniště, ne na střed města — jinak by se ztratila
+                // mezi domky.
+                if (CityFixture.PlaceWonder(sim, screens.Content, out int wonderX, out int wonderY))
+                {
+                    focus = new Vector2(
+                        (wonderX + 0.5f) * Rendering.TerrainRenderer.TileSize,
+                        (wonderY + 0.5f) * Rendering.TerrainRenderer.TileSize);
+                }
+
+                break;
         }
 
         var gameplay = new GameplayScreen(screens, sim, new WorldInfo(shot.Seed, "medium", "continents"));
         gameplay.FocusForCapture(focus, shot.Zoom);
         _frame = 0;
 
-        return shot.Subject switch
+        var info = new WorldInfo(shot.Seed, "medium", "continents");
+
+        IScreen? panel = shot.Subject switch
         {
             ShotSubject.Tech => new TechScreen(screens, sim),
             ShotSubject.Achievements => new AchievementsScreen(screens, sim),
             ShotSubject.Orbit => new OrbitScreen(screens, sim),
-            _ => gameplay,
+            ShotSubject.Chains => new ChainsScreen(screens, sim),
+            ShotSubject.Ascension => new AscensionScreen(screens, sim, info),
+            ShotSubject.Frontier => new FrontierScreen(screens, sim),
+            ShotSubject.Chronicle => new ChronicleScreen(screens),
+            ShotSubject.Stats => new StatsScreen(screens, sim.History),
+            _ => null,
         };
+
+        // Město vespod vždycky. Překryv se na něj položí, takže je za panelem
+        // vidět hra — celoobrazovková obrazovka (orbita) ho stejně zakryje celý.
+        screens.ReplaceAll(gameplay);
+        if (panel is not null)
+        {
+            screens.Push(panel);
+        }
     }
 
     /// <summary>

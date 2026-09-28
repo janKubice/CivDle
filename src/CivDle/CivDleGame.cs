@@ -34,6 +34,9 @@ public sealed class CivDleGame : Game
     private readonly ProfileStore _profileStore;
     private readonly CaptureDirector? _capture;
     private readonly string? _capsuleDirectory;
+
+    /// <summary>Natáčí se druhá sada podkladů a snímků?</summary>
+    private readonly bool _secondSet;
     private readonly TrailerDirector? _trailer;
     private readonly GameContent _content;
 
@@ -75,6 +78,8 @@ public sealed class CivDleGame : Game
     /// projeví až po kliknutí na nástroj — testy simulace na ně nedosáhnou.
     /// </param>
     /// <param name="perf">Změřit dobu vykreslení snímku při různém přiblížení a skončit.</param>
+    /// <param name="galaxy">Obsah světů galaxie; null = jen Domovina (bez kolonií).</param>
+    /// <param name="secondSet">Natáčet druhou sadu podkladů a snímků do obchodu (<c>--druha</c>).</param>
     /// <param name="content">
     /// Předem načtený herní obsah.
     ///
@@ -92,13 +97,15 @@ public sealed class CivDleGame : Game
         bool trailerPreview = false,
         bool smoke = false,
         bool perf = false,
-        GalaxyContent? galaxy = null)
+        GalaxyContent? galaxy = null,
+        bool secondSet = false)
     {
+        _secondSet = secondSet;
         _content = content;
         _galaxy = galaxy ?? GalaxyContent.HomeOnly(content);
         _smoke = smoke;
         _perf = perf;
-        _capture = captureDirectory is null ? null : new CaptureDirector(captureDirectory);
+        _capture = captureDirectory is null ? null : new CaptureDirector(captureDirectory, secondSet);
         _capsuleDirectory = capsuleDirectory;
         _trailer = trailerDirectory is null
             ? null
@@ -247,9 +254,27 @@ public sealed class CivDleGame : Game
 
         if (_capsuleDirectory is not null)
         {
+            // Druhá verze má jiné město i jinou hodinu: nízké slunce dává
+            // budovám dlouhé stíny a vodě odlesk, kdežto v poledne je scéna
+            // plochá. Základní zůstává na poledni, aby šly obě porovnat.
+            // Totéž semínko jako základní verze: je prověřené a staví HUSTÉ
+            // město. Vlastní semínko mi vyrostlo řídce a na kapsli z něj byla
+            // z půlky prázdná mřížka silnic.
             var scene = CityFixture.Grow(content, seed: 20260728, minutes: 14);
-            CityFixture.TickUntilPostcardMoment(scene, content, from: 0.40, to: 0.58);
-            new CapsuleDirector(_capsuleDirectory).RenderAll(screens, scene);
+
+            if (_secondSet)
+            {
+                // Pozdní odpoledne, ne hluboká zlatá hodina: při 0,78 bylo
+                // světlo tak nízké, že z města zbyla tmavá kaše. Tady je slunce
+                // ještě nad obzorem, ale stíny už jsou dlouhé.
+                CityFixture.TickUntilTimeOfDay(scene, from: 0.66, to: 0.70);
+            }
+            else
+            {
+                CityFixture.TickUntilPostcardMoment(scene, content, from: 0.40, to: 0.58);
+            }
+
+            new CapsuleDirector(_capsuleDirectory, _secondSet).RenderAll(screens, scene);
             Exit();
             return; // _screens zůstává null — Update ani Draw už nemají co dělat
         }
@@ -286,7 +311,7 @@ public sealed class CivDleGame : Game
 
         if (_capture is not null)
         {
-            _screens.ReplaceAll(_capture.PrepareNextShot(_screens));
+            _capture.PrepareNextShot(_screens);
             return;
         }
 
@@ -361,7 +386,7 @@ public sealed class CivDleGame : Game
                 return;
             }
 
-            _screens.ReplaceAll(_capture.PrepareNextShot(_screens));
+            _capture.PrepareNextShot(_screens);
         }
     }
 

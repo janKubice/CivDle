@@ -125,17 +125,32 @@ internal static class CityFixture
         }
     }
 
-    /// <summary>Postaví rozestavěný div světa na kraj města — kvůli záběru na staveniště.</summary>
+    /// <summary>
+    /// Postaví rozestavěný div světa na kraj města — kvůli záběru na staveniště.
+    ///
+    /// <para>Bere <b>největší</b> stavbu, která se staví na čas, ne první
+    /// v pořadí. Div světa má na snímku vypadat jako div světa; první stavba
+    /// se stavěcí dobou je klidně dílna o jedné dlaždici a záběr na ni nikdo
+    /// nepozná od obyčejného domku.</para>
+    /// </summary>
     public static bool PlaceWonder(Simulation sim, GameContent content, out int x, out int y)
     {
         x = y = 0;
-        for (int defIndex = 0; defIndex < content.Buildings.Count; defIndex++)
-        {
-            if (!content.Buildings[defIndex].TakesTimeToBuild)
-            {
-                continue;
-            }
 
+        var byBulk = new List<int>();
+        for (int i = 0; i < content.Buildings.Count; i++)
+        {
+            if (content.Buildings[i].TakesTimeToBuild)
+            {
+                byBulk.Add(i);
+            }
+        }
+
+        byBulk.Sort((left, right) =>
+            Footprint(content.Buildings[right]).CompareTo(Footprint(content.Buildings[left])));
+
+        foreach (int defIndex in byBulk)
+        {
             int reach = BlocksPerSide / 2 * BlockPitch + 6;
             for (int radius = 4; radius <= reach; radius += 2)
             {
@@ -155,6 +170,10 @@ internal static class CityFixture
 
         return false;
     }
+
+    /// <summary>Kolik dlaždic stavba zabere — podle toho se pozná div světa od kůlny.</summary>
+    private static int Footprint(BuildingDef building) =>
+        building.FootprintWidth * building.FootprintHeight;
 
     /// <summary>Odtiká, dokud denní čas nespadne do zadaného pásma (poledne, noc…).</summary>
     public static void TickUntilTimeOfDay(Simulation sim, double from, double to)
