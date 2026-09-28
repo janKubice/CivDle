@@ -353,6 +353,25 @@ public class SaveGameSerializerTests
         Assert.Contains("99", ex.Message);
     }
 
+    /// <summary>
+    /// Useknutí kdekoli — i uprostřed hlavičky sekce. Dřív se konec streamu
+    /// v hlavičce bral jako řádný konec těla a hra se načetla bez zbylých
+    /// sekcí (tiše, s chybějícím stavem).
+    /// </summary>
+    [Fact]
+    public void Load_TruncatedAnywhere_FailsGracefully()
+    {
+        var (content, sim) = PlayedGame();
+        using var stream = Saved(sim, Metadata);
+        var bytes = stream.ToArray();
+
+        for (int tenth = 1; tenth <= 9; tenth++)
+        {
+            using var truncated = new MemoryStream(bytes, 0, bytes.Length * tenth / 10);
+            Assert.Throws<SaveLoadException>(() => new SaveGameSerializer().Read(truncated, content));
+        }
+    }
+
     [Fact]
     public void Load_TruncatedFile_FailsGracefully()
     {

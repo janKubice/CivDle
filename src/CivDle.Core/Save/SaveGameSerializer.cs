@@ -968,6 +968,36 @@ public sealed class SaveGameSerializer
     }
 
     /// <summary>
+    /// Dočte řetězec ve formátu <see cref="BinaryWriter.Write(string)"/>
+    /// (délka 7bitově, pak UTF-8), jehož první bajt už je přečtený.
+    /// </summary>
+    private static string ReadStringAfter(BinaryReader reader, byte first)
+    {
+        int length = first & 0x7F;
+        int shift = 7;
+        byte current = first;
+        while ((current & 0x80) != 0)
+        {
+            if (shift > 28)
+            {
+                throw new SaveLoadException("Poškozená hlavička sekce (neplatná délka jména).");
+            }
+
+            current = reader.ReadByte();
+            length |= (current & 0x7F) << shift;
+            shift += 7;
+        }
+
+        var bytes = reader.ReadBytes(length);
+        if (bytes.Length != length)
+        {
+            throw new EndOfStreamException();
+        }
+
+        return Encoding.UTF8.GetString(bytes);
+    }
+
+    /// <summary>
     /// Projde sekce až do konce streamu. Neznámou sekci přeskočí (save z novější
     /// hry se stejným hlavním formátem), chybějící sekce prostě zůstane výchozí.
     /// </summary>
@@ -977,16 +1007,26 @@ public sealed class SaveGameSerializer
         byte[]? galaxy = null;
         while (true)
         {
+            // Tělo je za GZipem — délku streamu neznáme. Řádný konec je, když
+            // už nepřijde ani první bajt hlavičky; konec uprostřed hlavičky je
+            // useknutý soubor (dřív se bral jako konec a hra se načetla bez
+            // zbylých sekcí).
+            int first = reader.BaseStream.ReadByte();
+            if (first < 0)
+            {
+                return galaxy; // konec těla — všechny sekce přečtené
+            }
+
             string name;
             int length;
             try
             {
-                name = reader.ReadString();
+                name = ReadStringAfter(reader, (byte)first);
                 length = reader.ReadInt32();
             }
             catch (EndOfStreamException)
             {
-                return galaxy; // konec těla — všechny sekce přečtené
+                throw new SaveLoadException("Poškozená hlavička sekce (soubor je useknutý).");
             }
 
             if (length < 0)
