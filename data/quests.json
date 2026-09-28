@@ -442,6 +442,20 @@
         "metric": "megastructures",
         "target": 7
       }
+    },
+    {
+      "id": "unite_the_galaxy",
+      "group": "late",
+      "condition": {
+        "metric": "project",
+        "building": "constellation",
+        "target": 1
+      },
+      "activeWhen": {
+        "metric": "project",
+        "building": "star_gate",
+        "target": 1
+      }
     }
   ],
   "dynamic": {

@@ -149,6 +149,11 @@ public sealed class MainMenuScreen : IScreen
                 buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.ending"], ReplayEnding));
             }
 
+            if (_screens.Profile.GalaxyEndingSeen)
+            {
+                buttons.Widgets.Add(UiFactory.MenuButton(loc["menu.galaxyEnding"], ReplayGalaxyEnding));
+            }
+
             // Archiv měst (Nová hra+) jen tehdy, když v něm něco je.
             if (_screens.Saves.ArchivedFiles().Count > 0)
             {
@@ -257,6 +262,25 @@ public sealed class MainMenuScreen : IScreen
         }
 
         _screens.Push(new EndingScreen(_screens, home, replay: true, newGamePlus: null));
+    }
+
+    /// <summary>
+    /// Epilog galaxie znovu: nad galaxií z uložené hry, jen ke čtení (světy se
+    /// načítají ze snímků, nic se neukládá).
+    /// </summary>
+    private void ReplayGalaxyEnding()
+    {
+        var loaded = _screens.Saves.TryLoad(_screens.Galaxy, out _);
+        var session = loaded is null ? null : Core.Galaxy.GalaxySession.Resume(_screens.Galaxy, loaded);
+        var home = session?.PeekWorld(WorldScope.HomeId);
+        if (session is null || home is null || !home.IsGalaxyUnited)
+        {
+            _statusText = _screens.Loc["menu.galaxyEndingMissing"];
+            BuildUi();
+            return;
+        }
+
+        _screens.Push(new EndingScreen(_screens, home, replay: true, newGamePlus: null, galaxy: session));
     }
 
     private void ContinueGame()

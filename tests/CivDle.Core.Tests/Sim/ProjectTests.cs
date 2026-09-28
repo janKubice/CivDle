@@ -162,6 +162,35 @@ public class ProjectTests
     }
 
     [Fact]
+    public void TheGalacticWonderUnitesTheGalaxyAndLeavesTheGateAlone()
+    {
+        var sim = NewSim(1000, 1000, out _, ProjectRule.GalaxyUnited);
+        int wonder = PlaceGate(sim);
+        Drain(sim);
+        Assert.False(sim.IsGalaxyUnited);
+
+        sim.TryInvestInProject(wonder);
+        Assert.False(sim.IsGalaxyUnited); // první stupeň ještě ne
+        sim.TryInvestInProject(wonder);
+
+        Assert.True(sim.IsGalaxyUnited);
+        Assert.False(sim.IsGateOpened); // Souhvězdí bránu neotevírá
+        Assert.Contains(Drain(sim), n => n.TitleKey == "toast.galaxyUnited");
+    }
+
+    [Fact]
+    public void AUnitedGalaxySurvivesASaveBecauseTheWonderStands()
+    {
+        var sim = NewSim(1000, 1000, out var content, ProjectRule.GalaxyUnited);
+        PlaceGate(sim);
+        sim.DebugCompleteConstruction();
+
+        var loaded = RoundTrip(sim, content);
+
+        Assert.True(loaded.IsGalaxyUnited);
+    }
+
+    [Fact]
     public void TheRealGateIsAProjectThatOpensTheGate()
     {
         var content = TestData.LoadRealContent();
@@ -209,7 +238,7 @@ public class ProjectTests
 
     private static Simulation NewSim(double wood = 1000, double stone = 1000) => NewSim(wood, stone, out _);
 
-    private static Simulation NewSim(double wood, double stone, out GameContent content)
+    private static Simulation NewSim(double wood, double stone, out GameContent content, string onComplete = ProjectRule.GateOpened)
     {
         var biomes = new[] { TestContent.WaterBiome(), TestContent.LandBiome("plain") };
         var resources = new[]
@@ -224,7 +253,7 @@ public class ProjectTests
                 new ProjectStage(new[] { new ResourceAmount(Wood, 100) }),
                 new ProjectStage(new[] { new ResourceAmount(Stone, 50) }),
             },
-            ProjectRule.GateOpened);
+            onComplete);
 
         var hut = TestContent.SimpleBuilding("hut", biomes.Length);
         var gate = TestContent.SimpleBuilding("gate", biomes.Length) with
@@ -246,6 +275,17 @@ public class ProjectTests
 
         content = TestContent.Build(biomes, 1, resources, new[] { hut, gate, cabin }, gameplay);
         return new Simulation(content, new UniformTerrain(1), 42);
+    }
+
+    private static List<GameNotification> Drain(Simulation sim)
+    {
+        var notes = new List<GameNotification>();
+        while (sim.TryDequeueNotification(out var note))
+        {
+            notes.Add(note);
+        }
+
+        return notes;
     }
 
     private static Simulation RoundTrip(Simulation sim, GameContent content)

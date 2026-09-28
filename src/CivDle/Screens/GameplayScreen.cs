@@ -2464,7 +2464,11 @@ public sealed class GameplayScreen : IScreen
             }
             else if (note.TitleKey == "toast.gateOpened" && !_captureMode)
             {
-                StartGateFlight();
+                StartGateFlight(galaxy: false);
+            }
+            else if (note.TitleKey == "toast.galaxyUnited" && !_captureMode)
+            {
+                StartGateFlight(galaxy: true);
             }
         }
     }
@@ -4464,18 +4468,23 @@ public sealed class GameplayScreen : IScreen
 
     // ----- konec první kapitoly -----
 
+    /// <summary>Konec, který průlet kamery uvede: false = brána, true = epilog galaxie.</summary>
+    private bool _galaxyEnding;
+
     /// <summary>
-    /// Brána je otevřená: kamera se v noci oddálí nad celé město a pak začne
-    /// závěrečná sekvence (endgame.md, C2). Průlet je jen obraz — simulace běží
-    /// dál a nic se nemění.
+    /// Brána je otevřená (nebo stojí Souhvězdí): kamera se v noci oddálí nad
+    /// celé město a pak začne závěrečná sekvence (endgame.md C2, svety-design.md
+    /// 2.7). Průlet je jen obraz — simulace běží dál a nic se nemění.
     /// </summary>
-    private void StartGateFlight()
+    private void StartGateFlight(bool galaxy)
     {
-        var target = GateCenter() ?? _camera.Position;
+        _galaxyEnding = galaxy && _session is { IsOpen: true };
+        var target = ProjectCenter(galaxy ? ProjectRule.GalaxyUnited : ProjectRule.GateOpened) ?? _camera.Position;
         _gateFlight = new IntroFlight(
             target, startOffset: _camera.Position - target, fromZoom: _camera.Zoom, toZoom: 0.3f, seconds: 6f);
+        string banner = galaxy ? "ending.galaxy.flight" : "ending.gate";
         _momentBanner.Show(
-            _screens.Loc["ending.gate.title"], _screens.Loc["ending.gate.subtitle"], UiPalette.Accent, seconds: 6f);
+            _screens.Loc[banner + ".title"], _screens.Loc[banner + ".subtitle"], UiPalette.Accent, seconds: 6f);
     }
 
     /// <summary>Posune průlet; vrací true, dokud drží kameru.</summary>
@@ -4494,18 +4503,23 @@ public sealed class GameplayScreen : IScreen
         }
 
         _gateFlight = null;
-        _screens.Push(new EndingScreen(_screens, _simulation, replay: false, newGamePlus: OpenNewGamePlus));
+        _screens.Push(_galaxyEnding
+            ? new EndingScreen(_screens, _simulation, replay: false, newGamePlus: null, galaxy: _session)
+            : new EndingScreen(_screens, _simulation, replay: false, newGamePlus: OpenNewGamePlus));
         return true;
     }
 
-    /// <summary>Střed dokončené brány ve světových souřadnicích (null = brána nestojí).</summary>
-    private Vector2? GateCenter()
+    /// <summary>
+    /// Střed dokončeného projektu s daným efektem (brána, Souhvězdí) ve
+    /// světových souřadnicích; null = nestojí.
+    /// </summary>
+    private Vector2? ProjectCenter(string effect)
     {
         var buildings = _simulation.Buildings;
         for (int i = 0; i < buildings.Length; i++)
         {
             var def = _screens.Content.Buildings[buildings[i].DefIndex];
-            if (buildings[i].IsComplete && def.ProjectOrNull?.OnComplete == ProjectRule.GateOpened)
+            if (buildings[i].IsComplete && def.ProjectOrNull?.OnComplete == effect)
             {
                 float tile = TerrainRenderer.TileSize;
                 return new Vector2(

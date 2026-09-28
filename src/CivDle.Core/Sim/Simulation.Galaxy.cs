@@ -22,6 +22,29 @@ public sealed partial class Simulation
     public bool HasLanded => LandingX != -1 || LandingY != -1;
 
     /// <summary>
+    /// Stojí dokončený Galaktický div (projekt s efektem
+    /// <see cref="ProjectRule.GalaxyUnited"/>)? Konec druhé kapitoly není
+    /// zvláštní stav v savu — je to stavba, která stojí. Prochází budovy,
+    /// proto jen pro menu a epilog, ne pro každý snímek.
+    /// </summary>
+    public bool IsGalaxyUnited
+    {
+        get
+        {
+            for (int i = 0; i < _buildingCount; i++)
+            {
+                if (_buildings[i].IsComplete
+                    && _content.Buildings[_buildings[i].DefIndex].ProjectOrNull?.OnComplete == ProjectRule.GalaxyUnited)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Přistání kolonie: přistávací modul stojí hotový (přiletěl, nestaví se),
     /// náklad lodi je ve skladu. Modul se ve hře postavit nedá, proto se
     /// umisťuje mimo běžné <see cref="CanPlace"/> — kontroluje se jen půda.

@@ -6,7 +6,7 @@ public sealed record ProjectStage(IReadOnlyList<ResourceAmount> Cost);
 
 /// <summary>
 /// Stavba, která neroste časem, ale <b>vkládáním surovin po stupních</b>
-/// (Hvězdná brána, později vysušení jezera a Galaktický div).
+/// (Hvězdná brána, vysušení jezera a Galaktický div Souhvězdí).
 ///
 /// <para><b>Proč ne obyčejná stavba.</b> Pozdní hra má všech surovin
 /// nadbytek; stavba za pevnou cenu a čas by ho nespotřebovala a nebyla by
@@ -55,10 +55,17 @@ public sealed record ProjectRule(
     /// <summary>Efekt „brána otevřena": konec první kapitoly (endgame.md, bod C).</summary>
     public const string GateOpened = "gate_opened";
 
+    /// <summary>
+    /// Efekt „galaxie sjednocena": Galaktický div Souhvězdí stojí — konec druhé
+    /// kapitoly a epilog celé galaxie (svety-design.md 2.7).
+    /// </summary>
+    public const string GalaxyUnited = "galaxy_united";
+
     /// <summary>Efekty dokončení, které kód umí.</summary>
     public static readonly IReadOnlySet<string> KnownEffects = new HashSet<string>(StringComparer.Ordinal)
     {
         GateOpened,
+        GalaxyUnited,
     };
 
     /// <summary>Celková „doba stavby" v jednotkách postupu.</summary>

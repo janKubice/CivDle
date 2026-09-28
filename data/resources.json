@@ -176,6 +176,42 @@
       "startAmount": 0,
       "baseStorage": 300,
       "importOnly": true
+    },
+    {
+      "_comment": "Dovoz z Mrazu, Souostroví, Výhně, Nebes a Xena: Domovina je nevyrábí, chce je Galaktický div Souhvězdí (svety-design.md 2.7).",
+      "id": "cut_crystal",
+      "mapColor": "#B8E8FF",
+      "startAmount": 0,
+      "baseStorage": 400,
+      "importOnly": true
+    },
+    {
+      "id": "pearls",
+      "mapColor": "#EEE8F4",
+      "startAmount": 0,
+      "baseStorage": 400,
+      "importOnly": true
+    },
+    {
+      "id": "rare_earths",
+      "mapColor": "#B890E0",
+      "startAmount": 0,
+      "baseStorage": 400,
+      "importOnly": true
+    },
+    {
+      "id": "helium3",
+      "mapColor": "#8AD0FF",
+      "startAmount": 0,
+      "baseStorage": 400,
+      "importOnly": true
+    },
+    {
+      "id": "biocrystal",
+      "mapColor": "#A0F0FF",
+      "startAmount": 0,
+      "baseStorage": 400,
+      "importOnly": true
     }
   ]
 }

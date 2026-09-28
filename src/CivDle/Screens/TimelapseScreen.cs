@@ -1,3 +1,4 @@
+using CivDle.Core.Content;
 using CivDle.Core.Sim;
 using CivDle.Core.World;
 using CivDle.Input;
@@ -59,17 +60,23 @@ public sealed class TimelapseScreen : IScreen
     /// <param name="saveToCollection">
     /// Uloží časosběr do sbírky v menu; null, když je otevřený už uložený soubor.
     /// </param>
+    /// <param name="content">
+    /// Obsah světa, ve kterém kronika vznikla (biomy jsou po světech jiné —
+    /// epilog galaxie přehrává i kolonie); null = obsah právě hraného světa.
+    /// </param>
     public TimelapseScreen(
-        ScreenManager screens, CityHistory history, ITerrain terrain, long seed, Action? saveToCollection = null)
+        ScreenManager screens, CityHistory history, ITerrain terrain, long seed, Action? saveToCollection = null,
+        GameContent? content = null)
     {
         _screens = screens;
         _history = history;
         _terrain = terrain;
         _saveToCollection = saveToCollection;
+        var world = content ?? screens.Content;
         _playback = new HistoryPlayback(
-            screens.GraphicsDevice, screens.Content.Biomes, seed,
-            screens.WhitePixel, screens.Content.Gameplay.Roads.MapColor.ToXna());
-        _roadColor = screens.Content.Gameplay.Roads.MapColor.ToXna();
+            screens.GraphicsDevice, world.Biomes, seed,
+            screens.WhitePixel, world.Gameplay.Roads.MapColor.ToXna());
+        _roadColor = world.Gameplay.Roads.MapColor.ToXna();
 
         var viewport = screens.GraphicsDevice.Viewport;
         HistoryPlayback.FrameCity(_camera, _history, viewport.Width, viewport.Height);

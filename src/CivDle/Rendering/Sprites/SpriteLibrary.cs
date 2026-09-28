@@ -93,6 +93,13 @@ public sealed class SpriteLibrary : IDisposable
         // Suroviny Duny (sklo a koření vozí trasy i na Domovinu).
         Add(device, "icon.glass", IconSize, GlassIcon);
         Add(device, "icon.spice", IconSize, SpiceIcon);
+
+        // Artikly ostatních kolonií: Domovina je dováží pro Souhvězdí.
+        Add(device, "icon.cut_crystal", IconSize, CutCrystalIcon);
+        Add(device, "icon.pearls", IconSize, PearlsIcon);
+        Add(device, "icon.rare_earths", IconSize, RareEarthsIcon);
+        Add(device, "icon.helium3", IconSize, Helium3Icon);
+        Add(device, "icon.biocrystal", IconSize, BiocrystalIcon);
         Add(device, "icon.sand", IconSize, SandIcon);
         Add(device, "icon.clay", IconSize, ClayIcon);
         Add(device, "icon.adobe", IconSize, AdobeIcon);
@@ -3851,6 +3858,60 @@ public sealed class SpriteLibrary : IDisposable
         c.FillRect(8, 7, 2, 9, new Color(236, 250, 252));   // odlesk
         c.FillRect(12, 8, 1, 4, new Color(236, 250, 252));
         c.FillRect(6, 19, 12, 1, new Color(84, 140, 156));  // hrana
+    }
+
+    /// <summary>Broušený krystal (Mráz): ledově modrý briliant s plôškami.</summary>
+    private static void CutCrystalIcon(PixelCanvas c)
+    {
+        c.FillTriangle(4, 10, 20, 10, 12, 21, new Color(96, 168, 212));   // spodek
+        c.FillTriangle(12, 10, 20, 10, 12, 21, new Color(72, 136, 184));  // stín
+        c.FillRect(7, 6, 10, 4, new Color(184, 232, 255));                // tabulka
+        c.FillTriangle(4, 10, 7, 6, 7, 10, new Color(150, 210, 240));
+        c.FillTriangle(17, 6, 20, 10, 17, 10, new Color(120, 190, 228));
+        c.FillRect(9, 7, 2, 2, new Color(244, 252, 255));                 // odlesk
+    }
+
+    /// <summary>Perly (Souostroví): tři perleťové kuličky v mušli.</summary>
+    private static void PearlsIcon(PixelCanvas c)
+    {
+        c.FillCircle(12f, 17f, 8f, new Color(214, 170, 150));   // mušle
+        c.FillCircle(12f, 17f, 6.5f, new Color(236, 204, 190));
+        c.FillCircle(9f, 15f, 2.6f, new Color(238, 232, 244));
+        c.FillCircle(15f, 15f, 2.6f, new Color(238, 232, 244));
+        c.FillCircle(12f, 18.5f, 2.6f, new Color(226, 220, 236));
+        c.FillRect(8, 14, 1, 1, Color.White);
+        c.FillRect(14, 14, 1, 1, Color.White);
+        c.FillRect(11, 17, 1, 1, Color.White);
+    }
+
+    /// <summary>Vzácné zeminy (Výheň): fialové kusy rudy s kovovým leskem.</summary>
+    private static void RareEarthsIcon(PixelCanvas c)
+    {
+        c.FillCircle(9f, 15f, 5f, new Color(120, 84, 160));
+        c.FillCircle(15f, 13f, 5f, new Color(152, 110, 196));
+        c.FillCircle(13f, 18f, 4f, new Color(104, 72, 140));
+        c.FillRect(13, 10, 2, 2, new Color(214, 190, 240));    // lesk
+        c.FillRect(7, 13, 2, 1, new Color(184, 150, 220));
+    }
+
+    /// <summary>Hélium-3 (Nebesa): modře svítící tlaková lahev.</summary>
+    private static void Helium3Icon(PixelCanvas c)
+    {
+        c.FillRect(8, 7, 8, 14, new Color(110, 170, 214));
+        c.FillCircle(12f, 7f, 4f, new Color(110, 170, 214));
+        c.FillRect(10, 2, 4, 3, new Color(150, 156, 170));     // ventil
+        c.FillRect(9, 11, 6, 4, new Color(170, 230, 255));     // štítek
+        c.FillRect(9, 8, 1, 11, new Color(196, 236, 255));     // odlesk
+    }
+
+    /// <summary>Biokrystal (Xeno): živý krystal, z něhož raší úponek.</summary>
+    private static void BiocrystalIcon(PixelCanvas c)
+    {
+        c.FillTriangle(12, 3, 17, 12, 12, 21, new Color(96, 200, 220));
+        c.FillTriangle(12, 3, 7, 12, 12, 21, new Color(150, 236, 250));
+        c.FillRect(11, 8, 2, 7, new Color(220, 255, 255));     // jádro září
+        c.FillCircle(17f, 18f, 2f, new Color(200, 120, 220));  // úponek
+        c.FillCircle(19f, 16f, 1.3f, new Color(200, 120, 220));
     }
 
     /// <summary>Koření: pytlík s hromádkou rudého prášku.</summary>

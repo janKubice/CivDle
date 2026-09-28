@@ -2898,6 +2898,12 @@ public sealed partial class Simulation
         }
     }
 
+    /// <summary>
+    /// Ladicí: označí úkol za splněný (bez odměny). Smoke běh tak odemkne
+    /// stavby za Velké cíle (<c>unlockedBy: quest:…</c>) bez hodin hraní.
+    /// </summary>
+    public void DebugCompleteQuest(int questIndex) => _questsCompleted[questIndex] = true;
+
     /// <summary>Ladicí: dokončí rozestavěný start družice okamžitě.</summary>
     public void DebugFinishLaunch()
     {
@@ -4191,6 +4197,12 @@ public sealed partial class Simulation
         {
             GateOpenedAtTick = TickCount;
             EnqueueNotification(new GameNotification(NotificationKind.Milestone, "toast.gateOpened", def.NameKey));
+        }
+        else if (def.ProjectOrNull?.OnComplete == ProjectRule.GalaxyUnited)
+        {
+            // Stav se neukládá zvlášť — je to stojící dokončený div
+            // (IsGalaxyUnited), zpráva jen spustí epilog.
+            EnqueueNotification(new GameNotification(NotificationKind.Milestone, "toast.galaxyUnited", def.NameKey));
         }
     }
 

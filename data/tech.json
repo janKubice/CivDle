@@ -2091,6 +2091,21 @@
       "unlocks": [
         "star_gate"
       ]
+    },
+    {
+      "_comment": "Galaktický div Souhvězdí (svety-design.md 2.7): po bráně; postavit ho jde až s otevřenou bránou (unlockedBy), vložit do něj až s dovozem ze všech šesti světů.",
+      "id": "constellation_theory",
+      "cost": {
+        "nanomaterial": 1500,
+        "computer": 1200,
+        "science": 20000
+      },
+      "prerequisites": [
+        "gate_theory"
+      ],
+      "unlocks": [
+        "constellation"
+      ]
     }
   ]
 }

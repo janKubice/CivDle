@@ -626,7 +626,12 @@
         "kelp": 120,
         "nodules": 80,
         "glass": 60,
-        "spice": 40
+        "spice": 40,
+        "cut_crystal": 40,
+        "pearls": 40,
+        "rare_earths": 40,
+        "helium3": 40,
+        "biocrystal": 40
       },
       "upgradesTo": "great_warehouse",
       "upgradeCost": {
@@ -2344,6 +2349,16 @@
       "category": "megastructure",
       "_comment_trade": "Přístav Domoviny v galaxii: obchodní trasy odbaví 25 jednotek za sekundu (dělí se mezi trasy).",
       "tradeCapacity": 25,
+      "_comment_storage": "Dovezené zboží kolonií přistává tady: sklad na celý stupeň Souhvězdí, ať hráč vkládá jednou za stupeň, ne po čtyřech stech kusech.",
+      "storage": {
+        "glass": 6000,
+        "spice": 3000,
+        "cut_crystal": 6000,
+        "pearls": 6000,
+        "rare_earths": 6000,
+        "helium3": 6000,
+        "biocrystal": 6000
+      },
       "mapColor": "#B0C4DE",
       "footprint": [
         6,
@@ -5446,6 +5461,109 @@
               "stone": 8000000,
               "nanomaterial": 50000,
               "robot": 32000
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "constellation",
+      "category": "megastructure",
+      "_comment": "Galaktický div Souhvězdí (svety-design.md 2.7): šest stupňů, každý chce artikl jednoho světa galaxie — sklo z Duny, krystaly z Mrazu, perly ze Souostroví, vzácné zeminy z Výhně, hélium-3 z Nebes a biokrystaly z Xena jako poslední. Dostavba je konec druhé kapitoly a spustí epilog galaxie.",
+      "mapColor": "#C8B8FF",
+      "footprint": [
+        7,
+        7
+      ],
+      "serviceValue": 260,
+      "buildCost": {
+        "steel": 3000,
+        "nanomaterial": 1200,
+        "computer": 900
+      },
+      "allowedBiomes": [
+        "grassland",
+        "steppe",
+        "beach",
+        "savanna",
+        "tundra",
+        "desert",
+        "forest",
+        "taiga",
+        "highlands"
+      ],
+      "minSettlementRank": "metropolis",
+      "spectacle": {
+        "effect": "ring_pulse",
+        "intervalSeconds": 6
+      },
+      "stages": [
+        {
+          "atProgress": 0.0,
+          "sprite": "stage.foundation"
+        },
+        {
+          "atProgress": 0.17,
+          "sprite": "stage.frame"
+        },
+        {
+          "atProgress": 0.5,
+          "sprite": "building.constellation"
+        }
+      ],
+      "unlockedBy": "quest:open_the_gate",
+      "look": {
+        "shape": "crystal",
+        "wall": "#4A4C7A",
+        "roof": "#B8A8FF",
+        "accent": "#FFE8A0",
+        "glow": "#D8C8FF",
+        "features": [
+          "glow",
+          "rings",
+          "crystals",
+          "spark"
+        ]
+      },
+      "project": {
+        "onComplete": "galaxy_united",
+        "stages": [
+          {
+            "cost": {
+              "glass": 5000,
+              "spice": 2500,
+              "steel": 1000000
+            }
+          },
+          {
+            "cost": {
+              "cut_crystal": 5000,
+              "nanomaterial": 250000
+            }
+          },
+          {
+            "cost": {
+              "pearls": 5000,
+              "robot": 100000
+            }
+          },
+          {
+            "cost": {
+              "rare_earths": 5000,
+              "electronics": 500000
+            }
+          },
+          {
+            "cost": {
+              "helium3": 5000,
+              "computer": 250000
+            }
+          },
+          {
+            "cost": {
+              "biocrystal": 5000,
+              "science": 4000000,
+              "faith": 1000000
             }
           }
         ]

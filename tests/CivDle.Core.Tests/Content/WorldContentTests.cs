@@ -96,6 +96,38 @@ public sealed class WorldContentTests
         Assert.True(missing.Count == 0, $"svět '{worldId}' nic nevyrábí: " + string.Join(", ", missing));
     }
 
+    /// <summary>
+    /// Galaktický div (svety-design.md 2.7): každá kolonie má ve Souhvězdí
+    /// svůj stupeň — chce něco, co ona vyváží a Domovina jen dováží —
+    /// a biokrystaly z Xena jsou až poslední.
+    /// </summary>
+    [Fact]
+    public void TheConstellationNeedsEveryColonysExports()
+    {
+        var home = Galaxy.Value.Home;
+        var wonder = home.Buildings[home.Buildings.IndexOf("constellation")];
+        var project = wonder.ProjectOrNull!;
+        Assert.Equal(ProjectRule.GalaxyUnited, project.OnComplete);
+        Assert.False(wonder.AutoBuild); // divy staví hráč
+
+        var wanted = project.Stages.SelectMany(s => s.Cost).Select(c => home.Resources[c.ResourceIndex].Id).ToHashSet();
+        foreach (var world in Galaxy.Value.Catalog.Colonies)
+        {
+            var colony = Galaxy.Value.For(world.Id);
+            var exports = colony.World.ExportIndices.Select(i => colony.Resources[i].Id).ToList();
+            Assert.True(exports.Any(wanted.Contains), $"Souhvězdí nechce nic z vývozu '{world.Id}' ({string.Join(", ", exports)})");
+        }
+
+        foreach (string id in wanted.Where(id => home.Resources[home.Resources.IndexOf(id)].ImportOnly))
+        {
+            Assert.True(home.Buildings[home.Buildings.IndexOf("spaceport")].StorageBonus
+                .Any(s => home.Resources[s.ResourceIndex].Id == id), $"kosmodrom neskladuje dovoz '{id}'");
+        }
+
+        var last = project.Stages[^1].Cost.Select(c => home.Resources[c.ResourceIndex].Id);
+        Assert.Contains("biocrystal", last);
+    }
+
     [Fact]
     public void TheDuneRunsOnWaterAndHasItsOwnGround()
     {

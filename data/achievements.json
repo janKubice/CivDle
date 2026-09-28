@@ -732,6 +732,14 @@
         "building": "star_gate",
         "target": 1
       }
+    },
+    {
+      "id": "galaxy_united",
+      "condition": {
+        "metric": "project",
+        "building": "constellation",
+        "target": 1
+      }
     }
   ]
 }

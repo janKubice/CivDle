@@ -49,6 +49,26 @@ public class GalaxySessionTests
     }
 
     [Fact]
+    public void TheGalaxyEpilogueSummaryListsEveryWorldAndOnlyReads()
+    {
+        var session = NewSession();
+        BuildShip(session);
+        var site = session.LandingSites("dune")[0];
+        var colony = session.Colonize(site.X, site.Y);
+        var homeSnapshot = session.State.Records[WorldScope.HomeId].Snapshot!.ToArray();
+        long tick = colony.TickCount;
+
+        var summary = GalaxyEndingSummary.Of(session);
+
+        Assert.Equal(new[] { WorldScope.HomeId, "dune" }, summary.Worlds.Select(w => w.WorldId));
+        Assert.Same(colony, session.Active);
+        Assert.Equal(tick, colony.TickCount);
+        Assert.Equal(homeSnapshot, session.State.Records[WorldScope.HomeId].Snapshot);
+        Assert.Equal(summary.Worlds.Sum(w => w.Summary.Buildings), summary.Buildings);
+        Assert.True(summary.Worlds[1].Summary.Buildings >= 1); // přistávací modul
+    }
+
+    [Fact]
     public void ColonizingLandsTheModuleWithTheCargoAndTheKnowledge()
     {
         var session = NewSession();

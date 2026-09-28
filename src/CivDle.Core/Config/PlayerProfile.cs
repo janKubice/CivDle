@@ -79,6 +79,12 @@ public sealed class PlayerProfile
     /// </summary>
     public bool ChapterEndingSeen { get; set; }
 
+    /// <summary>
+    /// Viděl hráč epilog galaxie (Galaktický div Souhvězdí, konec druhé
+    /// kapitoly)? Pak jde epilog pustit znovu z hlavního menu.
+    /// </summary>
+    public bool GalaxyEndingSeen { get; set; }
+
     /// <summary>Zapíše výzvu jako dohranou; vrací false, když už byla.</summary>
     public bool MarkChallengeWon(string scenarioId)
     {

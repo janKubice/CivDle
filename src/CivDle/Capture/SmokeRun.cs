@@ -363,6 +363,7 @@ public sealed class SmokeRun
             VisitColony(screens, session, time, "forge", untilLava: true);
             VisitColony(screens, session, time, "gas_giant");
             VisitColony(screens, session, time, "xeno", minutes: 12);
+            GalaxyEpilogue(screens, session, time);
         }
         finally
         {
@@ -421,6 +422,101 @@ public sealed class SmokeRun
 
         session.SwitchTo(WorldScope.HomeId);
         screens.BeginSession(session);
+    }
+
+    /// <summary>
+    /// Konec druhé kapitoly: Souhvězdí stojí na Domovině (ladicí dostavba jde
+    /// stejnou cestou jako poslední vklad) a epilog galaxie projde všechny
+    /// stránky — časosběr každého světa, kroniku, statistiky, titulky.
+    /// Příznak „epilog viděn" v profilu se vrátí, smoke ho hráči nesmí nastavit.
+    /// </summary>
+    private static void GalaxyEpilogue(ScreenManager screens, GalaxySession session, GameTime time)
+    {
+        var home = session.Active;
+        if (!home.Content.Buildings.TryIndexOf("constellation", out int wonder))
+        {
+            return; // data bez Souhvězdí (mody)
+        }
+
+        // Odemčení jako na konci hry: výzkum, otevřená brána (Velký cíl)
+        // a měřítko pro megastruktury.
+        home.DebugGrantTech(home.Content.Techs.IndexOf("constellation_theory"));
+        home.DebugCompleteQuest(home.Content.Quests.IndexOf("open_the_gate"));
+        var site = FreeSpot(home, wonder);
+        if (site is not { } spot || home.TryPlaceBuildingFree(wonder, spot.X, spot.Y) != PlacementResult.Ok)
+        {
+            throw new InvalidOperationException("Souhvězdí se na Domovinu nevešlo");
+        }
+
+        home.DebugCompleteConstruction();
+        if (!home.IsGalaxyUnited)
+        {
+            throw new InvalidOperationException("dostavěné Souhvězdí galaxii nesjednotilo");
+        }
+
+        bool seen = screens.Profile.GalaxyEndingSeen;
+        var ending = new EndingScreen(screens, home, replay: true, newGamePlus: null, galaxy: session);
+        screens.Push(ending);
+        try
+        {
+            for (int step = 0; step < 60 && !ending.IsOnFinalPageForSmoke; step++)
+            {
+                if (screens.IsTop(ending))
+                {
+                    Frames(ending, time);
+                    ending.NextForSmoke();
+                    continue;
+                }
+
+                // Časosběr nebo kronika navrchu: pár snímků a zavřít — epilog
+                // pokračuje dalším světem nebo stránkou.
+                screens.Pop();
+            }
+
+            if (!ending.IsOnFinalPageForSmoke)
+            {
+                throw new InvalidOperationException("epilog galaxie nedošel na poslední stránku");
+            }
+
+            Frames(ending, time);
+        }
+        finally
+        {
+            if (screens.IsTop(ending))
+            {
+                screens.Pop();
+            }
+
+            screens.Profile.GalaxyEndingSeen = seen;
+            screens.SaveProfile();
+        }
+    }
+
+    /// <summary>První volné místo pro budovu kolem středu města (po spirále čtverců).</summary>
+    private static (int X, int Y)? FreeSpot(Simulation sim, int defIndex)
+    {
+        for (int r = 0; r < 120; r += 2)
+        {
+            for (int dy = -r; dy <= r; dy += 2)
+            {
+                for (int dx = -r; dx <= r; dx += 2)
+                {
+                    if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != r)
+                    {
+                        continue;
+                    }
+
+                    int x = sim.CityCenterX + dx;
+                    int y = sim.CityCenterY + dy;
+                    if (sim.CanPlace(defIndex, x, y) == PlacementResult.Ok)
+                    {
+                        return (x, y);
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     private void Check(string what, Action action)

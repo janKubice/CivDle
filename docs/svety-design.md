@@ -220,6 +220,30 @@ světů (biokrystaly z Xena jako poslední). Po dostavbě proběhne epilog celé
 galaxie: timelapse každého světa, kronika, statistiky, titulky — stejná
 sekvence jako bod C, rozšířená na všechny světy. Galaxie pak běží dál.
 
+> **Hotovo (D4.3) — Souhvězdí a epilog galaxie.** `constellation` je projekt
+> Domoviny (7×7) o šesti stupních; každý chce artikl jednoho světa (sklo
+> a koření z Duny, broušené krystaly, perly, vzácné zeminy, hélium-3,
+> nakonec biokrystaly) a k tomu pozdní zboží Domoviny v milionech. Odemyká
+> ho výzkum Nauka o souhvězdí (po Teorii brány) a postavit ho jde po
+> otevření brány (`unlockedBy: quest:open_the_gate`); guvernér ho nestaví.
+> * **Dovoz:** Domovina zná artikly kolonií jako suroviny „jen dovozem" a
+>   kosmodrom má pro ně sklad na celý stupeň — hráč vkládá jednou za stupeň,
+>   ne po čtyřech stech kusech. Test hlídá, že Souhvězdí chce vývoz každé
+>   kolonie a biokrystaly až v posledním stupni.
+> * **Konec** není zvláštní stav v savu: galaxie je sjednocená, když stojí
+>   dokončený projekt s efektem `galaxy_united` (`Simulation.IsGalaxyUnited`).
+>   Dostavba pošle zprávu, kamera se oddálí nad Souhvězdí a začne epilog.
+> * **Epilog** je `EndingScreen` v režimu galaxie: časosběr každého
+>   založeného světa (světy se načtou ze snímku jen ke čtení a hned se
+>   zahodí), kronika Domoviny, statistiky galaxie (`GalaxyEndingSummary` —
+>   součty i řádek za každý svět, hvězdy, zboží převezené trasami) a titulky
+>   se sídly všech světů. Nová hra+ se nenabízí, galaxie běží dál. Z menu jde
+>   epilog pustit znovu („Epilog galaxie"), jakmile ho hráč jednou viděl.
+> * Velký cíl **Sjednotit galaxii** a achievement **Jedna galaxie**.
+> * **Oprava cestou:** save useknutý uprostřed hlavičky sekce se dřív
+>   načetl jako hotový (bez zbylých sekcí); teď je to srozumitelná chyba.
+>   Smoke běh nově prochází celý epilog.
+
 ---
 
 ## 3. Šablona obsahu světa
